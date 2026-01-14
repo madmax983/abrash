@@ -25,4 +25,8 @@ impl Framebuffer {
     pub fn as_slice(&self) -> &[u32] {
         &self.pixels
     }
+
+    pub fn clear(&mut self, color: u32) {
+        self.pixels.fill(color);
+    }
 }

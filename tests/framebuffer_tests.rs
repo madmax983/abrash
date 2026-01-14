@@ -15,3 +15,15 @@ fn test_framebuffer_initialized_to_black() {
         assert_eq!(pixel, 0xFF00_0000); // Black with full alpha
     }
 }
+
+#[test]
+fn test_framebuffer_clear() {
+    let mut fb = Framebuffer::new(10, 10);
+    let red = 0xFFFF_0000; // Red with full alpha
+
+    fb.clear(red);
+
+    for &pixel in fb.as_slice() {
+        assert_eq!(pixel, red);
+    }
+}
