@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::plot_pixel;
+use abrash::primitives::{plot_pixel, draw_line};
 
 fn bench_clear(c: &mut Criterion) {
     c.bench_function("framebuffer_clear_800x600", |b| {
@@ -31,9 +31,39 @@ fn bench_plot_many_pixels(c: &mut Criterion) {
     });
 }
 
+fn bench_draw_line_horizontal(c: &mut Criterion) {
+    c.bench_function("draw_line_horizontal_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| {
+            draw_line(&mut fb, black_box(100), black_box(300), black_box(200), black_box(300), 0xFFFFFFFF);
+        });
+    });
+}
+
+fn bench_draw_line_diagonal(c: &mut Criterion) {
+    c.bench_function("draw_line_diagonal_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| {
+            draw_line(&mut fb, black_box(100), black_box(100), black_box(200), black_box(200), 0xFFFFFFFF);
+        });
+    });
+}
+
+fn bench_draw_line_long(c: &mut Criterion) {
+    c.bench_function("draw_line_diagonal_500px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| {
+            draw_line(&mut fb, black_box(50), black_box(50), black_box(550), black_box(550), 0xFFFFFFFF);
+        });
+    });
+}
+
 criterion_group!(benches,
     bench_clear,
     bench_plot_pixel,
-    bench_plot_many_pixels
+    bench_plot_many_pixels,
+    bench_draw_line_horizontal,
+    bench_draw_line_diagonal,
+    bench_draw_line_long
 );
 criterion_main!(benches);
