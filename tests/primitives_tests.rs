@@ -46,3 +46,51 @@ fn test_draw_line_vertical() {
         assert_eq!(fb.get_pixel(50, y), Some(white), "Pixel at (50, {}) should be white", y);
     }
 }
+
+#[test]
+fn test_draw_line_diagonal() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_line(&mut fb, 10, 10, 50, 50, white);
+
+    // Diagonal line should have pixels along y=x
+    assert_eq!(fb.get_pixel(10, 10), Some(white));
+    assert_eq!(fb.get_pixel(30, 30), Some(white));
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+}
+
+#[test]
+fn test_draw_line_steep() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    // Steep line (more vertical than horizontal)
+    draw_line(&mut fb, 50, 10, 60, 90, white);
+
+    assert_eq!(fb.get_pixel(50, 10), Some(white));
+    assert_eq!(fb.get_pixel(60, 90), Some(white));
+}
+
+#[test]
+fn test_draw_line_reverse_direction() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    // Draw from right to left
+    draw_line(&mut fb, 90, 50, 10, 50, white);
+
+    for x in 10..=90 {
+        assert_eq!(fb.get_pixel(x, 50), Some(white));
+    }
+}
+
+#[test]
+fn test_draw_line_single_pixel() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_line(&mut fb, 50, 50, 50, 50, white);
+
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+}
