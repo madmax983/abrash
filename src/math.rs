@@ -74,4 +74,16 @@ impl Mat2 {
             y: self.m[1][0] * v.x + self.m[1][1] * v.y,
         }
     }
+
+    /// Transform multiple vectors at once
+    pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
+        vertices.iter().map(|&v| self.transform(v)).collect()
+    }
+
+    /// Transform vertices in place
+    pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
+        for v in vertices.iter_mut() {
+            *v = self.transform(*v);
+        }
+    }
 }

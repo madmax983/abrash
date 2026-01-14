@@ -65,4 +65,18 @@ impl Polygon {
                 .collect(),
         }
     }
+
+    /// Transform vertices in place (avoids allocation)
+    pub fn transform_in_place(&mut self, matrix: &Mat2) {
+        for v in self.vertices.iter_mut() {
+            *v = matrix.transform(*v);
+        }
+    }
+
+    /// Translate vertices in place (avoids allocation)
+    pub fn translate_in_place(&mut self, offset: Vec2) {
+        for v in self.vertices.iter_mut() {
+            *v = *v + offset;
+        }
+    }
 }

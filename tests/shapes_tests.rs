@@ -38,3 +38,28 @@ fn test_polygon_translate() {
     assert!((v.x - 150.0).abs() < 0.001);
     assert!((v.y - 100.0).abs() < 0.001);
 }
+
+#[test]
+fn test_polygon_transform_in_place() {
+    let mut polygon = Polygon::square(100.0);
+    let original_v0 = polygon.vertices()[0];
+
+    let rotation = Mat2::rotation(PI / 4.0);
+    polygon.transform_in_place(&rotation);
+
+    // Vertex should have moved
+    assert_ne!(polygon.vertices()[0], original_v0);
+}
+
+#[test]
+fn test_polygon_translate_in_place() {
+    let mut polygon = Polygon::square(100.0);
+    let offset = Vec2::new(100.0, 100.0);
+
+    polygon.translate_in_place(offset);
+
+    // First vertex was at (-50, -50), now should be at (50, 50)
+    let v = polygon.vertices()[0];
+    assert!((v.x - 50.0).abs() < 0.001);
+    assert!((v.y - 50.0).abs() < 0.001);
+}
