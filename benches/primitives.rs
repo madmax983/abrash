@@ -76,6 +76,22 @@ fn bench_draw_vline(c: &mut Criterion) {
     });
 }
 
+fn bench_line_comparison(c: &mut Criterion) {
+    let mut group = c.benchmark_group("line_comparison");
+
+    group.bench_function("hline_optimized_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| draw_hline(&mut fb, black_box(100), black_box(200), black_box(300), 0xFFFFFFFF));
+    });
+
+    group.bench_function("vline_optimized_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| draw_vline(&mut fb, black_box(400), black_box(100), black_box(200), 0xFFFFFFFF));
+    });
+
+    group.finish();
+}
+
 criterion_group!(benches,
     bench_clear,
     bench_plot_pixel,
@@ -84,6 +100,7 @@ criterion_group!(benches,
     bench_draw_line_diagonal,
     bench_draw_line_long,
     bench_draw_hline,
-    bench_draw_vline
+    bench_draw_vline,
+    bench_line_comparison
 );
 criterion_main!(benches);
