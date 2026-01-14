@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_hline, draw_line, draw_polygon, draw_vline, plot_pixel};
-use abrash::shapes::Polygon;
+use abrash::primitives::{draw_hline, draw_line, draw_polygon, draw_vline, fill_triangle, plot_pixel};
+use abrash::shapes::{Polygon, Triangle};
 use abrash::math::Vec2;
 
 #[test]
@@ -140,4 +140,25 @@ fn test_draw_vline() {
         assert_eq!(fb.get_pixel(50, y), Some(white));
     }
     assert_eq!(fb.get_pixel(50, 5), Some(0xFF000000));
+}
+
+#[test]
+fn test_fill_triangle() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    let tri = Triangle::new(
+        Vec2::new(50.0, 10.0),
+        Vec2::new(90.0, 90.0),
+        Vec2::new(10.0, 90.0),
+    );
+
+    fill_triangle(&mut fb, &tri, white);
+
+    // Center of triangle should be filled
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+    // Vertices should be filled
+    assert_eq!(fb.get_pixel(50, 10), Some(white));
+    // Outside should be black
+    assert_eq!(fb.get_pixel(5, 5), Some(0xFF000000));
 }

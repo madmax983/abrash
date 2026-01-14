@@ -4,7 +4,7 @@
 //! All primitives perform bounds checking.
 
 use crate::framebuffer::Framebuffer;
-use crate::shapes::Polygon;
+use crate::shapes::{Polygon, Triangle};
 
 pub fn plot_pixel(fb: &mut Framebuffer, x: i32, y: i32, color: u32) {
     fb.set_pixel(x, y, color);
@@ -119,5 +119,55 @@ pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
             v1.x as i32, v1.y as i32,
             color,
         );
+    }
+}
+
+/// Fill a triangle using scanline rasterization
+pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
+    // Sort vertices by y coordinate (v0.y <= v1.y <= v2.y)
+    let mut v0 = tri.v0;
+    let mut v1 = tri.v1;
+    let mut v2 = tri.v2;
+
+    if v0.y > v1.y { std::mem::swap(&mut v0, &mut v1); }
+    if v0.y > v2.y { std::mem::swap(&mut v0, &mut v2); }
+    if v1.y > v2.y { std::mem::swap(&mut v1, &mut v2); }
+
+    let total_height = v2.y - v0.y;
+    if total_height < 0.001 {
+        return; // Degenerate triangle
+    }
+
+    // Rasterize the triangle in two halves
+    for y in (v0.y as i32)..=(v2.y as i32) {
+        let y_f = y as f32;
+
+        let second_half = y_f > v1.y || (v1.y - v0.y).abs() < 0.001;
+        let segment_height = if second_half {
+            v2.y - v1.y
+        } else {
+            v1.y - v0.y
+        };
+
+        let alpha = (y_f - v0.y) / total_height;
+        let beta = if second_half {
+            if segment_height.abs() < 0.001 { 0.0 } else { (y_f - v1.y) / segment_height }
+        } else {
+            if segment_height.abs() < 0.001 { 0.0 } else { (y_f - v0.y) / segment_height }
+        };
+
+        // Interpolate x coordinates along edges
+        let mut x_a = v0.x + (v2.x - v0.x) * alpha;
+        let mut x_b = if second_half {
+            v1.x + (v2.x - v1.x) * beta
+        } else {
+            v0.x + (v1.x - v0.x) * beta
+        };
+
+        if x_a > x_b {
+            std::mem::swap(&mut x_a, &mut x_b);
+        }
+
+        draw_hline(fb, x_a as i32, x_b as i32, y, color);
     }
 }
