@@ -1,0 +1,40 @@
+use abrash::shapes::Polygon;
+use abrash::math::{Vec2, Mat2};
+use std::f32::consts::PI;
+
+#[test]
+fn test_polygon_square() {
+    let square = Polygon::square(100.0);
+    assert_eq!(square.vertices().len(), 4);
+}
+
+#[test]
+fn test_polygon_regular() {
+    let hexagon = Polygon::regular(6, 50.0);
+    assert_eq!(hexagon.vertices().len(), 6);
+}
+
+#[test]
+fn test_polygon_transform() {
+    let square = Polygon::square(100.0);
+    let rotation = Mat2::rotation(PI / 4.0); // 45 degrees
+
+    let rotated = square.transform(&rotation);
+
+    assert_eq!(rotated.vertices().len(), 4);
+    // Vertices should have moved
+    assert_ne!(rotated.vertices()[0], square.vertices()[0]);
+}
+
+#[test]
+fn test_polygon_translate() {
+    let square = Polygon::square(100.0);
+    let offset = Vec2::new(200.0, 150.0);
+
+    let translated = square.translate(offset);
+
+    // First vertex was at (-50, -50), now should be at (150, 100)
+    let v = translated.vertices()[0];
+    assert!((v.x - 150.0).abs() < 0.001);
+    assert!((v.y - 100.0).abs() < 0.001);
+}
