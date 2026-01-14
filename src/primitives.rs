@@ -122,6 +122,70 @@ pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
     }
 }
 
+/// Draw a circle outline using midpoint algorithm
+pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
+    if radius <= 0 {
+        if radius == 0 {
+            fb.set_pixel(cx, cy, color);
+        }
+        return;
+    }
+
+    let mut x = radius;
+    let mut y = 0;
+    let mut err = 1 - radius;
+
+    while x >= y {
+        // Draw 8 octants
+        fb.set_pixel(cx + x, cy + y, color);
+        fb.set_pixel(cx - x, cy + y, color);
+        fb.set_pixel(cx + x, cy - y, color);
+        fb.set_pixel(cx - x, cy - y, color);
+        fb.set_pixel(cx + y, cy + x, color);
+        fb.set_pixel(cx - y, cy + x, color);
+        fb.set_pixel(cx + y, cy - x, color);
+        fb.set_pixel(cx - y, cy - x, color);
+
+        y += 1;
+        if err < 0 {
+            err += 2 * y + 1;
+        } else {
+            x -= 1;
+            err += 2 * (y - x) + 1;
+        }
+    }
+}
+
+/// Fill a circle using midpoint algorithm with horizontal lines
+pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
+    if radius <= 0 {
+        if radius == 0 {
+            fb.set_pixel(cx, cy, color);
+        }
+        return;
+    }
+
+    let mut x = radius;
+    let mut y = 0;
+    let mut err = 1 - radius;
+
+    while x >= y {
+        // Draw horizontal lines for each y level (fills the circle)
+        draw_hline(fb, cx - x, cx + x, cy + y, color);
+        draw_hline(fb, cx - x, cx + x, cy - y, color);
+        draw_hline(fb, cx - y, cx + y, cy + x, color);
+        draw_hline(fb, cx - y, cx + y, cy - x, color);
+
+        y += 1;
+        if err < 0 {
+            err += 2 * y + 1;
+        } else {
+            x -= 1;
+            err += 2 * (y - x) + 1;
+        }
+    }
+}
+
 /// Fill a triangle using scanline rasterization
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     // Sort vertices by y coordinate (v0.y <= v1.y <= v2.y)
