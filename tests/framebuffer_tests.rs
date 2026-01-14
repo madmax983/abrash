@@ -27,3 +27,26 @@ fn test_framebuffer_clear() {
         assert_eq!(pixel, red);
     }
 }
+
+#[test]
+fn test_framebuffer_set_pixel() {
+    let mut fb = Framebuffer::new(10, 10);
+    let white = 0xFFFF_FFFF;
+
+    fb.set_pixel(5, 3, white);
+
+    assert_eq!(fb.get_pixel(5, 3), Some(white));
+}
+
+#[test]
+fn test_framebuffer_bounds_checking() {
+    let mut fb = Framebuffer::new(10, 10);
+    let white = 0xFFFF_FFFF;
+
+    // Out of bounds should be ignored
+    fb.set_pixel(100, 100, white);
+    fb.set_pixel(-1, -1, white);
+
+    assert_eq!(fb.get_pixel(100, 100), None);
+    assert_eq!(fb.get_pixel(-1, -1), None);
+}

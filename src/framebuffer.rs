@@ -29,4 +29,22 @@ impl Framebuffer {
     pub fn clear(&mut self, color: u32) {
         self.pixels.fill(color);
     }
+
+    pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
+        if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
+            return; // Bounds check - silently ignore out of bounds
+        }
+
+        let index = (y as u32 * self.width + x as u32) as usize;
+        self.pixels[index] = color;
+    }
+
+    pub fn get_pixel(&self, x: i32, y: i32) -> Option<u32> {
+        if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
+            return None;
+        }
+
+        let index = (y as u32 * self.width + x as u32) as usize;
+        Some(self.pixels[index])
+    }
 }
