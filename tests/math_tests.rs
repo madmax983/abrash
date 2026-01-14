@@ -1,4 +1,4 @@
-use abrash::math::Vec2;
+use abrash::math::{Vec2, Mat2};
 
 #[test]
 fn test_vec2_new() {
@@ -28,4 +28,18 @@ fn test_vec2_scale() {
     let v = Vec2::new(2.0, 3.0);
     let result = v * 2.5;
     assert_eq!(result, Vec2::new(5.0, 7.5));
+}
+
+#[test]
+fn test_mat2_rotation() {
+    use std::f32::consts::PI;
+
+    // 90 degree rotation
+    let mat = Mat2::rotation(PI / 2.0);
+    let v = Vec2::new(1.0, 0.0);
+    let result = mat.transform(v);
+
+    // Allow small floating point error
+    assert!((result.x - 0.0).abs() < 0.0001);
+    assert!((result.y - 1.0).abs() < 0.0001);
 }

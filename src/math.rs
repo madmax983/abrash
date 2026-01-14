@@ -44,3 +44,29 @@ impl Mul<f32> for Vec2 {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Mat2 {
+    pub m: [[f32; 2]; 2],
+}
+
+impl Mat2 {
+    pub fn rotation(angle: f32) -> Self {
+        let cos = angle.cos();
+        let sin = angle.sin();
+
+        Self {
+            m: [
+                [cos, -sin],
+                [sin,  cos],
+            ],
+        }
+    }
+
+    pub fn transform(&self, v: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.m[0][0] * v.x + self.m[0][1] * v.y,
+            y: self.m[1][0] * v.x + self.m[1][1] * v.y,
+        }
+    }
+}
