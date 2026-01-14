@@ -1,3 +1,8 @@
+//! 2D and 3D math types for graphics programming.
+//!
+//! Provides vector and matrix types with basic operations.
+//! All operations use f32 for compatibility with graphics APIs.
+
 use std::ops::{Add, Sub, Mul};
 
 #[derive(Debug, Clone, Copy, PartialEq)]

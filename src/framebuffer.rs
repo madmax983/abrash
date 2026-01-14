@@ -1,3 +1,8 @@
+//! Pixel buffer management.
+//!
+//! Framebuffer stores pixels in row-major order as 32-bit RGBA values.
+//! Color format: 0xAARRGGBB (little-endian: BB GG RR AA in memory).
+
 pub struct Framebuffer {
     pixels: Vec<u32>,
     width: u32,
