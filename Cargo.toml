@@ -3,6 +3,10 @@ name = "abrash"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+simd = []
+
 [dependencies]
 # Win32 API bindings
 windows-sys = { version = "0.59", features = [
