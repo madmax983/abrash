@@ -1,5 +1,7 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_line, plot_pixel};
+use abrash::primitives::{draw_line, draw_polygon, plot_pixel};
+use abrash::shapes::Polygon;
+use abrash::math::Vec2;
 
 #[test]
 fn test_plot_pixel() {
@@ -93,4 +95,23 @@ fn test_draw_line_single_pixel() {
     draw_line(&mut fb, 50, 50, 50, 50, white);
 
     assert_eq!(fb.get_pixel(50, 50), Some(white));
+}
+
+#[test]
+fn test_draw_polygon_triangle() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    let triangle = Polygon::new(vec![
+        Vec2::new(50.0, 10.0),
+        Vec2::new(90.0, 90.0),
+        Vec2::new(10.0, 90.0),
+    ]);
+
+    draw_polygon(&mut fb, &triangle, white);
+
+    // Check that vertices are drawn
+    assert_eq!(fb.get_pixel(50, 10), Some(white));
+    assert_eq!(fb.get_pixel(90, 90), Some(white));
+    assert_eq!(fb.get_pixel(10, 90), Some(white));
 }

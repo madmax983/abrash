@@ -4,6 +4,7 @@
 //! All primitives perform bounds checking.
 
 use crate::framebuffer::Framebuffer;
+use crate::shapes::Polygon;
 
 pub fn plot_pixel(fb: &mut Framebuffer, x: i32, y: i32, color: u32) {
     fb.set_pixel(x, y, color);
@@ -44,5 +45,26 @@ pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color
             err += dx;
             y += sy;
         }
+    }
+}
+
+/// Draw a wireframe polygon
+pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
+    let verts = polygon.vertices();
+    if verts.is_empty() {
+        return;
+    }
+
+    // Draw lines between consecutive vertices
+    for i in 0..verts.len() {
+        let v0 = verts[i];
+        let v1 = verts[(i + 1) % verts.len()];
+
+        draw_line(
+            fb,
+            v0.x as i32, v0.y as i32,
+            v1.x as i32, v1.y as i32,
+            color,
+        );
     }
 }
