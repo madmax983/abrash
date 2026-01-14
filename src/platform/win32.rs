@@ -6,6 +6,8 @@ use windows_sys::Win32::System::LibraryLoader::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use std::ptr::null_mut;
 
+use crate::framebuffer::Framebuffer;
+
 const WINDOW_CLASS_NAME: &str = "AbrashWindowClass\0";
 
 /// Window events
@@ -106,6 +108,48 @@ impl Window {
         }
 
         events
+    }
+
+    pub fn blit_framebuffer(&self, framebuffer: &Framebuffer) {
+        unsafe {
+            let hdc = GetDC(self.hwnd);
+
+            let bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: framebuffer.width() as i32,
+                    biHeight: -(framebuffer.height() as i32), // Negative for top-down
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB,
+                    biSizeImage: 0,
+                    biXPelsPerMeter: 0,
+                    biYPelsPerMeter: 0,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [RGBQUAD {
+                    rgbBlue: 0,
+                    rgbGreen: 0,
+                    rgbRed: 0,
+                    rgbReserved: 0,
+                }],
+            };
+
+            StretchDIBits(
+                hdc,
+                0, 0,
+                self.width as i32, self.height as i32,
+                0, 0,
+                framebuffer.width() as i32, framebuffer.height() as i32,
+                framebuffer.as_slice().as_ptr() as *const _,
+                &bmi,
+                DIB_RGB_COLORS,
+                SRCCOPY,
+            );
+
+            ReleaseDC(self.hwnd, hdc);
+        }
     }
 }
 
