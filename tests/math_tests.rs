@@ -43,3 +43,21 @@ fn test_mat2_rotation() {
     assert!((result.x - 0.0).abs() < 0.0001);
     assert!((result.y - 1.0).abs() < 0.0001);
 }
+
+#[test]
+fn test_rotation_preserves_length() {
+    use std::f32::consts::PI;
+
+    let v = Vec2::new(3.0, 4.0);
+    let original_length = (v.x * v.x + v.y * v.y).sqrt();
+
+    // Test multiple rotation angles
+    for angle in [0.0, PI / 4.0, PI / 2.0, PI, 2.0 * PI] {
+        let mat = Mat2::rotation(angle);
+        let rotated = mat.transform(v);
+        let rotated_length = (rotated.x * rotated.x + rotated.y * rotated.y).sqrt();
+
+        assert!((original_length - rotated_length).abs() < 0.0001,
+                "Rotation should preserve vector length");
+    }
+}
