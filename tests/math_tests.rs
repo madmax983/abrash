@@ -22,3 +22,10 @@ fn test_vec2_sub() {
     let result = a - b;
     assert_eq!(result, Vec2::new(3.0, 4.0));
 }
+
+#[test]
+fn test_vec2_scale() {
+    let v = Vec2::new(2.0, 3.0);
+    let result = v * 2.5;
+    assert_eq!(result, Vec2::new(5.0, 7.5));
+}

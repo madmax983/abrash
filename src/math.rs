@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Sub, Mul};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
@@ -30,6 +30,17 @@ impl Sub for Vec2 {
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
+        }
+    }
+}
+
+impl Mul<f32> for Vec2 {
+    type Output = Self;
+
+    fn mul(self, scalar: f32) -> Self {
+        Self {
+            x: self.x * scalar,
+            y: self.y * scalar,
         }
     }
 }
