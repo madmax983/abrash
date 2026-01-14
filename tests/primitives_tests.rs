@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_line, draw_polygon, plot_pixel};
+use abrash::primitives::{draw_hline, draw_line, draw_polygon, draw_vline, plot_pixel};
 use abrash::shapes::Polygon;
 use abrash::math::Vec2;
 
@@ -114,4 +114,30 @@ fn test_draw_polygon_triangle() {
     assert_eq!(fb.get_pixel(50, 10), Some(white));
     assert_eq!(fb.get_pixel(90, 90), Some(white));
     assert_eq!(fb.get_pixel(10, 90), Some(white));
+}
+
+#[test]
+fn test_draw_hline() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_hline(&mut fb, 10, 90, 50, white);
+
+    for x in 10..=90 {
+        assert_eq!(fb.get_pixel(x, 50), Some(white));
+    }
+    assert_eq!(fb.get_pixel(5, 50), Some(0xFF000000));
+}
+
+#[test]
+fn test_draw_vline() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_vline(&mut fb, 50, 10, 90, white);
+
+    for y in 10..=90 {
+        assert_eq!(fb.get_pixel(50, y), Some(white));
+    }
+    assert_eq!(fb.get_pixel(50, 5), Some(0xFF000000));
 }

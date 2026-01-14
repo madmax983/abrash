@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{plot_pixel, draw_line};
+use abrash::primitives::{draw_hline, draw_line, draw_vline, plot_pixel};
 
 fn bench_clear(c: &mut Criterion) {
     c.bench_function("framebuffer_clear_800x600", |b| {
@@ -58,12 +58,32 @@ fn bench_draw_line_long(c: &mut Criterion) {
     });
 }
 
+fn bench_draw_hline(c: &mut Criterion) {
+    c.bench_function("draw_hline_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| {
+            draw_hline(&mut fb, black_box(100), black_box(200), black_box(300), 0xFFFFFFFF);
+        });
+    });
+}
+
+fn bench_draw_vline(c: &mut Criterion) {
+    c.bench_function("draw_vline_100px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| {
+            draw_vline(&mut fb, black_box(400), black_box(100), black_box(200), 0xFFFFFFFF);
+        });
+    });
+}
+
 criterion_group!(benches,
     bench_clear,
     bench_plot_pixel,
     bench_plot_many_pixels,
     bench_draw_line_horizontal,
     bench_draw_line_diagonal,
-    bench_draw_line_long
+    bench_draw_line_long,
+    bench_draw_hline,
+    bench_draw_vline
 );
 criterion_main!(benches);
