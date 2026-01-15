@@ -1,82 +1,100 @@
+//! Abrash Graphics Demo - Lit 3D Cube
+//!
+//! Demonstrates flat shading with directional lighting.
+
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::platform::Window;
-use abrash::primitives::fill_triangle_3d;
+use abrash::light::{u32_to_color, AmbientLight, DirectionalLight};
+use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::math::{Vec3, Mat4};
+use abrash::platform::Window;
+use abrash::primitives::fill_triangle_lit;
 use abrash::time::FixedTimestep;
+use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const BACKGROUND: u32 = 0xFF000000;
 
 // Face colors for the cube
-const COLORS: [u32; 6] = [
-    0xFFFF0000, // Red - front
-    0xFF00FF00, // Green - back
-    0xFF0000FF, // Blue - top
-    0xFFFFFF00, // Yellow - bottom
-    0xFFFF00FF, // Magenta - right
-    0xFF00FFFF, // Cyan - left
+const FACE_COLORS: [u32; 6] = [
+    0xFFE74C3C, // Red
+    0xFF2ECC71, // Green
+    0xFF3498DB, // Blue
+    0xFFF39C12, // Orange
+    0xFF9B59B6, // Purple
+    0xFF1ABC9C, // Teal
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut window = Window::new("Abrash - 3D Cube", WIDTH, HEIGHT)?;
+    let mut window = Window::new("Abrash - Lit Cube", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT);
-    let mut timestep = FixedTimestep::new(60);
-
-    let cube = Mesh::cube(1.0);
+    let cube = Mesh::cube(1.5);
+    let face_normals = cube.compute_face_normals();
 
     // Camera setup
     let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
     let view = Mat4::look_at(
-        Vec3::new(0.0, 1.5, 3.0),
+        Vec3::new(0.0, 2.0, 4.0),
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
     );
 
-    let mut angle_y: f32 = 0.0;
-    let mut angle_x: f32 = 0.0;
+    // Lighting setup
+    let ambient = AmbientLight::new(Vec3::new(0.15, 0.15, 0.15));
+    let sun = DirectionalLight::new(
+        Vec3::new(-0.5, -1.0, -0.3),
+        Vec3::new(1.0, 0.95, 0.9), // Warm sunlight
+    );
+
+    let mut timestep = FixedTimestep::new(60);
+    let mut angle_y = 0.0f32;
+    let mut angle_x = 0.0f32;
 
     while window.is_open() {
         window.poll_events();
 
         let steps = timestep.update();
         for _ in 0..steps {
-            angle_y += 1.0 * timestep.dt();
-            angle_x += 0.5 * timestep.dt();
+            angle_y += 0.02;
+            angle_x += 0.008;
         }
 
-        framebuffer.clear(BACKGROUND);
+        // Clear buffers
+        framebuffer.clear(0xFF1A1A2E); // Dark blue background
         zbuffer.clear();
 
-        // Model matrix (rotation)
+        // Build model matrix
         let model = Mat4::rotation_y(angle_y).mul(&Mat4::rotation_x(angle_x));
-
-        // MVP matrix
         let mvp = projection.mul(&view.mul(&model));
 
-        // Transform and render each triangle
+        // Render each face
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
-            let v0 = cube.vertices[tri_indices[0]];
-            let v1 = cube.vertices[tri_indices[1]];
-            let v2 = cube.vertices[tri_indices[2]];
+            let [i0, i1, i2] = *tri_indices;
 
             // Transform vertices
-            let (clip0, w0) = mvp.transform_point(v0);
-            let (clip1, w1) = mvp.transform_point(v1);
-            let (clip2, w2) = mvp.transform_point(v2);
+            let v0 = mvp.transform_point(cube.vertices[i0]);
+            let v1 = mvp.transform_point(cube.vertices[i1]);
+            let v2 = mvp.transform_point(cube.vertices[i2]);
 
-            // Skip if behind camera
-            if w0 < 0.1 && w1 < 0.1 && w2 < 0.1 {
-                continue;
-            }
+            // Transform normal to world space (use model matrix only)
+            let world_normal = model.transform_normal(face_normals[face_idx]);
 
-            let color = COLORS[face_idx / 2];
-            fill_triangle_3d(&mut framebuffer, &mut zbuffer,
-                (clip0, w0), (clip1, w1), (clip2, w2), color);
+            // Get face color (2 triangles per face)
+            let face_color = u32_to_color(FACE_COLORS[face_idx / 2]);
+
+            // Render with lighting
+            fill_triangle_lit(
+                &mut framebuffer,
+                &mut zbuffer,
+                v0,
+                v1,
+                v2,
+                world_normal,
+                face_color,
+                &ambient,
+                &sun,
+            );
         }
 
         window.blit_framebuffer(&framebuffer);
