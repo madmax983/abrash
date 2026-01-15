@@ -1,6 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_hline, draw_line, draw_vline, plot_pixel};
+use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_vline, fill_circle, fill_triangle, plot_pixel};
+use abrash::shapes::Triangle;
+use abrash::math::Vec2;
 
 fn bench_clear(c: &mut Criterion) {
     c.bench_function("framebuffer_clear_800x600", |b| {
@@ -92,6 +94,44 @@ fn bench_line_comparison(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_fill_triangle_small(c: &mut Criterion) {
+    c.bench_function("fill_triangle_50px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        let tri = Triangle::new(
+            Vec2::new(400.0, 275.0),
+            Vec2::new(425.0, 325.0),
+            Vec2::new(375.0, 325.0),
+        );
+        b.iter(|| fill_triangle(&mut fb, black_box(&tri), 0xFFFFFFFF));
+    });
+}
+
+fn bench_fill_triangle_large(c: &mut Criterion) {
+    c.bench_function("fill_triangle_200px", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        let tri = Triangle::new(
+            Vec2::new(400.0, 200.0),
+            Vec2::new(500.0, 400.0),
+            Vec2::new(300.0, 400.0),
+        );
+        b.iter(|| fill_triangle(&mut fb, black_box(&tri), 0xFFFFFFFF));
+    });
+}
+
+fn bench_draw_circle(c: &mut Criterion) {
+    c.bench_function("draw_circle_r50", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| draw_circle(&mut fb, black_box(400), black_box(300), black_box(50), 0xFFFFFFFF));
+    });
+}
+
+fn bench_fill_circle(c: &mut Criterion) {
+    c.bench_function("fill_circle_r50", |b| {
+        let mut fb = Framebuffer::new(800, 600);
+        b.iter(|| fill_circle(&mut fb, black_box(400), black_box(300), black_box(50), 0xFFFFFFFF));
+    });
+}
+
 criterion_group!(benches,
     bench_clear,
     bench_plot_pixel,
@@ -101,6 +141,10 @@ criterion_group!(benches,
     bench_draw_line_long,
     bench_draw_hline,
     bench_draw_vline,
-    bench_line_comparison
+    bench_line_comparison,
+    bench_fill_triangle_small,
+    bench_fill_triangle_large,
+    bench_draw_circle,
+    bench_fill_circle
 );
 criterion_main!(benches);

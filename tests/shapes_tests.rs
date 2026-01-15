@@ -1,4 +1,4 @@
-use abrash::shapes::Polygon;
+use abrash::shapes::{Polygon, Triangle};
 use abrash::math::{Vec2, Mat2};
 use std::f32::consts::PI;
 
@@ -62,4 +62,28 @@ fn test_polygon_translate_in_place() {
     let v = polygon.vertices()[0];
     assert!((v.x - 50.0).abs() < 0.001);
     assert!((v.y - 50.0).abs() < 0.001);
+}
+
+#[test]
+fn test_triangle_new() {
+    let tri = Triangle::new(
+        Vec2::new(0.0, 0.0),
+        Vec2::new(100.0, 0.0),
+        Vec2::new(50.0, 100.0),
+    );
+    assert_eq!(tri.v0.x, 0.0);
+    assert_eq!(tri.v1.x, 100.0);
+    assert_eq!(tri.v2.y, 100.0);
+}
+
+#[test]
+fn test_triangle_translate() {
+    let tri = Triangle::new(
+        Vec2::new(0.0, 0.0),
+        Vec2::new(10.0, 0.0),
+        Vec2::new(5.0, 10.0),
+    );
+    let translated = tri.translate(Vec2::new(100.0, 100.0));
+    assert!((translated.v0.x - 100.0).abs() < 0.001);
+    assert!((translated.v0.y - 100.0).abs() < 0.001);
 }

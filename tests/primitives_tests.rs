@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_hline, draw_line, draw_polygon, draw_vline, plot_pixel};
-use abrash::shapes::Polygon;
+use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle, plot_pixel};
+use abrash::shapes::{Polygon, Triangle};
 use abrash::math::Vec2;
 
 #[test]
@@ -140,4 +140,68 @@ fn test_draw_vline() {
         assert_eq!(fb.get_pixel(50, y), Some(white));
     }
     assert_eq!(fb.get_pixel(50, 5), Some(0xFF000000));
+}
+
+#[test]
+fn test_fill_triangle() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    let tri = Triangle::new(
+        Vec2::new(50.0, 10.0),
+        Vec2::new(90.0, 90.0),
+        Vec2::new(10.0, 90.0),
+    );
+
+    fill_triangle(&mut fb, &tri, white);
+
+    // Center of triangle should be filled
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+    // Vertices should be filled
+    assert_eq!(fb.get_pixel(50, 10), Some(white));
+    // Outside should be black
+    assert_eq!(fb.get_pixel(5, 5), Some(0xFF000000));
+}
+
+#[test]
+fn test_draw_circle() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_circle(&mut fb, 50, 50, 20, white);
+
+    // Points on the circle (radius 20 from center 50,50)
+    assert_eq!(fb.get_pixel(70, 50), Some(white)); // Right
+    assert_eq!(fb.get_pixel(30, 50), Some(white)); // Left
+    assert_eq!(fb.get_pixel(50, 70), Some(white)); // Bottom
+    assert_eq!(fb.get_pixel(50, 30), Some(white)); // Top
+
+    // Center should be empty (not filled)
+    assert_eq!(fb.get_pixel(50, 50), Some(0xFF000000));
+}
+
+#[test]
+fn test_draw_circle_zero_radius() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    draw_circle(&mut fb, 50, 50, 0, white);
+
+    // Just the center pixel
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+}
+
+#[test]
+fn test_fill_circle() {
+    let mut fb = Framebuffer::new(100, 100);
+    let white = 0xFFFFFFFF;
+
+    fill_circle(&mut fb, 50, 50, 20, white);
+
+    // Center should be filled
+    assert_eq!(fb.get_pixel(50, 50), Some(white));
+    // Edge should be filled
+    assert_eq!(fb.get_pixel(70, 50), Some(white));
+    // Outside should be black
+    assert_eq!(fb.get_pixel(75, 50), Some(0xFF000000));
 }

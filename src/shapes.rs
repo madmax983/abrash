@@ -80,3 +80,36 @@ impl Polygon {
         }
     }
 }
+
+/// A triangle defined by three vertices
+#[derive(Debug, Clone, Copy)]
+pub struct Triangle {
+    pub v0: Vec2,
+    pub v1: Vec2,
+    pub v2: Vec2,
+}
+
+impl Triangle {
+    /// Create a new triangle from three vertices
+    pub fn new(v0: Vec2, v1: Vec2, v2: Vec2) -> Self {
+        Self { v0, v1, v2 }
+    }
+
+    /// Transform the triangle by a matrix
+    pub fn transform(&self, matrix: &Mat2) -> Self {
+        Self {
+            v0: matrix.transform(self.v0),
+            v1: matrix.transform(self.v1),
+            v2: matrix.transform(self.v2),
+        }
+    }
+
+    /// Translate the triangle by an offset
+    pub fn translate(&self, offset: Vec2) -> Self {
+        Self {
+            v0: self.v0 + offset,
+            v1: self.v1 + offset,
+            v2: self.v2 + offset,
+        }
+    }
+}
