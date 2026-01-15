@@ -358,6 +358,7 @@ pub fn fill_triangle_flat(
 }
 
 /// Fill a 3D triangle with custom lighting
+#[allow(clippy::too_many_arguments)] // Rendering API requires all parameters explicitly
 pub fn fill_triangle_lit(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
