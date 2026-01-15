@@ -1,64 +1,83 @@
 use abrash::framebuffer::Framebuffer;
+use abrash::zbuffer::ZBuffer;
 use abrash::platform::Window;
-use abrash::primitives::{draw_polygon, fill_triangle, fill_circle, draw_circle};
-use abrash::shapes::{Polygon, Triangle};
-use abrash::math::{Vec2, Mat2};
+use abrash::primitives::fill_triangle_3d;
+use abrash::mesh::Mesh;
+use abrash::math::{Vec3, Mat4};
 use abrash::time::FixedTimestep;
+use std::f32::consts::PI;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF000000;
-const GREEN: u32 = 0xFF00FF00;
-const RED: u32 = 0xFFFF0000;
-const BLUE: u32 = 0xFF0000FF;
-const YELLOW: u32 = 0xFFFFFF00;
+
+// Face colors for the cube
+const COLORS: [u32; 6] = [
+    0xFFFF0000, // Red - front
+    0xFF00FF00, // Green - back
+    0xFF0000FF, // Blue - top
+    0xFFFFFF00, // Yellow - bottom
+    0xFFFF00FF, // Magenta - right
+    0xFF00FFFF, // Cyan - left
+];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut window = Window::new("Abrash - Filled Primitives", WIDTH, HEIGHT)?;
+    let mut window = Window::new("Abrash - 3D Cube", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
+    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT);
     let mut timestep = FixedTimestep::new(60);
 
-    // Create shapes
-    let base_triangle = Triangle::new(
-        Vec2::new(0.0, -80.0),
-        Vec2::new(70.0, 60.0),
-        Vec2::new(-70.0, 60.0),
+    let cube = Mesh::cube(1.0);
+
+    // Camera setup
+    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+    let view = Mat4::look_at(
+        Vec3::new(0.0, 1.5, 3.0),
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
     );
-    let base_polygon = Polygon::regular(6, 60.0); // Hexagon
 
-    let tri_center = Vec2::new(200.0, 300.0);
-    let hex_center = Vec2::new(400.0, 300.0);
-    let circle_center = (600, 300);
-
-    let mut angle: f32 = 0.0;
-    let rotation_speed: f32 = 1.5;
+    let mut angle_y: f32 = 0.0;
+    let mut angle_x: f32 = 0.0;
 
     while window.is_open() {
         window.poll_events();
 
         let steps = timestep.update();
         for _ in 0..steps {
-            angle += rotation_speed * timestep.dt();
+            angle_y += 1.0 * timestep.dt();
+            angle_x += 0.5 * timestep.dt();
         }
 
         framebuffer.clear(BACKGROUND);
+        zbuffer.clear();
 
-        let rotation = Mat2::rotation(angle);
+        // Model matrix (rotation)
+        let model = Mat4::rotation_y(angle_y).mul(&Mat4::rotation_x(angle_x));
 
-        // Filled rotating triangle (red)
-        let tri = base_triangle.transform(&rotation).translate(tri_center);
-        fill_triangle(&mut framebuffer, &tri, RED);
+        // MVP matrix
+        let mvp = projection.mul(&view.mul(&model));
 
-        // Wireframe rotating hexagon (green)
-        let mut hex = base_polygon.clone();
-        hex.transform_in_place(&rotation);
-        hex.translate_in_place(hex_center);
-        draw_polygon(&mut framebuffer, &hex, GREEN);
+        // Transform and render each triangle
+        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
+            let v0 = cube.vertices[tri_indices[0]];
+            let v1 = cube.vertices[tri_indices[1]];
+            let v2 = cube.vertices[tri_indices[2]];
 
-        // Pulsing circle (blue filled, yellow outline)
-        let pulse = ((angle * 2.0).sin() * 20.0 + 40.0) as i32;
-        fill_circle(&mut framebuffer, circle_center.0, circle_center.1, pulse, BLUE);
-        draw_circle(&mut framebuffer, circle_center.0, circle_center.1, pulse, YELLOW);
+            // Transform vertices
+            let (clip0, w0) = mvp.transform_point(v0);
+            let (clip1, w1) = mvp.transform_point(v1);
+            let (clip2, w2) = mvp.transform_point(v2);
+
+            // Skip if behind camera
+            if w0 < 0.1 && w1 < 0.1 && w2 < 0.1 {
+                continue;
+            }
+
+            let color = COLORS[face_idx / 2];
+            fill_triangle_3d(&mut framebuffer, &mut zbuffer,
+                (clip0, w0), (clip1, w1), (clip2, w2), color);
+        }
 
         window.blit_framebuffer(&framebuffer);
     }

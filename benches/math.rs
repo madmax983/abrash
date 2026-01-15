@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use abrash::math::{Vec2, Mat2};
+use abrash::math::{Vec2, Vec3, Mat2, Mat4};
 
 fn bench_vec2_add(c: &mut Criterion) {
     c.bench_function("vec2_add", |b| {
@@ -52,11 +52,29 @@ fn bench_mat2_transform_in_place(c: &mut Criterion) {
     });
 }
 
+fn bench_mat4_mul(c: &mut Criterion) {
+    c.bench_function("mat4_mul", |b| {
+        let a = Mat4::rotation_y(0.5);
+        let m = Mat4::translation(1.0, 2.0, 3.0);
+        b.iter(|| black_box(a.mul(&m)));
+    });
+}
+
+fn bench_mat4_transform_point(c: &mut Criterion) {
+    c.bench_function("mat4_transform_point", |b| {
+        let m = Mat4::rotation_y(0.5);
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        b.iter(|| black_box(m.transform_point(v)));
+    });
+}
+
 criterion_group!(benches,
     bench_vec2_add,
     bench_vec2_mul,
     bench_mat2_transform,
     bench_mat2_batch_transform,
-    bench_mat2_transform_in_place
+    bench_mat2_transform_in_place,
+    bench_mat4_mul,
+    bench_mat4_transform_point
 );
 criterion_main!(benches);

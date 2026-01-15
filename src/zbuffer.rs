@@ -1,0 +1,54 @@
+//! Depth buffer for hidden surface removal.
+//!
+//! Stores depth values per pixel for proper 3D occlusion.
+
+/// Z-buffer for depth testing
+pub struct ZBuffer {
+    depths: Vec<f32>,
+    width: u32,
+    height: u32,
+}
+
+impl ZBuffer {
+    /// Create a new z-buffer initialized to maximum depth
+    pub fn new(width: u32, height: u32) -> Self {
+        let size = (width * height) as usize;
+        Self {
+            depths: vec![f32::INFINITY; size],
+            width,
+            height,
+        }
+    }
+
+    /// Clear the z-buffer to maximum depth
+    pub fn clear(&mut self) {
+        self.depths.fill(f32::INFINITY);
+    }
+
+    /// Test and set depth at pixel. Returns true if pixel should be drawn.
+    pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {
+        if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
+            return false;
+        }
+
+        let idx = (y as u32 * self.width + x as u32) as usize;
+        if depth < self.depths[idx] {
+            self.depths[idx] = depth;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get depth at pixel
+    pub fn get_depth(&self, x: i32, y: i32) -> Option<f32> {
+        if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
+            return None;
+        }
+        let idx = (y as u32 * self.width + x as u32) as usize;
+        Some(self.depths[idx])
+    }
+
+    pub fn width(&self) -> u32 { self.width }
+    pub fn height(&self) -> u32 { self.height }
+}
