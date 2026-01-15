@@ -31,6 +31,10 @@ impl Framebuffer {
         &self.pixels
     }
 
+    pub fn as_mut_slice(&mut self) -> &mut [u32] {
+        &mut self.pixels
+    }
+
     pub fn clear(&mut self, color: u32) {
         self.pixels.fill(color);
     }
@@ -51,5 +55,19 @@ impl Framebuffer {
 
         let index = (y as u32 * self.width + x as u32) as usize;
         Some(self.pixels[index])
+    }
+
+    /// Clear a rectangular region
+    pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
+        let x = x.max(0) as u32;
+        let y = y.max(0) as u32;
+        let x_end = (x + width).min(self.width);
+        let y_end = (y + height).min(self.height);
+
+        for row in y..y_end {
+            let start = (row * self.width + x) as usize;
+            let end = (row * self.width + x_end) as usize;
+            self.pixels[start..end].fill(color);
+        }
     }
 }

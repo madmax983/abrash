@@ -39,10 +39,24 @@ fn bench_mat2_batch_transform(c: &mut Criterion) {
     });
 }
 
+fn bench_mat2_transform_in_place(c: &mut Criterion) {
+    c.bench_function("mat2_transform_in_place_100", |b| {
+        let mat = Mat2::rotation(0.785);
+        let mut vertices: Vec<Vec2> = (0..100)
+            .map(|i| Vec2::new(i as f32, i as f32))
+            .collect();
+
+        b.iter(|| {
+            mat.transform_in_place(black_box(&mut vertices));
+        });
+    });
+}
+
 criterion_group!(benches,
     bench_vec2_add,
     bench_vec2_mul,
     bench_mat2_transform,
-    bench_mat2_batch_transform
+    bench_mat2_batch_transform,
+    bench_mat2_transform_in_place
 );
 criterion_main!(benches);
