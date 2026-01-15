@@ -5,3 +5,4 @@ pub mod platform;
 pub mod shapes;
 pub mod time;
 pub mod mesh;
+pub mod zbuffer;
