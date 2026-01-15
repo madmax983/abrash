@@ -1,4 +1,4 @@
-use abrash::light::{color_to_u32, u32_to_color, DirectionalLight};
+use abrash::light::{color_to_u32, u32_to_color, AmbientLight, DirectionalLight};
 use abrash::math::Vec3;
 
 #[test]
@@ -34,4 +34,15 @@ fn test_color_to_u32() {
 
     let red = Vec3::new(1.0, 0.0, 0.0);
     assert_eq!(color_to_u32(red), 0xFFFF0000);
+}
+
+#[test]
+fn test_ambient_light() {
+    let ambient = AmbientLight::new(Vec3::new(0.1, 0.1, 0.1));
+    let base = Vec3::new(1.0, 0.0, 0.0); // Red
+    let result = ambient.shade(base);
+
+    assert!((result.x - 0.1).abs() < 0.001);
+    assert!(result.y < 0.001);
+    assert!(result.z < 0.001);
 }

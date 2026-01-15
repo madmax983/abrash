@@ -2,6 +2,27 @@
 
 use crate::math::Vec3;
 
+/// Ambient light (constant illumination)
+#[derive(Debug, Clone, Copy)]
+pub struct AmbientLight {
+    pub color: Vec3,
+}
+
+impl AmbientLight {
+    pub fn new(color: Vec3) -> Self {
+        Self { color }
+    }
+
+    /// Apply ambient lighting to a base color
+    pub fn shade(&self, base_color: Vec3) -> Vec3 {
+        Vec3::new(
+            base_color.x * self.color.x,
+            base_color.y * self.color.y,
+            base_color.z * self.color.z,
+        )
+    }
+}
+
 /// Directional light (like sunlight)
 #[derive(Debug, Clone, Copy)]
 pub struct DirectionalLight {
