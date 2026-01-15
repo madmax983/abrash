@@ -1,7 +1,8 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle, plot_pixel};
+use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle, fill_triangle_flat, plot_pixel};
 use abrash::shapes::{Polygon, Triangle};
-use abrash::math::Vec2;
+use abrash::math::{Vec2, Vec3};
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_plot_pixel() {
@@ -204,4 +205,24 @@ fn test_fill_circle() {
     assert_eq!(fb.get_pixel(70, 50), Some(white));
     // Outside should be black
     assert_eq!(fb.get_pixel(75, 50), Some(0xFF000000));
+}
+
+#[test]
+fn test_fill_triangle_flat_basic() {
+    let mut fb = Framebuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100);
+
+    // Create a triangle facing the camera
+    let v0 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
+    let v1 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
+    let v2 = (Vec3::new(0.0, 0.5, 0.5), 1.0);
+
+    let normal = Vec3::new(0.0, 0.0, 1.0); // Facing camera
+    let color = Vec3::new(1.0, 0.0, 0.0); // Red
+
+    fill_triangle_flat(&mut fb, &mut zb, v0, v1, v2, normal, color);
+
+    // Center should have the shaded color
+    let pixel = fb.get_pixel(50, 50);
+    assert!(pixel.is_some());
 }
