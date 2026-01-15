@@ -1,4 +1,4 @@
-use abrash::math::{Vec2, Mat2};
+use abrash::math::{Vec2, Mat2, Vec3, Mat4};
 
 #[test]
 fn test_vec2_new() {
@@ -60,4 +60,78 @@ fn test_rotation_preserves_length() {
         assert!((original_length - rotated_length).abs() < 0.0001,
                 "Rotation should preserve vector length");
     }
+}
+
+#[test]
+fn test_vec3_new() {
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    assert_eq!(v.x, 1.0);
+    assert_eq!(v.y, 2.0);
+    assert_eq!(v.z, 3.0);
+}
+
+#[test]
+fn test_vec3_dot() {
+    let a = Vec3::new(1.0, 0.0, 0.0);
+    let b = Vec3::new(0.0, 1.0, 0.0);
+    assert_eq!(a.dot(b), 0.0);
+
+    let c = Vec3::new(1.0, 2.0, 3.0);
+    let d = Vec3::new(4.0, 5.0, 6.0);
+    assert_eq!(c.dot(d), 32.0);
+}
+
+#[test]
+fn test_vec3_cross() {
+    let x = Vec3::new(1.0, 0.0, 0.0);
+    let y = Vec3::new(0.0, 1.0, 0.0);
+    let z = x.cross(y);
+    assert!((z.z - 1.0).abs() < 0.001);
+}
+
+#[test]
+fn test_vec3_normalize() {
+    let v = Vec3::new(3.0, 0.0, 4.0);
+    let n = v.normalize();
+    assert!((n.length() - 1.0).abs() < 0.001);
+}
+
+#[test]
+fn test_mat4_identity() {
+    let m = Mat4::identity();
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    let (result, w) = m.transform_point(v);
+    assert!((result.x - 1.0).abs() < 0.001);
+    assert!((result.y - 2.0).abs() < 0.001);
+    assert!((result.z - 3.0).abs() < 0.001);
+    assert!((w - 1.0).abs() < 0.001);
+}
+
+#[test]
+fn test_mat4_translation() {
+    let m = Mat4::translation(10.0, 20.0, 30.0);
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    let (result, _) = m.transform_point(v);
+    assert!((result.x - 11.0).abs() < 0.001);
+    assert!((result.y - 22.0).abs() < 0.001);
+    assert!((result.z - 33.0).abs() < 0.001);
+}
+
+#[test]
+fn test_mat4_scale() {
+    let m = Mat4::scale(2.0, 3.0, 4.0);
+    let v = Vec3::new(1.0, 1.0, 1.0);
+    let (result, _) = m.transform_point(v);
+    assert!((result.x - 2.0).abs() < 0.001);
+    assert!((result.y - 3.0).abs() < 0.001);
+    assert!((result.z - 4.0).abs() < 0.001);
+}
+
+#[test]
+fn test_mat4_perspective() {
+    use std::f32::consts::PI;
+    let proj = Mat4::perspective(PI / 2.0, 1.0, 0.1, 100.0);
+    let v = Vec3::new(0.0, 0.0, -1.0);
+    let (_, w) = proj.transform_point(v);
+    assert!(w.abs() > 0.001);
 }
