@@ -6,3 +6,4 @@ pub mod shapes;
 pub mod time;
 pub mod mesh;
 pub mod zbuffer;
+pub mod light;
