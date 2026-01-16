@@ -34,3 +34,19 @@ path = "src/lib.rs"
 [[bin]]
 name = "abrash"
 path = "src/main.rs"
+
+[[example]]
+name = "rotating_polygon"
+path = "examples/rotating_polygon.rs"
+
+[[example]]
+name = "filled_primitives"
+path = "examples/filled_primitives.rs"
+
+[[example]]
+name = "cube_3d"
+path = "examples/cube_3d.rs"
+
+[[example]]
+name = "lit_cube"
+path = "examples/lit_cube.rs"
