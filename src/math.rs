@@ -295,4 +295,12 @@ impl Mat4 {
         let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
         (Vec3::new(x, y, z), w)
     }
+
+    /// Transform a normal vector (ignores translation, uses upper-left 3x3)
+    pub fn transform_normal(&self, n: Vec3) -> Vec3 {
+        let x = self.m[0][0] * n.x + self.m[1][0] * n.y + self.m[2][0] * n.z;
+        let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
+        let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
+        Vec3::new(x, y, z).normalize()
+    }
 }

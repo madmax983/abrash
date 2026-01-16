@@ -135,3 +135,16 @@ fn test_mat4_perspective() {
     let (_, w) = proj.transform_point(v);
     assert!(w.abs() > 0.001);
 }
+
+#[test]
+fn test_mat4_transform_normal() {
+    let m = Mat4::rotation_y(std::f32::consts::PI / 2.0); // 90 degree Y rotation
+    let normal = Vec3::new(0.0, 0.0, 1.0); // Pointing +Z
+
+    let result = m.transform_normal(normal);
+
+    // After 90 degree Y rotation, +Z becomes +X
+    assert!((result.x - 1.0).abs() < 0.01);
+    assert!(result.y.abs() < 0.01);
+    assert!(result.z.abs() < 0.01);
+}

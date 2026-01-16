@@ -51,6 +51,39 @@ impl Mesh {
         Self { vertices, indices }
     }
 
+    /// Compute face normal for each triangle
+    pub fn compute_face_normals(&self) -> Vec<Vec3> {
+        self.indices
+            .iter()
+            .map(|[i0, i1, i2]| {
+                let v0 = self.vertices[*i0];
+                let v1 = self.vertices[*i1];
+                let v2 = self.vertices[*i2];
+
+                let edge1 = v1 - v0;
+                let edge2 = v2 - v0;
+                edge1.cross(edge2).normalize()
+            })
+            .collect()
+    }
+
+    /// Compute smooth vertex normals by averaging adjacent face normals
+    pub fn compute_vertex_normals(&self) -> Vec<Vec3> {
+        let face_normals = self.compute_face_normals();
+        let mut vertex_normals = vec![Vec3::zero(); self.vertices.len()];
+
+        // Accumulate face normals at each vertex
+        for (face_idx, [i0, i1, i2]) in self.indices.iter().enumerate() {
+            let normal = face_normals[face_idx];
+            vertex_normals[*i0] = vertex_normals[*i0] + normal;
+            vertex_normals[*i1] = vertex_normals[*i1] + normal;
+            vertex_normals[*i2] = vertex_normals[*i2] + normal;
+        }
+
+        // Normalize each vertex normal
+        vertex_normals.iter().map(|n| n.normalize()).collect()
+    }
+
     /// Create a pyramid
     pub fn pyramid(base: f32, height: f32) -> Self {
         let h = base / 2.0;
