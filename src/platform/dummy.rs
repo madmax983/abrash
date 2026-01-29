@@ -15,7 +15,10 @@ pub enum WindowError {
 
 impl fmt::Display for WindowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Window error")
+        match self {
+            WindowError::RegistrationFailed => write!(f, "Window registration failed"),
+            WindowError::CreationFailed => write!(f, "Window creation failed"),
+        }
     }
 }
 
