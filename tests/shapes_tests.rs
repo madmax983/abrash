@@ -1,5 +1,5 @@
+use abrash::math::{Mat2, Vec2};
 use abrash::shapes::{Polygon, Triangle};
-use abrash::math::{Vec2, Mat2};
 use std::f32::consts::PI;
 
 #[test]

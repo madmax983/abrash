@@ -1,4 +1,4 @@
-use abrash::math::{Vec2, Mat2, Vec3, Mat4};
+use abrash::math::{Mat2, Mat4, Vec2, Vec3};
 
 #[test]
 fn test_vec2_new() {
@@ -57,8 +57,10 @@ fn test_rotation_preserves_length() {
         let rotated = mat.transform(v);
         let rotated_length = (rotated.x * rotated.x + rotated.y * rotated.y).sqrt();
 
-        assert!((original_length - rotated_length).abs() < 0.0001,
-                "Rotation should preserve vector length");
+        assert!(
+            (original_length - rotated_length).abs() < 0.0001,
+            "Rotation should preserve vector length"
+        );
     }
 }
 

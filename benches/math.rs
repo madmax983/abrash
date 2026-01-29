@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use abrash::math::{Vec2, Vec3, Mat2, Mat4};
+use abrash::math::{Mat2, Mat4, Vec2, Vec3};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_vec2_add(c: &mut Criterion) {
     c.bench_function("vec2_add", |b| {
@@ -27,12 +27,11 @@ fn bench_mat2_transform(c: &mut Criterion) {
 fn bench_mat2_batch_transform(c: &mut Criterion) {
     c.bench_function("mat2_batch_transform_100", |b| {
         let mat = Mat2::rotation(0.785);
-        let vertices: Vec<Vec2> = (0..100)
-            .map(|i| Vec2::new(i as f32, i as f32))
-            .collect();
+        let vertices: Vec<Vec2> = (0..100).map(|i| Vec2::new(i as f32, i as f32)).collect();
 
         b.iter(|| {
-            vertices.iter()
+            vertices
+                .iter()
                 .map(|&v| mat.transform(v))
                 .collect::<Vec<_>>()
         });
@@ -42,9 +41,7 @@ fn bench_mat2_batch_transform(c: &mut Criterion) {
 fn bench_mat2_transform_in_place(c: &mut Criterion) {
     c.bench_function("mat2_transform_in_place_100", |b| {
         let mat = Mat2::rotation(0.785);
-        let mut vertices: Vec<Vec2> = (0..100)
-            .map(|i| Vec2::new(i as f32, i as f32))
-            .collect();
+        let mut vertices: Vec<Vec2> = (0..100).map(|i| Vec2::new(i as f32, i as f32)).collect();
 
         b.iter(|| {
             mat.transform_in_place(black_box(&mut vertices));
@@ -68,7 +65,8 @@ fn bench_mat4_transform_point(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_vec2_add,
     bench_vec2_mul,
     bench_mat2_transform,

@@ -1,10 +1,10 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
+use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
 use abrash::platform::Window;
 use abrash::primitives::fill_triangle_3d;
-use abrash::mesh::Mesh;
-use abrash::math::{Vec3, Mat4};
 use abrash::time::FixedTimestep;
+use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
 const WIDTH: u32 = 800;
@@ -76,8 +76,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let color = COLORS[face_idx / 2]; // 2 triangles per face
-            fill_triangle_3d(&mut framebuffer, &mut zbuffer,
-                (clip0, w0), (clip1, w1), (clip2, w2), color);
+            fill_triangle_3d(
+                &mut framebuffer,
+                &mut zbuffer,
+                (clip0, w0),
+                (clip1, w1),
+                (clip2, w2),
+                color,
+            );
         }
 
         window.blit_framebuffer(&framebuffer);

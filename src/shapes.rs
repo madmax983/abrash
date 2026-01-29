@@ -2,7 +2,7 @@
 //!
 //! Provides polygon structures and generation functions.
 
-use crate::math::{Vec2, Mat2};
+use crate::math::{Mat2, Vec2};
 use std::f32::consts::PI;
 
 /// A polygon defined by its vertices
@@ -23,9 +23,9 @@ impl Polygon {
         Self {
             vertices: vec![
                 Vec2::new(-half, -half),
-                Vec2::new( half, -half),
-                Vec2::new( half,  half),
-                Vec2::new(-half,  half),
+                Vec2::new(half, -half),
+                Vec2::new(half, half),
+                Vec2::new(-half, half),
             ],
         }
     }
@@ -35,10 +35,7 @@ impl Polygon {
         let mut vertices = Vec::with_capacity(sides);
         for i in 0..sides {
             let angle = 2.0 * PI * (i as f32) / (sides as f32) - PI / 2.0;
-            vertices.push(Vec2::new(
-                radius * angle.cos(),
-                radius * angle.sin(),
-            ));
+            vertices.push(Vec2::new(radius * angle.cos(), radius * angle.sin()));
         }
         Self { vertices }
     }
@@ -51,18 +48,14 @@ impl Polygon {
     /// Transform all vertices by a matrix
     pub fn transform(&self, matrix: &Mat2) -> Self {
         Self {
-            vertices: self.vertices.iter()
-                .map(|&v| matrix.transform(v))
-                .collect(),
+            vertices: self.vertices.iter().map(|&v| matrix.transform(v)).collect(),
         }
     }
 
     /// Translate all vertices by an offset
     pub fn translate(&self, offset: Vec2) -> Self {
         Self {
-            vertices: self.vertices.iter()
-                .map(|&v| v + offset)
-                .collect(),
+            vertices: self.vertices.iter().map(|&v| v + offset).collect(),
         }
     }
 

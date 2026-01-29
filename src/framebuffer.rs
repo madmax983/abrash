@@ -57,6 +57,19 @@ impl Framebuffer {
         Some(self.pixels[index])
     }
 
+    /// Set pixel color without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure x and y are within bounds.
+    pub unsafe fn set_pixel_unchecked(&mut self, x: usize, y: usize, color: u32) {
+        let idx = y * self.width as usize + x;
+        // SAFETY: Caller guarantees bounds
+        unsafe {
+            *self.pixels.get_unchecked_mut(idx) = color;
+        }
+    }
+
     /// Clear a rectangular region
     pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
         let x = x.max(0) as u32;

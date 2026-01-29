@@ -3,7 +3,7 @@
 //! Provides vector and matrix types with basic operations.
 //! All operations use f32 for compatibility with graphics APIs.
 
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
@@ -61,10 +61,7 @@ impl Mat2 {
         let sin = angle.sin();
 
         Self {
-            m: [
-                [cos, -sin],
-                [sin,  cos],
-            ],
+            m: [[cos, -sin], [sin, cos]],
         }
     }
 
@@ -102,7 +99,11 @@ impl Vec3 {
     }
 
     pub fn zero() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     pub fn dot(&self, other: Vec3) -> f32 {
@@ -192,7 +193,7 @@ impl Mat4 {
                 [1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
-                [x,   y,   z,   1.0],
+                [x, y, z, 1.0],
             ],
         }
     }
@@ -200,9 +201,9 @@ impl Mat4 {
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
-                [x,   0.0, 0.0, 0.0],
-                [0.0, y,   0.0, 0.0],
-                [0.0, 0.0, z,   0.0],
+                [x, 0.0, 0.0, 0.0],
+                [0.0, y, 0.0, 0.0],
+                [0.0, 0.0, z, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
         }
@@ -214,8 +215,8 @@ impl Mat4 {
         Self {
             m: [
                 [1.0, 0.0, 0.0, 0.0],
-                [0.0, c,   s,   0.0],
-                [0.0, -s,  c,   0.0],
+                [0.0, c, s, 0.0],
+                [0.0, -s, c, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
         }
@@ -226,9 +227,9 @@ impl Mat4 {
         let s = angle.sin();
         Self {
             m: [
-                [c,   0.0, -s,  0.0],
+                [c, 0.0, -s, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
-                [s,   0.0, c,   0.0],
+                [s, 0.0, c, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
         }
@@ -239,8 +240,8 @@ impl Mat4 {
         let s = angle.sin();
         Self {
             m: [
-                [c,   s,   0.0, 0.0],
-                [-s,  c,   0.0, 0.0],
+                [c, s, 0.0, 0.0],
+                [-s, c, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
@@ -252,10 +253,10 @@ impl Mat4 {
         let nf = 1.0 / (near - far);
         Self {
             m: [
-                [f / aspect, 0.0, 0.0,                     0.0],
-                [0.0,        f,   0.0,                     0.0],
-                [0.0,        0.0, (far + near) * nf,      -1.0],
-                [0.0,        0.0, 2.0 * far * near * nf,   0.0],
+                [f / aspect, 0.0, 0.0, 0.0],
+                [0.0, f, 0.0, 0.0],
+                [0.0, 0.0, (far + near) * nf, -1.0],
+                [0.0, 0.0, 2.0 * far * near * nf, 0.0],
             ],
         }
     }
@@ -266,10 +267,10 @@ impl Mat4 {
         let u = s.cross(f);
         Self {
             m: [
-                [s.x,          u.x,          -f.x,         0.0],
-                [s.y,          u.y,          -f.y,         0.0],
-                [s.z,          u.z,          -f.z,         0.0],
-                [-s.dot(eye), -u.dot(eye),   f.dot(eye),  1.0],
+                [s.x, u.x, -f.x, 0.0],
+                [s.y, u.y, -f.y, 0.0],
+                [s.z, u.z, -f.z, 0.0],
+                [-s.dot(eye), -u.dot(eye), f.dot(eye), 1.0],
             ],
         }
     }
@@ -278,11 +279,10 @@ impl Mat4 {
         let mut result = Mat4 { m: [[0.0; 4]; 4] };
         for i in 0..4 {
             for j in 0..4 {
-                result.m[i][j] =
-                    self.m[i][0] * other.m[0][j] +
-                    self.m[i][1] * other.m[1][j] +
-                    self.m[i][2] * other.m[2][j] +
-                    self.m[i][3] * other.m[3][j];
+                result.m[i][j] = self.m[i][0] * other.m[0][j]
+                    + self.m[i][1] * other.m[1][j]
+                    + self.m[i][2] * other.m[2][j]
+                    + self.m[i][3] * other.m[3][j];
             }
         }
         result

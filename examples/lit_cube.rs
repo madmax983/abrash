@@ -3,7 +3,7 @@
 //! Demonstrates flat shading with directional lighting.
 
 use abrash::framebuffer::Framebuffer;
-use abrash::light::{u32_to_color, AmbientLight, DirectionalLight};
+use abrash::light::{AmbientLight, DirectionalLight, u32_to_color};
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::Window;
