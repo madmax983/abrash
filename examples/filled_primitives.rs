@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
+use abrash::math::{Mat2, Vec2};
 use abrash::platform::Window;
-use abrash::primitives::{draw_polygon, fill_triangle, fill_circle, draw_circle};
+use abrash::primitives::{draw_circle, draw_polygon, fill_circle, fill_triangle};
 use abrash::shapes::{Polygon, Triangle};
-use abrash::math::{Vec2, Mat2};
 use abrash::time::FixedTimestep;
 
 const WIDTH: u32 = 800;
@@ -55,8 +55,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Pulsing circle (blue filled, yellow outline)
         let pulse = ((angle * 2.0).sin() * 20.0 + 40.0) as i32;
-        fill_circle(&mut framebuffer, circle_center.0, circle_center.1, pulse, BLUE);
-        draw_circle(&mut framebuffer, circle_center.0, circle_center.1, pulse, YELLOW);
+        fill_circle(
+            &mut framebuffer,
+            circle_center.0,
+            circle_center.1,
+            pulse,
+            BLUE,
+        );
+        draw_circle(
+            &mut framebuffer,
+            circle_center.0,
+            circle_center.1,
+            pulse,
+            YELLOW,
+        );
 
         window.blit_framebuffer(&framebuffer);
     }

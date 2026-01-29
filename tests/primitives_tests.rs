@@ -1,7 +1,10 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle, fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit, plot_pixel};
-use abrash::shapes::{Polygon, Triangle};
 use abrash::math::{Vec2, Vec3};
+use abrash::primitives::{
+    draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle,
+    fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit, plot_pixel,
+};
+use abrash::shapes::{Polygon, Triangle};
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -33,7 +36,12 @@ fn test_draw_line_horizontal() {
 
     // Check pixels along the line
     for x in 10..=90 {
-        assert_eq!(fb.get_pixel(x, 50), Some(white), "Pixel at ({}, 50) should be white", x);
+        assert_eq!(
+            fb.get_pixel(x, 50),
+            Some(white),
+            "Pixel at ({}, 50) should be white",
+            x
+        );
     }
 }
 
@@ -46,7 +54,12 @@ fn test_draw_line_vertical() {
 
     // Check pixels along the line
     for y in 10..=90 {
-        assert_eq!(fb.get_pixel(50, y), Some(white), "Pixel at (50, {}) should be white", y);
+        assert_eq!(
+            fb.get_pixel(50, y),
+            Some(white),
+            "Pixel at (50, {}) should be white",
+            y
+        );
     }
 }
 
@@ -244,7 +257,9 @@ fn test_fill_triangle_lit_custom_lighting() {
     let ambient = AmbientLight::new(Vec3::new(0.1, 0.1, 0.1));
     let light = DirectionalLight::new(Vec3::new(0.0, 0.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
 
-    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, &ambient, &light);
+    fill_triangle_lit(
+        &mut fb, &mut zb, v0, v1, v2, normal, color, &ambient, &light,
+    );
 
     let pixel = fb.get_pixel(50, 50);
     assert!(pixel.is_some());

@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
+use abrash::math::{Mat2, Vec2};
 use abrash::platform::Window;
 use abrash::primitives::draw_polygon;
 use abrash::shapes::Polygon;
-use abrash::math::{Vec2, Mat2};
 use abrash::time::FixedTimestep;
 
 const WIDTH: u32 = 800;

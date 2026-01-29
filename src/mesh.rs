@@ -22,30 +22,36 @@ impl Mesh {
         let h = size / 2.0;
         let vertices = vec![
             // Front face
-            Vec3::new(-h, -h,  h), // 0
-            Vec3::new( h, -h,  h), // 1
-            Vec3::new( h,  h,  h), // 2
-            Vec3::new(-h,  h,  h), // 3
+            Vec3::new(-h, -h, h), // 0
+            Vec3::new(h, -h, h),  // 1
+            Vec3::new(h, h, h),   // 2
+            Vec3::new(-h, h, h),  // 3
             // Back face
             Vec3::new(-h, -h, -h), // 4
-            Vec3::new( h, -h, -h), // 5
-            Vec3::new( h,  h, -h), // 6
-            Vec3::new(-h,  h, -h), // 7
+            Vec3::new(h, -h, -h),  // 5
+            Vec3::new(h, h, -h),   // 6
+            Vec3::new(-h, h, -h),  // 7
         ];
 
         let indices = vec![
             // Front
-            [0, 1, 2], [0, 2, 3],
+            [0, 1, 2],
+            [0, 2, 3],
             // Back
-            [5, 4, 7], [5, 7, 6],
+            [5, 4, 7],
+            [5, 7, 6],
             // Top
-            [3, 2, 6], [3, 6, 7],
+            [3, 2, 6],
+            [3, 6, 7],
             // Bottom
-            [4, 5, 1], [4, 1, 0],
+            [4, 5, 1],
+            [4, 1, 0],
             // Right
-            [1, 5, 6], [1, 6, 2],
+            [1, 5, 6],
+            [1, 6, 2],
             // Left
-            [4, 0, 3], [4, 3, 7],
+            [4, 0, 3],
+            [4, 3, 7],
         ];
 
         Self { vertices, indices }
@@ -88,11 +94,11 @@ impl Mesh {
     pub fn pyramid(base: f32, height: f32) -> Self {
         let h = base / 2.0;
         let vertices = vec![
-            Vec3::new( 0.0, height, 0.0), // 0: apex
-            Vec3::new(-h,   0.0,    h),   // 1
-            Vec3::new( h,   0.0,    h),   // 2
-            Vec3::new( h,   0.0,   -h),   // 3
-            Vec3::new(-h,   0.0,   -h),   // 4
+            Vec3::new(0.0, height, 0.0), // 0: apex
+            Vec3::new(-h, 0.0, h),       // 1
+            Vec3::new(h, 0.0, h),        // 2
+            Vec3::new(h, 0.0, -h),       // 3
+            Vec3::new(-h, 0.0, -h),      // 4
         ];
 
         let indices = vec![
@@ -102,7 +108,8 @@ impl Mesh {
             [0, 3, 4],
             [0, 4, 1],
             // Base
-            [1, 4, 3], [1, 3, 2],
+            [1, 4, 3],
+            [1, 3, 2],
         ];
 
         Self { vertices, indices }

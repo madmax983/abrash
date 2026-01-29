@@ -50,3 +50,7 @@ path = "examples/cube_3d.rs"
 [[example]]
 name = "lit_cube"
 path = "examples/lit_cube.rs"
+
+[[bench]]
+name = "rasterization"
+harness = false

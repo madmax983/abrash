@@ -1,10 +1,10 @@
 // Win32 platform implementation
 
+use std::ptr::null_mut;
 use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
-use std::ptr::null_mut;
 
 use crate::framebuffer::Framebuffer;
 
@@ -149,10 +149,14 @@ impl Window {
 
             StretchDIBits(
                 hdc,
-                0, 0,
-                self.width as i32, self.height as i32,
-                0, 0,
-                framebuffer.width() as i32, framebuffer.height() as i32,
+                0,
+                0,
+                self.width as i32,
+                self.height as i32,
+                0,
+                0,
+                framebuffer.width() as i32,
+                framebuffer.height() as i32,
                 framebuffer.as_slice().as_ptr() as *const _,
                 &bmi,
                 DIB_RGB_COLORS,

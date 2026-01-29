@@ -1,8 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use abrash::framebuffer::Framebuffer;
-use abrash::primitives::{draw_circle, draw_hline, draw_line, draw_vline, fill_circle, fill_triangle, plot_pixel};
-use abrash::shapes::Triangle;
 use abrash::math::Vec2;
+use abrash::primitives::{
+    draw_circle, draw_hline, draw_line, draw_vline, fill_circle, fill_triangle, plot_pixel,
+};
+use abrash::shapes::Triangle;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_clear(c: &mut Criterion) {
     c.bench_function("framebuffer_clear_800x600", |b| {
@@ -37,7 +39,14 @@ fn bench_draw_line_horizontal(c: &mut Criterion) {
     c.bench_function("draw_line_horizontal_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
         b.iter(|| {
-            draw_line(&mut fb, black_box(100), black_box(300), black_box(200), black_box(300), 0xFFFFFFFF);
+            draw_line(
+                &mut fb,
+                black_box(100),
+                black_box(300),
+                black_box(200),
+                black_box(300),
+                0xFFFFFFFF,
+            );
         });
     });
 }
@@ -46,7 +55,14 @@ fn bench_draw_line_diagonal(c: &mut Criterion) {
     c.bench_function("draw_line_diagonal_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
         b.iter(|| {
-            draw_line(&mut fb, black_box(100), black_box(100), black_box(200), black_box(200), 0xFFFFFFFF);
+            draw_line(
+                &mut fb,
+                black_box(100),
+                black_box(100),
+                black_box(200),
+                black_box(200),
+                0xFFFFFFFF,
+            );
         });
     });
 }
@@ -55,7 +71,14 @@ fn bench_draw_line_long(c: &mut Criterion) {
     c.bench_function("draw_line_diagonal_500px", |b| {
         let mut fb = Framebuffer::new(800, 600);
         b.iter(|| {
-            draw_line(&mut fb, black_box(50), black_box(50), black_box(550), black_box(550), 0xFFFFFFFF);
+            draw_line(
+                &mut fb,
+                black_box(50),
+                black_box(50),
+                black_box(550),
+                black_box(550),
+                0xFFFFFFFF,
+            );
         });
     });
 }
@@ -64,7 +87,13 @@ fn bench_draw_hline(c: &mut Criterion) {
     c.bench_function("draw_hline_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
         b.iter(|| {
-            draw_hline(&mut fb, black_box(100), black_box(200), black_box(300), 0xFFFFFFFF);
+            draw_hline(
+                &mut fb,
+                black_box(100),
+                black_box(200),
+                black_box(300),
+                0xFFFFFFFF,
+            );
         });
     });
 }
@@ -73,7 +102,13 @@ fn bench_draw_vline(c: &mut Criterion) {
     c.bench_function("draw_vline_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
         b.iter(|| {
-            draw_vline(&mut fb, black_box(400), black_box(100), black_box(200), 0xFFFFFFFF);
+            draw_vline(
+                &mut fb,
+                black_box(400),
+                black_box(100),
+                black_box(200),
+                0xFFFFFFFF,
+            );
         });
     });
 }
@@ -83,12 +118,28 @@ fn bench_line_comparison(c: &mut Criterion) {
 
     group.bench_function("hline_optimized_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
-        b.iter(|| draw_hline(&mut fb, black_box(100), black_box(200), black_box(300), 0xFFFFFFFF));
+        b.iter(|| {
+            draw_hline(
+                &mut fb,
+                black_box(100),
+                black_box(200),
+                black_box(300),
+                0xFFFFFFFF,
+            )
+        });
     });
 
     group.bench_function("vline_optimized_100px", |b| {
         let mut fb = Framebuffer::new(800, 600);
-        b.iter(|| draw_vline(&mut fb, black_box(400), black_box(100), black_box(200), 0xFFFFFFFF));
+        b.iter(|| {
+            draw_vline(
+                &mut fb,
+                black_box(400),
+                black_box(100),
+                black_box(200),
+                0xFFFFFFFF,
+            )
+        });
     });
 
     group.finish();
@@ -121,18 +172,35 @@ fn bench_fill_triangle_large(c: &mut Criterion) {
 fn bench_draw_circle(c: &mut Criterion) {
     c.bench_function("draw_circle_r50", |b| {
         let mut fb = Framebuffer::new(800, 600);
-        b.iter(|| draw_circle(&mut fb, black_box(400), black_box(300), black_box(50), 0xFFFFFFFF));
+        b.iter(|| {
+            draw_circle(
+                &mut fb,
+                black_box(400),
+                black_box(300),
+                black_box(50),
+                0xFFFFFFFF,
+            )
+        });
     });
 }
 
 fn bench_fill_circle(c: &mut Criterion) {
     c.bench_function("fill_circle_r50", |b| {
         let mut fb = Framebuffer::new(800, 600);
-        b.iter(|| fill_circle(&mut fb, black_box(400), black_box(300), black_box(50), 0xFFFFFFFF));
+        b.iter(|| {
+            fill_circle(
+                &mut fb,
+                black_box(400),
+                black_box(300),
+                black_box(50),
+                0xFFFFFFFF,
+            )
+        });
     });
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_clear,
     bench_plot_pixel,
     bench_plot_many_pixels,

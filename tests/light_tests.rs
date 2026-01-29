@@ -1,4 +1,4 @@
-use abrash::light::{color_to_u32, u32_to_color, AmbientLight, DirectionalLight};
+use abrash::light::{AmbientLight, DirectionalLight, color_to_u32, u32_to_color};
 use abrash::math::Vec3;
 
 #[test]

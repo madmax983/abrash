@@ -49,6 +49,27 @@ impl ZBuffer {
         Some(self.depths[idx])
     }
 
-    pub fn width(&self) -> u32 { self.width }
-    pub fn height(&self) -> u32 { self.height }
+    /// Test and set depth at pixel without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure x and y are within bounds.
+    pub unsafe fn test_and_set_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
+        let idx = y * self.width as usize + x;
+        // SAFETY: Caller guarantees bounds
+        let d = unsafe { self.depths.get_unchecked_mut(idx) };
+        if depth < *d {
+            *d = depth;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 }

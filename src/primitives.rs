@@ -4,7 +4,7 @@
 //! All primitives perform bounds checking.
 
 use crate::framebuffer::Framebuffer;
-use crate::light::{color_to_u32, AmbientLight, DirectionalLight};
+use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::math::Vec3;
 use crate::shapes::{Polygon, Triangle};
 use crate::zbuffer::ZBuffer;
@@ -118,8 +118,10 @@ pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
 
         draw_line(
             fb,
-            v0.x as i32, v0.y as i32,
-            v1.x as i32, v1.y as i32,
+            v0.x as i32,
+            v0.y as i32,
+            v1.x as i32,
+            v1.y as i32,
             color,
         );
     }
@@ -196,9 +198,15 @@ pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     let mut v1 = tri.v1;
     let mut v2 = tri.v2;
 
-    if v0.y > v1.y { std::mem::swap(&mut v0, &mut v1); }
-    if v0.y > v2.y { std::mem::swap(&mut v0, &mut v2); }
-    if v1.y > v2.y { std::mem::swap(&mut v1, &mut v2); }
+    if v0.y > v1.y {
+        std::mem::swap(&mut v0, &mut v1);
+    }
+    if v0.y > v2.y {
+        std::mem::swap(&mut v0, &mut v2);
+    }
+    if v1.y > v2.y {
+        std::mem::swap(&mut v1, &mut v2);
+    }
 
     let total_height = v2.y - v0.y;
     if total_height < 0.001 {
@@ -218,9 +226,15 @@ pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
 
         let alpha = (y_f - v0.y) / total_height;
         let beta = if second_half {
-            if segment_height.abs() < 0.001 { 0.0 } else { (y_f - v1.y) / segment_height }
+            if segment_height.abs() < 0.001 {
+                0.0
+            } else {
+                (y_f - v1.y) / segment_height
+            }
+        } else if segment_height.abs() < 0.001 {
+            0.0
         } else {
-            if segment_height.abs() < 0.001 { 0.0 } else { (y_f - v0.y) / segment_height }
+            (y_f - v0.y) / segment_height
         };
 
         // Interpolate x coordinates along edges
@@ -281,7 +295,13 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    for y in y0..=y2 {
+    // Optimization: Clamp Y range to screen bounds
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = y0.max(y_min);
+    let y_end = y2.min(y_max);
+
+    for y in y_start..=y_end {
         let second_half = y > y1 || y1 == y0;
         let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
         if segment_height == 0 {
@@ -298,13 +318,11 @@ pub fn fill_triangle_3d(
         let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
         let mut az = z0 + (z2 - z0) * alpha;
 
-        let (bx, bz) = if second_half {
+        let (mut bx, mut bz) = if second_half {
             (x1 as f32 + (x2 - x1) as f32 * beta, z1 + (z2 - z1) * beta)
         } else {
             (x0 as f32 + (x1 - x0) as f32 * beta, z0 + (z1 - z0) * beta)
         };
-        let mut bx = bx;
-        let mut bz = bz;
 
         if ax > bx {
             std::mem::swap(&mut ax, &mut bx);
@@ -314,16 +332,48 @@ pub fn fill_triangle_3d(
         let x_start = ax as i32;
         let x_end = bx as i32;
 
-        for x in x_start..=x_end {
-            let t = if (x_end - x_start) > 0 {
-                (x - x_start) as f32 / (x_end - x_start) as f32
-            } else {
-                0.0
-            };
-            let z = az + (bz - az) * t;
+        let dx = x_end - x_start;
+        let dz = bz - az;
 
-            if zb.test_and_set(x, y, z) {
-                fb.set_pixel(x, y, color);
+        // Handle single pixel or invalid width
+        if dx <= 0 {
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
+                fb.set_pixel(x_start, y, color);
+            }
+            continue;
+        }
+
+        // Optimization: Pre-calculate Z increment per pixel
+        let dz_dx = dz / dx as f32;
+        let mut z = az;
+
+        // Clamp X range to screen bounds
+        let mut xs = x_start;
+        let mut xe = x_end;
+
+        if xs < 0 {
+            // Advance z if we start off-screen
+            z += (-xs) as f32 * dz_dx;
+            xs = 0;
+        }
+
+        if xe >= width as i32 {
+            xe = width as i32 - 1;
+        }
+
+        if xs > xe {
+            continue;
+        }
+
+        // Optimization: Use unchecked access in hot loop since bounds are clamped
+        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+        unsafe {
+            let y_idx = y as usize;
+            for xi in xs..=xe {
+                if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
+                    fb.set_pixel_unchecked(xi as usize, y_idx, color);
+                }
+                z += dz_dx;
             }
         }
     }
@@ -405,14 +455,16 @@ pub fn fill_triangle_gouraud(
     let c2 = v2.1;
 
     // Sort by y (bubble sort 3 elements)
-    let mut verts = [
-        (x0, y0, z0, c0),
-        (x1, y1, z1, c1),
-        (x2, y2, z2, c2),
-    ];
-    if verts[0].1 > verts[1].1 { verts.swap(0, 1); }
-    if verts[0].1 > verts[2].1 { verts.swap(0, 2); }
-    if verts[1].1 > verts[2].1 { verts.swap(1, 2); }
+    let mut verts = [(x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2)];
+    if verts[0].1 > verts[1].1 {
+        verts.swap(0, 1);
+    }
+    if verts[0].1 > verts[2].1 {
+        verts.swap(0, 2);
+    }
+    if verts[1].1 > verts[2].1 {
+        verts.swap(1, 2);
+    }
 
     let (x0, y0, z0, c0) = verts[0];
     let (x1, y1, z1, c1) = verts[1];
