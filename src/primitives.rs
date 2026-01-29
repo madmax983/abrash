@@ -365,13 +365,27 @@ pub fn fill_triangle_3d(
             continue;
         }
 
-        // Optimization: Use unchecked access in hot loop since bounds are clamped
-        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
-        unsafe {
-            let y_idx = y as usize;
+        // Optimization: Use unchecked access in hot loop when framebuffer and Z-buffer
+        // dimensions are known to match. Otherwise, fall back to checked access.
+        if fb.width() as usize == zb.width && fb.height() as usize == zb.height {
+            // SAFETY: xs and xe are clamped to [0, width-1] (framebuffer width),
+            // and y is clamped to [0, height-1] (framebuffer height). The equality
+            // check above ensures the ZBuffer has identical dimensions, so the
+            // unchecked accesses are within bounds of both fb and zb.
+            unsafe {
+                let y_idx = y as usize;
+                for xi in xs..=xe {
+                    if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
+                        fb.set_pixel_unchecked(xi as usize, y_idx, color);
+                    }
+                    z += dz_dx;
+                }
+            }
+        } else {
+            // Fallback: use checked access if dimensions ever differ.
             for xi in xs..=xe {
-                if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(xi as usize, y_idx, color);
+                if zb.test_and_set(xi, y, z) {
+                    fb.set_pixel(xi, y, color);
                 }
                 z += dz_dx;
             }
