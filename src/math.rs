@@ -98,12 +98,9 @@ impl Vec3 {
         Self { x, y, z }
     }
 
+    #[deprecated(since = "0.1.1", note = "Use Vec3::default() instead")]
     pub fn zero() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        }
+        Self::default()
     }
 
     pub fn dot(&self, other: Vec3) -> f32 {
@@ -165,6 +162,16 @@ impl Mul<f32> for Vec3 {
             x: self.x * scalar,
             y: self.y * scalar,
             z: self.z * scalar,
+        }
+    }
+}
+
+impl Default for Vec3 {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
         }
     }
 }
@@ -275,6 +282,7 @@ impl Mat4 {
         }
     }
 
+    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
     pub fn mul(&self, other: &Mat4) -> Mat4 {
         let mut result = Mat4 { m: [[0.0; 4]; 4] };
         for i in 0..4 {
@@ -302,5 +310,41 @@ impl Mat4 {
         let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
         let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
         Vec3::new(x, y, z).normalize()
+    }
+}
+
+impl Mul for Mat4 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        #[allow(deprecated)]
+        Mat4::mul(&self, &rhs)
+    }
+}
+
+impl Mul<&Mat4> for Mat4 {
+    type Output = Self;
+
+    fn mul(self, rhs: &Mat4) -> Self {
+        #[allow(deprecated)]
+        Mat4::mul(&self, rhs)
+    }
+}
+
+impl Mul for &Mat4 {
+    type Output = Mat4;
+
+    fn mul(self, rhs: Self) -> Mat4 {
+        #[allow(deprecated)]
+        Mat4::mul(self, rhs)
+    }
+}
+
+impl Mul<Mat4> for &Mat4 {
+    type Output = Mat4;
+
+    fn mul(self, rhs: Mat4) -> Mat4 {
+        #[allow(deprecated)]
+        Mat4::mul(self, &rhs)
     }
 }

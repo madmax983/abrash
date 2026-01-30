@@ -6,8 +6,8 @@ use abrash::framebuffer::Framebuffer;
 use abrash::light::{AmbientLight, DirectionalLight, u32_to_color};
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
+use abrash::pipeline::fill_triangle_lit;
 use abrash::platform::Window;
-use abrash::primitives::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
@@ -65,8 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         zbuffer.clear();
 
         // Build model matrix
-        let model = Mat4::rotation_y(angle_y).mul(&Mat4::rotation_x(angle_x));
-        let mvp = projection.mul(&view.mul(&model));
+        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
+        let mvp = projection * (view * model);
 
         // Render each face
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
