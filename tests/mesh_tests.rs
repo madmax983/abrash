@@ -1,3 +1,4 @@
+use abrash::math::Vec2;
 use abrash::mesh::Mesh;
 
 #[test]
@@ -34,5 +35,34 @@ fn test_cube_face_normals() {
     for n in &normals {
         let len = n.length();
         assert!((len - 1.0).abs() < 0.001, "Normal not unit length: {}", len);
+    }
+}
+
+// TASK 6: Mesh UV Coordinates
+#[test]
+fn test_cube_has_no_uvs_by_default() {
+    let cube = Mesh::cube(2.0);
+    assert!(cube.uvs.is_none());
+}
+
+#[test]
+fn test_cube_textured_has_uvs() {
+    let cube = Mesh::cube_textured(2.0);
+    assert!(cube.uvs.is_some());
+
+    let uvs = cube.uvs.unwrap();
+    // Cube has 8 vertices, so should have 8 UV coordinates
+    assert_eq!(uvs.len(), cube.vertices.len());
+}
+
+#[test]
+fn test_cube_textured_uvs_in_range() {
+    let cube = Mesh::cube_textured(2.0);
+    let uvs = cube.uvs.unwrap();
+
+    // All UV coordinates should be in [0, 1] range
+    for uv in &uvs {
+        assert!(uv.x >= 0.0 && uv.x <= 1.0, "UV.x out of range: {}", uv.x);
+        assert!(uv.y >= 0.0 && uv.y <= 1.0, "UV.y out of range: {}", uv.y);
     }
 }

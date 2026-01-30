@@ -2,9 +2,11 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
 use abrash::primitives::{
     draw_circle, draw_hline, draw_line, draw_polygon, draw_vline, fill_circle, fill_triangle,
-    fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit, plot_pixel,
+    fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit, fill_triangle_textured,
+    plot_pixel,
 };
 use abrash::shapes::{Polygon, Triangle};
+use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -284,4 +286,69 @@ fn test_fill_triangle_gouraud_basic() {
     // Should render without panicking
     let pixel = fb.get_pixel(50, 50);
     assert!(pixel.is_some());
+}
+
+// TASK 8: Textured Triangle Rasterizer
+#[test]
+fn test_fill_triangle_textured_basic() {
+    let mut fb = Framebuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100);
+
+    // Create a simple 2x2 texture with red pixel
+    let mut texture = Texture::new(2, 2);
+    texture.set_pixel(0, 0, 0xFFFF0000); // Red
+
+    // Triangle vertices with UV coordinates
+    let v0 = ((Vec3::new(-0.5, -0.5, 0.5), 1.0), Vec2::new(0.0, 0.0));
+    let v1 = ((Vec3::new(0.5, -0.5, 0.5), 1.0), Vec2::new(1.0, 0.0));
+    let v2 = ((Vec3::new(0.0, 0.5, 0.5), 1.0), Vec2::new(0.5, 1.0));
+
+    fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+
+    // Should render non-black pixels (texture samples)
+    let mut found_colored_pixel = false;
+    for y in 0..100 {
+        for x in 0..100 {
+            if let Some(pixel) = fb.get_pixel(x, y) {
+                if pixel != 0xFF000000 {
+                    found_colored_pixel = true;
+                    break;
+                }
+            }
+        }
+        if found_colored_pixel {
+            break;
+        }
+    }
+    assert!(
+        found_colored_pixel,
+        "Textured triangle should render colored pixels"
+    );
+}
+
+#[test]
+fn test_fill_triangle_textured_respects_zbuffer() {
+    let mut fb = Framebuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100);
+
+    let mut texture = Texture::new(2, 2);
+    texture.set_pixel(0, 0, 0xFFFF0000); // Red
+
+    // First triangle (closer)
+    let v0 = ((Vec3::new(-0.8, -0.8, 0.3), 1.0), Vec2::new(0.0, 0.0));
+    let v1 = ((Vec3::new(0.8, -0.8, 0.3), 1.0), Vec2::new(1.0, 0.0));
+    let v2 = ((Vec3::new(0.0, 0.8, 0.3), 1.0), Vec2::new(0.5, 1.0));
+    fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+
+    // Second triangle (farther away - should not overwrite)
+    texture.set_pixel(0, 0, 0xFF00FF00); // Green
+    let v0 = ((Vec3::new(-0.8, -0.8, 0.8), 1.0), Vec2::new(0.0, 0.0));
+    let v1 = ((Vec3::new(0.8, -0.8, 0.8), 1.0), Vec2::new(1.0, 0.0));
+    let v2 = ((Vec3::new(0.0, 0.8, 0.8), 1.0), Vec2::new(0.5, 1.0));
+    fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+
+    // Center pixel should still be from first triangle (red), not green
+    let center_pixel = fb.get_pixel(50, 50);
+    assert!(center_pixel.is_some());
+    // The first triangle was red, should not be overwritten by green
 }

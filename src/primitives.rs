@@ -5,8 +5,9 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
-use crate::math::Vec3;
+use crate::math::{Vec2, Vec3};
 use crate::shapes::{Polygon, Triangle};
+use crate::texture::Texture;
 use crate::zbuffer::ZBuffer;
 
 pub fn plot_pixel(fb: &mut Framebuffer, x: i32, y: i32, color: u32) {
@@ -545,6 +546,187 @@ pub fn fill_triangle_gouraud(
 
             if zb.test_and_set(x, y, z) {
                 fb.set_pixel(x, y, color_to_u32(color));
+            }
+        }
+    }
+}
+
+/// Fill a 3D triangle with perspective-correct texture mapping (optimized)
+#[allow(clippy::too_many_arguments)]
+pub fn fill_triangle_textured(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec2), // ((clip_pos, w), uv)
+    v1: ((Vec3, f32), Vec2),
+    v2: ((Vec3, f32), Vec2),
+    texture: &Texture,
+) {
+    let width = fb.width();
+    let height = fb.height();
+
+    // Project to screen
+    let (x0, y0, z0) = project_to_screen(v0.0.0, v0.0.1, width, height);
+    let (x1, y1, z1) = project_to_screen(v1.0.0, v1.0.1, width, height);
+    let (x2, y2, z2) = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+    // OPTIMIZATION 1: Pre-compute 1/w for all vertices
+    let inv_w0 = 1.0 / v0.0.1;
+    let inv_w1 = 1.0 / v1.0.1;
+    let inv_w2 = 1.0 / v2.0.1;
+
+    // OPTIMIZATION 2: Store UV/w instead of UV
+    let uv_over_w0 = v0.1 * inv_w0;
+    let uv_over_w1 = v1.1 * inv_w1;
+    let uv_over_w2 = v2.1 * inv_w2;
+
+    // Sort by y - maintain all attributes
+    let mut verts = [
+        (x0, y0, z0, inv_w0, uv_over_w0),
+        (x1, y1, z1, inv_w1, uv_over_w1),
+        (x2, y2, z2, inv_w2, uv_over_w2),
+    ];
+    if verts[0].1 > verts[1].1 {
+        verts.swap(0, 1);
+    }
+    if verts[0].1 > verts[2].1 {
+        verts.swap(0, 2);
+    }
+    if verts[1].1 > verts[2].1 {
+        verts.swap(1, 2);
+    }
+
+    let (x0, y0, z0, inv_w0, uv_over_w0) = verts[0];
+    let (x1, y1, z1, inv_w1, uv_over_w1) = verts[1];
+    let (x2, y2, z2, inv_w2, uv_over_w2) = verts[2];
+
+    let total_height = y2 - y0;
+    if total_height == 0 {
+        return;
+    }
+
+    // OPTIMIZATION 3: Clamp Y range to screen bounds
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = y0.max(y_min);
+    let y_end = y2.min(y_max);
+
+    for y in y_start..=y_end {
+        let second_half = y > y1 || y1 == y0;
+        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
+        if segment_height == 0 {
+            continue;
+        }
+
+        let alpha = (y - y0) as f32 / total_height as f32;
+        let beta = if second_half {
+            (y - y1) as f32 / segment_height as f32
+        } else {
+            (y - y0) as f32 / segment_height as f32
+        };
+
+        // Interpolate along edges
+        let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
+        let mut az = z0 + (z2 - z0) * alpha;
+        let mut a_inv_w = inv_w0 + (inv_w2 - inv_w0) * alpha;
+        let mut a_uv_over_w = Vec2::new(
+            uv_over_w0.x + (uv_over_w2.x - uv_over_w0.x) * alpha,
+            uv_over_w0.y + (uv_over_w2.y - uv_over_w0.y) * alpha,
+        );
+
+        let (mut bx, mut bz, mut b_inv_w, mut b_uv_over_w) = if second_half {
+            (
+                x1 as f32 + (x2 - x1) as f32 * beta,
+                z1 + (z2 - z1) * beta,
+                inv_w1 + (inv_w2 - inv_w1) * beta,
+                Vec2::new(
+                    uv_over_w1.x + (uv_over_w2.x - uv_over_w1.x) * beta,
+                    uv_over_w1.y + (uv_over_w2.y - uv_over_w1.y) * beta,
+                ),
+            )
+        } else {
+            (
+                x0 as f32 + (x1 - x0) as f32 * beta,
+                z0 + (z1 - z0) * beta,
+                inv_w0 + (inv_w1 - inv_w0) * beta,
+                Vec2::new(
+                    uv_over_w0.x + (uv_over_w1.x - uv_over_w0.x) * beta,
+                    uv_over_w0.y + (uv_over_w1.y - uv_over_w0.y) * beta,
+                ),
+            )
+        };
+
+        if ax > bx {
+            std::mem::swap(&mut ax, &mut bx);
+            std::mem::swap(&mut az, &mut bz);
+            std::mem::swap(&mut a_inv_w, &mut b_inv_w);
+            std::mem::swap(&mut a_uv_over_w, &mut b_uv_over_w);
+        }
+
+        let x_start = ax as i32;
+        let x_end = bx as i32;
+        let dx = x_end - x_start;
+
+        // Handle single pixel or invalid width
+        if dx <= 0 {
+            if x_start >= 0 && x_start < width as i32 {
+                let uv = a_uv_over_w / a_inv_w;
+                if zb.test_and_set(x_start, y, az) {
+                    let color = texture.sample_nearest(uv.x, uv.y);
+                    fb.set_pixel(x_start, y, color);
+                }
+            }
+            continue;
+        }
+
+        // OPTIMIZATION 4: Pre-calculate increments per scanline
+        let dz_dx = (bz - az) / dx as f32;
+        let d_inv_w_dx = (b_inv_w - a_inv_w) / dx as f32;
+        let d_uv_over_w_dx = Vec2::new(
+            (b_uv_over_w.x - a_uv_over_w.x) / dx as f32,
+            (b_uv_over_w.y - a_uv_over_w.y) / dx as f32,
+        );
+
+        let mut z = az;
+        let mut inv_w = a_inv_w;
+        let mut uv_over_w = a_uv_over_w;
+
+        // OPTIMIZATION 5: Clamp X bounds before hot loop
+        let mut xs = x_start;
+        let mut xe = x_end;
+
+        if xs < 0 {
+            // Advance all interpolants if we start off-screen
+            let skip = -xs as f32;
+            z += skip * dz_dx;
+            inv_w += skip * d_inv_w_dx;
+            uv_over_w = uv_over_w + (d_uv_over_w_dx * skip);
+            xs = 0;
+        }
+
+        if xe >= width as i32 {
+            xe = width as i32 - 1;
+        }
+
+        if xs > xe {
+            continue;
+        }
+
+        // OPTIMIZATION 6: Unchecked access in hot loop with safety documentation
+        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+        unsafe {
+            let y_idx = y as usize;
+            for xi in xs..=xe {
+                if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
+                    // Recover perspective-correct UV
+                    let w = 1.0 / inv_w;
+                    let u = uv_over_w.x * w;
+                    let v = uv_over_w.y * w;
+                    let color = texture.sample_nearest(u, v);
+                    fb.set_pixel_unchecked(xi as usize, y_idx, color);
+                }
+                z += dz_dx;
+                inv_w += d_inv_w_dx;
+                uv_over_w = uv_over_w + d_uv_over_w_dx;
             }
         }
     }

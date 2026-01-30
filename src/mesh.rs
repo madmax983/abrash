@@ -1,11 +1,12 @@
 //! 3D mesh representation.
 
-use crate::math::Vec3;
+use crate::math::{Vec2, Vec3};
 
 /// A 3D mesh with vertices and triangle indices
 #[derive(Debug, Clone)]
 pub struct Mesh {
     pub vertices: Vec<Vec3>,
+    pub uvs: Option<Vec<Vec2>>,
     pub indices: Vec<[usize; 3]>,
 }
 
@@ -13,6 +14,7 @@ impl Mesh {
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
+            uvs: None,
             indices: Vec::new(),
         }
     }
@@ -54,7 +56,37 @@ impl Mesh {
             [4, 3, 7],
         ];
 
-        Self { vertices, indices }
+        Self {
+            vertices,
+            uvs: None,
+            indices,
+        }
+    }
+
+    /// Create a cube with UV coordinates
+    pub fn cube_textured(size: f32) -> Self {
+        let mut mesh = Self::cube(size);
+        mesh.uvs = Some(Self::generate_cube_uvs());
+        mesh
+    }
+
+    /// Generate UV coordinates for a cube
+    /// Maps each face to the [0, 1] UV space
+    fn generate_cube_uvs() -> Vec<Vec2> {
+        // For a simple cube mapping, we'll map each vertex to a corner of UV space
+        // This is a basic unwrap - each face gets mapped to the full [0, 1] range
+        vec![
+            // Front face vertices
+            Vec2::new(0.0, 1.0), // 0
+            Vec2::new(1.0, 1.0), // 1
+            Vec2::new(1.0, 0.0), // 2
+            Vec2::new(0.0, 0.0), // 3
+            // Back face vertices
+            Vec2::new(0.0, 1.0), // 4
+            Vec2::new(1.0, 1.0), // 5
+            Vec2::new(1.0, 0.0), // 6
+            Vec2::new(0.0, 0.0), // 7
+        ]
     }
 
     /// Compute face normal for each triangle
@@ -112,7 +144,11 @@ impl Mesh {
             [1, 3, 2],
         ];
 
-        Self { vertices, indices }
+        Self {
+            vertices,
+            uvs: None,
+            indices,
+        }
     }
 }
 

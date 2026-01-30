@@ -150,3 +150,45 @@ fn test_mat4_transform_normal() {
     assert!(result.y.abs() < 0.01);
     assert!(result.z.abs() < 0.01);
 }
+
+// TASK 1: Vec2 Operations for UV Coordinates
+#[test]
+fn test_vec2_div_scalar() {
+    let v = Vec2::new(10.0, 20.0);
+    let result = v / 2.0;
+    assert_eq!(result, Vec2::new(5.0, 10.0));
+}
+
+#[test]
+fn test_vec2_div_by_one() {
+    let v = Vec2::new(5.0, 7.0);
+    let result = v / 1.0;
+    assert_eq!(result, v);
+}
+
+#[test]
+fn test_vec2_lerp() {
+    let a = Vec2::new(0.0, 0.0);
+    let b = Vec2::new(10.0, 20.0);
+
+    // t=0 should return a
+    let result = Vec2::lerp(a, b, 0.0);
+    assert_eq!(result, a);
+
+    // t=1 should return b
+    let result = Vec2::lerp(a, b, 1.0);
+    assert_eq!(result, b);
+
+    // t=0.5 should return midpoint
+    let result = Vec2::lerp(a, b, 0.5);
+    assert_eq!(result, Vec2::new(5.0, 10.0));
+}
+
+#[test]
+fn test_vec2_lerp_arbitrary() {
+    let a = Vec2::new(2.0, 3.0);
+    let b = Vec2::new(8.0, 11.0);
+    let result = Vec2::lerp(a, b, 0.25);
+    assert!((result.x - 3.5).abs() < 0.001);
+    assert!((result.y - 5.0).abs() < 0.001);
+}

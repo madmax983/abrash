@@ -3,7 +3,7 @@
 //! Provides vector and matrix types with basic operations.
 //! All operations use f32 for compatibility with graphics APIs.
 
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
@@ -14,6 +14,10 @@ pub struct Vec2 {
 impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+
+    pub fn lerp(a: Self, b: Self, t: f32) -> Self {
+        Self::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
     }
 }
 
@@ -46,6 +50,17 @@ impl Mul<f32> for Vec2 {
         Self {
             x: self.x * scalar,
             y: self.y * scalar,
+        }
+    }
+}
+
+impl Div<f32> for Vec2 {
+    type Output = Self;
+
+    fn div(self, scalar: f32) -> Self {
+        Self {
+            x: self.x / scalar,
+            y: self.y / scalar,
         }
     }
 }
