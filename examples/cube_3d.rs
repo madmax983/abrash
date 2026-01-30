@@ -53,10 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         zbuffer.clear();
 
         // Model matrix (rotation)
-        let model = Mat4::rotation_y(angle_y).mul(&Mat4::rotation_x(angle_x));
+        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
 
         // MVP matrix
-        let mvp = projection.mul(&view.mul(&model));
+        let mvp = projection * (view * model);
 
         // Transform and render each triangle
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {

@@ -5,7 +5,7 @@
 
 use std::ops::{Add, Mul, Sub};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
@@ -86,7 +86,7 @@ impl Mat2 {
 }
 
 /// 3D vector
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -98,12 +98,9 @@ impl Vec3 {
         Self { x, y, z }
     }
 
+    #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
     pub fn zero() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        }
+        Self::default()
     }
 
     pub fn dot(&self, other: Vec3) -> f32 {
@@ -275,17 +272,9 @@ impl Mat4 {
         }
     }
 
+    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
     pub fn mul(&self, other: &Mat4) -> Mat4 {
-        let mut result = Mat4 { m: [[0.0; 4]; 4] };
-        for i in 0..4 {
-            for j in 0..4 {
-                result.m[i][j] = self.m[i][0] * other.m[0][j]
-                    + self.m[i][1] * other.m[1][j]
-                    + self.m[i][2] * other.m[2][j]
-                    + self.m[i][3] * other.m[3][j];
-            }
-        }
-        result
+        *self * *other
     }
 
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
@@ -302,5 +291,28 @@ impl Mat4 {
         let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
         let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
         Vec3::new(x, y, z).normalize()
+    }
+}
+
+impl Default for Mat4 {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+impl Mul for Mat4 {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        let mut result = Mat4 { m: [[0.0; 4]; 4] };
+        for i in 0..4 {
+            for j in 0..4 {
+                result.m[i][j] = self.m[i][0] * other.m[0][j]
+                    + self.m[i][1] * other.m[1][j]
+                    + self.m[i][2] * other.m[2][j]
+                    + self.m[i][3] * other.m[3][j];
+            }
+        }
+        result
     }
 }

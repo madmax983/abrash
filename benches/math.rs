@@ -53,7 +53,7 @@ fn bench_mat4_mul(c: &mut Criterion) {
     c.bench_function("mat4_mul", |b| {
         let a = Mat4::rotation_y(0.5);
         let m = Mat4::translation(1.0, 2.0, 3.0);
-        b.iter(|| black_box(a.mul(&m)));
+        b.iter(|| black_box(a * m));
     });
 }
 

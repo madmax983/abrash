@@ -76,7 +76,7 @@ impl Mesh {
     /// Compute smooth vertex normals by averaging adjacent face normals
     pub fn compute_vertex_normals(&self) -> Vec<Vec3> {
         let face_normals = self.compute_face_normals();
-        let mut vertex_normals = vec![Vec3::zero(); self.vertices.len()];
+        let mut vertex_normals = vec![Vec3::default(); self.vertices.len()];
 
         // Accumulate face normals at each vertex
         for (face_idx, [i0, i1, i2]) in self.indices.iter().enumerate() {
