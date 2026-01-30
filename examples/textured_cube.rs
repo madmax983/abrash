@@ -41,13 +41,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - Textured Cube", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT);
-    let cube = Mesh::cube_textured(1.5);
+    let cube = Mesh::cube_textured(1.0); // Smaller cube for better framing
     let texture = create_checkerboard(64, 8);
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+    // Camera setup - narrower FOV and further back for better framing
+    let projection = Mat4::perspective(PI / 4.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
     let view = Mat4::look_at(
-        Vec3::new(0.0, 2.0, 4.0),
+        Vec3::new(0.0, 1.5, 5.5), // Further back and lower camera
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
     );
@@ -61,8 +61,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let steps = timestep.update();
         for _ in 0..steps {
-            angle_y += 0.02;
-            angle_x += 0.008;
+            angle_y += 0.015; // Slightly slower rotation
+            angle_x += 0.006;
         }
 
         // Clear buffers
@@ -88,10 +88,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let uv1 = uvs[i1];
                 let uv2 = uvs[i2];
 
-                // Backface culling (optional)
+                // Near-plane and backface culling
                 let (clip0, w0) = v0;
                 let (clip1, w1) = v1;
                 let (clip2, w2) = v2;
+
+                // Skip triangles behind or too close to camera
+                if w0 <= 0.1 || w1 <= 0.1 || w2 <= 0.1 {
+                    continue;
+                }
 
                 // Project to NDC for backface check
                 let ndc0 = Vec3::new(clip0.x / w0, clip0.y / w0, clip0.z / w0);
