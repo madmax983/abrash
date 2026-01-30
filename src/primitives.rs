@@ -194,19 +194,7 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
 /// Fill a triangle using scanline rasterization
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     // Sort vertices by y coordinate (v0.y <= v1.y <= v2.y)
-    let mut v0 = tri.v0;
-    let mut v1 = tri.v1;
-    let mut v2 = tri.v2;
-
-    if v0.y > v1.y {
-        std::mem::swap(&mut v0, &mut v1);
-    }
-    if v0.y > v2.y {
-        std::mem::swap(&mut v0, &mut v2);
-    }
-    if v1.y > v2.y {
-        std::mem::swap(&mut v1, &mut v2);
-    }
+    let [v0, v1, v2] = sort_triangle_by_y(tri.v0, tri.v1, tri.v2, |v| v.y);
 
     let total_height = v2.y - v0.y;
     if total_height < 0.001 {
@@ -286,9 +274,8 @@ pub fn fill_triangle_3d(
     let (x2, y2, z2) = project_to_screen(v2.0, v2.1, width, height);
 
     // Sort by y
-    let mut verts = [(x0, y0, z0), (x1, y1, z1), (x2, y2, z2)];
-    verts.sort_by(|a, b| a.1.cmp(&b.1));
-    let [(x0, y0, z0), (x1, y1, z1), (x2, y2, z2)] = verts;
+    let [(x0, y0, z0), (x1, y1, z1), (x2, y2, z2)] =
+        sort_triangle_by_y((x0, y0, z0), (x1, y1, z1), (x2, y2, z2), |v| v.1 as f32);
 
     let total_height = y2 - y0;
     if total_height == 0 {
@@ -302,18 +289,14 @@ pub fn fill_triangle_3d(
     let y_end = y2.min(y_max);
 
     for y in y_start..=y_end {
-        let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
-        if segment_height == 0 {
+        let Some(factors) = compute_scanline_factors(y, y0, y1, y2, total_height) else {
             continue;
-        }
-
-        let alpha = (y - y0) as f32 / total_height as f32;
-        let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
-        } else {
-            (y - y0) as f32 / segment_height as f32
         };
+        let ScanlineFactors {
+            alpha,
+            beta,
+            second_half,
+        } = factors;
 
         let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
         let mut az = z0 + (z2 - z0) * alpha;
@@ -454,21 +437,11 @@ pub fn fill_triangle_gouraud(
     let c1 = v1.1;
     let c2 = v2.1;
 
-    // Sort by y (bubble sort 3 elements)
-    let mut verts = [(x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2)];
-    if verts[0].1 > verts[1].1 {
-        verts.swap(0, 1);
-    }
-    if verts[0].1 > verts[2].1 {
-        verts.swap(0, 2);
-    }
-    if verts[1].1 > verts[2].1 {
-        verts.swap(1, 2);
-    }
-
-    let (x0, y0, z0, c0) = verts[0];
-    let (x1, y1, z1, c1) = verts[1];
-    let (x2, y2, z2, c2) = verts[2];
+    // Sort by y
+    let [(x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2)] =
+        sort_triangle_by_y((x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2), |v| {
+            v.1 as f32
+        });
 
     let total_height = y2 - y0;
     if total_height == 0 {
@@ -476,18 +449,14 @@ pub fn fill_triangle_gouraud(
     }
 
     for y in y0..=y2 {
-        let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
-        if segment_height == 0 {
+        let Some(factors) = compute_scanline_factors(y, y0, y1, y2, total_height) else {
             continue;
-        }
-
-        let alpha = (y - y0) as f32 / total_height as f32;
-        let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
-        } else {
-            (y - y0) as f32 / segment_height as f32
         };
+        let ScanlineFactors {
+            alpha,
+            beta,
+            second_half,
+        } = factors;
 
         // Interpolate position and color along edges
         let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
@@ -548,4 +517,100 @@ pub fn fill_triangle_gouraud(
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Vec2;
+
+    #[test]
+    fn test_sort_triangle_vertices() {
+        let v0 = Vec2::new(0.0, 10.0);
+        let v1 = Vec2::new(1.0, 5.0);
+        let v2 = Vec2::new(2.0, 20.0);
+
+        let [p0, p1, p2] = sort_triangle_by_y(v0, v1, v2, |v| v.y);
+
+        assert_eq!(p0.y, 5.0, "p0 should be the one with smallest y (5.0)");
+        assert_eq!(p1.y, 10.0, "p1 should be the one with middle y (10.0)");
+        assert_eq!(p2.y, 20.0, "p2 should be the one with largest y (20.0)");
+    }
+
+    #[test]
+    fn test_compute_scanline_factors() {
+        // Triangle with height 100, split at 50
+        let y0 = 0;
+        let y1 = 50;
+        let y2 = 100;
+        let total_height = 100;
+
+        // Test at y=25 (first half)
+        let factors = compute_scanline_factors(25, y0, y1, y2, total_height).unwrap();
+        assert!(!factors.second_half);
+        assert!((factors.alpha - 0.25).abs() < 0.001);
+        assert!((factors.beta - 0.5).abs() < 0.001); // 25 / 50 = 0.5
+
+        // Test at y=75 (second half)
+        let factors = compute_scanline_factors(75, y0, y1, y2, total_height).unwrap();
+        assert!(factors.second_half);
+        assert!((factors.alpha - 0.75).abs() < 0.001);
+        assert!((factors.beta - 0.5).abs() < 0.001); // (75-50)/(100-50) = 25/50 = 0.5
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct ScanlineFactors {
+    alpha: f32,
+    beta: f32,
+    second_half: bool,
+}
+
+fn compute_scanline_factors(
+    y: i32,
+    y0: i32,
+    y1: i32,
+    y2: i32,
+    total_height: i32,
+) -> Option<ScanlineFactors> {
+    if total_height == 0 {
+        return None;
+    }
+
+    let second_half = y > y1 || y1 == y0;
+    let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
+
+    if segment_height == 0 {
+        return None;
+    }
+
+    let alpha = (y - y0) as f32 / total_height as f32;
+    let beta = if second_half {
+        (y - y1) as f32 / segment_height as f32
+    } else {
+        (y - y0) as f32 / segment_height as f32
+    };
+
+    Some(ScanlineFactors {
+        alpha,
+        beta,
+        second_half,
+    })
+}
+
+/// Sort 3 vertices by Y coordinate (ascending)
+fn sort_triangle_by_y<T, F>(mut v0: T, mut v1: T, mut v2: T, get_y: F) -> [T; 3]
+where
+    F: Fn(&T) -> f32,
+{
+    if get_y(&v0) > get_y(&v1) {
+        std::mem::swap(&mut v0, &mut v1);
+    }
+    if get_y(&v0) > get_y(&v2) {
+        std::mem::swap(&mut v0, &mut v2);
+    }
+    if get_y(&v1) > get_y(&v2) {
+        std::mem::swap(&mut v1, &mut v2);
+    }
+    [v0, v1, v2]
 }
