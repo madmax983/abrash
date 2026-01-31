@@ -51,54 +51,44 @@ impl Iterator for ScanlineIter {
     type Item = ScanlineStep;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_y > self.end_y {
-            return None;
-        }
-
         if self.total_height == 0.0 {
-            // Degenerate triangle, prevent infinite loop if end_y >= start_y somehow
-            // (though normally end_y would be same as start_y)
-            self.current_y += 1;
             return None;
         }
 
-        let y = self.current_y;
-        self.current_y += 1;
+        loop {
+            if self.current_y > self.end_y {
+                return None;
+            }
 
-        let second_half = y > self.y1 || self.y1 == self.y0;
-        let segment_height = if second_half {
-            self.y2 - self.y1
-        } else {
-            self.y1 - self.y0
-        };
+            let y = self.current_y;
+            self.current_y += 1;
 
-        if segment_height == 0 {
-            // Skip this scanline if the segment has no height (should be covered by other half or handled)
-            // But if we are iterating Y pixel by pixel, and segment_height is 0,
-            // it means y1 == y0 or y2 == y1.
-            // If y1 == y0, we start in second_half immediately.
-            // If y2 == y1, we end before second_half usually?
-            // Let's stick to the logic:
-            // return self.next(); // Recursive call?
-            // Actually, if segment_height is 0, we can't compute beta.
-            // Original code: if segment_height == 0 { continue; }
-            // So we should recursively call next() or loop until valid.
-            return self.next();
+            let second_half = y > self.y1 || self.y1 == self.y0;
+            let segment_height = if second_half {
+                self.y2 - self.y1
+            } else {
+                self.y1 - self.y0
+            };
+
+            // Skip scanlines where the active short edge has zero height.
+            if segment_height == 0 {
+                continue;
+            }
+
+            let alpha = (y - self.y0) as f32 / self.total_height;
+            let beta = if second_half {
+                (y - self.y1) as f32 / segment_height as f32
+            } else {
+                (y - self.y0) as f32 / segment_height as f32
+            };
+
+            return Some(ScanlineStep {
+                y,
+                alpha,
+                beta,
+                second_half,
+            });
         }
-
-        let alpha = (y - self.y0) as f32 / self.total_height;
-        let beta = if second_half {
-            (y - self.y1) as f32 / segment_height as f32
-        } else {
-            (y - self.y0) as f32 / segment_height as f32
-        };
-
-        Some(ScanlineStep {
-            y,
-            alpha,
-            beta,
-            second_half,
-        })
     }
 }
 
@@ -155,5 +145,22 @@ mod tests {
         assert_eq!(steps.len(), 11);
         // All should be second_half because y >= y1 (0) and y1 == y0
         assert!(steps[0].second_half);
+    }
+
+    #[test]
+    fn test_flat_bottom() {
+        // v0.y = 0, v1.y = v2.y = 10
+        let iter = ScanlineIter::new(0, 10, 10, 0, 100);
+        let steps: Vec<_> = iter.collect();
+
+        assert_eq!(steps.len(), 11);
+        // All should be !second_half because y <= y1 (10)
+        // Except potentially the last one?
+        // If y=10, y > y1 (10>10 false), y1==y0 (10==0 false). So second_half=false.
+        // Wait, logic: y > y1 || y1 == y0.
+        // at y=10: 10 > 10 is false. 10 == 0 is false. So first half.
+        // But if first half, segment height is y1-y0 = 10-0 = 10. Valid.
+        assert!(!steps[0].second_half);
+        assert!(!steps[10].second_half);
     }
 }
