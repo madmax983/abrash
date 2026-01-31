@@ -66,3 +66,13 @@ fn test_framebuffer_clear_rect() {
     assert_eq!(fb.get_pixel(5, 5), Some(0xFF000000));
     assert_eq!(fb.get_pixel(50, 50), Some(0xFF000000));
 }
+
+#[test]
+fn test_framebuffer_set_pixel_unchecked() {
+    let mut fb = Framebuffer::new(10, 10);
+    let color = 0xFFFFFFFF;
+    unsafe {
+        fb.set_pixel_unchecked(5, 5, color);
+    }
+    assert_eq!(fb.get_pixel(5, 5), Some(color));
+}
