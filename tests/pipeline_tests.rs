@@ -20,7 +20,7 @@ fn test_fill_triangle_flat_basic() {
 
     // Center should have the shaded color
     let pixel = fb.get_pixel(50, 50);
-    assert!(pixel.is_some());
+    assert_ne!(pixel, Some(0), "The center pixel should have been colored, not be the default black.");
 }
 
 #[test]
