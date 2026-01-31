@@ -45,7 +45,7 @@ fn test_fill_triangle_lit_custom_lighting() {
     );
 
     let pixel = fb.get_pixel(50, 50);
-    assert!(pixel.is_some());
+    assert_ne!(pixel, Some(0), "The center pixel should have been colored, not be the default black.");
 }
 
 #[test]
