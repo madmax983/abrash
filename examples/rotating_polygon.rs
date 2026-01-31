@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat2, Vec2};
 use abrash::platform::Window;
-use abrash::primitives::draw_polygon;
+use abrash::rasterizer::draw_polygon;
 use abrash::shapes::Polygon;
 use abrash::time::FixedTimestep;
 
