@@ -22,41 +22,13 @@ fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> (i32, i32, f32
     (screen_x, screen_y, depth)
 }
 
-/// Interpolation parameters for rasterizing a single horizontal scanline of a triangle.
-///
-/// This struct encodes the interpolation factors used when stepping along the
-/// long edge of the triangle (from `v0` to `v2`) and along the current short
-/// edge (either `v0`→`v1` in the top half or `v1`→`v2` in the bottom half).
-/// These factors are then used to compute the interpolated positions (and
-/// derived attributes) for each pixel on the scanline.
 struct ScanlineStep {
-    /// Interpolation factor along the long edge from `v0` to `v2`, in the range
-    /// `[0, 1]`, based on the current scanline's vertical position within the
-    /// triangle's total height.
     alpha: f32,
-    /// Interpolation factor along the active short edge for this half of the
-    /// triangle: `v0`→`v1` in the top half, or `v1`→`v2` in the bottom half.
-    /// The current scanline's vertical position within that edge's segment is
-    /// mapped to `[0, 1]`.
     beta: f32,
-    /// Indicates whether the current scanline lies in the bottom half of the
-    /// triangle (or when the top half degenerates to a flat edge).
     second_half: bool,
 }
 
 impl ScanlineStep {
-    /// Compute interpolation parameters for the scanline at vertical coordinate `y`.
-    ///
-    /// The inputs `y0`, `y1`, and `y2` are the sorted vertex y-coordinates
-    /// (`y0 <= y1 <= y2`), and `total_height` is the total height of the
-    /// triangle (`y2 - y0`) as a floating-point value. The method determines
-    /// whether the scanline is in the top or bottom half of the triangle,
-    /// calculates the corresponding segment height, and derives the `alpha`
-    /// (long edge) and `beta` (short edge) interpolation factors.
-    ///
-    /// Returns `None` if the relevant segment height is zero (i.e. the
-    /// corresponding top or bottom portion of the triangle degenerates to a
-    /// horizontal line), in which case no interpolation step is needed.
     #[inline(always)]
     fn new(y: i32, y0: i32, y1: i32, y2: i32, total_height: f32) -> Option<Self> {
         let second_half = y > y1 || y1 == y0;
@@ -282,31 +254,19 @@ pub fn fill_triangle_gouraud(
         // Interpolate position and color along edges
         let mut ax = x0 as f32 + (x2 - x0) as f32 * step.alpha;
         let mut az = z0 + (z2 - z0) * step.alpha;
-        let mut ac = Vec3::new(
-            c0.x + (c2.x - c0.x) * step.alpha,
-            c0.y + (c2.y - c0.y) * step.alpha,
-            c0.z + (c2.z - c0.z) * step.alpha,
-        );
+        let mut ac = c0 + (c2 - c0) * step.alpha;
 
         let (mut bx, mut bz, mut bc) = if step.second_half {
             (
                 x1 as f32 + (x2 - x1) as f32 * step.beta,
                 z1 + (z2 - z1) * step.beta,
-                Vec3::new(
-                    c1.x + (c2.x - c1.x) * step.beta,
-                    c1.y + (c2.y - c1.y) * step.beta,
-                    c1.z + (c2.z - c1.z) * step.beta,
-                ),
+                c1 + (c2 - c1) * step.beta,
             )
         } else {
             (
                 x0 as f32 + (x1 - x0) as f32 * step.beta,
                 z0 + (z1 - z0) * step.beta,
-                Vec3::new(
-                    c0.x + (c1.x - c0.x) * step.beta,
-                    c0.y + (c1.y - c0.y) * step.beta,
-                    c0.z + (c1.z - c0.z) * step.beta,
-                ),
+                c0 + (c1 - c0) * step.beta,
             )
         };
 
@@ -327,11 +287,7 @@ pub fn fill_triangle_gouraud(
             };
 
             let z = az + (bz - az) * t;
-            let color = Vec3::new(
-                ac.x + (bc.x - ac.x) * t,
-                ac.y + (bc.y - ac.y) * t,
-                ac.z + (bc.z - ac.z) * t,
-            );
+            let color = ac + (bc - ac) * t;
 
             if zb.test_and_set(x, y, z) {
                 fb.set_pixel(x, y, color_to_u32(color));
