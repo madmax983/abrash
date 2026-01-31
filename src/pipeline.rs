@@ -22,13 +22,41 @@ fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> (i32, i32, f32
     (screen_x, screen_y, depth)
 }
 
+/// Interpolation parameters for rasterizing a single horizontal scanline of a triangle.
+///
+/// This struct encodes the interpolation factors used when stepping along the
+/// long edge of the triangle (from `v0` to `v2`) and along the current short
+/// edge (either `v0`→`v1` in the top half or `v1`→`v2` in the bottom half).
+/// These factors are then used to compute the interpolated positions (and
+/// derived attributes) for each pixel on the scanline.
 struct ScanlineStep {
+    /// Interpolation factor along the long edge from `v0` to `v2`, in the range
+    /// `[0, 1]`, based on the current scanline's vertical position within the
+    /// triangle's total height.
     alpha: f32,
+    /// Interpolation factor along the active short edge for this half of the
+    /// triangle: `v0`→`v1` in the top half, or `v1`→`v2` in the bottom half.
+    /// The current scanline's vertical position within that edge's segment is
+    /// mapped to `[0, 1]`.
     beta: f32,
+    /// Indicates whether the current scanline lies in the bottom half of the
+    /// triangle (or when the top half degenerates to a flat edge).
     second_half: bool,
 }
 
 impl ScanlineStep {
+    /// Compute interpolation parameters for the scanline at vertical coordinate `y`.
+    ///
+    /// The inputs `y0`, `y1`, and `y2` are the sorted vertex y-coordinates
+    /// (`y0 <= y1 <= y2`), and `total_height` is the total height of the
+    /// triangle (`y2 - y0`) as a floating-point value. The method determines
+    /// whether the scanline is in the top or bottom half of the triangle,
+    /// calculates the corresponding segment height, and derives the `alpha`
+    /// (long edge) and `beta` (short edge) interpolation factors.
+    ///
+    /// Returns `None` if the relevant segment height is zero (i.e. the
+    /// corresponding top or bottom portion of the triangle degenerates to a
+    /// horizontal line), in which case no interpolation step is needed.
     #[inline(always)]
     fn new(y: i32, y0: i32, y1: i32, y2: i32, total_height: f32) -> Option<Self> {
         let second_half = y > y1 || y1 == y0;
