@@ -282,8 +282,7 @@ impl Mat4 {
         }
     }
 
-    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
-    pub fn mul(&self, other: &Mat4) -> Mat4 {
+    fn mul_internal(&self, other: &Mat4) -> Mat4 {
         let mut result = Mat4 { m: [[0.0; 4]; 4] };
         for i in 0..4 {
             for j in 0..4 {
@@ -294,6 +293,11 @@ impl Mat4 {
             }
         }
         result
+    }
+
+    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
+    pub fn mul(&self, other: &Mat4) -> Mat4 {
+        self.mul_internal(other)
     }
 
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
@@ -317,8 +321,7 @@ impl Mul for Mat4 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        #[allow(deprecated)]
-        Mat4::mul(&self, &rhs)
+        self.mul_internal(&rhs)
     }
 }
 
@@ -326,17 +329,15 @@ impl Mul<&Mat4> for Mat4 {
     type Output = Self;
 
     fn mul(self, rhs: &Mat4) -> Self {
-        #[allow(deprecated)]
-        Mat4::mul(&self, rhs)
+        self.mul_internal(rhs)
     }
 }
 
-impl Mul for &Mat4 {
+impl Mul<&Mat4> for &Mat4 {
     type Output = Mat4;
 
-    fn mul(self, rhs: Self) -> Mat4 {
-        #[allow(deprecated)]
-        Mat4::mul(self, rhs)
+    fn mul(self, rhs: &Mat4) -> Mat4 {
+        self.mul_internal(rhs)
     }
 }
 
@@ -344,7 +345,6 @@ impl Mul<Mat4> for &Mat4 {
     type Output = Mat4;
 
     fn mul(self, rhs: Mat4) -> Mat4 {
-        #[allow(deprecated)]
-        Mat4::mul(self, &rhs)
+        self.mul_internal(&rhs)
     }
 }

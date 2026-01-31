@@ -2,9 +2,12 @@
 //!
 //! Functions for projecting and rasterizing 3D primitives (triangles) with shading.
 
+mod scanline;
+
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::math::Vec3;
+use crate::pipeline::scanline::ScanlineIter;
 use crate::zbuffer::ZBuffer;
 
 /// Project a 3D point to screen coordinates
@@ -49,25 +52,14 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    // Optimization: Clamp Y range to screen bounds
-    let y_min = 0;
-    let y_max = height as i32 - 1;
-    let y_start = y0.max(y_min);
-    let y_end = y2.min(y_max);
+    // Scanline iteration with clamping
+    let iter = ScanlineIter::new(y0, y1, y2, 0, height as i32 - 1);
 
-    for y in y_start..=y_end {
-        let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
-        if segment_height == 0 {
-            continue;
-        }
-
-        let alpha = (y - y0) as f32 / total_height as f32;
-        let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
-        } else {
-            (y - y0) as f32 / segment_height as f32
-        };
+    for step in iter {
+        let y = step.y;
+        let alpha = step.alpha;
+        let beta = step.beta;
+        let second_half = step.second_half;
 
         let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
         let mut az = z0 + (z2 - z0) * alpha;
@@ -224,24 +216,14 @@ pub fn fill_triangle_gouraud(
     let (x1, y1, z1, c1) = verts[1];
     let (x2, y2, z2, c2) = verts[2];
 
-    let total_height = y2 - y0;
-    if total_height == 0 {
-        return;
-    }
+    // Scanline iteration with clamping
+    let iter = ScanlineIter::new(y0, y1, y2, 0, height as i32 - 1);
 
-    for y in y0..=y2 {
-        let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
-        if segment_height == 0 {
-            continue;
-        }
-
-        let alpha = (y - y0) as f32 / total_height as f32;
-        let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
-        } else {
-            (y - y0) as f32 / segment_height as f32
-        };
+    for step in iter {
+        let y = step.y;
+        let alpha = step.alpha;
+        let beta = step.beta;
+        let second_half = step.second_half;
 
         // Interpolate position and color along edges
         let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
