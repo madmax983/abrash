@@ -1,7 +1,72 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::pipeline::{fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit};
+use abrash::pipeline::{
+    fill_triangle_3d, fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit,
+};
 use abrash::zbuffer::ZBuffer;
+
+#[test]
+fn test_fill_triangle_3d_precision() {
+    let mut fb = Framebuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100);
+
+    // NDC coordinates:
+    // V0: (0.0, 0.5) -> Screen (50, 25)
+    // V1: (-0.5, -0.5) -> Screen (25, 75)
+    // V2: (0.5, -0.5) -> Screen (75, 75)
+    // Z is 0.5 for all (constant depth)
+    let v0 = (Vec3::new(0.0, 0.5, 0.5), 1.0);
+    let v1 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
+    let v2 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
+
+    let color = 0xFFFFFFFF; // White
+
+    fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
+
+    // Check center pixel (inside the triangle)
+    assert_eq!(
+        fb.get_pixel(50, 50),
+        Some(color),
+        "Center pixel (50, 50) should be filled"
+    );
+    assert_eq!(
+        fb.get_pixel(50, 40),
+        Some(color),
+        "Pixel (50, 40) should be filled"
+    );
+    assert_eq!(
+        fb.get_pixel(50, 60),
+        Some(color),
+        "Pixel (50, 60) should be filled"
+    );
+
+    // Check corners (outside)
+    assert_eq!(
+        fb.get_pixel(0, 0),
+        Some(0xFF00_0000),
+        "Top-left pixel should be empty (black)"
+    );
+    assert_eq!(
+        fb.get_pixel(99, 99),
+        Some(0xFF00_0000),
+        "Bottom-right pixel should be empty (black)"
+    );
+
+    // Check near edges
+    // Top vertex is at (50, 25). (50, 24) should be empty.
+    assert_eq!(
+        fb.get_pixel(50, 24),
+        Some(0xFF00_0000),
+        "Pixel above top vertex should be empty"
+    );
+
+    // Bottom edge is at y=75. (50, 76) should be empty.
+    assert_eq!(
+        fb.get_pixel(50, 76),
+        Some(0xFF00_0000),
+        "Pixel below bottom edge should be empty"
+    );
+}
 
 #[test]
 fn test_fill_triangle_flat_basic() {

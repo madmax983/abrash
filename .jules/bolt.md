@@ -8,3 +8,6 @@
 
 **Learning:** Windows-specific crates break `cargo bench` on Linux.
 **Action:** Provide dummy implementations for platform-specific modules behind `#[cfg(not(target_os = "windows"))]` to allow CI/benchmarking to run everywhere.
+
+**Learning:** Replacing per-scanline division with incremental addition improves performance for small triangles but can regress large triangles due to setup overhead or instruction cache/inlining issues.
+**Action:** Always verify both small and large inputs. Ensure hot inner loop functions (like `test_and_set_unchecked`) are `#[inline]`'d when changing the call site structure.

@@ -34,6 +34,13 @@ pub fn fill_triangle_3d(
     let width = fb.width();
     let height = fb.height();
 
+    assert_eq!(width, zb.width(), "Framebuffer and ZBuffer width must match");
+    assert_eq!(
+        height,
+        zb.height(),
+        "Framebuffer and ZBuffer height must match"
+    );
+
     // Project to screen
     let (x0, y0, z0) = project_to_screen(v0.0, v0.1, width, height);
     let (x1, y1, z1) = project_to_screen(v1.0, v1.1, width, height);
@@ -49,86 +56,126 @@ pub fn fill_triangle_3d(
         return;
     }
 
+    // Slopes for long edge (v0 -> v2)
+    let inv_total_height = 1.0 / total_height as f32;
+    let dx_long = (x2 - x0) as f32 * inv_total_height;
+    let dz_long = (z2 - z0) * inv_total_height;
+
+    // Determine short edge slopes
+    let height01 = y1 - y0;
+    let (dx01, dz01) = if height01 > 0 {
+        let inv = 1.0 / height01 as f32;
+        ((x1 - x0) as f32 * inv, (z1 - z0) * inv)
+    } else {
+        (0.0, 0.0)
+    };
+
+    let height12 = y2 - y1;
+    let (dx12, dz12) = if height12 > 0 {
+        let inv = 1.0 / height12 as f32;
+        ((x2 - x1) as f32 * inv, (z2 - z1) * inv)
+    } else {
+        (0.0, 0.0)
+    };
+
     // Optimization: Clamp Y range to screen bounds
     let y_min = 0;
     let y_max = height as i32 - 1;
     let y_start = y0.max(y_min);
     let y_end = y2.min(y_max);
 
+    if y_start > y_end {
+        return;
+    }
+
+    // Initialize accumulators
+    // ax, az follow the long edge (v0 -> v2)
+    let dy_start = (y_start - y0) as f32;
+    let mut ax = x0 as f32 + dx_long * dy_start;
+    let mut az = z0 + dz_long * dy_start;
+
+    // bx, bz follow the short edges
+    let mut bx;
+    let mut bz;
+    let mut dx_short;
+    let mut dz_short;
+
+    // Check if we start in the second half immediately
+    if y_start > y1 || y1 == y0 {
+        let dy = (y_start - y1) as f32;
+        bx = x1 as f32 + dx12 * dy;
+        bz = z1 + dz12 * dy;
+        dx_short = dx12;
+        dz_short = dz12;
+    } else {
+        let dy = (y_start - y0) as f32;
+        bx = x0 as f32 + dx01 * dy;
+        bz = z0 + dz01 * dy;
+        dx_short = dx01;
+        dz_short = dz01;
+    }
+
     for y in y_start..=y_end {
-        let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
-        if segment_height == 0 {
-            continue;
+        let mut x_start = ax as i32;
+        let mut x_end = bx as i32;
+        let mut z_start = az;
+        let mut z_end = bz;
+
+        if x_start > x_end {
+            std::mem::swap(&mut x_start, &mut x_end);
+            std::mem::swap(&mut z_start, &mut z_end);
         }
-
-        let alpha = (y - y0) as f32 / total_height as f32;
-        let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
-        } else {
-            (y - y0) as f32 / segment_height as f32
-        };
-
-        let mut ax = x0 as f32 + (x2 - x0) as f32 * alpha;
-        let mut az = z0 + (z2 - z0) * alpha;
-
-        let (mut bx, mut bz) = if second_half {
-            (x1 as f32 + (x2 - x1) as f32 * beta, z1 + (z2 - z1) * beta)
-        } else {
-            (x0 as f32 + (x1 - x0) as f32 * beta, z0 + (z1 - z0) * beta)
-        };
-
-        if ax > bx {
-            std::mem::swap(&mut ax, &mut bx);
-            std::mem::swap(&mut az, &mut bz);
-        }
-
-        let x_start = ax as i32;
-        let x_end = bx as i32;
 
         let dx = x_end - x_start;
-        let dz = bz - az;
+        let dz = z_end - z_start;
 
-        // Handle single pixel or invalid width
-        if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
-                fb.set_pixel(x_start, y, color);
+        if dx > 0 {
+            let dz_dx = dz / dx as f32;
+            let mut z = z_start;
+
+            let mut xs = x_start;
+            let mut xe = x_end;
+
+            if xs < 0 {
+                z += (-xs) as f32 * dz_dx;
+                xs = 0;
             }
-            continue;
-        }
 
-        // Optimization: Pre-calculate Z increment per pixel
-        let dz_dx = dz / dx as f32;
-        let mut z = az;
+            if xe >= width as i32 {
+                xe = width as i32 - 1;
+            }
 
-        // Clamp X range to screen bounds
-        let mut xs = x_start;
-        let mut xe = x_end;
-
-        if xs < 0 {
-            // Advance z if we start off-screen
-            z += (-xs) as f32 * dz_dx;
-            xs = 0;
-        }
-
-        if xe >= width as i32 {
-            xe = width as i32 - 1;
-        }
-
-        if xs > xe {
-            continue;
-        }
-
-        // Optimization: Use unchecked access in hot loop since bounds are clamped
-        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
-        unsafe {
-            let y_idx = y as usize;
-            for xi in xs..=xe {
-                if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(xi as usize, y_idx, color);
+            if xs <= xe {
+                // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+                unsafe {
+                    let y_idx = y as usize;
+                    for xi in xs..=xe {
+                        if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
+                            fb.set_pixel_unchecked(xi as usize, y_idx, color);
+                        }
+                        z += dz_dx;
+                    }
                 }
-                z += dz_dx;
             }
+        } else if dx == 0
+            && x_start >= 0
+            && x_start < width as i32
+            && zb.test_and_set(x_start, y, z_start)
+        {
+            fb.set_pixel(x_start, y, color);
+        }
+
+        // Increment for next scanline
+        ax += dx_long;
+        az += dz_long;
+        bx += dx_short;
+        bz += dz_short;
+
+        if y == y1 && y1 != y0 {
+            dx_short = dx12;
+            dz_short = dz12;
+            bx = x1 as f32 + dx_short;
+            bz = z1 + dz_short;
         }
     }
 }
