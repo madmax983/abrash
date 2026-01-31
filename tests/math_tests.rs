@@ -110,6 +110,17 @@ fn test_mat4_identity() {
 }
 
 #[test]
+fn test_mat4_default() {
+    let m = Mat4::default();
+    // Identity matrix check
+    assert_eq!(m.m[0][0], 1.0);
+    assert_eq!(m.m[1][1], 1.0);
+    assert_eq!(m.m[2][2], 1.0);
+    assert_eq!(m.m[3][3], 1.0);
+    assert_eq!(m.m[0][1], 0.0); // Check a non-diagonal element
+}
+
+#[test]
 fn test_mat4_translation() {
     let m = Mat4::translation(10.0, 20.0, 30.0);
     let v = Vec3::new(1.0, 2.0, 3.0);
@@ -127,6 +138,23 @@ fn test_mat4_scale() {
     assert!((result.x - 2.0).abs() < 0.001);
     assert!((result.y - 3.0).abs() < 0.001);
     assert!((result.z - 4.0).abs() < 0.001);
+}
+
+#[test]
+fn test_mat4_mul_operator() {
+    let t = Mat4::translation(1.0, 2.0, 3.0);
+    let s = Mat4::scale(2.0, 2.0, 2.0);
+
+    // Scale then Translate: v * S * T
+    let result = s * t;
+
+    let v = Vec3::new(1.0, 1.0, 1.0);
+    let (transformed, _) = result.transform_point(v);
+
+    // Scale first (1,1,1) -> (2,2,2), then translate -> (3,4,5)
+    assert_eq!(transformed.x, 3.0);
+    assert_eq!(transformed.y, 4.0);
+    assert_eq!(transformed.z, 5.0);
 }
 
 #[test]

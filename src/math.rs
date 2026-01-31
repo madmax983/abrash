@@ -98,7 +98,7 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    #[deprecated(since = "0.1.0", note = "Use Default::default() instead")]
+    #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
     pub fn zero() -> Self {
         Self::default()
     }
@@ -272,7 +272,7 @@ impl Mat4 {
         }
     }
 
-    #[deprecated(since = "0.1.0", note = "Use * operator instead")]
+    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
     pub fn mul(&self, other: &Mat4) -> Mat4 {
         *self * *other
     }
