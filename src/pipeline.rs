@@ -379,13 +379,17 @@ pub fn fill_triangle_gouraud(
             continue;
         }
 
-        // Use safe access (bounds checked, but loop invariant optimization still applies)
-        for x in xs..=xe {
-            if zb.test_and_set(x, y, z) {
-                fb.set_pixel(x, y, color_to_u32(c));
+        // Optimization: Use unchecked access in hot loop since bounds are clamped
+        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+        unsafe {
+            let y_idx = y as usize;
+            for x in xs..=xe {
+                if zb.test_and_set_unchecked(x as usize, y_idx, z) {
+                    fb.set_pixel_unchecked(x as usize, y_idx, color_to_u32(c));
+                }
+                z += dz_dx;
+                c = c + dc_dx;
             }
-            z += dz_dx;
-            c = c + dc_dx;
         }
     }
 }
