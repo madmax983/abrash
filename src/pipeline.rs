@@ -66,17 +66,22 @@ impl ScanlineStep {
     #[inline(always)]
     fn new(y: i32, y0: i32, y1: i32, y2: i32, total_height: f32) -> Option<Self> {
         let second_half = y > y1 || y1 == y0;
-        let segment_height = if second_half { y2 - y1 } else { y1 - y0 };
+        // Use i64 to prevent overflow during subtraction
+        let segment_height = if second_half {
+            (y2 as i64) - (y1 as i64)
+        } else {
+            (y1 as i64) - (y0 as i64)
+        };
 
         if segment_height == 0 {
             return None;
         }
 
-        let alpha = (y - y0) as f32 / total_height;
+        let alpha = ((y as i64) - (y0 as i64)) as f32 / total_height;
         let beta = if second_half {
-            (y - y1) as f32 / segment_height as f32
+            ((y as i64) - (y1 as i64)) as f32 / segment_height as f32
         } else {
-            (y - y0) as f32 / segment_height as f32
+            ((y as i64) - (y0 as i64)) as f32 / segment_height as f32
         };
 
         Some(Self {
@@ -157,8 +162,9 @@ pub fn fill_triangle_3d(
     sort_by_y(&mut verts, |p| p.y);
     let [p0, p1, p2] = verts;
 
-    let total_height = p2.y - p0.y;
-    if total_height == 0 {
+    // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
+    let total_height = (p2.y as i64 - p0.y as i64) as f32;
+    if total_height == 0.0 {
         return;
     }
 
@@ -169,7 +175,7 @@ pub fn fill_triangle_3d(
     let y_end = p2.y.min(y_max);
 
     for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height as f32) else {
+        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height) else {
             continue;
         };
 
@@ -296,8 +302,8 @@ pub fn fill_triangle_gouraud(
     sort_by_y(&mut verts, |(p, _)| p.y);
     let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
-    let total_height = p2.y - p0.y;
-    if total_height == 0 {
+    let total_height = (p2.y as i64 - p0.y as i64) as f32;
+    if total_height == 0.0 {
         return;
     }
 
@@ -311,7 +317,7 @@ pub fn fill_triangle_gouraud(
     }
 
     for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height as f32) else {
+        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height) else {
             continue;
         };
 
