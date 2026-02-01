@@ -98,11 +98,6 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
-    pub fn zero() -> Self {
-        Self::default()
-    }
-
     pub fn dot(&self, other: Vec3) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
@@ -270,11 +265,6 @@ impl Mat4 {
                 [-s.dot(eye), -u.dot(eye), f.dot(eye), 1.0],
             ],
         }
-    }
-
-    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
-    pub fn mul(&self, other: &Mat4) -> Mat4 {
-        *self * *other
     }
 
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {

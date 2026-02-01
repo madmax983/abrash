@@ -7,33 +7,9 @@ use windows_sys::Win32::System::LibraryLoader::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 use crate::framebuffer::Framebuffer;
+use super::{Event, WindowError};
 
 const WINDOW_CLASS_NAME: &str = "AbrashWindowClass\0";
-
-/// Window events
-#[derive(Debug, Clone)]
-pub enum Event {
-    Close,
-    Resize(u32, u32),
-}
-
-/// Error types for window operations
-#[derive(Debug)]
-pub enum WindowError {
-    RegistrationFailed,
-    CreationFailed,
-}
-
-impl std::fmt::Display for WindowError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WindowError::RegistrationFailed => write!(f, "Failed to register window class"),
-            WindowError::CreationFailed => write!(f, "Failed to create window"),
-        }
-    }
-}
-
-impl std::error::Error for WindowError {}
 
 /// Win32 window handle wrapper
 pub struct Window {
