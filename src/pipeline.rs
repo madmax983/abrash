@@ -49,11 +49,23 @@ fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
 }
 
 /// Helper to sort 3 vertices by Y coordinate
+///
+/// Optimization: Uses a manual sorting network to avoid the heap allocation
+/// incurred by `slice::sort_by_key` for small arrays.
 fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F)
 where
     F: Fn(&T) -> i32,
 {
-    verts.sort_by_key(|a| get_y(a));
+    // Manual 3-step sort to avoid allocation
+    if get_y(&verts[0]) > get_y(&verts[1]) {
+        verts.swap(0, 1);
+    }
+    if get_y(&verts[1]) > get_y(&verts[2]) {
+        verts.swap(1, 2);
+    }
+    if get_y(&verts[0]) > get_y(&verts[1]) {
+        verts.swap(0, 1);
+    }
 }
 
 struct ScanlineStep {
