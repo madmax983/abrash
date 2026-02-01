@@ -127,6 +127,17 @@ pub fn fill_triangle_3d(
     v2: (Vec3, f32),
     color: u32,
 ) {
+    assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
+    assert_eq!(
+        fb.height(),
+        zb.height(),
+        "Framebuffer and ZBuffer heights must match"
+    );
+
     let width = fb.width();
     let height = fb.height();
 
@@ -260,6 +271,17 @@ pub fn fill_triangle_gouraud(
     v1: ((Vec3, f32), Vec3),
     v2: ((Vec3, f32), Vec3),
 ) {
+    assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
+    assert_eq!(
+        fb.height(),
+        zb.height(),
+        "Framebuffer and ZBuffer heights must match"
+    );
+
     let width = fb.width();
     let height = fb.height();
 
