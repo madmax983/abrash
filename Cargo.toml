@@ -62,3 +62,7 @@ harness = false
 [[bench]]
 name = "texture"
 harness = false
+
+[[bench]]
+name = "simd"
+harness = false

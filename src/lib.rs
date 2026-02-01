@@ -5,6 +5,7 @@ pub mod mesh;
 pub mod platform;
 pub mod primitives;
 pub mod shapes;
+pub mod simd;
 pub mod texture;
 pub mod time;
 pub mod zbuffer;
