@@ -14,6 +14,21 @@ struct ScreenPoint {
     z: f32,
 }
 
+/// Helper to ensure buffer dimensions match
+#[inline]
+fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
+    assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
+    assert_eq!(
+        fb.height(),
+        zb.height(),
+        "Framebuffer and ZBuffer heights must match"
+    );
+}
+
 /// Project a 3D point to screen coordinates
 fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
     // Perspective divide
@@ -127,6 +142,8 @@ pub fn fill_triangle_3d(
     v2: (Vec3, f32),
     color: u32,
 ) {
+    assert_same_dimensions(fb, zb);
+
     let width = fb.width();
     let height = fb.height();
 
@@ -260,6 +277,8 @@ pub fn fill_triangle_gouraud(
     v1: ((Vec3, f32), Vec3),
     v2: ((Vec3, f32), Vec3),
 ) {
+    assert_same_dimensions(fb, zb);
+
     let width = fb.width();
     let height = fb.height();
 
