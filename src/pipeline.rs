@@ -274,6 +274,15 @@ pub fn fill_triangle_lit(
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 
+/// Helper for fast color packing using saturating casts.
+#[inline(always)]
+fn pack_color_fast(c: Vec3) -> u32 {
+    let r = c.x as u8;
+    let g = c.y as u8;
+    let b = c.z as u8;
+    0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+}
+
 /// Fill a 3D triangle with Gouraud (per-vertex) shading
 /// Each vertex has a position (clip space + w) and color
 pub fn fill_triangle_gouraud(
@@ -293,9 +302,11 @@ pub fn fill_triangle_gouraud(
     let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
     let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
 
-    let c0 = v0.1;
-    let c1 = v1.1;
-    let c2 = v2.1;
+    // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
+    // allowing us to skip clamp/mul per pixel
+    let c0 = v0.1 * 255.0;
+    let c1 = v1.1 * 255.0;
+    let c2 = v2.1 * 255.0;
 
     // Sort by y
     let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
@@ -352,7 +363,7 @@ pub fn fill_triangle_gouraud(
         let dx = x_end - x_start;
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
-                fb.set_pixel(x_start, y, color_to_u32(ac));
+                fb.set_pixel(x_start, y, pack_color_fast(ac));
             }
             continue;
         }
@@ -391,7 +402,7 @@ pub fn fill_triangle_gouraud(
             let y_idx = y as usize;
             for x in xs..=xe {
                 if zb.test_and_set_unchecked(x as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(x as usize, y_idx, color_to_u32(c));
+                    fb.set_pixel_unchecked(x as usize, y_idx, pack_color_fast(c));
                 }
                 z += dz_dx;
                 c = c + dc_dx;
