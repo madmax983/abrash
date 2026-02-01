@@ -1,7 +1,29 @@
 //! 2D and 3D math types for graphics programming.
 //!
-//! Provides vector and matrix types with basic operations.
-//! All operations use f32 for compatibility with graphics APIs.
+//! # Coordinate System
+//!
+//! This library uses a **Right-Handed** coordinate system.
+//! *   **X**: Right
+//! *   **Y**: Up
+//! *   **Z**: Backward (Camera looks down -Z)
+//!
+//! # Matrix Convention
+//!
+//! Matrices are stored in **Row-Major** order.
+//!
+//! Transformations follow the **Row-Vector** convention ($v \cdot M$), meaning vectors are treated as rows and multiplied on the left.
+//!
+//! $$ v' = v \cdot M $$
+//!
+//! This implies that the order of multiplication matches the order of transformations:
+//!
+//! ```text
+//! // Scale, then Rotate, then Translate
+//! let M = Scale * Rotation * Translation;
+//! let v_prime = v * M;
+//! ```
+//!
+//! All operations use `f32` for compatibility with graphics APIs.
 
 use std::ops::{Add, Mul, Sub};
 
@@ -85,7 +107,16 @@ impl Mat2 {
     }
 }
 
-/// 3D vector
+/// A 3-component vector commonly used for positions, directions, and colors.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec3;
+///
+/// let v = Vec3::new(1.0, 2.0, 3.0);
+/// assert_eq!(v.x, 1.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
     pub x: f32,
@@ -94,19 +125,31 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    /// Creates a new vector.
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
     #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
+    #[doc(hidden)]
     pub fn zero() -> Self {
         Self::default()
     }
 
+    /// Calculates the dot product with another vector.
+    ///
+    /// The dot product represents the projection of one vector onto another.
+    /// *   Positive if pointing in similar direction.
+    /// *   Zero if perpendicular.
+    /// *   Negative if pointing in opposite directions.
     pub fn dot(&self, other: Vec3) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    /// Calculates the cross product with another vector.
+    ///
+    /// Returns a vector perpendicular to both input vectors.
+    /// Useful for calculating surface normals.
     pub fn cross(&self, other: Vec3) -> Vec3 {
         Vec3 {
             x: self.y * other.z - self.z * other.y,
@@ -115,10 +158,31 @@ impl Vec3 {
         }
     }
 
+    /// Calculates the Euclidean length (magnitude) of the vector.
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    /// Returns a normalized unit vector (length of 1.0).
+    ///
+    /// # Behavior for Small Vectors
+    ///
+    /// If the vector's length is less than `0.0001`, this function returns
+    /// the original vector unchanged to avoid division by zero or precision issues.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let v = Vec3::new(0.0, 3.0, 4.0); // Length is 5
+    /// let n = v.normalize();
+    /// assert_eq!(n, Vec3::new(0.0, 0.6, 0.8));
+    ///
+    /// // Small vector behavior
+    /// let tiny = Vec3::new(0.00001, 0.0, 0.0);
+    /// assert_eq!(tiny.normalize(), tiny);
+    /// ```
     pub fn normalize(&self) -> Vec3 {
         let len = self.length();
         if len > 0.0001 {
@@ -166,13 +230,16 @@ impl Mul<f32> for Vec3 {
     }
 }
 
-/// 4x4 transformation matrix
+/// A 4x4 transformation matrix used for 3D graphics.
+///
+/// stored in **Row-Major** order.
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
 }
 
 impl Mat4 {
+    /// Returns the identity matrix.
     pub fn identity() -> Self {
         Self {
             m: [
@@ -184,6 +251,13 @@ impl Mat4 {
         }
     }
 
+    /// Creates a translation matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Translation along the X axis.
+    /// * `y` - Translation along the Y axis.
+    /// * `z` - Translation along the Z axis.
     pub fn translation(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
@@ -195,6 +269,7 @@ impl Mat4 {
         }
     }
 
+    /// Creates a scaling matrix.
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
@@ -206,6 +281,9 @@ impl Mat4 {
         }
     }
 
+    /// Creates a rotation matrix around the X axis.
+    ///
+    /// * `angle` - The angle in radians.
     pub fn rotation_x(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -219,6 +297,9 @@ impl Mat4 {
         }
     }
 
+    /// Creates a rotation matrix around the Y axis.
+    ///
+    /// * `angle` - The angle in radians.
     pub fn rotation_y(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -232,6 +313,9 @@ impl Mat4 {
         }
     }
 
+    /// Creates a rotation matrix around the Z axis.
+    ///
+    /// * `angle` - The angle in radians.
     pub fn rotation_z(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -245,6 +329,14 @@ impl Mat4 {
         }
     }
 
+    /// Creates a perspective projection matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `fov` - Vertical field of view in radians.
+    /// * `aspect` - Aspect ratio (width / height).
+    /// * `near` - Distance to near clipping plane.
+    /// * `far` - Distance to far clipping plane.
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
         let nf = 1.0 / (near - far);
@@ -258,6 +350,11 @@ impl Mat4 {
         }
     }
 
+    /// Creates a View matrix (LookAt) for a camera.
+    ///
+    /// * `eye` - Position of the camera.
+    /// * `target` - Point the camera is looking at.
+    /// * `up` - The "up" direction in the world (usually Y-up).
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
         let s = f.cross(up).normalize();
@@ -273,10 +370,15 @@ impl Mat4 {
     }
 
     #[deprecated(since = "0.1.1", note = "Use * operator instead")]
+    #[doc(hidden)]
     pub fn mul(&self, other: &Mat4) -> Mat4 {
         *self * *other
     }
 
+    /// Transforms a point by this matrix.
+    ///
+    /// Returns a tuple `(transformed_point, w_component)`.
+    /// The `w` component is used for perspective division.
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
         let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
@@ -285,7 +387,9 @@ impl Mat4 {
         (Vec3::new(x, y, z), w)
     }
 
-    /// Transform a normal vector (ignores translation, uses upper-left 3x3)
+    /// Transform a normal vector (ignores translation, uses upper-left 3x3).
+    ///
+    /// This is essential for correct lighting calculations after transformation.
     pub fn transform_normal(&self, n: Vec3) -> Vec3 {
         let x = self.m[0][0] * n.x + self.m[1][0] * n.y + self.m[2][0] * n.z;
         let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
