@@ -343,19 +343,49 @@ pub fn fill_triangle_gouraud(
         let x_start = ax as i32;
         let x_end = bx as i32;
 
-        for x in x_start..=x_end {
-            let t = if (x_end - x_start) > 0 {
-                (x - x_start) as f32 / (x_end - x_start) as f32
-            } else {
-                0.0
-            };
-
-            let z = az + (bz - az) * t;
-            let color = ac + (bc - ac) * t;
-
-            if zb.test_and_set(x, y, z) {
-                fb.set_pixel(x, y, color_to_u32(color));
+        let dx = x_end - x_start;
+        if dx <= 0 {
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
+                fb.set_pixel(x_start, y, color_to_u32(ac));
             }
+            continue;
+        }
+
+        let dz = bz - az;
+        let dc = bc - ac;
+
+        let inv_dx = 1.0 / dx as f32;
+        let dz_dx = dz * inv_dx;
+        let dc_dx = dc * inv_dx;
+
+        let mut xs = x_start;
+        let mut xe = x_end;
+        let mut z = az;
+        let mut c = ac;
+
+        // Clamp to screen bounds
+        if xs < 0 {
+            let diff = -xs as f32;
+            z += diff * dz_dx;
+            c = c + dc_dx * diff;
+            xs = 0;
+        }
+
+        if xe >= width as i32 {
+            xe = width as i32 - 1;
+        }
+
+        if xs > xe {
+            continue;
+        }
+
+        // Use safe access (bounds checked, but loop invariant optimization still applies)
+        for x in xs..=xe {
+            if zb.test_and_set(x, y, z) {
+                fb.set_pixel(x, y, color_to_u32(c));
+            }
+            z += dz_dx;
+            c = c + dc_dx;
         }
     }
 }
