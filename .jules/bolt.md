@@ -8,3 +8,7 @@
 
 **Learning:** Windows-specific crates break `cargo bench` on Linux.
 **Action:** Provide dummy implementations for platform-specific modules behind `#[cfg(not(target_os = "windows"))]` to allow CI/benchmarking to run everywhere.
+
+**[Rasterization Optimization]
+**Learning:** Hoisting division out of inner loops (incremental gradients) yields massive gains (37%). Removing bounds checks (`unsafe`) yields diminishing returns (additional ~10%) and carries high risk.
+**Action:** Always optimize algorithm complexity (division -> addition) before reaching for `unsafe`.

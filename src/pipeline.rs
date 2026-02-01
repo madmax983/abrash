@@ -343,19 +343,47 @@ pub fn fill_triangle_gouraud(
         let x_start = ax as i32;
         let x_end = bx as i32;
 
-        for x in x_start..=x_end {
-            let t = if (x_end - x_start) > 0 {
-                (x - x_start) as f32 / (x_end - x_start) as f32
-            } else {
-                0.0
-            };
-
-            let z = az + (bz - az) * t;
-            let color = ac + (bc - ac) * t;
-
-            if zb.test_and_set(x, y, z) {
-                fb.set_pixel(x, y, color_to_u32(color));
+        let dx = x_end - x_start;
+        if dx <= 0 {
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
+                fb.set_pixel(x_start, y, color_to_u32(ac));
             }
+            continue;
+        }
+
+        let dz_dx = (bz - az) / dx as f32;
+        let dcolor_dx = (bc - ac) * (1.0 / dx as f32);
+
+        // Clamp X range to screen bounds
+        let mut xs = x_start;
+        let mut xe = x_end;
+        let mut z = az;
+        let mut color = ac;
+        let w_i32 = width as i32;
+
+        if xs < 0 {
+            let diff = -xs as f32;
+            z += diff * dz_dx;
+            color = color + dcolor_dx * diff;
+            xs = 0;
+        }
+
+        if xe >= w_i32 {
+            xe = w_i32 - 1;
+        }
+
+        if xs > xe {
+            continue;
+        }
+
+        // Optimization: Bounds are clamped, so we could use unchecked access,
+        // but we stick to safe methods to avoid unsafe blocks.
+        for xi in xs..=xe {
+            if zb.test_and_set(xi, y, z) {
+                fb.set_pixel(xi, y, color_to_u32(color));
+            }
+            z += dz_dx;
+            color = color + dcolor_dx;
         }
     }
 }
