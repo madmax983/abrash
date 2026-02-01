@@ -282,7 +282,16 @@ pub fn fill_triangle_gouraud(
         return;
     }
 
-    for y in p0.y..=p2.y {
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = p0.y.max(y_min);
+    let y_end = p2.y.min(y_max);
+
+    if y_start > y_end {
+        return;
+    }
+
+    for y in y_start..=y_end {
         let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height as f32) else {
             continue;
         };
