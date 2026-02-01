@@ -12,3 +12,7 @@
 **[Safe vs Unsafe Optimization]**
 **Learning:** Replacing per-pixel division with incremental addition yielded ~49% speedup (unsafe) vs ~32% speedup (safe) in `fill_triangle_gouraud`. The cost of bounds checking is measurable (~1.2ms regression vs unsafe) but the algorithmic win dominates.
 **Action:** Prefer algorithmic optimizations (hoisting invariants) first. Only resort to `unsafe` if the remaining overhead (bounds checks) is the primary bottleneck and strictly necessary.
+
+**[Sorting Allocation]**
+**Learning:** `slice::sort_by_key` allocates temporary storage even for tiny slices, which is costly in hot paths like triangle setup.
+**Action:** Use manual sorting networks (swaps) for fixed-size small arrays (e.g., 3 vertices) to ensure zero allocation.
