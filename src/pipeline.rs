@@ -7,8 +7,15 @@ use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::math::Vec3;
 use crate::zbuffer::ZBuffer;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ScreenPoint {
+    x: i32,
+    y: i32,
+    z: f32,
+}
+
 /// Project a 3D point to screen coordinates
-fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> (i32, i32, f32) {
+fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -19,7 +26,19 @@ fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> (i32, i32, f32
     let screen_x = ((ndc_x + 1.0) * 0.5 * width as f32) as i32;
     let screen_y = ((1.0 - ndc_y) * 0.5 * height as f32) as i32; // Flip Y
 
-    (screen_x, screen_y, depth)
+    ScreenPoint {
+        x: screen_x,
+        y: screen_y,
+        z: depth,
+    }
+}
+
+/// Helper to sort 3 vertices by Y coordinate
+fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F)
+where
+    F: Fn(&T) -> i32,
+{
+    verts.sort_by_key(|a| get_y(a));
 }
 
 struct ScanlineStep {
@@ -53,6 +72,52 @@ impl ScanlineStep {
     }
 }
 
+/// Draw a single scanline for flat shading with Z-buffering
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_flat(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    let width = fb.width() as i32;
+    // Clamp X range to screen bounds
+    let mut xs = x_start;
+    let mut xe = x_end;
+    let mut z = z_start;
+
+    if xs < 0 {
+        // Advance z if we start off-screen
+        z += (-xs) as f32 * dz_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    // Optimization: Use unchecked access in hot loop since bounds are clamped
+    // SAFETY: xs and xe are clamped to [0, width-1]. y must be valid (caller responsibility).
+    unsafe {
+        let y_idx = y as usize;
+        for xi in xs..=xe {
+            if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
+                fb.set_pixel_unchecked(xi as usize, y_idx, color);
+            }
+            z += dz_dx;
+        }
+    }
+}
+
 /// Fill a 3D triangle with z-buffer test
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
@@ -66,16 +131,16 @@ pub fn fill_triangle_3d(
     let height = fb.height();
 
     // Project to screen
-    let (x0, y0, z0) = project_to_screen(v0.0, v0.1, width, height);
-    let (x1, y1, z1) = project_to_screen(v1.0, v1.1, width, height);
-    let (x2, y2, z2) = project_to_screen(v2.0, v2.1, width, height);
+    let p0 = project_to_screen(v0.0, v0.1, width, height);
+    let p1 = project_to_screen(v1.0, v1.1, width, height);
+    let p2 = project_to_screen(v2.0, v2.1, width, height);
 
     // Sort by y
-    let mut verts = [(x0, y0, z0), (x1, y1, z1), (x2, y2, z2)];
-    verts.sort_by(|a, b| a.1.cmp(&b.1));
-    let [(x0, y0, z0), (x1, y1, z1), (x2, y2, z2)] = verts;
+    let mut verts = [p0, p1, p2];
+    sort_by_y(&mut verts, |p| p.y);
+    let [p0, p1, p2] = verts;
 
-    let total_height = y2 - y0;
+    let total_height = p2.y - p0.y;
     if total_height == 0 {
         return;
     }
@@ -83,26 +148,26 @@ pub fn fill_triangle_3d(
     // Optimization: Clamp Y range to screen bounds
     let y_min = 0;
     let y_max = height as i32 - 1;
-    let y_start = y0.max(y_min);
-    let y_end = y2.min(y_max);
+    let y_start = p0.y.max(y_min);
+    let y_end = p2.y.min(y_max);
 
     for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, y0, y1, y2, total_height as f32) else {
+        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height as f32) else {
             continue;
         };
 
-        let mut ax = x0 as f32 + (x2 - x0) as f32 * step.alpha;
-        let mut az = z0 + (z2 - z0) * step.alpha;
+        let mut ax = p0.x as f32 + (p2.x - p0.x) as f32 * step.alpha;
+        let mut az = p0.z + (p2.z - p0.z) * step.alpha;
 
         let (mut bx, mut bz) = if step.second_half {
             (
-                x1 as f32 + (x2 - x1) as f32 * step.beta,
-                z1 + (z2 - z1) * step.beta,
+                p1.x as f32 + (p2.x - p1.x) as f32 * step.beta,
+                p1.z + (p2.z - p1.z) * step.beta,
             )
         } else {
             (
-                x0 as f32 + (x1 - x0) as f32 * step.beta,
-                z0 + (z1 - z0) * step.beta,
+                p0.x as f32 + (p1.x - p0.x) as f32 * step.beta,
+                p0.z + (p1.z - p0.z) * step.beta,
             )
         };
 
@@ -127,37 +192,8 @@ pub fn fill_triangle_3d(
 
         // Optimization: Pre-calculate Z increment per pixel
         let dz_dx = dz / dx as f32;
-        let mut z = az;
 
-        // Clamp X range to screen bounds
-        let mut xs = x_start;
-        let mut xe = x_end;
-
-        if xs < 0 {
-            // Advance z if we start off-screen
-            z += (-xs) as f32 * dz_dx;
-            xs = 0;
-        }
-
-        if xe >= width as i32 {
-            xe = width as i32 - 1;
-        }
-
-        if xs > xe {
-            continue;
-        }
-
-        // Optimization: Use unchecked access in hot loop since bounds are clamped
-        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
-        unsafe {
-            let y_idx = y as usize;
-            for xi in xs..=xe {
-                if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(xi as usize, y_idx, color);
-                }
-                z += dz_dx;
-            }
-        }
+        draw_scanline_flat(fb, zb, y, x_start, x_end, az, dz_dx, color);
     }
 }
 
@@ -228,44 +264,53 @@ pub fn fill_triangle_gouraud(
     let height = fb.height();
 
     // Project to screen
-    let (x0, y0, z0) = project_to_screen(v0.0.0, v0.0.1, width, height);
-    let (x1, y1, z1) = project_to_screen(v1.0.0, v1.0.1, width, height);
-    let (x2, y2, z2) = project_to_screen(v2.0.0, v2.0.1, width, height);
+    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
+    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
+    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
 
     let c0 = v0.1;
     let c1 = v1.1;
     let c2 = v2.1;
 
     // Sort by y
-    let mut verts = [(x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2)];
-    verts.sort_by(|a, b| a.1.cmp(&b.1));
-    let [(x0, y0, z0, c0), (x1, y1, z1, c1), (x2, y2, z2, c2)] = verts;
+    let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
+    sort_by_y(&mut verts, |(p, _)| p.y);
+    let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
-    let total_height = y2 - y0;
+    let total_height = p2.y - p0.y;
     if total_height == 0 {
         return;
     }
 
-    for y in y0..=y2 {
-        let Some(step) = ScanlineStep::new(y, y0, y1, y2, total_height as f32) else {
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = p0.y.max(y_min);
+    let y_end = p2.y.min(y_max);
+
+    if y_start > y_end {
+        return;
+    }
+
+    for y in y_start..=y_end {
+        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height as f32) else {
             continue;
         };
 
         // Interpolate position and color along edges
-        let mut ax = x0 as f32 + (x2 - x0) as f32 * step.alpha;
-        let mut az = z0 + (z2 - z0) * step.alpha;
+        let mut ax = p0.x as f32 + (p2.x - p0.x) as f32 * step.alpha;
+        let mut az = p0.z + (p2.z - p0.z) * step.alpha;
         let mut ac = c0 + (c2 - c0) * step.alpha;
 
         let (mut bx, mut bz, mut bc) = if step.second_half {
             (
-                x1 as f32 + (x2 - x1) as f32 * step.beta,
-                z1 + (z2 - z1) * step.beta,
+                p1.x as f32 + (p2.x - p1.x) as f32 * step.beta,
+                p1.z + (p2.z - p1.z) * step.beta,
                 c1 + (c2 - c1) * step.beta,
             )
         } else {
             (
-                x0 as f32 + (x1 - x0) as f32 * step.beta,
-                z0 + (z1 - z0) * step.beta,
+                p0.x as f32 + (p1.x - p0.x) as f32 * step.beta,
+                p0.z + (p1.z - p0.z) * step.beta,
                 c0 + (c1 - c0) * step.beta,
             )
         };
