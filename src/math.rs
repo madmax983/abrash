@@ -5,7 +5,7 @@
 
 use std::ops::{Add, Mul, Sub};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
@@ -86,7 +86,7 @@ impl Mat2 {
 }
 
 /// 3D vector
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -96,6 +96,11 @@ pub struct Vec3 {
 impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
+    }
+
+    #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
+    pub fn zero() -> Self {
+        Self::default()
     }
 
     pub fn dot(&self, other: Vec3) -> f32 {
@@ -277,6 +282,11 @@ impl Mat4 {
         }
     }
 
+    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
+    pub fn mul(&self, other: &Mat4) -> Mat4 {
+        *self * *other
+    }
+
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
         let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
@@ -294,46 +304,25 @@ impl Mat4 {
     }
 }
 
+impl Default for Mat4 {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
 impl Mul for Mat4 {
     type Output = Self;
 
-    #[allow(clippy::op_ref)]
-    fn mul(self, rhs: Self) -> Self {
-        &self * &rhs
-    }
-}
-
-impl Mul<&Mat4> for Mat4 {
-    type Output = Self;
-
-    #[allow(clippy::op_ref)]
-    fn mul(self, rhs: &Mat4) -> Self {
-        &self * rhs
-    }
-}
-
-impl Mul for &Mat4 {
-    type Output = Mat4;
-
-    fn mul(self, rhs: Self) -> Mat4 {
+    fn mul(self, other: Self) -> Self {
         let mut result = Mat4 { m: [[0.0; 4]; 4] };
         for i in 0..4 {
-            for j in 0..4 {
-                result.m[i][j] = self.m[i][0] * rhs.m[0][j]
-                    + self.m[i][1] * rhs.m[1][j]
-                    + self.m[i][2] * rhs.m[2][j]
-                    + self.m[i][3] * rhs.m[3][j];
+            for k in 0..4 {
+                let s = self.m[i][k];
+                for j in 0..4 {
+                    result.m[i][j] += s * other.m[k][j];
+                }
             }
         }
         result
-    }
-}
-
-impl Mul<Mat4> for &Mat4 {
-    type Output = Mat4;
-
-    #[allow(clippy::op_ref)]
-    fn mul(self, rhs: Mat4) -> Mat4 {
-        self * &rhs
     }
 }
