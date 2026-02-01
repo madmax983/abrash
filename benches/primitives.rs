@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec2;
-use abrash::primitives::{
+use abrash::rasterizer::{
     draw_circle, draw_hline, draw_line, draw_vline, fill_circle, fill_triangle, plot_pixel,
 };
 use abrash::shapes::Triangle;

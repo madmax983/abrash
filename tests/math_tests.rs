@@ -178,3 +178,37 @@ fn test_mat4_transform_normal() {
     assert!(result.y.abs() < 0.01);
     assert!(result.z.abs() < 0.01);
 }
+
+#[test]
+fn test_vec3_normalize_tiny() {
+    let v = Vec3::new(0.000001, 0.0, 0.0);
+    let n = v.normalize();
+    // Specific behavior of this math lib:
+    // If length < 0.0001, it returns the vector itself instead of normalizing or returning zero/NaN.
+    assert_eq!(n.x, 0.000001);
+}
+
+#[test]
+fn test_mat4_look_at_parallel() {
+    let eye = Vec3::new(0.0, 0.0, 0.0);
+    let target = Vec3::new(0.0, 0.0, -1.0);
+    // Up vector parallel to view direction (0, 0, -1)
+    let up = Vec3::new(0.0, 0.0, -1.0);
+
+    // This checks that it doesn't panic
+    let m = Mat4::look_at(eye, target, up);
+
+    // The result will be degenerate (likely zeros) but should be valid floats
+    assert!(!m.m[0][0].is_nan());
+}
+
+#[test]
+fn test_mat4_perspective_edge() {
+    use std::f32::consts::PI;
+    // Near = Far, should produce infinity/NaN in projection matrix
+    // because of division by (near - far)
+    let proj = Mat4::perspective(PI / 2.0, 1.0, 10.0, 10.0);
+
+    // Verify it doesn't crash, even if values are non-finite
+    assert!(proj.m[2][2].is_infinite() || proj.m[2][2].is_nan());
+}

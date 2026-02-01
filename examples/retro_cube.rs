@@ -1,7 +1,8 @@
-//! Abrash Graphics Demo - Lit 3D Cube
+//! Abrash Graphics Demo - Retro Cube
 //!
-//! Demonstrates flat shading with directional lighting.
+//! Demonstrates the post-processing effects.
 
+use abrash::experimental::post_process::{apply_grayscale, apply_scanlines};
 use abrash::framebuffer::Framebuffer;
 use abrash::light::{AmbientLight, DirectionalLight, u32_to_color};
 use abrash::math::{Mat4, Vec3};
@@ -26,7 +27,7 @@ const FACE_COLORS: [u32; 6] = [
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut window = Window::new("Abrash - Lit Cube", WIDTH, HEIGHT)?;
+    let mut window = Window::new("Abrash - Retro Cube", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT);
     let cube = Mesh::cube(1.5);
@@ -96,6 +97,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &sun,
             );
         }
+
+        // Apply Retro Effects
+        apply_grayscale(&mut framebuffer);
+        apply_scanlines(&mut framebuffer, 0.25);
 
         window.blit_framebuffer(&framebuffer);
     }

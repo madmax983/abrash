@@ -166,6 +166,16 @@ impl Mul<f32> for Vec3 {
     }
 }
 
+impl Default for Vec3 {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+}
+
 /// 4x4 transformation matrix
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
