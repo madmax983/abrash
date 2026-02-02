@@ -60,8 +60,8 @@ impl ParticleSystem {
     }
 
     pub fn render(&self, fb: &mut Framebuffer, zb: &mut ZBuffer, mvp: &Mat4) {
-        let width = fb.width() as f32;
-        let height = fb.height() as f32;
+        let width = fb.width();
+        let height = fb.height();
 
         for p in &self.particles {
             // Transform position
@@ -72,38 +72,30 @@ impl ParticleSystem {
                 continue;
             }
 
-            // Perspective divide
-            let inv_w = 1.0 / w;
-            let ndc_x = clip_pos.x * inv_w;
-            let ndc_y = clip_pos.y * inv_w;
-            let ndc_z = clip_pos.z * inv_w;
+            // Project
+            let sp = crate::pipeline::projection::project_to_screen(clip_pos, w, width, height);
 
-            // Frustum culling (simple)
-            if !(-1.0..=1.0).contains(&ndc_x)
-                || !(-1.0..=1.0).contains(&ndc_y)
-                || !(0.0..=1.0).contains(&ndc_z)
-            {
+            // Frustum culling (simple check on z/depth)
+            // project_to_screen returns depth in sp.z
+            // We want 0.0 <= depth <= 1.0
+            if !(0.0..=1.0).contains(&sp.z) {
                 continue;
             }
 
-            // Viewport transform
-            let screen_x = ((ndc_x + 1.0) * 0.5 * width) as i32;
-            let screen_y = ((1.0 - ndc_y) * 0.5 * height) as i32; // Flip Y
-
-            // Z-buffer test and set
-            // For a single point, we just check the exact pixel
-            if screen_x >= 0
-                && screen_x < fb.width() as i32
-                && screen_y >= 0
-                && screen_y < fb.height() as i32
+            // Screen bounds check
+            // project_to_screen output can be outside screen
+            if sp.x >= 0
+                && sp.x < width as i32
+                && sp.y >= 0
+                && sp.y < height as i32
             {
                 // Simple point rendering
-                if zb.test_and_set(screen_x, screen_y, ndc_z) {
+                if zb.test_and_set(sp.x, sp.y, sp.z) {
                     // Fade alpha based on life
                     let life_ratio = (p.life / p.max_life).clamp(0.0, 1.0);
                     // Fade to black as it dies
                     let faded_color = p.color * life_ratio;
-                    fb.set_pixel(screen_x, screen_y, color_to_u32(faded_color));
+                    fb.set_pixel(sp.x, sp.y, color_to_u32(faded_color));
                 }
             }
         }
