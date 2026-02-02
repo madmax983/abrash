@@ -53,24 +53,32 @@ struct ScanlineStep {
 
 impl ScanlineStep {
     #[inline(always)]
-    fn new(y: i32, y0: i32, y1: i32, y2: i32, total_height: f32) -> Option<Self> {
+    fn new(
+        y: i32,
+        y0: i32,
+        y1: i32,
+        inv_total_height: f32,
+        inv_segment_height1: f32,
+        inv_segment_height2: f32,
+    ) -> Option<Self> {
         let second_half = y > y1 || y1 == y0;
-        // Use i64 to prevent overflow during subtraction
-        let segment_height = if second_half {
-            (y2 as i64) - (y1 as i64)
+
+        let inv_segment_height = if second_half {
+            inv_segment_height2
         } else {
-            (y1 as i64) - (y0 as i64)
+            inv_segment_height1
         };
 
-        if segment_height == 0 {
+        // If inverse is 0.0, it means segment height was 0.
+        if inv_segment_height == 0.0 {
             return None;
         }
 
-        let alpha = ((y as i64) - (y0 as i64)) as f32 / total_height;
+        let alpha = ((y as i64) - (y0 as i64)) as f32 * inv_total_height;
         let beta = if second_half {
-            ((y as i64) - (y1 as i64)) as f32 / segment_height as f32
+            ((y as i64) - (y1 as i64)) as f32 * inv_segment_height
         } else {
-            ((y as i64) - (y0 as i64)) as f32 / segment_height as f32
+            ((y as i64) - (y0 as i64)) as f32 * inv_segment_height
         };
 
         Some(Self {
@@ -157,6 +165,13 @@ pub fn fill_triangle_3d(
         return;
     }
 
+    // Pre-calculate inverse heights to avoid division in the loop
+    let inv_total_height = 1.0 / total_height;
+    let h1 = (p1.y as i64 - p0.y as i64) as f32;
+    let inv_h1 = if h1 != 0.0 { 1.0 / h1 } else { 0.0 };
+    let h2 = (p2.y as i64 - p1.y as i64) as f32;
+    let inv_h2 = if h2 != 0.0 { 1.0 / h2 } else { 0.0 };
+
     // Optimization: Clamp Y range to screen bounds
     let y_min = 0;
     let y_max = height as i32 - 1;
@@ -164,7 +179,7 @@ pub fn fill_triangle_3d(
     let y_end = p2.y.min(y_max);
 
     for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height) else {
+        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, inv_total_height, inv_h1, inv_h2) else {
             continue;
         };
 
