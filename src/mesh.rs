@@ -10,13 +10,6 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new() -> Self {
-        Self {
-            vertices: Vec::new(),
-            indices: Vec::new(),
-        }
-    }
-
     /// Create a cube centered at origin
     pub fn cube(size: f32) -> Self {
         let h = size / 2.0;
@@ -116,8 +109,3 @@ impl Mesh {
     }
 }
 
-impl Default for Mesh {
-    fn default() -> Self {
-        Self::new()
-    }
-}

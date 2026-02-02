@@ -4,8 +4,6 @@ pub mod math;
 pub mod mesh;
 pub mod pipeline;
 pub mod platform;
-pub mod rasterizer;
-pub mod shapes;
 pub mod time;
 pub mod zbuffer;
 
