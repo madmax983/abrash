@@ -12,3 +12,8 @@
 **Concept:** A lightweight particle system for adding dynamic visual effects like fire, smoke, and magic.
 **Fate:** Merged
 **Lesson:** Independent rendering pipelines can add complexity (duplicated projection logic) but allow for specialized behavior.
+
+## [Mesh Modifiers]
+**Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
+**Fate:** In Progress
+**Lesson:** TBD
