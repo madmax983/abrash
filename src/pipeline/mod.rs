@@ -122,16 +122,26 @@ fn draw_scanline_flat(
         return;
     }
 
-    // Optimization: Use unchecked access in hot loop since bounds are clamped
-    // SAFETY: xs and xe are clamped to [0, width-1]. y must be valid (caller responsibility).
-    unsafe {
-        let y_idx = y as usize;
-        for xi in xs..=xe {
-            if zb.test_and_set_unchecked(xi as usize, y_idx, z) {
-                fb.set_pixel_unchecked(xi as usize, y_idx, color);
-            }
-            z += dz_dx;
+    // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+    debug_assert_eq!(fb.width(), zb.width(), "Framebuffer and ZBuffer widths must match");
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
+
+    // SAFETY:
+    // 1. xs and xe are clamped to [0, width-1] by the logic above.
+    // 2. y is clamped to [0, height-1] by the caller.
+    // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            *pixel = color;
         }
+        z += dz_dx;
     }
 }
 
