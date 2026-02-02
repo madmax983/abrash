@@ -11,7 +11,11 @@ pub struct Framebuffer {
 
 impl Framebuffer {
     pub fn new(width: u32, height: u32) -> Self {
-        let size = (width * height) as usize;
+        let size = (width as u64)
+            .checked_mul(height as u64)
+            .filter(|&s| s <= u32::MAX as u64)
+            .expect("Buffer size overflow") as usize;
+
         Self {
             pixels: vec![0xFF00_0000; size], // Black with full alpha
             width,
