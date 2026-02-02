@@ -24,3 +24,11 @@
 **[Scalar Replacement of Aggregates (SRA)]**
 **Learning:** Constructing structs (like `Vec3`) inside hot inner loops can prevent register allocation optimizations, even with inlining. Decomposing aggregates into scalar variables (`r, g, b` vs `Vec3`) in the inner loop yielded measurable improvement.
 **Action:** For extreme hot loops (pixel shaders), manually scalarize vector operations if benchmarks indicate a bottleneck.
+
+**[Integer Overflow in Geometry]**
+**Learning:** Screen coordinates (`i32`) can be extreme (e.g., `i32::MAX/MIN`) when vertices are projected from far off-screen. Simple subtraction `p1.x - p0.x` overflows and causes panics in debug mode (or wrapping in release).
+**Action:** Always cast screen coordinates to `i64` before subtraction when calculating gradients or edge spans: `(p1.x as i64 - p0.x as i64) as f32`.
+
+**[Zero-Cost Math Simplification]**
+**Learning:** Checking `x_long < x_other` to determine left/right edge involves division/multiplication. The sign of the 2D cross-product (`nz`) already computed for `dz/dx` gives the winding order and thus the side directly.
+**Action:** Reuse the cross-product Z-component sign (`nz > 0.0`) to determine `long_edge_is_left` without extra math.
