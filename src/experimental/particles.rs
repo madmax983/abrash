@@ -84,11 +84,7 @@ impl ParticleSystem {
 
             // Screen bounds check
             // project_to_screen output can be outside screen
-            if sp.x >= 0
-                && sp.x < width as i32
-                && sp.y >= 0
-                && sp.y < height as i32
-            {
+            if sp.x >= 0 && sp.x < width as i32 && sp.y >= 0 && sp.y < height as i32 {
                 // Simple point rendering
                 if zb.test_and_set(sp.x, sp.y, sp.z) {
                     // Fade alpha based on life
