@@ -7,3 +7,8 @@
 **Concept:** A z-buffer based fog effect that blends pixels with a fog color based on their depth.
 **Fate:** Merged
 **Lesson:** Simple post-processing can add significant depth to the scene using existing buffers.
+
+## [3D Particles]
+**Concept:** A lightweight particle system for adding dynamic visual effects like fire, smoke, and magic.
+**Fate:** Merged
+**Lesson:** Independent rendering pipelines can add complexity (duplicated projection logic) but allow for specialized behavior.
