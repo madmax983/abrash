@@ -7,3 +7,7 @@
 **[Pipeline Coordinates]**
 **Learning:** Pipeline functions like `fill_triangle_flat` accept homogeneous Clip Space coordinates `(Vec3, w)`, which are then projected to Screen Space. Tests for off-screen culling must provide Clip Space coordinates that project to off-screen pixels.
 **Action:** Calculate expected Screen Space coordinates manually when writing pipeline tests.
+
+**[Pipeline Coordinate Overflow]**
+**Learning:** Screen space coordinates can overflow `i32` when `w` is very small, causing panics in difference calculations like `p2.x - p0.x` or `attempt to negate with overflow`.
+**Action:** Cast screen coordinates to `i64` before subtraction and use proper parentheses `-(x as f32)` for negation.
