@@ -16,3 +16,7 @@
 **[Sorting Allocation]**
 **Learning:** `slice::sort_by_key` allocates temporary storage even for tiny slices, which is costly in hot paths like triangle setup.
 **Action:** Use manual sorting networks (swaps) for fixed-size small arrays (e.g., 3 vertices) to ensure zero allocation.
+
+**[Edge Walking vs Explicit Calculation]**
+**Learning:** Calculating barycentric-like coordinates per scanline using division is cleaner but slower (~12% on large triangles) than incremental edge walking (DDA).
+**Action:** For rasterization outer loops, use incremental addition (DDA) to update edge coordinates. Pre-calculate gradients once per triangle.

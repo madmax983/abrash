@@ -339,58 +339,148 @@ pub fn fill_triangle_gouraud(
         return;
     }
 
-    for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, p2.y, total_height) else {
-            continue;
-        };
+    // Calculate gradients for the long edge (p0 -> p2)
+    let inv_total_height = 1.0 / total_height;
+    let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
+    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
+    let dc_dy_a = (c2 - c0) * inv_total_height;
 
-        // Interpolate position and color along edges
-        let mut ax = p0.x as f32 + (p2.x - p0.x) as f32 * step.alpha;
-        let mut az = p0.z + (p2.z - p0.z) * step.alpha;
-        let mut ac = c0 + (c2 - c0) * step.alpha;
+    // Determine if long edge is on the left or right
+    // We check the X coordinate of the long edge at y = p1.y
+    // x_long = p0.x + (p2.x - p0.x) * (p1.y - p0.y) / (p2.y - p0.y)
+    let dy_total = p2.y - p0.y;
+    let x_long_at_p1 = if dy_total != 0 {
+        p0.x as f32 + (p2.x - p0.x) as f32 * ((p1.y - p0.y) as f32 / dy_total as f32)
+    } else {
+        p0.x as f32
+    };
+    let long_edge_is_left = x_long_at_p1 < p1.x as f32;
 
-        let (mut bx, mut bz, mut bc) = if step.second_half {
-            (
-                p1.x as f32 + (p2.x - p1.x) as f32 * step.beta,
-                p1.z + (p2.z - p1.z) * step.beta,
-                c1 + (c2 - c1) * step.beta,
-            )
+    // Initialize walkers
+    // A is always the long edge
+    let mut ax = p0.x as f32;
+    let mut az = p0.z;
+    let mut ac = c0;
+
+    // B is the split edge
+    let mut bx = p0.x as f32;
+    let mut bz = p0.z;
+    let mut bc = c0;
+
+    // Gradient for the first segment (p0 -> p1)
+    let h1 = (p1.y - p0.y) as f32;
+    let (dx_dy_b1, dz_dy_b1, dc_dy_b1) = if h1 != 0.0 {
+        let inv_h1 = 1.0 / h1;
+        (
+            (p1.x - p0.x) as f32 * inv_h1,
+            (p1.z - p0.z) * inv_h1,
+            (c1 - c0) * inv_h1,
+        )
+    } else {
+        (0.0, 0.0, Vec3::default())
+    };
+
+    // Pre-advance to y_start if needed (clipping)
+    if y_start > p0.y {
+        let dy = (y_start - p0.y) as f32;
+        ax += dx_dy_a * dy;
+        az += dz_dy_a * dy;
+        ac = ac + dc_dy_a * dy;
+
+        if y_start < p1.y {
+            bx += dx_dy_b1 * dy;
+            bz += dz_dy_b1 * dy;
+            bc = bc + dc_dy_b1 * dy;
         } else {
-            (
-                p0.x as f32 + (p1.x - p0.x) as f32 * step.beta,
-                p0.z + (p1.z - p0.z) * step.beta,
-                c0 + (c1 - c0) * step.beta,
-            )
-        };
+            // We are starting in the second segment (or exactly at p1)
+            // Initialize B at p1 and advance from there
+            bx = p1.x as f32;
+            bz = p1.z;
+            bc = c1;
 
-        if ax > bx {
-            std::mem::swap(&mut ax, &mut bx);
-            std::mem::swap(&mut az, &mut bz);
-            std::mem::swap(&mut ac, &mut bc);
+            let h2 = (p2.y - p1.y) as f32;
+            if h2 != 0.0 {
+                let inv_h2 = 1.0 / h2;
+                let dx_dy_b2 = (p2.x - p1.x) as f32 * inv_h2;
+                let dz_dy_b2 = (p2.z - p1.z) * inv_h2;
+                let dc_dy_b2 = (c2 - c1) * inv_h2;
+
+                let dy2 = (y_start - p1.y) as f32;
+                bx += dx_dy_b2 * dy2;
+                bz += dz_dy_b2 * dy2;
+                bc = bc + dc_dy_b2 * dy2;
+            }
+        }
+    }
+
+    // Gradients for B (current)
+    let mut dx_dy_b = dx_dy_b1;
+    let mut dz_dy_b = dz_dy_b1;
+    let mut dc_dy_b = dc_dy_b1;
+
+    // If we start past p1.y, we need to set the slopes to b2 slopes
+    if y_start >= p1.y {
+        let h2 = (p2.y - p1.y) as f32;
+        if h2 != 0.0 {
+            let inv_h2 = 1.0 / h2;
+            dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+            dz_dy_b = (p2.z - p1.z) * inv_h2;
+            dc_dy_b = (c2 - c1) * inv_h2;
+        }
+    }
+
+    for y in y_start..=y_end {
+        // Handle slope switch at p1.y
+        if y == p1.y && y != p0.y {
+            bx = p1.x as f32;
+            bz = p1.z;
+            bc = c1;
+
+            let h2 = (p2.y - p1.y) as f32;
+            if h2 != 0.0 {
+                let inv_h2 = 1.0 / h2;
+                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+                dz_dy_b = (p2.z - p1.z) * inv_h2;
+                dc_dy_b = (c2 - c1) * inv_h2;
+            }
         }
 
-        let x_start = ax as i32;
-        let x_end = bx as i32;
+        // Determine left/right edges
+        let (x_left, z_left, c_left, x_right, z_right, c_right) = if long_edge_is_left {
+            (ax, az, ac, bx, bz, bc)
+        } else {
+            (bx, bz, bc, ax, az, ac)
+        };
 
+        let x_start = x_left as i32;
+        let x_end = x_right as i32;
         let dx = x_end - x_start;
+
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
-                fb.set_pixel(x_start, y, pack_color_fast(ac));
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
+                fb.set_pixel(x_start, y, pack_color_fast(c_left));
             }
+            // Increment for next iteration
+            ax += dx_dy_a;
+            az += dz_dy_a;
+            ac = ac + dc_dy_a;
+
+            bx += dx_dy_b;
+            bz += dz_dy_b;
+            bc = bc + dc_dy_b;
             continue;
         }
 
-        let dz = bz - az;
-        let dc = bc - ac;
-
+        let dz = z_right - z_left;
+        let dc = c_right - c_left;
         let inv_dx = 1.0 / dx as f32;
         let dz_dx = dz * inv_dx;
         let dc_dx = dc * inv_dx;
 
         let mut xs = x_start;
         let mut xe = x_end;
-        let mut z = az;
-        let mut c = ac;
+        let mut z = z_left;
+        let mut c = c_left;
 
         // Clamp to screen bounds
         if xs < 0 {
@@ -404,21 +494,28 @@ pub fn fill_triangle_gouraud(
             xe = width as i32 - 1;
         }
 
-        if xs > xe {
-            continue;
-        }
-
-        // Optimization: Use unchecked access in hot loop since bounds are clamped
-        // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
-        unsafe {
-            let y_idx = y as usize;
-            for x in xs..=xe {
-                if zb.test_and_set_unchecked(x as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(x as usize, y_idx, pack_color_fast(c));
+        if xs <= xe {
+            // Optimization: Use unchecked access in hot loop since bounds are clamped
+            // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+            unsafe {
+                let y_idx = y as usize;
+                for x in xs..=xe {
+                    if zb.test_and_set_unchecked(x as usize, y_idx, z) {
+                        fb.set_pixel_unchecked(x as usize, y_idx, pack_color_fast(c));
+                    }
+                    z += dz_dx;
+                    c = c + dc_dx;
                 }
-                z += dz_dx;
-                c = c + dc_dx;
             }
         }
+
+        // Increment for next iteration
+        ax += dx_dy_a;
+        az += dz_dy_a;
+        ac = ac + dc_dy_a;
+
+        bx += dx_dy_b;
+        bz += dz_dy_b;
+        bc = bc + dc_dy_b;
     }
 }
