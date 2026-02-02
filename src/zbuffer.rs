@@ -49,6 +49,11 @@ impl ZBuffer {
         Some(self.depths[idx])
     }
 
+    /// Get the raw depth buffer as a slice.
+    pub fn as_slice(&self) -> &[f32] {
+        &self.depths
+    }
+
     /// Test and set depth at pixel without bounds checking.
     ///
     /// # Safety
