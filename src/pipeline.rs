@@ -289,9 +289,15 @@ pub fn fill_triangle_lit(
 /// Helper for fast color packing using saturating casts.
 #[inline(always)]
 fn pack_color_fast(c: Vec3) -> u32 {
-    let r = c.x as u8;
-    let g = c.y as u8;
-    let b = c.z as u8;
+    pack_rgb_scalar(c.x, c.y, c.z)
+}
+
+/// Helper for fast color packing from scalars.
+#[inline(always)]
+fn pack_rgb_scalar(r: f32, g: f32, b: f32) -> u32 {
+    let r = r as u8;
+    let g = g as u8;
+    let b = b as u8;
     0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
 }
 
@@ -495,16 +501,26 @@ pub fn fill_triangle_gouraud(
         }
 
         if xs <= xe {
+            // Optimization: Decompose Vec3 to scalars to avoid struct construction overhead in hot loop
+            let mut r = c.x;
+            let mut g = c.y;
+            let mut b = c.z;
+            let dr = dc_dx.x;
+            let dg = dc_dx.y;
+            let db = dc_dx.z;
+
             // Optimization: Use unchecked access in hot loop since bounds are clamped
             // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
             unsafe {
                 let y_idx = y as usize;
                 for x in xs..=xe {
                     if zb.test_and_set_unchecked(x as usize, y_idx, z) {
-                        fb.set_pixel_unchecked(x as usize, y_idx, pack_color_fast(c));
+                        fb.set_pixel_unchecked(x as usize, y_idx, pack_rgb_scalar(r, g, b));
                     }
                     z += dz_dx;
-                    c = c + dc_dx;
+                    r += dr;
+                    g += dg;
+                    b += db;
                 }
             }
         }

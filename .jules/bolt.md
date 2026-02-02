@@ -20,3 +20,7 @@
 **[Edge Walking vs Explicit Calculation]**
 **Learning:** Calculating barycentric-like coordinates per scanline using division is cleaner but slower (~12% on large triangles) than incremental edge walking (DDA).
 **Action:** For rasterization outer loops, use incremental addition (DDA) to update edge coordinates. Pre-calculate gradients once per triangle.
+
+**[Scalar Replacement of Aggregates (SRA)]**
+**Learning:** Constructing structs (like `Vec3`) inside hot inner loops can prevent register allocation optimizations, even with inlining. Decomposing aggregates into scalar variables (`r, g, b` vs `Vec3`) in the inner loop yielded measurable improvement.
+**Action:** For extreme hot loops (pixel shaders), manually scalarize vector operations if benchmarks indicate a bottleneck.
