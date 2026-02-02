@@ -1,28 +1,5 @@
+use super::{Event, WindowError};
 use crate::framebuffer::Framebuffer;
-use std::fmt;
-
-#[derive(Debug, Clone)]
-pub enum Event {
-    Close,
-    Resize(u32, u32),
-}
-
-#[derive(Debug)]
-pub enum WindowError {
-    RegistrationFailed,
-    CreationFailed,
-}
-
-impl fmt::Display for WindowError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WindowError::RegistrationFailed => write!(f, "Failed to register window class"),
-            WindowError::CreationFailed => write!(f, "Failed to create window"),
-        }
-    }
-}
-
-impl std::error::Error for WindowError {}
 
 pub struct Window {
     width: u32,
