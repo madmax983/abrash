@@ -45,49 +45,6 @@ where
     }
 }
 
-struct ScanlineStep {
-    alpha: f32,
-    beta: f32,
-    second_half: bool,
-}
-
-impl ScanlineStep {
-    #[inline(always)]
-    fn new(
-        y: i32,
-        y0: i32,
-        y1: i32,
-        inv_total_height: f32,
-        inv_segment_height1: f32,
-        inv_segment_height2: f32,
-    ) -> Option<Self> {
-        let second_half = y > y1 || y1 == y0;
-
-        let inv_segment_height = if second_half {
-            inv_segment_height2
-        } else {
-            inv_segment_height1
-        };
-
-        // If inverse is 0.0, it means segment height was 0.
-        if inv_segment_height == 0.0 {
-            return None;
-        }
-
-        let alpha = ((y as i64) - (y0 as i64)) as f32 * inv_total_height;
-        let beta = if second_half {
-            ((y as i64) - (y1 as i64)) as f32 * inv_segment_height
-        } else {
-            ((y as i64) - (y0 as i64)) as f32 * inv_segment_height
-        };
-
-        Some(Self {
-            alpha,
-            beta,
-            second_half,
-        })
-    }
-}
 
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
@@ -175,62 +132,145 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    // Pre-calculate inverse heights to avoid division in the loop
-    let inv_total_height = 1.0 / total_height;
-    let h1 = (p1.y as i64 - p0.y as i64) as f32;
-    let inv_h1 = if h1 != 0.0 { 1.0 / h1 } else { 0.0 };
-    let h2 = (p2.y as i64 - p1.y as i64) as f32;
-    let inv_h2 = if h2 != 0.0 { 1.0 / h2 } else { 0.0 };
-
     // Optimization: Clamp Y range to screen bounds
     let y_min = 0;
     let y_max = height as i32 - 1;
     let y_start = p0.y.max(y_min);
     let y_end = p2.y.min(y_max);
 
+    if y_start > y_end {
+        return;
+    }
+
+    // Optimization: Pre-calculate dz/dx constant for the whole triangle
+    // Plane equation: Ax + By + Cz + D = 0
+    // vectors p0->p1 and p0->p2
+    // Use i64 for coordinate differences to prevent overflow with extreme coordinates
+    let ux = (p1.x as i64 - p0.x as i64) as f32;
+    let uy = (p1.y as i64 - p0.y as i64) as f32;
+    let uz = p1.z - p0.z;
+
+    let vx = (p2.x as i64 - p0.x as i64) as f32;
+    let vy = (p2.y as i64 - p0.y as i64) as f32;
+    let vz = p2.z - p0.z;
+
+    // Cross product to get normal (A, B, C)
+    let nx = uy * vz - uz * vy;
+    // let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
+
+    // dz/dx = -A/C = -nx/nz
+    let dz_dx = if nz.abs() > 0.0001 {
+        -nx / nz
+    } else {
+        0.0
+    };
+
+    // Calculate gradients for the long edge (p0 -> p2)
+    let inv_total_height = 1.0 / total_height;
+    let dx_dy_a = (p2.x as i64 - p0.x as i64) as f32 * inv_total_height;
+    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
+
+    // Determine if long edge is on the left or right
+    // Optimization: Use the sign of the cross product (nz) to determine winding
+    // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
+    let long_edge_is_left = nz > 0.0;
+
+    // Initialize walkers
+    // A (long edge)
+    let mut ax = p0.x as f32;
+    let mut az = p0.z;
+
+    if y_start > p0.y {
+        let dy = (y_start as i64 - p0.y as i64) as f32;
+        ax += dx_dy_a * dy;
+        az += dz_dy_a * dy;
+    }
+
+    // B (short edges)
+    // Pre-calculate b1 slopes
+    let h1 = (p1.y as i64 - p0.y as i64) as f32;
+    let (dx_dy_b1, dz_dy_b1) = if h1 != 0.0 {
+        let inv_h1 = 1.0 / h1;
+        ((p1.x as i64 - p0.x as i64) as f32 * inv_h1, (p1.z - p0.z) * inv_h1)
+    } else {
+        (0.0, 0.0)
+    };
+
+    // Pre-calculate b2 slopes
+    let h2 = (p2.y as i64 - p1.y as i64) as f32;
+    let (dx_dy_b2, dz_dy_b2) = if h2 != 0.0 {
+        let inv_h2 = 1.0 / h2;
+        ((p2.x as i64 - p1.x as i64) as f32 * inv_h2, (p2.z - p1.z) * inv_h2)
+    } else {
+        (0.0, 0.0)
+    };
+
+    let mut bx;
+    let mut bz;
+    let mut dx_dy_b;
+    let mut dz_dy_b;
+
+    if y_start < p1.y {
+        // Start on first segment
+        bx = p0.x as f32;
+        bz = p0.z;
+        dx_dy_b = dx_dy_b1;
+        dz_dy_b = dz_dy_b1;
+
+        if y_start > p0.y {
+            let dy = (y_start as i64 - p0.y as i64) as f32;
+            bx += dx_dy_b * dy;
+            bz += dz_dy_b * dy;
+        }
+    } else {
+        // Start on second segment (includes flat top case where y_start == p0.y == p1.y)
+        bx = p1.x as f32;
+        bz = p1.z;
+        dx_dy_b = dx_dy_b2;
+        dz_dy_b = dz_dy_b2;
+
+        if y_start > p1.y {
+            let dy = (y_start as i64 - p1.y as i64) as f32;
+            bx += dx_dy_b * dy;
+            bz += dz_dy_b * dy;
+        }
+    }
+
     for y in y_start..=y_end {
-        let Some(step) = ScanlineStep::new(y, p0.y, p1.y, inv_total_height, inv_h1, inv_h2) else {
-            continue;
-        };
-
-        let mut ax = p0.x as f32 + (p2.x - p0.x) as f32 * step.alpha;
-        let mut az = p0.z + (p2.z - p0.z) * step.alpha;
-
-        let (mut bx, mut bz) = if step.second_half {
-            (
-                p1.x as f32 + (p2.x - p1.x) as f32 * step.beta,
-                p1.z + (p2.z - p1.z) * step.beta,
-            )
-        } else {
-            (
-                p0.x as f32 + (p1.x - p0.x) as f32 * step.beta,
-                p0.z + (p1.z - p0.z) * step.beta,
-            )
-        };
-
-        if ax > bx {
-            std::mem::swap(&mut ax, &mut bx);
-            std::mem::swap(&mut az, &mut bz);
+        if y == p1.y && y != p0.y {
+            bx = p1.x as f32;
+            bz = p1.z;
+            let h2 = (p2.y - p1.y) as f32;
+            if h2 != 0.0 {
+                let inv_h2 = 1.0 / h2;
+                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+                dz_dy_b = (p2.z - p1.z) * inv_h2;
+            }
         }
 
-        let x_start = ax as i32;
-        let x_end = bx as i32;
+        let (x_left, z_left, x_right) = if long_edge_is_left {
+            (ax, az, bx)
+        } else {
+            (bx, bz, ax)
+        };
 
+        let x_start = x_left as i32;
+        let x_end = x_right as i32;
         let dx = x_end - x_start;
-        let dz = bz - az;
 
-        // Handle single pixel or invalid width
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, az) {
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
                 fb.set_pixel(x_start, y, color);
             }
-            continue;
+        } else {
+            draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
         }
 
-        // Optimization: Pre-calculate Z increment per pixel
-        let dz_dx = dz / dx as f32;
-
-        draw_scanline_flat(fb, zb, y, x_start, x_end, az, dz_dx, color);
+        ax += dx_dy_a;
+        az += dz_dy_a;
+        bx += dx_dy_b;
+        bz += dz_dy_b;
     }
 }
 
