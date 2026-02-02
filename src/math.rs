@@ -240,6 +240,16 @@ pub struct Mat4 {
 
 impl Mat4 {
     /// Returns the identity matrix.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Mat4;
+    ///
+    /// let id = Mat4::identity();
+    /// assert_eq!(id.m[0][0], 1.0);
+    /// assert_eq!(id.m[1][1], 1.0);
+    /// ```
     pub fn identity() -> Self {
         Self {
             m: [
@@ -337,6 +347,15 @@ impl Mat4 {
     /// * `aspect` - Aspect ratio (width / height).
     /// * `near` - Distance to near clipping plane.
     /// * `far` - Distance to far clipping plane.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Mat4;
+    ///
+    /// // 60 degrees vertical FOV, 16:9 aspect ratio, 0.1 near, 100.0 far
+    /// let proj = Mat4::perspective(std::f32::consts::PI / 3.0, 16.0 / 9.0, 0.1, 100.0);
+    /// ```
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
         let nf = 1.0 / (near - far);
@@ -352,9 +371,23 @@ impl Mat4 {
 
     /// Creates a View matrix (LookAt) for a camera.
     ///
+    /// # Arguments
+    ///
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let eye = Vec3::new(0.0, 0.0, 5.0);
+    /// let target = Vec3::new(0.0, 0.0, 0.0);
+    /// let up = Vec3::new(0.0, 1.0, 0.0);
+    ///
+    /// let view = Mat4::look_at(eye, target, up);
+    /// ```
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
         let s = f.cross(up).normalize();

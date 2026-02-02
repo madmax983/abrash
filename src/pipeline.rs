@@ -1,6 +1,20 @@
 //! 3D Rendering pipeline.
 //!
-//! Functions for projecting and rasterizing 3D primitives (triangles) with shading.
+//! This module implements the core stages of the graphics pipeline:
+//!
+//! 1.  **Vertex Processing**: Transforming vertices from 3D space to Clip Space.
+//! 2.  **Triangle Setup**: Preparing triangles for rasterization (sorting, gradients).
+//! 3.  **Rasterization**: Interpolating values (color, depth) across the triangle surface.
+//!
+//! # Coordinate Systems
+//!
+//! *   **Clip Space**: Vertices are expected to be in homogeneous Clip Space (before perspective divide).
+//! *   **Screen Space**: Coordinates are projected to 2D pixel coordinates with `(0, 0)` at top-left.
+//!
+//! # Functions
+//!
+//! *   [`fill_triangle_3d`]: Basic rasterization with depth buffering.
+//! *   [`fill_triangle_gouraud`]: Advanced rasterization with per-vertex color interpolation.
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
@@ -150,7 +164,34 @@ fn draw_scanline_flat(
     }
 }
 
-/// Fill a 3D triangle with z-buffer test
+/// Fill a 3D triangle with z-buffer test.
+///
+/// This function rasterizes a triangle using flat shading (single color).
+/// It handles perspective correct interpolation for depth (Z).
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices in **Clip Space** tuple format: `(Position, W)`.
+///   The `W` component is used for perspective division.
+/// * `color` - The solid color of the triangle (0xAARRGGBB).
+///
+/// # Examples
+///
+/// ```
+/// # use abrash::framebuffer::Framebuffer;
+/// # use abrash::zbuffer::ZBuffer;
+/// # use abrash::math::Vec3;
+/// # use abrash::pipeline::fill_triangle_3d;
+/// let mut fb = Framebuffer::new(100, 100);
+/// let mut zb = ZBuffer::new(100, 100);
+///
+/// // Define vertices in Clip Space (simple case: identity transform)
+/// let v0 = (Vec3::new(0.0, 0.5, 0.5), 1.0);
+/// let v1 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
+/// let v2 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
+///
+/// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+/// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -301,8 +342,42 @@ fn pack_rgb_scalar(r: f32, g: f32, b: f32) -> u32 {
     0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
 }
 
-/// Fill a 3D triangle with Gouraud (per-vertex) shading
-/// Each vertex has a position (clip space + w) and color
+/// Fill a 3D triangle with Gouraud (per-vertex) shading.
+///
+/// Interpolates colors smoothly between vertices.
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices in the format `((Position, W), Color)`.
+///   * `Position`: `Vec3` in Clip Space.
+///   * `W`: `f32` Homogeneous component.
+///   * `Color`: `Vec3` (RGB scalars 0.0-1.0).
+///
+/// # Algorithm
+///
+/// Uses an incremental edge-walking algorithm (DDA) to interpolate x, z, and color values
+/// along the edges and across each scanline.
+///
+/// # Examples
+///
+/// ```
+/// # use abrash::framebuffer::Framebuffer;
+/// # use abrash::zbuffer::ZBuffer;
+/// # use abrash::math::Vec3;
+/// # use abrash::pipeline::fill_triangle_gouraud;
+/// let mut fb = Framebuffer::new(100, 100);
+/// let mut zb = ZBuffer::new(100, 100);
+///
+/// let red = Vec3::new(1.0, 0.0, 0.0);
+/// let green = Vec3::new(0.0, 1.0, 0.0);
+/// let blue = Vec3::new(0.0, 0.0, 1.0);
+///
+/// let v0 = ((Vec3::new(0.0, 0.5, 0.5), 1.0), red);
+/// let v1 = ((Vec3::new(-0.5, -0.5, 0.5), 1.0), green);
+/// let v2 = ((Vec3::new(0.5, -0.5, 0.5), 1.0), blue);
+///
+/// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
+/// ```
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,

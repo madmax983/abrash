@@ -10,6 +10,17 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
+    /// Creates a new Framebuffer with the specified dimensions.
+    ///
+    /// The buffer is initialized to opaque black (`0xFF000000`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    /// let fb = Framebuffer::new(800, 600);
+    /// assert_eq!(fb.width(), 800);
+    /// ```
     pub fn new(width: u32, height: u32) -> Self {
         let size = (width * height) as usize;
         Self {
@@ -35,10 +46,40 @@ impl Framebuffer {
         &mut self.pixels
     }
 
+    /// Clears the entire framebuffer with a single color.
+    ///
+    /// # Arguments
+    ///
+    /// * `color` - The 32-bit color (`0xAARRGGBB`) to fill the buffer with.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    /// let mut fb = Framebuffer::new(100, 100);
+    /// fb.clear(0xFFFF0000); // Red
+    /// ```
     pub fn clear(&mut self, color: u32) {
         self.pixels.fill(color);
     }
 
+    /// Sets a pixel at (x, y) to the specified color.
+    ///
+    /// Performs bounds checking. If coordinates are out of bounds, the operation is ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - X coordinate (0 is left).
+    /// * `y` - Y coordinate (0 is top).
+    /// * `color` - The 32-bit color (`0xAARRGGBB`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    /// let mut fb = Framebuffer::new(100, 100);
+    /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White dot in center
+    /// ```
     pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return; // Bounds check - silently ignore out of bounds
