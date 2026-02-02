@@ -7,6 +7,15 @@ use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::math::Vec3;
 use crate::zbuffer::ZBuffer;
 
+/// Vertex with position, homogeneous w component, and color.
+/// Used for gouraud shading.
+#[derive(Debug, Clone, Copy)]
+pub struct Vertex {
+    pub position: Vec3,
+    pub w: f32,
+    pub color: Vec3,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct ScreenPoint {
     x: i32,
@@ -301,14 +310,78 @@ fn pack_rgb_scalar(r: f32, g: f32, b: f32) -> u32 {
     0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
 }
 
+/// Draw a single scanline for gouraud shading
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    dz_dx: f32,
+    c_start: Vec3,
+    dc_dx: Vec3,
+) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+    let mut z = z_start;
+    let mut c = c_start;
+
+    // Clamp to screen bounds
+    if xs < 0 {
+        let diff = -xs as f32;
+        z += diff * dz_dx;
+        c = c + dc_dx * diff;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    // Optimization: Decompose Vec3 to scalars to avoid struct construction overhead in hot loop
+    let mut r = c.x;
+    let mut g = c.y;
+    let mut b = c.z;
+    let dr = dc_dx.x;
+    let dg = dc_dx.y;
+    let db = dc_dx.z;
+
+    // Optimization: Use unchecked access in hot loop since bounds are clamped
+    // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
+    unsafe {
+        let y_idx = y as usize;
+        for x in xs..=xe {
+            if zb.test_and_set_unchecked(x as usize, y_idx, z) {
+                fb.set_pixel_unchecked(x as usize, y_idx, pack_rgb_scalar(r, g, b));
+            }
+            z += dz_dx;
+            r += dr;
+            g += dg;
+            b += db;
+        }
+    }
+}
+
 /// Fill a 3D triangle with Gouraud (per-vertex) shading
 /// Each vertex has a position (clip space + w) and color
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec3), // ((position, w), color)
-    v1: ((Vec3, f32), Vec3),
-    v2: ((Vec3, f32), Vec3),
+    v0: Vertex,
+    v1: Vertex,
+    v2: Vertex,
 ) {
     assert_same_dimensions(fb, zb);
 
@@ -316,15 +389,15 @@ pub fn fill_triangle_gouraud(
     let height = fb.height();
 
     // Project to screen
-    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+    let p0 = project_to_screen(v0.position, v0.w, width, height);
+    let p1 = project_to_screen(v1.position, v1.w, width, height);
+    let p2 = project_to_screen(v2.position, v2.w, width, height);
 
     // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
     // allowing us to skip clamp/mul per pixel
-    let c0 = v0.1 * 255.0;
-    let c1 = v1.1 * 255.0;
-    let c2 = v2.1 * 255.0;
+    let c0 = v0.color * 255.0;
+    let c1 = v1.color * 255.0;
+    let c2 = v2.color * 255.0;
 
     // Sort by y
     let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
@@ -483,47 +556,7 @@ pub fn fill_triangle_gouraud(
         let dz_dx = dz * inv_dx;
         let dc_dx = dc * inv_dx;
 
-        let mut xs = x_start;
-        let mut xe = x_end;
-        let mut z = z_left;
-        let mut c = c_left;
-
-        // Clamp to screen bounds
-        if xs < 0 {
-            let diff = -xs as f32;
-            z += diff * dz_dx;
-            c = c + dc_dx * diff;
-            xs = 0;
-        }
-
-        if xe >= width as i32 {
-            xe = width as i32 - 1;
-        }
-
-        if xs <= xe {
-            // Optimization: Decompose Vec3 to scalars to avoid struct construction overhead in hot loop
-            let mut r = c.x;
-            let mut g = c.y;
-            let mut b = c.z;
-            let dr = dc_dx.x;
-            let dg = dc_dx.y;
-            let db = dc_dx.z;
-
-            // Optimization: Use unchecked access in hot loop since bounds are clamped
-            // SAFETY: xs and xe are clamped to [0, width-1]. y is clamped to [0, height-1].
-            unsafe {
-                let y_idx = y as usize;
-                for x in xs..=xe {
-                    if zb.test_and_set_unchecked(x as usize, y_idx, z) {
-                        fb.set_pixel_unchecked(x as usize, y_idx, pack_rgb_scalar(r, g, b));
-                    }
-                    z += dz_dx;
-                    r += dr;
-                    g += dg;
-                    b += db;
-                }
-            }
-        }
+        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, dz_dx, c_left, dc_dx);
 
         // Increment for next iteration
         ax += dx_dy_a;

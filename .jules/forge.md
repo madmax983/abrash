@@ -8,3 +8,7 @@
 **[Tuple Obsession in Pipeline]**
 **Learning:** The pipeline was passing raw tuples `(i32, i32, f32)` and manual closures for sorting, leading to duplicated logic and hard-to-read signatures.
 **Action:** Extract domain structs like `ScreenPoint` and sorting helpers early to prevent "Primitive Obsession" from spreading.
+
+**[Tuple Obsession in Pipeline]**
+**Learning:** The pipeline was passing raw tuples like `((Vec3, f32), Vec3)` for Gouraud vertices, making signatures unreadable.
+**Action:** Replaced with explicit `Vertex` struct to serve as self-documenting code.
