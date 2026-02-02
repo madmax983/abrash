@@ -58,6 +58,11 @@ impl ZBuffer {
         &self.depths
     }
 
+    /// Get the raw depth buffer as a mutable slice.
+    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+        &mut self.depths
+    }
+
     /// Test and set depth at pixel without bounds checking.
     ///
     /// # Safety

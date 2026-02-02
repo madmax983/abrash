@@ -8,7 +8,7 @@ use crate::math::Vec3;
 use crate::zbuffer::ZBuffer;
 
 pub mod projection;
-pub use projection::{project_to_screen, ScreenPoint};
+pub use projection::{ScreenPoint, project_to_screen};
 
 /// Helper to ensure buffer dimensions match
 #[inline]
@@ -319,19 +319,30 @@ fn draw_scanline_gouraud(
         let dg = dc_dx.y;
         let db = dc_dx.z;
 
-        // Optimization: Use unchecked access in hot loop since bounds are clamped
-        // SAFETY: xs and xe are clamped to [0, width-1]. y must be valid (caller responsibility).
-        unsafe {
-            let y_idx = y as usize;
-            for x in xs..=xe {
-                if zb.test_and_set_unchecked(x as usize, y_idx, z) {
-                    fb.set_pixel_unchecked(x as usize, y_idx, pack_rgb_scalar(r, g, b));
-                }
-                z += dz_dx;
-                r += dr;
-                g += dg;
-                b += db;
+        // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (xs as usize);
+        let end_idx = y_offset + (xe as usize);
+
+        // SAFETY:
+        // 1. xs and xe are clamped to [0, width-1] by the logic above.
+        // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
+        // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
+        // Therefore, the range is valid and within bounds.
+        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            // Check depth buffer
+            if z < *depth_val {
+                *depth_val = z;
+                *pixel = pack_rgb_scalar(r, g, b);
             }
+            z += dz_dx;
+            r += dr;
+            g += dg;
+            b += db;
         }
     }
 }
