@@ -145,6 +145,10 @@ mod tests {
 
         let p = fb.get_pixel(0, 0).unwrap();
         let r = (p >> 16) & 0xFF;
-        assert!((126..=129).contains(&r), "Pixel should be roughly 127/128 (Gray), got {}", r);
+        assert!(
+            (126..=129).contains(&r),
+            "Pixel should be roughly 127/128 (Gray), got {}",
+            r
+        );
     }
 }
