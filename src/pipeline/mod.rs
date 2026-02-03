@@ -67,7 +67,7 @@ fn draw_scanline_flat(
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z += (-xs) as f32 * dz_dx;
+        z += -(xs as f32) * dz_dx;
         xs = 0;
     }
 
@@ -244,7 +244,7 @@ pub fn fill_triangle_3d(
             let h2 = (p2.y - p1.y) as f32;
             if h2 != 0.0 {
                 let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+                dx_dy_b = (p2.x as i64 - p1.x as i64) as f32 * inv_h2;
                 dz_dy_b = (p2.z - p1.z) * inv_h2;
             }
         }
@@ -257,7 +257,7 @@ pub fn fill_triangle_3d(
 
         let x_start = x_left as i32;
         let x_end = x_right as i32;
-        let dx = x_end - x_start;
+        let dx = x_end as i64 - x_start as i64;
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
@@ -365,7 +365,7 @@ fn draw_scanline_gouraud(
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -xs as f32;
+        let diff = -(xs as f32);
         z += diff * dz_dx;
         c = c + dc_dx * diff;
         xs = 0;
@@ -489,7 +489,7 @@ pub fn fill_triangle_gouraud(
 
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
-    let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
+    let dx_dy_a = (p2.x as i64 - p0.x as i64) as f32 * inv_total_height;
     let dz_dy_a = (p2.z - p0.z) * inv_total_height;
     let dc_dy_a = (c2 - c0) * inv_total_height;
 
@@ -509,7 +509,7 @@ pub fn fill_triangle_gouraud(
     let (dx_dy_b1, dz_dy_b1, dc_dy_b1) = if h1 != 0.0 {
         let inv_h1 = 1.0 / h1;
         (
-            (p1.x - p0.x) as f32 * inv_h1,
+            (p1.x as i64 - p0.x as i64) as f32 * inv_h1,
             (p1.z - p0.z) * inv_h1,
             (c1 - c0) * inv_h1,
         )
@@ -538,7 +538,7 @@ pub fn fill_triangle_gouraud(
             let h2 = (p2.y - p1.y) as f32;
             if h2 != 0.0 {
                 let inv_h2 = 1.0 / h2;
-                let dx_dy_b2 = (p2.x - p1.x) as f32 * inv_h2;
+                let dx_dy_b2 = (p2.x as i64 - p1.x as i64) as f32 * inv_h2;
                 let dz_dy_b2 = (p2.z - p1.z) * inv_h2;
                 let dc_dy_b2 = (c2 - c1) * inv_h2;
 
@@ -560,7 +560,7 @@ pub fn fill_triangle_gouraud(
         let h2 = (p2.y - p1.y) as f32;
         if h2 != 0.0 {
             let inv_h2 = 1.0 / h2;
-            dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+            dx_dy_b = (p2.x as i64 - p1.x as i64) as f32 * inv_h2;
             dz_dy_b = (p2.z - p1.z) * inv_h2;
             dc_dy_b = (c2 - c1) * inv_h2;
         }
@@ -576,7 +576,7 @@ pub fn fill_triangle_gouraud(
             let h2 = (p2.y - p1.y) as f32;
             if h2 != 0.0 {
                 let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
+                dx_dy_b = (p2.x as i64 - p1.x as i64) as f32 * inv_h2;
                 dz_dy_b = (p2.z - p1.z) * inv_h2;
                 dc_dy_b = (c2 - c1) * inv_h2;
             }
@@ -591,7 +591,7 @@ pub fn fill_triangle_gouraud(
 
         let x_start = x_left as i32;
         let x_end = x_right as i32;
-        let dx = x_end - x_start;
+        let dx = x_end as i64 - x_start as i64;
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {

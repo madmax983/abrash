@@ -28,3 +28,24 @@ fn test_extreme_coordinates_crash() {
     // This should not panic
     fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
 }
+
+#[test]
+fn test_extreme_min_x_overflow() {
+    let width = 100;
+    let height = 100;
+    let mut fb = Framebuffer::new(width, height);
+    let mut zb = ZBuffer::new(width, height);
+
+    // v0 projects to approx X = i32::MIN
+    // screen_x = ((ndc_x + 1.0) * 0.5 * width)
+    // We want a very large negative ndc_x
+    let v0 = (Vec3::new(-50_000_000.0, 0.0, 1.0), 1.0);
+    let v1 = (Vec3::new(10.0, 10.0, 1.0), 1.0);
+    let v2 = (Vec3::new(10.0, -10.0, 1.0), 1.0);
+
+    let color = 0xFFFFFFFF;
+
+    // This calls fill_triangle_3d -> draw_scanline_flat
+    // Should NOT panic
+    fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
+}
