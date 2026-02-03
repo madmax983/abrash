@@ -8,7 +8,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_clear(c: &mut Criterion) {
     c.bench_function("framebuffer_clear_800x600", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             fb.clear(black_box(0xFFFF0000));
         });
@@ -17,7 +17,7 @@ fn bench_clear(c: &mut Criterion) {
 
 fn bench_plot_pixel(c: &mut Criterion) {
     c.bench_function("plot_pixel", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             plot_pixel(&mut fb, black_box(400), black_box(300), 0xFFFFFFFF);
         });
@@ -26,7 +26,7 @@ fn bench_plot_pixel(c: &mut Criterion) {
 
 fn bench_plot_many_pixels(c: &mut Criterion) {
     c.bench_function("plot_1000_pixels", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             for i in 0..1000 {
                 plot_pixel(&mut fb, i % 800, i / 800, 0xFFFFFFFF);
@@ -37,7 +37,7 @@ fn bench_plot_many_pixels(c: &mut Criterion) {
 
 fn bench_draw_line_horizontal(c: &mut Criterion) {
     c.bench_function("draw_line_horizontal_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_line(
                 &mut fb,
@@ -53,7 +53,7 @@ fn bench_draw_line_horizontal(c: &mut Criterion) {
 
 fn bench_draw_line_diagonal(c: &mut Criterion) {
     c.bench_function("draw_line_diagonal_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_line(
                 &mut fb,
@@ -69,7 +69,7 @@ fn bench_draw_line_diagonal(c: &mut Criterion) {
 
 fn bench_draw_line_long(c: &mut Criterion) {
     c.bench_function("draw_line_diagonal_500px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_line(
                 &mut fb,
@@ -85,7 +85,7 @@ fn bench_draw_line_long(c: &mut Criterion) {
 
 fn bench_draw_hline(c: &mut Criterion) {
     c.bench_function("draw_hline_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_hline(
                 &mut fb,
@@ -100,7 +100,7 @@ fn bench_draw_hline(c: &mut Criterion) {
 
 fn bench_draw_vline(c: &mut Criterion) {
     c.bench_function("draw_vline_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_vline(
                 &mut fb,
@@ -117,7 +117,7 @@ fn bench_line_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("line_comparison");
 
     group.bench_function("hline_optimized_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_hline(
                 &mut fb,
@@ -130,7 +130,7 @@ fn bench_line_comparison(c: &mut Criterion) {
     });
 
     group.bench_function("vline_optimized_100px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_vline(
                 &mut fb,
@@ -147,7 +147,7 @@ fn bench_line_comparison(c: &mut Criterion) {
 
 fn bench_fill_triangle_small(c: &mut Criterion) {
     c.bench_function("fill_triangle_50px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         let tri = Triangle::new(
             Vec2::new(400.0, 275.0),
             Vec2::new(425.0, 325.0),
@@ -159,7 +159,7 @@ fn bench_fill_triangle_small(c: &mut Criterion) {
 
 fn bench_fill_triangle_large(c: &mut Criterion) {
     c.bench_function("fill_triangle_200px", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         let tri = Triangle::new(
             Vec2::new(400.0, 200.0),
             Vec2::new(500.0, 400.0),
@@ -171,7 +171,7 @@ fn bench_fill_triangle_large(c: &mut Criterion) {
 
 fn bench_draw_circle(c: &mut Criterion) {
     c.bench_function("draw_circle_r50", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             draw_circle(
                 &mut fb,
@@ -186,7 +186,7 @@ fn bench_draw_circle(c: &mut Criterion) {
 
 fn bench_fill_circle(c: &mut Criterion) {
     c.bench_function("fill_circle_r50", |b| {
-        let mut fb = Framebuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
         b.iter(|| {
             fill_circle(
                 &mut fb,

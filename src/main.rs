@@ -27,8 +27,8 @@ const FACE_COLORS: [u32; 6] = [
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - Lit Cube", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT);
+    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
     let cube = Mesh::cube(1.5);
     let face_normals = cube.compute_face_normals();
 

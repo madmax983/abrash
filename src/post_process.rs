@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_grayscale() {
-        let mut fb = Framebuffer::new(2, 2);
+        let mut fb = Framebuffer::new(2, 2).unwrap();
         // Set pixel (0,0) to Red (AA RR GG BB) -> 0xFF FF 00 00
         fb.set_pixel(0, 0, 0xFFFF0000);
 
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_scanlines() {
-        let mut fb = Framebuffer::new(2, 2);
+        let mut fb = Framebuffer::new(2, 2).unwrap();
         fb.clear(0xFFFFFFFF); // White
 
         apply_scanlines(&mut fb, 0.5);

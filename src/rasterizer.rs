@@ -189,6 +189,13 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
 
 /// Fill a triangle using scanline rasterization
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
+    // Validate inputs
+    if !tri.v0.x.is_finite() || !tri.v0.y.is_finite() ||
+       !tri.v1.x.is_finite() || !tri.v1.y.is_finite() ||
+       !tri.v2.x.is_finite() || !tri.v2.y.is_finite() {
+        return;
+    }
+
     // Sort vertices by y coordinate (v0.y <= v1.y <= v2.y)
     let mut v0 = tri.v0;
     let mut v1 = tri.v1;
@@ -209,8 +216,12 @@ pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
         return; // Degenerate triangle
     }
 
+    // Clamp vertical range to framebuffer to prevent DoS (huge loops)
+    let y_min = (v0.y as i32).max(0);
+    let y_max = (v2.y as i32).min(fb.height() as i32 - 1);
+
     // Rasterize the triangle in two halves
-    for y in (v0.y as i32)..=(v2.y as i32) {
+    for y in y_min..=y_max {
         let y_f = y as f32;
 
         let second_half = y_f > v1.y || (v1.y - v0.y).abs() < 0.001;
