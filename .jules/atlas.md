@@ -1,11 +1,11 @@
 # Atlas's Journal
 
-## [Refactor primitives module]
-**Tangle:** `primitives.rs` is a "God Module" that mixes low-level 2D rasterization, 3D projection, and high-level lighting logic. This violates cohesion and separation of concerns.
-**Blueprint:** Split `primitives.rs` into `rasterizer.rs` (pure 2D drawing mechanics) and `pipeline.rs` (3D rendering pipeline). This decouples mechanism from policy.
-**Stability:** Separates 2D/3D domains. Future changes to lighting won't risk breaking line drawing.
+## [Decoupling 3D Rasterization from Pipeline]
+**Tangle:** The `pipeline` module was acting as a "God Module" for 3D rendering, handling both high-level lighting/shading logic and low-level scanline rasterization. This coupled the concept of a "Pipeline" tightly to the specific software rasterization implementation, preventing the `rasterizer` module from being the single source of truth for pixel drawing. Additionally, `projection` logic was trapped in `pipeline`, creating potential circular dependencies if `rasterizer` needed to project vertices.
 
-## [Modularize pipeline and deduplicate projection]
-**Tangle:** `pipeline.rs` was becoming a Blob, mixing projection math with rasterization loops. `experimental/particles.rs` duplicated projection logic (The Sprawl).
-**Blueprint:** Converted `pipeline.rs` to a directory module. Extracted `projection.rs` for shared coordinate transformations. Extracted `draw_scanline_gouraud` to simplify `fill_triangle_gouraud`.
-**Stability:** Centralized projection logic reduces bugs. Smaller functions in pipeline improve maintainability.
+**Blueprint:**
+1.  **Relocate Projection:** Move `ScreenPoint` and `project_to_screen` to `math` (the lowest common denominator).
+2.  **Unify Rasterization:** Move 3D triangle filling and scanline logic from `pipeline` to `rasterizer`.
+3.  **Thin Pipeline:** `pipeline` becomes a coordinator that handles lighting and shading, then delegates drawing to `rasterizer`.
+
+**Stability:** Reduces coupling between rendering stages. `rasterizer` becomes cohesive (2D + 3D drawing). `pipeline` becomes focused on "Shader" logic. acyclic dependency graph is preserved.
