@@ -12,7 +12,7 @@ const FOREGROUND: u32 = 0xFF00FF00; // Green (Abrash style!)
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - Rotating Polygon", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
+    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
     let mut timestep = FixedTimestep::new(60);
 
     // Create an octagon

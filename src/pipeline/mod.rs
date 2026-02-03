@@ -5,10 +5,10 @@
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::math::Vec3;
+pub use crate::rasterizer::{fill_triangle_3d, fill_triangle_gouraud};
 use crate::zbuffer::ZBuffer;
 
 pub mod projection;
-pub use projection::{ScreenPoint, project_to_screen};
 
 /// Helper to ensure buffer dimensions match
 #[inline]

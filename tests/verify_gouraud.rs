@@ -5,8 +5,8 @@ use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_gouraud_determinism() {
-    let mut fb = Framebuffer::new(100, 100);
-    let mut zb = ZBuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // NDC coordinates are [-1, 1].
     // Center of screen is (0,0).

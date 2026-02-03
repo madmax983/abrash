@@ -15,7 +15,7 @@ const YELLOW: u32 = 0xFFFFFF00;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - Filled Primitives", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT);
+    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
     let mut timestep = FixedTimestep::new(60);
 
     // Create shapes

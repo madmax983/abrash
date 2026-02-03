@@ -73,7 +73,7 @@ impl ParticleSystem {
             }
 
             // Project
-            let sp = crate::pipeline::projection::project_to_screen(clip_pos, w, width, height);
+            let sp = crate::math::project_to_screen(clip_pos, w, width, height);
 
             // Frustum culling (simple check on z/depth)
             // project_to_screen returns depth in sp.z

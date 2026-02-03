@@ -5,8 +5,8 @@ use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_fill_triangle_flat_basic() {
-    let mut fb = Framebuffer::new(100, 100);
-    let mut zb = ZBuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // Create a triangle facing the camera
     let v0 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
@@ -31,8 +31,8 @@ fn test_fill_triangle_flat_basic() {
 fn test_fill_triangle_lit_custom_lighting() {
     use abrash::light::{AmbientLight, DirectionalLight};
 
-    let mut fb = Framebuffer::new(100, 100);
-    let mut zb = ZBuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     let v0 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
     let v1 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
@@ -58,8 +58,8 @@ fn test_fill_triangle_lit_custom_lighting() {
 
 #[test]
 fn test_fill_triangle_gouraud_basic() {
-    let mut fb = Framebuffer::new(100, 100);
-    let mut zb = ZBuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // Triangle with different colors at each vertex
     let v0 = (Vec3::new(-0.5, -0.5, 0.5), 1.0);
@@ -83,8 +83,8 @@ fn test_fill_triangle_gouraud_basic() {
 
 #[test]
 fn test_fill_triangle_off_screen() {
-    let mut fb = Framebuffer::new(100, 100);
-    let mut zb = ZBuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // Triangle completely off-screen (Clip Space coordinates).
     // Pipeline converts these to Screen Coordinates.

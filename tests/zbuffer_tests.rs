@@ -2,7 +2,7 @@ use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_zbuffer_new() {
-    let zb = ZBuffer::new(100, 100);
+    let zb = ZBuffer::new(100, 100).unwrap();
     assert_eq!(zb.width(), 100);
     assert_eq!(zb.height(), 100);
     assert_eq!(zb.get_depth(50, 50), Some(f32::INFINITY));
@@ -10,7 +10,7 @@ fn test_zbuffer_new() {
 
 #[test]
 fn test_zbuffer_test_and_set() {
-    let mut zb = ZBuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // First write should succeed
     assert!(zb.test_and_set(50, 50, 0.5));
@@ -27,7 +27,7 @@ fn test_zbuffer_test_and_set() {
 
 #[test]
 fn test_zbuffer_clear() {
-    let mut zb = ZBuffer::new(100, 100);
+    let mut zb = ZBuffer::new(100, 100).unwrap();
     zb.test_and_set(50, 50, 0.5);
     zb.clear();
     assert_eq!(zb.get_depth(50, 50), Some(f32::INFINITY));
@@ -35,7 +35,7 @@ fn test_zbuffer_clear() {
 
 #[test]
 fn test_zbuffer_test_and_set_unchecked() {
-    let mut zbuffer = ZBuffer::new(10, 10);
+    let mut zbuffer = ZBuffer::new(10, 10).unwrap();
 
     // Test initial set
     let result = unsafe { zbuffer.test_and_set_unchecked(5, 5, 0.5) };
