@@ -456,22 +456,42 @@ pub fn fill_triangle_gouraud(
         return;
     }
 
+    // Optimization: Pre-calculate gradients (dz/dx, dc/dx) using plane equation
+    // This avoids per-scanline division and subtraction.
+    let ux = (p1.x as i64 - p0.x as i64) as f32;
+    let uy = (p1.y as i64 - p0.y as i64) as f32;
+    let uz = p1.z - p0.z;
+    let uc = c1 - c0;
+
+    let vx = (p2.x as i64 - p0.x as i64) as f32;
+    let vy = (p2.y as i64 - p0.y as i64) as f32;
+    let vz = p2.z - p0.z;
+    let vc = c2 - c0;
+
+    // Cross product Z component (signed area)
+    let nz = ux * vy - uy * vx;
+
+    // Optimization: Use the sign of the cross product (nz) to determine winding
+    let long_edge_is_left = nz > 0.0;
+
+    let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+    // dz/dx = -nx / nz
+    let nx_z = uy * vz - uz * vy;
+    let dz_dx = nx_z * inv_nz;
+
+    // dc/dx = -nx_c / nz
+    // We compute this for each component
+    let nx_r = uy * vc.x - uc.x * vy;
+    let nx_g = uy * vc.y - uc.y * vy;
+    let nx_b = uy * vc.z - uc.z * vy;
+    let dc_dx = Vec3::new(nx_r * inv_nz, nx_g * inv_nz, nx_b * inv_nz);
+
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
     let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
     let dz_dy_a = (p2.z - p0.z) * inv_total_height;
     let dc_dy_a = (c2 - c0) * inv_total_height;
-
-    // Determine if long edge is on the left or right
-    // We check the X coordinate of the long edge at y = p1.y
-    // x_long = p0.x + (p2.x - p0.x) * (p1.y - p0.y) / (p2.y - p0.y)
-    let dy_total = p2.y - p0.y;
-    let x_long_at_p1 = if dy_total != 0 {
-        p0.x as f32 + (p2.x - p0.x) as f32 * ((p1.y - p0.y) as f32 / dy_total as f32)
-    } else {
-        p0.x as f32
-    };
-    let long_edge_is_left = x_long_at_p1 < p1.x as f32;
 
     // Initialize walkers
     // A is always the long edge
@@ -563,7 +583,7 @@ pub fn fill_triangle_gouraud(
         }
 
         // Determine left/right edges
-        let (x_left, z_left, c_left, x_right, z_right, c_right) = if long_edge_is_left {
+        let (x_left, z_left, c_left, x_right, _z_right, _c_right) = if long_edge_is_left {
             (ax, az, ac, bx, bz, bc)
         } else {
             (bx, bz, bc, ax, az, ac)
@@ -588,12 +608,7 @@ pub fn fill_triangle_gouraud(
             continue;
         }
 
-        let dz = z_right - z_left;
-        let dc = c_right - c_left;
-        let inv_dx = 1.0 / dx as f32;
-        let dz_dx = dz * inv_dx;
-        let dc_dx = dc * inv_dx;
-
+        // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
         draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx);
 
         // Increment for next iteration
