@@ -186,10 +186,11 @@ impl Vec3 {
     pub fn normalize(&self) -> Vec3 {
         let len = self.length();
         if len > 0.0001 {
+            let inv_len = 1.0 / len;
             Vec3 {
-                x: self.x / len,
-                y: self.y / len,
-                z: self.z / len,
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
             }
         } else {
             *self

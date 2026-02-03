@@ -96,9 +96,9 @@ impl Window {
 
         use std::fmt::Write;
         // Inverse video for status bar
-        let _ = write!(
+        let _ = writeln!(
             output,
-            "\x1b[7m Frame: {:>3}/120 | Res: 80x80 | {} {:>3.0}% \x1b[0m\n",
+            "\x1b[7m Frame: {:>3}/120 | Res: 80x80 | {} {:>3.0}% \x1b[0m",
             self.frame_count,
             bar_str,
             progress * 100.0

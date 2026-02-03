@@ -32,3 +32,11 @@
 **[Zero-Cost Math Simplification]**
 **Learning:** Checking `x_long < x_other` to determine left/right edge involves division/multiplication. The sign of the 2D cross-product (`nz`) already computed for `dz/dx` gives the winding order and thus the side directly.
 **Action:** Reuse the cross-product Z-component sign (`nz > 0.0`) to determine `long_edge_is_left` without extra math.
+
+**[Micro-optimizations & Unrolling]**
+**Learning:** Manual loop unrolling in `Mat4::mul` (4x4 matrix multiplication) caused a ~15% performance regression (31ns -> 36ns), likely due to increased register pressure or I-cache pressure preventing efficient autovectorization.
+**Action:** Trust LLVM's autovectorizer for small fixed-size loops. Verify "obvious" optimizations with benchmarks.
+
+**[Division Optimization]**
+**Learning:** Replacing 3 divisions with 1 reciprocal calculation and 3 multiplications in `Vec3::normalize` yielded a ~15% speedup (3.2ns -> 2.7ns).
+**Action:** Always prefer multiplication by inverse for vector normalization or scaling.
