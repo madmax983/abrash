@@ -594,6 +594,17 @@ fn draw_scanline_gouraud(
         xe = width - 1;
     }
 
+    // Optimization: Demote to i32 for the hot loop to reduce register pressure.
+    // We used i64 above to handle large off-screen jumps safely without overflow.
+    // Once on-screen, 16.16 fixed point color fits comfortably in i32.
+    // (Max value ~255 * 65536 = 1.6e7 << i32::MAX)
+    let mut r_i = r_i as i32;
+    let mut g_i = g_i as i32;
+    let mut b_i = b_i as i32;
+    let dr = dr as i32;
+    let dg = dg as i32;
+    let db = db as i32;
+
     if xs <= xe {
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
         let width_usize = fb.width() as usize;
