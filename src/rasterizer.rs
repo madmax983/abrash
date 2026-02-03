@@ -609,6 +609,17 @@ fn draw_scanline_gouraud(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
+        // Optimization: Use i32 for the inner loop to reduce register pressure.
+        // The values are within range:
+        // - Colors * 65536 are ~16 million, well within i32 (~2 billion).
+        // - Even with off-screen clamping, we don't expect overflow of 2 billion.
+        let mut r_i = r_i as i32;
+        let mut g_i = g_i as i32;
+        let mut b_i = b_i as i32;
+        let dr = dr as i32;
+        let dg = dg as i32;
+        let db = db as i32;
+
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             // Check depth buffer
             if z < *depth_val {

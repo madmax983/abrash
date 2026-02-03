@@ -44,3 +44,7 @@
 **[Fixed-Point Optimization]**
 **Learning:** Hoisting float-to-fixed-point color conversion out of the inner scanline loop and using integer arithmetic for edge walking in the outer loop yielded a ~12% speedup in `fill_triangle_gouraud`.
 **Action:** For rasterization, convert continuous attributes (like color, UVs) to fixed-point integers as early as possible (triangle setup) to avoid float overhead in inner loops.
+
+**[Type Demotion in Hot Loops]**
+**Learning:** Demoting 16.16 fixed-point accumulators from `i64` to `i32` in the `draw_scanline_gouraud` hot loop yielded ~34% speedup. The values fit within `i32` range on-screen, reducing register pressure.
+**Action:** Use `i64` for setup and off-screen clamping to prevent overflow, but cast to `i32` for the inner per-pixel loop if the range permits.
