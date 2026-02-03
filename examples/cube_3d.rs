@@ -23,8 +23,8 @@ const COLORS: [u32; 6] = [
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - 3D Cube", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT).unwrap();
+    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
     let mut timestep = FixedTimestep::new(60);
 
     let cube = Mesh::cube(1.0);
