@@ -4,11 +4,8 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
-use crate::math::Vec3;
-pub use crate::rasterizer::{fill_triangle_3d, fill_triangle_gouraud};
+use crate::math::{Vec3, project_to_screen};
 use crate::zbuffer::ZBuffer;
-
-pub mod projection;
 
 /// Helper to ensure buffer dimensions match
 #[inline]
@@ -333,18 +330,12 @@ pub fn fill_triangle_lit(
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 
-/// Helper for fast color packing using saturating casts.
+/// Helper for fast color packing from fixed point scalars.
 #[inline(always)]
-fn pack_color_fast(c: Vec3) -> u32 {
-    pack_rgb_scalar(c.x, c.y, c.z)
-}
-
-/// Helper for fast color packing from scalars.
-#[inline(always)]
-fn pack_rgb_scalar(r: f32, g: f32, b: f32) -> u32 {
-    let r = r as u8;
-    let g = g as u8;
-    let b = b as u8;
+fn pack_color_fixed(r: i64, g: i64, b: i64) -> u32 {
+    let r = (r >> 16).max(0).min(255) as u8;
+    let g = (g >> 16).max(0).min(255) as u8;
+    let b = (b >> 16).max(0).min(255) as u8;
     0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
 }
 
@@ -358,7 +349,7 @@ fn draw_scanline_gouraud(
     x_start: i32,
     x_end: i32,
     z_start: f32,
-    c_start: Vec3,
+    c_start: (i64, i64, i64),
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
@@ -367,12 +358,10 @@ fn draw_scanline_gouraud(
     let mut xe = x_end;
     let mut z = z_start;
 
-    // Convert to fixed point 16.16
-    // Use i64 for accumulators to prevent overflow when x_start is far off-screen
-    const SCALE: f32 = 65536.0;
-    let mut r_i = (c_start.x * SCALE) as i64;
-    let mut g_i = (c_start.y * SCALE) as i64;
-    let mut b_i = (c_start.z * SCALE) as i64;
+    // Fixed point 16.16 passed in
+    let mut r_i = c_start.0;
+    let mut g_i = c_start.1;
+    let mut b_i = c_start.2;
     let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
 
     // Clamp to screen bounds
@@ -509,34 +498,42 @@ pub fn fill_triangle_gouraud(
     let db_i = (db * SCALE) as i32;
     let dc_dx_int = (dr_i, dg_i, db_i);
 
+    // Convert colors to fixed point 16.16
+    let c0_i = ((c0.x * SCALE) as i64, (c0.y * SCALE) as i64, (c0.z * SCALE) as i64);
+    let c1_i = ((c1.x * SCALE) as i64, (c1.y * SCALE) as i64, (c1.z * SCALE) as i64);
+
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
     let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
     let dz_dy_a = (p2.z - p0.z) * inv_total_height;
-    let dc_dy_a = (c2 - c0) * inv_total_height;
+
+    // Fixed point gradients
+    let dc_dy_a_vec = (c2 - c0) * inv_total_height;
+    let dc_dy_a = ((dc_dy_a_vec.x * SCALE) as i64, (dc_dy_a_vec.y * SCALE) as i64, (dc_dy_a_vec.z * SCALE) as i64);
 
     // Initialize walkers
     // A is always the long edge
     let mut ax = p0.x as f32;
     let mut az = p0.z;
-    let mut ac = c0;
+    let mut ac = c0_i;
 
     // B is the split edge
     let mut bx = p0.x as f32;
     let mut bz = p0.z;
-    let mut bc = c0;
+    let mut bc = c0_i;
 
     // Gradient for the first segment (p0 -> p1)
     let h1 = (p1.y - p0.y) as f32;
     let (dx_dy_b1, dz_dy_b1, dc_dy_b1) = if h1 != 0.0 {
         let inv_h1 = 1.0 / h1;
+        let dc_dy_b1_vec = (c1 - c0) * inv_h1;
         (
             (p1.x - p0.x) as f32 * inv_h1,
             (p1.z - p0.z) * inv_h1,
-            (c1 - c0) * inv_h1,
+            ((dc_dy_b1_vec.x * SCALE) as i64, (dc_dy_b1_vec.y * SCALE) as i64, (dc_dy_b1_vec.z * SCALE) as i64),
         )
     } else {
-        (0.0, 0.0, Vec3::default())
+        (0.0, 0.0, (0, 0, 0))
     };
 
     // Pre-advance to y_start if needed (clipping)
@@ -544,30 +541,42 @@ pub fn fill_triangle_gouraud(
         let dy = (y_start - p0.y) as f32;
         ax += dx_dy_a * dy;
         az += dz_dy_a * dy;
-        ac = ac + dc_dy_a * dy;
+
+        let dy_i64 = y_start as i64 - p0.y as i64;
+        ac.0 += dc_dy_a.0 * dy_i64;
+        ac.1 += dc_dy_a.1 * dy_i64;
+        ac.2 += dc_dy_a.2 * dy_i64;
 
         if y_start < p1.y {
             bx += dx_dy_b1 * dy;
             bz += dz_dy_b1 * dy;
-            bc = bc + dc_dy_b1 * dy;
+
+            bc.0 += dc_dy_b1.0 * dy_i64;
+            bc.1 += dc_dy_b1.1 * dy_i64;
+            bc.2 += dc_dy_b1.2 * dy_i64;
         } else {
             // We are starting in the second segment (or exactly at p1)
             // Initialize B at p1 and advance from there
             bx = p1.x as f32;
             bz = p1.z;
-            bc = c1;
+            bc = c1_i;
 
             let h2 = (p2.y - p1.y) as f32;
             if h2 != 0.0 {
                 let inv_h2 = 1.0 / h2;
                 let dx_dy_b2 = (p2.x - p1.x) as f32 * inv_h2;
                 let dz_dy_b2 = (p2.z - p1.z) * inv_h2;
-                let dc_dy_b2 = (c2 - c1) * inv_h2;
+                let dc_dy_b2_vec = (c2 - c1) * inv_h2;
+                let dc_dy_b2 = ((dc_dy_b2_vec.x * SCALE) as i64, (dc_dy_b2_vec.y * SCALE) as i64, (dc_dy_b2_vec.z * SCALE) as i64);
 
                 let dy2 = (y_start - p1.y) as f32;
                 bx += dx_dy_b2 * dy2;
                 bz += dz_dy_b2 * dy2;
-                bc = bc + dc_dy_b2 * dy2;
+
+                let dy2_i64 = y_start as i64 - p1.y as i64;
+                bc.0 += dc_dy_b2.0 * dy2_i64;
+                bc.1 += dc_dy_b2.1 * dy2_i64;
+                bc.2 += dc_dy_b2.2 * dy2_i64;
             }
         }
     }
@@ -584,7 +593,8 @@ pub fn fill_triangle_gouraud(
             let inv_h2 = 1.0 / h2;
             dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
             dz_dy_b = (p2.z - p1.z) * inv_h2;
-            dc_dy_b = (c2 - c1) * inv_h2;
+            let dc_dy_b2_vec = (c2 - c1) * inv_h2;
+            dc_dy_b = ((dc_dy_b2_vec.x * SCALE) as i64, (dc_dy_b2_vec.y * SCALE) as i64, (dc_dy_b2_vec.z * SCALE) as i64);
         }
     }
 
@@ -593,14 +603,15 @@ pub fn fill_triangle_gouraud(
         if y == p1.y && y != p0.y {
             bx = p1.x as f32;
             bz = p1.z;
-            bc = c1;
+            bc = c1_i;
 
             let h2 = (p2.y - p1.y) as f32;
             if h2 != 0.0 {
                 let inv_h2 = 1.0 / h2;
                 dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
                 dz_dy_b = (p2.z - p1.z) * inv_h2;
-                dc_dy_b = (c2 - c1) * inv_h2;
+                let dc_dy_b2_vec = (c2 - c1) * inv_h2;
+                dc_dy_b = ((dc_dy_b2_vec.x * SCALE) as i64, (dc_dy_b2_vec.y * SCALE) as i64, (dc_dy_b2_vec.z * SCALE) as i64);
             }
         }
 
@@ -617,16 +628,22 @@ pub fn fill_triangle_gouraud(
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, pack_color_fast(c_left));
+                fb.set_pixel(x_start, y, pack_color_fixed(c_left.0, c_left.1, c_left.2));
             }
             // Increment for next iteration
             ax += dx_dy_a;
             az += dz_dy_a;
-            ac = ac + dc_dy_a;
+
+            ac.0 += dc_dy_a.0;
+            ac.1 += dc_dy_a.1;
+            ac.2 += dc_dy_a.2;
 
             bx += dx_dy_b;
             bz += dz_dy_b;
-            bc = bc + dc_dy_b;
+
+            bc.0 += dc_dy_b.0;
+            bc.1 += dc_dy_b.1;
+            bc.2 += dc_dy_b.2;
             continue;
         }
 
@@ -636,10 +653,16 @@ pub fn fill_triangle_gouraud(
         // Increment for next iteration
         ax += dx_dy_a;
         az += dz_dy_a;
-        ac = ac + dc_dy_a;
+
+        ac.0 += dc_dy_a.0;
+        ac.1 += dc_dy_a.1;
+        ac.2 += dc_dy_a.2;
 
         bx += dx_dy_b;
         bz += dz_dy_b;
-        bc = bc + dc_dy_b;
+
+        bc.0 += dc_dy_b.0;
+        bc.1 += dc_dy_b.1;
+        bc.2 += dc_dy_b.2;
     }
 }
