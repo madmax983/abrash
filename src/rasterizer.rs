@@ -84,7 +84,22 @@ fn draw_line_bresenham(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32,
     }
 }
 
-/// Draw a line using the best available method
+/// Draw a line using the best available method.
+///
+/// Automatically dispatches to specialized horizontal/vertical drawers if possible,
+/// or falls back to Bresenham's algorithm for diagonal lines.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::rasterizer::draw_line;
+///
+/// let mut fb = Framebuffer::new(100, 100);
+///
+/// // Draw a white line from (10, 10) to (50, 90)
+/// draw_line(&mut fb, 10, 10, 50, 90, 0xFFFFFFFF);
+/// ```
 pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color: u32) {
     // Dispatch to optimized versions for axis-aligned lines
     if y0 == y1 {
@@ -187,7 +202,26 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
     }
 }
 
-/// Fill a triangle using scanline rasterization
+/// Fill a triangle using scanline rasterization.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::rasterizer::fill_triangle;
+/// use abrash::shapes::Triangle;
+/// use abrash::math::Vec2;
+///
+/// let mut fb = Framebuffer::new(100, 100);
+///
+/// let tri = Triangle::new(
+///     Vec2::new(50.0, 10.0),
+///     Vec2::new(10.0, 90.0),
+///     Vec2::new(90.0, 90.0),
+/// );
+///
+/// fill_triangle(&mut fb, &tri, 0xFF0000FF); // Red triangle
+/// ```
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     // Sort vertices by y coordinate (v0.y <= v1.y <= v2.y)
     let mut v0 = tri.v0;

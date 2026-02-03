@@ -1,6 +1,18 @@
 //! 3D Rendering pipeline.
 //!
-//! Functions for projecting and rasterizing 3D primitives (triangles) with shading.
+//! This module handles the transformation and rasterization of 3D primitives (triangles).
+//!
+//! # The Pipeline Stages
+//!
+//! 1.  **Vertex Processing**: Vertices are transformed from Model Space to Clip Space.
+//! 2.  **Projection**: Vertices are projected to Screen Space ([`project_to_screen`]).
+//! 3.  **Rasterization**: Triangles are converted into pixels ([`fill_triangle_3d`], [`fill_triangle_gouraud`]).
+//! 4.  **Fragment Processing**: Color and depth are written to the buffers.
+//!
+//! # Shading Models
+//!
+//! *   **Flat Shading**: One color per triangle. Fast but faceted look.
+//! *   **Gouraud Shading**: Per-vertex color interpolation. Smoother look.
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
@@ -102,7 +114,32 @@ fn draw_scanline_flat(
     }
 }
 
-/// Fill a 3D triangle with z-buffer test
+/// Fill a 3D triangle with z-buffer test (Flat Shading).
+///
+/// This function rasterizes a triangle using a flat color. It handles:
+/// *   Screen space projection.
+/// *   Y-sorting vertices.
+/// *   Scanline conversion.
+/// *   Depth testing against the Z-buffer.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::pipeline::fill_triangle_3d;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100);
+/// let mut zb = ZBuffer::new(100, 100);
+///
+/// // Define vertices (World Space) and Homogeneous W (usually 1.0 for unprojected)
+/// let v0 = (Vec3::new(0.0, 50.0, 0.0), 1.0);
+/// let v1 = (Vec3::new(-50.0, -50.0, 0.0), 1.0);
+/// let v2 = (Vec3::new(50.0, -50.0, 0.0), 1.0);
+///
+/// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+/// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -412,8 +449,33 @@ fn draw_scanline_gouraud(
     }
 }
 
-/// Fill a 3D triangle with Gouraud (per-vertex) shading
-/// Each vertex has a position (clip space + w) and color
+/// Fill a 3D triangle with Gouraud (per-vertex) shading.
+///
+/// # Algorithm
+///
+/// Gouraud shading interpolates colors across the face of the triangle.
+/// 1.  Calculates color gradients (`dc/dx`, `dc/dy`).
+/// 2.  Interpolates Red, Green, and Blue channels independently along edges and scanlines.
+/// 3.  Produces a smooth gradient between vertices.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::pipeline::fill_triangle_gouraud;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100);
+/// let mut zb = ZBuffer::new(100, 100);
+///
+/// // Vertices with Colors: ((Position, W), Color)
+/// let v0 = ((Vec3::new(0.0, 50.0, 0.0), 1.0), Vec3::new(1.0, 0.0, 0.0));   // Red Top
+/// let v1 = ((Vec3::new(-50.0, -50.0, 0.0), 1.0), Vec3::new(0.0, 1.0, 0.0)); // Green Left
+/// let v2 = ((Vec3::new(50.0, -50.0, 0.0), 1.0), Vec3::new(0.0, 0.0, 1.0));  // Blue Right
+///
+/// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
+/// ```
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
