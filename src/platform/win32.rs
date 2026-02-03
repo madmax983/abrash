@@ -9,7 +9,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use super::{Event, WindowError};
 use crate::framebuffer::Framebuffer;
 
-const WINDOW_CLASS_NAME: &str = "AbrashWindowClass\0";
+const WINDOW_CLASS_NAME: &str = "AbrashWindowClass";
 
 /// Win32 window handle wrapper
 pub struct Window {
@@ -24,8 +24,14 @@ impl Window {
         unsafe {
             let hinstance = GetModuleHandleW(null_mut());
 
+            // Encode class name to UTF-16 with null terminator
+            let class_name_wide: Vec<u16> = WINDOW_CLASS_NAME
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+
             // Register window class
-            if !register_window_class(hinstance) {
+            if !register_window_class(hinstance, &class_name_wide) {
                 return Err(WindowError::RegistrationFailed);
             }
 
@@ -36,7 +42,7 @@ impl Window {
             // Create window
             let hwnd = CreateWindowExW(
                 0,
-                WINDOW_CLASS_NAME.as_ptr() as *const u16,
+                class_name_wide.as_ptr(),
                 title_wide.as_ptr(),
                 WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                 CW_USEDEFAULT,
@@ -144,9 +150,7 @@ impl Window {
     }
 }
 
-unsafe fn register_window_class(hinstance: HINSTANCE) -> bool {
-    let class_name = WINDOW_CLASS_NAME.as_ptr() as *const u16;
-
+unsafe fn register_window_class(hinstance: HINSTANCE, class_name: &[u16]) -> bool {
     let wc = WNDCLASSW {
         style: CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
         lpfnWndProc: Some(window_proc),
@@ -157,7 +161,7 @@ unsafe fn register_window_class(hinstance: HINSTANCE) -> bool {
         hCursor: unsafe { LoadCursorW(null_mut(), IDC_ARROW) },
         hbrBackground: null_mut(),
         lpszMenuName: null_mut(),
-        lpszClassName: class_name,
+        lpszClassName: class_name.as_ptr(),
     };
 
     unsafe { RegisterClassW(&wc) != 0 }
