@@ -2,7 +2,7 @@ use abrash::framebuffer::Framebuffer;
 
 #[test]
 fn test_framebuffer_new() {
-    let fb = Framebuffer::new(800, 600);
+    let fb = Framebuffer::new(800, 600).unwrap();
     assert_eq!(fb.width(), 800);
     assert_eq!(fb.height(), 600);
     assert_eq!(fb.as_slice().len(), 800 * 600);
@@ -10,7 +10,7 @@ fn test_framebuffer_new() {
 
 #[test]
 fn test_framebuffer_initialized_to_black() {
-    let fb = Framebuffer::new(10, 10);
+    let fb = Framebuffer::new(10, 10).unwrap();
     for &pixel in fb.as_slice() {
         assert_eq!(pixel, 0xFF00_0000); // Black with full alpha
     }
@@ -18,7 +18,7 @@ fn test_framebuffer_initialized_to_black() {
 
 #[test]
 fn test_framebuffer_clear() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let red = 0xFFFF_0000; // Red with full alpha
 
     fb.clear(red);
@@ -30,7 +30,7 @@ fn test_framebuffer_clear() {
 
 #[test]
 fn test_framebuffer_set_pixel() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let white = 0xFFFF_FFFF;
 
     fb.set_pixel(5, 3, white);
@@ -40,7 +40,7 @@ fn test_framebuffer_set_pixel() {
 
 #[test]
 fn test_framebuffer_bounds_checking() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let white = 0xFFFF_FFFF;
 
     // Out of bounds should be ignored
@@ -53,7 +53,7 @@ fn test_framebuffer_bounds_checking() {
 
 #[test]
 fn test_framebuffer_clear_rect() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let red = 0xFFFF0000;
 
     fb.clear_rect(10, 10, 20, 20, red);
@@ -69,7 +69,7 @@ fn test_framebuffer_clear_rect() {
 
 #[test]
 fn test_framebuffer_set_pixel_unchecked() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let color = 0xFFFFFFFF;
     unsafe {
         fb.set_pixel_unchecked(5, 5, color);

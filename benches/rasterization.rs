@@ -6,8 +6,8 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_fill_triangle_gouraud(c: &mut Criterion) {
     c.bench_function("fill_triangle_gouraud", |b| {
-        let mut fb = Framebuffer::new(800, 600);
-        let mut zb = ZBuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
 
         let v0 = (Vec3::new(0.0, 2.0, -2.0), 1.0);
         let v1 = (Vec3::new(-2.0, -2.0, -2.0), 1.0);
@@ -32,8 +32,8 @@ fn bench_fill_triangle_gouraud(c: &mut Criterion) {
 
 fn bench_fill_triangle_3d_large(c: &mut Criterion) {
     c.bench_function("fill_triangle_3d_large", |b| {
-        let mut fb = Framebuffer::new(800, 600);
-        let mut zb = ZBuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
 
         // A large triangle covering a significant portion of the screen
         let v0 = (Vec3::new(0.0, 2.0, -2.0), 1.0);
@@ -62,8 +62,8 @@ fn bench_fill_triangle_3d_large(c: &mut Criterion) {
 
 fn bench_fill_triangle_3d_small(c: &mut Criterion) {
     c.bench_function("fill_triangle_3d_small", |b| {
-        let mut fb = Framebuffer::new(800, 600);
-        let mut zb = ZBuffer::new(800, 600);
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
 
         let v0 = (Vec3::new(0.0, 0.1, -2.0), 1.0);
         let v1 = (Vec3::new(-0.1, -0.1, -2.0), 1.0);

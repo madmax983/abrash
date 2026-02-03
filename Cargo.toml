@@ -18,6 +18,7 @@ windows-sys = { version = "0.59", features = [
 
 [dev-dependencies]
 criterion = "0.5"
+proptest = "1.0"
 
 [[bench]]
 name = "primitives"

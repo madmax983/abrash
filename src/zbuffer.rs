@@ -11,17 +11,17 @@ pub struct ZBuffer {
 
 impl ZBuffer {
     /// Create a new z-buffer initialized to maximum depth
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         let size = (width as u64)
             .checked_mul(height as u64)
             .filter(|&s| s <= u32::MAX as u64)
-            .expect("Buffer size overflow") as usize;
+            .ok_or("Buffer size overflow")? as usize;
 
-        Self {
+        Ok(Self {
             depths: vec![f32::INFINITY; size],
             width,
             height,
-        }
+        })
     }
 
     /// Clear the z-buffer to maximum depth

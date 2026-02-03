@@ -100,8 +100,8 @@ mod tests {
     fn test_apply_depth_fog() {
         let width = 2;
         let height = 1;
-        let mut fb = Framebuffer::new(width, height);
-        let mut zb = ZBuffer::new(width, height);
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
 
         // Pixel 0: Close (depth 0.0), RED
         fb.set_pixel(0, 0, 0xFFFF0000); // Red
@@ -132,8 +132,8 @@ mod tests {
     fn test_fog_gradient() {
         let width = 1;
         let height = 1;
-        let mut fb = Framebuffer::new(width, height);
-        let mut zb = ZBuffer::new(width, height);
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
 
         // Pixel: depth 0.5. Range 0.0 - 1.0. Factor should be 0.5.
         // Color: Black (0xFF000000). Fog: White (0xFFFFFFFF). Result: Gray (0xFF7F7F7F)

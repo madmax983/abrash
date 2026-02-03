@@ -8,7 +8,7 @@ use abrash::shapes::{Polygon, Triangle};
 
 #[test]
 fn test_plot_pixel() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let white = 0xFFFF_FFFF;
 
     plot_pixel(&mut fb, 5, 5, white);
@@ -18,7 +18,7 @@ fn test_plot_pixel() {
 
 #[test]
 fn test_plot_pixel_bounds() {
-    let mut fb = Framebuffer::new(10, 10);
+    let mut fb = Framebuffer::new(10, 10).unwrap();
     let white = 0xFFFF_FFFF;
 
     // Should not panic on out of bounds
@@ -28,7 +28,7 @@ fn test_plot_pixel_bounds() {
 
 #[test]
 fn test_draw_line_horizontal() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_line(&mut fb, 10, 50, 90, 50, white);
@@ -46,7 +46,7 @@ fn test_draw_line_horizontal() {
 
 #[test]
 fn test_draw_line_vertical() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_line(&mut fb, 50, 10, 50, 90, white);
@@ -64,7 +64,7 @@ fn test_draw_line_vertical() {
 
 #[test]
 fn test_draw_line_diagonal() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_line(&mut fb, 10, 10, 50, 50, white);
@@ -77,7 +77,7 @@ fn test_draw_line_diagonal() {
 
 #[test]
 fn test_draw_line_steep() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     // Steep line (more vertical than horizontal)
@@ -89,7 +89,7 @@ fn test_draw_line_steep() {
 
 #[test]
 fn test_draw_line_reverse_direction() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     // Draw from right to left
@@ -102,7 +102,7 @@ fn test_draw_line_reverse_direction() {
 
 #[test]
 fn test_draw_line_single_pixel() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_line(&mut fb, 50, 50, 50, 50, white);
@@ -112,7 +112,7 @@ fn test_draw_line_single_pixel() {
 
 #[test]
 fn test_draw_polygon_triangle() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     let triangle = Polygon::new(vec![
@@ -131,7 +131,7 @@ fn test_draw_polygon_triangle() {
 
 #[test]
 fn test_draw_hline() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_hline(&mut fb, 10, 90, 50, white);
@@ -144,7 +144,7 @@ fn test_draw_hline() {
 
 #[test]
 fn test_draw_vline() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_vline(&mut fb, 50, 10, 90, white);
@@ -157,7 +157,7 @@ fn test_draw_vline() {
 
 #[test]
 fn test_fill_triangle() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     let tri = Triangle::new(
@@ -178,7 +178,7 @@ fn test_fill_triangle() {
 
 #[test]
 fn test_draw_circle() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_circle(&mut fb, 50, 50, 20, white);
@@ -195,7 +195,7 @@ fn test_draw_circle() {
 
 #[test]
 fn test_draw_circle_zero_radius() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     draw_circle(&mut fb, 50, 50, 0, white);
@@ -206,7 +206,7 @@ fn test_draw_circle_zero_radius() {
 
 #[test]
 fn test_fill_circle() {
-    let mut fb = Framebuffer::new(100, 100);
+    let mut fb = Framebuffer::new(100, 100).unwrap();
     let white = 0xFFFFFFFF;
 
     fill_circle(&mut fb, 50, 50, 20, white);
