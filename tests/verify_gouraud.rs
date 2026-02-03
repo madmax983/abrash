@@ -32,14 +32,18 @@ fn test_gouraud_determinism() {
     println!("Checksum: {:016X}", checksum);
 
     // Checksum updated after gradient calculation optimization.
-    assert_eq!(checksum, 0x35A842DC61FDDB2D, "Checksum mismatch! Optimization broke rendering.");
+    assert_eq!(
+        checksum, 0x35A842DC61FDDB2D,
+        "Checksum mismatch! Optimization broke rendering."
+    );
 }
 
 fn calculate_checksum(fb: &Framebuffer) -> u64 {
     let mut sum: u64 = 0;
     for (i, &pixel) in fb.as_slice().iter().enumerate() {
-        if pixel != 0xFF000000 { // Skip clear color
-             // Simple FNV-1a like mix
+        if pixel != 0xFF000000 {
+            // Skip clear color
+            // Simple FNV-1a like mix
             sum = sum.wrapping_mul(1099511628211);
             sum ^= pixel as u64;
             sum ^= i as u64;

@@ -10,6 +10,196 @@ use crate::zbuffer::ZBuffer;
 pub mod projection;
 pub use projection::{ScreenPoint, project_to_screen};
 
+/// Vertex with position and homogeneous W component.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClipVertex {
+    pub position: Vec3,
+    pub w: f32,
+}
+
+impl ClipVertex {
+    pub fn new(position: Vec3, w: f32) -> Self {
+        Self { position, w }
+    }
+}
+
+/// Vertex with position, homogeneous W component, and color.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GouraudVertex {
+    pub position: Vec3,
+    pub w: f32,
+    pub color: Vec3,
+}
+
+impl GouraudVertex {
+    pub fn new(position: Vec3, w: f32, color: Vec3) -> Self {
+        Self { position, w, color }
+    }
+}
+
+impl From<((Vec3, f32), Vec3)> for GouraudVertex {
+    fn from(v: ((Vec3, f32), Vec3)) -> Self {
+        Self {
+            position: v.0.0,
+            w: v.0.1,
+            color: v.1,
+        }
+    }
+}
+
+struct GouraudGradients {
+    dz_dx: f32,
+    dc_dx: Vec3,
+}
+
+impl GouraudGradients {
+    fn new(
+        p0: ScreenPoint,
+        c0: Vec3,
+        p1: ScreenPoint,
+        c1: Vec3,
+        p2: ScreenPoint,
+        c2: Vec3,
+    ) -> Self {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let uz = p1.z - p0.z;
+        let uc = c1 - c0;
+
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vz = p2.z - p0.z;
+        let vc = c2 - c0;
+
+        // Cross product Z component (signed area)
+        let nz = ux * vy - uy * vx;
+
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        // dz/dx = -nx / nz
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        // dc/dx = -nx_c / nz
+        // We compute this for each component
+        let nx_r = uy * vc.x - uc.x * vy;
+        let nx_g = uy * vc.y - uc.y * vy;
+        let nx_b = uy * vc.z - uc.z * vy;
+        let dc_dx = Vec3::new(nx_r * inv_nz, nx_g * inv_nz, nx_b * inv_nz);
+
+        Self { dz_dx, dc_dx }
+    }
+}
+
+struct GouraudEdge {
+    x: f32,
+    z: f32,
+    color: Vec3,
+
+    dx_dy: f32,
+    dz_dy: f32,
+    dc_dy: Vec3,
+}
+
+impl GouraudEdge {
+    fn new(p_start: ScreenPoint, c_start: Vec3, p_end: ScreenPoint, c_end: Vec3) -> Self {
+        let height = (p_end.y as i64 - p_start.y as i64) as f32;
+        let (dx_dy, dz_dy, dc_dy) = if height != 0.0 {
+            let inv_h = 1.0 / height;
+            (
+                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                (p_end.z - p_start.z) * inv_h,
+                (c_end - c_start) * inv_h,
+            )
+        } else {
+            (0.0, 0.0, Vec3::default())
+        };
+
+        Self {
+            x: p_start.x as f32,
+            z: p_start.z,
+            color: c_start,
+            dx_dy,
+            dz_dy,
+            dc_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.color = self.color + self.dc_dy;
+    }
+
+    fn step_by(&mut self, steps: f32) {
+        self.x += self.dx_dy * steps;
+        self.z += self.dz_dy * steps;
+        self.color = self.color + self.dc_dy * steps;
+    }
+}
+
+struct FlatGradients {
+    dz_dx: f32,
+}
+
+impl FlatGradients {
+    fn new(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> Self {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let uz = p1.z - p0.z;
+
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vz = p2.z - p0.z;
+
+        let nx = uy * vz - uz * vy;
+        let nz = ux * vy - uy * vx;
+
+        let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+
+        Self { dz_dx }
+    }
+}
+
+struct FlatEdge {
+    x: f32,
+    z: f32,
+    dx_dy: f32,
+    dz_dy: f32,
+}
+
+impl FlatEdge {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
+        let height = (p_end.y as i64 - p_start.y as i64) as f32;
+        let (dx_dy, dz_dy) = if height != 0.0 {
+            let inv_h = 1.0 / height;
+            (
+                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                (p_end.z - p_start.z) * inv_h,
+            )
+        } else {
+            (0.0, 0.0)
+        };
+
+        Self {
+            x: p_start.x as f32,
+            z: p_start.z,
+            dx_dy,
+            dz_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+    }
+
+    fn step_by(&mut self, steps: f32) {
+        self.x += self.dx_dy * steps;
+        self.z += self.dz_dy * steps;
+    }
+}
+
 /// Helper to ensure buffer dimensions match
 #[inline]
 fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
@@ -45,7 +235,6 @@ where
     }
 }
 
-
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
@@ -80,7 +269,11 @@ fn draw_scanline_flat(
     }
 
     // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-    debug_assert_eq!(fb.width(), zb.width(), "Framebuffer and ZBuffer widths must match");
+    debug_assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -111,28 +304,40 @@ pub fn fill_triangle_3d(
     v2: (Vec3, f32),
     color: u32,
 ) {
+    let v0 = ClipVertex::new(v0.0, v0.1);
+    let v1 = ClipVertex::new(v1.0, v1.1);
+    let v2 = ClipVertex::new(v2.0, v2.1);
+    fill_triangle_3d_impl(fb, zb, v0, v1, v2, color);
+}
+
+fn fill_triangle_3d_impl(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ClipVertex,
+    v1: ClipVertex,
+    v2: ClipVertex,
+    color: u32,
+) {
     assert_same_dimensions(fb, zb);
 
     let width = fb.width();
     let height = fb.height();
 
     // Project to screen
-    let p0 = project_to_screen(v0.0, v0.1, width, height);
-    let p1 = project_to_screen(v1.0, v1.1, width, height);
-    let p2 = project_to_screen(v2.0, v2.1, width, height);
+    let p0 = project_to_screen(v0.position, v0.w, width, height);
+    let p1 = project_to_screen(v1.position, v1.w, width, height);
+    let p2 = project_to_screen(v2.position, v2.w, width, height);
 
     // Sort by y
     let mut verts = [p0, p1, p2];
     sort_by_y(&mut verts, |p| p.y);
     let [p0, p1, p2] = verts;
 
-    // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
     let total_height = (p2.y as i64 - p0.y as i64) as f32;
     if total_height == 0.0 {
         return;
     }
 
-    // Optimization: Clamp Y range to screen bounds
     let y_min = 0;
     let y_max = height as i32 - 1;
     let y_start = p0.y.max(y_min);
@@ -142,135 +347,62 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    // Optimization: Pre-calculate dz/dx constant for the whole triangle
-    // Plane equation: Ax + By + Cz + D = 0
-    // vectors p0->p1 and p0->p2
-    // Use i64 for coordinate differences to prevent overflow with extreme coordinates
+    let gradients = FlatGradients::new(p0, p1, p2);
+
+    // Winding order
     let ux = (p1.x as i64 - p0.x as i64) as f32;
     let uy = (p1.y as i64 - p0.y as i64) as f32;
-    let uz = p1.z - p0.z;
-
     let vx = (p2.x as i64 - p0.x as i64) as f32;
     let vy = (p2.y as i64 - p0.y as i64) as f32;
-    let vz = p2.z - p0.z;
-
-    // Cross product to get normal (A, B, C)
-    let nx = uy * vz - uz * vy;
-    // let ny = uz * vx - ux * vz;
-    let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
-
-    // dz/dx = -A/C = -nx/nz
-    let dz_dx = if nz.abs() > 0.0001 {
-        -nx / nz
-    } else {
-        0.0
-    };
-
-    // Calculate gradients for the long edge (p0 -> p2)
-    let inv_total_height = 1.0 / total_height;
-    let dx_dy_a = (p2.x as i64 - p0.x as i64) as f32 * inv_total_height;
-    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
-
-    // Determine if long edge is on the left or right
-    // Optimization: Use the sign of the cross product (nz) to determine winding
-    // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
+    let nz = ux * vy - uy * vx;
     let long_edge_is_left = nz > 0.0;
 
-    // Initialize walkers
-    // A (long edge)
-    let mut ax = p0.x as f32;
-    let mut az = p0.z;
-
+    // Edge A (long edge)
+    let mut edge_a = FlatEdge::new(p0, p2);
     if y_start > p0.y {
-        let dy = (y_start as i64 - p0.y as i64) as f32;
-        ax += dx_dy_a * dy;
-        az += dz_dy_a * dy;
+        edge_a.step_by((y_start as i64 - p0.y as i64) as f32);
     }
 
-    // B (short edges)
-    // Pre-calculate b1 slopes
-    let h1 = (p1.y as i64 - p0.y as i64) as f32;
-    let (dx_dy_b1, dz_dy_b1) = if h1 != 0.0 {
-        let inv_h1 = 1.0 / h1;
-        ((p1.x as i64 - p0.x as i64) as f32 * inv_h1, (p1.z - p0.z) * inv_h1)
-    } else {
-        (0.0, 0.0)
-    };
-
-    // Pre-calculate b2 slopes
-    let h2 = (p2.y as i64 - p1.y as i64) as f32;
-    let (dx_dy_b2, dz_dy_b2) = if h2 != 0.0 {
-        let inv_h2 = 1.0 / h2;
-        ((p2.x as i64 - p1.x as i64) as f32 * inv_h2, (p2.z - p1.z) * inv_h2)
-    } else {
-        (0.0, 0.0)
-    };
-
-    let mut bx;
-    let mut bz;
-    let mut dx_dy_b;
-    let mut dz_dy_b;
-
-    if y_start < p1.y {
-        // Start on first segment
-        bx = p0.x as f32;
-        bz = p0.z;
-        dx_dy_b = dx_dy_b1;
-        dz_dy_b = dz_dy_b1;
-
+    // Edge B (short edges)
+    let mut edge_b = if y_start < p1.y {
+        let mut e = FlatEdge::new(p0, p1);
         if y_start > p0.y {
-            let dy = (y_start as i64 - p0.y as i64) as f32;
-            bx += dx_dy_b * dy;
-            bz += dz_dy_b * dy;
+            e.step_by((y_start as i64 - p0.y as i64) as f32);
         }
+        e
     } else {
-        // Start on second segment (includes flat top case where y_start == p0.y == p1.y)
-        bx = p1.x as f32;
-        bz = p1.z;
-        dx_dy_b = dx_dy_b2;
-        dz_dy_b = dz_dy_b2;
-
+        let mut e = FlatEdge::new(p1, p2);
         if y_start > p1.y {
-            let dy = (y_start as i64 - p1.y as i64) as f32;
-            bx += dx_dy_b * dy;
-            bz += dz_dy_b * dy;
+            e.step_by((y_start as i64 - p1.y as i64) as f32);
         }
-    }
+        e
+    };
 
     for y in y_start..=y_end {
         if y == p1.y && y != p0.y {
-            bx = p1.x as f32;
-            bz = p1.z;
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-                dz_dy_b = (p2.z - p1.z) * inv_h2;
-            }
+            edge_b = FlatEdge::new(p1, p2);
         }
 
-        let (x_left, z_left, x_right) = if long_edge_is_left {
-            (ax, az, bx)
+        let (left, right) = if long_edge_is_left {
+            (&edge_a, &edge_b)
         } else {
-            (bx, bz, ax)
+            (&edge_b, &edge_a)
         };
 
-        let x_start = x_left as i32;
-        let x_end = x_right as i32;
+        let x_start = left.x as i32;
+        let x_end = right.x as i32;
         let dx = x_end - x_start;
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, left.z) {
                 fb.set_pixel(x_start, y, color);
             }
         } else {
-            draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+            draw_scanline_flat(fb, zb, y, x_start, x_end, left.z, gradients.dz_dx, color);
         }
 
-        ax += dx_dy_a;
-        az += dz_dy_a;
-        bx += dx_dy_b;
-        bz += dz_dy_b;
+        edge_a.step();
+        edge_b.step();
     }
 }
 
@@ -421,21 +553,34 @@ pub fn fill_triangle_gouraud(
     v1: ((Vec3, f32), Vec3),
     v2: ((Vec3, f32), Vec3),
 ) {
+    let v0 = GouraudVertex::from(v0);
+    let v1 = GouraudVertex::from(v1);
+    let v2 = GouraudVertex::from(v2);
+    fill_triangle_gouraud_impl(fb, zb, v0, v1, v2);
+}
+
+fn fill_triangle_gouraud_impl(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: GouraudVertex,
+    v1: GouraudVertex,
+    v2: GouraudVertex,
+) {
     assert_same_dimensions(fb, zb);
 
     let width = fb.width();
     let height = fb.height();
 
     // Project to screen
-    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+    let p0 = project_to_screen(v0.position, v0.w, width, height);
+    let p1 = project_to_screen(v1.position, v1.w, width, height);
+    let p2 = project_to_screen(v2.position, v2.w, width, height);
 
     // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
     // allowing us to skip clamp/mul per pixel
-    let c0 = v0.1 * 255.0;
-    let c1 = v1.1 * 255.0;
-    let c2 = v2.1 * 255.0;
+    let c0 = v0.color * 255.0;
+    let c1 = v1.color * 255.0;
+    let c2 = v2.color * 255.0;
 
     // Sort by y
     let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
@@ -456,168 +601,79 @@ pub fn fill_triangle_gouraud(
         return;
     }
 
-    // Optimization: Pre-calculate gradients (dz/dx, dc/dx) using plane equation
-    // This avoids per-scanline division and subtraction.
+    let gradients = GouraudGradients::new(p0, c0, p1, c1, p2, c2);
+
+    // Winding order
     let ux = (p1.x as i64 - p0.x as i64) as f32;
     let uy = (p1.y as i64 - p0.y as i64) as f32;
-    let uz = p1.z - p0.z;
-    let uc = c1 - c0;
-
     let vx = (p2.x as i64 - p0.x as i64) as f32;
     let vy = (p2.y as i64 - p0.y as i64) as f32;
-    let vz = p2.z - p0.z;
-    let vc = c2 - c0;
-
     // Cross product Z component (signed area)
     let nz = ux * vy - uy * vx;
 
     // Optimization: Use the sign of the cross product (nz) to determine winding
     let long_edge_is_left = nz > 0.0;
 
-    let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
-
-    // dz/dx = -nx / nz
-    let nx_z = uy * vz - uz * vy;
-    let dz_dx = nx_z * inv_nz;
-
-    // dc/dx = -nx_c / nz
-    // We compute this for each component
-    let nx_r = uy * vc.x - uc.x * vy;
-    let nx_g = uy * vc.y - uc.y * vy;
-    let nx_b = uy * vc.z - uc.z * vy;
-    let dc_dx = Vec3::new(nx_r * inv_nz, nx_g * inv_nz, nx_b * inv_nz);
-
-    // Calculate gradients for the long edge (p0 -> p2)
-    let inv_total_height = 1.0 / total_height;
-    let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
-    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
-    let dc_dy_a = (c2 - c0) * inv_total_height;
-
     // Initialize walkers
-    // A is always the long edge
-    let mut ax = p0.x as f32;
-    let mut az = p0.z;
-    let mut ac = c0;
-
-    // B is the split edge
-    let mut bx = p0.x as f32;
-    let mut bz = p0.z;
-    let mut bc = c0;
-
-    // Gradient for the first segment (p0 -> p1)
-    let h1 = (p1.y - p0.y) as f32;
-    let (dx_dy_b1, dz_dy_b1, dc_dy_b1) = if h1 != 0.0 {
-        let inv_h1 = 1.0 / h1;
-        (
-            (p1.x - p0.x) as f32 * inv_h1,
-            (p1.z - p0.z) * inv_h1,
-            (c1 - c0) * inv_h1,
-        )
-    } else {
-        (0.0, 0.0, Vec3::default())
-    };
-
-    // Pre-advance to y_start if needed (clipping)
+    // A (long edge)
+    let mut edge_a = GouraudEdge::new(p0, c0, p2, c2);
     if y_start > p0.y {
-        let dy = (y_start - p0.y) as f32;
-        ax += dx_dy_a * dy;
-        az += dz_dy_a * dy;
-        ac = ac + dc_dy_a * dy;
-
-        if y_start < p1.y {
-            bx += dx_dy_b1 * dy;
-            bz += dz_dy_b1 * dy;
-            bc = bc + dc_dy_b1 * dy;
-        } else {
-            // We are starting in the second segment (or exactly at p1)
-            // Initialize B at p1 and advance from there
-            bx = p1.x as f32;
-            bz = p1.z;
-            bc = c1;
-
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                let dx_dy_b2 = (p2.x - p1.x) as f32 * inv_h2;
-                let dz_dy_b2 = (p2.z - p1.z) * inv_h2;
-                let dc_dy_b2 = (c2 - c1) * inv_h2;
-
-                let dy2 = (y_start - p1.y) as f32;
-                bx += dx_dy_b2 * dy2;
-                bz += dz_dy_b2 * dy2;
-                bc = bc + dc_dy_b2 * dy2;
-            }
-        }
+        edge_a.step_by((y_start as i64 - p0.y as i64) as f32);
     }
 
-    // Gradients for B (current)
-    let mut dx_dy_b = dx_dy_b1;
-    let mut dz_dy_b = dz_dy_b1;
-    let mut dc_dy_b = dc_dy_b1;
-
-    // If we start past p1.y, we need to set the slopes to b2 slopes
-    if y_start >= p1.y {
-        let h2 = (p2.y - p1.y) as f32;
-        if h2 != 0.0 {
-            let inv_h2 = 1.0 / h2;
-            dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-            dz_dy_b = (p2.z - p1.z) * inv_h2;
-            dc_dy_b = (c2 - c1) * inv_h2;
+    // B (short edges)
+    // We need to handle the split at p1.y
+    let mut edge_b = if y_start < p1.y {
+        let mut e = GouraudEdge::new(p0, c0, p1, c1);
+        if y_start > p0.y {
+            e.step_by((y_start as i64 - p0.y as i64) as f32);
         }
-    }
+        e
+    } else {
+        let mut e = GouraudEdge::new(p1, c1, p2, c2);
+        if y_start > p1.y {
+            e.step_by((y_start as i64 - p1.y as i64) as f32);
+        }
+        e
+    };
 
     for y in y_start..=y_end {
         // Handle slope switch at p1.y
         if y == p1.y && y != p0.y {
-            bx = p1.x as f32;
-            bz = p1.z;
-            bc = c1;
-
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-                dz_dy_b = (p2.z - p1.z) * inv_h2;
-                dc_dy_b = (c2 - c1) * inv_h2;
-            }
+            edge_b = GouraudEdge::new(p1, c1, p2, c2);
         }
 
         // Determine left/right edges
-        let (x_left, z_left, c_left, x_right, _z_right, _c_right) = if long_edge_is_left {
-            (ax, az, ac, bx, bz, bc)
+        let (left, right) = if long_edge_is_left {
+            (&edge_a, &edge_b)
         } else {
-            (bx, bz, bc, ax, az, ac)
+            (&edge_b, &edge_a)
         };
 
-        let x_start = x_left as i32;
-        let x_end = x_right as i32;
+        let x_start = left.x as i32;
+        let x_end = right.x as i32;
         let dx = x_end - x_start;
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, pack_color_fast(c_left));
+            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, left.z) {
+                fb.set_pixel(x_start, y, pack_color_fast(left.color));
             }
-            // Increment for next iteration
-            ax += dx_dy_a;
-            az += dz_dy_a;
-            ac = ac + dc_dy_a;
-
-            bx += dx_dy_b;
-            bz += dz_dy_b;
-            bc = bc + dc_dy_b;
-            continue;
+        } else {
+            // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
+            draw_scanline_gouraud(
+                fb,
+                zb,
+                y,
+                x_start,
+                x_end,
+                left.z,
+                left.color,
+                gradients.dz_dx,
+                gradients.dc_dx,
+            );
         }
 
-        // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
-        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx);
-
-        // Increment for next iteration
-        ax += dx_dy_a;
-        az += dz_dy_a;
-        ac = ac + dc_dy_a;
-
-        bx += dx_dy_b;
-        bz += dz_dy_b;
-        bc = bc + dc_dy_b;
+        edge_a.step();
+        edge_b.step();
     }
 }
