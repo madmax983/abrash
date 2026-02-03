@@ -70,6 +70,7 @@ pub struct NoiseModifier {
 }
 
 impl NoiseModifier {
+    #[allow(clippy::excessive_precision)]
     fn hash(n: f32) -> f32 {
         (n.sin() * 43758.5453).fract()
     }
