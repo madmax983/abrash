@@ -65,10 +65,18 @@ fn bench_mat4_transform_point(c: &mut Criterion) {
     });
 }
 
+fn bench_vec3_normalize(c: &mut Criterion) {
+    c.bench_function("vec3_normalize", |b| {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        b.iter(|| black_box(v.normalize()));
+    });
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
     bench_vec2_mul,
+    bench_vec3_normalize,
     bench_mat2_transform,
     bench_mat2_batch_transform,
     bench_mat2_transform_in_place,
