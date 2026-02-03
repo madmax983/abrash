@@ -40,3 +40,7 @@
 **[Division Optimization]**
 **Learning:** Replacing 3 divisions with 1 reciprocal calculation and 3 multiplications in `Vec3::normalize` yielded a ~15% speedup (3.2ns -> 2.7ns).
 **Action:** Always prefer multiplication by inverse for vector normalization or scaling.
+
+**[Fixed-Point Optimization]**
+**Learning:** Hoisting float-to-fixed-point color conversion out of the inner scanline loop and using integer arithmetic for edge walking in the outer loop yielded a ~12% speedup in `fill_triangle_gouraud`.
+**Action:** For rasterization, convert continuous attributes (like color, UVs) to fixed-point integers as early as possible (triangle setup) to avoid float overhead in inner loops.

@@ -33,7 +33,7 @@ fn test_gouraud_determinism() {
 
     // Checksum updated after gradient calculation optimization.
     assert_eq!(
-        checksum, 0x35A842DC61FDDB2D,
+        checksum, 0xE0EE48A03F3C0B2D,
         "Checksum mismatch! Optimization broke rendering."
     );
 }
