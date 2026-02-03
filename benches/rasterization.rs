@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::pipeline::{fill_triangle_3d, fill_triangle_gouraud};
+use abrash::rasterizer::{fill_triangle_3d, fill_triangle_gouraud};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
