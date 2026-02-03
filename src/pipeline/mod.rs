@@ -45,7 +45,6 @@ where
     }
 }
 
-
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
@@ -80,7 +79,11 @@ fn draw_scanline_flat(
     }
 
     // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-    debug_assert_eq!(fb.width(), zb.width(), "Framebuffer and ZBuffer widths must match");
+    debug_assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -160,11 +163,7 @@ pub fn fill_triangle_3d(
     let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
 
     // dz/dx = -A/C = -nx/nz
-    let dz_dx = if nz.abs() > 0.0001 {
-        -nx / nz
-    } else {
-        0.0
-    };
+    let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
 
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
@@ -192,7 +191,10 @@ pub fn fill_triangle_3d(
     let h1 = (p1.y as i64 - p0.y as i64) as f32;
     let (dx_dy_b1, dz_dy_b1) = if h1 != 0.0 {
         let inv_h1 = 1.0 / h1;
-        ((p1.x as i64 - p0.x as i64) as f32 * inv_h1, (p1.z - p0.z) * inv_h1)
+        (
+            (p1.x as i64 - p0.x as i64) as f32 * inv_h1,
+            (p1.z - p0.z) * inv_h1,
+        )
     } else {
         (0.0, 0.0)
     };
@@ -201,7 +203,10 @@ pub fn fill_triangle_3d(
     let h2 = (p2.y as i64 - p1.y as i64) as f32;
     let (dx_dy_b2, dz_dy_b2) = if h2 != 0.0 {
         let inv_h2 = 1.0 / h2;
-        ((p2.x as i64 - p1.x as i64) as f32 * inv_h2, (p2.z - p1.z) * inv_h2)
+        (
+            (p2.x as i64 - p1.x as i64) as f32 * inv_h2,
+            (p2.z - p1.z) * inv_h2,
+        )
     } else {
         (0.0, 0.0)
     };

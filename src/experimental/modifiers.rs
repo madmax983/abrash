@@ -71,7 +71,7 @@ pub struct NoiseModifier {
 
 impl NoiseModifier {
     fn hash(n: f32) -> f32 {
-        (n.sin() * 43758.5453).fract()
+        (n.sin() * 43758.545).fract()
     }
 
     fn noise3(v: Vec3) -> Vec3 {
@@ -124,7 +124,11 @@ mod tests {
 
         let v_top = mesh.vertices[1];
         assert!(v_top.x.abs() < 0.0001, "Expected x=0, got {}", v_top.x);
-        assert!((v_top.z - -1.0).abs() < 0.0001 || (v_top.z - 1.0).abs() < 0.0001, "Expected z=1 or -1, got {}", v_top.z);
+        assert!(
+            (v_top.z - -1.0).abs() < 0.0001 || (v_top.z - 1.0).abs() < 0.0001,
+            "Expected z=1 or -1, got {}",
+            v_top.z
+        );
     }
 
     #[test]

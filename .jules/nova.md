@@ -17,3 +17,8 @@
 **Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
 **Fate:** In Progress
 **Lesson:** TBD
+
+## [Bloom]
+**Concept:** A post-processing effect that extracts highlights, blurs them using a separable box blur, and composites them back for a "glow" look.
+**Fate:** Merged
+**Lesson:** Separating passes (highlight -> blur -> composite) makes the pipeline flexible, even if naive box blur is slow.
