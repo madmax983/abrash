@@ -1,25 +1,37 @@
 use super::{Event, WindowError};
 use crate::framebuffer::Framebuffer;
+use crossterm::{
+    cursor,
+    event::{self, KeyCode},
+    execute,
+    terminal,
+};
+use std::io::{self, Write};
+use std::time::Instant;
 
 pub struct Window {
     width: u32,
     height: u32,
     is_open: bool,
-    frame_count: usize,
+    last_frame_time: Instant,
 }
 
 impl Window {
-    pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
-        println!("\n🎨 Abrash Graphics Engine - Headless Mode");
-        println!("   Running: {}", title);
-        println!("   Resolution: {}x{}", width, height);
-        println!("   Auto-exit after 120 frames.\n");
+    pub fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+        terminal::enable_raw_mode().map_err(|_| WindowError::CreationFailed)?;
+        let mut stdout = io::stdout();
+        execute!(
+            stdout,
+            cursor::Hide,
+            terminal::Clear(terminal::ClearType::All)
+        )
+        .map_err(|_| WindowError::CreationFailed)?;
 
         Ok(Self {
             width,
             height,
             is_open: true,
-            frame_count: 0,
+            last_frame_time: Instant::now(),
         })
     }
 
@@ -36,35 +48,46 @@ impl Window {
     }
 
     pub fn poll_events(&mut self) -> Vec<Event> {
-        self.frame_count += 1;
-
-        if self.frame_count >= 120 {
-            self.is_open = false;
-            vec![Event::Close]
-        } else {
-            Vec::new()
+        // Poll for events (non-blocking)
+        if event::poll(std::time::Duration::from_millis(0)).unwrap_or(false) {
+            if let Ok(event::Event::Key(key)) = event::read() {
+                if key.code == KeyCode::Char('q') || key.code == KeyCode::Esc {
+                    self.is_open = false;
+                    return vec![Event::Close];
+                }
+            }
         }
+
+        Vec::new()
     }
 
-    pub fn blit_framebuffer(&self, framebuffer: &Framebuffer) {
-        const TERM_W: usize = 80;
-        const TERM_H: usize = 40;
+    pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
+        let (term_w_u16, term_h_u16) = terminal::size().unwrap_or((80, 40));
+        let term_w = term_w_u16 as usize;
+        let term_h = term_h_u16 as usize;
 
-        let mut output = String::with_capacity(TERM_W * TERM_H * 30);
+        // Calculate FPS
+        let now = Instant::now();
+        let duration = now.duration_since(self.last_frame_time);
+        let seconds = duration.as_secs_f32();
+        self.last_frame_time = now;
+        let fps = if seconds > 0.0 { 1.0 / seconds } else { 60.0 };
 
-        // Move cursor up to overwrite previous frame
-        if self.frame_count > 1 {
-            use std::fmt::Write;
-            // +1 for the status bar
-            let _ = write!(output, "\x1b[{}A", TERM_H + 1);
-        }
+        let mut output = String::with_capacity(term_w * term_h * 30);
 
-        for y in 0..TERM_H {
-            for x in 0..TERM_W {
-                let src_x = (x * framebuffer.width() as usize) / TERM_W;
+        // Move cursor to top-left
+        use std::fmt::Write;
+        let _ = write!(output, "{}", crossterm::cursor::MoveTo(0, 0));
+
+        // Reserve one line for status bar
+        let render_h_chars = if term_h > 1 { term_h - 1 } else { 1 };
+
+        for y in 0..render_h_chars {
+            for x in 0..term_w {
+                let src_x = (x * framebuffer.width() as usize) / term_w;
 
                 // Top pixel (foreground)
-                let src_y_top = (y * 2 * framebuffer.height() as usize) / (TERM_H * 2);
+                let src_y_top = (y * 2 * framebuffer.height() as usize) / (render_h_chars * 2);
                 let p_top = framebuffer
                     .get_pixel(src_x as i32, src_y_top as i32)
                     .unwrap_or(0);
@@ -73,7 +96,8 @@ impl Window {
                 let b1 = p_top & 0xFF;
 
                 // Bottom pixel (background)
-                let src_y_bot = ((y * 2 + 1) * framebuffer.height() as usize) / (TERM_H * 2);
+                let src_y_bot =
+                    ((y * 2 + 1) * framebuffer.height() as usize) / (render_h_chars * 2);
                 let p_bot = framebuffer
                     .get_pixel(src_x as i32, src_y_bot as i32)
                     .unwrap_or(0);
@@ -81,29 +105,48 @@ impl Window {
                 let g2 = (p_bot >> 8) & 0xFF;
                 let b2 = p_bot & 0xFF;
 
-                use std::fmt::Write;
                 // FG color (38;2) for top, BG color (48;2) for bottom, then Upper Half Block
-                let _ = write!(output, "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m▀", r1, g1, b1, r2, g2, b2);
+                let _ = write!(
+                    output,
+                    "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m▀",
+                    r1, g1, b1, r2, g2, b2
+                );
             }
-            output.push_str("\x1b[0m\n");
+            output.push_str("\x1b[0m\r\n");
         }
 
         // Status Bar
-        let progress = (self.frame_count as f32 / 120.0).clamp(0.0, 1.0);
-        let bars = (progress * 20.0) as usize;
-        let spaces = 20 - bars;
-        let bar_str = format!("[{}{}]", "=".repeat(bars), " ".repeat(spaces));
-
-        use std::fmt::Write;
-        // Inverse video for status bar
-        let _ = writeln!(
-            output,
-            "\x1b[7m Frame: {:>3}/120 | Res: 80x80 | {} {:>3.0}% \x1b[0m",
-            self.frame_count,
-            bar_str,
-            progress * 100.0
+        let status_text = format!(
+            " FPS: {:>3.0} | Size: {:>3}x{:<3} | [Q]uit ",
+            fps,
+            framebuffer.width(),
+            framebuffer.height()
         );
 
-        print!("{}", output);
+        let padding = if term_w > status_text.len() {
+            term_w - status_text.len()
+        } else {
+            0
+        };
+
+        // Blue background for status bar
+        let _ = write!(
+            output,
+            "\x1b[38;2;255;255;255m\x1b[48;2;50;50;200m{}{}\x1b[0m",
+            status_text,
+            " ".repeat(padding)
+        );
+
+        let mut stdout = io::stdout();
+        let _ = stdout.write_all(output.as_bytes());
+        let _ = stdout.flush();
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        let mut stdout = io::stdout();
+        execute!(stdout, cursor::Show).ok();
+        terminal::disable_raw_mode().ok();
     }
 }
