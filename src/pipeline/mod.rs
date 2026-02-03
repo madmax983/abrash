@@ -45,7 +45,6 @@ where
     }
 }
 
-
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
@@ -80,7 +79,11 @@ fn draw_scanline_flat(
     }
 
     // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-    debug_assert_eq!(fb.width(), zb.width(), "Framebuffer and ZBuffer widths must match");
+    debug_assert_eq!(
+        fb.width(),
+        zb.width(),
+        "Framebuffer and ZBuffer widths must match"
+    );
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -160,11 +163,7 @@ pub fn fill_triangle_3d(
     let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
 
     // dz/dx = -A/C = -nx/nz
-    let dz_dx = if nz.abs() > 0.0001 {
-        -nx / nz
-    } else {
-        0.0
-    };
+    let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
 
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
@@ -192,7 +191,10 @@ pub fn fill_triangle_3d(
     let h1 = (p1.y as i64 - p0.y as i64) as f32;
     let (dx_dy_b1, dz_dy_b1) = if h1 != 0.0 {
         let inv_h1 = 1.0 / h1;
-        ((p1.x as i64 - p0.x as i64) as f32 * inv_h1, (p1.z - p0.z) * inv_h1)
+        (
+            (p1.x as i64 - p0.x as i64) as f32 * inv_h1,
+            (p1.z - p0.z) * inv_h1,
+        )
     } else {
         (0.0, 0.0)
     };
@@ -201,7 +203,10 @@ pub fn fill_triangle_3d(
     let h2 = (p2.y as i64 - p1.y as i64) as f32;
     let (dx_dy_b2, dz_dy_b2) = if h2 != 0.0 {
         let inv_h2 = 1.0 / h2;
-        ((p2.x as i64 - p1.x as i64) as f32 * inv_h2, (p2.z - p1.z) * inv_h2)
+        (
+            (p2.x as i64 - p1.x as i64) as f32 * inv_h2,
+            (p2.z - p1.z) * inv_h2,
+        )
     } else {
         (0.0, 0.0)
     };
@@ -355,19 +360,29 @@ fn draw_scanline_gouraud(
     z_start: f32,
     c_start: Vec3,
     dz_dx: f32,
-    dc_dx: Vec3,
+    dc_dx: (i32, i32, i32),
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = z_start;
-    let mut c = c_start;
+
+    // Convert to fixed point 16.16
+    // Use i64 for accumulators to prevent overflow when x_start is far off-screen
+    const SCALE: f32 = 65536.0;
+    let mut r_i = (c_start.x * SCALE) as i64;
+    let mut g_i = (c_start.y * SCALE) as i64;
+    let mut b_i = (c_start.z * SCALE) as i64;
+    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -xs as f32;
-        z += diff * dz_dx;
-        c = c + dc_dx * diff;
+        let diff = -xs;
+        z += (diff as f32) * dz_dx;
+        let diff_i64 = diff as i64;
+        r_i += diff_i64 * dr;
+        g_i += diff_i64 * dg;
+        b_i += diff_i64 * db;
         xs = 0;
     }
 
@@ -376,14 +391,6 @@ fn draw_scanline_gouraud(
     }
 
     if xs <= xe {
-        // Optimization: Decompose Vec3 to scalars to avoid struct construction overhead in hot loop
-        let mut r = c.x;
-        let mut g = c.y;
-        let mut b = c.z;
-        let dr = dc_dx.x;
-        let dg = dc_dx.y;
-        let db = dc_dx.z;
-
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
@@ -402,12 +409,16 @@ fn draw_scanline_gouraud(
             // Check depth buffer
             if z < *depth_val {
                 *depth_val = z;
-                *pixel = pack_rgb_scalar(r, g, b);
+                // Unpack fixed point color
+                let r = (r_i >> 16).max(0).min(255) as u8;
+                let g = (g_i >> 16).max(0).min(255) as u8;
+                let b = (b_i >> 16).max(0).min(255) as u8;
+                *pixel = 0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             }
             z += dz_dx;
-            r += dr;
-            g += dg;
-            b += db;
+            r_i += dr;
+            g_i += dg;
+            b_i += db;
         }
     }
 }
@@ -485,7 +496,18 @@ pub fn fill_triangle_gouraud(
     let nx_r = uy * vc.x - uc.x * vy;
     let nx_g = uy * vc.y - uc.y * vy;
     let nx_b = uy * vc.z - uc.z * vy;
-    let dc_dx = Vec3::new(nx_r * inv_nz, nx_g * inv_nz, nx_b * inv_nz);
+
+    // Calculate gradients in float, but convert to fixed point 16.16 for the scanline drawer
+    let dr = nx_r * inv_nz;
+    let dg = nx_g * inv_nz;
+    let db = nx_b * inv_nz;
+
+    // Convert to fixed point 16.16
+    const SCALE: f32 = 65536.0;
+    let dr_i = (dr * SCALE) as i32;
+    let dg_i = (dg * SCALE) as i32;
+    let db_i = (db * SCALE) as i32;
+    let dc_dx_int = (dr_i, dg_i, db_i);
 
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
@@ -609,7 +631,7 @@ pub fn fill_triangle_gouraud(
         }
 
         // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
-        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx);
+        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx_int);
 
         // Increment for next iteration
         ax += dx_dy_a;
