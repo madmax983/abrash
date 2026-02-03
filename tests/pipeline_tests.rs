@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::pipeline::{fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit};
+use abrash::rasterizer::{fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit};
 use abrash::zbuffer::ZBuffer;
 
 #[test]

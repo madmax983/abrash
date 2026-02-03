@@ -3,6 +3,7 @@
 //! Software rendering functions for 2D shapes (lines, circles, triangles).
 
 use crate::framebuffer::Framebuffer;
+use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
 use crate::shapes::{Polygon, Triangle};
 
 pub fn plot_pixel(fb: &mut Framebuffer, x: i32, y: i32, color: u32) {
@@ -190,9 +191,13 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
 /// Fill a triangle using scanline rasterization
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     // Validate inputs
-    if !tri.v0.x.is_finite() || !tri.v0.y.is_finite() ||
-       !tri.v1.x.is_finite() || !tri.v1.y.is_finite() ||
-       !tri.v2.x.is_finite() || !tri.v2.y.is_finite() {
+    if !tri.v0.x.is_finite()
+        || !tri.v0.y.is_finite()
+        || !tri.v1.x.is_finite()
+        || !tri.v1.y.is_finite()
+        || !tri.v2.x.is_finite()
+        || !tri.v2.y.is_finite()
+    {
         return;
     }
 
@@ -559,19 +564,29 @@ fn draw_scanline_gouraud(
     z_start: f32,
     c_start: Vec3,
     dz_dx: f32,
-    dc_dx: Vec3,
+    dc_dx: (i32, i32, i32),
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = z_start;
-    let mut c = c_start;
+
+    // Convert to fixed point 16.16
+    // Use i64 for accumulators to prevent overflow when x_start is far off-screen
+    const SCALE: f32 = 65536.0;
+    let mut r_i = (c_start.x * SCALE) as i64;
+    let mut g_i = (c_start.y * SCALE) as i64;
+    let mut b_i = (c_start.z * SCALE) as i64;
+    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -xs as f32;
-        z += diff * dz_dx;
-        c = c + dc_dx * diff;
+        let diff = -xs;
+        z += (diff as f32) * dz_dx;
+        let diff_i64 = diff as i64;
+        r_i += diff_i64 * dr;
+        g_i += diff_i64 * dg;
+        b_i += diff_i64 * db;
         xs = 0;
     }
 
@@ -580,14 +595,6 @@ fn draw_scanline_gouraud(
     }
 
     if xs <= xe {
-        // Optimization: Decompose Vec3 to scalars to avoid struct construction overhead in hot loop
-        let mut r = c.x;
-        let mut g = c.y;
-        let mut b = c.z;
-        let dr = dc_dx.x;
-        let dg = dc_dx.y;
-        let db = dc_dx.z;
-
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
@@ -606,12 +613,16 @@ fn draw_scanline_gouraud(
             // Check depth buffer
             if z < *depth_val {
                 *depth_val = z;
-                *pixel = pack_rgb_scalar(r, g, b);
+                // Unpack fixed point color
+                let r = (r_i >> 16).clamp(0, 255) as u8;
+                let g = (g_i >> 16).clamp(0, 255) as u8;
+                let b = (b_i >> 16).clamp(0, 255) as u8;
+                *pixel = 0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             }
             z += dz_dx;
-            r += dr;
-            g += dg;
-            b += db;
+            r_i += dr;
+            g_i += dg;
+            b_i += db;
         }
     }
 }
@@ -689,7 +700,18 @@ pub fn fill_triangle_gouraud(
     let nx_r = uy * vc.x - uc.x * vy;
     let nx_g = uy * vc.y - uc.y * vy;
     let nx_b = uy * vc.z - uc.z * vy;
-    let dc_dx = Vec3::new(nx_r * inv_nz, nx_g * inv_nz, nx_b * inv_nz);
+
+    // Calculate gradients in float, but convert to fixed point 16.16 for the scanline drawer
+    let dr = nx_r * inv_nz;
+    let dg = nx_g * inv_nz;
+    let db = nx_b * inv_nz;
+
+    // Convert to fixed point 16.16
+    const SCALE: f32 = 65536.0;
+    let dr_i = (dr * SCALE) as i32;
+    let dg_i = (dg * SCALE) as i32;
+    let db_i = (db * SCALE) as i32;
+    let dc_dx_int = (dr_i, dg_i, db_i);
 
     // Calculate gradients for the long edge (p0 -> p2)
     let inv_total_height = 1.0 / total_height;
@@ -813,7 +835,7 @@ pub fn fill_triangle_gouraud(
         }
 
         // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
-        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx);
+        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx_int);
 
         // Increment for next iteration
         ax += dx_dy_a;
@@ -824,4 +846,58 @@ pub fn fill_triangle_gouraud(
         bz += dz_dy_b;
         bc = bc + dc_dy_b;
     }
+}
+
+/// Fill a 3D triangle with flat shading
+pub fn fill_triangle_flat(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    normal: Vec3,
+    base_color: Vec3,
+) {
+    // Default lighting setup
+    let ambient = AmbientLight::new(Vec3::new(0.2, 0.2, 0.2));
+    let sun = DirectionalLight::new(Vec3::new(-0.5, -1.0, -0.5), Vec3::new(1.0, 1.0, 1.0));
+
+    // Calculate flat shade
+    let ambient_color = ambient.shade(base_color);
+    let diffuse_color = sun.shade(normal, base_color);
+
+    let final_color = Vec3::new(
+        (ambient_color.x + diffuse_color.x).min(1.0),
+        (ambient_color.y + diffuse_color.y).min(1.0),
+        (ambient_color.z + diffuse_color.z).min(1.0),
+    );
+
+    let color_u32 = color_to_u32(final_color);
+    fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
+}
+
+/// Fill a 3D triangle with custom lighting
+#[allow(clippy::too_many_arguments)] // Rendering API requires all parameters explicitly
+pub fn fill_triangle_lit(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    normal: Vec3,
+    base_color: Vec3,
+    ambient: &AmbientLight,
+    light: &DirectionalLight,
+) {
+    let ambient_color = ambient.shade(base_color);
+    let diffuse_color = light.shade(normal, base_color);
+
+    let final_color = Vec3::new(
+        (ambient_color.x + diffuse_color.x).min(1.0),
+        (ambient_color.y + diffuse_color.y).min(1.0),
+        (ambient_color.z + diffuse_color.z).min(1.0),
+    );
+
+    let color_u32 = color_to_u32(final_color);
+    fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
