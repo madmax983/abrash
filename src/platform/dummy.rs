@@ -83,7 +83,11 @@ impl Window {
 
                 use std::fmt::Write;
                 // FG color (38;2) for top, BG color (48;2) for bottom, then Upper Half Block
-                let _ = write!(output, "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m▀", r1, g1, b1, r2, g2, b2);
+                let _ = write!(
+                    output,
+                    "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m▀",
+                    r1, g1, b1, r2, g2, b2
+                );
             }
             output.push_str("\x1b[0m\n");
         }
