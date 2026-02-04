@@ -625,7 +625,7 @@ pub fn fill_triangle_3d(
 
 /// Helper for fast color packing from fixed point.
 #[inline(always)]
-fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
+fn pack_color_fixed(c: (i32, i32, i32)) -> u32 {
     let r = (c.0 >> 16).clamp(0, 255) as u8;
     let g = (c.1 >> 16).clamp(0, 255) as u8;
     let b = (c.2 >> 16).clamp(0, 255) as u8;
@@ -645,7 +645,7 @@ fn draw_scanline_gouraud(
     x_start: i32,
     x_end: i32,
     z_start: f32,
-    c_start: (i64, i64, i64), // Fixed point color
+    c_start: (i32, i32, i32), // Fixed point color (i32)
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
@@ -654,37 +654,27 @@ fn draw_scanline_gouraud(
     let mut xe = x_end;
     let mut z = z_start;
 
-    // Use i64 for accumulators to prevent overflow when x_start is far off-screen
     let mut r_i = c_start.0;
     let mut g_i = c_start.1;
     let mut b_i = c_start.2;
-    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
+    let (dr, dg, db) = dc_dx;
 
     // Clamp to screen bounds
     if xs < 0 {
         let diff = -(xs as i64);
         z += (diff as f32) * dz_dx;
-        let diff_i64 = diff;
-        r_i += diff_i64 * dr;
-        g_i += diff_i64 * dg;
-        b_i += diff_i64 * db;
+
+        // Cast to i64 for off-screen adjustment to prevent overflow
+        // r_i (i32) + diff (i64) * dr (i32) -> i64 -> i32
+        r_i = (r_i as i64 + diff * dr as i64) as i32;
+        g_i = (g_i as i64 + diff * dg as i64) as i32;
+        b_i = (b_i as i64 + diff * db as i64) as i32;
         xs = 0;
     }
 
     if xe >= width {
         xe = width - 1;
     }
-
-    // Optimization: Demote to i32 for the hot loop to reduce register pressure.
-    // We used i64 above to handle large off-screen jumps safely without overflow.
-    // Once on-screen, 16.16 fixed point color fits comfortably in i32.
-    // (Max value ~255 * 65536 = 1.6e7 << i32::MAX)
-    let mut r_i = r_i as i32;
-    let mut g_i = g_i as i32;
-    let mut b_i = b_i as i32;
-    let dr = dr as i32;
-    let dg = dg as i32;
-    let db = db as i32;
 
     if xs <= xe {
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
@@ -820,10 +810,10 @@ impl GouraudGradients {
 struct GouraudEdgeWalker {
     x: i64,
     z: f32,
-    c: (i64, i64, i64),
+    c: (i32, i32, i32),
     dx_dy: i64,
     dz_dy: f32,
-    dc_dy: (i64, i64, i64),
+    dc_dy: (i32, i32, i32),
 }
 
 impl GouraudEdgeWalker {
@@ -836,9 +826,9 @@ impl GouraudEdgeWalker {
                 ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
                 (
-                    (dc.x * FIXED_SCALE) as i64,
-                    (dc.y * FIXED_SCALE) as i64,
-                    (dc.z * FIXED_SCALE) as i64,
+                    (dc.x * FIXED_SCALE) as i32,
+                    (dc.y * FIXED_SCALE) as i32,
+                    (dc.z * FIXED_SCALE) as i32,
                 ),
             )
         } else {
@@ -846,9 +836,9 @@ impl GouraudEdgeWalker {
         };
 
         let c_fixed = (
-            (c_start.x * FIXED_SCALE) as i64,
-            (c_start.y * FIXED_SCALE) as i64,
-            (c_start.z * FIXED_SCALE) as i64,
+            (c_start.x * FIXED_SCALE) as i32,
+            (c_start.y * FIXED_SCALE) as i32,
+            (c_start.z * FIXED_SCALE) as i32,
         );
 
         Self {
@@ -874,9 +864,9 @@ impl GouraudEdgeWalker {
         let n_i64 = n as i64;
         self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
-        self.c.0 += self.dc_dy.0 * n_i64;
-        self.c.1 += self.dc_dy.1 * n_i64;
-        self.c.2 += self.dc_dy.2 * n_i64;
+        self.c.0 += self.dc_dy.0 * n;
+        self.c.1 += self.dc_dy.1 * n;
+        self.c.2 += self.dc_dy.2 * n;
     }
 }
 
@@ -1062,7 +1052,10 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && height > 0, "Texture dimensions must be positive");
+        assert!(
+            width > 0 && height > 0,
+            "Texture dimensions must be positive"
+        );
         Self {
             width,
             height,
@@ -1085,8 +1078,6 @@ impl Texture {
     }
 
     /// Sample texture using texel coordinates
-
-
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
         let x = x.clamp(0, self.width as i32 - 1) as usize;
         let y = y.clamp(0, self.height as i32 - 1) as usize;
@@ -1184,10 +1175,7 @@ impl TextureEdgeWalker {
             (
                 ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
-                (
-                    (duv.x * FIXED_SCALE) as i64,
-                    (duv.y * FIXED_SCALE) as i64,
-                ),
+                ((duv.x * FIXED_SCALE) as i64, (duv.y * FIXED_SCALE) as i64),
             )
         } else {
             (0, 0.0, (0, 0))
@@ -1397,13 +1385,22 @@ pub fn fill_triangle_textured(
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                 let tx = (uv_left.0 >> 16) as i32;
-                 let ty = (uv_left.1 >> 16) as i32;
-                 fb.set_pixel(x_start, y, texture.get_pixel_texel(tx, ty));
+                let tx = (uv_left.0 >> 16) as i32;
+                let ty = (uv_left.1 >> 16) as i32;
+                fb.set_pixel(x_start, y, texture.get_pixel_texel(tx, ty));
             }
         } else {
             draw_scanline_textured(
-                fb, zb, texture, y, x_start, x_end, z_left, uv_left, gradients.dz_dx, gradients.duv_dx,
+                fb,
+                zb,
+                texture,
+                y,
+                x_start,
+                x_end,
+                z_left,
+                uv_left,
+                gradients.dz_dx,
+                gradients.duv_dx,
             );
         }
 
