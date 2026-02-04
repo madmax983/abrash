@@ -10,13 +10,6 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new() -> Self {
-        Self {
-            vertices: Vec::new(),
-            indices: Vec::new(),
-        }
-    }
-
     /// Create a cube centered at origin
     pub fn cube(size: f32) -> Self {
         let h = size / 2.0;
@@ -71,53 +64,5 @@ impl Mesh {
                 edge1.cross(edge2).normalize()
             })
             .collect()
-    }
-
-    /// Compute smooth vertex normals by averaging adjacent face normals
-    pub fn compute_vertex_normals(&self) -> Vec<Vec3> {
-        let face_normals = self.compute_face_normals();
-        let mut vertex_normals = vec![Vec3::default(); self.vertices.len()];
-
-        // Accumulate face normals at each vertex
-        for (face_idx, [i0, i1, i2]) in self.indices.iter().enumerate() {
-            let normal = face_normals[face_idx];
-            vertex_normals[*i0] = vertex_normals[*i0] + normal;
-            vertex_normals[*i1] = vertex_normals[*i1] + normal;
-            vertex_normals[*i2] = vertex_normals[*i2] + normal;
-        }
-
-        // Normalize each vertex normal
-        vertex_normals.iter().map(|n| n.normalize()).collect()
-    }
-
-    /// Create a pyramid
-    pub fn pyramid(base: f32, height: f32) -> Self {
-        let h = base / 2.0;
-        let vertices = vec![
-            Vec3::new(0.0, height, 0.0), // 0: apex
-            Vec3::new(-h, 0.0, h),       // 1
-            Vec3::new(h, 0.0, h),        // 2
-            Vec3::new(h, 0.0, -h),       // 3
-            Vec3::new(-h, 0.0, -h),      // 4
-        ];
-
-        let indices = vec![
-            // Sides
-            [0, 1, 2],
-            [0, 2, 3],
-            [0, 3, 4],
-            [0, 4, 1],
-            // Base
-            [1, 4, 3],
-            [1, 3, 2],
-        ];
-
-        Self { vertices, indices }
-    }
-}
-
-impl Default for Mesh {
-    fn default() -> Self {
-        Self::new()
     }
 }

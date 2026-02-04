@@ -21,10 +21,6 @@ criterion = "0.5"
 proptest = "1.0"
 
 [[bench]]
-name = "primitives"
-harness = false
-
-[[bench]]
 name = "math"
 harness = false
 
@@ -35,14 +31,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "abrash"
 path = "src/main.rs"
-
-[[example]]
-name = "rotating_polygon"
-path = "examples/rotating_polygon.rs"
-
-[[example]]
-name = "filled_primitives"
-path = "examples/filled_primitives.rs"
 
 [[example]]
 name = "cube_3d"
