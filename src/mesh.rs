@@ -114,6 +114,114 @@ impl Mesh {
 
         Self { vertices, indices }
     }
+
+    /// Create a UV sphere
+    pub fn sphere(radius: f32, sectors: usize, stacks: usize) -> Self {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        let sector_step = 2.0 * std::f32::consts::PI / sectors as f32;
+        let stack_step = std::f32::consts::PI / stacks as f32;
+
+        for i in 0..=stacks {
+            let stack_angle = i as f32 * stack_step; // 0 to PI
+            let y = radius * stack_angle.cos();
+            let r = radius * stack_angle.sin(); // distance from Y axis
+
+            for j in 0..=sectors {
+                let sector_angle = j as f32 * sector_step; // 0 to 2PI
+                let x = r * sector_angle.cos();
+                let z = r * sector_angle.sin();
+
+                vertices.push(Vec3::new(x, y, z));
+            }
+        }
+
+        for i in 0..stacks {
+            let k1 = i * (sectors + 1);
+            let k2 = k1 + sectors + 1;
+
+            for j in 0..sectors {
+                if i != 0 {
+                    indices.push([k1 + j, k2 + j, k1 + j + 1]);
+                }
+                if i != (stacks - 1) {
+                    indices.push([k1 + j + 1, k2 + j, k2 + j + 1]);
+                }
+            }
+        }
+
+        Self { vertices, indices }
+    }
+
+    /// Parse simple OBJ format (vertices `v` and faces `f` only)
+    pub fn from_obj(content: &str) -> Result<Self, String> {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        for (line_num, line) in content.lines().enumerate() {
+            let line = line.trim();
+            if line.starts_with('#') || line.is_empty() {
+                continue;
+            }
+
+            let mut parts = line.split_whitespace();
+            match parts.next() {
+                Some("v") => {
+                    let x = parts
+                        .next()
+                        .ok_or(format!("Missing x at line {}", line_num + 1))?
+                        .parse::<f32>()
+                        .map_err(|_| format!("Invalid x at line {}", line_num + 1))?;
+                    let y = parts
+                        .next()
+                        .ok_or(format!("Missing y at line {}", line_num + 1))?
+                        .parse::<f32>()
+                        .map_err(|_| format!("Invalid y at line {}", line_num + 1))?;
+                    let z = parts
+                        .next()
+                        .ok_or(format!("Missing z at line {}", line_num + 1))?
+                        .parse::<f32>()
+                        .map_err(|_| format!("Invalid z at line {}", line_num + 1))?;
+                    vertices.push(Vec3::new(x, y, z));
+                }
+                Some("f") => {
+                    let mut face_indices = Vec::new();
+                    for part in parts {
+                        // Handle v/vt/vn format by taking only the first component
+                        let v_str = part.split('/').next().unwrap_or("");
+                        let v_idx = v_str
+                            .parse::<isize>()
+                            .map_err(|_| format!("Invalid index '{}' at line {}", part, line_num + 1))?;
+
+                        // OBJ indices are 1-based. Negative indices are relative to the end.
+                        let idx = if v_idx > 0 {
+                            (v_idx - 1) as usize
+                        } else {
+                            (vertices.len() as isize + v_idx) as usize
+                        };
+
+                        if idx >= vertices.len() {
+                            return Err(format!("Index out of bounds at line {}", line_num + 1));
+                        }
+                        face_indices.push(idx);
+                    }
+
+                    if face_indices.len() < 3 {
+                        return Err(format!("Face with less than 3 vertices at line {}", line_num + 1));
+                    }
+
+                    // Triangulate fan
+                    for i in 1..face_indices.len() - 1 {
+                        indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
+                    }
+                }
+                _ => {} // Ignore other lines (vt, vn, g, o, etc.)
+            }
+        }
+
+        Ok(Self { vertices, indices })
+    }
 }
 
 impl Default for Mesh {

@@ -522,6 +522,12 @@ pub fn fill_triangle_3d(
     let p1 = project_to_screen(v1.0, v1.1, width, height);
     let p2 = project_to_screen(v2.0, v2.1, width, height);
 
+    // Backface culling
+    let area = (p1.x - p0.x) as i64 * (p2.y - p0.y) as i64 - (p1.y - p0.y) as i64 * (p2.x - p0.x) as i64;
+    if area >= 0 {
+        return;
+    }
+
     // Sort by y
     let mut verts = [p0, p1, p2];
     sort_by_y(&mut verts, |p| p.y);
@@ -898,6 +904,12 @@ pub fn fill_triangle_gouraud(
     let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
     let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
     let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+    // Backface culling
+    let area = (p1.x - p0.x) as i64 * (p2.y - p0.y) as i64 - (p1.y - p0.y) as i64 * (p2.x - p0.x) as i64;
+    if area >= 0 {
+        return;
+    }
 
     // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
     // allowing us to skip clamp/mul per pixel
@@ -1451,6 +1463,12 @@ pub fn fill_triangle_textured(
     let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
     let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
     let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+    // Backface culling
+    let area = (p1.x - p0.x) as i64 * (p2.y - p0.y) as i64 - (p1.y - p0.y) as i64 * (p2.x - p0.x) as i64;
+    if area >= 0 {
+        return;
+    }
 
     // Prepare perspective attributes: q=1/w, u/w, v/w
     // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
