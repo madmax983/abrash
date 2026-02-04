@@ -49,10 +49,10 @@ pub fn draw_vline(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
 
 // Constants for Cohen-Sutherland clipping
 const INSIDE: i32 = 0; // 0000
-const LEFT: i32 = 1;   // 0001
-const RIGHT: i32 = 2;  // 0010
+const LEFT: i32 = 1; // 0001
+const RIGHT: i32 = 2; // 0010
 const BOTTOM: i32 = 4; // 0100
-const TOP: i32 = 8;    // 1000
+const TOP: i32 = 8; // 1000
 
 fn compute_out_code(x: i32, y: i32, width: i32, height: i32) -> i32 {
     let mut code = INSIDE;

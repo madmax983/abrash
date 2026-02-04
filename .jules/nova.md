@@ -17,3 +17,8 @@
 **Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
 **Fate:** In Progress
 **Lesson:** TBD
+
+## [Toon Outlines]
+**Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
+**Fate:** Merged
+**Lesson:** Depth buffers contain valuable structural information that can be reused for non-photorealistic rendering.
