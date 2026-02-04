@@ -405,7 +405,7 @@ pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     }
 }
 
-use crate::math::{Vec3, project_to_screen};
+use crate::math::{Vec2, Vec3, project_to_screen};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -732,7 +732,7 @@ impl EdgeWalker {
         let (dx_dy, dz_dy) = if height != 0.0 {
             let inv_h = 1.0 / height;
             (
-                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * 65536.0) as i64,
+                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
             )
         } else {
@@ -833,7 +833,7 @@ impl GouraudEdgeWalker {
             let inv_h = 1.0 / height;
             let dc = (c_end - c_start) * inv_h;
             (
-                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * 65536.0) as i64,
+                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
                 (
                     (dc.x * FIXED_SCALE) as i64,
@@ -1051,4 +1051,363 @@ pub fn fill_triangle_lit(
 
     let color_u32 = color_to_u32(final_color);
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
+}
+
+/// A simple 2D texture
+pub struct Texture {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u32>,
+}
+
+impl Texture {
+    pub fn new(width: u32, height: u32) -> Self {
+        assert!(width > 0 && height > 0, "Texture dimensions must be positive");
+        Self {
+            width,
+            height,
+            pixels: vec![0xFF000000; (width * height) as usize],
+        }
+    }
+
+    pub fn set_pixel(&mut self, x: u32, y: u32, color: u32) {
+        if x < self.width && y < self.height {
+            self.pixels[(y * self.width + x) as usize] = color;
+        }
+    }
+
+    /// Sample texture using nearest neighbor interpolation
+    /// u, v are in range [0.0, 1.0]
+    pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
+        let x = (u * self.width as f32) as i32;
+        let y = (v * self.height as f32) as i32;
+        self.get_pixel_texel(x, y)
+    }
+
+    /// Sample texture using texel coordinates
+
+
+    pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
+        let x = x.clamp(0, self.width as i32 - 1) as usize;
+        let y = y.clamp(0, self.height as i32 - 1) as usize;
+        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+    }
+
+    /// Create a checkerboard texture
+    pub fn checkered(width: u32, height: u32, c1: u32, c2: u32) -> Self {
+        let mut tex = Self::new(width, height);
+        // Scale checks based on size, defaulting to 8x8 blocks
+        let block_w = (width / 8).max(1);
+        let block_h = (height / 8).max(1);
+
+        for y in 0..height {
+            for x in 0..width {
+                let check = ((x / block_w) + (y / block_h)) & 1 == 0;
+                tex.set_pixel(x, y, if check { c1 } else { c2 });
+            }
+        }
+        tex
+    }
+}
+
+struct TextureGradients {
+    dz_dx: f32,
+    duv_dx: (i32, i32),
+}
+
+impl TextureGradients {
+    fn new(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        uv0: Vec2,
+        uv1: Vec2,
+        uv2: Vec2,
+    ) -> Self {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let uz = p1.z - p0.z;
+        let u_uv = uv1 - uv0;
+
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vz = p2.z - p0.z;
+        let v_uv = uv2 - uv0;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_u = uy * v_uv.x - u_uv.x * vy;
+        let nx_v = uy * v_uv.y - u_uv.y * vy;
+
+        let du = nx_u * inv_nz;
+        let dv = nx_v * inv_nz;
+
+        // Convert to fixed point 16.16
+
+        let du_i = (du * FIXED_SCALE) as i32;
+        let dv_i = (dv * FIXED_SCALE) as i32;
+
+        Self {
+            dz_dx,
+            duv_dx: (du_i, dv_i),
+        }
+    }
+
+    fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        ux * vy - uy * vx > 0.0
+    }
+}
+
+struct TextureEdgeWalker {
+    x: i64,
+    z: f32,
+    uv: (i64, i64),
+    dx_dy: i64,
+    dz_dy: f32,
+    duv_dy: (i64, i64),
+}
+
+impl TextureEdgeWalker {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, uv_start: Vec2, uv_end: Vec2) -> Self {
+        let height = (p_end.y as i64 - p_start.y as i64) as f32;
+        let (dx_dy, dz_dy, duv_dy) = if height != 0.0 {
+            let inv_h = 1.0 / height;
+            let duv = (uv_end - uv_start) * inv_h;
+            (
+                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
+                (p_end.z - p_start.z) * inv_h,
+                (
+                    (duv.x * FIXED_SCALE) as i64,
+                    (duv.y * FIXED_SCALE) as i64,
+                ),
+            )
+        } else {
+            (0, 0.0, (0, 0))
+        };
+
+        let uv_fixed = (
+            (uv_start.x * FIXED_SCALE) as i64,
+            (uv_start.y * FIXED_SCALE) as i64,
+        );
+
+        Self {
+            x: (p_start.x as i64) << 16,
+            z: p_start.z,
+            uv: uv_fixed,
+            dx_dy,
+            dz_dy,
+            duv_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.uv.0 += self.duv_dy.0;
+        self.uv.1 += self.duv_dy.1;
+    }
+
+    fn step_n(&mut self, n: i32) {
+        let n_i64 = n as i64;
+        let n_f = n as f32;
+        self.x += self.dx_dy * n_i64;
+        self.z += self.dz_dy * n_f;
+        self.uv.0 += self.duv_dy.0 * n_i64;
+        self.uv.1 += self.duv_dy.1 * n_i64;
+    }
+}
+
+/// Draw a single scanline with texture mapping (Optimized)
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_textured(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    texture: &Texture,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    uv_start: (i64, i64), // Fixed point UV
+    dz_dx: f32,
+    duv_dx: (i32, i32), // Fixed point gradients
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+    let mut z = z_start;
+
+    let mut u_i = uv_start.0;
+    let mut v_i = uv_start.1;
+    let (du, dv) = (duv_dx.0 as i64, duv_dx.1 as i64);
+
+    if xs < 0 {
+        let diff = -(xs as i64);
+        z += (diff as f32) * dz_dx;
+        u_i += diff * du;
+        v_i += diff * dv;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    // Demote to i32 for hot loop
+    let mut u_i = u_i as i32;
+    let mut v_i = v_i as i32;
+    let du = du as i32;
+    let dv = dv as i32;
+
+    if xs <= xe {
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (xs as usize);
+        let end_idx = y_offset + (xe as usize);
+
+        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+        // Optimization: Pre-calculate shifts/masks if possible, but texture access depends on u_i/v_i
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                // Sample texture
+                let tx = u_i >> 16;
+                let ty = v_i >> 16;
+                *pixel = texture.get_pixel_texel(tx, ty);
+            }
+            z += dz_dx;
+            u_i += du;
+            v_i += dv;
+        }
+    }
+}
+
+/// Fill a 3D triangle with affine texture mapping
+pub fn fill_triangle_textured(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec2), // (Position, W), UV
+    v1: ((Vec3, f32), Vec2),
+    v2: ((Vec3, f32), Vec2),
+    texture: &Texture,
+) {
+    assert_same_dimensions(fb, zb);
+
+    let width = fb.width();
+    let height = fb.height();
+
+    // Project to screen
+    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
+    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
+    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+    // Scale UVs to Texture Dimensions for easier interpolation
+    let uv0 = Vec2::new(
+        v0.1.x * texture.width as f32,
+        v0.1.y * texture.height as f32,
+    );
+    let uv1 = Vec2::new(
+        v1.1.x * texture.width as f32,
+        v1.1.y * texture.height as f32,
+    );
+    let uv2 = Vec2::new(
+        v2.1.x * texture.width as f32,
+        v2.1.y * texture.height as f32,
+    );
+
+    let mut verts = [(p0, uv0), (p1, uv1), (p2, uv2)];
+    sort_by_y(&mut verts, |(p, _)| p.y);
+    let [(p0, uv0), (p1, uv1), (p2, uv2)] = verts;
+
+    let total_height = (p2.y as i64 - p0.y as i64) as f32;
+    if total_height == 0.0 {
+        return;
+    }
+
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = p0.y.max(y_min);
+    let y_end = p2.y.min(y_max);
+
+    if y_start > y_end {
+        return;
+    }
+
+    // Gradients and Edge Walking
+    let (gradients, long_edge_is_left) = {
+        let g = TextureGradients::new(p0, p1, p2, uv0, uv1, uv2);
+        let left = TextureGradients::is_long_edge_left(p0, p1, p2);
+        (g, left)
+    };
+
+    let mut edge_a = TextureEdgeWalker::new(p0, p2, uv0, uv2);
+    if y_start > p0.y {
+        edge_a.step_n(y_start - p0.y);
+    }
+
+    let mut edge_b = if y_start < p1.y {
+        let mut e = TextureEdgeWalker::new(p0, p1, uv0, uv1);
+        if y_start > p0.y {
+            e.step_n(y_start - p0.y);
+        }
+        e
+    } else {
+        let mut e = TextureEdgeWalker::new(p1, p2, uv1, uv2);
+        if y_start > p1.y {
+            e.step_n(y_start - p1.y);
+        }
+        e
+    };
+
+    let width_i32 = width as i32;
+
+    for y in y_start..=y_end {
+        if y == p1.y && y != p0.y {
+            edge_b = TextureEdgeWalker::new(p1, p2, uv1, uv2);
+        }
+
+        let x_start;
+        let x_end;
+        let z_left;
+        let uv_left;
+
+        if long_edge_is_left {
+            x_start = (edge_a.x >> 16) as i32;
+            x_end = (edge_b.x >> 16) as i32;
+            z_left = edge_a.z;
+            uv_left = edge_a.uv;
+        } else {
+            x_start = (edge_b.x >> 16) as i32;
+            x_end = (edge_a.x >> 16) as i32;
+            z_left = edge_b.z;
+            uv_left = edge_b.uv;
+        }
+
+        let dx = (x_end as i64) - (x_start as i64);
+
+        if dx <= 0 {
+            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
+                 let tx = (uv_left.0 >> 16) as i32;
+                 let ty = (uv_left.1 >> 16) as i32;
+                 fb.set_pixel(x_start, y, texture.get_pixel_texel(tx, ty));
+            }
+        } else {
+            draw_scanline_textured(
+                fb, zb, texture, y, x_start, x_end, z_left, uv_left, gradients.dz_dx, gradients.duv_dx,
+            );
+        }
+
+        edge_a.step();
+        edge_b.step();
+    }
 }
