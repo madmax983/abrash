@@ -464,7 +464,7 @@ fn draw_scanline_flat(
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z += (-xs) as f32 * dz_dx;
+        z += (-(xs as i64)) as f32 * dz_dx;
         xs = 0;
     }
 
@@ -608,7 +608,7 @@ pub fn fill_triangle_3d(
             z_left = edge_b.z;
         }
 
-        let dx = x_end - x_start;
+        let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
@@ -662,9 +662,9 @@ fn draw_scanline_gouraud(
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -xs;
+        let diff = -(xs as i64);
         z += (diff as f32) * dz_dx;
-        let diff_i64 = diff as i64;
+        let diff_i64 = diff;
         r_i += diff_i64 * dr;
         g_i += diff_i64 * dg;
         b_i += diff_i64 * db;
@@ -973,7 +973,7 @@ pub fn fill_triangle_gouraud(
             c_left = edge_b.c;
         }
 
-        let dx = x_end - x_start;
+        let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
