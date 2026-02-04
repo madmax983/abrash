@@ -11,6 +11,10 @@ pub struct Framebuffer {
 
 impl Framebuffer {
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
+        if width > i32::MAX as u32 || height > i32::MAX as u32 {
+            return Err("Buffer dimensions too large (max i32::MAX)");
+        }
+
         let size = (width as u64)
             .checked_mul(height as u64)
             .filter(|&s| s <= u32::MAX as u64)
