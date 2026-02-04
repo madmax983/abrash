@@ -47,6 +47,7 @@ impl Framebuffer {
         self.pixels.fill(color);
     }
 
+    #[inline]
     pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return; // Bounds check - silently ignore out of bounds
@@ -56,6 +57,7 @@ impl Framebuffer {
         self.pixels[index] = color;
     }
 
+    #[inline]
     pub fn get_pixel(&self, x: i32, y: i32) -> Option<u32> {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return None;

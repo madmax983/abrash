@@ -1078,6 +1078,7 @@ impl Texture {
 
     /// Sample texture using nearest neighbor interpolation
     /// u, v are in range [0.0, 1.0]
+    #[inline]
     pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
         let x = (u * self.width as f32) as i32;
         let y = (v * self.height as f32) as i32;
@@ -1085,8 +1086,7 @@ impl Texture {
     }
 
     /// Sample texture using texel coordinates
-
-
+    #[inline]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
         let x = x.clamp(0, self.width as i32 - 1) as usize;
         let y = y.clamp(0, self.height as i32 - 1) as usize;

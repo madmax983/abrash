@@ -34,6 +34,7 @@ impl ZBuffer {
     }
 
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
+    #[inline]
     pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return false;
@@ -49,6 +50,7 @@ impl ZBuffer {
     }
 
     /// Get depth at pixel
+    #[inline]
     pub fn get_depth(&self, x: i32, y: i32) -> Option<f32> {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return None;
