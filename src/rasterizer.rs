@@ -47,8 +47,108 @@ pub fn draw_vline(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
     }
 }
 
-/// Draw a line using Bresenham's algorithm (internal)
-fn draw_line_bresenham(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color: u32) {
+// Constants for Cohen-Sutherland clipping
+const INSIDE: i32 = 0; // 0000
+const LEFT: i32 = 1;   // 0001
+const RIGHT: i32 = 2;  // 0010
+const BOTTOM: i32 = 4; // 0100
+const TOP: i32 = 8;    // 1000
+
+fn compute_out_code(x: i32, y: i32, width: i32, height: i32) -> i32 {
+    let mut code = INSIDE;
+    if x < 0 {
+        code |= LEFT;
+    } else if x >= width {
+        code |= RIGHT;
+    }
+    if y < 0 {
+        code |= BOTTOM;
+    } else if y >= height {
+        code |= TOP;
+    }
+    code
+}
+
+/// Clip a line to the screen rectangle using Cohen-Sutherland algorithm.
+/// Returns true if the line is at least partially visible.
+fn clip_line(
+    width: i32,
+    height: i32,
+    x0: &mut i32,
+    y0: &mut i32,
+    x1: &mut i32,
+    y1: &mut i32,
+) -> bool {
+    let mut outcode0 = compute_out_code(*x0, *y0, width, height);
+    let mut outcode1 = compute_out_code(*x1, *y1, width, height);
+    let mut accept = false;
+
+    loop {
+        if (outcode0 | outcode1) == 0 {
+            // Both inside
+            accept = true;
+            break;
+        } else if (outcode0 & outcode1) != 0 {
+            // Both share an outside zone (trivial reject)
+            break;
+        } else {
+            // Calculate intersection point
+            let x: i32;
+            let y: i32;
+
+            // Pick at least one point outside
+            let outcode_out = if outcode0 != 0 { outcode0 } else { outcode1 };
+
+            // Using floating point for precision in intersection
+            let x0_f = *x0 as f32;
+            let y0_f = *y0 as f32;
+            let x1_f = *x1 as f32;
+            let y1_f = *y1 as f32;
+
+            if (outcode_out & TOP) != 0 {
+                // Point is above clip window (y >= height)
+                x = (x0_f + (x1_f - x0_f) * (height as f32 - 1.0 - y0_f) / (y1_f - y0_f)) as i32;
+                y = height - 1;
+            } else if (outcode_out & BOTTOM) != 0 {
+                // Point is below clip window (y < 0)
+                x = (x0_f + (x1_f - x0_f) * (0.0 - y0_f) / (y1_f - y0_f)) as i32;
+                y = 0;
+            } else if (outcode_out & RIGHT) != 0 {
+                // Point is to the right of clip window (x >= width)
+                y = (y0_f + (y1_f - y0_f) * (width as f32 - 1.0 - x0_f) / (x1_f - x0_f)) as i32;
+                x = width - 1;
+            } else {
+                // LEFT
+                // Point is to the left of clip window (x < 0)
+                y = (y0_f + (y1_f - y0_f) * (0.0 - x0_f) / (x1_f - x0_f)) as i32;
+                x = 0;
+            }
+
+            if outcode_out == outcode0 {
+                *x0 = x;
+                *y0 = y;
+                outcode0 = compute_out_code(*x0, *y0, width, height);
+            } else {
+                *x1 = x;
+                *y1 = y;
+                outcode1 = compute_out_code(*x1, *y1, width, height);
+            }
+        }
+    }
+    accept
+}
+
+/// Draw a line using Bresenham's algorithm (internal, unchecked)
+/// # Safety
+/// Caller must ensure coordinates are within bounds.
+unsafe fn draw_line_bresenham_unchecked(
+    fb: &mut Framebuffer,
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    color: u32,
+) {
     let dx = (x1 - x0).abs();
     let dy = -(y1 - y0).abs();
     let sx = if x0 < x1 { 1 } else { -1 };
@@ -59,7 +159,10 @@ fn draw_line_bresenham(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32,
     let mut y = y0;
 
     loop {
-        fb.set_pixel(x, y, color);
+        // SAFETY: Caller guarantees bounds.
+        unsafe {
+            fb.set_pixel_unchecked(x as usize, y as usize, color);
+        }
 
         if x == x1 && y == y1 {
             break;
@@ -98,7 +201,23 @@ pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color
     }
 
     // Fall back to Bresenham for diagonal lines
-    draw_line_bresenham(fb, x0, y0, x1, y1, color);
+    let mut x0 = x0;
+    let mut y0 = y0;
+    let mut x1 = x1;
+    let mut y1 = y1;
+
+    if clip_line(
+        fb.width() as i32,
+        fb.height() as i32,
+        &mut x0,
+        &mut y0,
+        &mut x1,
+        &mut y1,
+    ) {
+        unsafe {
+            draw_line_bresenham_unchecked(fb, x0, y0, x1, y1, color);
+        }
+    }
 }
 
 /// Draw a wireframe polygon

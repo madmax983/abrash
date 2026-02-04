@@ -48,3 +48,7 @@
 **[Integer Demotion Optimization]**
 **Learning:** Demoting 16.16 fixed-point accumulators from `i64` to `i32` in the hot rasterization loop yielded ~4.5% speedup without correctness loss, as values fit within `i32` range on-screen.
 **Action:** Use the smallest integer type that fits the range for hot loops to reduce register pressure. Keep `i64` only for intermediate calculations (like off-screen jumps) that might overflow.
+
+**[Unchecked Line Drawing]**
+**Learning:** Bresenham's line algorithm can be optimized by 73% for clipped lines and 32% for visible lines by implementing Cohen-Sutherland clipping upfront and using `unsafe` unchecked pixel access in the hot loop.
+**Action:** When implementing rasterization primitives, clip coordinates to screen bounds first, then use `unsafe` unchecked access (like `set_pixel_unchecked`) inside the loop, relying on the clipping guarantee.
