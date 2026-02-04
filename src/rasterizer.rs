@@ -1,6 +1,10 @@
-//! 2D Rasterization primitives.
+//! 2D and 3D Rasterization primitives.
 //!
-//! Software rendering functions for 2D shapes (lines, circles, triangles).
+//! Software rendering functions for:
+//! *   **2D Shapes:** Lines, circles, triangles (optimized for UI/2D games).
+//! *   **3D Primitives:** Triangle filling with Flat and Gouraud shading.
+//!
+//! This module handles the low-level pixel plotting and scanline interpolation.
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
@@ -160,8 +164,12 @@ fn clip_line(
 }
 
 /// Draw a line using Bresenham's algorithm (internal, unchecked)
+///
 /// # Safety
-/// Caller must ensure coordinates are within bounds.
+///
+/// Caller must ensure coordinates are within bounds of the framebuffer.
+/// This function uses `get_unchecked_mut` or similar unsafe access for performance.
+/// Failing to clip coordinates before calling this will cause Undefined Behavior (segfault).
 unsafe fn draw_line_bresenham_unchecked(
     fb: &mut Framebuffer,
     x0: i32,
@@ -210,6 +218,19 @@ unsafe fn draw_line_bresenham_unchecked(
 }
 
 /// Draw a line using the best available method
+///
+/// Automatically dispatches to optimized horizontal/vertical drawers or
+/// uses clipped Bresenham for diagonal lines.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::rasterizer::draw_line;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// draw_line(&mut fb, 10, 10, 50, 90, 0xFF00FF00); // Green line
+/// ```
 pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color: u32) {
     // Dispatch to optimized versions for axis-aligned lines
     if y0 == y1 {
@@ -265,6 +286,16 @@ pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
 }
 
 /// Draw a circle outline using midpoint algorithm
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::rasterizer::draw_circle;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// draw_circle(&mut fb, 50, 50, 20, 0xFFFF0000); // Red circle
+/// ```
 pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
     if radius <= 0 {
         if radius == 0 {
@@ -503,7 +534,33 @@ fn draw_scanline_flat(
     }
 }
 
-/// Fill a 3D triangle with z-buffer test
+/// Fill a 3D triangle with z-buffer test (Flat Shading)
+///
+/// Accepts vertices in Clip Space (before perspective divide).
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Tuple of `(Vec3, w_component)`.
+/// * `color` - Solid 0xAARRGGBB color.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::rasterizer::fill_triangle_3d;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // Clip space vertices (after projection, before divide)
+/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 1.0);
+/// let v1 = (Vec3::new(-0.5, -0.5, 5.0), 1.0);
+/// let v2 = (Vec3::new(0.5, -0.5, 5.0), 1.0);
+///
+/// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+/// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -719,6 +776,7 @@ fn draw_scanline_gouraud(
     }
 }
 
+/// Interpolates values (X, Z) along a triangle edge.
 struct EdgeWalker {
     x: f32,
     z: f32,
@@ -759,6 +817,7 @@ impl EdgeWalker {
     }
 }
 
+/// Calculates gradients (change per X/Y) for Gouraud shading parameters.
 struct GouraudGradients {
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
@@ -816,6 +875,7 @@ impl GouraudGradients {
     }
 }
 
+/// Interpolates values (X, Z, Color) along a triangle edge for Gouraud shading.
 struct GouraudEdgeWalker {
     x: f32,
     z: f32,
@@ -999,6 +1059,8 @@ pub fn fill_triangle_gouraud(
 }
 
 /// Fill a 3D triangle with flat shading
+///
+/// Calculates lighting based on normal and base color, then fills.
 pub fn fill_triangle_flat(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,

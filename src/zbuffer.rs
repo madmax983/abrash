@@ -11,6 +11,15 @@ pub struct ZBuffer {
 
 impl ZBuffer {
     /// Create a new z-buffer initialized to maximum depth
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::zbuffer::ZBuffer;
+    ///
+    /// let zb = ZBuffer::new(800, 600).unwrap();
+    /// assert_eq!(zb.width(), 800);
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         let size = (width as u64)
             .checked_mul(height as u64)
@@ -30,6 +39,26 @@ impl ZBuffer {
     }
 
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
+    ///
+    /// Returns `true` if the new depth is closer (less than) the existing depth,
+    /// updating the buffer. Returns `false` otherwise or if coordinates are out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::zbuffer::ZBuffer;
+    ///
+    /// let mut zb = ZBuffer::new(100, 100).unwrap();
+    ///
+    /// // First draw (depth 5.0) - should succeed
+    /// assert!(zb.test_and_set(50, 50, 5.0));
+    ///
+    /// // Further draw (depth 10.0) - should fail
+    /// assert!(!zb.test_and_set(50, 50, 10.0));
+    ///
+    /// // Closer draw (depth 2.0) - should succeed
+    /// assert!(zb.test_and_set(50, 50, 2.0));
+    /// ```
     pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return false;
