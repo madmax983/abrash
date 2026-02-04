@@ -599,12 +599,12 @@ pub fn fill_triangle_3d(
         let z_left;
 
         if long_edge_is_left {
-            x_start = edge_a.x as i32;
-            x_end = edge_b.x as i32;
+            x_start = (edge_a.x >> 16) as i32;
+            x_end = (edge_b.x >> 16) as i32;
             z_left = edge_a.z;
         } else {
-            x_start = edge_b.x as i32;
-            x_end = edge_a.x as i32;
+            x_start = (edge_b.x >> 16) as i32;
+            x_end = (edge_a.x >> 16) as i32;
             z_left = edge_b.z;
         }
 
@@ -720,9 +720,9 @@ fn draw_scanline_gouraud(
 }
 
 struct EdgeWalker {
-    x: f32,
+    x: i64,
     z: f32,
-    dx_dy: f32,
+    dx_dy: i64,
     dz_dy: f32,
 }
 
@@ -732,15 +732,15 @@ impl EdgeWalker {
         let (dx_dy, dz_dy) = if height != 0.0 {
             let inv_h = 1.0 / height;
             (
-                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * 65536.0) as i64,
                 (p_end.z - p_start.z) * inv_h,
             )
         } else {
-            (0.0, 0.0)
+            (0, 0.0)
         };
 
         Self {
-            x: p_start.x as f32,
+            x: (p_start.x as i64) << 16,
             z: p_start.z,
             dx_dy,
             dz_dy,
@@ -753,8 +753,9 @@ impl EdgeWalker {
     }
 
     fn step_n(&mut self, n: i32) {
+        let n_i64 = n as i64;
         let n_f = n as f32;
-        self.x += self.dx_dy * n_f;
+        self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
     }
 }
@@ -817,10 +818,10 @@ impl GouraudGradients {
 }
 
 struct GouraudEdgeWalker {
-    x: f32,
+    x: i64,
     z: f32,
     c: (i64, i64, i64),
-    dx_dy: f32,
+    dx_dy: i64,
     dz_dy: f32,
     dc_dy: (i64, i64, i64),
 }
@@ -832,7 +833,7 @@ impl GouraudEdgeWalker {
             let inv_h = 1.0 / height;
             let dc = (c_end - c_start) * inv_h;
             (
-                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * 65536.0) as i64,
                 (p_end.z - p_start.z) * inv_h,
                 (
                     (dc.x * FIXED_SCALE) as i64,
@@ -841,7 +842,7 @@ impl GouraudEdgeWalker {
                 ),
             )
         } else {
-            (0.0, 0.0, (0, 0, 0))
+            (0, 0.0, (0, 0, 0))
         };
 
         let c_fixed = (
@@ -851,7 +852,7 @@ impl GouraudEdgeWalker {
         );
 
         Self {
-            x: p_start.x as f32,
+            x: (p_start.x as i64) << 16,
             z: p_start.z,
             c: c_fixed,
             dx_dy,
@@ -871,7 +872,7 @@ impl GouraudEdgeWalker {
     fn step_n(&mut self, n: i32) {
         let n_f = n as f32;
         let n_i64 = n as i64;
-        self.x += self.dx_dy * n_f;
+        self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
         self.c.0 += self.dc_dy.0 * n_i64;
         self.c.1 += self.dc_dy.1 * n_i64;
@@ -962,13 +963,13 @@ pub fn fill_triangle_gouraud(
         let c_left;
 
         if long_edge_is_left {
-            x_start = edge_a.x as i32;
-            x_end = edge_b.x as i32;
+            x_start = (edge_a.x >> 16) as i32;
+            x_end = (edge_b.x >> 16) as i32;
             z_left = edge_a.z;
             c_left = edge_a.c;
         } else {
-            x_start = edge_b.x as i32;
-            x_end = edge_a.x as i32;
+            x_start = (edge_b.x >> 16) as i32;
+            x_end = (edge_a.x >> 16) as i32;
             z_left = edge_b.z;
             c_left = edge_b.c;
         }
