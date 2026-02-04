@@ -1108,42 +1108,67 @@ impl Texture {
     /// Sample texture using bilinear interpolation with texel coordinates
     #[inline]
     pub fn get_pixel_bilinear_texel(&self, u_tex: f32, v_tex: f32) -> u32 {
-        let u_img = u_tex - 0.5;
-        let v_img = v_tex - 0.5;
+        // Convert to 24.8 fixed point
+        // 0.5 in 24.8 is 128
+        let u_fixed = (u_tex * 256.0) as i32;
+        let v_fixed = (v_tex * 256.0) as i32;
 
-        let x0 = u_img.floor() as i32;
-        let y0 = v_img.floor() as i32;
-        let x1 = x0 + 1;
-        let y1 = y0 + 1;
+        let u_img_fixed = u_fixed - 128;
+        let v_img_fixed = v_fixed - 128;
 
         // Weights (0..256)
-        let wx = ((u_img - u_img.floor()) * 256.0) as u32;
-        let wy = ((v_img - v_img.floor()) * 256.0) as u32;
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
         let inv_wx = 256 - wx;
         let inv_wy = 256 - wy;
 
-        let c00 = self.get_pixel_texel(x0, y0);
-        let c10 = self.get_pixel_texel(x1, y0);
-        let c01 = self.get_pixel_texel(x0, y1);
-        let c11 = self.get_pixel_texel(x1, y1);
+        // Coordinates
+        let w_i32 = self.width as i32 - 1;
+        let h_i32 = self.height as i32 - 1;
 
-        // Function to blend two colors with weight w
-        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> (u32, u32, u32) {
-            let r = (((c0 >> 16) & 0xFF) * inv_w + ((c1 >> 16) & 0xFF) * w) >> 8;
-            let g = (((c0 >> 8) & 0xFF) * inv_w + ((c1 >> 8) & 0xFF) * w) >> 8;
-            let b = ((c0 & 0xFF) * inv_w + (c1 & 0xFF) * w) >> 8;
-            (r, g, b)
+        // Arithmetic shift preserves sign (floor behavior for negative numbers)
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let x0 = x0_raw.clamp(0, w_i32) as usize;
+        let y0 = y0_raw.clamp(0, h_i32) as usize;
+        let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+        let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+        let width_usize = self.width as usize;
+        let row0 = y0 * width_usize;
+        let row1 = y1 * width_usize;
+
+        // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
+        let (c00, c10, c01, c11) = unsafe {
+            (
+                *self.pixels.get_unchecked(row0 + x0),
+                *self.pixels.get_unchecked(row0 + x1),
+                *self.pixels.get_unchecked(row1 + x0),
+                *self.pixels.get_unchecked(row1 + x1),
+            )
         };
 
-        let (r0, g0, b0) = blend(c00, c10, wx, inv_wx);
-        let (r1, g1, b1) = blend(c01, c11, wx, inv_wx);
+        // Function to blend two colors with weight w using SWAR (SIMD Within A Register)
+        // Blends R/B and A/G in parallel
+        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> u32 {
+            let rb0 = c0 & 0x00FF00FF;
+            let ag0 = (c0 >> 8) & 0x00FF00FF;
+            let rb1 = c1 & 0x00FF00FF;
+            let ag1 = (c1 >> 8) & 0x00FF00FF;
 
-        // Interpolate vertically
-        let r = (r0 * inv_wy + r1 * wy) >> 8;
-        let g = (g0 * inv_wy + g1 * wy) >> 8;
-        let b = (b0 * inv_wy + b1 * wy) >> 8;
+            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF00FF;
+            let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF00FF;
 
-        0xFF000000 | (r << 16) | (g << 8) | b
+            rb | (ag << 8)
+        };
+
+        let top = blend(c00, c10, wx, inv_wx);
+        let bottom = blend(c01, c11, wx, inv_wx);
+        let final_color = blend(top, bottom, wy, inv_wy);
+
+        // Ensure alpha is 0xFF
+        final_color | 0xFF000000
     }
 
     /// Sample texture using texel coordinates
