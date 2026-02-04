@@ -1110,29 +1110,43 @@ impl Texture {
     }
 }
 
-struct TextureGradients {
+
+struct PerspectiveTextureGradients {
     dz_dx: f32,
-    duv_dx: (i32, i32),
+    dq_dx: f32,
+    du_dx: f32,
+    dv_dx: f32,
 }
 
-impl TextureGradients {
+impl PerspectiveTextureGradients {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
-        uv0: Vec2,
-        uv1: Vec2,
-        uv2: Vec2,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
     ) -> Self {
         let ux = (p1.x as i64 - p0.x as i64) as f32;
         let uy = (p1.y as i64 - p0.y as i64) as f32;
         let uz = p1.z - p0.z;
-        let u_uv = uv1 - uv0;
+        let uq = q1 - q0;
+        let uu = u1 - u0;
+        let uv = v1 - v0;
 
         let vx = (p2.x as i64 - p0.x as i64) as f32;
         let vy = (p2.y as i64 - p0.y as i64) as f32;
         let vz = p2.z - p0.z;
-        let v_uv = uv2 - uv0;
+        let vq = q2 - q0;
+        let vu = u2 - u0;
+        let vv = v2 - v0;
 
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
@@ -1140,79 +1154,78 @@ impl TextureGradients {
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
 
-        let nx_u = uy * v_uv.x - u_uv.x * vy;
-        let nx_v = uy * v_uv.y - u_uv.y * vy;
+        let nx_q = uy * vq - uq * vy;
+        let dq_dx = nx_q * inv_nz;
 
-        let du = nx_u * inv_nz;
-        let dv = nx_v * inv_nz;
+        let nx_u = uy * vu - uu * vy;
+        let du_dx = nx_u * inv_nz;
 
-        // Convert to fixed point 16.16
-
-        let du_i = (du * FIXED_SCALE) as i32;
-        let dv_i = (dv * FIXED_SCALE) as i32;
+        let nx_v = uy * vv - uv * vy;
+        let dv_dx = nx_v * inv_nz;
 
         Self {
             dz_dx,
-            duv_dx: (du_i, dv_i),
+            dq_dx,
+            du_dx,
+            dv_dx,
         }
     }
-
-    fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
-        ux * vy - uy * vx > 0.0
-    }
 }
 
-struct TextureEdgeWalker {
+struct PerspectiveTextureEdgeWalker {
     x: i64,
     z: f32,
-    uv: (i64, i64),
+    q: f32, // 1/w
+    u: f32, // u/w
+    v: f32, // v/w
     dx_dy: i64,
     dz_dy: f32,
-    duv_dy: (i64, i64),
+    dq_dy: f32,
+    du_dy: f32,
+    dv_dy: f32,
 }
 
-impl TextureEdgeWalker {
-    fn new(p_start: ScreenPoint, p_end: ScreenPoint, uv_start: Vec2, uv_end: Vec2) -> Self {
+impl PerspectiveTextureEdgeWalker {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        q_start: f32,
+        q_end: f32,
+        u_start: f32,
+        u_end: f32,
+        v_start: f32,
+        v_end: f32,
+    ) -> Self {
         let height = (p_end.y as i64 - p_start.y as i64) as f32;
-        let (dx_dy, dz_dy, duv_dy) = if height != 0.0 {
-            let inv_h = 1.0 / height;
-            let duv = (uv_end - uv_start) * inv_h;
-            (
-                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
-                (p_end.z - p_start.z) * inv_h,
-                (
-                    (duv.x * FIXED_SCALE) as i64,
-                    (duv.y * FIXED_SCALE) as i64,
-                ),
-            )
-        } else {
-            (0, 0.0, (0, 0))
-        };
+        let inv_h = if height != 0.0 { 1.0 / height } else { 0.0 };
 
-        let uv_fixed = (
-            (uv_start.x * FIXED_SCALE) as i64,
-            (uv_start.y * FIXED_SCALE) as i64,
-        );
+        let dx_dy = ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * inv_h;
+        let du_dy = (u_end - u_start) * inv_h;
+        let dv_dy = (v_end - v_start) * inv_h;
 
         Self {
             x: (p_start.x as i64) << 16,
             z: p_start.z,
-            uv: uv_fixed,
+            q: q_start,
+            u: u_start,
+            v: v_start,
             dx_dy,
             dz_dy,
-            duv_dy,
+            dq_dy,
+            du_dy,
+            dv_dy,
         }
     }
 
     fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
-        self.uv.0 += self.duv_dy.0;
-        self.uv.1 += self.duv_dy.1;
+        self.q += self.dq_dy;
+        self.u += self.du_dy;
+        self.v += self.dv_dy;
     }
 
     fn step_n(&mut self, n: i32) {
@@ -1220,15 +1233,17 @@ impl TextureEdgeWalker {
         let n_f = n as f32;
         self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
-        self.uv.0 += self.duv_dy.0 * n_i64;
-        self.uv.1 += self.duv_dy.1 * n_i64;
+        self.q += self.dq_dy * n_f;
+        self.u += self.du_dy * n_f;
+        self.v += self.dv_dy * n_f;
     }
 }
 
-/// Draw a single scanline with texture mapping (Optimized)
+/// Draw a single scanline with perspective-correct texture mapping
+/// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_textured(
+fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     texture: &Texture,
@@ -1236,24 +1251,29 @@ fn draw_scanline_textured(
     x_start: i32,
     x_end: i32,
     z_start: f32,
-    uv_start: (i64, i64), // Fixed point UV
+    q_start: f32, // 1/w
+    u_start: f32, // u/w
+    v_start: f32, // v/w
     dz_dx: f32,
-    duv_dx: (i32, i32), // Fixed point gradients
+    dq_dx: f32,
+    du_dx: f32,
+    dv_dx: f32,
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = z_start;
-
-    let mut u_i = uv_start.0;
-    let mut v_i = uv_start.1;
-    let (du, dv) = (duv_dx.0 as i64, duv_dx.1 as i64);
+    let mut q = q_start;
+    let mut u = u_start;
+    let mut v = v_start;
 
     if xs < 0 {
         let diff = -(xs as i64);
-        z += (diff as f32) * dz_dx;
-        u_i += diff * du;
-        v_i += diff * dv;
+        let diff_f = diff as f32;
+        z += diff_f * dz_dx;
+        q += diff_f * dq_dx;
+        u += diff_f * du_dx;
+        v += diff_f * dv_dx;
         xs = 0;
     }
 
@@ -1261,38 +1281,66 @@ fn draw_scanline_textured(
         xe = width - 1;
     }
 
-    // Demote to i32 for hot loop
-    let mut u_i = u_i as i32;
-    let mut v_i = v_i as i32;
-    let du = du as i32;
-    let dv = dv as i32;
+    if xs > xe {
+        return;
+    }
 
-    if xs <= xe {
+    let span_size = 16;
+    let mut x = xs;
+
+    while x <= xe {
+        let remaining = xe - x + 1;
+        let count = remaining.min(span_size);
+
+        // End values at 'x + count'
+        let q_end = q + dq_dx * count as f32;
+        let u_end = u + du_dx * count as f32;
+        let v_end = v + dv_dx * count as f32;
+
+        // Perform perspective divide at span endpoints
+        let w_start = if q.abs() > 0.000001 { 1.0 / q } else { 1.0 };
+        let u_tex_start = u * w_start;
+        let v_tex_start = v * w_start;
+
+        let w_end = if q_end.abs() > 0.000001 { 1.0 / q_end } else { 1.0 };
+        let u_tex_end = u_end * w_end;
+        let v_tex_end = v_end * w_end;
+
+        // Interpolate texel coordinates linearly over the span
+        let du_tex_step = (u_tex_end - u_tex_start) / count as f32;
+        let dv_tex_step = (v_tex_end - v_tex_start) / count as f32;
+
+        let mut u_tex = u_tex_start;
+        let mut v_tex = v_tex_start;
+
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
-        let start_idx = y_offset + (xs as usize);
-        let end_idx = y_offset + (xe as usize);
+        let start_idx = y_offset + (x as usize);
+        let end_idx = y_offset + ((x + count - 1) as usize);
 
+        // SAFETY: Bounds checked by xs, xe clamping and loop logic
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        // Optimization: Pre-calculate shifts/masks if possible, but texture access depends on u_i/v_i
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             if z < *depth_val {
                 *depth_val = z;
-                // Sample texture
-                let tx = u_i >> 16;
-                let ty = v_i >> 16;
-                *pixel = texture.get_pixel_texel(tx, ty);
+                *pixel = texture.get_pixel_texel(u_tex as i32, v_tex as i32);
             }
             z += dz_dx;
-            u_i += du;
-            v_i += dv;
+            u_tex += du_tex_step;
+            v_tex += dv_tex_step;
         }
+
+        // Advance state
+        q = q_end;
+        u = u_end;
+        v = v_end;
+        x += count;
     }
 }
 
-/// Fill a 3D triangle with affine texture mapping
+/// Fill a 3D triangle with perspective-correct texture mapping
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -1311,23 +1359,31 @@ pub fn fill_triangle_textured(
     let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
     let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
 
-    // Scale UVs to Texture Dimensions for easier interpolation
-    let uv0 = Vec2::new(
-        v0.1.x * texture.width as f32,
-        v0.1.y * texture.height as f32,
-    );
-    let uv1 = Vec2::new(
-        v1.1.x * texture.width as f32,
-        v1.1.y * texture.height as f32,
-    );
-    let uv2 = Vec2::new(
-        v2.1.x * texture.width as f32,
-        v2.1.y * texture.height as f32,
-    );
+    // Prepare perspective attributes: q=1/w, u/w, v/w
+    // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
+    let w0 = v0.0.1;
+    let w1 = v1.0.1;
+    let w2 = v2.0.1;
 
-    let mut verts = [(p0, uv0), (p1, uv1), (p2, uv2)];
-    sort_by_y(&mut verts, |(p, _)| p.y);
-    let [(p0, uv0), (p1, uv1), (p2, uv2)] = verts;
+    // Avoid division by zero
+    let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
+    let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
+    let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+
+    let u0 = v0.1.x * texture.width as f32 * inv_w0;
+    let v0 = v0.1.y * texture.height as f32 * inv_w0;
+
+    let u1 = v1.1.x * texture.width as f32 * inv_w1;
+    let v1 = v1.1.y * texture.height as f32 * inv_w1;
+
+    let u2 = v2.1.x * texture.width as f32 * inv_w2;
+    let v2 = v2.1.y * texture.height as f32 * inv_w2;
+
+    // Sort by y
+    // We need to keep track of all attributes (p, q, u, v)
+    let mut verts = [(p0, inv_w0, u0, v0), (p1, inv_w1, u1, v1), (p2, inv_w2, u2, v2)];
+    sort_by_y(&mut verts, |(p, _, _, _)| p.y);
+    let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
 
     let total_height = (p2.y as i64 - p0.y as i64) as f32;
     if total_height == 0.0 {
@@ -1345,24 +1401,33 @@ pub fn fill_triangle_textured(
 
     // Gradients and Edge Walking
     let (gradients, long_edge_is_left) = {
-        let g = TextureGradients::new(p0, p1, p2, uv0, uv1, uv2);
-        let left = TextureGradients::is_long_edge_left(p0, p1, p2);
+        let g = PerspectiveTextureGradients::new(
+            p0, p1, p2,
+            q0, q1, q2,
+            u0, u1, u2,
+            v0, v1, v2
+        );
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let left = ux * vy - uy * vx > 0.0;
         (g, left)
     };
 
-    let mut edge_a = TextureEdgeWalker::new(p0, p2, uv0, uv2);
+    let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
     if y_start > p0.y {
         edge_a.step_n(y_start - p0.y);
     }
 
     let mut edge_b = if y_start < p1.y {
-        let mut e = TextureEdgeWalker::new(p0, p1, uv0, uv1);
+        let mut e = PerspectiveTextureEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1);
         if y_start > p0.y {
             e.step_n(y_start - p0.y);
         }
         e
     } else {
-        let mut e = TextureEdgeWalker::new(p1, p2, uv1, uv2);
+        let mut e = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
         if y_start > p1.y {
             e.step_n(y_start - p1.y);
         }
@@ -1373,37 +1438,48 @@ pub fn fill_triangle_textured(
 
     for y in y_start..=y_end {
         if y == p1.y && y != p0.y {
-            edge_b = TextureEdgeWalker::new(p1, p2, uv1, uv2);
+            edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
         }
 
         let x_start;
         let x_end;
         let z_left;
-        let uv_left;
+        let q_left;
+        let u_left;
+        let v_left;
 
         if long_edge_is_left {
             x_start = (edge_a.x >> 16) as i32;
             x_end = (edge_b.x >> 16) as i32;
             z_left = edge_a.z;
-            uv_left = edge_a.uv;
+            q_left = edge_a.q;
+            u_left = edge_a.u;
+            v_left = edge_a.v;
         } else {
             x_start = (edge_b.x >> 16) as i32;
             x_end = (edge_a.x >> 16) as i32;
             z_left = edge_b.z;
-            uv_left = edge_b.uv;
+            q_left = edge_b.q;
+            u_left = edge_b.u;
+            v_left = edge_b.v;
         }
 
         let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                 let tx = (uv_left.0 >> 16) as i32;
-                 let ty = (uv_left.1 >> 16) as i32;
-                 fb.set_pixel(x_start, y, texture.get_pixel_texel(tx, ty));
+                 if q_left.abs() > 0.000001 {
+                     let w = 1.0 / q_left;
+                     let u_tex = u_left * w;
+                     let v_tex = v_left * w;
+                     fb.set_pixel(x_start, y, texture.get_pixel_texel(u_tex as i32, v_tex as i32));
+                 }
             }
         } else {
-            draw_scanline_textured(
-                fb, zb, texture, y, x_start, x_end, z_left, uv_left, gradients.dz_dx, gradients.duv_dx,
+            draw_scanline_textured_perspective(
+                fb, zb, texture, y, x_start, x_end, z_left,
+                q_left, u_left, v_left,
+                gradients.dz_dx, gradients.dq_dx, gradients.du_dx, gradients.dv_dx,
             );
         }
 
