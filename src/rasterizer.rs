@@ -611,8 +611,15 @@ pub fn fill_triangle_3d(
         let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, color);
+            if x_start >= 0 && x_start < width_i32 {
+                // SAFETY: x_start is checked above. y is within bounds [0, height-1] from the loop range.
+                unsafe {
+                    debug_assert!(x_start >= 0 && x_start < fb.width() as i32);
+                    debug_assert!(y >= 0 && y < fb.height() as i32);
+                    if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                    }
+                }
             }
         } else {
             draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
@@ -977,8 +984,15 @@ pub fn fill_triangle_gouraud(
         let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+            if x_start >= 0 && x_start < width_i32 {
+                // SAFETY: x_start is checked above. y is within bounds [0, height-1] from the loop range.
+                unsafe {
+                    debug_assert!(x_start >= 0 && x_start < fb.width() as i32);
+                    debug_assert!(y >= 0 && y < fb.height() as i32);
+                    if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        fb.set_pixel_unchecked(x_start as usize, y as usize, pack_color_fixed(c_left));
+                    }
+                }
             }
         } else {
             draw_scanline_gouraud(
@@ -1467,13 +1481,24 @@ pub fn fill_triangle_textured(
         let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                 if q_left.abs() > 0.000001 {
-                     let w = 1.0 / q_left;
-                     let u_tex = u_left * w;
-                     let v_tex = v_left * w;
-                     fb.set_pixel(x_start, y, texture.get_pixel_texel(u_tex as i32, v_tex as i32));
-                 }
+            if x_start >= 0 && x_start < width_i32 {
+                // SAFETY: x_start is checked above. y is within bounds [0, height-1] from the loop range.
+                unsafe {
+                    debug_assert!(x_start >= 0 && x_start < fb.width() as i32);
+                    debug_assert!(y >= 0 && y < fb.height() as i32);
+                    if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        if q_left.abs() > 0.000001 {
+                            let w = 1.0 / q_left;
+                            let u_tex = u_left * w;
+                            let v_tex = v_left * w;
+                            fb.set_pixel_unchecked(
+                                x_start as usize,
+                                y as usize,
+                                texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                            );
+                        }
+                    }
+                }
             }
         } else {
             draw_scanline_textured_perspective(
