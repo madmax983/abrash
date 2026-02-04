@@ -140,12 +140,38 @@ fn bench_fill_triangle_textured(c: &mut Criterion) {
     });
 }
 
+fn bench_fill_triangle_textured_perspective_stress(c: &mut Criterion) {
+    c.bench_function("fill_triangle_textured_perspective_stress", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000);
+
+        // High perspective distortion
+        let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
+        let v1 = ((Vec3::new(-2.0, -2.0, -5.0), 4.0), Vec2::new(0.0, 1.0));
+        let v2 = ((Vec3::new(2.0, -2.0, -5.0), 4.0), Vec2::new(1.0, 1.0));
+
+        b.iter(|| {
+            zb.clear();
+            fill_triangle_textured(
+                &mut fb,
+                &mut zb,
+                black_box(v0),
+                black_box(v1),
+                black_box(v2),
+                &tex,
+            );
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_fill_triangle_3d_large,
     bench_fill_triangle_3d_small,
     bench_fill_triangle_gouraud,
     bench_draw_line,
-    bench_fill_triangle_textured
+    bench_fill_triangle_textured,
+    bench_fill_triangle_textured_perspective_stress
 );
 criterion_main!(benches);
