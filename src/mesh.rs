@@ -1,6 +1,6 @@
 //! 3D mesh representation.
 
-use crate::math::Vec3;
+use crate::math::{Vec2, Vec3};
 
 /// A 3D mesh with vertices and triangle indices
 #[derive(Debug, Clone)]
@@ -119,5 +119,92 @@ impl Mesh {
 impl Default for Mesh {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// A wrapper around Mesh that includes UV coordinates
+pub struct TexturedMesh {
+    pub mesh: Mesh,
+    pub uvs: Vec<Vec2>,
+}
+
+impl TexturedMesh {
+    /// Create a textured cube with duplicated vertices for proper UV mapping
+    pub fn textured_cube(size: f32) -> Self {
+        let h = size / 2.0;
+        let mut vertices = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        // Helper to add a quad
+        // v0: BL, v1: BR, v2: TR, v3: TL
+        let mut add_quad = |v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3| {
+            let base = vertices.len();
+            vertices.push(v0);
+            vertices.push(v1);
+            vertices.push(v2);
+            vertices.push(v3);
+
+            // Standard UV mapping (0,0 bottom-left, 1,1 top-right)
+            uvs.push(Vec2::new(0.0, 0.0));
+            uvs.push(Vec2::new(1.0, 0.0));
+            uvs.push(Vec2::new(1.0, 1.0));
+            uvs.push(Vec2::new(0.0, 1.0));
+
+            indices.push([base, base + 1, base + 2]);
+            indices.push([base, base + 2, base + 3]);
+        };
+
+        // Front Face (+Z)
+        add_quad(
+            Vec3::new(-h, -h, h),
+            Vec3::new(h, -h, h),
+            Vec3::new(h, h, h),
+            Vec3::new(-h, h, h),
+        );
+
+        // Back Face (-Z)
+        add_quad(
+            Vec3::new(h, -h, -h),  // 5: BL (from back view)
+            Vec3::new(-h, -h, -h), // 4: BR
+            Vec3::new(-h, h, -h),  // 7: TR
+            Vec3::new(h, h, -h),   // 6: TL
+        );
+
+        // Top Face (+Y)
+        add_quad(
+            Vec3::new(-h, h, h),  // 3: BL
+            Vec3::new(h, h, h),   // 2: BR
+            Vec3::new(h, h, -h),  // 6: TR
+            Vec3::new(-h, h, -h), // 7: TL
+        );
+
+        // Bottom Face (-Y)
+        add_quad(
+            Vec3::new(-h, -h, -h), // 4: BL
+            Vec3::new(h, -h, -h),  // 5: BR
+            Vec3::new(h, -h, h),   // 1: TR
+            Vec3::new(-h, -h, h),  // 0: TL
+        );
+
+        // Right Face (+X)
+        add_quad(
+            Vec3::new(h, -h, h),  // 1: BL
+            Vec3::new(h, -h, -h), // 5: BR
+            Vec3::new(h, h, -h),  // 6: TR
+            Vec3::new(h, h, h),   // 2: TL
+        );
+
+        // Left Face (-X)
+        add_quad(
+            Vec3::new(-h, -h, -h), // 4: BL
+            Vec3::new(-h, -h, h),  // 0: BR
+            Vec3::new(-h, h, h),   // 3: TR
+            Vec3::new(-h, h, -h),  // 7: TL
+        );
+
+        let mesh = Mesh { vertices, indices };
+
+        Self { mesh, uvs }
     }
 }

@@ -1,4 +1,5 @@
-use abrash::experimental::texture::{Texture, TexturedMesh, fill_triangle_textured};
+use abrash::rasterizer::{Texture, fill_triangle_textured};
+use abrash::mesh::TexturedMesh;
 use abrash::framebuffer::Framebuffer;
 use abrash::zbuffer::ZBuffer;
 
