@@ -1069,7 +1069,10 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && height > 0, "Texture dimensions must be positive");
+        assert!(
+            width > 0 && height > 0,
+            "Texture dimensions must be positive"
+        );
         Self {
             width,
             height,
@@ -1195,7 +1198,6 @@ impl Texture {
         tex
     }
 }
-
 
 struct PerspectiveTextureGradients {
     dz_dx: f32,
@@ -1388,7 +1390,11 @@ fn draw_scanline_textured_perspective(
         let u_tex_start = u * w_start;
         let v_tex_start = v * w_start;
 
-        let w_end = if q_end.abs() > 0.000001 { 1.0 / q_end } else { 1.0 };
+        let w_end = if q_end.abs() > 0.000001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
         let u_tex_end = u_end * w_end;
         let v_tex_end = v_end * w_end;
 
@@ -1474,7 +1480,11 @@ pub fn fill_triangle_textured(
 
     // Sort by y
     // We need to keep track of all attributes (p, q, u, v)
-    let mut verts = [(p0, inv_w0, u0, v0), (p1, inv_w1, u1, v1), (p2, inv_w2, u2, v2)];
+    let mut verts = [
+        (p0, inv_w0, u0, v0),
+        (p1, inv_w1, u1, v1),
+        (p2, inv_w2, u2, v2),
+    ];
     sort_by_y(&mut verts, |(p, _, _, _)| p.y);
     let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
 
@@ -1494,12 +1504,7 @@ pub fn fill_triangle_textured(
 
     // Gradients and Edge Walking
     let (gradients, long_edge_is_left) = {
-        let g = PerspectiveTextureGradients::new(
-            p0, p1, p2,
-            q0, q1, q2,
-            u0, u1, u2,
-            v0, v1, v2
-        );
+        let g = PerspectiveTextureGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2);
         let ux = (p1.x as i64 - p0.x as i64) as f32;
         let uy = (p1.y as i64 - p0.y as i64) as f32;
         let vx = (p2.x as i64 - p0.x as i64) as f32;
@@ -1576,9 +1581,20 @@ pub fn fill_triangle_textured(
             }
         } else {
             draw_scanline_textured_perspective(
-                fb, zb, texture, y, x_start, x_end, z_left,
-                q_left, u_left, v_left,
-                gradients.dz_dx, gradients.dq_dx, gradients.du_dx, gradients.dv_dx,
+                fb,
+                zb,
+                texture,
+                y,
+                x_start,
+                x_end,
+                z_left,
+                q_left,
+                u_left,
+                v_left,
+                gradients.dz_dx,
+                gradients.dq_dx,
+                gradients.du_dx,
+                gradients.dv_dx,
             );
         }
 

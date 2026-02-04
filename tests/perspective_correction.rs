@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
-use abrash::rasterizer::{fill_triangle_textured, Texture};
+use abrash::rasterizer::{Texture, fill_triangle_textured};
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -100,5 +100,9 @@ fn test_perspective_distortion() {
 
     // With Affine mapping, this will fail.
     // We expect perspective correction to give us a value closer to 51.
-    assert!(blue_channel < 80, "Pixel value {} is too high, indicating affine mapping (expected < 80, got ~127)", blue_channel);
+    assert!(
+        blue_channel < 80,
+        "Pixel value {} is too high, indicating affine mapping (expected < 80, got ~127)",
+        blue_channel
+    );
 }
