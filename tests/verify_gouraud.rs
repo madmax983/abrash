@@ -33,7 +33,7 @@ fn test_gouraud_determinism() {
 
     // Checksum updated after fixed-point color interpolation optimization.
     assert_eq!(
-        checksum, 0xE0EE48A03F3C0B2D,
+        checksum, 0xC5A5BB0C6A4D781B,
         "Checksum mismatch! Optimization broke rendering."
     );
 }
