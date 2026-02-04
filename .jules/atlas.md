@@ -9,3 +9,18 @@
 3.  **Thin Pipeline:** `pipeline` becomes a coordinator that handles lighting and shading, then delegates drawing to `rasterizer`.
 
 **Stability:** Reduces coupling between rendering stages. `rasterizer` becomes cohesive (2D + 3D drawing). `pipeline` becomes focused on "Shader" logic. acyclic dependency graph is preserved.
+
+## [Decomposing Rasterizer Blob]
+**Tangle:** The `rasterizer` module had grown into a "Blob" (>1000 lines), mixing responsibilities: 2D primitives, 3D triangle rasterization, clipping logic, and internal scanline algorithms. This made the module hard to navigate and violated the Single Responsibility Principle.
+
+**Blueprint:**
+1.  **Split Module:** Decompose `src/rasterizer.rs` into a directory-based module `src/rasterizer/`.
+2.  **Submodules:**
+    -   `lines`: Line drawing and clipping.
+    -   `triangles`: 3D triangle rasterization (Flat, Gouraud).
+    -   `primitives`: 2D shapes (Circles, Polygons).
+    -   `scanline`: Internal scanline logic (hidden).
+    -   `edge`: Internal edge walking logic (hidden).
+3.  **Facade:** Use `mod.rs` to re-export the public API, maintaining backward compatibility.
+
+**Stability:** Improves maintainability and cohesion. Internal implementation details (`EdgeWalker`) are properly encapsulated.
