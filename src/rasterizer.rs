@@ -1053,11 +1053,18 @@ pub fn fill_triangle_lit(
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FilterMode {
+    Nearest,
+    Bilinear,
+}
+
 /// A simple 2D texture
 pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub pixels: Vec<u32>,
+    pub filter_mode: FilterMode,
 }
 
 impl Texture {
@@ -1067,6 +1074,7 @@ impl Texture {
             width,
             height,
             pixels: vec![0xFF000000; (width * height) as usize],
+            filter_mode: FilterMode::Nearest,
         }
     }
 
@@ -1076,13 +1084,66 @@ impl Texture {
         }
     }
 
-    /// Sample texture using nearest neighbor interpolation
+    /// Sample texture using interpolation mode
     /// u, v are in range [0.0, 1.0]
     #[inline]
     pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
-        let x = (u * self.width as f32) as i32;
-        let y = (v * self.height as f32) as i32;
-        self.get_pixel_texel(x, y)
+        match self.filter_mode {
+            FilterMode::Nearest => {
+                let x = (u * self.width as f32) as i32;
+                let y = (v * self.height as f32) as i32;
+                self.get_pixel_texel(x, y)
+            }
+            FilterMode::Bilinear => self.get_pixel_bilinear(u, v),
+        }
+    }
+
+    /// Sample texture using bilinear interpolation
+    pub fn get_pixel_bilinear(&self, u: f32, v: f32) -> u32 {
+        let w = self.width as f32;
+        let h = self.height as f32;
+        self.get_pixel_bilinear_texel(u * w, v * h)
+    }
+
+    /// Sample texture using bilinear interpolation with texel coordinates
+    #[inline]
+    pub fn get_pixel_bilinear_texel(&self, u_tex: f32, v_tex: f32) -> u32 {
+        let u_img = u_tex - 0.5;
+        let v_img = v_tex - 0.5;
+
+        let x0 = u_img.floor() as i32;
+        let y0 = v_img.floor() as i32;
+        let x1 = x0 + 1;
+        let y1 = y0 + 1;
+
+        // Weights (0..256)
+        let wx = ((u_img - u_img.floor()) * 256.0) as u32;
+        let wy = ((v_img - v_img.floor()) * 256.0) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        let c00 = self.get_pixel_texel(x0, y0);
+        let c10 = self.get_pixel_texel(x1, y0);
+        let c01 = self.get_pixel_texel(x0, y1);
+        let c11 = self.get_pixel_texel(x1, y1);
+
+        // Function to blend two colors with weight w
+        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> (u32, u32, u32) {
+            let r = (((c0 >> 16) & 0xFF) * inv_w + ((c1 >> 16) & 0xFF) * w) >> 8;
+            let g = (((c0 >> 8) & 0xFF) * inv_w + ((c1 >> 8) & 0xFF) * w) >> 8;
+            let b = ((c0 & 0xFF) * inv_w + (c1 & 0xFF) * w) >> 8;
+            (r, g, b)
+        };
+
+        let (r0, g0, b0) = blend(c00, c10, wx, inv_wx);
+        let (r1, g1, b1) = blend(c01, c11, wx, inv_wx);
+
+        // Interpolate vertically
+        let r = (r0 * inv_wy + r1 * wy) >> 8;
+        let g = (g0 * inv_wy + g1 * wy) >> 8;
+        let b = (b0 * inv_wy + b1 * wy) >> 8;
+
+        0xFF000000 | (r << 16) | (g << 8) | b
     }
 
     /// Sample texture using texel coordinates
@@ -1325,7 +1386,14 @@ fn draw_scanline_textured_perspective(
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             if z < *depth_val {
                 *depth_val = z;
-                *pixel = texture.get_pixel_texel(u_tex as i32, v_tex as i32);
+                match texture.filter_mode {
+                    FilterMode::Nearest => {
+                        *pixel = texture.get_pixel_texel(u_tex as i32, v_tex as i32);
+                    }
+                    FilterMode::Bilinear => {
+                        *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+                    }
+                }
             }
             z += dz_dx;
             u_tex += du_tex_step;
@@ -1467,13 +1535,19 @@ pub fn fill_triangle_textured(
         let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                 if q_left.abs() > 0.000001 {
-                     let w = 1.0 / q_left;
-                     let u_tex = u_left * w;
-                     let v_tex = v_left * w;
-                     fb.set_pixel(x_start, y, texture.get_pixel_texel(u_tex as i32, v_tex as i32));
-                 }
+            if x_start >= 0
+                && x_start < width_i32
+                && zb.test_and_set(x_start, y, z_left)
+                && q_left.abs() > 0.000001
+            {
+                let w = 1.0 / q_left;
+                let u_tex = u_left * w;
+                let v_tex = v_left * w;
+                let color = match texture.filter_mode {
+                    FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                    FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                };
+                fb.set_pixel(x_start, y, color);
             }
         } else {
             draw_scanline_textured_perspective(
