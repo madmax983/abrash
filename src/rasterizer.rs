@@ -4,6 +4,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
+use crate::math::ScreenPoint;
 use crate::shapes::{Polygon, Triangle};
 
 pub fn plot_pixel(fb: &mut Framebuffer, x: i32, y: i32, color: u32) {
@@ -47,26 +48,42 @@ pub fn draw_vline(fb: &mut Framebuffer, x: i32, y0: i32, y1: i32, color: u32) {
     }
 }
 
-// Constants for Cohen-Sutherland clipping
-const INSIDE: i32 = 0; // 0000
-const LEFT: i32 = 1; // 0001
-const RIGHT: i32 = 2; // 0010
-const BOTTOM: i32 = 4; // 0100
-const TOP: i32 = 8; // 1000
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct OutCode(u8);
 
-fn compute_out_code(x: i32, y: i32, width: i32, height: i32) -> i32 {
-    let mut code = INSIDE;
-    if x < 0 {
-        code |= LEFT;
-    } else if x >= width {
-        code |= RIGHT;
+impl OutCode {
+    const INSIDE: u8 = 0;
+    const LEFT: u8 = 1;
+    const RIGHT: u8 = 2;
+    const BOTTOM: u8 = 4;
+    const TOP: u8 = 8;
+
+    fn compute(x: i32, y: i32, width: i32, height: i32) -> Self {
+        let mut code = 0;
+        if x < 0 {
+            code |= Self::LEFT;
+        } else if x >= width {
+            code |= Self::RIGHT;
+        }
+        if y < 0 {
+            code |= Self::BOTTOM;
+        } else if y >= height {
+            code |= Self::TOP;
+        }
+        OutCode(code)
     }
-    if y < 0 {
-        code |= BOTTOM;
-    } else if y >= height {
-        code |= TOP;
+
+    fn is_inside(self) -> bool {
+        self.0 == Self::INSIDE
     }
-    code
+
+    fn shares_outside(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+
+    fn contains(self, mask: u8) -> bool {
+        (self.0 & mask) != 0
+    }
 }
 
 /// Clip a line to the screen rectangle using Cohen-Sutherland algorithm.
@@ -79,16 +96,16 @@ fn clip_line(
     x1: &mut i32,
     y1: &mut i32,
 ) -> bool {
-    let mut outcode0 = compute_out_code(*x0, *y0, width, height);
-    let mut outcode1 = compute_out_code(*x1, *y1, width, height);
+    let mut outcode0 = OutCode::compute(*x0, *y0, width, height);
+    let mut outcode1 = OutCode::compute(*x1, *y1, width, height);
     let mut accept = false;
 
     loop {
-        if (outcode0 | outcode1) == 0 {
+        if outcode0.is_inside() && outcode1.is_inside() {
             // Both inside
             accept = true;
             break;
-        } else if (outcode0 & outcode1) != 0 {
+        } else if outcode0.shares_outside(outcode1) {
             // Both share an outside zone (trivial reject)
             break;
         } else {
@@ -97,7 +114,11 @@ fn clip_line(
             let y: i32;
 
             // Pick at least one point outside
-            let outcode_out = if outcode0 != 0 { outcode0 } else { outcode1 };
+            let outcode_out = if !outcode0.is_inside() {
+                outcode0
+            } else {
+                outcode1
+            };
 
             // Using floating point for precision in intersection
             let x0_f = *x0 as f32;
@@ -105,15 +126,15 @@ fn clip_line(
             let x1_f = *x1 as f32;
             let y1_f = *y1 as f32;
 
-            if (outcode_out & TOP) != 0 {
+            if outcode_out.contains(OutCode::TOP) {
                 // Point is above clip window (y >= height)
                 x = (x0_f + (x1_f - x0_f) * (height as f32 - 1.0 - y0_f) / (y1_f - y0_f)) as i32;
                 y = height - 1;
-            } else if (outcode_out & BOTTOM) != 0 {
+            } else if outcode_out.contains(OutCode::BOTTOM) {
                 // Point is below clip window (y < 0)
                 x = (x0_f + (x1_f - x0_f) * (0.0 - y0_f) / (y1_f - y0_f)) as i32;
                 y = 0;
-            } else if (outcode_out & RIGHT) != 0 {
+            } else if outcode_out.contains(OutCode::RIGHT) {
                 // Point is to the right of clip window (x >= width)
                 y = (y0_f + (y1_f - y0_f) * (width as f32 - 1.0 - x0_f) / (x1_f - x0_f)) as i32;
                 x = width - 1;
@@ -127,11 +148,11 @@ fn clip_line(
             if outcode_out == outcode0 {
                 *x0 = x;
                 *y0 = y;
-                outcode0 = compute_out_code(*x0, *y0, width, height);
+                outcode0 = OutCode::compute(*x0, *y0, width, height);
             } else {
                 *x1 = x;
                 *y1 = y;
-                outcode1 = compute_out_code(*x1, *y1, width, height);
+                outcode1 = OutCode::compute(*x1, *y1, width, height);
             }
         }
     }
@@ -542,117 +563,63 @@ pub fn fill_triangle_3d(
     // dz/dx = -A/C = -nx/nz
     let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
 
-    // Calculate gradients for the long edge (p0 -> p2)
-    let inv_total_height = 1.0 / total_height;
-    let dx_dy_a = (p2.x as i64 - p0.x as i64) as f32 * inv_total_height;
-    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
-
     // Determine if long edge is on the left or right
     // Optimization: Use the sign of the cross product (nz) to determine winding
     // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
     let long_edge_is_left = nz > 0.0;
 
-    // Initialize walkers
-    // A (long edge)
-    let mut ax = p0.x as f32;
-    let mut az = p0.z;
-
+    let mut edge_a = EdgeWalker::new(p0, p2);
     if y_start > p0.y {
-        let dy = (y_start as i64 - p0.y as i64) as f32;
-        ax += dx_dy_a * dy;
-        az += dz_dy_a * dy;
+        edge_a.step_n(y_start - p0.y);
     }
 
-    // B (short edges)
-    // Pre-calculate b1 slopes
-    let h1 = (p1.y as i64 - p0.y as i64) as f32;
-    let (dx_dy_b1, dz_dy_b1) = if h1 != 0.0 {
-        let inv_h1 = 1.0 / h1;
-        (
-            (p1.x as i64 - p0.x as i64) as f32 * inv_h1,
-            (p1.z - p0.z) * inv_h1,
-        )
-    } else {
-        (0.0, 0.0)
-    };
-
-    // Pre-calculate b2 slopes
-    let h2 = (p2.y as i64 - p1.y as i64) as f32;
-    let (dx_dy_b2, dz_dy_b2) = if h2 != 0.0 {
-        let inv_h2 = 1.0 / h2;
-        (
-            (p2.x as i64 - p1.x as i64) as f32 * inv_h2,
-            (p2.z - p1.z) * inv_h2,
-        )
-    } else {
-        (0.0, 0.0)
-    };
-
-    let mut bx;
-    let mut bz;
-    let mut dx_dy_b;
-    let mut dz_dy_b;
-
-    if y_start < p1.y {
-        // Start on first segment
-        bx = p0.x as f32;
-        bz = p0.z;
-        dx_dy_b = dx_dy_b1;
-        dz_dy_b = dz_dy_b1;
-
+    let mut edge_b = if y_start < p1.y {
+        let mut e = EdgeWalker::new(p0, p1);
         if y_start > p0.y {
-            let dy = (y_start as i64 - p0.y as i64) as f32;
-            bx += dx_dy_b * dy;
-            bz += dz_dy_b * dy;
+            e.step_n(y_start - p0.y);
         }
+        e
     } else {
-        // Start on second segment (includes flat top case where y_start == p0.y == p1.y)
-        bx = p1.x as f32;
-        bz = p1.z;
-        dx_dy_b = dx_dy_b2;
-        dz_dy_b = dz_dy_b2;
-
+        let mut e = EdgeWalker::new(p1, p2);
         if y_start > p1.y {
-            let dy = (y_start as i64 - p1.y as i64) as f32;
-            bx += dx_dy_b * dy;
-            bz += dz_dy_b * dy;
+            e.step_n(y_start - p1.y);
         }
-    }
+        e
+    };
+
+    let width_i32 = width as i32;
 
     for y in y_start..=y_end {
         if y == p1.y && y != p0.y {
-            bx = p1.x as f32;
-            bz = p1.z;
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-                dz_dy_b = (p2.z - p1.z) * inv_h2;
-            }
+            edge_b = EdgeWalker::new(p1, p2);
         }
 
-        let (x_left, z_left, x_right) = if long_edge_is_left {
-            (ax, az, bx)
-        } else {
-            (bx, bz, ax)
-        };
+        let x_start;
+        let x_end;
+        let z_left;
 
-        let x_start = x_left as i32;
-        let x_end = x_right as i32;
+        if long_edge_is_left {
+            x_start = edge_a.x as i32;
+            x_end = edge_b.x as i32;
+            z_left = edge_a.z;
+        } else {
+            x_start = edge_b.x as i32;
+            x_end = edge_a.x as i32;
+            z_left = edge_b.z;
+        }
+
         let dx = x_end - x_start;
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
+            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
                 fb.set_pixel(x_start, y, color);
             }
         } else {
             draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
         }
 
-        ax += dx_dy_a;
-        az += dz_dy_a;
-        bx += dx_dy_b;
-        bz += dz_dy_b;
+        edge_a.step();
+        edge_b.step();
     }
 }
 
@@ -752,6 +719,166 @@ fn draw_scanline_gouraud(
     }
 }
 
+struct EdgeWalker {
+    x: f32,
+    z: f32,
+    dx_dy: f32,
+    dz_dy: f32,
+}
+
+impl EdgeWalker {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
+        let height = (p_end.y as i64 - p_start.y as i64) as f32;
+        let (dx_dy, dz_dy) = if height != 0.0 {
+            let inv_h = 1.0 / height;
+            (
+                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                (p_end.z - p_start.z) * inv_h,
+            )
+        } else {
+            (0.0, 0.0)
+        };
+
+        Self {
+            x: p_start.x as f32,
+            z: p_start.z,
+            dx_dy,
+            dz_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+    }
+
+    fn step_n(&mut self, n: i32) {
+        let n_f = n as f32;
+        self.x += self.dx_dy * n_f;
+        self.z += self.dz_dy * n_f;
+    }
+}
+
+struct GouraudGradients {
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+}
+
+impl GouraudGradients {
+    fn new(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        c0: Vec3,
+        c1: Vec3,
+        c2: Vec3,
+    ) -> Self {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let uz = p1.z - p0.z;
+        let uc = c1 - c0;
+
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vz = p2.z - p0.z;
+        let vc = c2 - c0;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_r = uy * vc.x - uc.x * vy;
+        let nx_g = uy * vc.y - uc.y * vy;
+        let nx_b = uy * vc.z - uc.z * vy;
+
+        let dr = nx_r * inv_nz;
+        let dg = nx_g * inv_nz;
+        let db = nx_b * inv_nz;
+
+        let dr_i = (dr * FIXED_SCALE) as i32;
+        let dg_i = (dg * FIXED_SCALE) as i32;
+        let db_i = (db * FIXED_SCALE) as i32;
+
+        Self {
+            dz_dx,
+            dc_dx: (dr_i, dg_i, db_i),
+        }
+    }
+
+    fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        ux * vy - uy * vx > 0.0
+    }
+}
+
+struct GouraudEdgeWalker {
+    x: f32,
+    z: f32,
+    c: (i64, i64, i64),
+    dx_dy: f32,
+    dz_dy: f32,
+    dc_dy: (i64, i64, i64),
+}
+
+impl GouraudEdgeWalker {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+        let height = (p_end.y as i64 - p_start.y as i64) as f32;
+        let (dx_dy, dz_dy, dc_dy) = if height != 0.0 {
+            let inv_h = 1.0 / height;
+            let dc = (c_end - c_start) * inv_h;
+            (
+                (p_end.x as i64 - p_start.x as i64) as f32 * inv_h,
+                (p_end.z - p_start.z) * inv_h,
+                (
+                    (dc.x * FIXED_SCALE) as i64,
+                    (dc.y * FIXED_SCALE) as i64,
+                    (dc.z * FIXED_SCALE) as i64,
+                ),
+            )
+        } else {
+            (0.0, 0.0, (0, 0, 0))
+        };
+
+        let c_fixed = (
+            (c_start.x * FIXED_SCALE) as i64,
+            (c_start.y * FIXED_SCALE) as i64,
+            (c_start.z * FIXED_SCALE) as i64,
+        );
+
+        Self {
+            x: p_start.x as f32,
+            z: p_start.z,
+            c: c_fixed,
+            dx_dy,
+            dz_dy,
+            dc_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.c.0 += self.dc_dy.0;
+        self.c.1 += self.dc_dy.1;
+        self.c.2 += self.dc_dy.2;
+    }
+
+    fn step_n(&mut self, n: i32) {
+        let n_f = n as f32;
+        let n_i64 = n as i64;
+        self.x += self.dx_dy * n_f;
+        self.z += self.dz_dy * n_f;
+        self.c.0 += self.dc_dy.0 * n_i64;
+        self.c.1 += self.dc_dy.1 * n_i64;
+        self.c.2 += self.dc_dy.2 * n_i64;
+    }
+}
+
 /// Fill a 3D triangle with Gouraud (per-vertex) shading
 /// Each vertex has a position (clip space + w) and color
 pub fn fill_triangle_gouraud(
@@ -796,231 +923,78 @@ pub fn fill_triangle_gouraud(
         return;
     }
 
-    // Optimization: Pre-calculate gradients (dz/dx, dc/dx) using plane equation
-    // This avoids per-scanline division and subtraction.
-    let ux = (p1.x as i64 - p0.x as i64) as f32;
-    let uy = (p1.y as i64 - p0.y as i64) as f32;
-    let uz = p1.z - p0.z;
-    let uc = c1 - c0;
-
-    let vx = (p2.x as i64 - p0.x as i64) as f32;
-    let vy = (p2.y as i64 - p0.y as i64) as f32;
-    let vz = p2.z - p0.z;
-    let vc = c2 - c0;
-
-    // Cross product Z component (signed area)
-    let nz = ux * vy - uy * vx;
-
-    // Optimization: Use the sign of the cross product (nz) to determine winding
-    let long_edge_is_left = nz > 0.0;
-
-    let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
-
-    // dz/dx = -nx / nz
-    let nx_z = uy * vz - uz * vy;
-    let dz_dx = nx_z * inv_nz;
-
-    // dc/dx = -nx_c / nz
-    // We compute this for each component
-    let nx_r = uy * vc.x - uc.x * vy;
-    let nx_g = uy * vc.y - uc.y * vy;
-    let nx_b = uy * vc.z - uc.z * vy;
-
-    // Calculate gradients in float, but convert to fixed point 16.16 for the scanline drawer
-    let dr = nx_r * inv_nz;
-    let dg = nx_g * inv_nz;
-    let db = nx_b * inv_nz;
-
-    // Convert to fixed point 16.16
-    let dr_i = (dr * FIXED_SCALE) as i32;
-    let dg_i = (dg * FIXED_SCALE) as i32;
-    let db_i = (db * FIXED_SCALE) as i32;
-    let dc_dx_int = (dr_i, dg_i, db_i);
-
-    // Convert colors to fixed point immediately
-    let c0_fixed = (
-        (c0.x * FIXED_SCALE) as i64,
-        (c0.y * FIXED_SCALE) as i64,
-        (c0.z * FIXED_SCALE) as i64,
-    );
-    let c1_fixed = (
-        (c1.x * FIXED_SCALE) as i64,
-        (c1.y * FIXED_SCALE) as i64,
-        (c1.z * FIXED_SCALE) as i64,
-    );
-    // Calculate gradients for the long edge (p0 -> p2)
-    let inv_total_height = 1.0 / total_height;
-    let dx_dy_a = (p2.x - p0.x) as f32 * inv_total_height;
-    let dz_dy_a = (p2.z - p0.z) * inv_total_height;
-    let dc_dy_a = (c2 - c0) * inv_total_height;
-    let dc_dy_a_fixed = (
-        (dc_dy_a.x * FIXED_SCALE) as i64,
-        (dc_dy_a.y * FIXED_SCALE) as i64,
-        (dc_dy_a.z * FIXED_SCALE) as i64,
-    );
-
-    // Initialize walkers
-    // A is always the long edge
-    let mut ax = p0.x as f32;
-    let mut az = p0.z;
-    let mut ac = c0_fixed;
-
-    // B is the split edge
-    let mut bx = p0.x as f32;
-    let mut bz = p0.z;
-    let mut bc = c0_fixed;
-
-    // Gradient for the first segment (p0 -> p1)
-    let h1 = (p1.y - p0.y) as f32;
-    let (dx_dy_b1, dz_dy_b1, dc_dy_b1) = if h1 != 0.0 {
-        let inv_h1 = 1.0 / h1;
-        let dc = (c1 - c0) * inv_h1;
-        (
-            (p1.x - p0.x) as f32 * inv_h1,
-            (p1.z - p0.z) * inv_h1,
-            (
-                (dc.x * FIXED_SCALE) as i64,
-                (dc.y * FIXED_SCALE) as i64,
-                (dc.z * FIXED_SCALE) as i64,
-            ),
-        )
-    } else {
-        (0.0, 0.0, (0, 0, 0))
+    // Gradients and Edge Walking
+    let (gradients, long_edge_is_left) = {
+        let g = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
+        let left = GouraudGradients::is_long_edge_left(p0, p1, p2);
+        (g, left)
     };
 
-    // Pre-advance to y_start if needed (clipping)
+    let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
     if y_start > p0.y {
-        let dy = (y_start - p0.y) as f32;
-        let dy_i64 = (y_start - p0.y) as i64;
-        ax += dx_dy_a * dy;
-        az += dz_dy_a * dy;
-        ac.0 += dc_dy_a_fixed.0 * dy_i64;
-        ac.1 += dc_dy_a_fixed.1 * dy_i64;
-        ac.2 += dc_dy_a_fixed.2 * dy_i64;
-
-        if y_start < p1.y {
-            bx += dx_dy_b1 * dy;
-            bz += dz_dy_b1 * dy;
-            bc.0 += dc_dy_b1.0 * dy_i64;
-            bc.1 += dc_dy_b1.1 * dy_i64;
-            bc.2 += dc_dy_b1.2 * dy_i64;
-        } else {
-            // We are starting in the second segment (or exactly at p1)
-            // Initialize B at p1 and advance from there
-            bx = p1.x as f32;
-            bz = p1.z;
-            bc = c1_fixed;
-
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                let dx_dy_b2 = (p2.x - p1.x) as f32 * inv_h2;
-                let dz_dy_b2 = (p2.z - p1.z) * inv_h2;
-                let dc_dy_b2 = (c2 - c1) * inv_h2;
-                let dc_dy_b2_fixed = (
-                    (dc_dy_b2.x * FIXED_SCALE) as i64,
-                    (dc_dy_b2.y * FIXED_SCALE) as i64,
-                    (dc_dy_b2.z * FIXED_SCALE) as i64,
-                );
-
-                let dy2 = (y_start - p1.y) as f32;
-                let dy2_i64 = (y_start - p1.y) as i64;
-                bx += dx_dy_b2 * dy2;
-                bz += dz_dy_b2 * dy2;
-                bc.0 += dc_dy_b2_fixed.0 * dy2_i64;
-                bc.1 += dc_dy_b2_fixed.1 * dy2_i64;
-                bc.2 += dc_dy_b2_fixed.2 * dy2_i64;
-            }
-        }
+        edge_a.step_n(y_start - p0.y);
     }
 
-    // Gradients for B (current)
-    let mut dx_dy_b = dx_dy_b1;
-    let mut dz_dy_b = dz_dy_b1;
-    let mut dc_dy_b = dc_dy_b1;
-
-    // If we start past p1.y, we need to set the slopes to b2 slopes
-    if y_start >= p1.y {
-        let h2 = (p2.y - p1.y) as f32;
-        if h2 != 0.0 {
-            let inv_h2 = 1.0 / h2;
-            dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-            dz_dy_b = (p2.z - p1.z) * inv_h2;
-            let dc = (c2 - c1) * inv_h2;
-            dc_dy_b = (
-                (dc.x * FIXED_SCALE) as i64,
-                (dc.y * FIXED_SCALE) as i64,
-                (dc.z * FIXED_SCALE) as i64,
-            );
+    let mut edge_b = if y_start < p1.y {
+        let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
+        if y_start > p0.y {
+            e.step_n(y_start - p0.y);
         }
-    }
+        e
+    } else {
+        let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
+        if y_start > p1.y {
+            e.step_n(y_start - p1.y);
+        }
+        e
+    };
+
+    let width_i32 = width as i32;
 
     for y in y_start..=y_end {
-        // Handle slope switch at p1.y
         if y == p1.y && y != p0.y {
-            bx = p1.x as f32;
-            bz = p1.z;
-            bc = c1_fixed;
-
-            let h2 = (p2.y - p1.y) as f32;
-            if h2 != 0.0 {
-                let inv_h2 = 1.0 / h2;
-                dx_dy_b = (p2.x - p1.x) as f32 * inv_h2;
-                dz_dy_b = (p2.z - p1.z) * inv_h2;
-                let dc = (c2 - c1) * inv_h2;
-                dc_dy_b = (
-                    (dc.x * FIXED_SCALE) as i64,
-                    (dc.y * FIXED_SCALE) as i64,
-                    (dc.z * FIXED_SCALE) as i64,
-                );
-            }
+            edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
         }
 
-        // Determine left/right edges
-        let (x_left, z_left, c_left, x_right, _z_right, _c_right) = if long_edge_is_left {
-            (ax, az, ac, bx, bz, bc)
-        } else {
-            (bx, bz, bc, ax, az, ac)
-        };
+        let x_start;
+        let x_end;
+        let z_left;
+        let c_left;
 
-        let x_start = x_left as i32;
-        let x_end = x_right as i32;
+        if long_edge_is_left {
+            x_start = edge_a.x as i32;
+            x_end = edge_b.x as i32;
+            z_left = edge_a.z;
+            c_left = edge_a.c;
+        } else {
+            x_start = edge_b.x as i32;
+            x_end = edge_a.x as i32;
+            z_left = edge_b.z;
+            c_left = edge_b.c;
+        }
+
         let dx = x_end - x_start;
 
         if dx <= 0 {
-            if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
+            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
                 fb.set_pixel(x_start, y, pack_color_fixed(c_left));
             }
-            // Increment for next iteration
-            ax += dx_dy_a;
-            az += dz_dy_a;
-            ac.0 += dc_dy_a_fixed.0;
-            ac.1 += dc_dy_a_fixed.1;
-            ac.2 += dc_dy_a_fixed.2;
-
-            bx += dx_dy_b;
-            bz += dz_dy_b;
-            bc.0 += dc_dy_b.0;
-            bc.1 += dc_dy_b.1;
-            bc.2 += dc_dy_b.2;
-            continue;
+        } else {
+            draw_scanline_gouraud(
+                fb,
+                zb,
+                y,
+                x_start,
+                x_end,
+                z_left,
+                c_left,
+                gradients.dz_dx,
+                gradients.dc_dx,
+            );
         }
 
-        // Optimization: dz_dx and dc_dx are pre-calculated outside the loop
-        draw_scanline_gouraud(fb, zb, y, x_start, x_end, z_left, c_left, dz_dx, dc_dx_int);
-
-        // Increment for next iteration
-        ax += dx_dy_a;
-        az += dz_dy_a;
-        ac.0 += dc_dy_a_fixed.0;
-        ac.1 += dc_dy_a_fixed.1;
-        ac.2 += dc_dy_a_fixed.2;
-
-        bx += dx_dy_b;
-        bz += dz_dy_b;
-        bc.0 += dc_dy_b.0;
-        bc.1 += dc_dy_b.1;
-        bc.2 += dc_dy_b.2;
+        edge_a.step();
+        edge_b.step();
     }
 }
 
