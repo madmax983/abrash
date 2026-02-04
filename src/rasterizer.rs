@@ -1127,23 +1127,25 @@ impl Texture {
         let c01 = self.get_pixel_texel(x0, y1);
         let c11 = self.get_pixel_texel(x1, y1);
 
-        // Function to blend two colors with weight w
-        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> (u32, u32, u32) {
-            let r = (((c0 >> 16) & 0xFF) * inv_w + ((c1 >> 16) & 0xFF) * w) >> 8;
-            let g = (((c0 >> 8) & 0xFF) * inv_w + ((c1 >> 8) & 0xFF) * w) >> 8;
-            let b = ((c0 & 0xFF) * inv_w + (c1 & 0xFF) * w) >> 8;
-            (r, g, b)
+        // Function to blend two colors with weight w using SWAR (SIMD Within A Register)
+        // w + inv_w must be 256
+        let blend_swar = |c0: u32, c1: u32, w: u32, inv_w: u32| -> u32 {
+            let rb0 = c0 & 0x00FF00FF;
+            let g0 = c0 & 0x0000FF00;
+            let rb1 = c1 & 0x00FF00FF;
+            let g1 = c1 & 0x0000FF00;
+
+            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF00FF;
+            let g = ((g0 * inv_w + g1 * w) >> 8) & 0x0000FF00;
+
+            rb | g
         };
 
-        let (r0, g0, b0) = blend(c00, c10, wx, inv_wx);
-        let (r1, g1, b1) = blend(c01, c11, wx, inv_wx);
+        let c_top = blend_swar(c00, c10, wx, inv_wx);
+        let c_bottom = blend_swar(c01, c11, wx, inv_wx);
 
-        // Interpolate vertically
-        let r = (r0 * inv_wy + r1 * wy) >> 8;
-        let g = (g0 * inv_wy + g1 * wy) >> 8;
-        let b = (b0 * inv_wy + b1 * wy) >> 8;
-
-        0xFF000000 | (r << 16) | (g << 8) | b
+        // Final vertical blend and force alpha to 0xFF
+        blend_swar(c_top, c_bottom, wy, inv_wy) | 0xFF000000
     }
 
     /// Sample texture using texel coordinates
