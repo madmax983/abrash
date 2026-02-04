@@ -8,6 +8,8 @@ default = []
 simd = []
 
 [dependencies]
+crossterm = "0.29.0"
+ratatui = "0.30.0"
 # Win32 API bindings
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
