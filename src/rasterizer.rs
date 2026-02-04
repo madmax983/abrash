@@ -443,7 +443,8 @@ fn draw_scanline_flat(
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z += (-xs) as f32 * dz_dx;
+        // Cast to i64 first to avoid panic on i32::MIN
+        z += (-(xs as i64)) as f32 * dz_dx;
         xs = 0;
     }
 
@@ -639,7 +640,8 @@ pub fn fill_triangle_3d(
 
         let x_start = x_left as i32;
         let x_end = x_right as i32;
-        let dx = x_end - x_start;
+        // Use i64 for width calculation to prevent overflow when x_start is i32::MIN
+        let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
@@ -695,12 +697,11 @@ fn draw_scanline_gouraud(
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -xs;
+        let diff = -(xs as i64);
         z += (diff as f32) * dz_dx;
-        let diff_i64 = diff as i64;
-        r_i += diff_i64 * dr;
-        g_i += diff_i64 * dg;
-        b_i += diff_i64 * db;
+        r_i += diff * dr;
+        g_i += diff * dg;
+        b_i += diff * db;
         xs = 0;
     }
 
@@ -985,7 +986,8 @@ pub fn fill_triangle_gouraud(
 
         let x_start = x_left as i32;
         let x_end = x_right as i32;
-        let dx = x_end - x_start;
+        // Use i64 for width calculation to prevent overflow
+        let dx = (x_end as i64) - (x_start as i64);
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width as i32 && zb.test_and_set(x_start, y, z_left) {
