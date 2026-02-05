@@ -54,7 +54,12 @@ impl Framebuffer {
         }
 
         let index = (y as u32 * self.width + x as u32) as usize;
-        self.pixels[index] = color;
+        let alpha = (color >> 24) & 0xFF;
+        if alpha == 255 {
+            self.pixels[index] = color;
+        } else {
+            self.pixels[index] = blend_colors(color, self.pixels[index]);
+        }
     }
 
     #[inline]
@@ -93,4 +98,38 @@ impl Framebuffer {
             self.pixels[start..end].fill(color);
         }
     }
+}
+
+/// Blend two colors using alpha compositing (Source Over)
+/// src: Source color (0xAARRGGBB)
+/// dst: Destination color (0xAARRGGBB)
+///
+/// Optimization: Uses SWAR (SIMD Within A Register) and integer approximation
+/// for high performance. Result alpha is always set to 255 (Opaque).
+#[inline]
+pub fn blend_colors(src: u32, dst: u32) -> u32 {
+    let sa = (src >> 24) & 0xFF;
+    if sa == 255 {
+        return src;
+    }
+    if sa == 0 {
+        return dst;
+    }
+
+    // Scale alpha to 0..256 for fast division by bit shifting
+    // 255 -> 256, 128 -> 129, 0 -> 0
+    let scale = sa + (sa >> 7);
+    let inv_scale = 256 - scale;
+
+    let rb_src = src & 0x00FF00FF;
+    let ag_src = (src >> 8) & 0x00FF00FF;
+    let rb_dst = dst & 0x00FF00FF;
+    let ag_dst = (dst >> 8) & 0x00FF00FF;
+
+    // Parallel blend of R/B and A/G
+    let rb = ((rb_src * scale + rb_dst * inv_scale) >> 8) & 0x00FF00FF;
+    let ag = ((ag_src * scale + ag_dst * inv_scale) >> 8) & 0x00FF00FF;
+
+    // Combine and force alpha to opaque (0xFF)
+    ((ag << 8) | rb) | 0xFF000000
 }
