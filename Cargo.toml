@@ -8,6 +8,7 @@ default = []
 simd = []
 
 [dependencies]
+clap = { version = "4.5.57", features = ["derive"] }
 crossterm = "0.29.0"
 ratatui = "0.30.0"
 # Win32 API bindings
