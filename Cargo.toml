@@ -23,10 +23,6 @@ criterion = "0.5"
 proptest = "1.0"
 
 [[bench]]
-name = "primitives"
-harness = false
-
-[[bench]]
 name = "math"
 harness = false
 
@@ -39,24 +35,12 @@ name = "abrash"
 path = "src/main.rs"
 
 [[example]]
-name = "rotating_polygon"
-path = "examples/rotating_polygon.rs"
-
-[[example]]
-name = "filled_primitives"
-path = "examples/filled_primitives.rs"
-
-[[example]]
 name = "cube_3d"
 path = "examples/cube_3d.rs"
 
 [[example]]
 name = "lit_cube"
 path = "examples/lit_cube.rs"
-
-[[example]]
-name = "retro_cube"
-path = "examples/retro_cube.rs"
 
 [[bench]]
 name = "rasterization"
