@@ -1355,6 +1355,11 @@ fn draw_scanline_textured_perspective(
     let span_size = 16;
     let mut x = xs;
 
+    // Calculate initial start values
+    let w_start = if q.abs() > 0.000001 { 1.0 / q } else { 1.0 };
+    let mut u_tex_start = u * w_start;
+    let mut v_tex_start = v * w_start;
+
     while x <= xe {
         let remaining = xe - x + 1;
         let count = remaining.min(span_size);
@@ -1365,10 +1370,6 @@ fn draw_scanline_textured_perspective(
         let v_end = v + dv_dx * count as f32;
 
         // Perform perspective divide at span endpoints
-        let w_start = if q.abs() > 0.000001 { 1.0 / q } else { 1.0 };
-        let u_tex_start = u * w_start;
-        let v_tex_start = v * w_start;
-
         let w_end = if q_end.abs() > 0.000001 { 1.0 / q_end } else { 1.0 };
         let u_tex_end = u_end * w_end;
         let v_tex_end = v_end * w_end;
@@ -1410,6 +1411,11 @@ fn draw_scanline_textured_perspective(
         q = q_end;
         u = u_end;
         v = v_end;
+
+        // Reuse end values for next start
+        u_tex_start = u_tex_end;
+        v_tex_start = v_tex_end;
+
         x += count;
     }
 }
