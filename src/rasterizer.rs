@@ -647,10 +647,10 @@ pub fn fill_triangle_3d(
 /// Helper for fast color packing from fixed point.
 #[inline(always)]
 fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u8;
-    let g = (c.1 >> 16).clamp(0, 255) as u8;
-    let b = (c.2 >> 16).clamp(0, 255) as u8;
-    0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+    let r = (c.0 >> 16).clamp(0, 255) as u32;
+    let g = (c.1 >> 16).clamp(0, 255) as u32;
+    let b = (c.2 >> 16).clamp(0, 255) as u32;
+    0xFF000000 | (r << 16) | (g << 8) | b
 }
 
 // Fixed point scale factor (16.16)
@@ -727,10 +727,11 @@ fn draw_scanline_gouraud(
             if z < *depth_val {
                 *depth_val = z;
                 // Unpack fixed point color
-                let r = (r_i >> 16).clamp(0, 255) as u8;
-                let g = (g_i >> 16).clamp(0, 255) as u8;
-                let b = (b_i >> 16).clamp(0, 255) as u8;
-                *pixel = 0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                // Optimization: Avoid intermediate casts to u8 by clamping to u32 directly
+                let r = (r_i >> 16).clamp(0, 255) as u32;
+                let g = (g_i >> 16).clamp(0, 255) as u32;
+                let b = (b_i >> 16).clamp(0, 255) as u32;
+                *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
             }
             z += dz_dx;
             r_i += dr;
