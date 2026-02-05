@@ -22,11 +22,25 @@ fn test_triangle_fully_behind_camera() {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
 
     // This should NOT panic and should NOT draw anything (or at least not garbage)
-    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, light_dir, light_color);
+    fill_triangle_lit(
+        &mut fb,
+        &mut zb,
+        v0,
+        v1,
+        v2,
+        normal,
+        color,
+        ambient,
+        light_dir,
+        light_color,
+    );
 
     // Verify framebuffer is empty
     for pixel in fb.as_slice() {
-        assert_eq!(*pixel, 0xFF000000, "Framebuffer should be empty for triangle behind camera");
+        assert_eq!(
+            *pixel, 0xFF000000,
+            "Framebuffer should be empty for triangle behind camera"
+        );
     }
 }
 
@@ -61,7 +75,18 @@ fn test_triangle_straddling_near_plane() {
     let light_color = Vec3::new(0.0, 0.0, 0.0);
 
     // This often causes panic or artifacts if not clipped
-    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, light_dir, light_color);
+    fill_triangle_lit(
+        &mut fb,
+        &mut zb,
+        v0,
+        v1,
+        v2,
+        normal,
+        color,
+        ambient,
+        light_dir,
+        light_color,
+    );
 
     // Check center pixel (50, 50) - should be drawn?
     // The triangle base v1-v2 is at y=-0.5 (screen y ~75).
@@ -75,5 +100,8 @@ fn test_triangle_straddling_near_plane() {
             break;
         }
     }
-    assert!(drawn, "Should draw the visible part of the straddling triangle");
+    assert!(
+        drawn,
+        "Should draw the visible part of the straddling triangle"
+    );
 }

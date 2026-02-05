@@ -3,16 +3,16 @@ use crate::framebuffer::Framebuffer;
 use crossterm::{
     event::{self, KeyCode, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Widget},
-    Terminal,
 };
-use std::io::{stdout, Stdout};
+use std::io::{Stdout, stdout};
 use std::time::{Duration, Instant};
 
 pub struct Window {
@@ -67,19 +67,19 @@ impl Window {
 
         // Non-blocking poll
         if event::poll(Duration::from_millis(0)).unwrap_or(false) {
-             if let Ok(event::Event::Key(key)) = event::read() {
-                 if key.kind == KeyEventKind::Press {
-                     match key.code {
-                         KeyCode::Char('q') | KeyCode::Esc => {
-                             self.is_open = false;
-                             events.push(Event::Close);
-                         }
-                         _ => {}
-                     }
-                 }
-             } else if let Ok(event::Event::Resize(w, h)) = event::read() {
-                 events.push(Event::Resize(w as u32, h as u32));
-             }
+            if let Ok(event::Event::Key(key)) = event::read() {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => {
+                            self.is_open = false;
+                            events.push(Event::Close);
+                        }
+                        _ => {}
+                    }
+                }
+            } else if let Ok(event::Event::Resize(w, h)) = event::read() {
+                events.push(Event::Resize(w as u32, h as u32));
+            }
         }
         events
     }
@@ -142,7 +142,9 @@ struct FramebufferWidget<'a> {
 
 impl<'a> Widget for FramebufferWidget<'a> {
     fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
-        if area.width == 0 || area.height == 0 { return; }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         let term_w = area.width as usize;
         let term_h = area.height as usize;
@@ -160,18 +162,26 @@ impl<'a> Widget for FramebufferWidget<'a> {
                 // Bottom sub-pixel
                 let fb_y_bot = ((y * 2 + 1) * fb_h) / (term_h * 2);
 
-                if fb_x >= fb_w || fb_y_top >= fb_h { continue; }
+                if fb_x >= fb_w || fb_y_top >= fb_h {
+                    continue;
+                }
 
                 // Get colors
-                let p_top = self.framebuffer.get_pixel(fb_x as i32, fb_y_top as i32).unwrap_or(0);
-                let p_bot = self.framebuffer.get_pixel(fb_x as i32, fb_y_bot as i32).unwrap_or(0);
+                let p_top = self
+                    .framebuffer
+                    .get_pixel(fb_x as i32, fb_y_top as i32)
+                    .unwrap_or(0);
+                let p_bot = self
+                    .framebuffer
+                    .get_pixel(fb_x as i32, fb_y_bot as i32)
+                    .unwrap_or(0);
 
                 // unpack (r, g, b) from u32 0xRRGGBB
                 let (r1, g1, b1) = ((p_top >> 16) as u8, (p_top >> 8) as u8, p_top as u8);
                 let (r2, g2, b2) = ((p_bot >> 16) as u8, (p_bot >> 8) as u8, p_bot as u8);
 
                 if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
-                     cell.set_char('▀')
+                    cell.set_char('▀')
                         .set_fg(Color::Rgb(r1, g1, b1))
                         .set_bg(Color::Rgb(r2, g2, b2));
                 }

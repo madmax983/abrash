@@ -3,7 +3,7 @@ use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::zbuffer::ZBuffer;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_culling_cube(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();

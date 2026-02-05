@@ -913,7 +913,7 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0 .1);
+    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
 
     for i in 0..clipped.count {
         let base = i * 3;
@@ -1092,7 +1092,10 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && height > 0, "Texture dimensions must be positive");
+        assert!(
+            width > 0 && height > 0,
+            "Texture dimensions must be positive"
+        );
         Self {
             width,
             height,
@@ -1218,7 +1221,6 @@ impl Texture {
         tex
     }
 }
-
 
 struct PerspectiveTextureGradients {
     dz_dx: f32,
@@ -1412,7 +1414,11 @@ fn draw_scanline_textured_perspective(
         let v_end = v + dv_dx * count as f32;
 
         // Perform perspective divide at span endpoints
-        let w_end = if q_end.abs() > 0.000001 { 1.0 / q_end } else { 1.0 };
+        let w_end = if q_end.abs() > 0.000001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
         let u_tex_end = u_end * w_end;
         let v_tex_end = v_end * w_end;
 
@@ -1486,7 +1492,7 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0 .1);
+    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
 
     for i in 0..clipped.count {
         let base = i * 3;
@@ -1559,9 +1565,8 @@ pub fn fill_triangle_textured(
 
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) = {
-            let g = PerspectiveTextureGradients::new(
-                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
-            );
+            let g =
+                PerspectiveTextureGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2);
 
             let ux = (p1.x as i64 - p0.x as i64) as f32;
             let uy = (p1.y as i64 - p0.y as i64) as f32;
