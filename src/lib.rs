@@ -8,4 +8,5 @@ pub mod shapes;
 pub mod time;
 pub mod zbuffer;
 
+pub mod clipping;
 pub mod post_process;

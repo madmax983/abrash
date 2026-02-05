@@ -2,6 +2,7 @@
 //!
 //! Software rendering functions for 2D shapes (lines, circles, triangles).
 
+use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::light::color_to_u32;
 use crate::math::ScreenPoint;
@@ -514,112 +515,121 @@ pub fn fill_triangle_3d(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let width = fb.width();
-    let height = fb.height();
+    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.1);
 
-    // Project to screen
-    let p0 = project_to_screen(v0.0, v0.1, width, height);
-    let p1 = project_to_screen(v1.0, v1.1, width, height);
-    let p2 = project_to_screen(v2.0, v2.1, width, height);
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
 
-    // Sort by y
-    let mut verts = [p0, p1, p2];
-    sort_by_y(&mut verts, |p| p.y);
-    let [p0, p1, p2] = verts;
+        let width = fb.width();
+        let height = fb.height();
 
-    // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
-    let total_height = (p2.y as i64 - p0.y as i64) as f32;
-    if total_height == 0.0 {
-        return;
-    }
+        // Project to screen
+        let p0 = project_to_screen(v0.0, v0.1, width, height);
+        let p1 = project_to_screen(v1.0, v1.1, width, height);
+        let p2 = project_to_screen(v2.0, v2.1, width, height);
 
-    // Optimization: Clamp Y range to screen bounds
-    let y_min = 0;
-    let y_max = height as i32 - 1;
-    let y_start = p0.y.max(y_min);
-    let y_end = p2.y.min(y_max);
+        // Sort by y
+        let mut verts = [p0, p1, p2];
+        sort_by_y(&mut verts, |p| p.y);
+        let [p0, p1, p2] = verts;
 
-    if y_start > y_end {
-        return;
-    }
+        // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
+        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
 
-    // Optimization: Pre-calculate dz/dx constant for the whole triangle
-    // Plane equation: Ax + By + Cz + D = 0
-    // vectors p0->p1 and p0->p2
-    // Use i64 for coordinate differences to prevent overflow with extreme coordinates
-    let ux = (p1.x as i64 - p0.x as i64) as f32;
-    let uy = (p1.y as i64 - p0.y as i64) as f32;
-    let uz = p1.z - p0.z;
+        // Optimization: Clamp Y range to screen bounds
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
 
-    let vx = (p2.x as i64 - p0.x as i64) as f32;
-    let vy = (p2.y as i64 - p0.y as i64) as f32;
-    let vz = p2.z - p0.z;
+        if y_start > y_end {
+            continue;
+        }
 
-    // Cross product to get normal (A, B, C)
-    let nx = uy * vz - uz * vy;
-    // let ny = uz * vx - ux * vz;
-    let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
+        // Optimization: Pre-calculate dz/dx constant for the whole triangle
+        // Plane equation: Ax + By + Cz + D = 0
+        // vectors p0->p1 and p0->p2
+        // Use i64 for coordinate differences to prevent overflow with extreme coordinates
+        let ux = (p1.x as i64 - p0.x as i64) as f32;
+        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let uz = p1.z - p0.z;
 
-    // dz/dx = -A/C = -nx/nz
-    let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+        let vx = (p2.x as i64 - p0.x as i64) as f32;
+        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vz = p2.z - p0.z;
 
-    // Determine if long edge is on the left or right
-    // Optimization: Use the sign of the cross product (nz) to determine winding
-    // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
-    let long_edge_is_left = nz > 0.0;
+        // Cross product to get normal (A, B, C)
+        let nx = uy * vz - uz * vy;
+        // let ny = uz * vx - ux * vz;
+        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
 
-    let mut edge_a = EdgeWalker::new(p0, p2);
-    if y_start > p0.y {
-        edge_a.step_n(y_start - p0.y);
-    }
+        // dz/dx = -A/C = -nx/nz
+        let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
 
-    let mut edge_b = if y_start < p1.y {
-        let mut e = EdgeWalker::new(p0, p1);
+        // Determine if long edge is on the left or right
+        // Optimization: Use the sign of the cross product (nz) to determine winding
+        // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
+        let long_edge_is_left = nz > 0.0;
+
+        let mut edge_a = EdgeWalker::new(p0, p2);
         if y_start > p0.y {
-            e.step_n(y_start - p0.y);
-        }
-        e
-    } else {
-        let mut e = EdgeWalker::new(p1, p2);
-        if y_start > p1.y {
-            e.step_n(y_start - p1.y);
-        }
-        e
-    };
-
-    let width_i32 = width as i32;
-
-    for y in y_start..=y_end {
-        if y == p1.y && y != p0.y {
-            edge_b = EdgeWalker::new(p1, p2);
+            edge_a.step_n(y_start - p0.y);
         }
 
-        let x_start;
-        let x_end;
-        let z_left;
-
-        if long_edge_is_left {
-            x_start = (edge_a.x >> 16) as i32;
-            x_end = (edge_b.x >> 16) as i32;
-            z_left = edge_a.z;
-        } else {
-            x_start = (edge_b.x >> 16) as i32;
-            x_end = (edge_a.x >> 16) as i32;
-            z_left = edge_b.z;
-        }
-
-        let dx = (x_end as i64) - (x_start as i64);
-
-        if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, color);
+        let mut edge_b = if y_start < p1.y {
+            let mut e = EdgeWalker::new(p0, p1);
+            if y_start > p0.y {
+                e.step_n(y_start - p0.y);
             }
+            e
         } else {
-            draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-        }
+            let mut e = EdgeWalker::new(p1, p2);
+            if y_start > p1.y {
+                e.step_n(y_start - p1.y);
+            }
+            e
+        };
 
-        edge_a.step();
-        edge_b.step();
+        let width_i32 = width as i32;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = EdgeWalker::new(p1, p2);
+            }
+
+            let x_start;
+            let x_end;
+            let z_left;
+
+            if long_edge_is_left {
+                x_start = (edge_a.x >> 16) as i32;
+                x_end = (edge_b.x >> 16) as i32;
+                z_left = edge_a.z;
+            } else {
+                x_start = (edge_b.x >> 16) as i32;
+                x_end = (edge_a.x >> 16) as i32;
+                z_left = edge_b.z;
+            }
+
+            let dx = (x_end as i64) - (x_start as i64);
+
+            if dx <= 0 {
+                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
+                    fb.set_pixel(x_start, y, color);
+                }
+            } else {
+                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
     }
 }
 
@@ -891,111 +901,120 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let width = fb.width();
-    let height = fb.height();
+    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0 .1);
 
-    // Project to screen
-    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
 
-    // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
-    // allowing us to skip clamp/mul per pixel
-    let c0 = v0.1 * 255.0;
-    let c1 = v1.1 * 255.0;
-    let c2 = v2.1 * 255.0;
+        let width = fb.width();
+        let height = fb.height();
 
-    // Sort by y
-    let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
-    sort_by_y(&mut verts, |(p, _)| p.y);
-    let [(p0, c0), (p1, c1), (p2, c2)] = verts;
+        // Project to screen
+        let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
 
-    let total_height = (p2.y as i64 - p0.y as i64) as f32;
-    if total_height == 0.0 {
-        return;
-    }
+        // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
+        // allowing us to skip clamp/mul per pixel
+        let c0 = v0.1 * 255.0;
+        let c1 = v1.1 * 255.0;
+        let c2 = v2.1 * 255.0;
 
-    let y_min = 0;
-    let y_max = height as i32 - 1;
-    let y_start = p0.y.max(y_min);
-    let y_end = p2.y.min(y_max);
+        // Sort by y
+        let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
+        sort_by_y(&mut verts, |(p, _)| p.y);
+        let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
-    if y_start > y_end {
-        return;
-    }
+        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
 
-    // Gradients and Edge Walking
-    let (gradients, long_edge_is_left) = {
-        let g = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
-        let left = GouraudGradients::is_long_edge_left(p0, p1, p2);
-        (g, left)
-    };
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
 
-    let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
-    if y_start > p0.y {
-        edge_a.step_n(y_start - p0.y);
-    }
+        if y_start > y_end {
+            continue;
+        }
 
-    let mut edge_b = if y_start < p1.y {
-        let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
+        // Gradients and Edge Walking
+        let (gradients, long_edge_is_left) = {
+            let g = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
+            let left = GouraudGradients::is_long_edge_left(p0, p1, p2);
+            (g, left)
+        };
+
+        let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
         if y_start > p0.y {
-            e.step_n(y_start - p0.y);
-        }
-        e
-    } else {
-        let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        if y_start > p1.y {
-            e.step_n(y_start - p1.y);
-        }
-        e
-    };
-
-    let width_i32 = width as i32;
-
-    for y in y_start..=y_end {
-        if y == p1.y && y != p0.y {
-            edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
+            edge_a.step_n(y_start - p0.y);
         }
 
-        let x_start;
-        let x_end;
-        let z_left;
-        let c_left;
-
-        if long_edge_is_left {
-            x_start = (edge_a.x >> 16) as i32;
-            x_end = (edge_b.x >> 16) as i32;
-            z_left = edge_a.z;
-            c_left = edge_a.c;
-        } else {
-            x_start = (edge_b.x >> 16) as i32;
-            x_end = (edge_a.x >> 16) as i32;
-            z_left = edge_b.z;
-            c_left = edge_b.c;
-        }
-
-        let dx = (x_end as i64) - (x_start as i64);
-
-        if dx <= 0 {
-            if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+        let mut edge_b = if y_start < p1.y {
+            let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
+            if y_start > p0.y {
+                e.step_n(y_start - p0.y);
             }
+            e
         } else {
-            draw_scanline_gouraud(
-                fb,
-                zb,
-                y,
-                x_start,
-                x_end,
-                z_left,
-                c_left,
-                gradients.dz_dx,
-                gradients.dc_dx,
-            );
-        }
+            let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
+            if y_start > p1.y {
+                e.step_n(y_start - p1.y);
+            }
+            e
+        };
 
-        edge_a.step();
-        edge_b.step();
+        let width_i32 = width as i32;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
+            }
+
+            let x_start;
+            let x_end;
+            let z_left;
+            let c_left;
+
+            if long_edge_is_left {
+                x_start = (edge_a.x >> 16) as i32;
+                x_end = (edge_b.x >> 16) as i32;
+                z_left = edge_a.z;
+                c_left = edge_a.c;
+            } else {
+                x_start = (edge_b.x >> 16) as i32;
+                x_end = (edge_a.x >> 16) as i32;
+                z_left = edge_b.z;
+                c_left = edge_b.c;
+            }
+
+            let dx = (x_end as i64) - (x_start as i64);
+
+            if dx <= 0 {
+                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
+                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                }
+            } else {
+                draw_scanline_gouraud(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
+                    z_left,
+                    c_left,
+                    gradients.dz_dx,
+                    gradients.dc_dx,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
     }
 }
 
@@ -1431,145 +1450,166 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let width = fb.width();
-    let height = fb.height();
+    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0 .1);
 
-    // Project to screen
-    let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-    let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-    let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
 
-    // Prepare perspective attributes: q=1/w, u/w, v/w
-    // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
-    let w0 = v0.0.1;
-    let w1 = v1.0.1;
-    let w2 = v2.0.1;
+        let width = fb.width();
+        let height = fb.height();
 
-    // Avoid division by zero
-    let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
-    let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
-    let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+        // Project to screen
+        let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
 
-    let u0 = v0.1.x * texture.width as f32 * inv_w0;
-    let v0 = v0.1.y * texture.height as f32 * inv_w0;
+        // Prepare perspective attributes: q=1/w, u/w, v/w
+        // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
+        let w0 = v0.0.1;
+        let w1 = v1.0.1;
+        let w2 = v2.0.1;
 
-    let u1 = v1.1.x * texture.width as f32 * inv_w1;
-    let v1 = v1.1.y * texture.height as f32 * inv_w1;
+        // Avoid division by zero
+        let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
+        let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
+        let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
 
-    let u2 = v2.1.x * texture.width as f32 * inv_w2;
-    let v2 = v2.1.y * texture.height as f32 * inv_w2;
+        let u0 = v0.1.x * texture.width as f32 * inv_w0;
+        let v0_val = v0.1.y * texture.height as f32 * inv_w0;
 
-    // Sort by y
-    // We need to keep track of all attributes (p, q, u, v)
-    let mut verts = [(p0, inv_w0, u0, v0), (p1, inv_w1, u1, v1), (p2, inv_w2, u2, v2)];
-    sort_by_y(&mut verts, |(p, _, _, _)| p.y);
-    let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
+        let u1 = v1.1.x * texture.width as f32 * inv_w1;
+        let v1_val = v1.1.y * texture.height as f32 * inv_w1;
 
-    let total_height = (p2.y as i64 - p0.y as i64) as f32;
-    if total_height == 0.0 {
-        return;
-    }
+        let u2 = v2.1.x * texture.width as f32 * inv_w2;
+        let v2_val = v2.1.y * texture.height as f32 * inv_w2;
 
-    let y_min = 0;
-    let y_max = height as i32 - 1;
-    let y_start = p0.y.max(y_min);
-    let y_end = p2.y.min(y_max);
+        // Sort by y
+        // We need to keep track of all attributes (p, q, u, v)
+        let mut verts = [
+            (p0, inv_w0, u0, v0_val),
+            (p1, inv_w1, u1, v1_val),
+            (p2, inv_w2, u2, v2_val),
+        ];
+        sort_by_y(&mut verts, |(p, _, _, _)| p.y);
+        let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
 
-    if y_start > y_end {
-        return;
-    }
-
-    // Gradients and Edge Walking
-    let (gradients, long_edge_is_left) = {
-        let g = PerspectiveTextureGradients::new(
-            p0, p1, p2,
-            q0, q1, q2,
-            u0, u1, u2,
-            v0, v1, v2
-        );
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
-        let left = ux * vy - uy * vx > 0.0;
-        (g, left)
-    };
-
-    let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
-    if y_start > p0.y {
-        edge_a.step_n(y_start - p0.y);
-    }
-
-    let mut edge_b = if y_start < p1.y {
-        let mut e = PerspectiveTextureEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1);
-        if y_start > p0.y {
-            e.step_n(y_start - p0.y);
-        }
-        e
-    } else {
-        let mut e = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
-        if y_start > p1.y {
-            e.step_n(y_start - p1.y);
-        }
-        e
-    };
-
-    let width_i32 = width as i32;
-
-    for y in y_start..=y_end {
-        if y == p1.y && y != p0.y {
-            edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
+        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        if total_height == 0.0 {
+            continue;
         }
 
-        let x_start;
-        let x_end;
-        let z_left;
-        let q_left;
-        let u_left;
-        let v_left;
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
 
-        if long_edge_is_left {
-            x_start = (edge_a.x >> 16) as i32;
-            x_end = (edge_b.x >> 16) as i32;
-            z_left = edge_a.z;
-            q_left = edge_a.q;
-            u_left = edge_a.u;
-            v_left = edge_a.v;
-        } else {
-            x_start = (edge_b.x >> 16) as i32;
-            x_end = (edge_a.x >> 16) as i32;
-            z_left = edge_b.z;
-            q_left = edge_b.q;
-            u_left = edge_b.u;
-            v_left = edge_b.v;
+        if y_start > y_end {
+            continue;
         }
 
-        let dx = (x_end as i64) - (x_start as i64);
-
-        if dx <= 0 {
-            if x_start >= 0
-                && x_start < width_i32
-                && zb.test_and_set(x_start, y, z_left)
-                && q_left.abs() > 0.000001
-            {
-                let w = 1.0 / q_left;
-                let u_tex = u_left * w;
-                let v_tex = v_left * w;
-                let color = match texture.filter_mode {
-                    FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                    FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                };
-                fb.set_pixel(x_start, y, color);
-            }
-        } else {
-            draw_scanline_textured_perspective(
-                fb, zb, texture, y, x_start, x_end, z_left,
-                q_left, u_left, v_left,
-                gradients.dz_dx, gradients.dq_dx, gradients.du_dx, gradients.dv_dx,
+        // Gradients and Edge Walking
+        let (gradients, long_edge_is_left) = {
+            let g = PerspectiveTextureGradients::new(
+                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
             );
+            let ux = (p1.x as i64 - p0.x as i64) as f32;
+            let uy = (p1.y as i64 - p0.y as i64) as f32;
+            let vx = (p2.x as i64 - p0.x as i64) as f32;
+            let vy = (p2.y as i64 - p0.y as i64) as f32;
+            let left = ux * vy - uy * vx > 0.0;
+            (g, left)
+        };
+
+        let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
+        if y_start > p0.y {
+            edge_a.step_n(y_start - p0.y);
         }
 
-        edge_a.step();
-        edge_b.step();
+        let mut edge_b = if y_start < p1.y {
+            let mut e = PerspectiveTextureEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1);
+            if y_start > p0.y {
+                e.step_n(y_start - p0.y);
+            }
+            e
+        } else {
+            let mut e = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
+            if y_start > p1.y {
+                e.step_n(y_start - p1.y);
+            }
+            e
+        };
+
+        let width_i32 = width as i32;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
+            }
+
+            let x_start;
+            let x_end;
+            let z_left;
+            let q_left;
+            let u_left;
+            let v_left;
+
+            if long_edge_is_left {
+                x_start = (edge_a.x >> 16) as i32;
+                x_end = (edge_b.x >> 16) as i32;
+                z_left = edge_a.z;
+                q_left = edge_a.q;
+                u_left = edge_a.u;
+                v_left = edge_a.v;
+            } else {
+                x_start = (edge_b.x >> 16) as i32;
+                x_end = (edge_a.x >> 16) as i32;
+                z_left = edge_b.z;
+                q_left = edge_b.q;
+                u_left = edge_b.u;
+                v_left = edge_b.v;
+            }
+
+            let dx = (x_end as i64) - (x_start as i64);
+
+            if dx <= 0 {
+                if x_start >= 0
+                    && x_start < width_i32
+                    && zb.test_and_set(x_start, y, z_left)
+                    && q_left.abs() > 0.000001
+                {
+                    let w = 1.0 / q_left;
+                    let u_tex = u_left * w;
+                    let v_tex = v_left * w;
+                    let color = match texture.filter_mode {
+                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                    };
+                    fb.set_pixel(x_start, y, color);
+                }
+            } else {
+                draw_scanline_textured_perspective(
+                    fb,
+                    zb,
+                    texture,
+                    y,
+                    x_start,
+                    x_end,
+                    z_left,
+                    q_left,
+                    u_left,
+                    v_left,
+                    gradients.dz_dx,
+                    gradients.dq_dx,
+                    gradients.du_dx,
+                    gradients.dv_dx,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
     }
 }
