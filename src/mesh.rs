@@ -59,11 +59,7 @@ impl Mesh {
                     if face_indices.len() >= 3 {
                         // Triangulate fan (0, 1, 2), (0, 2, 3), ...
                         for i in 1..face_indices.len() - 1 {
-                            indices.push([
-                                face_indices[0],
-                                face_indices[i],
-                                face_indices[i + 1],
-                            ]);
+                            indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                         }
                     }
                 }

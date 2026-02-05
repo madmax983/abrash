@@ -21,7 +21,9 @@ fn test_fill_triangle_flat_basic() {
     let sun_dir = Vec3::new(-0.5, -1.0, -0.5).normalize();
     let sun_color = Vec3::new(1.0, 1.0, 1.0);
 
-    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color);
+    fill_triangle_lit(
+        &mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color,
+    );
 
     // Center should have the shaded color
     let pixel = fb.get_pixel(50, 50);
@@ -49,7 +51,16 @@ fn test_fill_triangle_lit_custom_lighting() {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
 
     fill_triangle_lit(
-        &mut fb, &mut zb, v0, v1, v2, normal, color, ambient, light_dir, light_color,
+        &mut fb,
+        &mut zb,
+        v0,
+        v1,
+        v2,
+        normal,
+        color,
+        ambient,
+        light_dir,
+        light_color,
     );
 
     let pixel = fb.get_pixel(50, 50);
@@ -107,7 +118,9 @@ fn test_fill_triangle_off_screen() {
     let sun_color = Vec3::new(1.0, 1.0, 1.0);
 
     // Should not panic
-    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color);
+    fill_triangle_lit(
+        &mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color,
+    );
 
     // Should remain black
     for &pixel in fb.as_slice() {

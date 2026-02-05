@@ -9,4 +9,5 @@ pub mod time;
 pub mod zbuffer;
 
 pub mod clipping;
+pub mod experimental;
 pub mod post_process;
