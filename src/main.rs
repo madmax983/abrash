@@ -1,102 +1,254 @@
-//! Abrash Graphics Demo - Lit 3D Cube
+//! Abrash Engine - CLI Dashboard & Launcher
 //!
-//! Demonstrates flat shading with directional lighting.
+//! Provides a TUI interface to explore and launch demos.
 
-use abrash::framebuffer::Framebuffer;
-use abrash::light::u32_to_color;
-use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
-use abrash::platform::Window;
-use abrash::rasterizer::fill_triangle_lit;
-use abrash::time::FixedTimestep;
-use abrash::zbuffer::ZBuffer;
-use std::f32::consts::PI;
+use clap::Parser;
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    Terminal,
+};
+use std::{error::Error, io, process::Command};
 
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 600;
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Name of the demo to run directly
+    #[arg(long, short)]
+    demo: Option<String>,
+}
 
-// Face colors for the cube
-const FACE_COLORS: [u32; 6] = [
-    0xFFE74C3C, // Red
-    0xFF2ECC71, // Green
-    0xFF3498DB, // Blue
-    0xFFF39C12, // Orange
-    0xFF9B59B6, // Purple
-    0xFF1ABC9C, // Teal
+struct Demo {
+    name: &'static str,
+    description: &'static str,
+    example_name: &'static str,
+}
+
+const DEMOS: &[Demo] = &[
+    Demo {
+        name: "Retro Cube",
+        description: "3D Cube with Post-processing (Scanlines, Grayscale)",
+        example_name: "retro_cube",
+    },
+    Demo {
+        name: "Lit Cube",
+        description: "Flat shaded cube with directional lighting",
+        example_name: "lit_cube",
+    },
+    Demo {
+        name: "Cube 3D",
+        description: "Basic 3D cube rendering",
+        example_name: "cube_3d",
+    },
+    Demo {
+        name: "Filled Primitives",
+        description: "2D rasterization testbed",
+        example_name: "filled_primitives",
+    },
+    Demo {
+        name: "Rotating Polygon",
+        description: "2D polygon transformations",
+        example_name: "rotating_polygon",
+    },
 ];
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut window = Window::new("Abrash - Lit Cube", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let cube = Mesh::cube(1.5);
-    let face_normals = cube.compute_face_normals();
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 2.0, 4.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
+    if let Some(demo_name) = args.demo {
+        run_demo(&demo_name)?;
+        return Ok(());
+    }
 
-    // Lighting setup
-    let ambient_color = Vec3::new(0.15, 0.15, 0.15);
-    let sun_dir = Vec3::new(-0.5, -1.0, -0.3).normalize(); // Direction light travels
-    let sun_color = Vec3::new(1.0, 0.95, 0.9); // Warm sunlight
+    // TUI Mode
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-    let mut timestep = FixedTimestep::new(60);
-    let mut angle_y = 0.0f32;
-    let mut angle_x = 0.0f32;
+    // Set panic hook to restore terminal
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+        // We can't easily access the Terminal instance here, but raw crossterm commands work
+        original_hook(panic_info);
+    }));
 
-    while window.is_open() {
-        window.poll_events();
+    let res = run_app(&mut terminal);
 
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle_y += 0.02;
-            angle_x += 0.008;
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    if let Err(err) = res {
+        println!("{:?}", err);
+    }
+
+    Ok(())
+}
+
+struct App {
+    state: ListState,
+}
+
+impl App {
+    fn new() -> App {
+        let mut state = ListState::default();
+        state.select(Some(0));
+        App { state }
+    }
+
+    fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= DEMOS.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    DEMOS.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+}
+
+fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
+    let mut app = App::new();
+
+    loop {
+        terminal.draw(|f| {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(2)
+                .constraints(
+                    [
+                        Constraint::Length(3),
+                        Constraint::Min(0),
+                        Constraint::Length(3),
+                    ]
+                    .as_ref(),
+                )
+                .split(f.area());
+
+            let title = Paragraph::new("Abrash Engine Dashboard")
+                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .block(Block::default().borders(Borders::ALL));
+            f.render_widget(title, chunks[0]);
+
+            let items: Vec<ListItem> = DEMOS
+                .iter()
+                .map(|demo| {
+                    let lines = vec![
+                        Line::from(Span::styled(
+                            demo.name,
+                            Style::default().add_modifier(Modifier::BOLD),
+                        )),
+                        Line::from(Span::styled(
+                            format!("  {}", demo.description),
+                            Style::default().fg(Color::Gray),
+                        )),
+                    ];
+                    ListItem::new(lines).style(Style::default().fg(Color::White))
+                })
+                .collect();
+
+            let items = List::new(items)
+                .block(Block::default().borders(Borders::ALL).title("Demos"))
+                .highlight_style(
+                    Style::default()
+                        .bg(Color::Blue)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .highlight_symbol(">> ");
+
+            f.render_stateful_widget(items, chunks[1], &mut app.state);
+
+            let help = Paragraph::new("Select with ↑/↓, Enter to Launch, Q to Quit")
+                .style(Style::default().fg(Color::DarkGray))
+                .block(Block::default().borders(Borders::ALL));
+            f.render_widget(help, chunks[2]);
+        })?;
+
+        if let Event::Key(key) = event::read()? {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                KeyCode::Down => app.next(),
+                KeyCode::Up => app.previous(),
+                KeyCode::Enter => {
+                    if let Some(i) = app.state.selected() {
+                        let demo = &DEMOS[i];
+
+                        // Temporarily restore terminal
+                        disable_raw_mode()?;
+                        execute!(
+                            terminal.backend_mut(),
+                            LeaveAlternateScreen,
+                            DisableMouseCapture
+                        )?;
+                        terminal.show_cursor()?;
+
+                        let _ = run_demo(demo.example_name);
+
+                        // Re-enable TUI
+                        enable_raw_mode()?;
+                        execute!(
+                            terminal.backend_mut(),
+                            EnterAlternateScreen,
+                            EnableMouseCapture
+                        )?;
+                        terminal.hide_cursor()?;
+                        terminal.clear()?;
+                    }
+                }
+                _ => {}
+            }
         }
+    }
+}
 
-        // Clear buffers
-        framebuffer.clear(0xFF1A1A2E); // Dark blue background
-        zbuffer.clear();
+fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
+    println!("Launching {}...", name);
+    let mut child = Command::new("cargo")
+        .arg("run")
+        .arg("--release")
+        .arg("--example")
+        .arg(name)
+        .spawn()?;
 
-        // Build model matrix
-        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
-        let mvp = projection * (view * model);
+    let status = child.wait()?;
 
-        // Render each face
-        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
-            let [i0, i1, i2] = *tri_indices;
-
-            // Transform vertices
-            let v0 = mvp.transform_point(cube.vertices[i0]);
-            let v1 = mvp.transform_point(cube.vertices[i1]);
-            let v2 = mvp.transform_point(cube.vertices[i2]);
-
-            // Transform normal to world space (use model matrix only)
-            let world_normal = model.transform_normal(face_normals[face_idx]);
-
-            // Get face color (2 triangles per face)
-            let face_color = u32_to_color(FACE_COLORS[face_idx / 2]);
-
-            // Render with lighting
-            fill_triangle_lit(
-                &mut framebuffer,
-                &mut zbuffer,
-                v0,
-                v1,
-                v2,
-                world_normal,
-                face_color,
-                ambient_color,
-                sun_dir,
-                sun_color,
-            );
-        }
-
-        window.blit_framebuffer(&framebuffer);
+    if !status.success() {
+        eprintln!("Demo exited with error: {}", status);
     }
 
     Ok(())
