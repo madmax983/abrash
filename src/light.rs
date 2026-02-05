@@ -17,3 +17,15 @@ pub fn u32_to_color(argb: u32) -> Vec3 {
     let b = (argb & 0xFF) as f32 / 255.0;
     Vec3::new(r, g, b)
 }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DirectionalLight {
+    pub dir: Vec3,
+    pub color: Vec3,
+}
+
+impl DirectionalLight {
+    pub fn new(dir: Vec3, color: Vec3) -> Self {
+        Self { dir, color }
+    }
+}

@@ -1,4 +1,5 @@
 use abrash::framebuffer::Framebuffer;
+use abrash::light::DirectionalLight;
 use abrash::math::Vec3;
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::zbuffer::ZBuffer;
@@ -18,8 +19,7 @@ fn test_triangle_fully_behind_camera() {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let color = Vec3::new(1.0, 1.0, 1.0);
     let ambient = Vec3::new(0.2, 0.2, 0.2);
-    let light_dir = Vec3::new(0.0, 0.0, -1.0);
-    let light_color = Vec3::new(1.0, 1.0, 1.0);
+    let light = DirectionalLight::new(Vec3::new(0.0, 0.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
 
     // This should NOT panic and should NOT draw anything (or at least not garbage)
     fill_triangle_lit(
@@ -31,8 +31,7 @@ fn test_triangle_fully_behind_camera() {
         normal,
         color,
         ambient,
-        light_dir,
-        light_color,
+        &light,
     );
 
     // Verify framebuffer is empty
@@ -71,8 +70,7 @@ fn test_triangle_straddling_near_plane() {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let color = Vec3::new(1.0, 1.0, 1.0); // White
     let ambient = Vec3::new(1.0, 1.0, 1.0); // Full ambient to ignore lighting math
-    let light_dir = Vec3::new(0.0, 0.0, -1.0);
-    let light_color = Vec3::new(0.0, 0.0, 0.0);
+    let light = DirectionalLight::new(Vec3::new(0.0, 0.0, -1.0), Vec3::new(0.0, 0.0, 0.0));
 
     // This often causes panic or artifacts if not clipped
     fill_triangle_lit(
@@ -84,8 +82,7 @@ fn test_triangle_straddling_near_plane() {
         normal,
         color,
         ambient,
-        light_dir,
-        light_color,
+        &light,
     );
 
     // Check center pixel (50, 50) - should be drawn?

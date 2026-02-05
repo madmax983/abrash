@@ -1,4 +1,4 @@
-use abrash::rasterizer::{FilterMode, Texture};
+use abrash::texture::{FilterMode, Texture};
 
 #[test]
 fn test_bilinear_interpolation() {

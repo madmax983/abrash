@@ -3,7 +3,7 @@
 //! Demonstrates the post-processing effects.
 
 use abrash::framebuffer::Framebuffer;
-use abrash::light::u32_to_color;
+use abrash::light::{u32_to_color, DirectionalLight};
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::Window;
@@ -43,8 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Lighting setup
     let ambient_color = Vec3::new(0.15, 0.15, 0.15);
-    let sun_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
-    let sun_color = Vec3::new(1.0, 0.95, 0.9);
+    let sun = DirectionalLight::new(
+        Vec3::new(-0.5, -1.0, -0.3).normalize(),
+        Vec3::new(1.0, 1.0, 1.0),
+    );
 
     let mut timestep = FixedTimestep::new(60);
     let mut angle_y = 0.0f32;
@@ -92,8 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 world_normal,
                 face_color,
                 ambient_color,
-                sun_dir,
-                sun_color,
+                &sun,
             );
         }
 
