@@ -44,14 +44,21 @@ impl Mesh {
                         let index_str = part.split('/').next().unwrap_or("0");
                         if let Ok(idx) = index_str.parse::<isize>() {
                             // OBJ uses 1-based indexing.
-                            // TODO: Handle relative (negative) indices if needed.
-                            if idx > 0 {
-                                face_indices.push(idx as usize - 1);
+                            let target_idx = if idx > 0 {
+                                (idx as usize).checked_sub(1)
                             } else {
                                 // Handle negative indices (relative to end of vertex list)
-                                // Not strictly required by test but good for robustness
-                                let abs_idx = (vertices.len() as isize + idx) as usize;
-                                face_indices.push(abs_idx);
+                                let len = vertices.len() as isize;
+                                let abs_idx = len + idx;
+                                if abs_idx >= 0 {
+                                    Some(abs_idx as usize)
+                                } else {
+                                    None
+                                }
+                            };
+
+                            if let Some(valid_idx) = target_idx.filter(|&i| i < vertices.len()) {
+                                face_indices.push(valid_idx);
                             }
                         }
                     }
@@ -59,11 +66,7 @@ impl Mesh {
                     if face_indices.len() >= 3 {
                         // Triangulate fan (0, 1, 2), (0, 2, 3), ...
                         for i in 1..face_indices.len() - 1 {
-                            indices.push([
-                                face_indices[0],
-                                face_indices[i],
-                                face_indices[i + 1],
-                            ]);
+                            indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                         }
                     }
                 }

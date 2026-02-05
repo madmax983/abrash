@@ -32,7 +32,19 @@ fn test_bilinear_filtering() {
 
     // Check that we are roughly grey (127 or 128)
     // If it was Nearest, it would be either 0 or 255.
-    assert!(r > 100 && r < 155, "Red component {} should be around 128", r);
-    assert!(g > 100 && g < 155, "Green component {} should be around 128", g);
-    assert!(b > 100 && b < 155, "Blue component {} should be around 128", b);
+    assert!(
+        r > 100 && r < 155,
+        "Red component {} should be around 128",
+        r
+    );
+    assert!(
+        g > 100 && g < 155,
+        "Green component {} should be around 128",
+        g
+    );
+    assert!(
+        b > 100 && b < 155,
+        "Blue component {} should be around 128",
+        b
+    );
 }
