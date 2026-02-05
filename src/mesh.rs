@@ -7,6 +7,7 @@ use crate::math::{Vec2, Vec3};
 pub struct Mesh {
     pub vertices: Vec<Vec3>,
     pub indices: Vec<[usize; 3]>,
+    pub uvs: Vec<Vec2>,
 }
 
 impl Mesh {
@@ -14,6 +15,7 @@ impl Mesh {
         Self {
             vertices: Vec::new(),
             indices: Vec::new(),
+            uvs: Vec::new(),
         }
     }
 
@@ -54,7 +56,14 @@ impl Mesh {
             [4, 3, 7],
         ];
 
-        Self { vertices, indices }
+        // Cube doesn't have UVs by default
+        let uvs = Vec::new();
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+        }
     }
 
     /// Compute face normal for each triangle
@@ -112,23 +121,15 @@ impl Mesh {
             [1, 3, 2],
         ];
 
-        Self { vertices, indices }
+        let uvs = Vec::new();
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+        }
     }
-}
 
-impl Default for Mesh {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A wrapper around Mesh that includes UV coordinates
-pub struct TexturedMesh {
-    pub mesh: Mesh,
-    pub uvs: Vec<Vec2>,
-}
-
-impl TexturedMesh {
     /// Create a textured cube with duplicated vertices for proper UV mapping
     pub fn textured_cube(size: f32) -> Self {
         let h = size / 2.0;
@@ -203,8 +204,16 @@ impl TexturedMesh {
             Vec3::new(-h, h, -h),  // 7: TL
         );
 
-        let mesh = Mesh { vertices, indices };
+        Self {
+            vertices,
+            indices,
+            uvs,
+        }
+    }
+}
 
-        Self { mesh, uvs }
+impl Default for Mesh {
+    fn default() -> Self {
+        Self::new()
     }
 }

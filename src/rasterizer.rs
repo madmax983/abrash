@@ -3,7 +3,7 @@
 //! Software rendering functions for 2D shapes (lines, circles, triangles).
 
 use crate::framebuffer::Framebuffer;
-use crate::light::{AmbientLight, DirectionalLight, color_to_u32};
+use crate::light::color_to_u32;
 use crate::math::ScreenPoint;
 use crate::shapes::{Polygon, Triangle};
 
@@ -999,34 +999,6 @@ pub fn fill_triangle_gouraud(
     }
 }
 
-/// Fill a 3D triangle with flat shading
-pub fn fill_triangle_flat(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
-    v0: (Vec3, f32),
-    v1: (Vec3, f32),
-    v2: (Vec3, f32),
-    normal: Vec3,
-    base_color: Vec3,
-) {
-    // Default lighting setup
-    let ambient = AmbientLight::new(Vec3::new(0.2, 0.2, 0.2));
-    let sun = DirectionalLight::new(Vec3::new(-0.5, -1.0, -0.5), Vec3::new(1.0, 1.0, 1.0));
-
-    // Calculate flat shade
-    let ambient_color = ambient.shade(base_color);
-    let diffuse_color = sun.shade(normal, base_color);
-
-    let final_color = Vec3::new(
-        (ambient_color.x + diffuse_color.x).min(1.0),
-        (ambient_color.y + diffuse_color.y).min(1.0),
-        (ambient_color.z + diffuse_color.z).min(1.0),
-    );
-
-    let color_u32 = color_to_u32(final_color);
-    fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
-}
-
 /// Fill a 3D triangle with custom lighting
 #[allow(clippy::too_many_arguments)] // Rendering API requires all parameters explicitly
 pub fn fill_triangle_lit(
@@ -1037,16 +1009,25 @@ pub fn fill_triangle_lit(
     v2: (Vec3, f32),
     normal: Vec3,
     base_color: Vec3,
-    ambient: &AmbientLight,
-    light: &DirectionalLight,
+    ambient_color: Vec3,
+    light_dir: Vec3, // Direction the light travels
+    light_color: Vec3,
 ) {
-    let ambient_color = ambient.shade(base_color);
-    let diffuse_color = light.shade(normal, base_color);
+    // Ambient shade: base * ambient
+    let a_r = base_color.x * ambient_color.x;
+    let a_g = base_color.y * ambient_color.y;
+    let a_b = base_color.z * ambient_color.z;
+
+    // Diffuse shade: base * light * max(0, normal . -dir)
+    let intensity = normal.dot(light_dir * -1.0).max(0.0);
+    let d_r = base_color.x * light_color.x * intensity;
+    let d_g = base_color.y * light_color.y * intensity;
+    let d_b = base_color.z * light_color.z * intensity;
 
     let final_color = Vec3::new(
-        (ambient_color.x + diffuse_color.x).min(1.0),
-        (ambient_color.y + diffuse_color.y).min(1.0),
-        (ambient_color.z + diffuse_color.z).min(1.0),
+        (a_r + d_r).min(1.0),
+        (a_g + d_g).min(1.0),
+        (a_b + d_b).min(1.0),
     );
 
     let color_u32 = color_to_u32(final_color);

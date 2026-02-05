@@ -130,12 +130,6 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    #[deprecated(since = "0.1.1", note = "Use Default::default() instead")]
-    #[doc(hidden)]
-    pub fn zero() -> Self {
-        Self::default()
-    }
-
     /// Calculates the dot product with another vector.
     ///
     /// The dot product represents the projection of one vector onto another.
@@ -368,12 +362,6 @@ impl Mat4 {
                 [-s.dot(eye), -u.dot(eye), f.dot(eye), 1.0],
             ],
         }
-    }
-
-    #[deprecated(since = "0.1.1", note = "Use * operator instead")]
-    #[doc(hidden)]
-    pub fn mul(&self, other: &Mat4) -> Mat4 {
-        *self * *other
     }
 
     /// Transforms a point by this matrix.
