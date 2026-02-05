@@ -3,7 +3,7 @@
 //! Software rendering functions for 3D triangles (flat, gouraud, textured).
 
 use crate::clipping::clip_triangle_against_near_plane;
-use crate::framebuffer::Framebuffer;
+use crate::framebuffer::{Framebuffer, blend_colors};
 use crate::light::color_to_u32;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::zbuffer::ZBuffer;
@@ -94,12 +94,24 @@ fn draw_scanline_flat(
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
-            *pixel = color;
+    let alpha = (color >> 24) & 0xFF;
+
+    if alpha == 255 {
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                *pixel = color;
+            }
+            z += dz_dx;
         }
-        z += dz_dx;
+    } else if alpha != 0 {
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                *pixel = blend_colors(color, *pixel);
+            }
+            z += dz_dx;
+        }
     }
 }
 
@@ -1057,7 +1069,8 @@ fn draw_scanline_textured_perspective(
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                        let src = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                        *pixel = blend_colors(src, *pixel);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
@@ -1070,7 +1083,8 @@ fn draw_scanline_textured_perspective(
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+                        let src = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+                        *pixel = blend_colors(src, *pixel);
                     }
                     z += gradients.dz_dx;
                     u_tex += du_tex_step;

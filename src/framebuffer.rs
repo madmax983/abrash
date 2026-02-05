@@ -54,7 +54,8 @@ impl Framebuffer {
         }
 
         let index = (y as u32 * self.width + x as u32) as usize;
-        self.pixels[index] = color;
+        let dst = self.pixels[index];
+        self.pixels[index] = blend_colors(color, dst);
     }
 
     #[inline]
@@ -76,7 +77,8 @@ impl Framebuffer {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds
         unsafe {
-            *self.pixels.get_unchecked_mut(idx) = color;
+            let dst = *self.pixels.get_unchecked(idx);
+            *self.pixels.get_unchecked_mut(idx) = blend_colors(color, dst);
         }
     }
 
@@ -93,4 +95,33 @@ impl Framebuffer {
             self.pixels[start..end].fill(color);
         }
     }
+}
+
+/// Helper function to blend two colors (src over dst)
+/// Optimized using SWAR (SIMD Within A Register) to blend RB and GA channels in parallel.
+#[inline(always)]
+pub fn blend_colors(src: u32, dst: u32) -> u32 {
+    let alpha = (src >> 24) & 0xFF;
+    if alpha == 255 {
+        return src;
+    }
+    if alpha == 0 {
+        return dst;
+    }
+
+    // Scale alpha to 0..256 range for >> 8 optimization
+    // 255 -> 256, 128 -> 129, 0 -> 0
+    let a = alpha + (alpha >> 7);
+    let inv_a = 256 - a;
+
+    let rb_s = src & 0x00FF00FF;
+    let g_s = (src >> 8) & 0x00FF00FF;
+
+    let rb_d = dst & 0x00FF00FF;
+    let g_d = (dst >> 8) & 0x00FF00FF;
+
+    let rb = ((rb_s * a + rb_d * inv_a) >> 8) & 0x00FF00FF;
+    let g = ((g_s * a + g_d * inv_a) >> 8) & 0x00FF00FF;
+
+    (rb | (g << 8)) | 0xFF000000
 }

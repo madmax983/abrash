@@ -7,7 +7,6 @@ proptest! {
     // 65536^2 = 0 (mod 2^32).
     // 65600^2 approx 2^32 + 8.4e6 -> 32MB buffer. Safe.
     #[test]
-    #[should_panic(expected = "Buffer size mismatch")]
     fn havoc_texture_integrity(w in 65536u32..65600u32, h in 65536u32..65600u32) {
         // These dimensions create a logical size > u32::MAX (approx 16GB).
         // But due to overflow, the allocated size will be small (0 to ~32MB).
@@ -16,14 +15,17 @@ proptest! {
             Texture::new(w, h)
         });
 
-        if let Ok(tex) = res {
-            let logical_size = (w as u64) * (h as u64);
-            let actual_size = tex.pixels.len() as u64;
+        if let Ok(result) = res {
+            if let Ok(tex) = result {
+                let logical_size = (w as u64) * (h as u64);
+                let actual_size = tex.pixels.len() as u64;
 
-            // This assertion MUST fail if the vulnerability exists
-            assert_eq!(logical_size, actual_size,
-                "Buffer size mismatch! Input: {}x{}. Logical: {}, Actual: {}",
-                w, h, logical_size, actual_size);
+                // This assertion MUST fail if the vulnerability exists
+                assert_eq!(logical_size, actual_size,
+                    "Buffer size mismatch! Input: {}x{}. Logical: {}, Actual: {}",
+                    w, h, logical_size, actual_size);
+            }
+            // If Result is Err, that means overflow was detected safely. Test passes.
         }
     }
 }
