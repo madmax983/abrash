@@ -2,7 +2,7 @@ use abrash::rasterizer::{FilterMode, Texture};
 
 #[test]
 fn test_bilinear_filtering() {
-    let mut texture = Texture::new(2, 2);
+    let mut texture = Texture::new(2, 2).unwrap();
     // (0,0) = Black
     // (1,0) = White
     // (0,1) = Black

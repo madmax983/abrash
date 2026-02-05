@@ -16,7 +16,7 @@ fn test_textured_cube_rendering() {
     // Create a 2x2 texture
     // (0,0) Red, (1,0) Green
     // (0,1) Blue, (1,1) White
-    let mut tex = Texture::new(2, 2);
+    let mut tex = Texture::new(2, 2).unwrap();
     tex.set_pixel(0, 0, 0xFFFF0000); // Red
     tex.set_pixel(1, 0, 0xFF00FF00); // Green
     tex.set_pixel(0, 1, 0xFF0000FF); // Blue

@@ -1090,17 +1090,22 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(width: u32, height: u32) -> Self {
-        assert!(
-            width > 0 && height > 0,
-            "Texture dimensions must be positive"
-        );
-        Self {
+    pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
+        if width == 0 || height == 0 {
+            return Err("Texture dimensions must be positive");
+        }
+
+        let size = (width as u64)
+            .checked_mul(height as u64)
+            .filter(|&s| s <= u32::MAX as u64)
+            .ok_or("Texture size overflow")? as usize;
+
+        Ok(Self {
             width,
             height,
-            pixels: vec![0xFF000000; (width * height) as usize],
+            pixels: vec![0xFF000000; size],
             filter_mode: FilterMode::Nearest,
-        }
+        })
     }
 
     pub fn set_pixel(&mut self, x: u32, y: u32, color: u32) {
@@ -1205,8 +1210,8 @@ impl Texture {
     }
 
     /// Create a checkerboard texture
-    pub fn checkered(width: u32, height: u32, c1: u32, c2: u32) -> Self {
-        let mut tex = Self::new(width, height);
+    pub fn checkered(width: u32, height: u32, c1: u32, c2: u32) -> Result<Self, &'static str> {
+        let mut tex = Self::new(width, height)?;
         // Scale checks based on size, defaulting to 8x8 blocks
         let block_w = (width / 8).max(1);
         let block_h = (height / 8).max(1);
@@ -1217,7 +1222,7 @@ impl Texture {
                 tex.set_pixel(x, y, if check { c1 } else { c2 });
             }
         }
-        tex
+        Ok(tex)
     }
 }
 
