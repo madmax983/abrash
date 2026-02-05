@@ -721,21 +721,55 @@ fn draw_scanline_gouraud(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            // Check depth buffer
-            if z < *depth_val {
-                *depth_val = z;
-                // Unpack fixed point color
-                // Optimization: Avoid intermediate casts to u8 by clamping to u32 directly
-                let r = (r_i >> 16).clamp(0, 255) as u32;
-                let g = (g_i >> 16).clamp(0, 255) as u32;
-                let b = (b_i >> 16).clamp(0, 255) as u32;
-                *pixel = pack_color_channels(r, g, b);
+        // Optimization: Hoist bounds checks.
+        // Check if the color values at both start and end of the scanline are within range.
+        // If so, we can skip per-pixel clamping.
+        let count = (xe - xs) as i64;
+        let r_end = r_i as i64 + count * dr as i64;
+        let g_end = g_i as i64 + count * dg as i64;
+        let b_end = b_i as i64 + count * db as i64;
+
+        // Check if high bits are 0 (valid range 0..255).
+        // (val >> 16) as u32 <= 255 handles both negative (becomes huge u32) and overflow (> 255).
+        let safe = ((r_i >> 16) as u32) <= 255
+            && ((r_end >> 16) as u32) <= 255
+            && ((g_i >> 16) as u32) <= 255
+            && ((g_end >> 16) as u32) <= 255
+            && ((b_i >> 16) as u32) <= 255
+            && ((b_end >> 16) as u32) <= 255;
+
+        if safe {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    *depth_val = z;
+                    // Fast path: No clamping needed
+                    let r = (r_i >> 16) as u32;
+                    let g = (g_i >> 16) as u32;
+                    let b = (b_i >> 16) as u32;
+                    *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+                }
+                z += dz_dx;
+                r_i += dr;
+                g_i += dg;
+                b_i += db;
             }
-            z += dz_dx;
-            r_i += dr;
-            g_i += dg;
-            b_i += db;
+        } else {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                // Check depth buffer
+                if z < *depth_val {
+                    *depth_val = z;
+                    // Unpack fixed point color
+                    // Optimization: Avoid intermediate casts to u8 by clamping to u32 directly
+                    let r = (r_i >> 16).clamp(0, 255) as u32;
+                    let g = (g_i >> 16).clamp(0, 255) as u32;
+                    let b = (b_i >> 16).clamp(0, 255) as u32;
+                    *pixel = pack_color_channels(r, g, b);
+                }
+                z += dz_dx;
+                r_i += dr;
+                g_i += dg;
+                b_i += db;
+            }
         }
     }
 }
