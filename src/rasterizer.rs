@@ -748,7 +748,12 @@ impl Texture {
         // 0.5 in 24.8 is 128
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
+        self.get_pixel_bilinear_fixed(u_fixed, v_fixed)
+    }
 
+    /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates
+    #[inline]
+    pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
         let u_img_fixed = u_fixed - 128;
         let v_img_fixed = v_fixed - 128;
 
@@ -807,8 +812,6 @@ impl Texture {
         final_color | 0xFF000000
     }
 
-    /// Sample texture using texel coordinates
-    #[inline]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
         let x = x.clamp(0, self.width as i32 - 1) as usize;
         let y = y.clamp(0, self.height as i32 - 1) as usize;
@@ -1065,16 +1068,22 @@ fn draw_scanline_textured_perspective(
                 }
             }
             FilterMode::Bilinear => {
-                let mut u_tex = u_tex_start;
-                let mut v_tex = v_tex_start;
+                // Fixed point optimization for Bilinear
+                // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
+                let mut u_fix = (u_tex_start * 65536.0) as i32;
+                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+                        // Convert 16.16 to 24.8 (x >> 8)
+                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
-                    u_tex += du_tex_step;
-                    v_tex += dv_tex_step;
+                    u_fix = u_fix.wrapping_add(du_fix);
+                    v_fix = v_fix.wrapping_add(dv_fix);
                 }
             }
         }
