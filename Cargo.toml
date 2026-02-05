@@ -61,3 +61,7 @@ path = "examples/retro_cube.rs"
 [[bench]]
 name = "rasterization"
 harness = false
+
+[[bench]]
+name = "culling"
+harness = false

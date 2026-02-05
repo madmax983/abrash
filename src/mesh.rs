@@ -19,6 +19,65 @@ impl Mesh {
         }
     }
 
+    /// Load a mesh from an OBJ file content string
+    /// Supports `v` (vertices) and `f` (faces).
+    /// Triangulates quads.
+    /// Handles `v/vt/vn` format (ignoring vt and vn for now).
+    pub fn from_obj(obj_content: &str) -> Self {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let uvs = Vec::new(); // UV parsing not requested for now, but kept empty
+
+        for line in obj_content.lines() {
+            let mut parts = line.split_whitespace();
+            match parts.next() {
+                Some("v") => {
+                    let x: f32 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
+                    let y: f32 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
+                    let z: f32 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
+                    vertices.push(Vec3::new(x, y, z));
+                }
+                Some("f") => {
+                    let mut face_indices = Vec::new();
+                    for part in parts {
+                        // Handle v/vt/vn or v//vn or v
+                        let index_str = part.split('/').next().unwrap_or("0");
+                        if let Ok(idx) = index_str.parse::<isize>() {
+                            // OBJ uses 1-based indexing.
+                            // TODO: Handle relative (negative) indices if needed.
+                            if idx > 0 {
+                                face_indices.push(idx as usize - 1);
+                            } else {
+                                // Handle negative indices (relative to end of vertex list)
+                                // Not strictly required by test but good for robustness
+                                let abs_idx = (vertices.len() as isize + idx) as usize;
+                                face_indices.push(abs_idx);
+                            }
+                        }
+                    }
+
+                    if face_indices.len() >= 3 {
+                        // Triangulate fan (0, 1, 2), (0, 2, 3), ...
+                        for i in 1..face_indices.len() - 1 {
+                            indices.push([
+                                face_indices[0],
+                                face_indices[i],
+                                face_indices[i + 1],
+                            ]);
+                        }
+                    }
+                }
+                _ => {} // Ignore comments and other unknown lines
+            }
+        }
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+        }
+    }
+
     /// Create a cube centered at origin
     pub fn cube(size: f32) -> Self {
         let h = size / 2.0;

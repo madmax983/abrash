@@ -49,9 +49,10 @@ fn test_triangle_straddling_near_plane() {
     // Clip against w > epsilon.
     // Intersection on edge v0-v1 and v0-v2.
 
+    // Ensure CCW winding for backface culling
     let v0 = (Vec3::new(0.0, 1.0, 0.0), -1.0);
-    let v1 = (Vec3::new(0.5, -0.5, 0.0), 1.0);
-    let v2 = (Vec3::new(-0.5, -0.5, 0.0), 1.0);
+    let v1 = (Vec3::new(-0.5, -0.5, 0.0), 1.0);
+    let v2 = (Vec3::new(0.5, -0.5, 0.0), 1.0);
 
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let color = Vec3::new(1.0, 1.0, 1.0); // White
