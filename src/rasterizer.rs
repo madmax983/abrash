@@ -332,11 +332,16 @@ fn draw_scanline_gouraud(
             if z < *depth_val {
                 *depth_val = z;
                 // Unpack fixed point color
-                // Optimization: Avoid intermediate casts to u8 by clamping to u32 directly
-                let r = (r_i >> 16).clamp(0, 255) as u32;
-                let g = (g_i >> 16).clamp(0, 255) as u32;
-                let b = (b_i >> 16).clamp(0, 255) as u32;
-                *pixel = pack_color_channels(r, g, b);
+                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
+                // 16.16 fixed point means 255.0 is 0x00FF0000
+                let r = r_i.clamp(0, 0x00FF0000);
+                let g = g_i.clamp(0, 0x00FF0000);
+                let b = b_i.clamp(0, 0x00FF0000);
+
+                *pixel = 0xFF000000
+                    | ((r as u32) & 0x00FF0000)
+                    | (((g as u32) & 0x00FF0000) >> 8)
+                    | (((b as u32) & 0x00FF0000) >> 16);
             }
             z += dz_dx;
             r_i += dr;
