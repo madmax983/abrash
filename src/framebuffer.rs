@@ -10,6 +10,17 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
+    /// Creates a new Framebuffer with the specified dimensions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(800, 600).unwrap();
+    /// assert_eq!(fb.width(), 800);
+    /// assert_eq!(fb.height(), 600);
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 {
             return Err("Buffer dimensions too large (max i32::MAX)");
@@ -47,6 +58,19 @@ impl Framebuffer {
         self.pixels.fill(color);
     }
 
+    /// Sets a pixel color at the specified coordinates.
+    ///
+    /// Silently ignores out-of-bounds coordinates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// fb.set_pixel(10, 10, 0xFF00FF00); // Green
+    /// assert_eq!(fb.get_pixel(10, 10), Some(0xFF00FF00));
+    /// ```
     #[inline]
     pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {

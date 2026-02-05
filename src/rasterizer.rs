@@ -322,7 +322,15 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
     });
 }
 
-/// Fill a triangle using scanline rasterization
+/// Fill a triangle using scanline rasterization.
+///
+/// This function implements a standard triangle rasterizer:
+/// 1.  **Sorting:** Vertices are sorted by Y-coordinate (`v0.y <= v1.y <= v2.y`).
+/// 2.  **Splitting:** The triangle is split into two parts:
+///     *   Top flat-bottom triangle (v0 to v1/v_split).
+///     *   Bottom flat-top triangle (v1/v_split to v2).
+/// 3.  **Scanning:** Iterates Y from top to bottom, interpolating X coordinates along the edges
+///     and drawing horizontal spans (`draw_hline`).
 pub fn fill_triangle(fb: &mut Framebuffer, tri: &Triangle, color: u32) {
     // Validate inputs
     if !tri.v0.x.is_finite()
@@ -1075,13 +1083,19 @@ pub fn fill_triangle_lit(
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 
+/// Texture filtering mode.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FilterMode {
+    /// Nearest neighbor interpolation (pixelated look).
     Nearest,
+    /// Bilinear interpolation (smooth look).
     Bilinear,
 }
 
-/// A simple 2D texture
+/// A simple 2D texture map.
+///
+/// Stores pixel data as 32-bit ARGB values.
+/// Supports both Nearest and Bilinear filtering.
 pub struct Texture {
     pub width: u32,
     pub height: u32,
@@ -1130,7 +1144,15 @@ impl Texture {
         self.get_pixel_bilinear_texel(u * w, v * h)
     }
 
-    /// Sample texture using bilinear interpolation with texel coordinates
+    /// Sample texture using bilinear interpolation with texel coordinates.
+    ///
+    /// # SWAR Optimization
+    ///
+    /// This function uses **SIMD Within A Register (SWAR)** to perform bilinear blending
+    /// of four color channels (ARGB) in parallel without using architecture-specific SIMD instructions.
+    ///
+    /// The Red/Blue channels and Alpha/Green channels are masked and blended separately to
+    /// prevent overflow from one channel affecting its neighbor during the integer multiplication.
     #[inline]
     pub fn get_pixel_bilinear_texel(&self, u_tex: f32, v_tex: f32) -> u32 {
         // Convert to 24.8 fixed point
@@ -1356,8 +1378,20 @@ struct PerspectiveSpanStart {
     v: f32,
 }
 
-/// Draw a single scanline with perspective-correct texture mapping
-/// Optimized using span-based interpolation (every 16 pixels)
+/// Draw a single scanline with perspective-correct texture mapping.
+///
+/// # Perspective Correction
+///
+/// Linearly interpolating `u` and `v` in screen space causes texture distortion ("wobble").
+/// Correct mapping requires interpolating `1/w`, `u/w`, and `v/w`, then performing a perspective divide
+/// at every pixel: `u = (u/w) / (1/w)`.
+///
+/// # Optimization: Span-Based Interpolation
+///
+/// To avoid the costly division at every pixel, this function subdivides the scanline into
+/// small spans (16 pixels). It calculates exact perspective-correct coordinates at the start and end
+/// of each span, and then linearly interpolates between them (which is a close enough approximation
+/// over short distances).
 #[inline(always)]
 fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,

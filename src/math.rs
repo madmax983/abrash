@@ -27,6 +27,18 @@
 
 use std::ops::{Add, Mul, Sub};
 
+/// A 2-component vector, often used for UV coordinates or 2D positions.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec2;
+///
+/// let v = Vec2::new(1.0, 2.0);
+/// let v2 = v * 2.0;
+/// assert_eq!(v2.x, 2.0);
+/// assert_eq!(v2.y, 4.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
@@ -34,6 +46,7 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    /// Creates a new 2D vector.
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
@@ -332,6 +345,15 @@ impl Mat4 {
     /// * `aspect` - Aspect ratio (width / height).
     /// * `near` - Distance to near clipping plane.
     /// * `far` - Distance to far clipping plane.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Mat4;
+    /// use std::f32::consts::PI;
+    ///
+    /// let proj = Mat4::perspective(PI / 3.0, 1.33, 0.1, 100.0);
+    /// ```
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
         let nf = 1.0 / (near - far);
@@ -350,6 +372,18 @@ impl Mat4 {
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let eye = Vec3::new(0.0, 0.0, 5.0);
+    /// let target = Vec3::new(0.0, 0.0, 0.0);
+    /// let up = Vec3::new(0.0, 1.0, 0.0);
+    ///
+    /// let view = Mat4::look_at(eye, target, up);
+    /// ```
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
         let s = f.cross(up).normalize();
@@ -410,6 +444,11 @@ impl Mul for Mat4 {
     }
 }
 
+/// A point in screen space (integer pixel coordinates + depth).
+///
+/// This struct represents a point after it has been projected to the 2D screen.
+/// * `x`, `y`: Integer pixel coordinates.
+/// * `z`: Depth value (retained for Z-buffering).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenPoint {
     pub x: i32,
