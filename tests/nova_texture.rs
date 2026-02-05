@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::mesh::Mesh;
+use abrash::math::{Vec2, Vec3};
 use abrash::rasterizer::{Texture, fill_triangle_textured};
 use abrash::zbuffer::ZBuffer;
 
@@ -10,9 +10,6 @@ fn test_textured_cube_rendering() {
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
 
-    // Create a textured cube of size 2.0 (extents -1 to 1)
-    let cube = Mesh::textured_cube(2.0);
-
     // Create a 2x2 texture
     // (0,0) Red, (1,0) Green
     // (0,1) Blue, (1,1) White
@@ -22,26 +19,18 @@ fn test_textured_cube_rendering() {
     tex.set_pixel(0, 1, 0xFF0000FF); // Blue
     tex.set_pixel(1, 1, 0xFFFFFFFF); // White
 
-    // Get the first triangle of the front face
-    // Front face indices: [0, 1, 2], [0, 2, 3]
+    // Define a single textured triangle manually
     // 0: (-1, -1, 1), UV(0,0)
     // 1: ( 1, -1, 1), UV(1,0)
     // 2: ( 1,  1, 1), UV(1,1)
 
-    // We render this triangle. It covers the bottom-right half of the screen (in logic space)
-    // In screen space (y flipped):
-    // (-1, -1) -> (0, 10) (Bottom-Left)
-    // ( 1, -1) -> (10, 10) (Bottom-Right)
-    // ( 1,  1) -> (10, 0) (Top-Right)
+    let v0 = Vec3::new(-1.0, -1.0, 1.0);
+    let v1 = Vec3::new(1.0, -1.0, 1.0);
+    let v2 = Vec3::new(1.0, 1.0, 1.0);
 
-    let indices = cube.indices[0];
-    let v0 = cube.vertices[indices[0]];
-    let v1 = cube.vertices[indices[1]];
-    let v2 = cube.vertices[indices[2]];
-
-    let uv0 = cube.uvs[indices[0]];
-    let uv1 = cube.uvs[indices[1]];
-    let uv2 = cube.uvs[indices[2]];
+    let uv0 = Vec2::new(0.0, 0.0);
+    let uv1 = Vec2::new(1.0, 0.0);
+    let uv2 = Vec2::new(1.0, 1.0);
 
     // Vertices in Clip Space (w=1.0)
     fill_triangle_textured(
