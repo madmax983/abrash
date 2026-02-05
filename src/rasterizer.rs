@@ -265,29 +265,14 @@ pub fn draw_polygon(fb: &mut Framebuffer, polygon: &Polygon, color: u32) {
     }
 }
 
-/// Draw a circle outline using midpoint algorithm
-pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
-    if radius <= 0 {
-        if radius == 0 {
-            fb.set_pixel(cx, cy, color);
-        }
-        return;
-    }
-
+/// Helper to iterate over circle points using Midpoint Algorithm
+fn for_each_circle_point(radius: i32, mut op: impl FnMut(i32, i32)) {
     let mut x = radius;
     let mut y = 0;
     let mut err = 1 - radius;
 
     while x >= y {
-        // Draw 8 octants
-        fb.set_pixel(cx + x, cy + y, color);
-        fb.set_pixel(cx - x, cy + y, color);
-        fb.set_pixel(cx + x, cy - y, color);
-        fb.set_pixel(cx - x, cy - y, color);
-        fb.set_pixel(cx + y, cy + x, color);
-        fb.set_pixel(cx - y, cy + x, color);
-        fb.set_pixel(cx + y, cy - x, color);
-        fb.set_pixel(cx - y, cy - x, color);
+        op(x, y);
 
         y += 1;
         if err < 0 {
@@ -299,6 +284,27 @@ pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
     }
 }
 
+/// Draw a circle outline using midpoint algorithm
+pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
+    if radius <= 0 {
+        if radius == 0 {
+            fb.set_pixel(cx, cy, color);
+        }
+        return;
+    }
+
+    for_each_circle_point(radius, |x, y| {
+        fb.set_pixel(cx + x, cy + y, color);
+        fb.set_pixel(cx - x, cy + y, color);
+        fb.set_pixel(cx + x, cy - y, color);
+        fb.set_pixel(cx - x, cy - y, color);
+        fb.set_pixel(cx + y, cy + x, color);
+        fb.set_pixel(cx - y, cy + x, color);
+        fb.set_pixel(cx + y, cy - x, color);
+        fb.set_pixel(cx - y, cy - x, color);
+    });
+}
+
 /// Fill a circle using midpoint algorithm with horizontal lines
 pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u32) {
     if radius <= 0 {
@@ -308,25 +314,12 @@ pub fn fill_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: u
         return;
     }
 
-    let mut x = radius;
-    let mut y = 0;
-    let mut err = 1 - radius;
-
-    while x >= y {
-        // Draw horizontal lines for each y level (fills the circle)
+    for_each_circle_point(radius, |x, y| {
         draw_hline(fb, cx - x, cx + x, cy + y, color);
         draw_hline(fb, cx - x, cx + x, cy - y, color);
         draw_hline(fb, cx - y, cx + y, cy + x, color);
         draw_hline(fb, cx - y, cx + y, cy - x, color);
-
-        y += 1;
-        if err < 0 {
-            err += 2 * y + 1;
-        } else {
-            x -= 1;
-            err += 2 * (y - x) + 1;
-        }
-    }
+    });
 }
 
 /// Fill a triangle using scanline rasterization
@@ -644,13 +637,19 @@ pub fn fill_triangle_3d(
     }
 }
 
+/// Helper to pack 8-bit color channels into u32 ARGB
+#[inline(always)]
+fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
+    0xFF000000 | (r << 16) | (g << 8) | b
+}
+
 /// Helper for fast color packing from fixed point.
 #[inline(always)]
 fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
     let r = (c.0 >> 16).clamp(0, 255) as u32;
     let g = (c.1 >> 16).clamp(0, 255) as u32;
     let b = (c.2 >> 16).clamp(0, 255) as u32;
-    0xFF000000 | (r << 16) | (g << 8) | b
+    pack_color_channels(r, g, b)
 }
 
 // Fixed point scale factor (16.16)
@@ -731,7 +730,7 @@ fn draw_scanline_gouraud(
                 let r = (r_i >> 16).clamp(0, 255) as u32;
                 let g = (g_i >> 16).clamp(0, 255) as u32;
                 let b = (b_i >> 16).clamp(0, 255) as u32;
-                *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+                *pixel = pack_color_channels(r, g, b);
             }
             z += dz_dx;
             r_i += dr;
@@ -1350,10 +1349,16 @@ impl PerspectiveTextureEdgeWalker {
     }
 }
 
+struct PerspectiveSpanStart {
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
 fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -1361,30 +1366,24 @@ fn draw_scanline_textured_perspective(
     y: i32,
     x_start: i32,
     x_end: i32,
-    z_start: f32,
-    q_start: f32, // 1/w
-    u_start: f32, // u/w
-    v_start: f32, // v/w
-    dz_dx: f32,
-    dq_dx: f32,
-    du_dx: f32,
-    dv_dx: f32,
+    start: PerspectiveSpanStart,
+    gradients: &PerspectiveTextureGradients,
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
-    let mut z = z_start;
-    let mut q = q_start;
-    let mut u = u_start;
-    let mut v = v_start;
+    let mut z = start.z;
+    let mut q = start.q;
+    let mut u = start.u;
+    let mut v = start.v;
 
     if xs < 0 {
         let diff = -(xs as i64);
         let diff_f = diff as f32;
-        z += diff_f * dz_dx;
-        q += diff_f * dq_dx;
-        u += diff_f * du_dx;
-        v += diff_f * dv_dx;
+        z += diff_f * gradients.dz_dx;
+        q += diff_f * gradients.dq_dx;
+        u += diff_f * gradients.du_dx;
+        v += diff_f * gradients.dv_dx;
         xs = 0;
     }
 
@@ -1409,9 +1408,9 @@ fn draw_scanline_textured_perspective(
         let count = remaining.min(span_size);
 
         // End values at 'x + count'
-        let q_end = q + dq_dx * count as f32;
-        let u_end = u + du_dx * count as f32;
-        let v_end = v + dv_dx * count as f32;
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
 
         // Perform perspective divide at span endpoints
         let w_end = if q_end.abs() > 0.000001 {
@@ -1448,7 +1447,7 @@ fn draw_scanline_textured_perspective(
                         *depth_val = z;
                         *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
                     }
-                    z += dz_dx;
+                    z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
                     v_fix = v_fix.wrapping_add(dv_fix);
                 }
@@ -1461,7 +1460,7 @@ fn draw_scanline_textured_perspective(
                         *depth_val = z;
                         *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
                     }
-                    z += dz_dx;
+                    z += gradients.dz_dx;
                     u_tex += du_tex_step;
                     v_tex += dv_tex_step;
                 }
@@ -1651,14 +1650,13 @@ pub fn fill_triangle_textured(
                     y,
                     x_start,
                     x_end,
-                    z_left,
-                    q_left,
-                    u_left,
-                    v_left,
-                    gradients.dz_dx,
-                    gradients.dq_dx,
-                    gradients.du_dx,
-                    gradients.dv_dx,
+                    PerspectiveSpanStart {
+                        z: z_left,
+                        q: q_left,
+                        u: u_left,
+                        v: v_left,
+                    },
+                    &gradients,
                 );
             }
 
