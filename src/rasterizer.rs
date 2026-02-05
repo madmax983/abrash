@@ -1419,9 +1419,6 @@ fn draw_scanline_textured_perspective(
         let du_tex_step = (u_tex_end - u_tex_start) / count as f32;
         let dv_tex_step = (v_tex_end - v_tex_start) / count as f32;
 
-        let mut u_tex = u_tex_start;
-        let mut v_tex = v_tex_start;
-
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
         let start_idx = y_offset + (x as usize);
@@ -1431,21 +1428,37 @@ fn draw_scanline_textured_perspective(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            if z < *depth_val {
-                *depth_val = z;
-                match texture.filter_mode {
-                    FilterMode::Nearest => {
-                        *pixel = texture.get_pixel_texel(u_tex as i32, v_tex as i32);
+        match texture.filter_mode {
+            FilterMode::Nearest => {
+                // Fixed point optimization for Nearest Neighbor
+                let mut u_fix = (u_tex_start * 65536.0) as i32;
+                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                    if z < *depth_val {
+                        *depth_val = z;
+                        *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
                     }
-                    FilterMode::Bilinear => {
-                        *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
-                    }
+                    z += dz_dx;
+                    u_fix = u_fix.wrapping_add(du_fix);
+                    v_fix = v_fix.wrapping_add(dv_fix);
                 }
             }
-            z += dz_dx;
-            u_tex += du_tex_step;
-            v_tex += dv_tex_step;
+            FilterMode::Bilinear => {
+                let mut u_tex = u_tex_start;
+                let mut v_tex = v_tex_start;
+                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                    if z < *depth_val {
+                        *depth_val = z;
+                        *pixel = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+                    }
+                    z += dz_dx;
+                    u_tex += du_tex_step;
+                    v_tex += dv_tex_step;
+                }
+            }
         }
 
         // Advance state
