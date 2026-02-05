@@ -230,8 +230,14 @@ pub fn fill_triangle_3d(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, color);
+                // SAFETY:
+                // 1. x_start is checked to be within [0, width) in the condition below.
+                // 2. y is the loop variable from y_start..=y_end, which are clamped to [0, height) at the start of the function.
+                if x_start >= 0
+                    && x_start < width_i32
+                    && unsafe { zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) }
+                {
+                    unsafe { fb.set_pixel_unchecked(x_start as usize, y as usize, color) };
                 }
             } else {
                 draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
@@ -623,8 +629,20 @@ pub fn fill_triangle_gouraud(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                // SAFETY:
+                // 1. x_start is checked to be within [0, width) in the condition below.
+                // 2. y is the loop variable from y_start..=y_end, which are clamped to [0, height) at the start of the function.
+                if x_start >= 0
+                    && x_start < width_i32
+                    && unsafe { zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) }
+                {
+                    unsafe {
+                        fb.set_pixel_unchecked(
+                            x_start as usize,
+                            y as usize,
+                            pack_color_fixed(c_left),
+                        )
+                    };
                 }
             } else {
                 draw_scanline_gouraud(
@@ -1240,9 +1258,12 @@ pub fn fill_triangle_textured(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
+                // SAFETY:
+                // 1. x_start is checked to be within [0, width) in the condition below.
+                // 2. y is the loop variable from y_start..=y_end, which are clamped to [0, height) at the start of the function.
                 if x_start >= 0
                     && x_start < width_i32
-                    && zb.test_and_set(x_start, y, z_left)
+                    && unsafe { zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) }
                     && q_left.abs() > 0.000001
                 {
                     let w = 1.0 / q_left;
@@ -1252,7 +1273,7 @@ pub fn fill_triangle_textured(
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
                     };
-                    fb.set_pixel(x_start, y, color);
+                    unsafe { fb.set_pixel_unchecked(x_start as usize, y as usize, color) };
                 }
             } else {
                 draw_scanline_textured_perspective(
