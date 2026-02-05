@@ -230,8 +230,16 @@ pub fn fill_triangle_3d(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, color);
+                if x_start >= 0 && x_start < width_i32 {
+                    // SAFETY:
+                    // 1. x_start is checked explicitly above.
+                    // 2. y is clamped to [0, height-1] by the loop range logic.
+                    // Using unchecked access avoids redundant bounds checks for single pixels.
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        }
+                    }
                 }
             } else {
                 draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
@@ -623,8 +631,17 @@ pub fn fill_triangle_gouraud(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                if x_start >= 0 && x_start < width_i32 {
+                    // SAFETY: checked above and by loop range
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            fb.set_pixel_unchecked(
+                                x_start as usize,
+                                y as usize,
+                                pack_color_fixed(c_left),
+                            );
+                        }
+                    }
                 }
             } else {
                 draw_scanline_gouraud(
@@ -1240,19 +1257,24 @@ pub fn fill_triangle_textured(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0
-                    && x_start < width_i32
-                    && zb.test_and_set(x_start, y, z_left)
-                    && q_left.abs() > 0.000001
-                {
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    let color = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                    };
-                    fb.set_pixel(x_start, y, color);
+                if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000001 {
+                    // SAFETY: checked above and by loop range
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            let w = 1.0 / q_left;
+                            let u_tex = u_left * w;
+                            let v_tex = v_left * w;
+                            let color = match texture.filter_mode {
+                                FilterMode::Nearest => {
+                                    texture.get_pixel_texel(u_tex as i32, v_tex as i32)
+                                }
+                                FilterMode::Bilinear => {
+                                    texture.get_pixel_bilinear_texel(u_tex, v_tex)
+                                }
+                            };
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        }
+                    }
                 }
             } else {
                 draw_scanline_textured_perspective(

@@ -186,10 +186,36 @@ fn bench_fill_triangle_clipped(c: &mut Criterion) {
     });
 }
 
+fn bench_fill_triangle_3d_thin(c: &mut Criterion) {
+    c.bench_function("fill_triangle_3d_thin", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+
+        // A very tall and thin triangle (1 pixel wide roughly)
+        // This forces x_start == x_end for most scanlines
+        let v0 = (Vec3::new(0.0, 2.0, -2.0), 1.0);
+        let v1 = (Vec3::new(0.02, -2.0, -2.0), 1.0); // Slightly offset x
+        let v2 = (Vec3::new(-0.02, -2.0, -2.0), 1.0); // Slightly offset x
+
+        b.iter(|| {
+            zb.clear();
+            fill_triangle_3d(
+                &mut fb,
+                &mut zb,
+                black_box(v0),
+                black_box(v1),
+                black_box(v2),
+                black_box(0xFFFFFFFF),
+            );
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_fill_triangle_3d_large,
     bench_fill_triangle_3d_small,
+    bench_fill_triangle_3d_thin,
     bench_fill_triangle_gouraud,
     bench_fill_triangle_textured,
     bench_fill_triangle_textured_perspective_stress,

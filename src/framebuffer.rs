@@ -72,6 +72,7 @@ impl Framebuffer {
     /// # Safety
     ///
     /// Caller must ensure x and y are within bounds.
+    #[inline]
     pub unsafe fn set_pixel_unchecked(&mut self, x: usize, y: usize, color: u32) {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds
