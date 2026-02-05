@@ -91,7 +91,7 @@ fn bench_fill_triangle_textured(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000);
+        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
 
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
         let v1 = ((Vec3::new(-2.0, -2.0, -2.0), 1.0), Vec2::new(0.0, 1.0));
@@ -115,7 +115,7 @@ fn bench_fill_triangle_textured_perspective_stress(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured_perspective_stress", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000);
+        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
 
         // High perspective distortion
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
@@ -140,7 +140,7 @@ fn bench_fill_triangle_textured_bilinear(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured_bilinear", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let mut tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000);
+        let mut tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
         tex.filter_mode = FilterMode::Bilinear;
 
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));

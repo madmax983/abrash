@@ -11,7 +11,7 @@ fn test_perspective_distortion() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Create a vertical gradient texture: 0 at top (v=0), 255 at bottom (v=1)
-    let mut tex = Texture::new(32, 32);
+    let mut tex = Texture::new(32, 32).unwrap();
     for y in 0..32 {
         let val = (y as f32 / 31.0 * 255.0) as u32;
         let color = 0xFF000000 | (val << 16) | (val << 8) | val;

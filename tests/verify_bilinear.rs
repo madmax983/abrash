@@ -2,7 +2,7 @@ use abrash::rasterizer::{FilterMode, Texture};
 
 #[test]
 fn test_bilinear_interpolation() {
-    let mut tex = Texture::new(2, 2);
+    let mut tex = Texture::new(2, 2).unwrap();
     tex.filter_mode = FilterMode::Bilinear;
 
     // Layout:
