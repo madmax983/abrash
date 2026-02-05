@@ -1,5 +1,5 @@
 use abrash::rasterizer::{Texture, fill_triangle_textured};
-use abrash::mesh::TexturedMesh;
+use abrash::mesh::Mesh;
 use abrash::framebuffer::Framebuffer;
 use abrash::zbuffer::ZBuffer;
 
@@ -11,7 +11,7 @@ fn test_textured_cube_rendering() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Create a textured cube of size 2.0 (extents -1 to 1)
-    let cube = TexturedMesh::textured_cube(2.0);
+    let cube = Mesh::textured_cube(2.0);
 
     // Create a 2x2 texture
     // (0,0) Red, (1,0) Green
@@ -34,10 +34,10 @@ fn test_textured_cube_rendering() {
     // ( 1, -1) -> (10, 10) (Bottom-Right)
     // ( 1,  1) -> (10, 0) (Top-Right)
 
-    let indices = cube.mesh.indices[0];
-    let v0 = cube.mesh.vertices[indices[0]];
-    let v1 = cube.mesh.vertices[indices[1]];
-    let v2 = cube.mesh.vertices[indices[2]];
+    let indices = cube.indices[0];
+    let v0 = cube.vertices[indices[0]];
+    let v1 = cube.vertices[indices[1]];
+    let v2 = cube.vertices[indices[2]];
 
     let uv0 = cube.uvs[indices[0]];
     let uv1 = cube.uvs[indices[1]];

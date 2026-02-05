@@ -2,63 +2,6 @@
 
 use crate::math::Vec3;
 
-/// Ambient light (constant illumination)
-#[derive(Debug, Clone, Copy)]
-pub struct AmbientLight {
-    pub color: Vec3,
-}
-
-impl AmbientLight {
-    pub fn new(color: Vec3) -> Self {
-        Self { color }
-    }
-
-    /// Apply ambient lighting to a base color
-    pub fn shade(&self, base_color: Vec3) -> Vec3 {
-        Vec3::new(
-            base_color.x * self.color.x,
-            base_color.y * self.color.y,
-            base_color.z * self.color.z,
-        )
-    }
-}
-
-/// Directional light (like sunlight)
-#[derive(Debug, Clone, Copy)]
-pub struct DirectionalLight {
-    /// Direction the light travels (normalized)
-    pub direction: Vec3,
-    /// Light color (RGB, 0.0-1.0)
-    pub color: Vec3,
-}
-
-impl DirectionalLight {
-    pub fn new(direction: Vec3, color: Vec3) -> Self {
-        Self {
-            direction: direction.normalize(),
-            color,
-        }
-    }
-
-    /// Calculate light intensity on a surface with given normal
-    /// Returns 0.0-1.0 based on Lambert's cosine law
-    pub fn intensity(&self, normal: Vec3) -> f32 {
-        // N dot L (light direction is inverted because it points AT the surface)
-        let n_dot_l = normal.dot(self.direction * -1.0);
-        n_dot_l.max(0.0)
-    }
-
-    /// Calculate lit color for a surface
-    pub fn shade(&self, normal: Vec3, base_color: Vec3) -> Vec3 {
-        let i = self.intensity(normal);
-        Vec3::new(
-            base_color.x * self.color.x * i,
-            base_color.y * self.color.y * i,
-            base_color.z * self.color.z * i,
-        )
-    }
-}
-
 /// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
 pub fn color_to_u32(color: Vec3) -> u32 {
     let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;

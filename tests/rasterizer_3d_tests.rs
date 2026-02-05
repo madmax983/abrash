@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::rasterizer::{fill_triangle_flat, fill_triangle_gouraud, fill_triangle_lit};
+use abrash::rasterizer::{fill_triangle_gouraud, fill_triangle_lit};
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -16,7 +16,12 @@ fn test_fill_triangle_flat_basic() {
     let normal = Vec3::new(0.0, 0.0, 1.0); // Facing camera
     let color = Vec3::new(1.0, 0.0, 0.0); // Red
 
-    fill_triangle_flat(&mut fb, &mut zb, v0, v1, v2, normal, color);
+    // Explicit lighting values (previously hidden in fill_triangle_flat)
+    let ambient = Vec3::new(0.2, 0.2, 0.2);
+    let sun_dir = Vec3::new(-0.5, -1.0, -0.5).normalize();
+    let sun_color = Vec3::new(1.0, 1.0, 1.0);
+
+    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color);
 
     // Center should have the shaded color
     let pixel = fb.get_pixel(50, 50);
@@ -29,8 +34,6 @@ fn test_fill_triangle_flat_basic() {
 
 #[test]
 fn test_fill_triangle_lit_custom_lighting() {
-    use abrash::light::{AmbientLight, DirectionalLight};
-
     let mut fb = Framebuffer::new(100, 100).unwrap();
     let mut zb = ZBuffer::new(100, 100).unwrap();
 
@@ -41,11 +44,12 @@ fn test_fill_triangle_lit_custom_lighting() {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let color = Vec3::new(0.0, 1.0, 0.0); // Green
 
-    let ambient = AmbientLight::new(Vec3::new(0.1, 0.1, 0.1));
-    let light = DirectionalLight::new(Vec3::new(0.0, 0.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+    let ambient = Vec3::new(0.1, 0.1, 0.1);
+    let light_dir = Vec3::new(0.0, 0.0, -1.0).normalize();
+    let light_color = Vec3::new(1.0, 1.0, 1.0);
 
     fill_triangle_lit(
-        &mut fb, &mut zb, v0, v1, v2, normal, color, &ambient, &light,
+        &mut fb, &mut zb, v0, v1, v2, normal, color, ambient, light_dir, light_color,
     );
 
     let pixel = fb.get_pixel(50, 50);
@@ -98,8 +102,12 @@ fn test_fill_triangle_off_screen() {
     let normal = Vec3::new(0.0, 0.0, 1.0);
     let color = Vec3::new(1.0, 0.0, 0.0);
 
+    let ambient = Vec3::new(0.2, 0.2, 0.2);
+    let sun_dir = Vec3::new(-0.5, -1.0, -0.5).normalize();
+    let sun_color = Vec3::new(1.0, 1.0, 1.0);
+
     // Should not panic
-    fill_triangle_flat(&mut fb, &mut zb, v0, v1, v2, normal, color);
+    fill_triangle_lit(&mut fb, &mut zb, v0, v1, v2, normal, color, ambient, sun_dir, sun_color);
 
     // Should remain black
     for &pixel in fb.as_slice() {
