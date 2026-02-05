@@ -527,12 +527,23 @@ pub fn fill_triangle_3d(
         let height = fb.height();
 
         // Project to screen
-        let p0 = project_to_screen(v0.0, v0.1, width, height);
-        let p1 = project_to_screen(v1.0, v1.1, width, height);
-        let p2 = project_to_screen(v2.0, v2.1, width, height);
+        let p0_orig = project_to_screen(v0.0, v0.1, width, height);
+        let p1_orig = project_to_screen(v1.0, v1.1, width, height);
+        let p2_orig = project_to_screen(v2.0, v2.1, width, height);
+
+        // Backface Culling (on original unsorted vertices)
+        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
+        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
+        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
+        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+
+        if nz_orig >= 0.0 {
+            continue;
+        }
 
         // Sort by y
-        let mut verts = [p0, p1, p2];
+        let mut verts = [p0_orig, p1_orig, p2_orig];
         sort_by_y(&mut verts, |p| p.y);
         let [p0, p1, p2] = verts;
 
@@ -567,7 +578,7 @@ pub fn fill_triangle_3d(
         // Cross product to get normal (A, B, C)
         let nx = uy * vz - uz * vy;
         // let ny = uz * vx - ux * vz;
-        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area)
+        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area) of SORTED triangle
 
         // dz/dx = -A/C = -nx/nz
         let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
@@ -913,9 +924,20 @@ pub fn fill_triangle_gouraud(
         let height = fb.height();
 
         // Project to screen
-        let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+        // Backface Culling
+        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
+        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
+        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
+        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+
+        if nz_orig >= 0.0 {
+            continue;
+        }
 
         // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
         // allowing us to skip clamp/mul per pixel
@@ -924,7 +946,7 @@ pub fn fill_triangle_gouraud(
         let c2 = v2.1 * 255.0;
 
         // Sort by y
-        let mut verts = [(p0, c0), (p1, c1), (p2, c2)];
+        let mut verts = [(p0_orig, c0), (p1_orig, c1), (p2_orig, c2)];
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
@@ -1462,9 +1484,20 @@ pub fn fill_triangle_textured(
         let height = fb.height();
 
         // Project to screen
-        let p0 = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1 = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2 = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+
+        // Backface Culling
+        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
+        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
+        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
+        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+
+        if nz_orig >= 0.0 {
+            continue;
+        }
 
         // Prepare perspective attributes: q=1/w, u/w, v/w
         // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
@@ -1489,9 +1522,9 @@ pub fn fill_triangle_textured(
         // Sort by y
         // We need to keep track of all attributes (p, q, u, v)
         let mut verts = [
-            (p0, inv_w0, u0, v0_val),
-            (p1, inv_w1, u1, v1_val),
-            (p2, inv_w2, u2, v2_val),
+            (p0_orig, inv_w0, u0, v0_val),
+            (p1_orig, inv_w1, u1, v1_val),
+            (p2_orig, inv_w2, u2, v2_val),
         ];
         sort_by_y(&mut verts, |(p, _, _, _)| p.y);
         let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
@@ -1515,11 +1548,13 @@ pub fn fill_triangle_textured(
             let g = PerspectiveTextureGradients::new(
                 p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
             );
+
             let ux = (p1.x as i64 - p0.x as i64) as f32;
             let uy = (p1.y as i64 - p0.y as i64) as f32;
             let vx = (p2.x as i64 - p0.x as i64) as f32;
             let vy = (p2.y as i64 - p0.y as i64) as f32;
             let left = ux * vy - uy * vx > 0.0;
+
             (g, left)
         };
 
