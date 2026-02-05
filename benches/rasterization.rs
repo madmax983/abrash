@@ -190,6 +190,31 @@ fn bench_fill_triangle_textured_bilinear(c: &mut Criterion) {
     });
 }
 
+fn bench_fill_triangle_clipped(c: &mut Criterion) {
+    c.bench_function("fill_triangle_clipped", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+
+        // Triangle straddling the near plane (w=0).
+        // v0 is behind (w = -1.0), v1/v2 in front.
+        let v0 = (Vec3::new(0.0, 1.0, 0.0), -1.0);
+        let v1 = (Vec3::new(0.5, -0.5, 0.0), 1.0);
+        let v2 = (Vec3::new(-0.5, -0.5, 0.0), 1.0);
+
+        b.iter(|| {
+            zb.clear();
+            fill_triangle_3d(
+                &mut fb,
+                &mut zb,
+                black_box(v0),
+                black_box(v1),
+                black_box(v2),
+                black_box(0xFFFFFFFF),
+            );
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_fill_triangle_3d_large,
@@ -198,6 +223,7 @@ criterion_group!(
     bench_draw_line,
     bench_fill_triangle_textured,
     bench_fill_triangle_textured_perspective_stress,
-    bench_fill_triangle_textured_bilinear
+    bench_fill_triangle_textured_bilinear,
+    bench_fill_triangle_clipped
 );
 criterion_main!(benches);
