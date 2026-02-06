@@ -14,3 +14,8 @@
 **Bloat:** `src/pipeline` directory with dead code (duplicate of `rasterizer.rs`). Unused experimental modules (`particles.rs`, `fog.rs`, `modifiers.rs`). Misnamed test file (`pipeline_tests.rs`).
 **Cut:** Deleted `src/pipeline` and unused experimental files. Renamed `tests/pipeline_tests.rs` to `tests/rasterizer_3d_tests.rs`.
 **Saved:** ~500 lines of dead code and a directory. Reduced confusion by removing duplicate logic.
+
+## [Reduction]
+**Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
+**Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
+**Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.

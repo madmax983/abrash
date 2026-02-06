@@ -3,7 +3,6 @@
 //! Demonstrates flat shading with directional lighting.
 
 use abrash::framebuffer::Framebuffer;
-use abrash::light::u32_to_color;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::Window;
@@ -16,13 +15,13 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
 // Face colors for the cube
-const FACE_COLORS: [u32; 6] = [
-    0xFFE74C3C, // Red
-    0xFF2ECC71, // Green
-    0xFF3498DB, // Blue
-    0xFFF39C12, // Orange
-    0xFF9B59B6, // Purple
-    0xFF1ABC9C, // Teal
+const FACE_COLORS: [Vec3; 6] = [
+    Vec3 { x: 0.90, y: 0.30, z: 0.24 }, // Red
+    Vec3 { x: 0.18, y: 0.80, z: 0.44 }, // Green
+    Vec3 { x: 0.20, y: 0.60, z: 0.86 }, // Blue
+    Vec3 { x: 0.95, y: 0.61, z: 0.07 }, // Orange
+    Vec3 { x: 0.61, y: 0.35, z: 0.71 }, // Purple
+    Vec3 { x: 0.10, y: 0.74, z: 0.61 }, // Teal
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let world_normal = model.transform_normal(face_normals[face_idx]);
 
             // Get face color (2 triangles per face)
-            let face_color = u32_to_color(FACE_COLORS[face_idx / 2]);
+            let face_color = FACE_COLORS[face_idx / 2];
 
             // Render with lighting
             fill_triangle_lit(

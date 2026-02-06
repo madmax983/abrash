@@ -1,5 +1,4 @@
 pub mod framebuffer;
-pub mod light;
 pub mod math;
 pub mod mesh;
 pub mod platform;

@@ -8,7 +8,7 @@
 *   **3D Pipeline:** Complete vertex transformation pipeline (Clip Space -> Screen Space).
 *   **Z-Buffering:** Depth testing for correct visibility.
 *   **Math Library:** Custom `Vec3` and `Mat4` implementations optimized for graphics.
-*   **Platform Abstraction:** Native Windows windowing support, with a dummy backend for cross-platform benchmarking.
+*   **Platform Abstraction:** Native Windows windowing support, with a TUI backend for cross-platform compatibility.
 
 ## Quick Start 🚀
 
@@ -48,11 +48,9 @@ cargo run --example retro_cube
 ## Architecture 🏛️
 
 *   **`math`**: The mathematical foundation. Uses **Row-Vector** convention (`v * M`) and a Right-Handed coordinate system.
-*   **`pipeline`**: Handles the 3D pipeline stages, including vertex processing and triangle setup.
 *   **`rasterizer`**: Low-level pixel drawing and 2D primitive filling.
 *   **`framebuffer`**: Manages the pixel buffer (0xAARRGGBB format).
 *   **`zbuffer`**: Manages the depth buffer.
-*   **`light`**: Lighting calculations (Ambient, Directional).
 *   **`platform`**: Window creation and event handling.
 
 ## License

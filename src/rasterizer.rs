@@ -4,7 +4,6 @@
 
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
-use crate::light::color_to_u32;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::zbuffer::ZBuffer;
 
@@ -241,6 +240,14 @@ pub fn fill_triangle_3d(
             edge_b.step();
         }
     }
+}
+
+/// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
+pub fn color_to_u32(color: Vec3) -> u32 {
+    let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
+    let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
+    let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
+    0xFF000000 | (r << 16) | (g << 8) | b
 }
 
 /// Helper to pack 8-bit color channels into u32 ARGB
