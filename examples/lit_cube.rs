@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT).unwrap();
     let cube = Mesh::cube(1.5);
-    let face_normals = cube.compute_face_normals();
+    let face_normals = cube.compute_face_normals()?;
 
     // Camera setup
     let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Clear buffers
-        framebuffer.clear(0xFF1A1A2E); // Dark blue background
+        framebuffer.clear(0xFF1A_1A2E); // Dark blue background
         zbuffer.clear();
 
         // Build model matrix

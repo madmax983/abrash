@@ -29,11 +29,11 @@ fn test_gouraud_determinism() {
     );
 
     let checksum = calculate_checksum(&fb);
-    println!("Checksum: {:016X}", checksum);
+    println!("Checksum: {checksum:016X}");
 
     // Checksum updated after fixed-point color interpolation optimization.
     assert_eq!(
-        checksum, 0xC5A5BB0C6A4D781B,
+        checksum, 0xC5A5_BB0C_6A4D_781B,
         "Checksum mismatch! Optimization broke rendering."
     );
 }
@@ -41,11 +41,11 @@ fn test_gouraud_determinism() {
 fn calculate_checksum(fb: &Framebuffer) -> u64 {
     let mut sum: u64 = 0;
     for (i, &pixel) in fb.as_slice().iter().enumerate() {
-        if pixel != 0xFF000000 {
+        if pixel != 0xFF00_0000 {
             // Skip clear color
             // Simple FNV-1a like mix
-            sum = sum.wrapping_mul(1099511628211);
-            sum ^= pixel as u64;
+            sum = sum.wrapping_mul(1_099_511_628_211);
+            sum ^= u64::from(pixel);
             sum ^= i as u64;
         }
     }

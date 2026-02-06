@@ -69,18 +69,21 @@ impl Mesh {
     }
 
     /// Compute face normal for each triangle
-    #[must_use]
-    pub fn compute_face_normals(&self) -> Vec<Vec3> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any index is out of bounds.
+    pub fn compute_face_normals(&self) -> Result<Vec<Vec3>, &'static str> {
         self.indices
             .iter()
             .map(|[i0, i1, i2]| {
-                let v0 = self.vertices[*i0];
-                let v1 = self.vertices[*i1];
-                let v2 = self.vertices[*i2];
+                let v0 = self.vertices.get(*i0).ok_or("Index out of bounds")?;
+                let v1 = self.vertices.get(*i1).ok_or("Index out of bounds")?;
+                let v2 = self.vertices.get(*i2).ok_or("Index out of bounds")?;
 
-                let edge1 = v1 - v0;
-                let edge2 = v2 - v0;
-                edge1.cross(edge2).normalize()
+                let edge1 = *v1 - *v0;
+                let edge2 = *v2 - *v0;
+                Ok(edge1.cross(edge2).normalize())
             })
             .collect()
     }

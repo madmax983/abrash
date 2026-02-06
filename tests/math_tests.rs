@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+#![allow(clippy::imprecise_flops)]
 use abrash::math::{Mat2, Mat4, Vec2, Vec3};
 
 #[test]
@@ -181,11 +183,11 @@ fn test_mat4_transform_normal() {
 
 #[test]
 fn test_vec3_normalize_tiny() {
-    let v = Vec3::new(0.000001, 0.0, 0.0);
+    let v = Vec3::new(0.000_001, 0.0, 0.0);
     let n = v.normalize();
     // Specific behavior of this math lib:
     // If length < 0.0001, it returns the vector itself instead of normalizing or returning zero/NaN.
-    assert_eq!(n.x, 0.000001);
+    assert_eq!(n.x, 0.000_001);
 }
 
 #[test]

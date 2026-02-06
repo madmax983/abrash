@@ -54,7 +54,7 @@ fn test_framebuffer_bounds_checking() {
 #[test]
 fn test_framebuffer_clear_rect() {
     let mut fb = Framebuffer::new(100, 100).unwrap();
-    let red = 0xFFFF0000;
+    let red = 0xFFFF_0000;
 
     fb.clear_rect(10, 10, 20, 20, red);
 
@@ -63,14 +63,14 @@ fn test_framebuffer_clear_rect() {
     assert_eq!(fb.get_pixel(29, 29), Some(red));
 
     // Check outside the rect (should still be black)
-    assert_eq!(fb.get_pixel(5, 5), Some(0xFF000000));
-    assert_eq!(fb.get_pixel(50, 50), Some(0xFF000000));
+    assert_eq!(fb.get_pixel(5, 5), Some(0xFF00_0000));
+    assert_eq!(fb.get_pixel(50, 50), Some(0xFF00_0000));
 }
 
 #[test]
 fn test_framebuffer_set_pixel_unchecked() {
     let mut fb = Framebuffer::new(10, 10).unwrap();
-    let color = 0xFFFFFFFF;
+    let color = 0xFFFF_FFFF;
     unsafe {
         fb.set_pixel_unchecked(5, 5, color);
     }

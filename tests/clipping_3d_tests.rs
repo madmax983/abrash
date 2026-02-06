@@ -38,7 +38,7 @@ fn test_triangle_fully_behind_camera() {
     // Verify framebuffer is empty
     for pixel in fb.as_slice() {
         assert_eq!(
-            *pixel, 0xFF000000,
+            *pixel, 0xFF00_0000,
             "Framebuffer should be empty for triangle behind camera"
         );
     }
@@ -95,7 +95,7 @@ fn test_triangle_straddling_near_plane() {
 
     let mut drawn = false;
     for pixel in fb.as_slice() {
-        if *pixel != 0xFF000000 {
+        if *pixel != 0xFF00_0000 {
             drawn = true;
             break;
         }

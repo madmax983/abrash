@@ -237,9 +237,15 @@ pub fn fill_triangle_3d(
 /// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
 #[must_use]
 pub fn color_to_u32(color: Vec3) -> u32 {
-    let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
-    let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
-    let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
+    // Explicitly handle NaN to prevent propagation (defaults to 0.0)
+    // While saturating casts would handle this, explicit check is safer and clearer.
+    let r_val = if color.x.is_nan() { 0.0 } else { color.x };
+    let g_val = if color.y.is_nan() { 0.0 } else { color.y };
+    let b_val = if color.z.is_nan() { 0.0 } else { color.z };
+
+    let r = (r_val.clamp(0.0, 1.0) * 255.0) as u32;
+    let g = (g_val.clamp(0.0, 1.0) * 255.0) as u32;
+    let b = (b_val.clamp(0.0, 1.0) * 255.0) as u32;
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 

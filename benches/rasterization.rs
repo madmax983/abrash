@@ -58,7 +58,7 @@ fn bench_fill_triangle_3d_large(c: &mut Criterion) {
                 black_box(v0),
                 black_box(v1),
                 black_box(v2),
-                black_box(0xFFFFFFFF),
+                black_box(0xFFFF_FFFF),
             );
         });
     });
@@ -81,7 +81,7 @@ fn bench_fill_triangle_3d_small(c: &mut Criterion) {
                 black_box(v0),
                 black_box(v1),
                 black_box(v2),
-                black_box(0xFFFFFFFF),
+                black_box(0xFFFF_FFFF),
             );
         });
     });
@@ -91,7 +91,7 @@ fn bench_fill_triangle_textured(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
+        let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
 
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
         let v1 = ((Vec3::new(-2.0, -2.0, -2.0), 1.0), Vec2::new(0.0, 1.0));
@@ -115,7 +115,7 @@ fn bench_fill_triangle_textured_perspective_stress(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured_perspective_stress", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
+        let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
 
         // High perspective distortion
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
@@ -140,7 +140,7 @@ fn bench_fill_triangle_textured_bilinear(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured_bilinear", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
         let mut zb = ZBuffer::new(800, 600).unwrap();
-        let mut tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
+        let mut tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
         tex.filter_mode = FilterMode::Bilinear;
 
         let v0 = ((Vec3::new(0.0, 2.0, -2.0), 1.0), Vec2::new(0.5, 0.0));
@@ -180,7 +180,7 @@ fn bench_fill_triangle_clipped(c: &mut Criterion) {
                 black_box(v0),
                 black_box(v1),
                 black_box(v2),
-                black_box(0xFFFFFFFF),
+                black_box(0xFFFF_FFFF),
             );
         });
     });
@@ -201,7 +201,7 @@ criterion_main!(benches);
 
 fn bench_get_pixel_bilinear_fixed(c: &mut Criterion) {
     c.bench_function("get_pixel_bilinear_fixed", |b| {
-        let tex = Texture::checkered(256, 256, 0xFFFFFFFF, 0xFF000000).unwrap();
+        let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
         // Simulate iterating over a span
         let mut u = 100 * 256;
         let mut v = 100 * 256;
