@@ -1,8 +1,7 @@
+#![allow(warnings)]
+
 use abrash::{
-    framebuffer::Framebuffer,
-    hiz_buffer::HiZBuffer,
-    math::Vec3,
-    tile_renderer::TileRenderer,
+    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,
 };
 use std::time::{Duration, Instant};
@@ -87,7 +86,10 @@ fn profile_hiz_pyramid() {
         let pixels = width * height;
         let ns_per_pixel = (avg_time * 1000) / pixels as u128;
 
-        println!("{}: {:6} µs/build ({:3} ns/pixel)", name, avg_time, ns_per_pixel);
+        println!(
+            "{}: {:6} µs/build ({:3} ns/pixel)",
+            name, avg_time, ns_per_pixel
+        );
     }
 
     println!();
@@ -131,8 +133,16 @@ fn profile_rendering_pipeline() {
 
     let render_time = total_time - clear_time;
 
-    println!("Clear time:  {:6} µs ({:3}%)", clear_time, (clear_time * 100) / total_time);
-    println!("Render time: {:6} µs ({:3}%)", render_time, (render_time * 100) / total_time);
+    println!(
+        "Clear time:  {:6} µs ({:3}%)",
+        clear_time,
+        (clear_time * 100) / total_time
+    );
+    println!(
+        "Render time: {:6} µs ({:3}%)",
+        render_time,
+        (render_time * 100) / total_time
+    );
     println!("Total time:  {:6} µs", total_time);
 
     // Calculate triangles per second
@@ -152,7 +162,10 @@ fn profile_simd_vs_scalar_detailed() {
 }
 
 /// Generate horizontal triangles of specific scanline length
-fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_horizontal_triangles(
+    scanline_len: u32,
+    count: usize,
+) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
     let mut triangles = Vec::new();
     let width = scanline_len as f32;
 
@@ -174,7 +187,11 @@ fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<((Vec3,
 }
 
 /// Generate test scene with triangles
-fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_test_scene(
+    count: usize,
+    width: u32,
+    height: u32,
+) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
     let mut triangles = Vec::new();
 
     for i in 0..count {
@@ -185,7 +202,7 @@ fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<((Vec3, f32
 
         let v0 = (Vec3::new(x, y, depth), 1.0);
         let v1 = (Vec3::new(x + size, y, depth + 0.1), 1.0);
-        let v2 = (Vec3::new(x + size/2.0, y + size, depth + 0.2), 1.0);
+        let v2 = (Vec3::new(x + size / 2.0, y + size, depth + 0.2), 1.0);
 
         let color = 0xFF_00_00_00 | ((i as u32) << 8);
         triangles.push((v0, v1, v2, color));

@@ -6,14 +6,12 @@ fn havoc_large_texture_panic_repro() {
     // 2^31 + 1. Fits in u32, but as i32 is negative.
     // This creates a texture that thinks it's valid but crashes on access.
     // AFTER FIX: This should be rejected by Texture::new.
-    let width = 0x80000001;
+    let width = 0x8000_0001;
     let height = 1;
     let res = Texture::new(width, height);
 
     // It should be an error now
-    if let Ok(_) = res {
-        panic!("Texture::new should have rejected width > i32::MAX");
-    }
+    assert!(res.is_err(), "Texture::new should have rejected width > i32::MAX");
 }
 
 proptest! {

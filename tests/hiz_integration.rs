@@ -1,3 +1,4 @@
+#![allow(warnings)]
 /// Integration tests for Hi-Z buffer with tile renderer
 ///
 /// These tests verify that:

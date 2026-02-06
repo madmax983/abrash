@@ -2,6 +2,8 @@
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
 
+#![allow(clippy::unreadable_literal)]
+
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};

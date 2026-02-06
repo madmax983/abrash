@@ -47,11 +47,13 @@ impl PyramidLevel {
 ///
 /// # Example
 /// ```
-/// use abrash::{Framebuffer, ZBuffer, hiz_buffer::HiZBuffer};
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::hiz_buffer::HiZBuffer;
 ///
 /// let width = 800;
 /// let height = 600;
-/// let mut zb = ZBuffer::new(width, height);
+/// let mut zb = ZBuffer::new(width, height).unwrap();
 /// let mut hiz = HiZBuffer::new(width, height);
 ///
 /// // After rendering a frame, build the pyramid
@@ -336,6 +338,7 @@ impl HiZBuffer {
 
     /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
     #[inline]
+    #[allow(dead_code)]
     fn build_level_scalar_single(
         &mut self,
         level_idx: u32,
@@ -453,6 +456,9 @@ impl HiZBuffer {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)]
+    #![allow(clippy::manual_range_contains)]
+    #![allow(clippy::needless_range_loop)]
     use super::*;
 
     #[test]
