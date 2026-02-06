@@ -776,10 +776,19 @@ impl Texture {
         let x0_raw = u_img_fixed >> 8;
         let y0_raw = v_img_fixed >> 8;
 
-        let x0 = x0_raw.clamp(0, w_i32) as usize;
-        let y0 = y0_raw.clamp(0, h_i32) as usize;
-        let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-        let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+        // Optimization: Fast path for interior pixels to avoid 4 clamp calls
+        let (x0, x1, y0, y1) = if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+            let x = x0_raw as usize;
+            let y = y0_raw as usize;
+            (x, x + 1, y, y + 1)
+        } else {
+            (
+                x0_raw.clamp(0, w_i32) as usize,
+                (x0_raw + 1).clamp(0, w_i32) as usize,
+                y0_raw.clamp(0, h_i32) as usize,
+                (y0_raw + 1).clamp(0, h_i32) as usize,
+            )
+        };
 
         let width_usize = self.width as usize;
         let row0 = y0 * width_usize;
