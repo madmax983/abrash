@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** Unused `Mat2` struct in `src/math.rs` and related benchmarks. Numerous unreadable literals and clippy warnings.
+**Cut:** Deleted `Mat2` and its benchmarks. Fixed clippy warnings (hex literals, format args, redundant clones) across `src/`, `examples/`, `tests/`, and `benches/`.
+**Saved:** ~50 lines of dead code (Mat2) + improved maintainability and readability across the entire codebase.

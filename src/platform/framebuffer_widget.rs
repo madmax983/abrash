@@ -83,10 +83,10 @@ mod tests {
     fn renders_known_color_pattern() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Set all pixels to red (0xRRGGBB)
-        fb.set_pixel(0, 0, 0xFF0000);
-        fb.set_pixel(1, 0, 0xFF0000);
-        fb.set_pixel(0, 1, 0x00FF00);
-        fb.set_pixel(1, 1, 0x00FF00);
+        fb.set_pixel(0, 0, 0x00FF_0000);
+        fb.set_pixel(1, 0, 0x00FF_0000);
+        fb.set_pixel(0, 1, 0x0000_FF00);
+        fb.set_pixel(1, 1, 0x0000_FF00);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 2, 1); // 2 wide, 1 tall = 2 pixels vertically via half-block
@@ -103,8 +103,8 @@ mod tests {
     #[test]
     fn color_unpacking_pure_red() {
         let mut fb = Framebuffer::new(1, 2).unwrap();
-        fb.set_pixel(0, 0, 0xFF0000);
-        fb.set_pixel(0, 1, 0xFF0000);
+        fb.set_pixel(0, 0, 0x00FF_0000);
+        fb.set_pixel(0, 1, 0x00FF_0000);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 1, 1);
@@ -119,8 +119,8 @@ mod tests {
     #[test]
     fn color_unpacking_pure_green() {
         let mut fb = Framebuffer::new(1, 2).unwrap();
-        fb.set_pixel(0, 0, 0x00FF00);
-        fb.set_pixel(0, 1, 0x00FF00);
+        fb.set_pixel(0, 0, 0x0000_FF00);
+        fb.set_pixel(0, 1, 0x0000_FF00);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 1, 1);
@@ -135,8 +135,8 @@ mod tests {
     #[test]
     fn color_unpacking_pure_blue() {
         let mut fb = Framebuffer::new(1, 2).unwrap();
-        fb.set_pixel(0, 0, 0x0000FF);
-        fb.set_pixel(0, 1, 0x0000FF);
+        fb.set_pixel(0, 0, 0x0000_00FF);
+        fb.set_pixel(0, 1, 0x0000_00FF);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 1, 1);
@@ -152,8 +152,8 @@ mod tests {
     fn color_unpacking_arbitrary_value() {
         // 0xABCDEF => R=0xAB(171), G=0xCD(205), B=0xEF(239)
         let mut fb = Framebuffer::new(1, 2).unwrap();
-        fb.set_pixel(0, 0, 0xABCDEF);
-        fb.set_pixel(0, 1, 0xABCDEF);
+        fb.set_pixel(0, 0, 0x00AB_CDEF);
+        fb.set_pixel(0, 1, 0x00AB_CDEF);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 1, 1);
@@ -170,7 +170,7 @@ mod tests {
         // 100x100 framebuffer rendered into 10x5 terminal area
         let mut fb = Framebuffer::new(100, 100).unwrap();
         // Fill entire framebuffer with a known color
-        fb.clear(0x336699);
+        fb.clear(0x0033_6699);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 10, 5);
@@ -196,7 +196,7 @@ mod tests {
     fn single_pixel_framebuffer() {
         // 1x1 framebuffer rendered into a 1x1 area
         let mut fb = Framebuffer::new(1, 1).unwrap();
-        fb.set_pixel(0, 0, 0xDEAD42);
+        fb.set_pixel(0, 0, 0x00DE_AD42);
 
         let widget = FramebufferWidget { framebuffer: &fb };
         let area = Rect::new(0, 0, 1, 1);

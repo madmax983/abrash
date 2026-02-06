@@ -1,4 +1,5 @@
-use abrash::math::{Mat2, Mat4, Vec2, Vec3};
+#![allow(clippy::float_cmp)]
+use abrash::math::{Mat4, Vec2, Vec3};
 
 #[test]
 fn test_vec2_new() {
@@ -28,40 +29,6 @@ fn test_vec2_scale() {
     let v = Vec2::new(2.0, 3.0);
     let result = v * 2.5;
     assert_eq!(result, Vec2::new(5.0, 7.5));
-}
-
-#[test]
-fn test_mat2_rotation() {
-    use std::f32::consts::PI;
-
-    // 90 degree rotation
-    let mat = Mat2::rotation(PI / 2.0);
-    let v = Vec2::new(1.0, 0.0);
-    let result = mat.transform(v);
-
-    // Allow small floating point error
-    assert!((result.x - 0.0).abs() < 0.0001);
-    assert!((result.y - 1.0).abs() < 0.0001);
-}
-
-#[test]
-fn test_rotation_preserves_length() {
-    use std::f32::consts::PI;
-
-    let v = Vec2::new(3.0, 4.0);
-    let original_length = (v.x * v.x + v.y * v.y).sqrt();
-
-    // Test multiple rotation angles
-    for angle in [0.0, PI / 4.0, PI / 2.0, PI, 2.0 * PI] {
-        let mat = Mat2::rotation(angle);
-        let rotated = mat.transform(v);
-        let rotated_length = (rotated.x * rotated.x + rotated.y * rotated.y).sqrt();
-
-        assert!(
-            (original_length - rotated_length).abs() < 0.0001,
-            "Rotation should preserve vector length"
-        );
-    }
 }
 
 #[test]
@@ -181,11 +148,11 @@ fn test_mat4_transform_normal() {
 
 #[test]
 fn test_vec3_normalize_tiny() {
-    let v = Vec3::new(0.000001, 0.0, 0.0);
+    let v = Vec3::new(0.000_001, 0.0, 0.0);
     let n = v.normalize();
     // Specific behavior of this math lib:
     // If length < 0.0001, it returns the vector itself instead of normalizing or returning zero/NaN.
-    assert_eq!(n.x, 0.000001);
+    assert_eq!(n.x, 0.000_001);
 }
 
 #[test]

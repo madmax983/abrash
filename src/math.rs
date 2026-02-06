@@ -73,44 +73,6 @@ impl Mul<f32> for Vec2 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Mat2 {
-    pub m: [[f32; 2]; 2],
-}
-
-impl Mat2 {
-    #[must_use]
-    pub fn rotation(angle: f32) -> Self {
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        Self {
-            m: [[cos, -sin], [sin, cos]],
-        }
-    }
-
-    #[must_use]
-    pub fn transform(&self, v: Vec2) -> Vec2 {
-        Vec2 {
-            x: self.m[0][0] * v.x + self.m[0][1] * v.y,
-            y: self.m[1][0] * v.x + self.m[1][1] * v.y,
-        }
-    }
-
-    /// Transform multiple vectors at once
-    #[must_use]
-    pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        vertices.iter().map(|&v| self.transform(v)).collect()
-    }
-
-    /// Transform vertices in place
-    pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
-        for v in vertices.iter_mut() {
-            *v = self.transform(*v);
-        }
-    }
-}
-
 /// A 3-component vector commonly used for positions, directions, and colors.
 ///
 /// # Examples

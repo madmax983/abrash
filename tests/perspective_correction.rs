@@ -14,7 +14,7 @@ fn test_perspective_distortion() {
     let mut tex = Texture::new(32, 32).unwrap();
     for y in 0..32 {
         let val = (y as f32 / 31.0 * 255.0) as u32;
-        let color = 0xFF000000 | (val << 16) | (val << 8) | val;
+        let color = 0xFF00_0000 | (val << 16) | (val << 8) | val;
         for x in 0..32 {
             tex.set_pixel(x, y, color);
         }
@@ -96,13 +96,12 @@ fn test_perspective_distortion() {
     let pixel_color = fb.get_pixel(pixel_x, pixel_y).unwrap();
     let blue_channel = pixel_color & 0xFF;
 
-    println!("Pixel at (50, 31) Blue channel: {}", blue_channel);
+    println!("Pixel at (50, 31) Blue channel: {blue_channel}");
 
     // With Affine mapping, this will fail.
     // We expect perspective correction to give us a value closer to 51.
     assert!(
         blue_channel < 80,
-        "Pixel value {} is too high, indicating affine mapping (expected < 80, got ~127)",
-        blue_channel
+        "Pixel value {blue_channel} is too high, indicating affine mapping (expected < 80, got ~127)"
     );
 }

@@ -41,6 +41,7 @@ const DEFAULT_REFRESH_HZ: u32 = 60;
 ///
 /// On Windows, queries `EnumDisplaySettingsW` for the primary monitor's refresh rate.
 /// Falls back to `DEFAULT_REFRESH_HZ` on non-Windows or if the query fails.
+#[allow(clippy::missing_const_for_fn)] // Windows implementation uses FFI (unsafe) which is not const-stable
 fn query_refresh_rate() -> u32 {
     #[cfg(target_os = "windows")]
     {

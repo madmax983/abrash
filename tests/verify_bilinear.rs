@@ -8,10 +8,10 @@ fn test_bilinear_interpolation() {
     // Layout:
     // Red   Green
     // Blue  White
-    let c_red = 0xFFFF0000;
-    let c_green = 0xFF00FF00;
-    let c_blue = 0xFF0000FF;
-    let c_white = 0xFFFFFFFF;
+    let c_red = 0xFFFF_0000;
+    let c_green = 0xFF00_FF00;
+    let c_blue = 0xFF00_00FF;
+    let c_white = 0xFFFF_FFFF;
 
     tex.set_pixel(0, 0, c_red);
     tex.set_pixel(1, 0, c_green);
@@ -52,13 +52,9 @@ fn test_bilinear_interpolation() {
     let b = c & 0xFF;
 
     // Allow small error due to integer math
-    assert!((r as i32 - 127).abs() <= 1, "Red expected ~127, got {}", r);
-    assert!(
-        (g as i32 - 127).abs() <= 1,
-        "Green expected ~127, got {}",
-        g
-    );
-    assert!((b as i32 - 127).abs() <= 1, "Blue expected ~127, got {}", b);
+    assert!((r as i32 - 127).abs() <= 1, "Red expected ~127, got {r}");
+    assert!((g as i32 - 127).abs() <= 1, "Green expected ~127, got {g}");
+    assert!((b as i32 - 127).abs() <= 1, "Blue expected ~127, got {b}");
 
     // 4. Horizontal edge between Red and Green (top row)
     // u = 0.5, v = 0.25
@@ -68,11 +64,7 @@ fn test_bilinear_interpolation() {
     let g = (c >> 8) & 0xFF;
     let b = c & 0xFF;
 
-    assert!((r as i32 - 127).abs() <= 1, "Red expected ~127, got {}", r);
-    assert!(
-        (g as i32 - 127).abs() <= 1,
-        "Green expected ~127, got {}",
-        g
-    );
-    assert_eq!(b, 0, "Blue expected 0, got {}", b);
+    assert!((r as i32 - 127).abs() <= 1, "Red expected ~127, got {r}");
+    assert!((g as i32 - 127).abs() <= 1, "Green expected ~127, got {g}");
+    assert_eq!(b, 0, "Blue expected 0, got {b}");
 }
