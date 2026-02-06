@@ -134,7 +134,7 @@ pub fn fill_triangle_3d(
         let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
         let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
         let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
 
         if nz_orig >= 0.0 {
             continue;
@@ -174,9 +174,9 @@ pub fn fill_triangle_3d(
         let vz = p2.z - p0.z;
 
         // Cross product to get normal (A, B, C)
-        let nx = uy.mul_add(vz, -(uz * vy));
+        let nx = uy * vz - uz * vy;
         // let ny = uz * vx - ux * vz;
-        let nz = ux.mul_add(vy, -(uy * vx)); // This is actually 2D cross product of XY (area) of SORTED triangle
+        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area) of SORTED triangle
 
         // dz/dx = -A/C = -nx/nz
         let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
@@ -416,15 +416,15 @@ impl GouraudGradients {
         let vz = p2.z - p0.z;
         let vc = c2 - c0;
 
-        let nz = ux.mul_add(vy, -(uy * vx));
+        let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy.mul_add(vz, -(uz * vy));
+        let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
 
-        let nx_r = uy.mul_add(vc.x, -(uc.x * vy));
-        let nx_g = uy.mul_add(vc.y, -(uc.y * vy));
-        let nx_b = uy.mul_add(vc.z, -(uc.z * vy));
+        let nx_r = uy * vc.x - uc.x * vy;
+        let nx_g = uy * vc.y - uc.y * vy;
+        let nx_b = uy * vc.z - uc.z * vy;
 
         let dr = nx_r * inv_nz;
         let dg = nx_g * inv_nz;
@@ -445,7 +445,7 @@ impl GouraudGradients {
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
         let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        ux.mul_add(vy, -(uy * vx)) > 0.0
+        ux * vy - uy * vx > 0.0
     }
 }
 
@@ -544,7 +544,7 @@ pub fn fill_triangle_gouraud(
         let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
         let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
         let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
 
         if nz_orig >= 0.0 {
             continue;
@@ -910,19 +910,19 @@ impl PerspectiveTextureGradients {
         let vu = u2 - u0;
         let vv = v2 - v0;
 
-        let nz = ux.mul_add(vy, -(uy * vx));
+        let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy.mul_add(vz, -(uz * vy));
+        let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
 
-        let nx_q = uy.mul_add(vq, -(uq * vy));
+        let nx_q = uy * vq - uq * vy;
         let dq_dx = nx_q * inv_nz;
 
-        let nx_u = uy.mul_add(vu, -(uu * vy));
+        let nx_u = uy * vu - uu * vy;
         let du_dx = nx_u * inv_nz;
 
-        let nx_v = uy.mul_add(vv, -(uv * vy));
+        let nx_v = uy * vv - uv * vy;
         let dv_dx = nx_v * inv_nz;
 
         Self {
@@ -1063,9 +1063,9 @@ fn draw_scanline_textured_perspective(
         let count = remaining.min(span_size);
 
         // End values at 'x + count'
-        let q_end = gradients.dq_dx.mul_add(count as f32, q);
-        let u_end = gradients.du_dx.mul_add(count as f32, u);
-        let v_end = gradients.dv_dx.mul_add(count as f32, v);
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
 
         // Perform perspective divide at span endpoints
         let w_end = if q_end.abs() > 0.000_001 {
@@ -1173,7 +1173,7 @@ pub fn fill_triangle_textured(
         let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
         let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
         let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
 
         if nz_orig >= 0.0 {
             continue;
@@ -1232,7 +1232,7 @@ pub fn fill_triangle_textured(
             let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
             let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
             let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux.mul_add(vy, -(uy * vx)) > 0.0;
+            let left = ux * vy - uy * vx > 0.0;
 
             (g, left)
         };

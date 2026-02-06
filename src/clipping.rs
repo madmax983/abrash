@@ -9,15 +9,15 @@ pub trait Lerp: Copy + Clone {
 
 impl Lerp for f32 {
     fn lerp(self, other: Self, t: f32) -> Self {
-        (other - self).mul_add(t, self)
+        self + (other - self) * t
     }
 }
 
 impl Lerp for Vec2 {
     fn lerp(self, other: Self, t: f32) -> Self {
         Self {
-            x: (other.x - self.x).mul_add(t, self.x),
-            y: (other.y - self.y).mul_add(t, self.y),
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
         }
     }
 }
@@ -25,9 +25,9 @@ impl Lerp for Vec2 {
 impl Lerp for Vec3 {
     fn lerp(self, other: Self, t: f32) -> Self {
         Self {
-            x: (other.x - self.x).mul_add(t, self.x),
-            y: (other.y - self.y).mul_add(t, self.y),
-            z: (other.z - self.z).mul_add(t, self.z),
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
         }
     }
 }

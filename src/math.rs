@@ -92,8 +92,8 @@ impl Mat2 {
     #[must_use]
     pub fn transform(&self, v: Vec2) -> Vec2 {
         Vec2 {
-            x: self.m[0][0].mul_add(v.x, self.m[0][1] * v.y),
-            y: self.m[1][0].mul_add(v.x, self.m[1][1] * v.y),
+            x: self.m[0][0] * v.x + self.m[0][1] * v.y,
+            y: self.m[1][0] * v.x + self.m[1][1] * v.y,
         }
     }
 
@@ -143,8 +143,7 @@ impl Vec3 {
     /// *   Negative if pointing in opposite directions.
     #[must_use]
     pub fn dot(&self, other: Self) -> f32 {
-        self.z
-            .mul_add(other.z, self.x.mul_add(other.x, self.y * other.y))
+        self.x * other.x + self.y * other.y + self.z * other.z
     }
 
     /// Calculates the cross product with another vector.
@@ -154,18 +153,16 @@ impl Vec3 {
     #[must_use]
     pub fn cross(&self, other: Self) -> Self {
         Self {
-            x: self.y.mul_add(other.z, -(self.z * other.y)),
-            y: self.z.mul_add(other.x, -(self.x * other.z)),
-            z: self.x.mul_add(other.y, -(self.y * other.x)),
+            x: self.y * other.z - self.z * other.y,
+            y: self.z * other.x - self.x * other.z,
+            z: self.x * other.y - self.y * other.x,
         }
     }
 
     /// Calculates the Euclidean length (magnitude) of the vector.
     #[must_use]
     pub fn length(&self) -> f32 {
-        self.z
-            .mul_add(self.z, self.x.mul_add(self.x, self.y * self.y))
-            .sqrt()
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
     /// Returns a normalized unit vector (length of 1.0).
@@ -390,14 +387,10 @@ impl Mat4 {
     /// The `w` component is used for perspective division.
     #[must_use]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
-        let x =
-            self.m[2][0].mul_add(v.z, self.m[0][0].mul_add(v.x, self.m[1][0] * v.y)) + self.m[3][0];
-        let y =
-            self.m[2][1].mul_add(v.z, self.m[0][1].mul_add(v.x, self.m[1][1] * v.y)) + self.m[3][1];
-        let z =
-            self.m[2][2].mul_add(v.z, self.m[0][2].mul_add(v.x, self.m[1][2] * v.y)) + self.m[3][2];
-        let w =
-            self.m[2][3].mul_add(v.z, self.m[0][3].mul_add(v.x, self.m[1][3] * v.y)) + self.m[3][3];
+        let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
+        let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
+        let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z + self.m[3][2];
+        let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
         (Vec3::new(x, y, z), w)
     }
 
@@ -406,9 +399,9 @@ impl Mat4 {
     /// This is essential for correct lighting calculations after transformation.
     #[must_use]
     pub fn transform_normal(&self, n: Vec3) -> Vec3 {
-        let x = self.m[2][0].mul_add(n.z, self.m[0][0].mul_add(n.x, self.m[1][0] * n.y));
-        let y = self.m[2][1].mul_add(n.z, self.m[0][1].mul_add(n.x, self.m[1][1] * n.y));
-        let z = self.m[2][2].mul_add(n.z, self.m[0][2].mul_add(n.x, self.m[1][2] * n.y));
+        let x = self.m[0][0] * n.x + self.m[1][0] * n.y + self.m[2][0] * n.z;
+        let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
+        let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
         Vec3::new(x, y, z).normalize()
     }
 }
