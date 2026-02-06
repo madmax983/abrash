@@ -2,6 +2,7 @@
 //!
 //! Demonstrates flat shading with directional lighting.
 
+use abrash::camera::Camera;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -56,11 +57,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let face_normals = cube.compute_face_normals();
 
     // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
+    let camera = Camera::new(
         Vec3::new(0.0, 2.0, 4.0),
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
+        PI / 3.0,
+        WIDTH as f32 / HEIGHT as f32,
+        0.1,
+        100.0,
     );
 
     // Lighting setup
@@ -87,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Build model matrix
         let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
-        let mvp = projection * (view * model);
+        let mvp = camera.view_projection_matrix() * model;
 
         // Render each face
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {

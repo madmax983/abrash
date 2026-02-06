@@ -53,8 +53,8 @@
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
 //!
-//! let mut fb = Framebuffer::new(3840, 2160); // 4K resolution
-//! let mut zb = ZBuffer::new(3840, 2160);
+//! let mut fb = Framebuffer::new(3840, 2160).unwrap(); // 4K resolution
+//! let mut zb = ZBuffer::new(3840, 2160).unwrap();
 //! let mut renderer = TileRenderer::new(3840, 2160);
 //!
 //! let triangles: Vec<ClipTriangle> = vec![
@@ -410,8 +410,8 @@ impl TileRenderer {
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
     /// let mut renderer = TileRenderer::new(1920, 1080);
-    /// let mut fb = Framebuffer::new(1920, 1080);
-    /// let mut zb = ZBuffer::new(1920, 1080);
+    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
     ///
     /// let triangles = vec![
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
@@ -573,9 +573,9 @@ impl TileRenderer {
             let cv1 = clipped.tris[base + 1];
             let cv2 = clipped.tris[base + 2];
 
-            let p0_orig = project_to_screen(cv0.0, cv0.1, self.width, self.height);
-            let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
-            let p2_orig = project_to_screen(cv2.0, cv2.1, self.width, self.height);
+            let (p0_orig, _) = project_to_screen(cv0.0, cv0.1, self.width, self.height);
+            let (p1_orig, _) = project_to_screen(cv1.0, cv1.1, self.width, self.height);
+            let (p2_orig, _) = project_to_screen(cv2.0, cv2.1, self.width, self.height);
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
                 continue;

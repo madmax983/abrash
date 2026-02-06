@@ -48,10 +48,10 @@ where
 /// Returns true if the triangle should be culled (ccw winding for front faces).
 #[inline(always)]
 pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-    let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-    let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-    let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-    let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    let ux = p1.x as f32 - p0.x as f32;
+    let uy = p1.y as f32 - p0.y as f32;
+    let vx = p2.x as f32 - p0.x as f32;
+    let vy = p2.y as f32 - p0.y as f32;
     let nz = ux * vy - uy * vx;
     nz >= 0.0
 }
@@ -158,9 +158,9 @@ pub fn fill_triangle_3d(
         let height = fb.height();
 
         // Project to screen
-        let p0_orig = project_to_screen(v0.0, v0.1, width, height);
-        let p1_orig = project_to_screen(v1.0, v1.1, width, height);
-        let p2_orig = project_to_screen(v2.0, v2.1, width, height);
+        let (p0_orig, _) = project_to_screen(v0.0, v0.1, width, height);
+        let (p1_orig, _) = project_to_screen(v1.0, v1.1, width, height);
+        let (p2_orig, _) = project_to_screen(v2.0, v2.1, width, height);
 
         // Backface Culling (on original unsorted vertices)
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -562,9 +562,9 @@ pub fn fill_triangle_gouraud(
         let height = fb.height();
 
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let (p0_orig, _) = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let (p1_orig, _) = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let (p2_orig, _) = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -1232,9 +1232,9 @@ pub fn fill_triangle_textured(
         let height = fb.height();
 
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let (p0_orig, inv_w0) = project_to_screen(v0.0.0, v0.0.1, width, height);
+        let (p1_orig, inv_w1) = project_to_screen(v1.0.0, v1.0.1, width, height);
+        let (p2_orig, inv_w2) = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
         let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
@@ -1249,14 +1249,7 @@ pub fn fill_triangle_textured(
 
         // Prepare perspective attributes: q=1/w, u/w, v/w
         // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
-        let w0 = v0.0.1;
-        let w1 = v1.0.1;
-        let w2 = v2.0.1;
-
-        // Avoid division by zero
-        let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
-        let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
-        let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+        // inv_w is already calculated by project_to_screen
 
         let u0 = v0.1.x * texture.width as f32 * inv_w0;
         let v0_val = v0.1.y * texture.height as f32 * inv_w0;

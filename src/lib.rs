@@ -6,6 +6,7 @@ pub mod rasterizer;
 pub mod time;
 pub mod zbuffer;
 
+pub mod camera;
 pub mod clipping;
 pub mod experimental;
 pub mod hiz_buffer;

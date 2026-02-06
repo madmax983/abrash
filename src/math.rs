@@ -481,8 +481,9 @@ pub struct ScreenPoint {
 }
 
 /// Project a 3D point to screen coordinates
+/// Returns (ScreenPoint, inv_w)
 #[must_use]
-pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
+pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> (ScreenPoint, f32) {
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -493,9 +494,12 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let screen_x = ((ndc_x + 1.0) * 0.5 * width as f32) as i32;
     let screen_y = ((1.0 - ndc_y) * 0.5 * height as f32) as i32; // Flip Y
 
-    ScreenPoint {
-        x: screen_x,
-        y: screen_y,
-        z: depth,
-    }
+    (
+        ScreenPoint {
+            x: screen_x,
+            y: screen_y,
+            z: depth,
+        },
+        inv_w,
+    )
 }

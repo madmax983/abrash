@@ -72,6 +72,10 @@ harness = false
 name = "tile_rendering"
 harness = false
 
+[[bench]]
+name = "camera"
+harness = false
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
