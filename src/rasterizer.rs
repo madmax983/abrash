@@ -776,23 +776,46 @@ impl Texture {
         let x0_raw = u_img_fixed >> 8;
         let y0_raw = v_img_fixed >> 8;
 
-        let x0 = x0_raw.clamp(0, w_i32) as usize;
-        let y0 = y0_raw.clamp(0, h_i32) as usize;
-        let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-        let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+        // Optimization: Fast path for interior pixels to avoid 4 clamps
+        // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
+        let (c00, c10, c01, c11) = if x0_raw >= 0
+            && x0_raw < w_i32
+            && y0_raw >= 0
+            && y0_raw < h_i32
+        {
+            let x0 = x0_raw as usize;
+            let y0 = y0_raw as usize;
+            let width_usize = self.width as usize;
+            let row0 = y0 * width_usize;
+            let row1 = row0 + width_usize; // y0 + 1 is valid
 
-        let width_usize = self.width as usize;
-        let row0 = y0 * width_usize;
-        let row1 = y1 * width_usize;
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x0 + 1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                )
+            }
+        } else {
+            let x0 = x0_raw.clamp(0, w_i32) as usize;
+            let y0 = y0_raw.clamp(0, h_i32) as usize;
+            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
 
-        // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
-        let (c00, c10, c01, c11) = unsafe {
-            (
-                *self.pixels.get_unchecked(row0 + x0),
-                *self.pixels.get_unchecked(row0 + x1),
-                *self.pixels.get_unchecked(row1 + x0),
-                *self.pixels.get_unchecked(row1 + x1),
-            )
+            let width_usize = self.width as usize;
+            let row0 = y0 * width_usize;
+            let row1 = y1 * width_usize;
+
+            // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x1),
+                )
+            }
         };
 
         // Function to blend two colors with weight w using SWAR (SIMD Within A Register)

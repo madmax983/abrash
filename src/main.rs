@@ -34,11 +34,6 @@ struct Demo {
 
 const DEMOS: &[Demo] = &[
     Demo {
-        name: "Retro Cube",
-        description: "3D Cube with Post-processing (Scanlines, Grayscale)",
-        example_name: "retro_cube",
-    },
-    Demo {
         name: "Lit Cube",
         description: "Flat shaded cube with directional lighting",
         example_name: "lit_cube",
@@ -47,16 +42,6 @@ const DEMOS: &[Demo] = &[
         name: "Cube 3D",
         description: "Basic 3D cube rendering",
         example_name: "cube_3d",
-    },
-    Demo {
-        name: "Filled Primitives",
-        description: "2D rasterization testbed",
-        example_name: "filled_primitives",
-    },
-    Demo {
-        name: "Rotating Polygon",
-        description: "2D polygon transformations",
-        example_name: "rotating_polygon",
     },
 ];
 
