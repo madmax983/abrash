@@ -8,3 +8,7 @@
 **[Tuple Obsession in Pipeline]**
 **Learning:** The pipeline was passing raw tuples `(i32, i32, f32)` and manual closures for sorting, leading to duplicated logic and hard-to-read signatures.
 **Action:** Extract domain structs like `ScreenPoint` and sorting helpers early to prevent "Primitive Obsession" from spreading.
+
+**[Rasterizer God Module]**
+**Learning:** `src/rasterizer.rs` has grown to include texture management, multiple rasterization algorithms (flat, gouraud, textured), and interpolation helpers in a single file > 800 lines. This makes it hard to navigate and refactor isolated parts.
+**Action:** Future refactors should prioritize splitting `rasterizer.rs` into submodules: `texture.rs`, `rasterizer/mod.rs` (traits?), and algorithm-specific implementations.

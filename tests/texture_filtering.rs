@@ -8,10 +8,10 @@ fn test_bilinear_filtering() {
     // (0,1) = Black
     // (1,1) = White
     // Vertical stripes
-    texture.set_pixel(0, 0, 0xFF000000);
-    texture.set_pixel(1, 0, 0xFFFFFFFF);
-    texture.set_pixel(0, 1, 0xFF000000);
-    texture.set_pixel(1, 1, 0xFFFFFFFF);
+    texture.set_pixel(0, 0, 0xFF00_0000);
+    texture.set_pixel(1, 0, 0xFFFF_FFFF);
+    texture.set_pixel(0, 1, 0xFF00_0000);
+    texture.set_pixel(1, 1, 0xFFFF_FFFF);
 
     texture.filter_mode = FilterMode::Bilinear;
 
@@ -34,17 +34,14 @@ fn test_bilinear_filtering() {
     // If it was Nearest, it would be either 0 or 255.
     assert!(
         r > 100 && r < 155,
-        "Red component {} should be around 128",
-        r
+        "Red component {r} should be around 128",
     );
     assert!(
         g > 100 && g < 155,
-        "Green component {} should be around 128",
-        g
+        "Green component {g} should be around 128",
     );
     assert!(
         b > 100 && b < 155,
-        "Blue component {} should be around 128",
-        b
+        "Blue component {b} should be around 128",
     );
 }
