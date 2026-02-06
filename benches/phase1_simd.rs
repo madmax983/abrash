@@ -1,14 +1,15 @@
 use abrash::{
-    framebuffer::Framebuffer,
-    hiz_buffer::HiZBuffer,
-    math::Vec3,
-    tile_renderer::TileRenderer,
+    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 /// Generate test triangles for benchmarking
-fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_test_scene(
+    count: usize,
+    width: u32,
+    height: u32,
+) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
     let mut triangles = Vec::new();
 
     for i in 0..count {
@@ -19,7 +20,7 @@ fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<((Vec3, f32
 
         let v0 = (Vec3::new(x, y, depth), 1.0);
         let v1 = (Vec3::new(x + size, y, depth + 0.1), 1.0);
-        let v2 = (Vec3::new(x + size/2.0, y + size, depth + 0.2), 1.0);
+        let v2 = (Vec3::new(x + size / 2.0, y + size, depth + 0.2), 1.0);
 
         let color = 0xFF_00_00_00 | ((i as u32) << 8);
         triangles.push((v0, v1, v2, color));
