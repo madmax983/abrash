@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Clear buffers
-        framebuffer.clear(0xFF1A1A2E); // Dark blue background
+        framebuffer.clear(0xFF1A_1A2E); // Dark blue background
         zbuffer.clear();
 
         // Build model matrix

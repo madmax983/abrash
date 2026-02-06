@@ -1,6 +1,6 @@
 //! 2D Rasterization primitives.
 //!
-//! Software rendering functions for 3D triangles (flat, gouraud, textured).
+//! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
 
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
@@ -40,6 +40,20 @@ where
     if get_y(&verts[0]) > get_y(&verts[1]) {
         verts.swap(0, 1);
     }
+}
+
+/// Checks if a triangle is backfacing (or degenerate)
+///
+/// Uses the 2D cross product of the screen-space edges.
+/// Returns true if the triangle should be culled (ccw winding for front faces).
+#[inline(always)]
+fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
+    let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+    let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+    let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    let nz = ux * vy - uy * vx;
+    nz >= 0.0
 }
 
 /// Draw a single scanline for flat shading with Z-buffering
@@ -130,13 +144,7 @@ pub fn fill_triangle_3d(
         let p2_orig = project_to_screen(v2.0, v2.1, width, height);
 
         // Backface Culling (on original unsorted vertices)
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -540,13 +548,7 @@ pub fn fill_triangle_gouraud(
         let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -664,22 +666,15 @@ pub fn fill_triangle_lit(
     light_dir: Vec3, // Direction the light travels
     light_color: Vec3,
 ) {
-    // Ambient shade: base * ambient
-    let a_r = base_color.x * ambient_color.x;
-    let a_g = base_color.y * ambient_color.y;
-    let a_b = base_color.z * ambient_color.z;
+    // Ambient shade
+    let ambient = base_color * ambient_color;
 
     // Diffuse shade: base * light * max(0, normal . -dir)
     let intensity = normal.dot(light_dir * -1.0).max(0.0);
-    let d_r = base_color.x * light_color.x * intensity;
-    let d_g = base_color.y * light_color.y * intensity;
-    let d_b = base_color.z * light_color.z * intensity;
+    let diffuse = base_color * light_color * intensity;
 
-    let final_color = Vec3::new(
-        (a_r + d_r).min(1.0),
-        (a_g + d_g).min(1.0),
-        (a_b + d_b).min(1.0),
-    );
+    // Combine and clamp (clamping handled by color_to_u32)
+    let final_color = ambient + diffuse;
 
     let color_u32 = color_to_u32(final_color);
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
@@ -689,6 +684,20 @@ pub fn fill_triangle_lit(
 pub enum FilterMode {
     Nearest,
     Bilinear,
+}
+
+/// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
+#[inline(always)]
+const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
+    let rb0 = c0 & 0x00FF_00FF;
+    let ag0 = (c0 >> 8) & 0x00FF_00FF;
+    let rb1 = c1 & 0x00FF_00FF;
+    let ag1 = (c1 >> 8) & 0x00FF_00FF;
+
+    let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF_00FF;
+    let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF_00FF;
+
+    rb | (ag << 8)
 }
 
 /// A simple 2D texture.
@@ -776,18 +785,28 @@ impl Texture {
         let inv_wx = 256 - wx;
         let inv_wy = 256 - wy;
 
-        // Coordinates
-        let w_i32 = self.width as i32 - 1;
-        let h_i32 = self.height as i32 - 1;
-
         // Arithmetic shift preserves sign (floor behavior for negative numbers)
         let x0_raw = u_img_fixed >> 8;
         let y0_raw = v_img_fixed >> 8;
 
+        let (c00, c10, c01, c11) = self.fetch_bilinear_neighbors(x0_raw, y0_raw);
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        // Ensure alpha is 0xFF
+        final_color | 0xFF00_0000
+    }
+
+    #[inline(always)]
+    fn fetch_bilinear_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
+        let w_i32 = self.width as i32 - 1;
+        let h_i32 = self.height as i32 - 1;
+
         // Optimization: Fast path for interior pixels to avoid 4 clamps
         // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
-        let (c00, c10, c01, c11) = if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32
-        {
+        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
             let width_usize = self.width as usize;
@@ -821,28 +840,7 @@ impl Texture {
                     *self.pixels.get_unchecked(row1 + x1),
                 )
             }
-        };
-
-        // Function to blend two colors with weight w using SWAR (SIMD Within A Register)
-        // Blends R/B and A/G in parallel
-        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> u32 {
-            let rb0 = c0 & 0x00FF_00FF;
-            let ag0 = (c0 >> 8) & 0x00FF_00FF;
-            let rb1 = c1 & 0x00FF_00FF;
-            let ag1 = (c1 >> 8) & 0x00FF_00FF;
-
-            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF_00FF;
-            let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF_00FF;
-
-            rb | (ag << 8)
-        };
-
-        let top = blend(c00, c10, wx, inv_wx);
-        let bottom = blend(c01, c11, wx, inv_wx);
-        let final_color = blend(top, bottom, wy, inv_wy);
-
-        // Ensure alpha is 0xFF
-        final_color | 0xFF00_0000
+        }
     }
 
     #[must_use]

@@ -27,5 +27,5 @@ fn test_fill_triangle_3d_overflow_safe() {
 
     // This panicked in debug mode due to overflow when negating i32::MIN and when calculating dx.
     // It should now run safely without panicking.
-    fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFFFFFF);
+    fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFF_FFFF);
 }

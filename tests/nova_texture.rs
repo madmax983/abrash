@@ -14,10 +14,10 @@ fn test_textured_cube_rendering() {
     // (0,0) Red, (1,0) Green
     // (0,1) Blue, (1,1) White
     let mut tex = Texture::new(2, 2).unwrap();
-    tex.set_pixel(0, 0, 0xFFFF0000); // Red
-    tex.set_pixel(1, 0, 0xFF00FF00); // Green
-    tex.set_pixel(0, 1, 0xFF0000FF); // Blue
-    tex.set_pixel(1, 1, 0xFFFFFFFF); // White
+    tex.set_pixel(0, 0, 0xFFFF_0000); // Red
+    tex.set_pixel(1, 0, 0xFF00_FF00); // Green
+    tex.set_pixel(0, 1, 0xFF00_00FF); // Blue
+    tex.set_pixel(1, 1, 0xFFFF_FFFF); // White
 
     // Define a single textured triangle manually
     // 0: (-1, -1, 1), UV(0,0)
@@ -60,7 +60,7 @@ fn test_textured_cube_rendering() {
     let p = fb.get_pixel(6, 6).unwrap();
 
     // Check if it's Green
-    assert_eq!(p, 0xFF00FF00, "Pixel at (6,6) should be Green");
+    assert_eq!(p, 0xFF00_FF00, "Pixel at (6,6) should be Green");
 
     // Let's check a point closer to v0 (Red).
     // v0 is (-1, -1) -> Screen (0, 10) -> UV (0,0).
@@ -70,7 +70,7 @@ fn test_textured_cube_rendering() {
     // UV approx (0.1, 0.1). Texel (0, 0) -> Red.
 
     let p_red = fb.get_pixel(1, 9).unwrap();
-    assert_eq!(p_red, 0xFFFF0000, "Pixel at (1,9) should be Red");
+    assert_eq!(p_red, 0xFFFF_0000, "Pixel at (1,9) should be Red");
 
     // Let's check a point closer to v2 (White).
     // v2 is (1, 1) -> Screen (10, 0) -> UV (1,1).
@@ -80,5 +80,5 @@ fn test_textured_cube_rendering() {
     // UV approx (0.9, 0.9). Texel (1, 1) -> White.
 
     let p_white = fb.get_pixel(9, 1).unwrap();
-    assert_eq!(p_white, 0xFFFFFFFF, "Pixel at (9,1) should be White");
+    assert_eq!(p_white, 0xFFFF_FFFF, "Pixel at (9,1) should be White");
 }

@@ -234,6 +234,17 @@ impl Mul<f32> for Vec3 {
     }
 }
 
+impl Mul for Vec3 {
+    type Output = Self;
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+}
+
 /// A 4x4 transformation matrix used for 3D graphics.
 ///
 /// stored in **Row-Major** order.
