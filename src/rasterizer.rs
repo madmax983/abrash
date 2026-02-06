@@ -4,7 +4,7 @@
 
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, project_to_screen};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -242,27 +242,13 @@ pub fn fill_triangle_3d(
     }
 }
 
-/// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
-pub fn color_to_u32(color: Vec3) -> u32 {
+/// Convert Vec4 color (0.0-1.0 per channel) to u32 ARGB
+pub fn color_to_u32(color: Vec4) -> u32 {
     let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
     let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
     let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
-    0xFF000000 | (r << 16) | (g << 8) | b
-}
-
-/// Helper to pack 8-bit color channels into u32 ARGB
-#[inline(always)]
-fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
-    0xFF000000 | (r << 16) | (g << 8) | b
-}
-
-/// Helper for fast color packing from fixed point.
-#[inline(always)]
-fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
-    pack_color_channels(r, g, b)
+    let a = (color.w.clamp(0.0, 1.0) * 255.0) as u32;
+    (a << 24) | (r << 16) | (g << 8) | b
 }
 
 // Fixed point scale factor (16.16)
@@ -278,9 +264,9 @@ fn draw_scanline_gouraud(
     x_start: i32,
     x_end: i32,
     z_start: f32,
-    c_start: (i64, i64, i64), // Fixed point color
+    c_start: (i64, i64, i64, i64), // Fixed point color (R, G, B, A)
     dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    dc_dx: (i32, i32, i32, i32),
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
@@ -291,7 +277,13 @@ fn draw_scanline_gouraud(
     let mut r_i = c_start.0;
     let mut g_i = c_start.1;
     let mut b_i = c_start.2;
-    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
+    let mut a_i = c_start.3;
+    let (dr, dg, db, da) = (
+        dc_dx.0 as i64,
+        dc_dx.1 as i64,
+        dc_dx.2 as i64,
+        dc_dx.3 as i64,
+    );
 
     // Clamp to screen bounds
     if xs < 0 {
@@ -301,6 +293,7 @@ fn draw_scanline_gouraud(
         r_i += diff_i64 * dr;
         g_i += diff_i64 * dg;
         b_i += diff_i64 * db;
+        a_i += diff_i64 * da;
         xs = 0;
     }
 
@@ -309,51 +302,77 @@ fn draw_scanline_gouraud(
     }
 
     // Optimization: Demote to i32 for the hot loop to reduce register pressure.
-    // We used i64 above to handle large off-screen jumps safely without overflow.
-    // Once on-screen, 16.16 fixed point color fits comfortably in i32.
-    // (Max value ~255 * 65536 = 1.6e7 << i32::MAX)
     let mut r_i = r_i as i32;
     let mut g_i = g_i as i32;
     let mut b_i = b_i as i32;
+    let mut a_i = a_i as i32;
     let dr = dr as i32;
     let dg = dg as i32;
     let db = db as i32;
+    let da = da as i32;
 
     if xs <= xe {
-        // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+        // Optimization: Use slice iterators to avoid index recalculation and bounds checks
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
         let start_idx = y_offset + (xs as usize);
         let end_idx = y_offset + (xe as usize);
 
-        // SAFETY:
-        // 1. xs and xe are clamped to [0, width-1] by the logic above.
-        // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
-        // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
-        // Therefore, the range is valid and within bounds.
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            // Check depth buffer
-            if z < *depth_val {
-                *depth_val = z;
-                // Unpack fixed point color
-                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                // 16.16 fixed point means 255.0 is 0x00FF0000
-                let r = r_i.clamp(0, 0x00FF0000);
-                let g = g_i.clamp(0, 0x00FF0000);
-                let b = b_i.clamp(0, 0x00FF0000);
+            let alpha_shifted = a_i.clamp(0, 0x00FF0000);
+            let alpha = (alpha_shifted >> 16) as u32;
 
-                *pixel = 0xFF000000
-                    | ((r as u32) & 0x00FF0000)
-                    | (((g as u32) & 0x00FF0000) >> 8)
-                    | (((b as u32) & 0x00FF0000) >> 16);
+            if alpha == 255 {
+                // Opaque fast path
+                if z < *depth_val {
+                    *depth_val = z;
+                    let r = r_i.clamp(0, 0x00FF0000);
+                    let g = g_i.clamp(0, 0x00FF0000);
+                    let b = b_i.clamp(0, 0x00FF0000);
+                    *pixel = 0xFF000000
+                        | ((r as u32) & 0x00FF0000)
+                        | (((g as u32) & 0x00FF0000) >> 8)
+                        | (((b as u32) & 0x00FF0000) >> 16);
+                }
+            } else if alpha > 0 {
+                // Transparent blend path
+                // Don't write to Z-buffer
+                if z < *depth_val {
+                    // src components
+                    let r_s = (r_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                    let g_s = (g_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                    let b_s = (b_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                    let src_color = (alpha << 24) | (r_s << 16) | (g_s << 8) | b_s;
+
+                    let dst_color = *pixel;
+
+                    // Blend
+                    // SWAR optimization
+                    // Map alpha 0..255 to 0..256
+                    let a = alpha + (alpha >> 7);
+                    let inv_a = 256 - a;
+
+                    let rb_src = src_color & 0x00FF00FF;
+                    let g_src = src_color & 0x0000FF00;
+                    let rb_dst = dst_color & 0x00FF00FF;
+                    let g_dst = dst_color & 0x0000FF00;
+
+                    let rb = ((rb_src * a + rb_dst * inv_a) >> 8) & 0x00FF00FF;
+                    let g = ((g_src * a + g_dst * inv_a) >> 8) & 0x0000FF00;
+
+                    *pixel = 0xFF000000 | rb | g;
+                }
             }
+            // else alpha == 0: skip
+
             z += dz_dx;
             r_i += dr;
             g_i += dg;
             b_i += db;
+            a_i += da;
         }
     }
 }
@@ -401,7 +420,7 @@ impl EdgeWalker {
 
 struct GouraudGradients {
     dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    dc_dx: (i32, i32, i32, i32), // R, G, B, A
 }
 
 impl GouraudGradients {
@@ -409,9 +428,9 @@ impl GouraudGradients {
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
-        c0: Vec3,
-        c1: Vec3,
-        c2: Vec3,
+        c0: Vec4,
+        c1: Vec4,
+        c2: Vec4,
     ) -> Self {
         let ux = (p1.x as i64 - p0.x as i64) as f32;
         let uy = (p1.y as i64 - p0.y as i64) as f32;
@@ -432,18 +451,21 @@ impl GouraudGradients {
         let nx_r = uy * vc.x - uc.x * vy;
         let nx_g = uy * vc.y - uc.y * vy;
         let nx_b = uy * vc.z - uc.z * vy;
+        let nx_a = uy * vc.w - uc.w * vy;
 
         let dr = nx_r * inv_nz;
         let dg = nx_g * inv_nz;
         let db = nx_b * inv_nz;
+        let da = nx_a * inv_nz;
 
         let dr_i = (dr * FIXED_SCALE) as i32;
         let dg_i = (dg * FIXED_SCALE) as i32;
         let db_i = (db * FIXED_SCALE) as i32;
+        let da_i = (da * FIXED_SCALE) as i32;
 
         Self {
             dz_dx,
-            dc_dx: (dr_i, dg_i, db_i),
+            dc_dx: (dr_i, dg_i, db_i, da_i),
         }
     }
 
@@ -459,14 +481,14 @@ impl GouraudGradients {
 struct GouraudEdgeWalker {
     x: i64,
     z: f32,
-    c: (i64, i64, i64),
+    c: (i64, i64, i64, i64), // R, G, B, A
     dx_dy: i64,
     dz_dy: f32,
-    dc_dy: (i64, i64, i64),
+    dc_dy: (i64, i64, i64, i64),
 }
 
 impl GouraudEdgeWalker {
-    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec4, c_end: Vec4) -> Self {
         let height = (p_end.y as i64 - p_start.y as i64) as f32;
         let (dx_dy, dz_dy, dc_dy) = if height != 0.0 {
             let inv_h = 1.0 / height;
@@ -478,16 +500,18 @@ impl GouraudEdgeWalker {
                     (dc.x * FIXED_SCALE) as i64,
                     (dc.y * FIXED_SCALE) as i64,
                     (dc.z * FIXED_SCALE) as i64,
+                    (dc.w * FIXED_SCALE) as i64,
                 ),
             )
         } else {
-            (0, 0.0, (0, 0, 0))
+            (0, 0.0, (0, 0, 0, 0))
         };
 
         let c_fixed = (
             (c_start.x * FIXED_SCALE) as i64,
             (c_start.y * FIXED_SCALE) as i64,
             (c_start.z * FIXED_SCALE) as i64,
+            (c_start.w * FIXED_SCALE) as i64,
         );
 
         Self {
@@ -506,6 +530,7 @@ impl GouraudEdgeWalker {
         self.c.0 += self.dc_dy.0;
         self.c.1 += self.dc_dy.1;
         self.c.2 += self.dc_dy.2;
+        self.c.3 += self.dc_dy.3;
     }
 
     fn step_n(&mut self, n: i32) {
@@ -516,6 +541,7 @@ impl GouraudEdgeWalker {
         self.c.0 += self.dc_dy.0 * n_i64;
         self.c.1 += self.dc_dy.1 * n_i64;
         self.c.2 += self.dc_dy.2 * n_i64;
+        self.c.3 += self.dc_dy.3 * n_i64;
     }
 }
 
@@ -524,9 +550,9 @@ impl GouraudEdgeWalker {
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec3), // ((position, w), color)
-    v1: ((Vec3, f32), Vec3),
-    v2: ((Vec3, f32), Vec3),
+    v0: ((Vec3, f32), Vec4), // ((position, w), color)
+    v1: ((Vec3, f32), Vec4),
+    v2: ((Vec3, f32), Vec4),
 ) {
     assert_same_dimensions(fb, zb);
 
@@ -635,8 +661,50 @@ pub fn fill_triangle_gouraud(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                if x_start >= 0 && x_start < width_i32 {
+                    let r_i = c_left.0;
+                    let g_i = c_left.1;
+                    let b_i = c_left.2;
+                    let a_i = c_left.3;
+
+                    let alpha_shifted = a_i.clamp(0, 0x00FF0000);
+                    let alpha = (alpha_shifted >> 16) as u32;
+
+                    if alpha == 255 {
+                        if zb.test_and_set(x_start, y, z_left) {
+                            let r = (r_i >> 16).clamp(0, 255) as u32;
+                            let g = (g_i >> 16).clamp(0, 255) as u32;
+                            let b = (b_i >> 16).clamp(0, 255) as u32;
+                            fb.set_pixel(x_start, y, 0xFF000000 | (r << 16) | (g << 8) | b);
+                        }
+                    } else if alpha > 0 {
+                        // Transparent blend path - check Z but don't write
+                        if let Some(current_z) = zb.get_depth(x_start, y) {
+                            if z_left < current_z {
+                                // Need to read pixel from FB to blend
+                                if let Some(dst_color) = fb.get_pixel(x_start, y) {
+                                    let r_s = (r_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                                    let g_s = (g_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                                    let b_s = (b_i.clamp(0, 0x00FF0000) >> 16) as u32;
+                                    let src_color = (alpha << 24) | (r_s << 16) | (g_s << 8) | b_s;
+
+                                    // SWAR Blend
+                                    let a = alpha + (alpha >> 7);
+                                    let inv_a = 256 - a;
+
+                                    let rb_src = src_color & 0x00FF00FF;
+                                    let g_src = src_color & 0x0000FF00;
+                                    let rb_dst = dst_color & 0x00FF00FF;
+                                    let g_dst = dst_color & 0x0000FF00;
+
+                                    let rb = ((rb_src * a + rb_dst * inv_a) >> 8) & 0x00FF00FF;
+                                    let g = ((g_src * a + g_dst * inv_a) >> 8) & 0x0000FF00;
+
+                                    fb.set_pixel(x_start, y, 0xFF000000 | rb | g);
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 draw_scanline_gouraud(
@@ -689,7 +757,7 @@ pub fn fill_triangle_lit(
         (a_b + d_b).min(1.0),
     );
 
-    let color_u32 = color_to_u32(final_color);
+    let color_u32 = color_to_u32(Vec4::new(final_color.x, final_color.y, final_color.z, 1.0));
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 
