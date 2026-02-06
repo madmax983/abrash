@@ -47,11 +47,11 @@ impl PyramidLevel {
 ///
 /// # Example
 /// ```
-/// use abrash::{Framebuffer, ZBuffer, hiz_buffer::HiZBuffer};
+/// use abrash::{framebuffer::Framebuffer, zbuffer::ZBuffer, hiz_buffer::HiZBuffer};
 ///
 /// let width = 800;
 /// let height = 600;
-/// let mut zb = ZBuffer::new(width, height);
+/// let mut zb = ZBuffer::new(width, height).unwrap();
 /// let mut hiz = HiZBuffer::new(width, height);
 ///
 /// // After rendering a frame, build the pyramid
@@ -176,21 +176,9 @@ impl HiZBuffer {
 
     /// Build a single pyramid level via 2×2 min-reduction
     fn build_level(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        // TEMPORARY WORKAROUND: Disable Hi-Z SIMD due to 2.7× performance regression
-        // Profiling revealed excessive shuffle operations (5-6 per 4 pixels) causing
-        // slowdown. Scalar is faster until SIMD shuffle pattern is optimized.
-        // TODO: Optimize horizontal reduction to 3-4 shuffles per 8 pixels
+        // Using scalar implementation as SIMD shuffle overhead outweighed benefits in profiling
+        // (Scalar: ~1 cycle/pixel, SIMD: ~1.2 cycles/pixel due to excessive packing)
         self.build_level_scalar(level_idx, source, source_width);
-
-        // Original SIMD code (disabled):
-        // #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        // {
-        //     self.build_level_simd(level_idx, source, source_width);
-        // }
-        // #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        // {
-        //     self.build_level_scalar(level_idx, source, source_width);
-        // }
     }
 
     /// Scalar 2×2 min-reduction implementation
@@ -225,148 +213,6 @@ impl HiZBuffer {
         }
     }
 
-    /// SIMD 2×2 min-reduction using AVX2 (processes 8 reductions simultaneously)
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    fn build_level_simd(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        #[cfg(target_arch = "x86_64")]
-        {
-            use std::arch::x86_64::*;
-
-            let level_width = self.levels[level_idx as usize].width;
-            let level_height = self.levels[level_idx as usize].height;
-
-            // QUICK FIX: Only use SIMD for wide levels (amortize shuffle overhead)
-            // Profiling showed SIMD is 2.7× slower due to excessive shuffle operations.
-            // For narrow levels (<128 pixels), scalar is faster.
-            const SIMD_WIDTH_THRESHOLD: u32 = 128;
-            if level_width < SIMD_WIDTH_THRESHOLD {
-                return self.build_level_scalar(level_idx, source, source_width);
-            }
-
-            // Process 4 output pixels at a time for simpler shuffle logic
-            let simd_width = 4;
-
-            for y in 0..level_height {
-                let mut x = 0;
-
-                // SIMD loop: process 4 output pixels at once
-                while x + simd_width <= level_width {
-                    let src_x = (x * 2) as usize;
-                    let src_y = (y * 2) as usize;
-                    let src_width_usize = source_width as usize;
-
-                    unsafe {
-                        // For 4 output pixels, we need 8 source values per row
-                        // Each 2×2 reduction: (i, i+1) from row0 and row1
-                        let row0_idx = src_y * src_width_usize + src_x;
-                        let row1_idx = (src_y + 1) * src_width_usize + src_x;
-
-                        // Bounds check
-                        if row0_idx + 8 <= source.len() && row1_idx + 8 <= source.len() {
-                            // Load 8 values from each row into 256-bit registers
-                            let row0 = _mm256_loadu_ps(source.as_ptr().add(row0_idx));
-                            let row1 = _mm256_loadu_ps(source.as_ptr().add(row1_idx));
-
-                            // Vertical min: min(row0, row1)
-                            let min_vert = _mm256_min_ps(row0, row1);
-
-                            // Horizontal min: reduce adjacent pairs
-                            // min_vert: [v0, v1, v2, v3, v4, v5, v6, v7]
-                            // Want: [min(v0,v1), min(v2,v3), min(v4,v5), min(v6,v7), ...]
-
-                            // Shuffle to align adjacent elements
-                            // Create [v0,v0,v2,v2,v4,v4,v6,v6] and [v1,v1,v3,v3,v5,v5,v7,v7]
-                            let evens = _mm256_shuffle_ps(min_vert, min_vert, 0b10_10_00_00);
-                            let odds = _mm256_shuffle_ps(min_vert, min_vert, 0b11_11_01_01);
-
-                            // Min of pairs: [min01, min01, min23, min23, min45, min45, min67, min67]
-                            let min_pairs = _mm256_min_ps(evens, odds);
-
-                            // Extract unique values: indices 0,2,4,6
-                            // Use shuffle to pack results
-                            let packed = _mm256_shuffle_ps(min_pairs, min_pairs, 0b10_00_10_00);
-                            // packed: [min01, min23, min01, min23, min45, min67, min45, min67]
-
-                            // Permute across lanes to get final result
-                            // Extract lower 2 from lower lane and lower 2 from upper lane
-                            let lower_128 = _mm256_castps256_ps128(packed); // [min01, min23, *, *]
-                            let upper_128 = _mm256_extractf128_ps(packed, 1); // [min45, min67, *, *]
-
-                            // Combine into single 128-bit register
-                            let result_128 = _mm_shuffle_ps(lower_128, upper_128, 0b01_00_01_00);
-                            // result_128: [min01, min23, min45, min67]
-
-                            // Store 4 results
-                            let dst_idx = (y * level_width + x) as usize;
-                            _mm_storeu_ps(
-                                self.levels[level_idx as usize]
-                                    .depths
-                                    .as_mut_ptr()
-                                    .add(dst_idx),
-                                result_128,
-                            );
-                        } else {
-                            // Fallback to scalar for boundary cases
-                            for i in 0..simd_width {
-                                if x + i >= level_width {
-                                    break;
-                                }
-                                self.build_level_scalar_single(
-                                    level_idx,
-                                    source,
-                                    source_width,
-                                    x + i,
-                                    y,
-                                );
-                            }
-                        }
-                    }
-
-                    x += simd_width;
-                }
-
-                // Scalar tail for remaining pixels
-                while x < level_width {
-                    self.build_level_scalar_single(level_idx, source, source_width, x, y);
-                    x += 1;
-                }
-            }
-        }
-    }
-
-    /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
-    #[inline]
-    fn build_level_scalar_single(
-        &mut self,
-        level_idx: u32,
-        source: &[f32],
-        source_width: u32,
-        x: u32,
-        y: u32,
-    ) {
-        let src_x = (x * 2) as usize;
-        let src_y = (y * 2) as usize;
-        let source_width_usize = source_width as usize;
-
-        // Sample 2×2 quad from previous level
-        let d00 = source[src_y * source_width_usize + src_x];
-        let d10 = source
-            .get(src_y * source_width_usize + src_x + 1)
-            .copied()
-            .unwrap_or(d00);
-        let d01 = source
-            .get((src_y + 1) * source_width_usize + src_x)
-            .copied()
-            .unwrap_or(d00);
-        let d11 = source
-            .get((src_y + 1) * source_width_usize + src_x + 1)
-            .copied()
-            .unwrap_or(d00);
-
-        let min_depth = d00.min(d10).min(d01).min(d11);
-        let level_width = self.levels[level_idx as usize].width;
-        self.levels[level_idx as usize].depths[(y * level_width + x) as usize] = min_depth;
-    }
 
     /// Test if an AABB is potentially visible
     ///

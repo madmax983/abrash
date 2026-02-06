@@ -53,8 +53,8 @@
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
 //!
-//! let mut fb = Framebuffer::new(3840, 2160); // 4K resolution
-//! let mut zb = ZBuffer::new(3840, 2160);
+//! let mut fb = Framebuffer::new(3840, 2160).unwrap(); // 4K resolution
+//! let mut zb = ZBuffer::new(3840, 2160).unwrap();
 //! let mut renderer = TileRenderer::new(3840, 2160);
 //!
 //! let triangles: Vec<ClipTriangle> = vec![
@@ -74,94 +74,6 @@ use crate::math::{ScreenPoint, Vec3, project_to_screen};
 use crate::rasterizer::{EdgeWalker, is_backface, sort_by_y};
 use crate::zbuffer::ZBuffer;
 
-/// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
-///
-/// This provides sub-pixel precision while using deterministic integer arithmetic.
-/// The 24-bit integer part supports coordinates up to 16,777,215 pixels (well beyond 4K).
-///
-/// # Benefits over floating-point
-///
-/// - **Deterministic**: No floating-point rounding issues, always pixel-identical results
-/// - **Faster**: Integer ALU operations are faster than float on most CPUs
-/// - **Better SIMD**: AVX2 can process 16 i32 values vs 8 f32 values per instruction
-///
-/// # Format
-///
-/// - Fixed-point scale factor: 256 (2^8)
-/// - Conversion: `fixed = (float * 256.0) as i32`
-/// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct VertexFixed {
-    x: i32, // 24.8 fixed point
-    y: i32, // 24.8 fixed point
-    z: f32, // Keep depth as float for zbuffer compatibility
-}
-
-impl VertexFixed {
-    /// Convert a `ScreenPoint` to fixed-point coordinates.
-    ///
-    /// # Format
-    ///
-    /// The integer screen coordinates are shifted left by 8 bits to create the
-    /// 24.8 fixed-point representation. For example:
-    /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
-    #[inline]
-    fn from_screen_point(p: ScreenPoint) -> Self {
-        Self {
-            x: p.x << 8, // Convert to 24.8 fixed point
-            y: p.y << 8,
-            z: p.z, // Keep z as float
-        }
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_x(self) -> i32 {
-        self.x >> 8
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_y(self) -> i32 {
-        self.y >> 8
-    }
-}
-
-/// Compute fixed-point edge function for triangle rasterization.
-///
-/// The edge function computes the signed area of the parallelogram formed by
-/// vectors (p - v0) and (v1 - v0). It's used to determine if a point is inside
-/// a triangle.
-///
-/// # Returns
-///
-/// - Positive if point p is on the "right" side of edge v0→v1
-/// - Negative if point p is on the "left" side
-/// - Zero if point p is exactly on the edge
-///
-/// # Format
-///
-/// Input coordinates are in 24.8 fixed-point. The result is in 16.16 fixed-point
-/// due to the multiplication of two 24.8 values:
-/// - (24.8) * (24.8) = (48.16) → truncated to i32 preserves upper 32 bits
-///
-/// This is intentional - we only care about the sign for edge testing, not the
-/// exact magnitude.
-#[inline(always)]
-const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
-    // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
-    // All coordinates are 24.8 fixed point
-    let dx = px - v0.x;
-    let dy = py - v0.y;
-    let edge_dx = v1.x - v0.x;
-    let edge_dy = v1.y - v0.y;
-
-    // Multiply: (24.8) * (24.8) = (48.16)
-    // The i32 result keeps the upper 32 bits, giving us 16.16 fixed point
-    // This is fine for edge testing - we only care about the sign
-    (dx as i64 * edge_dy as i64 - dy as i64 * edge_dx as i64) as i32
-}
 
 #[cfg(feature = "parallel")]
 /// Wrapper for raw pointers to enable thread-safe parallel writes to non-overlapping regions.
@@ -200,10 +112,6 @@ struct PreparedTriangle {
     p0: ScreenPoint,
     p1: ScreenPoint,
     p2: ScreenPoint,
-    // Fixed-point vertices for deterministic edge function evaluation
-    p0_fixed: VertexFixed,
-    p1_fixed: VertexFixed,
-    p2_fixed: VertexFixed,
     dz_dx: f32,
     long_edge_is_left: bool,
     color: u32,
@@ -362,24 +270,21 @@ fn render_triangle_in_tile(
                 let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
                 let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
 
-                #[cfg(feature = "simd")]
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
-                    // TEMPORARY WORKAROUND: Disable scanline SIMD due to performance regression
-                    // Even with adaptive threshold, SIMD is 3.8× slower than scalar.
-                    // Possible issues: SIMD not executing correctly, or overhead dominates
-                    // TODO: Debug why SIMD isn't providing expected 6-7× speedup
-                    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+                    // Adaptive SIMD execution with runtime feature detection
+                    const SIMD_SCANLINE_THRESHOLD: usize = 32;
 
-                    // Original adaptive code (disabled):
-                    // const SIMD_SCANLINE_THRESHOLD: usize = 32;
-                    // if pixels.len() >= SIMD_SCANLINE_THRESHOLD {
-                    //     rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
-                    // } else {
-                    //     rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-                    // }
+                    // We need to check both the threshold and CPU support
+                    if pixels.len() >= SIMD_SCANLINE_THRESHOLD && std::is_x86_feature_detected!("avx2") {
+                        // SAFETY: We verified AVX2 support above and indices are within bounds
+                        unsafe { rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color) };
+                    } else {
+                        rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+                    }
                 }
 
-                #[cfg(not(feature = "simd"))]
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
                 {
                     rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
                 }
@@ -411,8 +316,8 @@ fn rasterize_scanline_scalar(
 
 /// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[inline(always)]
-fn rasterize_scanline_simd(
+#[target_feature(enable = "avx2")]
+unsafe fn rasterize_scanline_simd(
     pixels: &mut [u32],
     depths: &mut [f32],
     z_at_xs: f32,
@@ -424,46 +329,59 @@ fn rasterize_scanline_simd(
     let len = pixels.len();
     let mut i = 0;
 
-    unsafe {
-        // Setup: depth increment vector (dz_dx repeated 8 times) and stride (8*dz_dx repeated 8 times)
-        let dz_dx_vec = _mm256_set1_ps(dz_dx);
-        let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
+    // Setup: depth increment vector (dz_dx repeated 8 times) and stride (8*dz_dx repeated 8 times)
+    let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
 
-        // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
-        let mut depths_vec = _mm256_set_ps(
-            z_at_xs + 7.0 * dz_dx,
-            z_at_xs + 6.0 * dz_dx,
-            z_at_xs + 5.0 * dz_dx,
-            z_at_xs + 4.0 * dz_dx,
-            z_at_xs + 3.0 * dz_dx,
-            z_at_xs + 2.0 * dz_dx,
-            z_at_xs + 1.0 * dz_dx,
-            z_at_xs,
-        );
+    // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
+    // Note: set_ps takes arguments in reverse order (e7, e6, ..., e0)
+    let mut depths_vec = _mm256_set_ps(
+        z_at_xs + 7.0 * dz_dx,
+        z_at_xs + 6.0 * dz_dx,
+        z_at_xs + 5.0 * dz_dx,
+        z_at_xs + 4.0 * dz_dx,
+        z_at_xs + 3.0 * dz_dx,
+        z_at_xs + 2.0 * dz_dx,
+        z_at_xs + 1.0 * dz_dx,
+        z_at_xs,
+    );
 
-        let color_vec = _mm256_set1_epi32(color as i32);
+    let color_vec = _mm256_set1_epi32(color as i32);
+    // Convert color to float vector for blendv_ps
+    let color_vec_ps = _mm256_castsi256_ps(color_vec);
 
-        // Process 8 pixels at a time with AVX2
-        while i + 8 <= len {
-            // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
-            let zb_vals = _mm256_loadu_ps(zb_ptr);
+    // Process 8 pixels at a time with AVX2
+    while i + 8 <= len {
+        // SAFETY: Pointer arithmetic and SIMD intrinsics are safe given loop bounds and AVX2 context
+        unsafe {
+            // Load current zbuffer values
+            let zb_ptr = depths.as_mut_ptr().add(i);
+            let current_depths = _mm256_loadu_ps(zb_ptr);
 
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
+            // Compare: new_depth < current_depth
+            // _CMP_LT_OQ: Less-than (ordered, non-signaling)
+            let mask = _mm256_cmp_ps(depths_vec, current_depths, _CMP_LT_OQ);
 
-            // Conditional depth write via masked store
-            let depths_mut_ptr = depths.as_mut_ptr().add(i);
-            _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
+            // Blend depths: if mask (new < current) is true, take new depth, else keep current
+            let final_depths = _mm256_blendv_ps(current_depths, depths_vec, mask);
 
-            // Conditional color write
+            // Store updated depths (unaligned store is much faster than maskstore)
+            _mm256_storeu_ps(zb_ptr, final_depths);
+
+            // Update pixels
             let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
-            _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
+            let current_pixels_i = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+            let current_pixels = _mm256_castsi256_ps(current_pixels_i);
 
-            // Increment depths by stride (8*dz_dx) for next iteration
+            // Blend colors
+            let final_pixels = _mm256_blendv_ps(current_pixels, color_vec_ps, mask);
+
+            // Store updated pixels
+            _mm256_storeu_si256(pixels_ptr as *mut __m256i, _mm256_castps_si256(final_pixels));
+
+            // Increment depths for next iteration
             depths_vec = _mm256_add_ps(depths_vec, stride_vec);
-            i += 8;
         }
+        i += 8;
     }
 
     // Handle remaining pixels with scalar fallback
@@ -615,8 +533,8 @@ impl TileRenderer {
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
     /// let mut renderer = TileRenderer::new(1920, 1080);
-    /// let mut fb = Framebuffer::new(1920, 1080);
-    /// let mut zb = ZBuffer::new(1920, 1080);
+    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
     ///
     /// let triangles = vec![
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
@@ -822,18 +740,10 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            // Convert to fixed-point for deterministic edge functions
-            let p0_fixed = VertexFixed::from_screen_point(p0);
-            let p1_fixed = VertexFixed::from_screen_point(p1);
-            let p2_fixed = VertexFixed::from_screen_point(p2);
-
             self.prepared.push(PreparedTriangle {
                 p0,
                 p1,
                 p2,
-                p0_fixed,
-                p1_fixed,
-                p2_fixed,
                 dz_dx,
                 long_edge_is_left,
                 color,
@@ -1552,126 +1462,8 @@ mod tests {
         assert!(!should_use_tiled_rendering(3840, 2160, 101));
     }
 
-    // --- Fixed-point arithmetic tests ---
-
     #[test]
-    fn vertex_fixed_conversion() {
-        // Test conversion from ScreenPoint to VertexFixed
-        let p = ScreenPoint {
-            x: 100,
-            y: 200,
-            z: 5.0,
-        };
-
-        let fixed = VertexFixed::from_screen_point(p);
-
-        // 24.8 fixed point: value << 8
-        assert_eq!(fixed.x, 100 << 8); // 25600
-        assert_eq!(fixed.y, 200 << 8); // 51200
-        assert_eq!(fixed.z, 5.0);
-
-        // Test conversion back to pixel coordinates
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-    }
-
-    #[test]
-    fn vertex_fixed_subpixel_precision() {
-        // Test that 24.8 format supports sub-pixel precision
-        let fixed = VertexFixed {
-            x: (100 << 8) + 128, // 100.5 in 24.8 format (128 = 256/2)
-            y: (200 << 8) + 64,  // 200.25 in 24.8 format (64 = 256/4)
-            z: 1.0,
-        };
-
-        // Integer part should round down
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-
-        // Verify the fractional parts are preserved
-        assert_eq!(fixed.x & 0xFF, 128); // 0.5 * 256 = 128
-        assert_eq!(fixed.y & 0xFF, 64); // 0.25 * 256 = 64
-    }
-
-    #[test]
-    fn edge_function_fixed_correctness() {
-        // Create a simple CCW triangle with vertices at (0, 0), (100, 0), (50, 100)
-        // Winding: v0→v1 is right, v1→v2 is up-left, v2→v0 is down-left → CCW when viewed from top-down
-        let v0 = VertexFixed { x: 0, y: 0, z: 1.0 };
-        let v1 = VertexFixed {
-            x: 100 << 8,
-            y: 0,
-            z: 1.0,
-        };
-        let v2 = VertexFixed {
-            x: 50 << 8,
-            y: 100 << 8,
-            z: 1.0,
-        };
-
-        // Test point inside triangle (50, 50)
-        let inside_x = 50 << 8;
-        let inside_y = 50 << 8;
-
-        // For edge function, all three should have consistent sign for inside points
-        let e0 = edge_function_fixed(inside_x, inside_y, v0, v1);
-        let e1 = edge_function_fixed(inside_x, inside_y, v1, v2);
-        let e2 = edge_function_fixed(inside_x, inside_y, v2, v0);
-
-        // All should have the same sign (either all positive or all negative) for point inside
-        // This triangle is actually CW in screen space (Y increases downward), so edges will be negative
-        let all_same_sign = (e0 < 0 && e1 < 0 && e2 < 0) || (e0 > 0 && e1 > 0 && e2 > 0);
-        assert!(
-            all_same_sign,
-            "Point inside triangle should have consistent edge signs: e0={e0}, e1={e1}, e2={e2}"
-        );
-
-        // Test point outside triangle (200, 50) - far to the right
-        let outside_x = 200 << 8;
-        let outside_y = 50 << 8;
-
-        let e0_out = edge_function_fixed(outside_x, outside_y, v0, v1);
-        let e1_out = edge_function_fixed(outside_x, outside_y, v1, v2);
-        let e2_out = edge_function_fixed(outside_x, outside_y, v2, v0);
-
-        // At least one edge function should have opposite sign for outside point
-        let all_same_sign_out =
-            (e0_out < 0 && e1_out < 0 && e2_out < 0) || (e0_out > 0 && e1_out > 0 && e2_out > 0);
-        assert!(
-            !all_same_sign_out,
-            "Point outside triangle should not have consistent edge signs"
-        );
-    }
-
-    #[test]
-    fn edge_function_fixed_deterministic() {
-        // Fixed-point should give identical results for same inputs
-        let v0 = VertexFixed {
-            x: 10 << 8,
-            y: 20 << 8,
-            z: 1.0,
-        };
-        let v1 = VertexFixed {
-            x: 30 << 8,
-            y: 40 << 8,
-            z: 1.0,
-        };
-
-        let px = 25 << 8;
-        let py = 35 << 8;
-
-        // Call multiple times
-        let result1 = edge_function_fixed(px, py, v0, v1);
-        let result2 = edge_function_fixed(px, py, v0, v1);
-        let result3 = edge_function_fixed(px, py, v0, v1);
-
-        // Should be identical (deterministic)
-        assert_eq!(result1, result2);
-        assert_eq!(result2, result3);
-    }
-
-    #[test]
-    fn fixed_point_triangle_rendering_matches_float() {
+    fn tile_renderer_matches_fill_triangle_3d() {
         // Verify that triangles prepared with fixed-point vertices still render correctly
         let width = 100;
         let height = 100;
