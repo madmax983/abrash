@@ -480,9 +480,28 @@ pub struct ScreenPoint {
     pub z: f32,
 }
 
-/// Project a 3D point to screen coordinates
+/// Project a 3D point to screen coordinates.
+///
+/// This version discards the calculated `inv_w` (1.0 / w) which is often needed
+/// for perspective correct interpolation.
 #[must_use]
+#[inline]
 pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
+    project_to_screen_with_inv_w(v, w, width, height).0
+}
+
+/// Project a 3D point to screen coordinates and return the inverse W component.
+///
+/// The `inv_w` component is returned to avoid recalculating it (division is expensive)
+/// during rasterization setup (e.g. for perspective correct texture mapping).
+#[must_use]
+#[inline]
+pub(crate) fn project_to_screen_with_inv_w(
+    v: Vec3,
+    w: f32,
+    width: u32,
+    height: u32,
+) -> (ScreenPoint, f32) {
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -493,9 +512,12 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let screen_x = ((ndc_x + 1.0) * 0.5 * width as f32) as i32;
     let screen_y = ((1.0 - ndc_y) * 0.5 * height as f32) as i32; // Flip Y
 
-    ScreenPoint {
-        x: screen_x,
-        y: screen_y,
-        z: depth,
-    }
+    (
+        ScreenPoint {
+            x: screen_x,
+            y: screen_y,
+            z: depth,
+        },
+        inv_w,
+    )
 }

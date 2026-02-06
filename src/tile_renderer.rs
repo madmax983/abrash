@@ -53,8 +53,8 @@
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
 //!
-//! let mut fb = Framebuffer::new(3840, 2160); // 4K resolution
-//! let mut zb = ZBuffer::new(3840, 2160);
+//! let mut fb = Framebuffer::new(3840, 2160).unwrap(); // 4K resolution
+//! let mut zb = ZBuffer::new(3840, 2160).unwrap();
 //! let mut renderer = TileRenderer::new(3840, 2160);
 //!
 //! let triangles: Vec<ClipTriangle> = vec![
@@ -105,9 +105,9 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
-    fn from_screen_point(p: ScreenPoint) -> Self {
+    const fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
             x: p.x << 8, // Convert to 24.8 fixed point
             y: p.y << 8,
@@ -615,8 +615,8 @@ impl TileRenderer {
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
     /// let mut renderer = TileRenderer::new(1920, 1080);
-    /// let mut fb = Framebuffer::new(1920, 1080);
-    /// let mut zb = ZBuffer::new(1920, 1080);
+    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
     ///
     /// let triangles = vec![
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
@@ -957,7 +957,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
