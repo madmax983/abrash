@@ -1,4 +1,4 @@
-use abrash::rasterizer::Texture;
+use abrash::texture::Texture;
 use proptest::prelude::*;
 
 proptest! {
@@ -17,7 +17,7 @@ proptest! {
 
         if let Ok(Ok(tex)) = res {
             let logical_size = (w as u64) * (h as u64);
-            let actual_size = tex.pixels.len() as u64;
+            let actual_size = tex.pixels().len() as u64;
 
             // This assertion MUST fail if the vulnerability exists
             assert_eq!(logical_size, actual_size,

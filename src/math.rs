@@ -455,3 +455,56 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
         z: depth,
     }
 }
+
+pub trait Lerp: Copy + Clone {
+    #[must_use]
+    fn lerp(self, other: Self, t: f32) -> Self;
+}
+
+// Implement Lerp for primitive types
+
+impl Lerp for f32 {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        self + (other - self) * t
+    }
+}
+
+impl Lerp for Vec2 {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+}
+
+impl Lerp for Vec3 {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+}
+
+// For (Vec3, f32) - Position and W
+impl Lerp for (Vec3, f32) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
+    }
+}
+
+// For ((Vec3, f32), Vec3) - Pos+W, Color
+impl Lerp for ((Vec3, f32), Vec3) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
+    }
+}
+
+// For ((Vec3, f32), Vec2) - Pos+W, UV
+impl Lerp for ((Vec3, f32), Vec2) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
+    }
+}

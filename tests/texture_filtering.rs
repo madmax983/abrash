@@ -1,4 +1,4 @@
-use abrash::rasterizer::{FilterMode, Texture};
+use abrash::texture::{FilterMode, Texture};
 
 #[test]
 fn test_bilinear_filtering() {
@@ -13,7 +13,7 @@ fn test_bilinear_filtering() {
     texture.set_pixel(0, 1, 0xFF000000);
     texture.set_pixel(1, 1, 0xFFFFFFFF);
 
-    texture.filter_mode = FilterMode::Bilinear;
+    texture.set_filter_mode(FilterMode::Bilinear);
 
     // Sample exactly between the two columns (u=0.5)
     // In normalized coords [0,1], pixel centers are at:

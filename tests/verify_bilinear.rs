@@ -1,9 +1,9 @@
-use abrash::rasterizer::{FilterMode, Texture};
+use abrash::texture::{FilterMode, Texture};
 
 #[test]
 fn test_bilinear_interpolation() {
     let mut tex = Texture::new(2, 2).unwrap();
-    tex.filter_mode = FilterMode::Bilinear;
+    tex.set_filter_mode(FilterMode::Bilinear);
 
     // Layout:
     // Red   Green

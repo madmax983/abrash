@@ -1,4 +1,4 @@
-use abrash::rasterizer::Texture;
+use abrash::texture::Texture;
 
 #[test]
 fn test_texture_overflow() {
