@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
 
     if let Err(err) = res {
-        println!("{:?}", err);
+        println!("{err:?}");
     }
 
     Ok(())
@@ -92,13 +92,13 @@ struct App {
 }
 
 impl App {
-    fn new() -> App {
+    fn new() -> Self {
         let mut state = ListState::default();
         state.select(Some(0));
-        App { state }
+        Self { state }
     }
 
-    fn next(&mut self) {
+    const fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= DEMOS.len() - 1 {
@@ -112,7 +112,7 @@ impl App {
         self.state.select(Some(i));
     }
 
-    fn previous(&mut self) {
+    const fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
@@ -226,7 +226,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("Launching {}...", name);
+    println!("Launching {name}...");
     let mut child = Command::new("cargo")
         .arg("run")
         .arg("--release")
@@ -237,7 +237,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if !status.success() {
-        eprintln!("Demo exited with error: {}", status);
+        eprintln!("Demo exited with error: {status}");
     }
 
     Ok(())

@@ -1,11 +1,19 @@
 // Win32 platform implementation
 
 use std::ptr::null_mut;
-use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::Graphics::Dwm::DwmFlush;
-use windows_sys::Win32::Graphics::Gdi::*;
-use windows_sys::Win32::System::LibraryLoader::*;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows_sys::Win32::Graphics::Gdi::{
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, GetDC, RGBQUAD, ReleaseDC, SRCCOPY,
+    StretchDIBits,
+};
+use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    CS_HREDRAW, CS_OWNDC, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW,
+    DestroyWindow, DispatchMessageW, HMENU, IDC_ARROW, LoadCursorW, MSG, PM_REMOVE, PeekMessageW,
+    PostQuitMessage, RegisterClassW, TranslateMessage, WM_CLOSE, WM_DESTROY, WM_QUIT, WNDCLASSW,
+    WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+};
 
 use super::{Event, WindowBackend, WindowError};
 use crate::framebuffer::Framebuffer;
@@ -87,16 +95,13 @@ impl WindowBackend for Win32Window {
         unsafe {
             let mut msg: MSG = std::mem::zeroed();
 
-            while PeekMessageW(&mut msg, null_mut() as HWND, 0, 0, PM_REMOVE) != 0 {
-                match msg.message {
-                    WM_QUIT => {
-                        self.is_open = false;
-                        events.push(Event::Close);
-                    }
-                    _ => {
-                        TranslateMessage(&msg);
-                        DispatchMessageW(&msg);
-                    }
+            while PeekMessageW(&raw mut msg, null_mut() as HWND, 0, 0, PM_REMOVE) != 0 {
+                if msg.message == WM_QUIT {
+                    self.is_open = false;
+                    events.push(Event::Close);
+                } else {
+                    TranslateMessage(&raw const msg);
+                    DispatchMessageW(&raw const msg);
                 }
             }
         }
@@ -140,8 +145,8 @@ impl WindowBackend for Win32Window {
                 0,
                 framebuffer.width() as i32,
                 framebuffer.height() as i32,
-                framebuffer.as_slice().as_ptr() as *const _,
-                &bmi,
+                framebuffer.as_slice().as_ptr().cast(),
+                &raw const bmi,
                 DIB_RGB_COLORS,
                 SRCCOPY,
             );
@@ -168,7 +173,7 @@ unsafe fn register_window_class(hinstance: HINSTANCE, class_name: &[u16]) -> boo
         lpszClassName: class_name.as_ptr(),
     };
 
-    unsafe { RegisterClassW(&wc) != 0 }
+    unsafe { RegisterClassW(&raw const wc) != 0 }
 }
 
 unsafe extern "system" fn window_proc(

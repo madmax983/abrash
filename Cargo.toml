@@ -65,3 +65,21 @@ harness = false
 [[bench]]
 name = "culling"
 harness = false
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Deliberate rasterizer/math casts — these are intentional in graphics code
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+# Math convention names (ux/uy/vx/vy, r/g/b, x/y/z/w)
+similar_names = "allow"
+many_single_char_names = "allow"
+# Deliberate hot-path scanline inlining
+inline_always = "allow"
+# Complex rasterizer functions are inherently long
+too_many_lines = "allow"
+# Gradient struct dx/dy postfix is descriptive
+struct_field_names = "allow"

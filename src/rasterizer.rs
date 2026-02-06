@@ -63,7 +63,7 @@ fn draw_scanline_flat(
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z += (-(xs as i64)) as f32 * dz_dx;
+        z += (-i64::from(xs)) as f32 * dz_dx;
         xs = 0;
     }
 
@@ -130,11 +130,11 @@ pub fn fill_triangle_3d(
         let p2_orig = project_to_screen(v2.0, v2.1, width, height);
 
         // Backface Culling (on original unsorted vertices)
-        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
-        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
-        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
-        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
+        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
+        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
+        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
+        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
 
         if nz_orig >= 0.0 {
             continue;
@@ -146,7 +146,7 @@ pub fn fill_triangle_3d(
         let [p0, p1, p2] = verts;
 
         // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
-        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
             continue;
         }
@@ -165,18 +165,18 @@ pub fn fill_triangle_3d(
         // Plane equation: Ax + By + Cz + D = 0
         // vectors p0->p1 and p0->p2
         // Use i64 for coordinate differences to prevent overflow with extreme coordinates
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
 
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
 
         // Cross product to get normal (A, B, C)
-        let nx = uy * vz - uz * vy;
+        let nx = uy.mul_add(vz, -(uz * vy));
         // let ny = uz * vx - ux * vz;
-        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area) of SORTED triangle
+        let nz = ux.mul_add(vy, -(uy * vx)); // This is actually 2D cross product of XY (area) of SORTED triangle
 
         // dz/dx = -A/C = -nx/nz
         let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
@@ -212,21 +212,13 @@ pub fn fill_triangle_3d(
                 edge_b = EdgeWalker::new(p1, p2);
             }
 
-            let x_start;
-            let x_end;
-            let z_left;
-
-            if long_edge_is_left {
-                x_start = (edge_a.x >> 16) as i32;
-                x_end = (edge_b.x >> 16) as i32;
-                z_left = edge_a.z;
+            let (x_start, x_end, z_left) = if long_edge_is_left {
+                ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z)
             } else {
-                x_start = (edge_b.x >> 16) as i32;
-                x_end = (edge_a.x >> 16) as i32;
-                z_left = edge_b.z;
-            }
+                ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
+            };
 
-            let dx = (x_end as i64) - (x_start as i64);
+            let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
                 if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
@@ -243,17 +235,18 @@ pub fn fill_triangle_3d(
 }
 
 /// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
+#[must_use]
 pub fn color_to_u32(color: Vec3) -> u32 {
     let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
     let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
     let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
-    0xFF000000 | (r << 16) | (g << 8) | b
+    0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
 /// Helper to pack 8-bit color channels into u32 ARGB
 #[inline(always)]
-fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
-    0xFF000000 | (r << 16) | (g << 8) | b
+const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
+    0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
 /// Helper for fast color packing from fixed point.
@@ -291,11 +284,11 @@ fn draw_scanline_gouraud(
     let mut r_i = c_start.0;
     let mut g_i = c_start.1;
     let mut b_i = c_start.2;
-    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
+    let (dr, dg, db) = (i64::from(dc_dx.0), i64::from(dc_dx.1), i64::from(dc_dx.2));
 
     // Clamp to screen bounds
     if xs < 0 {
-        let diff = -(xs as i64);
+        let diff = -i64::from(xs);
         z += (diff as f32) * dz_dx;
         let diff_i64 = diff;
         r_i += diff_i64 * dr;
@@ -341,14 +334,14 @@ fn draw_scanline_gouraud(
                 // Unpack fixed point color
                 // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
                 // 16.16 fixed point means 255.0 is 0x00FF0000
-                let r = r_i.clamp(0, 0x00FF0000);
-                let g = g_i.clamp(0, 0x00FF0000);
-                let b = b_i.clamp(0, 0x00FF0000);
+                let r = r_i.clamp(0, 0x00FF_0000);
+                let g = g_i.clamp(0, 0x00FF_0000);
+                let b = b_i.clamp(0, 0x00FF_0000);
 
-                *pixel = 0xFF000000
-                    | ((r as u32) & 0x00FF0000)
-                    | (((g as u32) & 0x00FF0000) >> 8)
-                    | (((b as u32) & 0x00FF0000) >> 16);
+                *pixel = 0xFF00_0000
+                    | ((r as u32) & 0x00FF_0000)
+                    | (((g as u32) & 0x00FF_0000) >> 8)
+                    | (((b as u32) & 0x00FF_0000) >> 16);
             }
             z += dz_dx;
             r_i += dr;
@@ -367,19 +360,19 @@ struct EdgeWalker {
 
 impl EdgeWalker {
     fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
-        let height = (p_end.y as i64 - p_start.y as i64) as f32;
-        let (dx_dy, dz_dy) = if height != 0.0 {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let (dx_dy, dz_dy) = if height == 0.0 {
+            (0, 0.0)
+        } else {
             let inv_h = 1.0 / height;
             (
-                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
+                ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
             )
-        } else {
-            (0, 0.0)
         };
 
         Self {
-            x: (p_start.x as i64) << 16,
+            x: i64::from(p_start.x) << 16,
             z: p_start.z,
             dx_dy,
             dz_dy,
@@ -392,7 +385,7 @@ impl EdgeWalker {
     }
 
     fn step_n(&mut self, n: i32) {
-        let n_i64 = n as i64;
+        let n_i64 = i64::from(n);
         let n_f = n as f32;
         self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
@@ -413,25 +406,25 @@ impl GouraudGradients {
         c1: Vec3,
         c2: Vec3,
     ) -> Self {
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
         let uc = c1 - c0;
 
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vc = c2 - c0;
 
-        let nz = ux * vy - uy * vx;
+        let nz = ux.mul_add(vy, -(uy * vx));
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy * vz - uz * vy;
+        let nx_z = uy.mul_add(vz, -(uz * vy));
         let dz_dx = nx_z * inv_nz;
 
-        let nx_r = uy * vc.x - uc.x * vy;
-        let nx_g = uy * vc.y - uc.y * vy;
-        let nx_b = uy * vc.z - uc.z * vy;
+        let nx_r = uy.mul_add(vc.x, -(uc.x * vy));
+        let nx_g = uy.mul_add(vc.y, -(uc.y * vy));
+        let nx_b = uy.mul_add(vc.z, -(uc.z * vy));
 
         let dr = nx_r * inv_nz;
         let dg = nx_g * inv_nz;
@@ -448,11 +441,11 @@ impl GouraudGradients {
     }
 
     fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
-        ux * vy - uy * vx > 0.0
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        ux.mul_add(vy, -(uy * vx)) > 0.0
     }
 }
 
@@ -467,12 +460,14 @@ struct GouraudEdgeWalker {
 
 impl GouraudEdgeWalker {
     fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
-        let height = (p_end.y as i64 - p_start.y as i64) as f32;
-        let (dx_dy, dz_dy, dc_dy) = if height != 0.0 {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let (dx_dy, dz_dy, dc_dy) = if height == 0.0 {
+            (0, 0.0, (0, 0, 0))
+        } else {
             let inv_h = 1.0 / height;
             let dc = (c_end - c_start) * inv_h;
             (
-                ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64,
+                ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
                 (
                     (dc.x * FIXED_SCALE) as i64,
@@ -480,8 +475,6 @@ impl GouraudEdgeWalker {
                     (dc.z * FIXED_SCALE) as i64,
                 ),
             )
-        } else {
-            (0, 0.0, (0, 0, 0))
         };
 
         let c_fixed = (
@@ -491,7 +484,7 @@ impl GouraudEdgeWalker {
         );
 
         Self {
-            x: (p_start.x as i64) << 16,
+            x: i64::from(p_start.x) << 16,
             z: p_start.z,
             c: c_fixed,
             dx_dy,
@@ -510,7 +503,7 @@ impl GouraudEdgeWalker {
 
     fn step_n(&mut self, n: i32) {
         let n_f = n as f32;
-        let n_i64 = n as i64;
+        let n_i64 = i64::from(n);
         self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
         self.c.0 += self.dc_dy.0 * n_i64;
@@ -547,11 +540,11 @@ pub fn fill_triangle_gouraud(
         let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
-        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
-        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
-        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
-        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
+        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
+        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
+        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
+        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
 
         if nz_orig >= 0.0 {
             continue;
@@ -568,7 +561,7 @@ pub fn fill_triangle_gouraud(
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
-        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
             continue;
         }
@@ -615,24 +608,23 @@ pub fn fill_triangle_gouraud(
                 edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
             }
 
-            let x_start;
-            let x_end;
-            let z_left;
-            let c_left;
-
-            if long_edge_is_left {
-                x_start = (edge_a.x >> 16) as i32;
-                x_end = (edge_b.x >> 16) as i32;
-                z_left = edge_a.z;
-                c_left = edge_a.c;
+            let (x_start, x_end, z_left, c_left) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.c,
+                )
             } else {
-                x_start = (edge_b.x >> 16) as i32;
-                x_end = (edge_a.x >> 16) as i32;
-                z_left = edge_b.z;
-                c_left = edge_b.c;
-            }
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.c,
+                )
+            };
 
-            let dx = (x_end as i64) - (x_start as i64);
+            let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
                 if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
@@ -699,7 +691,7 @@ pub enum FilterMode {
     Bilinear,
 }
 
-/// A simple 2D texture
+/// A simple 2D texture.
 pub struct Texture {
     pub width: u32,
     pub height: u32,
@@ -708,20 +700,25 @@ pub struct Texture {
 }
 
 impl Texture {
+    /// Creates a new texture with the given dimensions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if dimensions are zero or the total pixel count overflows `u32`.
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width == 0 || height == 0 {
             return Err("Texture dimensions must be positive");
         }
 
-        let size = (width as u64)
-            .checked_mul(height as u64)
-            .filter(|&s| s <= u32::MAX as u64)
+        let size = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
             .ok_or("Texture size overflow")? as usize;
 
         Ok(Self {
             width,
             height,
-            pixels: vec![0xFF000000; size],
+            pixels: vec![0xFF00_0000; size],
             filter_mode: FilterMode::Nearest,
         })
     }
@@ -735,6 +732,7 @@ impl Texture {
     /// Sample texture using interpolation mode
     /// u, v are in range [0.0, 1.0]
     #[inline]
+    #[must_use]
     pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
         match self.filter_mode {
             FilterMode::Nearest => {
@@ -747,6 +745,7 @@ impl Texture {
     }
 
     /// Sample texture using bilinear interpolation
+    #[must_use]
     pub fn get_pixel_bilinear(&self, u: f32, v: f32) -> u32 {
         let w = self.width as f32;
         let h = self.height as f32;
@@ -755,6 +754,7 @@ impl Texture {
 
     /// Sample texture using bilinear interpolation with texel coordinates
     #[inline]
+    #[must_use]
     pub fn get_pixel_bilinear_texel(&self, u_tex: f32, v_tex: f32) -> u32 {
         // Convert to 24.8 fixed point
         // 0.5 in 24.8 is 128
@@ -765,6 +765,7 @@ impl Texture {
 
     /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates
     #[inline]
+    #[must_use]
     pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
         let u_img_fixed = u_fixed - 128;
         let v_img_fixed = v_fixed - 128;
@@ -825,13 +826,13 @@ impl Texture {
         // Function to blend two colors with weight w using SWAR (SIMD Within A Register)
         // Blends R/B and A/G in parallel
         let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> u32 {
-            let rb0 = c0 & 0x00FF00FF;
-            let ag0 = (c0 >> 8) & 0x00FF00FF;
-            let rb1 = c1 & 0x00FF00FF;
-            let ag1 = (c1 >> 8) & 0x00FF00FF;
+            let rb0 = c0 & 0x00FF_00FF;
+            let ag0 = (c0 >> 8) & 0x00FF_00FF;
+            let rb1 = c1 & 0x00FF_00FF;
+            let ag1 = (c1 >> 8) & 0x00FF_00FF;
 
-            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF00FF;
-            let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF00FF;
+            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF_00FF;
+            let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF_00FF;
 
             rb | (ag << 8)
         };
@@ -841,16 +842,21 @@ impl Texture {
         let final_color = blend(top, bottom, wy, inv_wy);
 
         // Ensure alpha is 0xFF
-        final_color | 0xFF000000
+        final_color | 0xFF00_0000
     }
 
+    #[must_use]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
         let x = x.clamp(0, self.width as i32 - 1) as usize;
         let y = y.clamp(0, self.height as i32 - 1) as usize;
         unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
     }
 
-    /// Create a checkerboard texture
+    /// Create a checkerboard texture.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying `Texture::new` call fails.
     pub fn checkered(width: u32, height: u32, c1: u32, c2: u32) -> Result<Self, &'static str> {
         let mut tex = Self::new(width, height)?;
         // Scale checks based on size, defaulting to 8x8 blocks
@@ -890,33 +896,33 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> Self {
-        let ux = (p1.x as i64 - p0.x as i64) as f32;
-        let uy = (p1.y as i64 - p0.y as i64) as f32;
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
 
-        let vx = (p2.x as i64 - p0.x as i64) as f32;
-        let vy = (p2.y as i64 - p0.y as i64) as f32;
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
 
-        let nz = ux * vy - uy * vx;
+        let nz = ux.mul_add(vy, -(uy * vx));
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy * vz - uz * vy;
+        let nx_z = uy.mul_add(vz, -(uz * vy));
         let dz_dx = nx_z * inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
+        let nx_q = uy.mul_add(vq, -(uq * vy));
         let dq_dx = nx_q * inv_nz;
 
-        let nx_u = uy * vu - uu * vy;
+        let nx_u = uy.mul_add(vu, -(uu * vy));
         let du_dx = nx_u * inv_nz;
 
-        let nx_v = uy * vv - uv * vy;
+        let nx_v = uy.mul_add(vv, -(uv * vy));
         let dv_dx = nx_v * inv_nz;
 
         Self {
@@ -953,17 +959,18 @@ impl PerspectiveTextureEdgeWalker {
         v_start: f32,
         v_end: f32,
     ) -> Self {
-        let height = (p_end.y as i64 - p_start.y as i64) as f32;
-        let inv_h = if height != 0.0 { 1.0 / height } else { 0.0 };
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
-        let dx_dy = ((p_end.x as i64 - p_start.x as i64) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
         let dz_dy = (p_end.z - p_start.z) * inv_h;
         let dq_dy = (q_end - q_start) * inv_h;
         let du_dy = (u_end - u_start) * inv_h;
         let dv_dy = (v_end - v_start) * inv_h;
 
         Self {
-            x: (p_start.x as i64) << 16,
+            x: i64::from(p_start.x) << 16,
             z: p_start.z,
             q: q_start,
             u: u_start,
@@ -985,7 +992,7 @@ impl PerspectiveTextureEdgeWalker {
     }
 
     fn step_n(&mut self, n: i32) {
-        let n_i64 = n as i64;
+        let n_i64 = i64::from(n);
         let n_f = n as f32;
         self.x += self.dx_dy * n_i64;
         self.z += self.dz_dy * n_f;
@@ -995,6 +1002,7 @@ impl PerspectiveTextureEdgeWalker {
     }
 }
 
+#[derive(Clone, Copy)]
 struct PerspectiveSpanStart {
     z: f32,
     q: f32,
@@ -1025,7 +1033,7 @@ fn draw_scanline_textured_perspective(
     let mut v = start.v;
 
     if xs < 0 {
-        let diff = -(xs as i64);
+        let diff = -i64::from(xs);
         let diff_f = diff as f32;
         z += diff_f * gradients.dz_dx;
         q += diff_f * gradients.dq_dx;
@@ -1046,7 +1054,7 @@ fn draw_scanline_textured_perspective(
     let mut x = xs;
 
     // Calculate initial start values
-    let w_start = if q.abs() > 0.000001 { 1.0 / q } else { 1.0 };
+    let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
     let mut u_tex_start = u * w_start;
     let mut v_tex_start = v * w_start;
 
@@ -1055,12 +1063,12 @@ fn draw_scanline_textured_perspective(
         let count = remaining.min(span_size);
 
         // End values at 'x + count'
-        let q_end = q + gradients.dq_dx * count as f32;
-        let u_end = u + gradients.du_dx * count as f32;
-        let v_end = v + gradients.dv_dx * count as f32;
+        let q_end = gradients.dq_dx.mul_add(count as f32, q);
+        let u_end = gradients.du_dx.mul_add(count as f32, u);
+        let v_end = gradients.dv_dx.mul_add(count as f32, v);
 
         // Perform perspective divide at span endpoints
-        let w_end = if q_end.abs() > 0.000001 {
+        let w_end = if q_end.abs() > 0.000_001 {
             1.0 / q_end
         } else {
             1.0
@@ -1161,11 +1169,11 @@ pub fn fill_triangle_textured(
         let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
-        let ux_orig = (p1_orig.x as i64 - p0_orig.x as i64) as f32;
-        let uy_orig = (p1_orig.y as i64 - p0_orig.y as i64) as f32;
-        let vx_orig = (p2_orig.x as i64 - p0_orig.x as i64) as f32;
-        let vy_orig = (p2_orig.y as i64 - p0_orig.y as i64) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
+        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
+        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
+        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
+        let nz_orig = ux_orig.mul_add(vy_orig, -(uy_orig * vx_orig));
 
         if nz_orig >= 0.0 {
             continue;
@@ -1201,7 +1209,7 @@ pub fn fill_triangle_textured(
         sort_by_y(&mut verts, |(p, _, _, _)| p.y);
         let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
 
-        let total_height = (p2.y as i64 - p0.y as i64) as f32;
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
             continue;
         }
@@ -1220,11 +1228,11 @@ pub fn fill_triangle_textured(
             let g =
                 PerspectiveTextureGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2);
 
-            let ux = (p1.x as i64 - p0.x as i64) as f32;
-            let uy = (p1.y as i64 - p0.y as i64) as f32;
-            let vx = (p2.x as i64 - p0.x as i64) as f32;
-            let vy = (p2.y as i64 - p0.y as i64) as f32;
-            let left = ux * vy - uy * vx > 0.0;
+            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            let left = ux.mul_add(vy, -(uy * vx)) > 0.0;
 
             (g, left)
         };
@@ -1255,36 +1263,33 @@ pub fn fill_triangle_textured(
                 edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
             }
 
-            let x_start;
-            let x_end;
-            let z_left;
-            let q_left;
-            let u_left;
-            let v_left;
-
-            if long_edge_is_left {
-                x_start = (edge_a.x >> 16) as i32;
-                x_end = (edge_b.x >> 16) as i32;
-                z_left = edge_a.z;
-                q_left = edge_a.q;
-                u_left = edge_a.u;
-                v_left = edge_a.v;
+            let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.q,
+                    edge_a.u,
+                    edge_a.v,
+                )
             } else {
-                x_start = (edge_b.x >> 16) as i32;
-                x_end = (edge_a.x >> 16) as i32;
-                z_left = edge_b.z;
-                q_left = edge_b.q;
-                u_left = edge_b.u;
-                v_left = edge_b.v;
-            }
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.q,
+                    edge_b.u,
+                    edge_b.v,
+                )
+            };
 
-            let dx = (x_end as i64) - (x_start as i64);
+            let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
                 if x_start >= 0
                     && x_start < width_i32
                     && zb.test_and_set(x_start, y, z_left)
-                    && q_left.abs() > 0.000001
+                    && q_left.abs() > 0.000_001
                 {
                     let w = 1.0 / q_left;
                     let u_tex = u_left * w;

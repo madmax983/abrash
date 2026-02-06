@@ -1,6 +1,7 @@
 use crate::math::{Vec2, Vec3};
 
 pub trait Lerp: Copy + Clone {
+    #[must_use]
     fn lerp(self, other: Self, t: f32) -> Self;
 }
 
@@ -8,25 +9,25 @@ pub trait Lerp: Copy + Clone {
 
 impl Lerp for f32 {
     fn lerp(self, other: Self, t: f32) -> Self {
-        self + (other - self) * t
+        (other - self).mul_add(t, self)
     }
 }
 
 impl Lerp for Vec2 {
     fn lerp(self, other: Self, t: f32) -> Self {
-        Vec2 {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
+        Self {
+            x: (other.x - self.x).mul_add(t, self.x),
+            y: (other.y - self.y).mul_add(t, self.y),
         }
     }
 }
 
 impl Lerp for Vec3 {
     fn lerp(self, other: Self, t: f32) -> Self {
-        Vec3 {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
+        Self {
+            x: (other.x - self.x).mul_add(t, self.x),
+            y: (other.y - self.y).mul_add(t, self.y),
+            z: (other.z - self.z).mul_add(t, self.z),
         }
     }
 }
@@ -70,7 +71,7 @@ pub fn clip_triangle_against_near_plane<V: Lerp>(
     let inside1 = get_w(&v1) >= NEAR;
     let inside2 = get_w(&v2) >= NEAR;
 
-    let inside_count = (inside0 as usize) + (inside1 as usize) + (inside2 as usize);
+    let inside_count = usize::from(inside0) + usize::from(inside1) + usize::from(inside2);
 
     // We initialize the array with v0 copies just to satisfy initialization.
     // They will be overwritten if used.

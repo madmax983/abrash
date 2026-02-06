@@ -17,8 +17,8 @@ pub enum WindowError {
 impl fmt::Display for WindowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WindowError::RegistrationFailed => write!(f, "Failed to register window class"),
-            WindowError::CreationFailed => write!(f, "Failed to create window"),
+            Self::RegistrationFailed => write!(f, "Failed to register window class"),
+            Self::CreationFailed => write!(f, "Failed to create window"),
         }
     }
 }
@@ -27,6 +27,11 @@ impl std::error::Error for WindowError {}
 
 /// Trait for native (synchronous loop) window backends.
 pub trait WindowBackend {
+    /// Creates a new window with the given title and dimensions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WindowError`] if window class registration or window creation fails.
     fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError>
     where
         Self: Sized;

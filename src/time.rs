@@ -16,9 +16,10 @@ pub struct FixedTimestep {
 
 impl FixedTimestep {
     /// Create a new fixed timestep with target FPS
+    #[must_use]
     pub fn new(target_fps: u32) -> Self {
         Self {
-            target_dt: Duration::from_secs_f64(1.0 / target_fps as f64),
+            target_dt: Duration::from_secs_f64(1.0 / f64::from(target_fps)),
             accumulator: Duration::ZERO,
             last_time: Instant::now(),
         }
@@ -42,7 +43,8 @@ impl FixedTimestep {
     }
 
     /// Get the fixed delta time in seconds
-    pub fn dt(&self) -> f32 {
+    #[must_use]
+    pub const fn dt(&self) -> f32 {
         self.target_dt.as_secs_f32()
     }
 }

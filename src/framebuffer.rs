@@ -10,14 +10,19 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
+    /// Creates a new framebuffer with the given dimensions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if dimensions exceed `i32::MAX` or the total pixel count overflows `u32`.
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 {
             return Err("Buffer dimensions too large (max i32::MAX)");
         }
 
-        let size = (width as u64)
-            .checked_mul(height as u64)
-            .filter(|&s| s <= u32::MAX as u64)
+        let size = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
             .ok_or("Buffer size overflow")? as usize;
 
         Ok(Self {
@@ -27,14 +32,17 @@ impl Framebuffer {
         })
     }
 
-    pub fn width(&self) -> u32 {
+    #[must_use]
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn height(&self) -> u32 {
+    #[must_use]
+    pub const fn height(&self) -> u32 {
         self.height
     }
 
+    #[must_use]
     pub fn as_slice(&self) -> &[u32] {
         &self.pixels
     }
@@ -58,6 +66,7 @@ impl Framebuffer {
     }
 
     #[inline]
+    #[must_use]
     pub fn get_pixel(&self, x: i32, y: i32) -> Option<u32> {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return None;

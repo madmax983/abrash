@@ -11,7 +11,8 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             vertices: Vec::new(),
             indices: Vec::new(),
@@ -20,6 +21,7 @@ impl Mesh {
     }
 
     /// Create a cube centered at origin
+    #[must_use]
     pub fn cube(size: f32) -> Self {
         let h = size / 2.0;
         let vertices = vec![
@@ -67,6 +69,7 @@ impl Mesh {
     }
 
     /// Compute face normal for each triangle
+    #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
         self.indices
             .iter()

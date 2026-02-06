@@ -34,7 +34,8 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
-    pub fn new(x: f32, y: f32) -> Self {
+    #[must_use]
+    pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
 }
@@ -78,6 +79,7 @@ pub struct Mat2 {
 }
 
 impl Mat2 {
+    #[must_use]
     pub fn rotation(angle: f32) -> Self {
         let cos = angle.cos();
         let sin = angle.sin();
@@ -87,14 +89,16 @@ impl Mat2 {
         }
     }
 
+    #[must_use]
     pub fn transform(&self, v: Vec2) -> Vec2 {
         Vec2 {
-            x: self.m[0][0] * v.x + self.m[0][1] * v.y,
-            y: self.m[1][0] * v.x + self.m[1][1] * v.y,
+            x: self.m[0][0].mul_add(v.x, self.m[0][1] * v.y),
+            y: self.m[1][0].mul_add(v.x, self.m[1][1] * v.y),
         }
     }
 
     /// Transform multiple vectors at once
+    #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
         vertices.iter().map(|&v| self.transform(v)).collect()
     }
@@ -126,7 +130,8 @@ pub struct Vec3 {
 
 impl Vec3 {
     /// Creates a new vector.
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    #[must_use]
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
 
@@ -136,25 +141,31 @@ impl Vec3 {
     /// *   Positive if pointing in similar direction.
     /// *   Zero if perpendicular.
     /// *   Negative if pointing in opposite directions.
-    pub fn dot(&self, other: Vec3) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z
+    #[must_use]
+    pub fn dot(&self, other: Self) -> f32 {
+        self.z
+            .mul_add(other.z, self.x.mul_add(other.x, self.y * other.y))
     }
 
     /// Calculates the cross product with another vector.
     ///
     /// Returns a vector perpendicular to both input vectors.
     /// Useful for calculating surface normals.
-    pub fn cross(&self, other: Vec3) -> Vec3 {
-        Vec3 {
-            x: self.y * other.z - self.z * other.y,
-            y: self.z * other.x - self.x * other.z,
-            z: self.x * other.y - self.y * other.x,
+    #[must_use]
+    pub fn cross(&self, other: Self) -> Self {
+        Self {
+            x: self.y.mul_add(other.z, -(self.z * other.y)),
+            y: self.z.mul_add(other.x, -(self.x * other.z)),
+            z: self.x.mul_add(other.y, -(self.y * other.x)),
         }
     }
 
     /// Calculates the Euclidean length (magnitude) of the vector.
+    #[must_use]
     pub fn length(&self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+        self.z
+            .mul_add(self.z, self.x.mul_add(self.x, self.y * self.y))
+            .sqrt()
     }
 
     /// Returns a normalized unit vector (length of 1.0).
@@ -177,11 +188,12 @@ impl Vec3 {
     /// let tiny = Vec3::new(0.00001, 0.0, 0.0);
     /// assert_eq!(tiny.normalize(), tiny);
     /// ```
-    pub fn normalize(&self) -> Vec3 {
+    #[must_use]
+    pub fn normalize(&self) -> Self {
         let len = self.length();
         if len > 0.0001 {
             let inv_len = 1.0 / len;
-            Vec3 {
+            Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
                 z: self.z * inv_len,
@@ -235,7 +247,8 @@ pub struct Mat4 {
 
 impl Mat4 {
     /// Returns the identity matrix.
-    pub fn identity() -> Self {
+    #[must_use]
+    pub const fn identity() -> Self {
         Self {
             m: [
                 [1.0, 0.0, 0.0, 0.0],
@@ -253,7 +266,8 @@ impl Mat4 {
     /// * `x` - Translation along the X axis.
     /// * `y` - Translation along the Y axis.
     /// * `z` - Translation along the Z axis.
-    pub fn translation(x: f32, y: f32, z: f32) -> Self {
+    #[must_use]
+    pub const fn translation(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
                 [1.0, 0.0, 0.0, 0.0],
@@ -265,7 +279,8 @@ impl Mat4 {
     }
 
     /// Creates a scaling matrix.
-    pub fn scale(x: f32, y: f32, z: f32) -> Self {
+    #[must_use]
+    pub const fn scale(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
                 [x, 0.0, 0.0, 0.0],
@@ -279,6 +294,7 @@ impl Mat4 {
     /// Creates a rotation matrix around the X axis.
     ///
     /// * `angle` - The angle in radians.
+    #[must_use]
     pub fn rotation_x(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -295,6 +311,7 @@ impl Mat4 {
     /// Creates a rotation matrix around the Y axis.
     ///
     /// * `angle` - The angle in radians.
+    #[must_use]
     pub fn rotation_y(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -311,6 +328,7 @@ impl Mat4 {
     /// Creates a rotation matrix around the Z axis.
     ///
     /// * `angle` - The angle in radians.
+    #[must_use]
     pub fn rotation_z(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -332,6 +350,7 @@ impl Mat4 {
     /// * `aspect` - Aspect ratio (width / height).
     /// * `near` - Distance to near clipping plane.
     /// * `far` - Distance to far clipping plane.
+    #[must_use]
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
         let nf = 1.0 / (near - far);
@@ -345,11 +364,12 @@ impl Mat4 {
         }
     }
 
-    /// Creates a View matrix (LookAt) for a camera.
+    /// Creates a View matrix (`LookAt`) for a camera.
     ///
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
+    #[must_use]
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
         let s = f.cross(up).normalize();
@@ -368,21 +388,27 @@ impl Mat4 {
     ///
     /// Returns a tuple `(transformed_point, w_component)`.
     /// The `w` component is used for perspective division.
+    #[must_use]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
-        let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
-        let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
-        let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z + self.m[3][2];
-        let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
+        let x =
+            self.m[2][0].mul_add(v.z, self.m[0][0].mul_add(v.x, self.m[1][0] * v.y)) + self.m[3][0];
+        let y =
+            self.m[2][1].mul_add(v.z, self.m[0][1].mul_add(v.x, self.m[1][1] * v.y)) + self.m[3][1];
+        let z =
+            self.m[2][2].mul_add(v.z, self.m[0][2].mul_add(v.x, self.m[1][2] * v.y)) + self.m[3][2];
+        let w =
+            self.m[2][3].mul_add(v.z, self.m[0][3].mul_add(v.x, self.m[1][3] * v.y)) + self.m[3][3];
         (Vec3::new(x, y, z), w)
     }
 
     /// Transform a normal vector (ignores translation, uses upper-left 3x3).
     ///
     /// This is essential for correct lighting calculations after transformation.
+    #[must_use]
     pub fn transform_normal(&self, n: Vec3) -> Vec3 {
-        let x = self.m[0][0] * n.x + self.m[1][0] * n.y + self.m[2][0] * n.z;
-        let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
-        let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
+        let x = self.m[2][0].mul_add(n.z, self.m[0][0].mul_add(n.x, self.m[1][0] * n.y));
+        let y = self.m[2][1].mul_add(n.z, self.m[0][1].mul_add(n.x, self.m[1][1] * n.y));
+        let z = self.m[2][2].mul_add(n.z, self.m[0][2].mul_add(n.x, self.m[1][2] * n.y));
         Vec3::new(x, y, z).normalize()
     }
 }
@@ -397,7 +423,7 @@ impl Mul for Mat4 {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        let mut result = Mat4 { m: [[0.0; 4]; 4] };
+        let mut result = Self { m: [[0.0; 4]; 4] };
         for i in 0..4 {
             for k in 0..4 {
                 let s = self.m[i][k];
@@ -418,6 +444,7 @@ pub struct ScreenPoint {
 }
 
 /// Project a 3D point to screen coordinates
+#[must_use]
 pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };

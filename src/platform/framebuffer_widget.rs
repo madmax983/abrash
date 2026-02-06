@@ -6,14 +6,16 @@
 use crate::framebuffer::Framebuffer;
 use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
 
-/// Renders a [`Framebuffer`] into a terminal area using the Unicode upper half-block
-/// character (`▀`). Each terminal cell represents two vertical pixels: the foreground
-/// color is the top pixel, the background color is the bottom pixel.
+/// Half-block framebuffer widget for terminal rendering.
+///
+/// Renders a [`Framebuffer`] using the Unicode upper half-block character (`▀`).
+/// Each terminal cell represents two vertical pixels: the foreground color is the
+/// top pixel, the background color is the bottom pixel.
 pub struct FramebufferWidget<'a> {
     pub framebuffer: &'a Framebuffer,
 }
 
-impl<'a> Widget for FramebufferWidget<'a> {
+impl Widget for FramebufferWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if area.width == 0 || area.height == 0 {
             return;

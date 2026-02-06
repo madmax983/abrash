@@ -55,7 +55,7 @@ fn query_refresh_rate() -> u32 {
             let mut devmode: DEVMODEW = mem::zeroed();
             devmode.dmSize = mem::size_of::<DEVMODEW>() as u16;
 
-            if EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &mut devmode) != 0
+            if EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &raw mut devmode) != 0
                 && devmode.dmDisplayFrequency > 0
             {
                 devmode.dmDisplayFrequency
@@ -127,7 +127,7 @@ impl WindowBackend for TuiWindow {
                     }
                 }
             } else if let Ok(event::Event::Resize(w, h)) = event::read() {
-                events.push(Event::Resize(w as u32, h as u32));
+                events.push(Event::Resize(u32::from(w), u32::from(h)));
             }
         }
         events
@@ -164,17 +164,15 @@ impl WindowBackend for TuiWindow {
 
             let block = Block::default()
                 .borders(Borders::ALL)
-                .title(format!(" {} ", title))
+                .title(format!(" {title} "))
                 .title_style(Style::default().fg(Color::Cyan));
 
             f.render_widget(fb_widget, block.inner(chunks[0]));
             f.render_widget(block, chunks[0]);
 
             // Render Status Bar
-            let status_text = format!(
-                " FPS: {:.1} | Res: {}x{} | Frames: {} | [Q] Quit ",
-                fps, fb_w, fb_h, frame_count
-            );
+            let status_text =
+                format!(" FPS: {fps:.1} | Res: {fb_w}x{fb_h} | Frames: {frame_count} | [Q] Quit ");
 
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::Black).bg(Color::Cyan))
