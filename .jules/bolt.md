@@ -11,3 +11,7 @@
 **[Reciprocal Table Win]**
 **Learning:** Replacing integer division by `count` (1..16) with a lookup table of reciprocals (`1.0/count`) yielded a ~3-11% improvement in textured triangle rasterization.
 **Action:** Always look for repeated divisions by small integers in hot loops and replace them with reciprocal multiplication.
+
+**[Integer Culling Precision]**
+**Learning:** Switching from `f32` to `i64` for 2D cross-product backface culling improved performance by ~3-4% and eliminated potential floating-point precision errors for large coordinates. `f32` only has 24 bits of precision, which can be insufficient for `diff * diff` with large screen coordinates.
+**Action:** Use integer arithmetic (`i64`) for geometric predicates on integer coordinates whenever possible.

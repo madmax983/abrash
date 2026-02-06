@@ -48,12 +48,12 @@ where
 /// Returns true if the triangle should be culled (ccw winding for front faces).
 #[inline(always)]
 fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-    let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-    let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-    let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-    let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    let ux = i64::from(p1.x) - i64::from(p0.x);
+    let uy = i64::from(p1.y) - i64::from(p0.y);
+    let vx = i64::from(p2.x) - i64::from(p0.x);
+    let vy = i64::from(p2.y) - i64::from(p0.y);
     let nz = ux * vy - uy * vx;
-    nz >= 0.0
+    nz >= 0
 }
 
 /// Draw a single scanline for flat shading with Z-buffering
@@ -1237,13 +1237,7 @@ pub fn fill_triangle_textured(
         let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
