@@ -1,4 +1,9 @@
-use super::{Event, WindowError};
+//! TUI backend using ratatui + crossterm.
+//!
+//! Renders the framebuffer into a terminal using half-block characters.
+
+use super::framebuffer_widget::FramebufferWidget;
+use super::{Event, WindowBackend, WindowError};
 use crate::framebuffer::Framebuffer;
 use crossterm::{
     event::{self, KeyCode, KeyEventKind},
@@ -8,14 +13,14 @@ use crossterm::{
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Style},
-    widgets::{Block, Borders, Paragraph, Widget},
+    widgets::{Block, Borders, Paragraph},
 };
 use std::io::{Stdout, stdout};
 use std::time::{Duration, Instant};
 
-pub struct Window {
+pub struct TuiWindow {
     width: u32,
     height: u32,
     title: String,
@@ -27,8 +32,8 @@ pub struct Window {
     fps: f64,
 }
 
-impl Window {
-    pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+impl WindowBackend for TuiWindow {
+    fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         enable_raw_mode().map_err(|_| WindowError::RegistrationFailed)?;
         let mut stdout = stdout();
         execute!(stdout, EnterAlternateScreen).map_err(|_| WindowError::CreationFailed)?;
@@ -50,19 +55,19 @@ impl Window {
         })
     }
 
-    pub fn is_open(&self) -> bool {
+    fn is_open(&self) -> bool {
         self.is_open
     }
 
-    pub fn width(&self) -> u32 {
+    fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.height
     }
 
-    pub fn poll_events(&mut self) -> Vec<Event> {
+    fn poll_events(&mut self) -> Vec<Event> {
         let mut events = Vec::new();
 
         // Non-blocking poll
@@ -84,7 +89,7 @@ impl Window {
         events
     }
 
-    pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
+    fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;
 
@@ -136,61 +141,7 @@ impl Window {
     }
 }
 
-struct FramebufferWidget<'a> {
-    framebuffer: &'a Framebuffer,
-}
-
-impl<'a> Widget for FramebufferWidget<'a> {
-    fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
-        if area.width == 0 || area.height == 0 {
-            return;
-        }
-
-        let term_w = area.width as usize;
-        let term_h = area.height as usize;
-        let fb_w = self.framebuffer.width() as usize;
-        let fb_h = self.framebuffer.height() as usize;
-
-        for y in 0..term_h {
-            for x in 0..term_w {
-                // Map terminal cell (x,y) to framebuffer coordinates
-                // Nearest neighbor scaling
-                let fb_x = (x * fb_w) / term_w;
-
-                // Top sub-pixel
-                let fb_y_top = (y * 2 * fb_h) / (term_h * 2);
-                // Bottom sub-pixel
-                let fb_y_bot = ((y * 2 + 1) * fb_h) / (term_h * 2);
-
-                if fb_x >= fb_w || fb_y_top >= fb_h {
-                    continue;
-                }
-
-                // Get colors
-                let p_top = self
-                    .framebuffer
-                    .get_pixel(fb_x as i32, fb_y_top as i32)
-                    .unwrap_or(0);
-                let p_bot = self
-                    .framebuffer
-                    .get_pixel(fb_x as i32, fb_y_bot as i32)
-                    .unwrap_or(0);
-
-                // unpack (r, g, b) from u32 0xRRGGBB
-                let (r1, g1, b1) = ((p_top >> 16) as u8, (p_top >> 8) as u8, p_top as u8);
-                let (r2, g2, b2) = ((p_bot >> 16) as u8, (p_bot >> 8) as u8, p_bot as u8);
-
-                if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
-                    cell.set_char('▀')
-                        .set_fg(Color::Rgb(r1, g1, b1))
-                        .set_bg(Color::Rgb(r2, g2, b2));
-                }
-            }
-        }
-    }
-}
-
-impl Drop for Window {
+impl Drop for TuiWindow {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
         let _ = execute!(self.terminal.backend_mut(), LeaveAlternateScreen);

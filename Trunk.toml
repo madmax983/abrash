@@ -1,0 +1,5 @@
+[build]
+target = "index.html"
+
+[serve]
+port = 8080

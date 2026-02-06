@@ -210,19 +210,19 @@ fn bench_get_pixel_bilinear_fixed(c: &mut Criterion) {
         let mask = 0xFFFF; // Keep within 0..65535 (256.0 in 24.8)
 
         b.iter(|| {
-             // Unroll slightly
-             black_box(tex.get_pixel_bilinear_fixed(u, v));
-             u = (u + du) & mask;
-             v = (v + dv) & mask;
-             black_box(tex.get_pixel_bilinear_fixed(u, v));
-             u = (u + du) & mask;
-             v = (v + dv) & mask;
-             black_box(tex.get_pixel_bilinear_fixed(u, v));
-             u = (u + du) & mask;
-             v = (v + dv) & mask;
-             black_box(tex.get_pixel_bilinear_fixed(u, v));
-             u = (u + du) & mask;
-             v = (v + dv) & mask;
+            // Unroll slightly
+            black_box(tex.get_pixel_bilinear_fixed(u, v));
+            u = (u + du) & mask;
+            v = (v + dv) & mask;
+            black_box(tex.get_pixel_bilinear_fixed(u, v));
+            u = (u + du) & mask;
+            v = (v + dv) & mask;
+            black_box(tex.get_pixel_bilinear_fixed(u, v));
+            u = (u + du) & mask;
+            v = (v + dv) & mask;
+            black_box(tex.get_pixel_bilinear_fixed(u, v));
+            u = (u + du) & mask;
+            v = (v + dv) & mask;
         });
     });
 }

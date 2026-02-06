@@ -2,7 +2,10 @@
 //!
 //! Provides fixed timestep accumulator for consistent simulation.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::{Duration, Instant};
+#[cfg(target_arch = "wasm32")]
+use web_time::{Duration, Instant};
 
 /// Fixed timestep game loop helper
 pub struct FixedTimestep {

@@ -6,21 +6,21 @@ use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-use super::{Event, WindowError};
+use super::{Event, WindowBackend, WindowError};
 use crate::framebuffer::Framebuffer;
 
 const WINDOW_CLASS_NAME: &str = "AbrashWindowClass";
 
 /// Win32 window handle wrapper
-pub struct Window {
+pub struct Win32Window {
     hwnd: HWND,
     width: u32,
     height: u32,
     is_open: bool,
 }
 
-impl Window {
-    pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+impl WindowBackend for Win32Window {
+    fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         unsafe {
             let hinstance = GetModuleHandleW(null_mut());
 
@@ -68,19 +68,19 @@ impl Window {
         }
     }
 
-    pub fn is_open(&self) -> bool {
+    fn is_open(&self) -> bool {
         self.is_open
     }
 
-    pub fn width(&self) -> u32 {
+    fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.height
     }
 
-    pub fn poll_events(&mut self) -> Vec<Event> {
+    fn poll_events(&mut self) -> Vec<Event> {
         let mut events = Vec::new();
 
         unsafe {
@@ -103,7 +103,7 @@ impl Window {
         events
     }
 
-    pub fn blit_framebuffer(&self, framebuffer: &Framebuffer) {
+    fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         unsafe {
             let hdc = GetDC(self.hwnd);
 

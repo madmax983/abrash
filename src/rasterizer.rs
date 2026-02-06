@@ -785,10 +785,7 @@ impl Texture {
 
         // Optimization: Fast path for interior pixels to avoid 4 clamps
         // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
-        let (c00, c10, c01, c11) = if x0_raw >= 0
-            && x0_raw < w_i32
-            && y0_raw >= 0
-            && y0_raw < h_i32
+        let (c00, c10, c01, c11) = if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32
         {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
