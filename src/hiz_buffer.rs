@@ -176,6 +176,18 @@ impl HiZBuffer {
 
     /// Build a single pyramid level via 2×2 min-reduction
     fn build_level(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            self.build_level_simd(level_idx, source, source_width);
+        }
+        #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+        {
+            self.build_level_scalar(level_idx, source, source_width);
+        }
+    }
+
+    /// Scalar 2×2 min-reduction implementation
+    fn build_level_scalar(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
         let level_width = self.levels[level_idx as usize].width;
         let level_height = self.levels[level_idx as usize].height;
 
@@ -204,6 +216,141 @@ impl HiZBuffer {
                 self.levels[level_idx as usize].depths[(y * level_width + x) as usize] = min_depth;
             }
         }
+    }
+
+    /// SIMD 2×2 min-reduction using AVX2 (processes 8 reductions simultaneously)
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn build_level_simd(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
+        #[cfg(target_arch = "x86_64")]
+        {
+            use std::arch::x86_64::*;
+
+            let level_width = self.levels[level_idx as usize].width;
+            let level_height = self.levels[level_idx as usize].height;
+
+            // Process 4 output pixels at a time for simpler shuffle logic
+            let simd_width = 4;
+
+            for y in 0..level_height {
+                let mut x = 0;
+
+                // SIMD loop: process 4 output pixels at once
+                while x + simd_width <= level_width {
+                    let src_x = (x * 2) as usize;
+                    let src_y = (y * 2) as usize;
+                    let src_width_usize = source_width as usize;
+
+                    unsafe {
+                        // For 4 output pixels, we need 8 source values per row
+                        // Each 2×2 reduction: (i, i+1) from row0 and row1
+                        let row0_idx = src_y * src_width_usize + src_x;
+                        let row1_idx = (src_y + 1) * src_width_usize + src_x;
+
+                        // Bounds check
+                        if row0_idx + 8 <= source.len() && row1_idx + 8 <= source.len() {
+                            // Load 8 values from each row into 256-bit registers
+                            let row0 = _mm256_loadu_ps(source.as_ptr().add(row0_idx));
+                            let row1 = _mm256_loadu_ps(source.as_ptr().add(row1_idx));
+
+                            // Vertical min: min(row0, row1)
+                            let min_vert = _mm256_min_ps(row0, row1);
+
+                            // Horizontal min: reduce adjacent pairs
+                            // min_vert: [v0, v1, v2, v3, v4, v5, v6, v7]
+                            // Want: [min(v0,v1), min(v2,v3), min(v4,v5), min(v6,v7), ...]
+
+                            // Shuffle to align adjacent elements
+                            // Create [v0,v0,v2,v2,v4,v4,v6,v6] and [v1,v1,v3,v3,v5,v5,v7,v7]
+                            let evens = _mm256_shuffle_ps(min_vert, min_vert, 0b10_10_00_00);
+                            let odds = _mm256_shuffle_ps(min_vert, min_vert, 0b11_11_01_01);
+
+                            // Min of pairs: [min01, min01, min23, min23, min45, min45, min67, min67]
+                            let min_pairs = _mm256_min_ps(evens, odds);
+
+                            // Extract unique values: indices 0,2,4,6
+                            // Use shuffle to pack results
+                            let packed = _mm256_shuffle_ps(min_pairs, min_pairs, 0b10_00_10_00);
+                            // packed: [min01, min23, min01, min23, min45, min67, min45, min67]
+
+                            // Permute across lanes to get final result
+                            // Extract lower 2 from lower lane and lower 2 from upper lane
+                            let lower_128 = _mm256_castps256_ps128(packed); // [min01, min23, *, *]
+                            let upper_128 = _mm256_extractf128_ps(packed, 1); // [min45, min67, *, *]
+
+                            // Combine into single 128-bit register
+                            let result_128 = _mm_shuffle_ps(lower_128, upper_128, 0b01_00_01_00);
+                            // result_128: [min01, min23, min45, min67]
+
+                            // Store 4 results
+                            let dst_idx = (y * level_width + x) as usize;
+                            _mm_storeu_ps(
+                                self.levels[level_idx as usize]
+                                    .depths
+                                    .as_mut_ptr()
+                                    .add(dst_idx),
+                                result_128,
+                            );
+                        } else {
+                            // Fallback to scalar for boundary cases
+                            for i in 0..simd_width {
+                                if x + i >= level_width {
+                                    break;
+                                }
+                                self.build_level_scalar_single(
+                                    level_idx,
+                                    source,
+                                    source_width,
+                                    x + i,
+                                    y,
+                                );
+                            }
+                        }
+                    }
+
+                    x += simd_width;
+                }
+
+                // Scalar tail for remaining pixels
+                while x < level_width {
+                    self.build_level_scalar_single(level_idx, source, source_width, x, y);
+                    x += 1;
+                }
+            }
+        }
+    }
+
+    /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
+    #[inline]
+    fn build_level_scalar_single(
+        &mut self,
+        level_idx: u32,
+        source: &[f32],
+        source_width: u32,
+        x: u32,
+        y: u32,
+    ) {
+        let src_x = (x * 2) as usize;
+        let src_y = (y * 2) as usize;
+        let source_width_usize = source_width as usize;
+
+        // Sample 2×2 quad from previous level
+        let d00 = source[src_y * source_width_usize + src_x];
+        let d10 = source
+            .get(src_y * source_width_usize + src_x + 1)
+            .copied()
+            .unwrap_or(d00);
+        let d01 = source
+            .get((src_y + 1) * source_width_usize + src_x)
+            .copied()
+            .unwrap_or(d00);
+        let d11 = source
+            .get((src_y + 1) * source_width_usize + src_x + 1)
+            .copied()
+            .unwrap_or(d00);
+
+        let min_depth = d00.min(d10).min(d01).min(d11);
+        let level_width = self.levels[level_idx as usize].width;
+        self.levels[level_idx as usize].depths[(y * level_width + x) as usize] = min_depth;
     }
 
     /// Test if an AABB is potentially visible
@@ -612,5 +759,92 @@ mod tests {
 
         // Invalid pyramid should assume everything is visible
         assert!(hiz.is_potentially_visible(aabb));
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_simd_scalar_equivalence() {
+        // Test that SIMD and scalar implementations produce identical results
+        let mut zb = ZBuffer::new(1920, 1080).unwrap();
+
+        // Fill with pseudo-random pattern to test all code paths
+        let slice = zb.as_mut_slice();
+        for i in 0..slice.len() {
+            // Generate pseudo-random depth values using simple hash
+            let hash = ((i.wrapping_mul(2654435761)) >> 16) as f32 / 65536.0;
+            slice[i] = hash * 100.0;
+        }
+
+        // Build pyramid with SIMD
+        let mut hiz_simd = HiZBuffer::new(1920, 1080);
+        hiz_simd.build_pyramid(&zb);
+
+        // Build pyramid with scalar
+        let mut hiz_scalar = HiZBuffer::new(1920, 1080);
+        // Temporarily use scalar implementation
+        for level_idx in 1..hiz_scalar.level_count {
+            if level_idx == 1 {
+                let level0 = zb.as_slice();
+                hiz_scalar.build_level_scalar(1, level0, 1920);
+            } else {
+                let prev_width = hiz_scalar.levels[(level_idx - 1) as usize].width;
+                let prev_depths = hiz_scalar.levels[(level_idx - 1) as usize].depths.clone();
+                hiz_scalar.build_level_scalar(level_idx, &prev_depths, prev_width);
+            }
+        }
+
+        // Compare all pyramid levels
+        for level_idx in 1..hiz_simd.level_count {
+            let simd_level = &hiz_simd.levels[level_idx as usize];
+            let scalar_level = &hiz_scalar.levels[level_idx as usize];
+
+            assert_eq!(simd_level.width, scalar_level.width);
+            assert_eq!(simd_level.height, scalar_level.height);
+
+            // Compare depths (should be bit-identical)
+            for (i, (&simd_depth, &scalar_depth)) in simd_level
+                .depths
+                .iter()
+                .zip(scalar_level.depths.iter())
+                .enumerate()
+            {
+                assert_eq!(
+                    simd_depth, scalar_depth,
+                    "Mismatch at level {} index {}: SIMD={} vs Scalar={}",
+                    level_idx, i, simd_depth, scalar_depth
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_simd_4k_resolution() {
+        // Test SIMD implementation at 4K resolution
+        let mut zb = ZBuffer::new(3840, 2160).unwrap();
+
+        // Fill with gradient pattern
+        let slice = zb.as_mut_slice();
+        for y in 0..2160 {
+            for x in 0..3840 {
+                slice[y * 3840 + x] = (x + y) as f32 * 0.1;
+            }
+        }
+
+        let mut hiz = HiZBuffer::new(3840, 2160);
+        hiz.build_pyramid(&zb);
+
+        // Verify pyramid is valid
+        assert!(hiz.is_valid());
+
+        // Verify level dimensions
+        assert_eq!(hiz.level_dimensions(1), Some((1920, 1080)));
+        assert_eq!(hiz.level_dimensions(2), Some((960, 540)));
+
+        // Verify minimum propagated to top
+        let top_level = hiz.level_count - 1;
+        let top = &hiz.levels[top_level as usize];
+        assert!(top.width <= 2 && top.height <= 2);
+        assert_eq!(top.depths[0], 0.0); // Minimum should be at (0,0)
     }
 }
