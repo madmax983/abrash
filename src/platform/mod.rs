@@ -57,7 +57,7 @@ pub type Window = win32::Win32Window;
 #[cfg(feature = "backend-tui")]
 pub mod tui;
 
-#[cfg(feature = "backend-tui")]
+#[cfg(all(feature = "backend-tui", not(feature = "backend-win32")))]
 pub type Window = tui::TuiWindow;
 
 #[cfg(feature = "backend-wasm")]
