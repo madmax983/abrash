@@ -7,6 +7,7 @@ use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    style::Stylize,
 };
 use ratatui::{
     Terminal,
@@ -34,14 +35,19 @@ struct Demo {
 
 const DEMOS: &[Demo] = &[
     Demo {
-        name: "Lit Cube",
+        name: "🧊 Lit Cube",
         description: "Flat shaded cube with directional lighting",
         example_name: "lit_cube",
     },
     Demo {
-        name: "Cube 3D",
+        name: "📦 Cube 3D",
         description: "Basic 3D cube rendering",
         example_name: "cube_3d",
+    },
+    Demo {
+        name: "🚀 OBJ Viewer",
+        description: "Render a 3D mesh from OBJ source",
+        example_name: "obj_viewer",
     },
 ];
 
@@ -145,7 +151,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 )
                 .split(f.area());
 
-            let title = Paragraph::new("Abrash Engine Dashboard")
+            let title = Paragraph::new(" 🎻 ABRASH ENGINE ")
                 .style(
                     Style::default()
                         .fg(Color::Cyan)
@@ -182,7 +188,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 
             f.render_stateful_widget(items, chunks[1], &mut app.state);
 
-            let help = Paragraph::new("Select with ↑/↓, Enter to Launch, Q to Quit")
+            let help = Paragraph::new(" Use ↑/↓ to navigate • ENTER to Launch • Q to Quit ")
                 .style(Style::default().fg(Color::DarkGray))
                 .block(Block::default().borders(Borders::ALL));
             f.render_widget(help, chunks[2]);
@@ -226,7 +232,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("Launching {name}...");
+    println!("{}", format!("\n🚀 Launching {}...", name).green().bold());
+    println!("{}", "   Compiling and initializing...".grey());
     let mut child = Command::new("cargo")
         .arg("run")
         .arg("--release")
@@ -237,7 +244,14 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if !status.success() {
-        eprintln!("Demo exited with error: {status}");
+        eprintln!(
+            "{}",
+            format!("\n❌ Demo exited with error: {}", status)
+                .red()
+                .bold()
+        );
+        println!("\nPress ENTER to return to dashboard...");
+        let _ = std::io::stdin().read_line(&mut String::new());
     }
 
     Ok(())
