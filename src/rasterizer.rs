@@ -1075,6 +1075,75 @@ const RECIPROCAL_TABLE: [f32; 17] = [
     0.0625,
 ];
 
+struct BilinearSampler<'a> {
+    pixels: &'a [u32],
+    w_limit: i32,
+    h_limit: i32,
+    width_usize: usize,
+}
+
+impl<'a> BilinearSampler<'a> {
+    #[inline(always)]
+    fn sample_fixed(&self, u_img_fixed: i32, v_img_fixed: i32) -> u32 {
+        // u_img_fixed is centered (already subtracted 128 from u_fixed)
+
+        // Weights (0..256)
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        // Arithmetic shift
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        // Fetch neighbors
+        let (c00, c10, c01, c11) = self.fetch_neighbors(x0_raw, y0_raw);
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        final_color | 0xFF00_0000
+    }
+
+    #[inline(always)]
+    fn fetch_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
+        if x0_raw >= 0 && x0_raw < self.w_limit && y0_raw >= 0 && y0_raw < self.h_limit {
+            let x0 = x0_raw as usize;
+            let y0 = y0_raw as usize;
+            let row0 = y0 * self.width_usize;
+            let row1 = row0 + self.width_usize;
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x0 + 1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                )
+            }
+        } else {
+            let x0 = x0_raw.clamp(0, self.w_limit) as usize;
+            let y0 = y0_raw.clamp(0, self.h_limit) as usize;
+            let x1 = (x0_raw + 1).clamp(0, self.w_limit) as usize;
+            let y1 = (y0_raw + 1).clamp(0, self.h_limit) as usize;
+
+            let row0 = y0 * self.width_usize;
+            let row1 = y1 * self.width_usize;
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x1),
+                )
+            }
+        }
+    }
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
@@ -1176,18 +1245,25 @@ fn draw_scanline_textured_perspective(
                 }
             }
             FilterMode::Bilinear => {
+                let sampler = BilinearSampler {
+                    pixels: &texture.pixels,
+                    w_limit: texture.width as i32 - 1,
+                    h_limit: texture.height as i32 - 1,
+                    width_usize: texture.width as usize,
+                };
                 // Fixed point optimization for Bilinear
                 // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                // Pre-subtract 0.5 (32768 in 16.16) so that u_fix >> 8 is centered (u_fixed - 128)
+                let mut u_fix = (u_tex_start * 65536.0) as i32 - 32768;
+                let mut v_fix = (v_tex_start * 65536.0) as i32 - 32768;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        // Pass "image space" coordinates (centered)
+                        *pixel = sampler.sample_fixed(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
