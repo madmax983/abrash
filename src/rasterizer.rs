@@ -3,9 +3,9 @@
 //! Software rendering functions for 3D triangles (flat, gouraud, textured).
 
 use crate::clipping::clip_triangle_against_near_plane;
-use crate::framebuffer::Framebuffer;
+use crate::framebuffer::{Framebuffer, blend_colors};
 use crate::light::color_to_u32;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, project_to_screen};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -249,15 +249,6 @@ fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
     0xFF000000 | (r << 16) | (g << 8) | b
 }
 
-/// Helper for fast color packing from fixed point.
-#[inline(always)]
-fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
-    pack_color_channels(r, g, b)
-}
-
 // Fixed point scale factor (16.16)
 const FIXED_SCALE: f32 = 65536.0;
 
@@ -271,9 +262,9 @@ fn draw_scanline_gouraud(
     x_start: i32,
     x_end: i32,
     z_start: f32,
-    c_start: (i64, i64, i64), // Fixed point color
+    c_start: (i64, i64, i64, i64), // Fixed point color (R, G, B, A)
     dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    dc_dx: (i32, i32, i32, i32),
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
@@ -284,7 +275,13 @@ fn draw_scanline_gouraud(
     let mut r_i = c_start.0;
     let mut g_i = c_start.1;
     let mut b_i = c_start.2;
-    let (dr, dg, db) = (dc_dx.0 as i64, dc_dx.1 as i64, dc_dx.2 as i64);
+    let mut a_i = c_start.3;
+    let (dr, dg, db, da) = (
+        dc_dx.0 as i64,
+        dc_dx.1 as i64,
+        dc_dx.2 as i64,
+        dc_dx.3 as i64,
+    );
 
     // Clamp to screen bounds
     if xs < 0 {
@@ -294,6 +291,7 @@ fn draw_scanline_gouraud(
         r_i += diff_i64 * dr;
         g_i += diff_i64 * dg;
         b_i += diff_i64 * db;
+        a_i += diff_i64 * da;
         xs = 0;
     }
 
@@ -308,9 +306,11 @@ fn draw_scanline_gouraud(
     let mut r_i = r_i as i32;
     let mut g_i = g_i as i32;
     let mut b_i = b_i as i32;
+    let mut a_i = a_i as i32;
     let dr = dr as i32;
     let dg = dg as i32;
     let db = db as i32;
+    let da = da as i32;
 
     if xs <= xe {
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
@@ -328,25 +328,47 @@ fn draw_scanline_gouraud(
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            // Unpack alpha first
+            let alpha = (a_i >> 16).clamp(0, 255) as u32;
+
+            if alpha == 0 {
+                // Skip fully transparent pixels (no z-write)
+                z += dz_dx;
+                r_i += dr;
+                g_i += dg;
+                b_i += db;
+                a_i += da;
+                continue;
+            }
+
             // Check depth buffer
             if z < *depth_val {
-                *depth_val = z;
-                // Unpack fixed point color
                 // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
                 // 16.16 fixed point means 255.0 is 0x00FF0000
                 let r = r_i.clamp(0, 0x00FF0000);
                 let g = g_i.clamp(0, 0x00FF0000);
                 let b = b_i.clamp(0, 0x00FF0000);
 
-                *pixel = 0xFF000000
+                let src_color = 0xFF000000
                     | ((r as u32) & 0x00FF0000)
                     | (((g as u32) & 0x00FF0000) >> 8)
                     | (((b as u32) & 0x00FF0000) >> 16);
+
+                if alpha == 255 {
+                    *depth_val = z;
+                    *pixel = src_color;
+                } else {
+                    // Transparent pixels DO write to depth buffer (standard behavior for simple transparency)
+                    // Wait, memory said: "perform Z-writes for semi-transparent pixels".
+                    *depth_val = z;
+                    *pixel = blend_colors(src_color, *pixel, alpha);
+                }
             }
             z += dz_dx;
             r_i += dr;
             g_i += dg;
             b_i += db;
+            a_i += da;
         }
     }
 }
@@ -394,7 +416,7 @@ impl EdgeWalker {
 
 struct GouraudGradients {
     dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+    dc_dx: (i32, i32, i32, i32),
 }
 
 impl GouraudGradients {
@@ -402,9 +424,9 @@ impl GouraudGradients {
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
-        c0: Vec3,
-        c1: Vec3,
-        c2: Vec3,
+        c0: Vec4,
+        c1: Vec4,
+        c2: Vec4,
     ) -> Self {
         let ux = (p1.x as i64 - p0.x as i64) as f32;
         let uy = (p1.y as i64 - p0.y as i64) as f32;
@@ -425,18 +447,21 @@ impl GouraudGradients {
         let nx_r = uy * vc.x - uc.x * vy;
         let nx_g = uy * vc.y - uc.y * vy;
         let nx_b = uy * vc.z - uc.z * vy;
+        let nx_a = uy * vc.w - uc.w * vy;
 
         let dr = nx_r * inv_nz;
         let dg = nx_g * inv_nz;
         let db = nx_b * inv_nz;
+        let da = nx_a * inv_nz;
 
         let dr_i = (dr * FIXED_SCALE) as i32;
         let dg_i = (dg * FIXED_SCALE) as i32;
         let db_i = (db * FIXED_SCALE) as i32;
+        let da_i = (da * FIXED_SCALE) as i32;
 
         Self {
             dz_dx,
-            dc_dx: (dr_i, dg_i, db_i),
+            dc_dx: (dr_i, dg_i, db_i, da_i),
         }
     }
 
@@ -452,14 +477,14 @@ impl GouraudGradients {
 struct GouraudEdgeWalker {
     x: i64,
     z: f32,
-    c: (i64, i64, i64),
+    c: (i64, i64, i64, i64),
     dx_dy: i64,
     dz_dy: f32,
-    dc_dy: (i64, i64, i64),
+    dc_dy: (i64, i64, i64, i64),
 }
 
 impl GouraudEdgeWalker {
-    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec4, c_end: Vec4) -> Self {
         let height = (p_end.y as i64 - p_start.y as i64) as f32;
         let (dx_dy, dz_dy, dc_dy) = if height != 0.0 {
             let inv_h = 1.0 / height;
@@ -471,16 +496,18 @@ impl GouraudEdgeWalker {
                     (dc.x * FIXED_SCALE) as i64,
                     (dc.y * FIXED_SCALE) as i64,
                     (dc.z * FIXED_SCALE) as i64,
+                    (dc.w * FIXED_SCALE) as i64,
                 ),
             )
         } else {
-            (0, 0.0, (0, 0, 0))
+            (0, 0.0, (0, 0, 0, 0))
         };
 
         let c_fixed = (
             (c_start.x * FIXED_SCALE) as i64,
             (c_start.y * FIXED_SCALE) as i64,
             (c_start.z * FIXED_SCALE) as i64,
+            (c_start.w * FIXED_SCALE) as i64,
         );
 
         Self {
@@ -499,6 +526,7 @@ impl GouraudEdgeWalker {
         self.c.0 += self.dc_dy.0;
         self.c.1 += self.dc_dy.1;
         self.c.2 += self.dc_dy.2;
+        self.c.3 += self.dc_dy.3;
     }
 
     fn step_n(&mut self, n: i32) {
@@ -509,6 +537,7 @@ impl GouraudEdgeWalker {
         self.c.0 += self.dc_dy.0 * n_i64;
         self.c.1 += self.dc_dy.1 * n_i64;
         self.c.2 += self.dc_dy.2 * n_i64;
+        self.c.3 += self.dc_dy.3 * n_i64;
     }
 }
 
@@ -517,9 +546,9 @@ impl GouraudEdgeWalker {
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec3), // ((position, w), color)
-    v1: ((Vec3, f32), Vec3),
-    v2: ((Vec3, f32), Vec3),
+    v0: ((Vec3, f32), Vec4), // ((position, w), color)
+    v1: ((Vec3, f32), Vec4),
+    v2: ((Vec3, f32), Vec4),
 ) {
     assert_same_dimensions(fb, zb);
 
@@ -628,8 +657,27 @@ pub fn fill_triangle_gouraud(
             let dx = (x_end as i64) - (x_start as i64);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                // Optimization for very short spans (single pixel)
+                if x_start >= 0 && x_start < width_i32 {
+                     // Check alpha for optimization?
+                     let alpha = (c_left.3 >> 16).clamp(0, 255) as u32;
+                     if alpha > 0 {
+                        // Check depth
+                        if zb.test_and_set(x_start, y, z_left) {
+                             let r = (c_left.0 >> 16).clamp(0, 255) as u32;
+                             let g = (c_left.1 >> 16).clamp(0, 255) as u32;
+                             let b = (c_left.2 >> 16).clamp(0, 255) as u32;
+                             let color = pack_color_channels(r, g, b);
+                             if alpha == 255 {
+                                fb.set_pixel(x_start, y, color);
+                             } else {
+                                // For single pixel, we need to read back
+                                if let Some(dst) = fb.get_pixel(x_start, y) {
+                                    fb.set_pixel(x_start, y, blend_colors(color, dst, alpha));
+                                }
+                             }
+                        }
+                     }
                 }
             } else {
                 draw_scanline_gouraud(

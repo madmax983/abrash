@@ -50,3 +50,7 @@ harness = false
 [[bench]]
 name = "culling"
 harness = false
+
+[[bench]]
+name = "alpha_blending"
+harness = false

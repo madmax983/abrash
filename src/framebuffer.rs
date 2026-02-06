@@ -94,3 +94,40 @@ impl Framebuffer {
         }
     }
 }
+
+/// Blends two colors using source alpha.
+///
+/// Uses SWAR (SIMD Within A Register) optimization to blend in parallel.
+/// Assumes alpha is in the range [0, 255].
+///
+/// * `src` - Source color (foreground)
+/// * `dst` - Destination color (background)
+/// * `alpha` - Source alpha (0-255)
+#[inline(always)]
+pub fn blend_colors(src: u32, dst: u32, alpha: u32) -> u32 {
+    let inv_alpha = 256 - alpha;
+
+    // Mask out Red/Blue and Alpha/Green channels
+    // 0xFF00FF - keeps R and B
+    // 0xFF00FF00 - keeps A and G (shifted)
+    let rb_src = src & 0x00FF00FF;
+    let ag_src = (src >> 8) & 0x00FF00FF;
+
+    let rb_dst = dst & 0x00FF00FF;
+    let ag_dst = (dst >> 8) & 0x00FF00FF;
+
+    // (src * alpha + dst * (256 - alpha)) >> 8
+    // We use 256 for inverse to allow bit shift instead of division by 255.
+    // This slightly compresses the range but is standard fast approximation.
+    // Note: alpha range is 0..256 ideally for this math, but input is 0..255.
+    // Mapping 0..255 to 0..256: alpha + (alpha >> 7) is a common approximation.
+    // But here we'll just use alpha directly and inv_alpha = 256 - alpha.
+    // If alpha=255, inv=1. If alpha=0, inv=256.
+    // This implies full transparency (alpha=0) keeps destination fully (dst * 256 >> 8 = dst).
+    // Full opacity (alpha=255) gives (src * 255 + dst * 1) >> 8 ~ src.
+
+    let rb = ((rb_src * alpha + rb_dst * inv_alpha) >> 8) & 0x00FF00FF;
+    let ag = ((ag_src * alpha + ag_dst * inv_alpha) >> 8) & 0x00FF00FF;
+
+    rb | (ag << 8) | 0xFF000000 // Force alpha to 255 for result
+}
