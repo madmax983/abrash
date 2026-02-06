@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = ["backend-win32"]
 simd = []
+nova = []
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
@@ -57,6 +58,11 @@ path = "examples/lit_cube.rs"
 name = "wasm_cube_3d"
 path = "examples/wasm_cube_3d.rs"
 required-features = ["backend-wasm"]
+
+[[example]]
+name = "terrain"
+path = "examples/terrain.rs"
+required-features = ["nova", "backend-tui"]
 
 [[bench]]
 name = "rasterization"

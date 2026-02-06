@@ -19,6 +19,7 @@ use std::rc::Rc;
 /// z-buffer, and any pending input events. The function is responsible for
 /// clearing and drawing into the framebuffer; the WASM backend then blits the
 /// result to the browser via the half-block `FramebufferWidget`.
+#[allow(clippy::missing_panics_doc)]
 pub fn run_wasm<F>(title: &str, width: u32, height: u32, mut render_fn: F)
 where
     F: FnMut(&mut Framebuffer, &mut ZBuffer, &[Event]) + 'static,

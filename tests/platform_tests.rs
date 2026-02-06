@@ -23,15 +23,14 @@ fn event_resize_carries_dimensions() {
             assert_eq!(w, 1920);
             assert_eq!(h, 1080);
         }
-        _ => panic!("Expected Event::Resize"),
+        Event::Close => panic!("Expected Event::Resize"),
     }
 }
 
 #[test]
 fn event_clone() {
     let event = Event::Resize(800, 600);
-    let cloned = event.clone();
-    assert!(matches!(cloned, Event::Resize(800, 600)));
+    assert!(matches!(event, Event::Resize(800, 600)));
 }
 
 #[test]
@@ -39,8 +38,8 @@ fn event_debug_format() {
     let close = Event::Close;
     let resize = Event::Resize(640, 480);
     // Debug trait is derived, so formatting should not panic
-    let close_dbg = format!("{:?}", close);
-    let resize_dbg = format!("{:?}", resize);
+    let close_dbg = format!("{close:?}");
+    let resize_dbg = format!("{resize:?}");
     assert!(close_dbg.contains("Close"));
     assert!(resize_dbg.contains("Resize"));
     assert!(resize_dbg.contains("640"));
@@ -52,14 +51,14 @@ fn event_debug_format() {
 #[test]
 fn window_error_registration_failed_display() {
     let err = WindowError::RegistrationFailed;
-    let msg = format!("{}", err);
+    let msg = format!("{err}");
     assert_eq!(msg, "Failed to register window class");
 }
 
 #[test]
 fn window_error_creation_failed_display() {
     let err = WindowError::CreationFailed;
-    let msg = format!("{}", err);
+    let msg = format!("{err}");
     assert_eq!(msg, "Failed to create window");
 }
 
@@ -67,8 +66,8 @@ fn window_error_creation_failed_display() {
 fn window_error_debug_format() {
     let reg = WindowError::RegistrationFailed;
     let create = WindowError::CreationFailed;
-    let reg_dbg = format!("{:?}", reg);
-    let create_dbg = format!("{:?}", create);
+    let reg_dbg = format!("{reg:?}");
+    let create_dbg = format!("{create:?}");
     assert!(reg_dbg.contains("RegistrationFailed"));
     assert!(create_dbg.contains("CreationFailed"));
 }
@@ -82,7 +81,7 @@ fn window_error_implements_std_error() {
 
 // ---------- WindowBackend trait ----------
 
-/// Verify the WindowBackend trait is importable and has the expected methods
+/// Verify the `WindowBackend` trait is importable and has the expected methods
 /// by defining a compile-time-only mock. If the trait signature ever changes,
 /// this test will fail to compile.
 struct MockWindow {
@@ -150,6 +149,7 @@ fn mock_window_backend_blit_framebuffer() {
 // ---------- Window type alias ----------
 
 #[test]
+#[allow(clippy::used_underscore_items)]
 fn window_type_alias_resolves() {
     // This test verifies that `abrash::platform::Window` is a valid type.
     // We can't construct it (Win32 needs a real window, TUI needs a terminal),

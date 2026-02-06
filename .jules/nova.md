@@ -22,3 +22,8 @@
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
 **Fate:** Merged
 **Lesson:** Depth buffers contain valuable structural information that can be reused for non-photorealistic rendering.
+
+## [Procedural Terrain]
+**Concept:** A procedural terrain generator using fractal noise (FBM) to create heightmaps and meshes on the fly, demonstrating the renderer's capability to handle generated geometry.
+**Fate:** Merged
+**Lesson:** Simple math (sin/fract) can produce compelling organic shapes without external dependencies.

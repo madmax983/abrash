@@ -11,6 +11,6 @@ fn test_cube_face_normals() {
     // All normals should be unit length
     for n in &normals {
         let len = n.length();
-        assert!((len - 1.0).abs() < 0.001, "Normal not unit length: {}", len);
+        assert!((len - 1.0).abs() < 0.001, "Normal not unit length: {len}");
     }
 }

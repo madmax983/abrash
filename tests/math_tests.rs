@@ -1,6 +1,7 @@
 use abrash::math::{Mat2, Mat4, Vec2, Vec3};
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_vec2_new() {
     let v = Vec2::new(3.0, 4.0);
     assert_eq!(v.x, 3.0);
@@ -49,13 +50,13 @@ fn test_rotation_preserves_length() {
     use std::f32::consts::PI;
 
     let v = Vec2::new(3.0, 4.0);
-    let original_length = (v.x * v.x + v.y * v.y).sqrt();
+    let original_length = v.x.hypot(v.y);
 
     // Test multiple rotation angles
     for angle in [0.0, PI / 4.0, PI / 2.0, PI, 2.0 * PI] {
         let mat = Mat2::rotation(angle);
         let rotated = mat.transform(v);
-        let rotated_length = (rotated.x * rotated.x + rotated.y * rotated.y).sqrt();
+        let rotated_length = rotated.x.hypot(rotated.y);
 
         assert!(
             (original_length - rotated_length).abs() < 0.0001,
@@ -65,6 +66,7 @@ fn test_rotation_preserves_length() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_vec3_new() {
     let v = Vec3::new(1.0, 2.0, 3.0);
     assert_eq!(v.x, 1.0);
@@ -73,6 +75,7 @@ fn test_vec3_new() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_vec3_dot() {
     let a = Vec3::new(1.0, 0.0, 0.0);
     let b = Vec3::new(0.0, 1.0, 0.0);
@@ -110,6 +113,7 @@ fn test_mat4_identity() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_mat4_default() {
     let m = Mat4::default();
     // Identity matrix check
@@ -141,6 +145,7 @@ fn test_mat4_scale() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_mat4_mul_operator() {
     let t = Mat4::translation(1.0, 2.0, 3.0);
     let s = Mat4::scale(2.0, 2.0, 2.0);
@@ -180,12 +185,13 @@ fn test_mat4_transform_normal() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_vec3_normalize_tiny() {
-    let v = Vec3::new(0.000001, 0.0, 0.0);
+    let v = Vec3::new(0.000_001, 0.0, 0.0);
     let n = v.normalize();
     // Specific behavior of this math lib:
     // If length < 0.0001, it returns the vector itself instead of normalizing or returning zero/NaN.
-    assert_eq!(n.x, 0.000001);
+    assert_eq!(n.x, 0.000_001);
 }
 
 #[test]

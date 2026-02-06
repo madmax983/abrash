@@ -43,7 +43,7 @@ fn bench_culling_cube(c: &mut Criterion) {
                     black_box(v0),
                     black_box(v1),
                     black_box(v2),
-                    black_box(0xFFFFFFFF),
+                    black_box(0xFFFF_FFFF),
                 );
             }
         });
