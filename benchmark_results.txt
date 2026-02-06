@@ -1,0 +1,329 @@
+    Finished `bench` profile [optimized] target(s) in 0.15s
+     Running benches\tile_rendering.rs (target\release\deps\tile_rendering-f5cbff27e349a540.exe)
+Gnuplot not found, using plotters backend
+Benchmarking fill_cube_tiled
+Benchmarking fill_cube_tiled: Warming up for 3.0000 s
+Benchmarking fill_cube_tiled: Collecting 100 samples in estimated 5.2398 s (81k iterations)
+Benchmarking fill_cube_tiled: Analyzing
+fill_cube_tiled         time:   [76.669 µs 81.702 µs 86.668 µs]
+                        change: [+20.682% +25.076% +30.334%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+
+Benchmarking fill_cube_scanline
+Benchmarking fill_cube_scanline: Warming up for 3.0000 s
+Benchmarking fill_cube_scanline: Collecting 100 samples in estimated 5.0311 s (86k iterations)
+Benchmarking fill_cube_scanline: Analyzing
+fill_cube_scanline      time:   [57.988 µs 60.501 µs 63.213 µs]
+                        change: [+14.591% +18.964% +23.800%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+
+Benchmarking tiled_800x600/10
+Benchmarking tiled_800x600/10: Warming up for 3.0000 s
+Benchmarking tiled_800x600/10: Collecting 100 samples in estimated 5.2409 s (76k iterations)
+Benchmarking tiled_800x600/10: Analyzing
+tiled_800x600/10        time:   [65.741 µs 66.894 µs 68.296 µs]
+                        change: [-3.2076% -0.7657% +1.4711%] (p = 0.54 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking tiled_800x600/50
+Benchmarking tiled_800x600/50: Warming up for 3.0000 s
+Benchmarking tiled_800x600/50: Collecting 100 samples in estimated 5.1493 s (35k iterations)
+Benchmarking tiled_800x600/50: Analyzing
+tiled_800x600/50        time:   [161.96 µs 170.34 µs 179.49 µs]
+                        change: [+13.674% +19.787% +26.375%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking tiled_800x600/100
+Benchmarking tiled_800x600/100: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 6.1s, enable flat sampling, or reduce sample count to 60.
+Benchmarking tiled_800x600/100: Collecting 100 samples in estimated 6.1018 s (5050 iterations)
+Benchmarking tiled_800x600/100: Analyzing
+tiled_800x600/100       time:   [1.8562 ms 1.9975 ms 2.1304 ms]
+                        change: [+14.723% +23.947% +34.085%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking tiled_800x600/200
+Benchmarking tiled_800x600/200: Warming up for 3.0000 s
+Benchmarking tiled_800x600/200: Collecting 100 samples in estimated 5.2682 s (1400 iterations)
+Benchmarking tiled_800x600/200: Analyzing
+tiled_800x600/200       time:   [2.0553 ms 2.1373 ms 2.2215 ms]
+                        change: [+9.4701% +14.938% +21.040%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking tiled_800x600/500
+Benchmarking tiled_800x600/500: Warming up for 3.0000 s
+Benchmarking tiled_800x600/500: Collecting 100 samples in estimated 5.4021 s (800 iterations)
+Benchmarking tiled_800x600/500: Analyzing
+tiled_800x600/500       time:   [4.7215 ms 4.7887 ms 4.8653 ms]
+                        change: [+3.8630% +5.7817% +7.6316%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking tiled_1920x1080/10
+Benchmarking tiled_1920x1080/10: Warming up for 3.0000 s
+Benchmarking tiled_1920x1080/10: Collecting 100 samples in estimated 5.8066 s (15k iterations)
+Benchmarking tiled_1920x1080/10: Analyzing
+tiled_1920x1080/10      time:   [449.13 µs 485.90 µs 524.20 µs]
+                        change: [+21.559% +28.860% +37.083%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+Benchmarking tiled_1920x1080/50
+Benchmarking tiled_1920x1080/50: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 5.7s, enable flat sampling, or reduce sample count to 60.
+Benchmarking tiled_1920x1080/50: Collecting 100 samples in estimated 5.6948 s (5050 iterations)
+Benchmarking tiled_1920x1080/50: Analyzing
+tiled_1920x1080/50      time:   [931.24 µs 1.0230 ms 1.1286 ms]
+                        change: [+47.739% +60.251% +72.467%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking tiled_1920x1080/100
+Benchmarking tiled_1920x1080/100: Warming up for 3.0000 s
+Benchmarking tiled_1920x1080/100: Collecting 100 samples in estimated 5.1236 s (1200 iterations)
+Benchmarking tiled_1920x1080/100: Analyzing
+tiled_1920x1080/100     time:   [3.8945 ms 3.9445 ms 4.0011 ms]
+                        change: [-21.657% -17.863% -14.038%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking tiled_1920x1080/200
+Benchmarking tiled_1920x1080/200: Warming up for 3.0000 s
+Benchmarking tiled_1920x1080/200: Collecting 100 samples in estimated 5.4787 s (900 iterations)
+Benchmarking tiled_1920x1080/200: Analyzing
+tiled_1920x1080/200     time:   [6.0966 ms 6.1962 ms 6.3099 ms]
+                        change: [-15.605% -13.110% -10.523%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+Benchmarking tiled_1920x1080/500
+Benchmarking tiled_1920x1080/500: Warming up for 3.0000 s
+Benchmarking tiled_1920x1080/500: Collecting 100 samples in estimated 5.5059 s (300 iterations)
+Benchmarking tiled_1920x1080/500: Analyzing
+tiled_1920x1080/500     time:   [18.144 ms 18.261 ms 18.412 ms]
+                        change: [-7.0431% -5.6484% -4.2768%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking tiled_3840x2160/10
+Benchmarking tiled_3840x2160/10: Warming up for 3.0000 s
+Benchmarking tiled_3840x2160/10: Collecting 100 samples in estimated 5.0668 s (2100 iterations)
+Benchmarking tiled_3840x2160/10: Analyzing
+tiled_3840x2160/10      time:   [2.0913 ms 2.1661 ms 2.2418 ms]
+                        change: [-34.315% -31.339% -27.920%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking tiled_3840x2160/50
+Benchmarking tiled_3840x2160/50: Warming up for 3.0000 s
+Benchmarking tiled_3840x2160/50: Collecting 100 samples in estimated 5.0115 s (1400 iterations)
+Benchmarking tiled_3840x2160/50: Analyzing
+tiled_3840x2160/50      time:   [3.8362 ms 3.9066 ms 3.9830 ms]
+                        change: [-20.362% -16.532% -12.641%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking tiled_3840x2160/100
+Benchmarking tiled_3840x2160/100: Warming up for 3.0000 s
+Benchmarking tiled_3840x2160/100: Collecting 100 samples in estimated 6.4567 s (400 iterations)
+Benchmarking tiled_3840x2160/100: Analyzing
+tiled_3840x2160/100     time:   [16.670 ms 17.103 ms 17.593 ms]
+                        change: [-4.5830% -1.1790% +2.2146%] (p = 0.52 > 0.05)
+                        No change in performance detected.
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+Benchmarking tiled_3840x2160/200
+Benchmarking tiled_3840x2160/200: Warming up for 3.0000 s
+Benchmarking tiled_3840x2160/200: Collecting 100 samples in estimated 7.2364 s (300 iterations)
+Benchmarking tiled_3840x2160/200: Analyzing
+tiled_3840x2160/200     time:   [23.243 ms 23.393 ms 23.563 ms]
+                        change: [-9.9158% -7.8308% -5.9418%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+Benchmarking tiled_3840x2160/500
+Benchmarking tiled_3840x2160/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 7.1s, or reduce sample count to 70.
+Benchmarking tiled_3840x2160/500: Collecting 100 samples in estimated 7.0562 s (100 iterations)
+Benchmarking tiled_3840x2160/500: Analyzing
+tiled_3840x2160/500     time:   [70.067 ms 70.570 ms 71.182 ms]
+                        change: [-8.3704% -6.1850% -4.1430%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high severe
+
+Benchmarking scanline_800x600/10
+Benchmarking scanline_800x600/10: Warming up for 3.0000 s
+Benchmarking scanline_800x600/10: Collecting 100 samples in estimated 5.2256 s (101k iterations)
+Benchmarking scanline_800x600/10: Analyzing
+scanline_800x600/10     time:   [51.932 µs 52.313 µs 52.757 µs]
+                        change: [-11.456% -8.8407% -6.3814%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+Benchmarking scanline_800x600/50
+Benchmarking scanline_800x600/50: Warming up for 3.0000 s
+Benchmarking scanline_800x600/50: Collecting 100 samples in estimated 5.2478 s (56k iterations)
+Benchmarking scanline_800x600/50: Analyzing
+scanline_800x600/50     time:   [93.782 µs 94.574 µs 95.598 µs]
+                        change: [-11.247% -8.7751% -6.4396%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) high mild
+  5 (5.00%) high severe
+Benchmarking scanline_800x600/100
+Benchmarking scanline_800x600/100: Warming up for 3.0000 s
+Benchmarking scanline_800x600/100: Collecting 100 samples in estimated 6.6524 s (10k iterations)
+Benchmarking scanline_800x600/100: Analyzing
+scanline_800x600/100    time:   [654.64 µs 660.20 µs 666.87 µs]
+                        change: [-9.7930% -7.6332% -5.5478%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+Benchmarking scanline_800x600/200
+Benchmarking scanline_800x600/200: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 5.2s, enable flat sampling, or reduce sample count to 60.
+Benchmarking scanline_800x600/200: Collecting 100 samples in estimated 5.2412 s (5050 iterations)
+Benchmarking scanline_800x600/200: Analyzing
+scanline_800x600/200    time:   [1.0343 ms 1.0465 ms 1.0611 ms]
+                        change: [-5.0132% -3.1082% -1.1431%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  7 (7.00%) high mild
+  4 (4.00%) high severe
+Benchmarking scanline_800x600/500
+Benchmarking scanline_800x600/500: Warming up for 3.0000 s
+Benchmarking scanline_800x600/500: Collecting 100 samples in estimated 5.2947 s (1600 iterations)
+Benchmarking scanline_800x600/500: Analyzing
+scanline_800x600/500    time:   [3.3081 ms 3.3376 ms 3.3720 ms]
+                        change: [-7.0952% -5.1428% -3.2914%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Benchmarking scanline_1920x1080/10
+Benchmarking scanline_1920x1080/10: Warming up for 3.0000 s
+Benchmarking scanline_1920x1080/10: Collecting 100 samples in estimated 6.2210 s (20k iterations)
+Benchmarking scanline_1920x1080/10: Analyzing
+scanline_1920x1080/10   time:   [476.15 µs 527.21 µs 582.97 µs]
+                        change: [+30.873% +43.700% +57.264%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+Benchmarking scanline_1920x1080/50
+Benchmarking scanline_1920x1080/50: Warming up for 3.0000 s
+Benchmarking scanline_1920x1080/50: Collecting 100 samples in estimated 8.6183 s (10k iterations)
+Benchmarking scanline_1920x1080/50: Analyzing
+scanline_1920x1080/50   time:   [651.37 µs 701.05 µs 757.26 µs]
+                        change: [+34.601% +47.401% +61.550%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_1920x1080/100
+Benchmarking scanline_1920x1080/100: Warming up for 3.0000 s
+Benchmarking scanline_1920x1080/100: Collecting 100 samples in estimated 5.3878 s (1200 iterations)
+Benchmarking scanline_1920x1080/100: Analyzing
+scanline_1920x1080/100  time:   [3.1847 ms 3.2766 ms 3.3772 ms]
+                        change: [+5.0380% +8.4378% +12.271%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_1920x1080/200
+Benchmarking scanline_1920x1080/200: Warming up for 3.0000 s
+Benchmarking scanline_1920x1080/200: Collecting 100 samples in estimated 5.3871 s (1000 iterations)
+Benchmarking scanline_1920x1080/200: Analyzing
+scanline_1920x1080/200  time:   [5.6447 ms 5.9259 ms 6.2258 ms]
+                        change: [+20.026% +26.058% +33.286%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking scanline_1920x1080/500
+Benchmarking scanline_1920x1080/500: Warming up for 3.0000 s
+Benchmarking scanline_1920x1080/500: Collecting 100 samples in estimated 5.7285 s (300 iterations)
+Benchmarking scanline_1920x1080/500: Analyzing
+scanline_1920x1080/500  time:   [16.310 ms 16.962 ms 17.690 ms]
+                        change: [+7.9663% +12.365% +17.388%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 17 outliers among 100 measurements (17.00%)
+  7 (7.00%) high mild
+  10 (10.00%) high severe
+
+Benchmarking scanline_3840x2160/10
+Benchmarking scanline_3840x2160/10: Warming up for 3.0000 s
+Benchmarking scanline_3840x2160/10: Collecting 100 samples in estimated 5.0771 s (1900 iterations)
+Benchmarking scanline_3840x2160/10: Analyzing
+scanline_3840x2160/10   time:   [2.7943 ms 2.9865 ms 3.1994 ms]
+                        change: [+23.141% +31.850% +42.657%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking scanline_3840x2160/50
+Benchmarking scanline_3840x2160/50: Warming up for 3.0000 s
+Benchmarking scanline_3840x2160/50: Collecting 100 samples in estimated 5.0343 s (1400 iterations)
+Benchmarking scanline_3840x2160/50: Analyzing
+scanline_3840x2160/50   time:   [3.9976 ms 4.1647 ms 4.4207 ms]
+                        change: [+11.536% +17.668% +26.321%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scanline_3840x2160/100
+Benchmarking scanline_3840x2160/100: Warming up for 3.0000 s
+Benchmarking scanline_3840x2160/100: Collecting 100 samples in estimated 5.3165 s (300 iterations)
+Benchmarking scanline_3840x2160/100: Analyzing
+scanline_3840x2160/100  time:   [16.243 ms 16.555 ms 16.883 ms]
+                        change: [+18.419% +21.566% +24.696%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking scanline_3840x2160/200
+Benchmarking scanline_3840x2160/200: Warming up for 3.0000 s
+Benchmarking scanline_3840x2160/200: Collecting 100 samples in estimated 5.3722 s (200 iterations)
+Benchmarking scanline_3840x2160/200: Analyzing
+scanline_3840x2160/200  time:   [21.399 ms 22.088 ms 23.078 ms]
+                        change: [-9.9780% -6.1415% -1.3257%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking scanline_3840x2160/500
+Benchmarking scanline_3840x2160/500: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 6.3s, or reduce sample count to 70.
+Benchmarking scanline_3840x2160/500: Collecting 100 samples in estimated 6.3436 s (100 iterations)
+Benchmarking scanline_3840x2160/500: Analyzing
+scanline_3840x2160/500  time:   [64.335 ms 66.355 ms 69.071 ms]
+                        change: [-22.788% -17.879% -12.447%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+

@@ -176,14 +176,21 @@ impl HiZBuffer {
 
     /// Build a single pyramid level via 2×2 min-reduction
     fn build_level(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        {
-            self.build_level_simd(level_idx, source, source_width);
-        }
-        #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        {
-            self.build_level_scalar(level_idx, source, source_width);
-        }
+        // TEMPORARY WORKAROUND: Disable Hi-Z SIMD due to 2.7× performance regression
+        // Profiling revealed excessive shuffle operations (5-6 per 4 pixels) causing
+        // slowdown. Scalar is faster until SIMD shuffle pattern is optimized.
+        // TODO: Optimize horizontal reduction to 3-4 shuffles per 8 pixels
+        self.build_level_scalar(level_idx, source, source_width);
+
+        // Original SIMD code (disabled):
+        // #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        // {
+        //     self.build_level_simd(level_idx, source, source_width);
+        // }
+        // #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+        // {
+        //     self.build_level_scalar(level_idx, source, source_width);
+        // }
     }
 
     /// Scalar 2×2 min-reduction implementation
@@ -227,6 +234,14 @@ impl HiZBuffer {
 
             let level_width = self.levels[level_idx as usize].width;
             let level_height = self.levels[level_idx as usize].height;
+
+            // QUICK FIX: Only use SIMD for wide levels (amortize shuffle overhead)
+            // Profiling showed SIMD is 2.7× slower due to excessive shuffle operations.
+            // For narrow levels (<128 pixels), scalar is faster.
+            const SIMD_WIDTH_THRESHOLD: u32 = 128;
+            if level_width < SIMD_WIDTH_THRESHOLD {
+                return self.build_level_scalar(level_idx, source, source_width);
+            }
 
             // Process 4 output pixels at a time for simpler shuffle logic
             let simd_width = 4;

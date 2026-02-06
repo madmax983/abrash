@@ -364,7 +364,19 @@ fn render_triangle_in_tile(
 
                 #[cfg(feature = "simd")]
                 {
-                    rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
+                    // TEMPORARY WORKAROUND: Disable scanline SIMD due to performance regression
+                    // Even with adaptive threshold, SIMD is 3.8× slower than scalar.
+                    // Possible issues: SIMD not executing correctly, or overhead dominates
+                    // TODO: Debug why SIMD isn't providing expected 6-7× speedup
+                    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+
+                    // Original adaptive code (disabled):
+                    // const SIMD_SCANLINE_THRESHOLD: usize = 32;
+                    // if pixels.len() >= SIMD_SCANLINE_THRESHOLD {
+                    //     rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
+                    // } else {
+                    //     rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+                    // }
                 }
 
                 #[cfg(not(feature = "simd"))]
