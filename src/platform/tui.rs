@@ -18,6 +18,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 use std::io::{Stdout, stdout};
+use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct TuiWindow {
@@ -30,6 +31,43 @@ pub struct TuiWindow {
     last_fps_update: Instant,
     frames_since_update: u64,
     fps: f64,
+    frame_start: Instant,
+    target_frame_time: Duration,
+}
+
+const DEFAULT_REFRESH_HZ: u32 = 60;
+
+/// Query the monitor refresh rate via platform APIs.
+///
+/// On Windows, queries `EnumDisplaySettingsW` for the primary monitor's refresh rate.
+/// Falls back to `DEFAULT_REFRESH_HZ` on non-Windows or if the query fails.
+fn query_refresh_rate() -> u32 {
+    #[cfg(target_os = "windows")]
+    {
+        // SAFETY: EnumDisplaySettingsW with null device name queries the primary monitor.
+        // DEVMODEW must be zero-initialized with dmSize set before the call.
+        unsafe {
+            use std::mem;
+            use windows_sys::Win32::Graphics::Gdi::{
+                DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW,
+            };
+
+            let mut devmode: DEVMODEW = mem::zeroed();
+            devmode.dmSize = mem::size_of::<DEVMODEW>() as u16;
+
+            if EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &mut devmode) != 0
+                && devmode.dmDisplayFrequency > 0
+            {
+                devmode.dmDisplayFrequency
+            } else {
+                DEFAULT_REFRESH_HZ
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        DEFAULT_REFRESH_HZ
+    }
 }
 
 impl WindowBackend for TuiWindow {
@@ -42,6 +80,9 @@ impl WindowBackend for TuiWindow {
 
         terminal.clear().ok();
 
+        let hz = query_refresh_rate();
+        let target_frame_time = Duration::from_secs_f64(1.0 / f64::from(hz));
+
         Ok(Self {
             width,
             height,
@@ -52,6 +93,8 @@ impl WindowBackend for TuiWindow {
             last_fps_update: Instant::now(),
             frames_since_update: 0,
             fps: 0.0,
+            frame_start: Instant::now(),
+            target_frame_time,
         })
     }
 
@@ -68,6 +111,7 @@ impl WindowBackend for TuiWindow {
     }
 
     fn poll_events(&mut self) -> Vec<Event> {
+        self.frame_start = Instant::now();
         let mut events = Vec::new();
 
         // Non-blocking poll
@@ -138,6 +182,12 @@ impl WindowBackend for TuiWindow {
 
             f.render_widget(status_bar, chunks[1]);
         });
+
+        // Sleep to fill remaining frame budget (approximate vsync)
+        let elapsed = self.frame_start.elapsed();
+        if let Some(remaining) = self.target_frame_time.checked_sub(elapsed) {
+            thread::sleep(remaining);
+        }
     }
 }
 

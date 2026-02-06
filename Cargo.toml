@@ -7,7 +7,7 @@ edition = "2024"
 default = ["backend-win32"]
 simd = []
 backend-win32 = ["dep:windows-sys"]
-backend-tui = ["dep:crossterm", "dep:ratatui"]
+backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
 
 [dependencies]
@@ -19,6 +19,7 @@ ratzilla = { version = "0.3", optional = true }
 # Win32 API bindings
 windows-sys = { version = "0.59", optional = true, features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
     "Win32_System_LibraryLoader",
     "Win32_UI_WindowsAndMessaging",

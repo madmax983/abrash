@@ -2,6 +2,7 @@
 
 use std::ptr::null_mut;
 use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Graphics::Dwm::DwmFlush;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
@@ -146,6 +147,9 @@ impl WindowBackend for Win32Window {
             );
 
             ReleaseDC(self.hwnd, hdc);
+
+            // Block until the next vertical blank (real vsync via DWM compositor)
+            DwmFlush();
         }
     }
 }

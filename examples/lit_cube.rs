@@ -16,12 +16,36 @@ const HEIGHT: u32 = 600;
 
 // Face colors for the cube
 const FACE_COLORS: [Vec3; 6] = [
-    Vec3 { x: 0.90, y: 0.30, z: 0.24 }, // Red
-    Vec3 { x: 0.18, y: 0.80, z: 0.44 }, // Green
-    Vec3 { x: 0.20, y: 0.60, z: 0.86 }, // Blue
-    Vec3 { x: 0.95, y: 0.61, z: 0.07 }, // Orange
-    Vec3 { x: 0.61, y: 0.35, z: 0.71 }, // Purple
-    Vec3 { x: 0.10, y: 0.74, z: 0.61 }, // Teal
+    Vec3 {
+        x: 0.90,
+        y: 0.30,
+        z: 0.24,
+    }, // Red
+    Vec3 {
+        x: 0.18,
+        y: 0.80,
+        z: 0.44,
+    }, // Green
+    Vec3 {
+        x: 0.20,
+        y: 0.60,
+        z: 0.86,
+    }, // Blue
+    Vec3 {
+        x: 0.95,
+        y: 0.61,
+        z: 0.07,
+    }, // Orange
+    Vec3 {
+        x: 0.61,
+        y: 0.35,
+        z: 0.71,
+    }, // Purple
+    Vec3 {
+        x: 0.10,
+        y: 0.74,
+        z: 0.61,
+    }, // Teal
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
