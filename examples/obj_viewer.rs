@@ -1,5 +1,5 @@
-use abrash::experimental::obj_loader::load_obj;
 use abrash::framebuffer::Framebuffer;
+use abrash::obj_loader::load_obj;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_3d;

@@ -15,7 +15,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WS_OVERLAPPEDWINDOW, WS_VISIBLE,
 };
 
-use super::{Event, WindowBackend, WindowError};
+use super::{Event, WindowError};
 use crate::framebuffer::Framebuffer;
 
 const WINDOW_CLASS_NAME: &str = "AbrashWindowClass";
@@ -28,8 +28,8 @@ pub struct Win32Window {
     is_open: bool,
 }
 
-impl WindowBackend for Win32Window {
-    fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+impl Win32Window {
+    pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         unsafe {
             let hinstance = GetModuleHandleW(null_mut());
 
@@ -77,19 +77,19 @@ impl WindowBackend for Win32Window {
         }
     }
 
-    fn is_open(&self) -> bool {
+    pub fn is_open(&self) -> bool {
         self.is_open
     }
 
-    fn width(&self) -> u32 {
+    pub fn width(&self) -> u32 {
         self.width
     }
 
-    fn height(&self) -> u32 {
+    pub fn height(&self) -> u32 {
         self.height
     }
 
-    fn poll_events(&mut self) -> Vec<Event> {
+    pub fn poll_events(&mut self) -> Vec<Event> {
         let mut events = Vec::new();
 
         unsafe {
@@ -109,7 +109,7 @@ impl WindowBackend for Win32Window {
         events
     }
 
-    fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
+    pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         unsafe {
             let hdc = GetDC(self.hwnd);
 
