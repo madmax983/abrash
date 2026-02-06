@@ -358,6 +358,15 @@ impl Mat4 {
     /// * `aspect` - Aspect ratio (width / height).
     /// * `near` - Distance to near clipping plane.
     /// * `far` - Distance to far clipping plane.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Mat4;
+    /// use std::f32::consts::PI;
+    ///
+    /// let proj = Mat4::perspective(PI / 4.0, 1.33, 0.1, 100.0);
+    /// ```
     #[must_use]
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
@@ -377,6 +386,17 @@ impl Mat4 {
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let eye = Vec3::new(0.0, 0.0, 5.0);
+    /// let target = Vec3::new(0.0, 0.0, 0.0);
+    /// let up = Vec3::new(0.0, 1.0, 0.0);
+    /// let view = Mat4::look_at(eye, target, up);
+    /// ```
     #[must_use]
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
@@ -396,6 +416,19 @@ impl Mat4 {
     ///
     /// Returns a tuple `(transformed_point, w_component)`.
     /// The `w` component is used for perspective division.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let m = Mat4::translation(1.0, 2.0, 3.0);
+    /// let p = Vec3::new(0.0, 0.0, 0.0);
+    /// let (p_prime, w) = m.transform_point(p);
+    ///
+    /// assert_eq!(p_prime, Vec3::new(1.0, 2.0, 3.0));
+    /// assert_eq!(w, 1.0);
+    /// ```
     #[must_use]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];

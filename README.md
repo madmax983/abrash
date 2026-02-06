@@ -27,20 +27,14 @@ cargo run --release
 Explore different capabilities of the engine through the provided examples:
 
 ```bash
-# A simple rotating polygon
-cargo run --example rotating_polygon
-
-# Filled 2D primitives
-cargo run --example filled_primitives
-
 # A 3D wireframe cube
 cargo run --example cube_3d
 
 # A solid cube with lighting (similar to main)
 cargo run --example lit_cube
 
-# A retro-styled cube
-cargo run --example retro_cube
+# WebAssembly compatible cube demo
+cargo run --example wasm_cube_3d
 ```
 
 > **Note:** Use `--release` for smooth performance, as software rendering is CPU-intensive!
