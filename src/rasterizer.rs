@@ -709,6 +709,9 @@ impl Texture {
         if width == 0 || height == 0 {
             return Err("Texture dimensions must be positive");
         }
+        if width > i32::MAX as u32 || height > i32::MAX as u32 {
+            return Err("Texture dimensions too large (max i32::MAX)");
+        }
 
         let size = u64::from(width)
             .checked_mul(u64::from(height))
