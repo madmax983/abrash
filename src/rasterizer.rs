@@ -784,10 +784,14 @@ impl Texture {
         let x0_raw = u_img_fixed >> 8;
         let y0_raw = v_img_fixed >> 8;
 
-        // Optimization: Fast path for interior pixels to avoid 4 clamps
-        // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
-        let (c00, c10, c01, c11) = if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32
-        {
+        // Optimization: Fast path for interior pixels to avoid 4 branches
+        // Use unsigned cast to check lower (>=0) and upper (< width-1) bounds in one go.
+        // We need x0_raw to be in [0, width-2] range to access x0 and x0+1 safely.
+        // w_i32 is width-1. So we check < width-1.
+        let w_limit = w_i32 as u32; // effectively width - 1
+        let h_limit = h_i32 as u32; // effectively height - 1
+
+        let (c00, c10, c01, c11) = if (x0_raw as u32) < w_limit && (y0_raw as u32) < h_limit {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
             let width_usize = self.width as usize;
@@ -823,26 +827,32 @@ impl Texture {
             }
         };
 
-        // Function to blend two colors with weight w using SWAR (SIMD Within A Register)
-        // Blends R/B and A/G in parallel
-        let blend = |c0: u32, c1: u32, w: u32, inv_w: u32| -> u32 {
-            let rb0 = c0 & 0x00FF_00FF;
-            let ag0 = (c0 >> 8) & 0x00FF_00FF;
-            let rb1 = c1 & 0x00FF_00FF;
-            let ag1 = (c1 >> 8) & 0x00FF_00FF;
+        // Optimization: Manually unrolled SWAR blending avoids packing/unpacking
+        // intermediate results (top/bottom) into u32, saving ~10 ops per pixel.
 
-            let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF_00FF;
-            let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF_00FF;
+        let rb00 = c00 & 0x00FF_00FF;
+        let ag00 = (c00 >> 8) & 0x00FF_00FF;
+        let rb10 = c10 & 0x00FF_00FF;
+        let ag10 = (c10 >> 8) & 0x00FF_00FF;
+        let rb01 = c01 & 0x00FF_00FF;
+        let ag01 = (c01 >> 8) & 0x00FF_00FF;
+        let rb11 = c11 & 0x00FF_00FF;
+        let ag11 = (c11 >> 8) & 0x00FF_00FF;
 
-            rb | (ag << 8)
-        };
+        // Top Row Blend (horizontal)
+        let rb_top = ((rb00 * inv_wx + rb10 * wx) >> 8) & 0x00FF_00FF;
+        let ag_top = ((ag00 * inv_wx + ag10 * wx) >> 8) & 0x00FF_00FF;
 
-        let top = blend(c00, c10, wx, inv_wx);
-        let bottom = blend(c01, c11, wx, inv_wx);
-        let final_color = blend(top, bottom, wy, inv_wy);
+        // Bottom Row Blend (horizontal)
+        let rb_bot = ((rb01 * inv_wx + rb11 * wx) >> 8) & 0x00FF_00FF;
+        let ag_bot = ((ag01 * inv_wx + ag11 * wx) >> 8) & 0x00FF_00FF;
 
-        // Ensure alpha is 0xFF
-        final_color | 0xFF00_0000
+        // Final Blend (vertical)
+        let rb_final = ((rb_top * inv_wy + rb_bot * wy) >> 8) & 0x00FF_00FF;
+        let ag_final = ((ag_top * inv_wy + ag_bot * wy) >> 8) & 0x00FF_00FF;
+
+        // Pack result
+        (rb_final | (ag_final << 8)) | 0xFF00_0000
     }
 
     #[must_use]
