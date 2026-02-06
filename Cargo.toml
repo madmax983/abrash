@@ -76,6 +76,10 @@ harness = false
 name = "phase1_simd"
 harness = false
 
+[[bench]]
+name = "tile_simd"
+harness = false
+
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"
