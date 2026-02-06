@@ -103,6 +103,25 @@ fn draw_scanline_flat(
 }
 
 /// Fill a 3D triangle with z-buffer test
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_3d;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0); // (Position, W)
+/// let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
+/// let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
+/// let color = 0xFFFF0000; // Red
+///
+/// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
+/// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -686,8 +705,11 @@ pub fn fill_triangle_lit(
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// Filter mode for texture sampling.
 pub enum FilterMode {
+    /// Nearest neighbor interpolation. Fast, but pixelated.
     Nearest,
+    /// Bilinear interpolation. Smoother, but slower.
     Bilinear,
 }
 
@@ -705,6 +727,15 @@ impl Texture {
     /// # Errors
     ///
     /// Returns an error if dimensions are zero or the total pixel count overflows `u32`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::rasterizer::Texture;
+    ///
+    /// let texture = Texture::new(256, 256).unwrap();
+    /// assert_eq!(texture.width, 256);
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width == 0 || height == 0 {
             return Err("Texture dimensions must be positive");
@@ -731,6 +762,19 @@ impl Texture {
 
     /// Sample texture using interpolation mode
     /// u, v are in range [0.0, 1.0]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::rasterizer::Texture;
+    ///
+    /// let mut tex = Texture::new(2, 2).unwrap();
+    /// tex.set_pixel(0, 0, 0xFFFFFFFF);
+    ///
+    /// // Sample center of top-left pixel
+    /// let color = tex.get_pixel(0.25, 0.25);
+    /// assert_eq!(color, 0xFFFFFFFF);
+    /// ```
     #[inline]
     #[must_use]
     pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
