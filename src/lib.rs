@@ -8,3 +8,4 @@ pub mod zbuffer;
 
 pub mod clipping;
 pub mod experimental;
+pub mod tile_renderer;

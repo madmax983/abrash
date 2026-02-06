@@ -66,6 +66,10 @@ harness = false
 name = "culling"
 harness = false
 
+[[bench]]
+name = "tile_rendering"
+harness = false
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }

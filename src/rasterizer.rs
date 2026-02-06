@@ -26,7 +26,7 @@ fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
 ///
 /// Optimization: Uses a manual sorting network to avoid the heap allocation
 /// incurred by `slice::sort_by_key` for small arrays.
-fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F)
+pub(crate) fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F)
 where
     F: Fn(&T) -> i32,
 {
@@ -47,7 +47,7 @@ where
 /// Uses the 2D cross product of the screen-space edges.
 /// Returns true if the triangle should be culled (ccw winding for front faces).
 #[inline(always)]
-fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
+pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
     let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
     let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
     let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
@@ -286,7 +286,7 @@ fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 }
 
 // Fixed point scale factor (16.16)
-const FIXED_SCALE: f32 = 65536.0;
+pub(crate) const FIXED_SCALE: f32 = 65536.0;
 
 /// Draw a single scanline for Gouraud shading
 #[inline(always)]
@@ -378,15 +378,15 @@ fn draw_scanline_gouraud(
     }
 }
 
-struct EdgeWalker {
-    x: i64,
-    z: f32,
+pub(crate) struct EdgeWalker {
+    pub(crate) x: i64,
+    pub(crate) z: f32,
     dx_dy: i64,
     dz_dy: f32,
 }
 
 impl EdgeWalker {
-    fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
+    pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let (dx_dy, dz_dy) = if height == 0.0 {
             (0, 0.0)
@@ -406,12 +406,12 @@ impl EdgeWalker {
         }
     }
 
-    fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
     }
 
-    fn step_n(&mut self, n: i32) {
+    pub(crate) fn step_n(&mut self, n: i32) {
         let n_i64 = i64::from(n);
         let n_f = n as f32;
         self.x += self.dx_dy * n_i64;
