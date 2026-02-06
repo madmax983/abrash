@@ -1010,6 +1010,26 @@ struct PerspectiveSpanStart {
     v: f32,
 }
 
+const RECIPROCAL_TABLE: [f32; 17] = [
+    0.0,
+    1.0,
+    0.5,
+    0.33333334,
+    0.25,
+    0.2,
+    0.16666667,
+    0.14285715,
+    0.125,
+    0.11111111,
+    0.1,
+    0.09090909,
+    0.083333336,
+    0.07692308,
+    0.071428575,
+    0.06666667,
+    0.0625,
+];
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
@@ -1077,8 +1097,11 @@ fn draw_scanline_textured_perspective(
         let v_tex_end = v_end * w_end;
 
         // Interpolate texel coordinates linearly over the span
-        let du_tex_step = (u_tex_end - u_tex_start) / count as f32;
-        let dv_tex_step = (v_tex_end - v_tex_start) / count as f32;
+        // Optimization: Use reciprocal table to replace division with multiplication
+        // count is guaranteed to be in [1, 16]
+        let inv_count = RECIPROCAL_TABLE[count as usize];
+        let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
+        let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
 
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
