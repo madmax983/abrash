@@ -94,3 +94,40 @@ impl Framebuffer {
         }
     }
 }
+
+/// Blend source color onto destination color using alpha blending.
+/// src and dst are 0xAARRGGBB
+/// Formula: out = src * alpha + dst * (1 - alpha)
+#[inline(always)]
+pub fn blend_colors(src: u32, dst: u32) -> u32 {
+    let alpha = (src >> 24) & 0xFF;
+
+    if alpha == 255 {
+        return src;
+    }
+    if alpha == 0 {
+        return dst;
+    }
+
+    // Optimization: SWAR (SIMD Within A Register) for parallel channel blending
+    // This assumes alpha is 0..255. We map it to 0..256 for easier division (>> 8)
+    // alpha_adj = alpha + 1
+    // But standard (src * a + dst * (255-a)) / 255 is slow.
+    // Approximate: (src * a + dst * (256-a)) >> 8
+
+    let a = alpha + 1;
+    let inv_a = 256 - a;
+
+    let rb_src = src & 0x00FF00FF;
+    let g_src = (src >> 8) & 0x00FF00FF;
+
+    let rb_dst = dst & 0x00FF00FF;
+    let g_dst = (dst >> 8) & 0x00FF00FF;
+
+    let rb = ((rb_src * a + rb_dst * inv_a) >> 8) & 0x00FF00FF;
+    let g = ((g_src * a + g_dst * inv_a) >> 8) & 0x00FF00FF;
+
+    // Result alpha is saturated to 255 (opaque framebuffer assumption) or blended
+    // For standard back-to-front compositing on opaque background, we usually set A=255.
+    0xFF000000 | rb | (g << 8)
+}

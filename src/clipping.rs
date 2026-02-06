@@ -1,4 +1,4 @@
-use crate::math::{Vec2, Vec3};
+use crate::math::{Vec2, Vec3, Vec4};
 
 pub trait Lerp: Copy + Clone {
     fn lerp(self, other: Self, t: f32) -> Self;
@@ -31,6 +31,17 @@ impl Lerp for Vec3 {
     }
 }
 
+impl Lerp for Vec4 {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        Vec4 {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+            w: self.w + (other.w - self.w) * t,
+        }
+    }
+}
+
 // For (Vec3, f32) - Position and W
 impl Lerp for (Vec3, f32) {
     fn lerp(self, other: Self, t: f32) -> Self {
@@ -40,6 +51,13 @@ impl Lerp for (Vec3, f32) {
 
 // For ((Vec3, f32), Vec3) - Pos+W, Color
 impl Lerp for ((Vec3, f32), Vec3) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
+    }
+}
+
+// For ((Vec3, f32), Vec4) - Pos+W, Color (RGBA)
+impl Lerp for ((Vec3, f32), Vec4) {
     fn lerp(self, other: Self, t: f32) -> Self {
         (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
     }

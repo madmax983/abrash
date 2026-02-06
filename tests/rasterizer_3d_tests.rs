@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::Vec3;
+use abrash::math::{Vec3, Vec4};
 use abrash::rasterizer::{fill_triangle_gouraud, fill_triangle_lit};
 use abrash::zbuffer::ZBuffer;
 
@@ -81,9 +81,9 @@ fn test_fill_triangle_gouraud_basic() {
     let v1 = (Vec3::new(0.5, -0.5, 0.5), 1.0);
     let v2 = (Vec3::new(0.0, 0.5, 0.5), 1.0);
 
-    let c0 = Vec3::new(1.0, 0.0, 0.0); // Red
-    let c1 = Vec3::new(0.0, 1.0, 0.0); // Green
-    let c2 = Vec3::new(0.0, 0.0, 1.0); // Blue
+    let c0 = Vec4::new(1.0, 0.0, 0.0, 1.0); // Red
+    let c1 = Vec4::new(0.0, 1.0, 0.0, 1.0); // Green
+    let c2 = Vec4::new(0.0, 0.0, 1.0, 1.0); // Blue
 
     fill_triangle_gouraud(&mut fb, &mut zb, (v0, c0), (v1, c1), (v2, c2));
 
