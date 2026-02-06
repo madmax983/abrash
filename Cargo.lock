@@ -12,6 +12,7 @@ dependencies = [
  "proptest",
  "ratatui",
  "ratzilla",
+ "rayon",
  "web-time",
  "windows-sys 0.59.0",
 ]

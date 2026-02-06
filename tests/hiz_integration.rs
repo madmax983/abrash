@@ -4,7 +4,6 @@
 /// 1. TileRenderer with Hi-Z produces identical output to without Hi-Z
 /// 2. Hi-Z actually culls occluded triangles
 /// 3. Occlusion queries are correct (no false negatives)
-
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::tile_renderer::{ClipTriangle, TileRenderer};
