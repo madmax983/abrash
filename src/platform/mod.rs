@@ -30,7 +30,7 @@ pub mod win32;
 pub use win32::Window;
 
 #[cfg(not(target_os = "windows"))]
-pub mod dummy;
+pub mod tui;
 
 #[cfg(not(target_os = "windows"))]
-pub use dummy::Window;
+pub use tui::Window;
