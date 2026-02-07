@@ -71,7 +71,7 @@ use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec3, project_to_screen};
-use crate::rasterizer::{EdgeWalker, is_backface, sort_by_y};
+use crate::rasterization_utils::{EdgeWalker, is_backface, sort_by_y};
 use crate::zbuffer::ZBuffer;
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
