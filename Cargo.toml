@@ -80,6 +80,10 @@ harness = false
 name = "simd_micro"
 harness = false
 
+[[bench]]
+name = "tile_texturing"
+harness = false
+
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"

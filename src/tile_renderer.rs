@@ -70,7 +70,7 @@
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
-use crate::math::{ScreenPoint, Vec3, project_to_screen};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{EdgeWalker, is_backface, sort_by_y};
 use crate::zbuffer::ZBuffer;
 
@@ -194,6 +194,13 @@ pub const TILE_SIZE: u32 = 32;
 /// A clip-space triangle with three vertices `(position, w)` and a flat color.
 pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
 
+/// A clip-space triangle with three vertices `(position, w)` and texture coordinates `uv`.
+pub type TexturedClipTriangle = (
+    ((Vec3, f32), Vec2),
+    ((Vec3, f32), Vec2),
+    ((Vec3, f32), Vec2),
+);
+
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 #[derive(Clone, Copy)]
 struct PreparedTriangle {
@@ -213,6 +220,35 @@ struct PreparedTriangle {
     aabb_max_y: i32,
     min_depth: f32, // Minimum depth across triangle
     max_depth: f32, // Maximum depth across triangle
+}
+
+/// A textured triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
+#[derive(Clone, Copy)]
+struct PreparedTexturedTriangle {
+    p0: ScreenPoint,
+    p1: ScreenPoint,
+    p2: ScreenPoint,
+
+    // Gradients
+    dz_dx: f32,
+    dq_dx: f32,
+    du_dx: f32,
+    dv_dx: f32,
+
+    // Vertex attributes (sorted by Y) - needed for edge walking
+    q0: f32, q1: f32, q2: f32,
+    u0: f32, u1: f32, u2: f32,
+    v0: f32, v1: f32, v2: f32,
+
+    long_edge_is_left: bool,
+
+    // Metadata
+    aabb_min_x: i32,
+    aabb_min_y: i32,
+    aabb_max_x: i32,
+    aabb_max_y: i32,
+    min_depth: f32,
+    max_depth: f32,
 }
 
 /// Render a single tile: clear, rasterize triangles, and return tile buffers.
@@ -543,6 +579,7 @@ pub struct TileRenderer {
     height: u32,
     tile_bins: Vec<Vec<usize>>,
     prepared: Vec<PreparedTriangle>,
+    prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
 }
 
@@ -570,6 +607,7 @@ impl TileRenderer {
             height,
             tile_bins: vec![Vec::new(); tile_count],
             prepared: Vec::new(),
+            prepared_textured: Vec::new(),
             hiz_buffer: None,
         }
     }
@@ -644,6 +682,299 @@ impl TileRenderer {
     ///
     /// renderer.render_batch(&mut fb, &mut zb, &triangles);
     /// ```
+    pub fn render_batch_textured(
+        &mut self,
+        fb: &mut Framebuffer,
+        zb: &mut ZBuffer,
+        triangles: &[TexturedClipTriangle],
+        texture: &crate::rasterizer::Texture,
+    ) {
+        assert_eq!(fb.width(), self.width, "Framebuffer width mismatch");
+        assert_eq!(fb.height(), self.height, "Framebuffer height mismatch");
+        assert_eq!(zb.width(), self.width, "ZBuffer width mismatch");
+        assert_eq!(zb.height(), self.height, "ZBuffer height mismatch");
+
+        self.prepared_textured.clear();
+        for bin in &mut self.tile_bins {
+            bin.clear();
+        }
+
+        // Phase 1: Prepare
+        for &(v0, v1, v2) in triangles {
+            self.prepare_triangle_textured(v0, v1, v2, texture);
+        }
+
+        // Build Hi-Z pyramid from previous frame (temporal coherence)
+        if let Some(ref mut hiz) = self.hiz_buffer
+            && !hiz.is_valid()
+        {
+            hiz.build_pyramid(zb);
+        }
+
+        // Phase 2: Bin (with optional Hi-Z occlusion culling)
+        let prepared_len = self.prepared_textured.len();
+        for i in 0..prepared_len {
+            // Occlusion test before binning (if Hi-Z is enabled)
+            if let Some(ref hiz) = self.hiz_buffer {
+                let tri = &self.prepared_textured[i];
+                let aabb = AABB3D {
+                    min_x: tri.aabb_min_x,
+                    max_x: tri.aabb_max_x,
+                    min_y: tri.aabb_min_y,
+                    max_y: tri.aabb_max_y,
+                    min_depth: tri.min_depth,
+                    max_depth: tri.max_depth,
+                };
+
+                if !hiz.is_potentially_visible(aabb) {
+                    continue; // Skip binning if occluded
+                }
+            }
+
+            self.bin_triangle_textured(i);
+        }
+
+        // Phase 3+4: Render and merge each tile
+        #[cfg(not(feature = "parallel"))]
+        {
+            // Sequential rendering
+            for ty in 0..self.tiles_y {
+                for tx in 0..self.tiles_x {
+                    if let Some((tile_pixels, tile_depths, clear_y_min, clear_y_max)) =
+                        render_single_tile_textured(
+                            tx,
+                            ty,
+                            &self.tile_bins,
+                            &self.prepared_textured,
+                            texture,
+                            self.tiles_x,
+                            self.width,
+                            self.height,
+                        )
+                    {
+                        Self::merge_tile_direct(
+                            &tile_pixels,
+                            &tile_depths,
+                            fb,
+                            zb,
+                            tx,
+                            ty,
+                            self.width,
+                            self.height,
+                            clear_y_min,
+                            clear_y_max,
+                        );
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "parallel")]
+        {
+            // Parallel rendering using Rayon
+            use rayon::prelude::*;
+
+            // Collect tile coordinates
+            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
+                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                .collect();
+
+            unsafe {
+                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
+                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                let width = self.width;
+                let height = self.height;
+                let tiles_x = self.tiles_x;
+                let tile_bins = &self.tile_bins;
+                let prepared = &self.prepared_textured;
+
+                tiles.par_iter().for_each(move |&(tx, ty)| {
+                    if let Some((tile_pixels, tile_depths, clear_y_min, clear_y_max)) =
+                        render_single_tile_textured(
+                            tx,
+                            ty,
+                            tile_bins,
+                            prepared,
+                            texture,
+                            tiles_x,
+                            width,
+                            height,
+                        )
+                    {
+                        // Merge tile into framebuffer/zbuffer
+                        let tile_x0 = tx * TILE_SIZE;
+                        let tile_y0 = ty * TILE_SIZE;
+                        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                        let tile_cols = (tile_x_end - tile_x0) as usize;
+
+                        let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                        let row_end = (clear_y_max as u32 + 1)
+                            .min(tile_y0 + TILE_SIZE)
+                            .min(height);
+
+                        for row in row_begin..row_end {
+                            let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                            let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+                            for col in 0..tile_cols {
+                                fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Invalidate Hi-Z for next frame
+        if let Some(ref mut hiz) = self.hiz_buffer {
+            hiz.invalidate();
+        }
+    }
+
+    fn prepare_triangle_textured(
+        &mut self,
+        v0: ((Vec3, f32), Vec2),
+        v1: ((Vec3, f32), Vec2),
+        v2: ((Vec3, f32), Vec2),
+        texture: &crate::rasterizer::Texture,
+    ) {
+        let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
+
+        for i in 0..clipped.count {
+            let base = i * 3;
+            let cv0 = clipped.tris[base];
+            let cv1 = clipped.tris[base + 1];
+            let cv2 = clipped.tris[base + 2];
+
+            let p0_orig = project_to_screen(cv0.0.0, cv0.0.1, self.width, self.height);
+            let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
+            let p2_orig = project_to_screen(cv2.0.0, cv2.0.1, self.width, self.height);
+
+            // Backface culling
+            let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
+            let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
+            let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
+            let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
+            let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+
+            if nz_orig >= 0.0 {
+                continue;
+            }
+
+            // Prepare texture attributes
+            let w0 = cv0.0.1;
+            let w1 = cv1.0.1;
+            let w2 = cv2.0.1;
+
+            let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
+            let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
+            let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+
+            let u0_val = cv0.1.x * texture.width as f32 * inv_w0;
+            let v0_val = cv0.1.y * texture.height as f32 * inv_w0;
+            let u1_val = cv1.1.x * texture.width as f32 * inv_w1;
+            let v1_val = cv1.1.y * texture.height as f32 * inv_w1;
+            let u2_val = cv2.1.x * texture.width as f32 * inv_w2;
+            let v2_val = cv2.1.y * texture.height as f32 * inv_w2;
+
+            // Sort by Y
+            let mut verts = [
+                (p0_orig, inv_w0, u0_val, v0_val),
+                (p1_orig, inv_w1, u1_val, v1_val),
+                (p2_orig, inv_w2, u2_val, v2_val),
+            ];
+            sort_by_y(&mut verts, |(p, _, _, _)| p.y);
+            let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
+
+            let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            if total_height == 0.0 {
+                continue;
+            }
+
+            // Compute gradients (reuse logic from PerspectiveTextureGradients)
+            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+            let uz = p1.z - p0.z;
+            let uq = q1 - q0;
+            let uu = u1 - u0;
+            let uv = v1 - v0;
+
+            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            let vz = p2.z - p0.z;
+            let vq = q2 - q0;
+            let vu = u2 - u0;
+            let vv = v2 - v0;
+
+            let nz = ux * vy - uy * vx;
+            let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+            let dz_dx = (uy * vz - uz * vy) * inv_nz;
+            let dq_dx = (uy * vq - uq * vy) * inv_nz;
+            let du_dx = (uy * vu - uu * vy) * inv_nz;
+            let dv_dx = (uy * vv - uv * vy) * inv_nz;
+
+            let long_edge_is_left = nz > 0.0;
+
+            // AABB
+            let min_x = p0.x.min(p1.x).min(p2.x).max(0);
+            let min_y = p0.y.max(0);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(self.width as i32 - 1);
+            let max_y = p2.y.min(self.height as i32 - 1);
+
+            if min_x > max_x || min_y > max_y {
+                continue;
+            }
+
+            let min_depth = p0.z.min(p1.z).min(p2.z);
+            let max_depth = p0.z.max(p1.z).max(p2.z);
+
+            self.prepared_textured.push(PreparedTexturedTriangle {
+                p0,
+                p1,
+                p2,
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                q0,
+                q1,
+                q2,
+                u0,
+                u1,
+                u2,
+                v0,
+                v1,
+                v2,
+                long_edge_is_left,
+                aabb_min_x: min_x,
+                aabb_min_y: min_y,
+                aabb_max_x: max_x,
+                aabb_max_y: max_y,
+                min_depth,
+                max_depth,
+            });
+        }
+    }
+
+    fn bin_triangle_textured(&mut self, tri_idx: usize) {
+        let tri = &self.prepared_textured[tri_idx];
+        let tile_size_i32 = TILE_SIZE as i32;
+
+        let tx_min = (tri.aabb_min_x / tile_size_i32) as u32;
+        let ty_min = (tri.aabb_min_y / tile_size_i32) as u32;
+        let tx_max = ((tri.aabb_max_x / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((tri.aabb_max_y / tile_size_i32) as u32).min(self.tiles_y - 1);
+
+        for ty in ty_min..=ty_max {
+            for tx in tx_min..=tx_max {
+                let bin_idx = (ty * self.tiles_x + tx) as usize;
+                self.tile_bins[bin_idx].push(tri_idx);
+            }
+        }
+    }
+
     pub fn render_batch(
         &mut self,
         fb: &mut Framebuffer,
@@ -983,6 +1314,358 @@ pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: u
     // 1. Framebuffer exceeds typical L3 cache (> 12 MB means severe cache pressure for scanline)
     // 2. Triangle count is low enough that setup overhead doesn't dominate (≤ 100 triangles)
     framebuffer_mb > 12 && triangle_count <= 100
+}
+
+struct TexturedEdgeWalker {
+    x: i64,
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    dx_dy: i64,
+    dz_dy: f32,
+    dq_dy: f32,
+    du_dy: f32,
+    dv_dy: f32,
+}
+
+impl TexturedEdgeWalker {
+    fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        q_start: f32,
+        q_end: f32,
+        u_start: f32,
+        u_end: f32,
+        v_start: f32,
+        v_end: f32,
+    ) -> Self {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * 65536.0) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * inv_h;
+        let du_dy = (u_end - u_start) * inv_h;
+        let dv_dy = (v_end - v_start) * inv_h;
+
+        Self {
+            x: i64::from(p_start.x) << 16,
+            z: p_start.z,
+            q: q_start,
+            u: u_start,
+            v: v_start,
+            dx_dy,
+            dz_dy,
+            dq_dy,
+            du_dy,
+            dv_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.q += self.dq_dy;
+        self.u += self.du_dy;
+        self.v += self.dv_dy;
+    }
+
+    fn step_n(&mut self, n: i32) {
+        let n_i64 = i64::from(n);
+        let n_f = n as f32;
+        self.x += self.dx_dy * n_i64;
+        self.z += self.dz_dy * n_f;
+        self.q += self.dq_dy * n_f;
+        self.u += self.du_dy * n_f;
+        self.v += self.dv_dy * n_f;
+    }
+}
+
+const RECIPROCAL_TABLE: [f32; 17] = [
+    0.0,
+    1.0,
+    0.5,
+    0.33333334,
+    0.25,
+    0.2,
+    0.16666667,
+    0.14285715,
+    0.125,
+    0.11111111,
+    0.1,
+    0.09090909,
+    0.083333336,
+    0.07692308,
+    0.071428575,
+    0.06666667,
+    0.0625,
+];
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn render_single_tile_textured(
+    tx: u32,
+    ty: u32,
+    tile_bins: &[Vec<usize>],
+    prepared: &[PreparedTexturedTriangle],
+    texture: &crate::rasterizer::Texture,
+    tiles_x: u32,
+    width: u32,
+    _height: u32,
+) -> Option<(Vec<u32>, Vec<f32>, i32, i32)> {
+    let bin_idx = (ty * tiles_x + tx) as usize;
+    if tile_bins[bin_idx].is_empty() {
+        return None;
+    }
+
+    let tile_x0 = (tx * TILE_SIZE) as i32;
+    let tile_y0 = (ty * TILE_SIZE) as i32;
+    let tile_x1 = tile_x0 + TILE_SIZE as i32;
+    let tile_y1 = tile_y0 + TILE_SIZE as i32;
+
+    let mut clear_y_min = tile_y1;
+    let mut clear_y_max = tile_y0;
+    let bin = &tile_bins[bin_idx];
+    for &tri_idx in bin {
+        let tri = &prepared[tri_idx];
+        clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
+        clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
+    }
+
+    let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+    let mut tile_pixels = vec![0u32; tile_area];
+    let mut tile_depths = vec![f32::INFINITY; tile_area];
+
+    let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
+    let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
+    tile_pixels[row_start..row_end].fill(0xFF00_0000);
+    tile_depths[row_start..row_end].fill(f32::INFINITY);
+
+    let screen_w = width as i32;
+    for &tri_idx in bin {
+        let tri = &prepared[tri_idx];
+        render_triangle_in_tile_textured(
+            &mut tile_pixels,
+            &mut tile_depths,
+            tri,
+            texture,
+            tile_x0,
+            tile_y0,
+            tile_x1,
+            tile_y1,
+            screen_w,
+        );
+    }
+
+    Some((tile_pixels, tile_depths, clear_y_min, clear_y_max))
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn render_triangle_in_tile_textured(
+    tile_pixels: &mut [u32],
+    tile_depths: &mut [f32],
+    tri: &PreparedTexturedTriangle,
+    texture: &crate::rasterizer::Texture,
+    tile_x0: i32,
+    tile_y0: i32,
+    tile_x1: i32,
+    tile_y1: i32,
+    screen_w: i32,
+) {
+    let y_start = tri.p0.y.max(tile_y0);
+    let y_end = tri.p2.y.min(tile_y1 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let screen_x_max = screen_w - 1;
+
+    let mut edge_a = TexturedEdgeWalker::new(
+        tri.p0, tri.p2,
+        tri.q0, tri.q2,
+        tri.u0, tri.u2,
+        tri.v0, tri.v2,
+    );
+    if y_start > tri.p0.y {
+        edge_a.step_n(y_start - tri.p0.y);
+    }
+
+    let mut edge_b = if y_start < tri.p1.y {
+        let mut e = TexturedEdgeWalker::new(
+            tri.p0, tri.p1,
+            tri.q0, tri.q1,
+            tri.u0, tri.u1,
+            tri.v0, tri.v1,
+        );
+        if y_start > tri.p0.y {
+            e.step_n(y_start - tri.p0.y);
+        }
+        e
+    } else {
+        let mut e = TexturedEdgeWalker::new(
+            tri.p1, tri.p2,
+            tri.q1, tri.q2,
+            tri.u1, tri.u2,
+            tri.v1, tri.v2,
+        );
+        if y_start > tri.p1.y {
+            e.step_n(y_start - tri.p1.y);
+        }
+        e
+    };
+
+    let use_bilinear = matches!(texture.filter_mode, crate::rasterizer::FilterMode::Bilinear);
+
+    for y in y_start..=y_end {
+        if y == tri.p1.y && y != tri.p0.y {
+            edge_b = TexturedEdgeWalker::new(
+                tri.p1, tri.p2,
+                tri.q1, tri.q2,
+                tri.u1, tri.u2,
+                tri.v1, tri.v2,
+            );
+        }
+
+        let (x_start, x_end, z_left, q_left, u_left, v_left) = if tri.long_edge_is_left {
+            (
+                (edge_a.x >> 16) as i32,
+                (edge_b.x >> 16) as i32,
+                edge_a.z,
+                edge_a.q,
+                edge_a.u,
+                edge_a.v,
+            )
+        } else {
+            (
+                (edge_b.x >> 16) as i32,
+                (edge_a.x >> 16) as i32,
+                edge_b.z,
+                edge_b.q,
+                edge_b.u,
+                edge_b.v,
+            )
+        };
+
+        let dx = i64::from(x_end) - i64::from(x_start);
+
+        if dx <= 0 {
+            // Single pixel
+            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
+                let tile_idx =
+                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
+                if z_left < tile_depths[tile_idx] && q_left.abs() > 0.000_001 {
+                    tile_depths[tile_idx] = z_left;
+                    let w = 1.0 / q_left;
+                    let u_tex = u_left * w;
+                    let v_tex = v_left * w;
+                    tile_pixels[tile_idx] = if use_bilinear {
+                        texture.get_pixel_bilinear_texel(u_tex, v_tex)
+                    } else {
+                        texture.get_pixel_texel(u_tex as i32, v_tex as i32)
+                    };
+                }
+            }
+        } else {
+            let xs = x_start.max(tile_x0).max(0);
+            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
+
+            if xs <= xe {
+                let diff_x = (i64::from(xs) - i64::from(x_start)) as f32;
+                let mut z = z_left + diff_x * tri.dz_dx;
+                let mut q = q_left + diff_x * tri.dq_dx;
+                let mut u = u_left + diff_x * tri.du_dx;
+                let mut v = v_left + diff_x * tri.dv_dx;
+
+                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
+                let col_start = (xs - tile_x0) as usize;
+                let col_end = (xe - tile_x0) as usize;
+
+                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
+                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
+
+                // Span-based perspective correction
+                let span_size = 16;
+                let mut i = 0;
+                let len = pixels.len();
+
+                // Initial start values
+                let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+                let mut u_tex_start = u * w_start;
+                let mut v_tex_start = v * w_start;
+
+                while i < len {
+                    let remaining = len - i;
+                    let count = remaining.min(span_size);
+
+                    // End values at 'x + count'
+                    let q_end = q + tri.dq_dx * count as f32;
+                    let u_end = u + tri.du_dx * count as f32;
+                    let v_end = v + tri.dv_dx * count as f32;
+
+                    let w_end = if q_end.abs() > 0.000_001 {
+                        1.0 / q_end
+                    } else {
+                        1.0
+                    };
+                    let u_tex_end = u_end * w_end;
+                    let v_tex_end = v_end * w_end;
+
+                    let inv_count = RECIPROCAL_TABLE[count as usize];
+                    let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
+                    let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
+
+                    // Fixed point interpolation
+                    let mut u_fix = (u_tex_start * 65536.0) as i32;
+                    let mut v_fix = (v_tex_start * 65536.0) as i32;
+                    let du_fix = (du_tex_step * 65536.0) as i32;
+                    let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+                    let pixels_span = &mut pixels[i..i + count];
+                    let depths_span = &mut depths[i..i + count];
+
+                    if use_bilinear {
+                        for (pixel, depth_val) in
+                            pixels_span.iter_mut().zip(depths_span.iter_mut())
+                        {
+                            if z < *depth_val {
+                                *depth_val = z;
+                                *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                            }
+                            z += tri.dz_dx;
+                            u_fix = u_fix.wrapping_add(du_fix);
+                            v_fix = v_fix.wrapping_add(dv_fix);
+                        }
+                    } else {
+                        for (pixel, depth_val) in
+                            pixels_span.iter_mut().zip(depths_span.iter_mut())
+                        {
+                            if z < *depth_val {
+                                *depth_val = z;
+                                *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                            }
+                            z += tri.dz_dx;
+                            u_fix = u_fix.wrapping_add(du_fix);
+                            v_fix = v_fix.wrapping_add(dv_fix);
+                        }
+                    }
+
+                    q = q_end;
+                    u = u_end;
+                    v = v_end;
+                    u_tex_start = u_tex_end;
+                    v_tex_start = v_tex_end;
+                    i += count;
+                }
+            }
+        }
+
+        edge_a.step();
+        edge_b.step();
+    }
 }
 
 #[cfg(test)]
@@ -1719,6 +2402,42 @@ mod tests {
                 "Pixel mismatch at index {i} with fixed-point vertices"
             );
         }
+    }
+
+    #[test]
+    fn textured_triangle_renders_correctly() {
+        use crate::rasterizer::Texture;
+        let width = 100;
+        let height = 100;
+
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+        let mut tr = TileRenderer::new(width, height);
+
+        let mut tex = Texture::new(2, 2).unwrap();
+        tex.set_pixel(0, 0, 0xFFFF_0000); // Red
+        tex.set_pixel(1, 0, 0xFF00_FF00); // Green
+        tex.set_pixel(0, 1, 0xFF00_00FF); // Blue
+        tex.set_pixel(1, 1, 0xFF00_FFFF); // Cyan
+
+        // Note: Project to screen will map (0,0) to center.
+        // Let's use coordinates that cover the screen.
+        // NDC (-1,-1) -> (0,0) uv(0,0) Red
+        // NDC (-1, 1) -> (0,h) uv(0,1) Blue
+        // NDC ( 1,-1) -> (w,0) uv(1,0) Green
+
+        let v0 = ((Vec3::new(-1.0, 1.0, 1.0), 1.0), crate::math::Vec2::new(0.0, 0.0)); // Top-Left
+        let v1 = ((Vec3::new(-1.0, -1.0, 1.0), 1.0), crate::math::Vec2::new(0.0, 1.0)); // Bottom-Left
+        let v2 = ((Vec3::new(1.0, 1.0, 1.0), 1.0), crate::math::Vec2::new(1.0, 0.0)); // Top-Right
+
+        tr.render_batch_textured(&mut fb, &mut zb, &[(v0, v1, v2)], &tex);
+
+        // Check top-left pixel (should be Red)
+        let tl = fb.get_pixel(0, 0).unwrap();
+        // Allow for some interpolation noise, but with Nearest neighbor at 0,0 it should be exact if aligned
+        // We are using default filter (Nearest).
+        // 0,0 is exactly red.
+        assert_eq!(tl, 0xFFFF_0000, "Top-left pixel should be red");
     }
 
     #[test]
