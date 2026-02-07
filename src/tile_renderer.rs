@@ -329,7 +329,7 @@ fn render_triangle_in_tile(
             edge_b = EdgeWalker::new(tri.p1, tri.p2);
         }
 
-        let (x_start, x_end, z_left) = if tri.long_edge_is_left {
+        let (x_start, x_end, z_left_fixed) = if tri.long_edge_is_left {
             ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z)
         } else {
             ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
@@ -342,8 +342,10 @@ fn render_triangle_in_tile(
             if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
                 let tile_idx =
                     ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left;
+                // Convert fixed-point to float for zbuffer comparison
+                let z_left_float = (z_left_fixed as f32) / 256.0;
+                if z_left_float < tile_depths[tile_idx] {
+                    tile_depths[tile_idx] = z_left_float;
                     tile_pixels[tile_idx] = color;
                 }
             }
@@ -353,7 +355,11 @@ fn render_triangle_in_tile(
             let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
 
             if xs <= xe {
-                let z_at_xs = z_left + (i64::from(xs) - i64::from(x_start)) as f32 * dz_dx;
+                // Calculate z at xs in fixed-point, then convert to float
+                let dz_dx_fixed = (dz_dx * 256.0) as i32;
+                let z_at_xs_fixed =
+                    z_left_fixed + (i64::from(xs) - i64::from(x_start)) as i32 * dz_dx_fixed;
+                let z_at_xs = (z_at_xs_fixed as f32) / 256.0;
 
                 let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
                 let col_start = (xs - tile_x0) as usize;
@@ -414,16 +420,25 @@ fn render_triangle_in_tile(
 fn rasterize_scanline_scalar(
     pixels: &mut [u32],
     depths: &mut [f32],
-    mut z: f32,
+    z_start: f32,
     dz_dx: f32,
     color: u32,
 ) {
+    // Convert to 24.8 fixed point for accumulation
+    let mut z_fixed = (z_start * 256.0) as i32;
+    let dz_dx_fixed = (dz_dx * 256.0) as i32;
+
+    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
+    const INV_256: f32 = 1.0 / 256.0;
+
     for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
-        if z < *depth {
-            *depth = z;
+        // Convert fixed-point to float for zbuffer comparison (Option A)
+        let z_float = (z_fixed as f32) * INV_256;
+        if z_float < *depth {
+            *depth = z_float;
             *pixel = color;
         }
-        z += dz_dx;
+        z_fixed += dz_dx_fixed;
     }
 }
 
