@@ -7,14 +7,16 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
+    let mut raw_normals = Vec::with_capacity(1024);
 
     // We need to deduplicate vertices.
-    // Key: (position_index, uv_index) -> Value: new_index
-    // position_index is required, uv_index is optional.
-    let mut unique_vertices: HashMap<(usize, Option<usize>), usize> = HashMap::with_capacity(1024);
+    // Key: (position_index, uv_index, normal_index) -> Value: new_index
+    // position_index is required, uv_index and normal_index are optional.
+    let mut unique_vertices: HashMap<(usize, Option<usize>, Option<usize>), usize> = HashMap::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
+    let mut final_normals = Vec::with_capacity(1024);
     let mut final_indices = Vec::with_capacity(1024);
 
     // Reuse vector for face indices to avoid allocation per face
@@ -61,6 +63,24 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     .map_err(|_| format!("Line {}: Invalid v", line_num))?;
                 raw_uvs.push(Vec2::new(u, v));
             }
+            "vn" => {
+                let x = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {}: Missing nx", line_num))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {}: Invalid nx", line_num))?;
+                let y = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {}: Missing ny", line_num))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {}: Invalid ny", line_num))?;
+                let z = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {}: Missing nz", line_num))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {}: Invalid nz", line_num))?;
+                raw_normals.push(Vec3::new(x, y, z));
+            }
             "f" => {
                 face_indices.clear();
                 for part in parts {
@@ -81,18 +101,34 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                     // UV index
                     let mut vt_idx = None;
-                    if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
-                        let idx = vt_str
-                            .parse::<usize>()
-                            .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
-                        vt_idx = Some(
-                            idx.checked_sub(1)
-                                .ok_or_else(|| format!("Line {}: UV index 0 is invalid", line_num))?,
-                        );
+                    if let Some(vt_str) = segs.next() {
+                        if !vt_str.is_empty() {
+                            let idx = vt_str
+                                .parse::<usize>()
+                                .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
+                            vt_idx = Some(
+                                idx.checked_sub(1)
+                                    .ok_or_else(|| format!("Line {}: UV index 0 is invalid", line_num))?,
+                            );
+                        }
+                    }
+
+                    // Normal index
+                    let mut vn_idx = None;
+                    if let Some(vn_str) = segs.next() {
+                        if !vn_str.is_empty() {
+                            let idx = vn_str
+                                .parse::<usize>()
+                                .map_err(|_| format!("Line {}: Invalid Normal index", line_num))?;
+                            vn_idx = Some(
+                                idx.checked_sub(1)
+                                    .ok_or_else(|| format!("Line {}: Normal index 0 is invalid", line_num))?,
+                            );
+                        }
                     }
 
                     // Look up or insert
-                    let key = (v_idx, vt_idx);
+                    let key = (v_idx, vt_idx, vn_idx);
                     if let Some(&idx) = unique_vertices.get(&key) {
                         face_indices.push(idx);
                     } else {
@@ -124,6 +160,21 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             final_uvs.push(Vec2::new(0.0, 0.0));
                         }
 
+                        // Push Normal (or default 0,0,0)
+                        if let Some(ni) = vn_idx {
+                            if ni >= raw_normals.len() {
+                                return Err(format!(
+                                    "Line {}: Normal index {} out of bounds",
+                                    line_num,
+                                    ni + 1
+                                ));
+                            }
+                            // SAFETY: Checked bounds above
+                            final_normals.push(unsafe { *raw_normals.get_unchecked(ni) });
+                        } else {
+                            final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+                        }
+
                         unique_vertices.insert(key, new_idx);
                         face_indices.push(new_idx);
                     };
@@ -138,7 +189,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                 }
             }
-            _ => {} // Ignore normals (vn), groups (g), materials (usemtl), etc.
+            _ => {} // Ignore groups (g), materials (usemtl), etc.
         }
     }
 
@@ -146,6 +197,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         vertices: final_vertices,
         indices: final_indices,
         uvs: final_uvs,
+        normals: final_normals,
     })
 }
 
@@ -191,7 +243,7 @@ f 1/1 2/2 3/3
 
     #[test]
     fn test_deduplication() {
-        // Vertex 1 used twice with same UV
+        // Vertex 1 used twice with same UV (and implies no normal)
         let obj = "
 v 0 0 0
 v 1 0 0

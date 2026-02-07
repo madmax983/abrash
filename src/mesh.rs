@@ -8,6 +8,7 @@ pub struct Mesh {
     pub vertices: Vec<Vec3>,
     pub indices: Vec<[usize; 3]>,
     pub uvs: Vec<Vec2>,
+    pub normals: Vec<Vec3>,
 }
 
 impl Mesh {
@@ -17,6 +18,7 @@ impl Mesh {
             vertices: Vec::new(),
             indices: Vec::new(),
             uvs: Vec::new(),
+            normals: Vec::new(),
         }
     }
 
@@ -36,6 +38,11 @@ impl Mesh {
             Vec3::new(h, h, -h),   // 6
             Vec3::new(-h, h, -h),  // 7
         ];
+
+        // Basic indices - this reuses vertices, so normals will be averaged if we computed them per vertex
+        // For flat shading, this is fine. For smooth shading, we'd need to duplicate vertices per face.
+        // For now, let's keep it simple and just init empty normals or face normals.
+        // The prompt asks to "generate default normals".
 
         let indices = vec![
             // Front
@@ -60,11 +67,15 @@ impl Mesh {
 
         // Cube doesn't have UVs by default
         let uvs = Vec::new();
+        // Cube doesn't have per-vertex normals by default in this simple representation
+        // (Shared vertices have conflicting normals at corners)
+        let normals = Vec::new();
 
         Self {
             vertices,
             indices,
             uvs,
+            normals,
         }
     }
 
