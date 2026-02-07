@@ -535,8 +535,6 @@ fn rasterize_scanline_simd(
 ///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
-    tile_pixels: Vec<u32>,
-    tile_depths: Vec<f32>,
     tiles_x: u32,
     tiles_y: u32,
     width: u32,
@@ -559,11 +557,8 @@ impl TileRenderer {
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
         let tile_count = (tiles_x * tiles_y) as usize;
-        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
 
         Self {
-            tile_pixels: vec![0; tile_area],
-            tile_depths: vec![0.0; tile_area],
             tiles_x,
             tiles_y,
             width,
@@ -650,6 +645,38 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
+        // SAFETY: We must ensure that the framebuffer and zbuffer dimensions match the renderer's
+        // dimensions. In parallel mode, we use unsafe pointer arithmetic that relies on this
+        // invariant to avoid bounds checking for performance.
+        assert_eq!(
+            self.width,
+            fb.width(),
+            "Framebuffer width mismatch: renderer={} fb={}",
+            self.width,
+            fb.width()
+        );
+        assert_eq!(
+            self.height,
+            fb.height(),
+            "Framebuffer height mismatch: renderer={} fb={}",
+            self.height,
+            fb.height()
+        );
+        assert_eq!(
+            self.width,
+            zb.width(),
+            "ZBuffer width mismatch: renderer={} zb={}",
+            self.width,
+            zb.width()
+        );
+        assert_eq!(
+            self.height,
+            zb.height(),
+            "ZBuffer height mismatch: renderer={} zb={}",
+            self.height,
+            zb.height()
+        );
+
         self.prepared.clear();
         for bin in &mut self.tile_bins {
             bin.clear();
