@@ -918,6 +918,97 @@ impl Texture {
     }
 }
 
+/// Optimized texture sampler that caches dimensions to avoid redundant loads and bounds checks.
+struct TextureSampler<'a> {
+    pixels: &'a [u32],
+    width_minus_one: i32,
+    height_minus_one: i32,
+    width_stride: usize,
+    filter_mode: FilterMode,
+}
+
+impl<'a> TextureSampler<'a> {
+    fn new(texture: &'a Texture) -> Self {
+        Self {
+            pixels: &texture.pixels,
+            width_minus_one: texture.width as i32 - 1,
+            height_minus_one: texture.height as i32 - 1,
+            width_stride: texture.width as usize,
+            filter_mode: texture.filter_mode,
+        }
+    }
+
+    #[inline(always)]
+    fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
+        let x = x.clamp(0, self.width_minus_one) as usize;
+        let y = y.clamp(0, self.height_minus_one) as usize;
+        unsafe { *self.pixels.get_unchecked(y * self.width_stride + x) }
+    }
+
+    #[inline(always)]
+    fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
+        let u_img_fixed = u_fixed - 128;
+        let v_img_fixed = v_fixed - 128;
+
+        // Weights (0..256)
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        // Arithmetic shift preserves sign (floor behavior for negative numbers)
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let (c00, c10, c01, c11) = self.fetch_bilinear_neighbors(x0_raw, y0_raw);
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        // Ensure alpha is 0xFF
+        final_color | 0xFF00_0000
+    }
+
+    #[inline(always)]
+    fn fetch_bilinear_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
+        // Optimization: Fast path for interior pixels to avoid 4 clamps
+        if x0_raw >= 0 && x0_raw < self.width_minus_one && y0_raw >= 0 && y0_raw < self.height_minus_one {
+            let x0 = x0_raw as usize;
+            let y0 = y0_raw as usize;
+            let row0 = y0 * self.width_stride;
+            let row1 = row0 + self.width_stride; // y0 + 1 is valid
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x0 + 1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                )
+            }
+        } else {
+            let x0 = x0_raw.clamp(0, self.width_minus_one) as usize;
+            let y0 = y0_raw.clamp(0, self.height_minus_one) as usize;
+            let x1 = (x0_raw + 1).clamp(0, self.width_minus_one) as usize;
+            let y1 = (y0_raw + 1).clamp(0, self.height_minus_one) as usize;
+
+            let row0 = y0 * self.width_stride;
+            let row1 = y1 * self.width_stride;
+
+            // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x1),
+                )
+            }
+        }
+    }
+}
+
 struct PerspectiveTextureGradients {
     dz_dx: f32,
     dq_dx: f32,
@@ -1082,7 +1173,7 @@ const RECIPROCAL_TABLE: [f32; 17] = [
 fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    texture: &Texture,
+    sampler: &TextureSampler,
     y: i32,
     x_start: i32,
     x_end: i32,
@@ -1157,7 +1248,7 @@ fn draw_scanline_textured_perspective(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        match texture.filter_mode {
+        match sampler.filter_mode {
             FilterMode::Nearest => {
                 // Fixed point optimization for Nearest Neighbor
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
@@ -1168,7 +1259,7 @@ fn draw_scanline_textured_perspective(
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                        *pixel = sampler.get_pixel_texel(u_fix >> 16, v_fix >> 16);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
@@ -1187,7 +1278,7 @@ fn draw_scanline_textured_perspective(
                     if z < *depth_val {
                         *depth_val = z;
                         // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        *pixel = sampler.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
@@ -1220,6 +1311,7 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
+    let sampler = TextureSampler::new(texture);
     let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
 
     for i in 0..clipped.count {
@@ -1362,9 +1454,14 @@ pub fn fill_triangle_textured(
                     let w = 1.0 / q_left;
                     let u_tex = u_left * w;
                     let v_tex = v_left * w;
-                    let color = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                    let color = match sampler.filter_mode {
+                        FilterMode::Nearest => sampler.get_pixel_texel(u_tex as i32, v_tex as i32),
+                        FilterMode::Bilinear => {
+                            // Convert to 24.8 fixed point for sampler
+                            let u_fixed = (u_tex * 256.0) as i32;
+                            let v_fixed = (v_tex * 256.0) as i32;
+                            sampler.get_pixel_bilinear_fixed(u_fixed, v_fixed)
+                        }
                     };
                     fb.set_pixel(x_start, y, color);
                 }
@@ -1372,7 +1469,7 @@ pub fn fill_triangle_textured(
                 draw_scanline_textured_perspective(
                     fb,
                     zb,
-                    texture,
+                    &sampler,
                     y,
                     x_start,
                     x_end,
