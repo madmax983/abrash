@@ -24,6 +24,10 @@ struct Args {
     /// Name of the demo to run directly
     #[arg(long, short)]
     demo: Option<String>,
+
+    /// List available demos
+    #[arg(long, short)]
+    list: bool,
 }
 
 struct Demo {
@@ -43,10 +47,23 @@ const DEMOS: &[Demo] = &[
         description: "Basic 3D cube rendering",
         example_name: "cube_3d",
     },
+    Demo {
+        name: "Obj Viewer",
+        description: "Load and view 3D objects (embedded spaceship)",
+        example_name: "obj_viewer",
+    },
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
+
+    if args.list {
+        println!("Available Demos:");
+        for demo in DEMOS {
+            println!("  {: <12} - {}", demo.name, demo.description);
+        }
+        return Ok(());
+    }
 
     if let Some(demo_name) = args.demo {
         run_demo(&demo_name)?;
@@ -134,7 +151,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .margin(1)
                 .constraints(
                     [
                         Constraint::Length(3),
@@ -151,40 +168,57 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 )
-                .block(Block::default().borders(Borders::ALL));
+                .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Double));
             f.render_widget(title, chunks[0]);
+
+            let content_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+                .split(chunks[1]);
 
             let items: Vec<ListItem> = DEMOS
                 .iter()
                 .map(|demo| {
-                    let lines = vec![
-                        Line::from(Span::styled(
-                            demo.name,
-                            Style::default().add_modifier(Modifier::BOLD),
-                        )),
-                        Line::from(Span::styled(
-                            format!("  {}", demo.description),
-                            Style::default().fg(Color::Gray),
-                        )),
-                    ];
-                    ListItem::new(lines).style(Style::default().fg(Color::White))
+                    ListItem::new(Line::from(vec![Span::styled(
+                        format!(" {} ", demo.name),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    )]))
                 })
                 .collect();
 
-            let items = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title("Demos"))
+            let list = List::new(items)
+                .block(Block::default().borders(Borders::ALL).title(" Demos "))
                 .highlight_style(
                     Style::default()
                         .bg(Color::Blue)
+                        .fg(Color::White)
                         .add_modifier(Modifier::BOLD),
                 )
                 .highlight_symbol(">> ");
 
-            f.render_stateful_widget(items, chunks[1], &mut app.state);
+            f.render_stateful_widget(list, content_chunks[0], &mut app.state);
 
-            let help = Paragraph::new("Select with ↑/↓, Enter to Launch, Q to Quit")
+            let selected_index = app.state.selected().unwrap_or(0);
+            let selected_demo = &DEMOS[selected_index];
+
+            let details_text = vec![
+                Line::from(Span::styled("Description:", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow))),
+                Line::from(Span::raw("")),
+                Line::from(Span::raw(selected_demo.description)),
+                Line::from(Span::raw("")),
+                Line::from(Span::styled("Command:", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow))),
+                Line::from(Span::raw(format!("cargo run --example {}", selected_demo.example_name))),
+            ];
+
+            let details = Paragraph::new(details_text)
+                .block(Block::default().borders(Borders::ALL).title(" Details "))
+                .wrap(ratatui::widgets::Wrap { trim: true });
+
+            f.render_widget(details, content_chunks[1]);
+
+            let help = Paragraph::new("↑/↓: Navigate | Enter: Launch | Q: Quit")
                 .style(Style::default().fg(Color::DarkGray))
-                .block(Block::default().borders(Borders::ALL));
+                .block(Block::default().borders(Borders::TOP));
             f.render_widget(help, chunks[2]);
         })?;
 
@@ -238,6 +272,9 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
 
     if !status.success() {
         eprintln!("Demo exited with error: {status}");
+        eprintln!("Press Enter to continue...");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
     }
 
     Ok(())
