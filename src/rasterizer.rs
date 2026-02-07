@@ -1055,6 +1055,94 @@ struct PerspectiveSpanStart {
     v: f32,
 }
 
+struct BilinearSampler<'a> {
+    width: i32,
+    height: i32,
+    pixels: &'a [u32],
+}
+
+impl<'a> BilinearSampler<'a> {
+    #[inline(always)]
+    fn new(texture: &'a Texture) -> Self {
+        Self {
+            width: texture.width as i32,
+            height: texture.height as i32,
+            pixels: &texture.pixels,
+        }
+    }
+
+    /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates
+    #[inline(always)]
+    #[must_use]
+    fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
+        let u_img_fixed = u_fixed - 128;
+        let v_img_fixed = v_fixed - 128;
+
+        // Weights (0..256)
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        // Arithmetic shift preserves sign (floor behavior for negative numbers)
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let (c00, c10, c01, c11) = self.fetch_bilinear_neighbors(x0_raw, y0_raw);
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        // Ensure alpha is 0xFF
+        final_color | 0xFF00_0000
+    }
+
+    #[inline(always)]
+    fn fetch_bilinear_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
+        let w_i32 = self.width - 1;
+        let h_i32 = self.height - 1;
+
+        // Optimization: Fast path for interior pixels to avoid 4 clamps
+        // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
+        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+            let x0 = x0_raw as usize;
+            let y0 = y0_raw as usize;
+            let width_usize = self.width as usize;
+            let row0 = y0 * width_usize;
+            let row1 = row0 + width_usize; // y0 + 1 is valid
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x0 + 1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                )
+            }
+        } else {
+            let x0 = x0_raw.clamp(0, w_i32) as usize;
+            let y0 = y0_raw.clamp(0, h_i32) as usize;
+            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+            let width_usize = self.width as usize;
+            let row0 = y0 * width_usize;
+            let row1 = y1 * width_usize;
+
+            // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x1),
+                )
+            }
+        }
+    }
+}
+
 const RECIPROCAL_TABLE: [f32; 17] = [
     0.0,
     1.0,
@@ -1176,6 +1264,7 @@ fn draw_scanline_textured_perspective(
                 }
             }
             FilterMode::Bilinear => {
+                let sampler = BilinearSampler::new(texture);
                 // Fixed point optimization for Bilinear
                 // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
@@ -1187,7 +1276,7 @@ fn draw_scanline_textured_perspective(
                     if z < *depth_val {
                         *depth_val = z;
                         // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        *pixel = sampler.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
