@@ -710,7 +710,7 @@ pub enum FilterMode {
 
 /// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
 #[inline(always)]
-const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
+pub(crate) const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     let rb0 = c0 & 0x00FF_00FF;
     let ag0 = (c0 >> 8) & 0x00FF_00FF;
     let rb1 = c1 & 0x00FF_00FF;
@@ -918,16 +918,17 @@ impl Texture {
     }
 }
 
-struct PerspectiveTextureGradients {
-    dz_dx: f32,
-    dq_dx: f32,
-    du_dx: f32,
-    dv_dx: f32,
+#[derive(Clone, Copy)]
+pub(crate) struct PerspectiveTextureGradients {
+    pub(crate) dz_dx: f32,
+    pub(crate) dq_dx: f32,
+    pub(crate) du_dx: f32,
+    pub(crate) dv_dx: f32,
 }
 
 impl PerspectiveTextureGradients {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub(crate) fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -979,12 +980,12 @@ impl PerspectiveTextureGradients {
     }
 }
 
-struct PerspectiveTextureEdgeWalker {
-    x: i64,
-    z: f32,
-    q: f32, // 1/w
-    u: f32, // u/w
-    v: f32, // v/w
+pub(crate) struct PerspectiveTextureEdgeWalker {
+    pub(crate) x: i64,
+    pub(crate) z: f32,
+    pub(crate) q: f32, // 1/w
+    pub(crate) u: f32, // u/w
+    pub(crate) v: f32, // v/w
     dx_dy: i64,
     dz_dy: f32,
     dq_dy: f32,
@@ -994,7 +995,7 @@ struct PerspectiveTextureEdgeWalker {
 
 impl PerspectiveTextureEdgeWalker {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub(crate) fn new(
         p_start: ScreenPoint,
         p_end: ScreenPoint,
         q_start: f32,
@@ -1028,7 +1029,7 @@ impl PerspectiveTextureEdgeWalker {
         }
     }
 
-    fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
         self.q += self.dq_dy;
@@ -1036,7 +1037,7 @@ impl PerspectiveTextureEdgeWalker {
         self.v += self.dv_dy;
     }
 
-    fn step_n(&mut self, n: i32) {
+    pub(crate) fn step_n(&mut self, n: i32) {
         let n_i64 = i64::from(n);
         let n_f = n as f32;
         self.x += self.dx_dy * n_i64;
@@ -1048,14 +1049,14 @@ impl PerspectiveTextureEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
-struct PerspectiveSpanStart {
-    z: f32,
-    q: f32,
-    u: f32,
-    v: f32,
+pub(crate) struct PerspectiveSpanStart {
+    pub(crate) z: f32,
+    pub(crate) q: f32,
+    pub(crate) u: f32,
+    pub(crate) v: f32,
 }
 
-const RECIPROCAL_TABLE: [f32; 17] = [
+pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.0,
     1.0,
     0.5,
@@ -1079,7 +1080,7 @@ const RECIPROCAL_TABLE: [f32; 17] = [
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_textured_perspective(
+pub(crate) fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     texture: &Texture,

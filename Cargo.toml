@@ -108,3 +108,7 @@ too_many_lines = "allow"
 struct_field_names = "allow"
 # mul_add without hardware FMA falls back to slow software impl — keep a*b+c
 suboptimal_flops = "allow"
+
+[[bench]]
+name = "tile_rendering_textured"
+harness = false
