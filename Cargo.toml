@@ -84,11 +84,6 @@ harness = false
 name = "obj_loading"
 harness = false
 
-[[bin]]
-name = "simd_profiling"
-path = "benches/simd_profiling.rs"
-required-features = ["backend-win32"]
-
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
