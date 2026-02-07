@@ -1,6 +1,6 @@
-use abrash::obj_loader::load_obj;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
+use abrash::obj_loader::load_obj;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
