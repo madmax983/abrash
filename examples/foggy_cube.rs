@@ -1,0 +1,104 @@
+use abrash::framebuffer::Framebuffer;
+use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
+use abrash::platform::{Window, WindowBackend};
+use abrash::rasterizer::fill_triangle_3d;
+use abrash::time::FixedTimestep;
+use abrash::zbuffer::ZBuffer;
+use abrash::experimental::post_processing::{apply_depth_fog, apply_crt_filter};
+use std::f32::consts::PI;
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const FOG_COLOR: u32 = 0xFF20_20_40; // Dark Blue-ish Fog
+
+// Face colors for the cube
+const COLORS: [u32; 6] = [
+    0xFFFF_0000, // Red - front
+    0xFF00_FF00, // Green - back
+    0xFF00_00FF, // Blue - top
+    0xFFFF_FF00, // Yellow - bottom
+    0xFFFF_00FF, // Magenta - right
+    0xFF00_FFFF, // Cyan - left
+];
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut window = Window::new("Abrash - Foggy Retro Cube", WIDTH, HEIGHT)?;
+    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
+    let mut timestep = FixedTimestep::new(60);
+
+    let cube = Mesh::cube(1.0);
+
+    // Camera setup
+    // Slightly further away to show fog better
+    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+    let view = Mat4::look_at(
+        Vec3::new(0.0, 2.0, 5.0), // eye
+        Vec3::new(0.0, 0.0, 0.0), // target
+        Vec3::new(0.0, 1.0, 0.0), // up
+    );
+
+    let mut angle_y: f32 = 0.0;
+    let mut angle_x: f32 = 0.0;
+
+    while window.is_open() {
+        window.poll_events();
+
+        let steps = timestep.update();
+        for _ in 0..steps {
+            angle_y += 1.0 * timestep.dt();
+            angle_x += 0.5 * timestep.dt();
+        }
+
+        // Clear to FOG_COLOR so the infinite depth matches the full fog
+        framebuffer.clear(FOG_COLOR);
+        zbuffer.clear();
+
+        // Model matrix (rotation)
+        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
+
+        // MVP matrix
+        let mvp = projection * (view * model);
+
+        // Transform and render each triangle
+        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
+            let v0 = cube.vertices[tri_indices[0]];
+            let v1 = cube.vertices[tri_indices[1]];
+            let v2 = cube.vertices[tri_indices[2]];
+
+            // Transform vertices
+            let (clip0, w0) = mvp.transform_point(v0);
+            let (clip1, w1) = mvp.transform_point(v1);
+            let (clip2, w2) = mvp.transform_point(v2);
+
+            // Simple backface culling
+            if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
+                continue;
+            }
+
+            let color = COLORS[face_idx / 2];
+            fill_triangle_3d(
+                &mut framebuffer,
+                &mut zbuffer,
+                (clip0, w0),
+                (clip1, w1),
+                (clip2, w2),
+                color,
+            );
+        }
+
+        // --- Post Processing ---
+
+        // Apply Fog:
+        // Start fog at depth 0.8 and end at 1.0 (max depth)
+        apply_depth_fog(&mut framebuffer, &zbuffer, FOG_COLOR, 0.8, 1.0);
+
+        // Apply CRT Filter:
+        apply_crt_filter(&mut framebuffer);
+
+        window.blit_framebuffer(&framebuffer);
+    }
+
+    Ok(())
+}

@@ -3,6 +3,10 @@ use crate::mesh::Mesh;
 use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
+///
+/// # Errors
+///
+/// Returns an error string if the OBJ format is invalid (missing coordinates, invalid indices, etc).
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     let mut raw_positions = Vec::new();
     let mut raw_uvs = Vec::new();
@@ -29,32 +33,32 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
             "v" => {
                 let x = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing x", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing x"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid x", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid x"))?;
                 let y = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing y", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing y"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid y", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid y"))?;
                 let z = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing z", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing z"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid z", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid z"))?;
                 raw_positions.push(Vec3::new(x, y, z));
             }
             "vt" => {
                 let u = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing u", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing u"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid u", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid u"))?;
                 let v = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing v", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing v"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid v", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid v"))?;
                 raw_uvs.push(Vec2::new(u, v));
             }
             "f" => {
@@ -67,26 +71,27 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Position index
                     let v_str = segs
                         .next()
-                        .ok_or(format!("Line {}: Invalid face format", line_num))?;
+                        .ok_or_else(|| format!("Line {line_num}: Invalid face format"))?;
                     let v_idx = v_str
                         .parse::<usize>()
-                        .map_err(|_| format!("Line {}: Invalid vertex index", line_num))?;
+                        .map_err(|_| format!("Line {line_num}: Invalid vertex index"))?;
                     // OBJ is 1-based
                     let v_idx = v_idx
                         .checked_sub(1)
-                        .ok_or(format!("Line {}: Vertex index 0 is invalid", line_num))?;
+                        .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
                     // UV index
-                    let mut vt_idx = None;
-                    if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
+                    let vt_idx = if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
                         let idx = vt_str
                             .parse::<usize>()
-                            .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
-                        vt_idx = Some(
+                            .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
+                        Some(
                             idx.checked_sub(1)
-                                .ok_or(format!("Line {}: UV index 0 is invalid", line_num))?,
-                        );
-                    }
+                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                        )
+                    } else {
+                        None
+                    };
 
                     // Look up or insert
                     let key = (v_idx, vt_idx);
@@ -98,8 +103,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         // Push vertex
                         if v_idx >= raw_positions.len() {
                             return Err(format!(
-                                "Line {}: Vertex index {} out of bounds",
-                                line_num,
+                                "Line {line_num}: Vertex index {} out of bounds",
                                 v_idx + 1
                             ));
                         }
@@ -109,8 +113,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         if let Some(ti) = vt_idx {
                             if ti >= raw_uvs.len() {
                                 return Err(format!(
-                                    "Line {}: UV index {} out of bounds",
-                                    line_num,
+                                    "Line {line_num}: UV index {} out of bounds",
                                     ti + 1
                                 ));
                             }
@@ -128,7 +131,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                 // Triangulate fan
                 if face_indices.len() < 3 {
-                    return Err(format!("Line {}: Face has fewer than 3 vertices", line_num));
+                    return Err(format!("Line {line_num}: Face has fewer than 3 vertices"));
                 }
 
                 for i in 1..face_indices.len() - 1 {
