@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 use abrash::obj_loader;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::fmt::Write;
@@ -29,12 +31,19 @@ fn generate_sphere_obj(rings: usize, sectors: usize) -> String {
             let first = (r * (sectors + 1)) + s + 1;
             let second = first + sectors + 1;
 
-            writeln!(obj, "f {}/{} {}/{} {}/{} {}/{}",
-                first, first,
-                first + 1, first + 1,
-                second + 1, second + 1,
-                second, second
-            ).unwrap();
+            writeln!(
+                obj,
+                "f {}/{} {}/{} {}/{} {}/{}",
+                first,
+                first,
+                first + 1,
+                first + 1,
+                second + 1,
+                second + 1,
+                second,
+                second
+            )
+            .unwrap();
         }
     }
 
@@ -48,9 +57,7 @@ fn bench_obj_loading(c: &mut Criterion) {
     let mut group = c.benchmark_group("obj_loading");
 
     group.bench_function("load_sphere_50x50", |b| {
-        b.iter(|| {
-            obj_loader::load_obj(&obj_source).unwrap()
-        });
+        b.iter(|| obj_loader::load_obj(&obj_source).unwrap());
     });
 
     group.finish();

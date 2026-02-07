@@ -3,6 +3,14 @@
 //! This benchmark suite measures individual SIMD operations at the cycle level
 //! to identify bottlenecks and validate optimization effectiveness.
 
+#![allow(
+    clippy::unit_arg,
+    clippy::explicit_iter_loop,
+    clippy::uninlined_format_args,
+    clippy::cast_lossless,
+    clippy::type_complexity
+)]
+
 use abrash::{
     framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,

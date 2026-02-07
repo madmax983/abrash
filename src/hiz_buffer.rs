@@ -363,6 +363,7 @@ impl HiZBuffer {
     }
 
     /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
+    #[allow(dead_code)]
     #[inline]
     fn build_level_scalar_single(
         &mut self,
@@ -480,6 +481,7 @@ impl HiZBuffer {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -563,8 +565,8 @@ mod tests {
         // Row 2: 9.0 10.0 11.0 12.0
         // Row 3: 13.0 14.0 15.0 16.0
         let slice = zb.as_mut_slice();
-        for i in 0..16 {
-            slice[i] = (i + 1) as f32;
+        for (i, val) in slice.iter_mut().enumerate().take(16) {
+            *val = (i + 1) as f32;
         }
 
         let mut hiz = HiZBuffer::new(4, 4);
@@ -726,7 +728,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 15.0; // Farther region (occluder is farther)
                 } else {
                     slice[y * 800 + x] = 10.0;
@@ -760,7 +762,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 5.0; // Closer region (occluder is closer)
                 } else {
                     slice[y * 800 + x] = 10.0;

@@ -105,9 +105,9 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
-    fn from_screen_point(p: ScreenPoint) -> Self {
+    const fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
             x: p.x << 8, // Convert to 24.8 fixed point
             y: p.y << 8,
@@ -116,12 +116,14 @@ impl VertexFixed {
     }
 
     /// Extract the integer pixel coordinate (discard fractional part).
+    #[allow(dead_code)]
     #[inline]
     const fn to_pixel_x(self) -> i32 {
         self.x >> 8
     }
 
     /// Extract the integer pixel coordinate (discard fractional part).
+    #[allow(dead_code)]
     #[inline]
     const fn to_pixel_y(self) -> i32 {
         self.y >> 8
@@ -148,6 +150,7 @@ impl VertexFixed {
 ///
 /// This is intentional - we only care about the sign for edge testing, not the
 /// exact magnitude.
+#[allow(dead_code)]
 #[inline(always)]
 const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
     // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
@@ -201,8 +204,11 @@ struct PreparedTriangle {
     p1: ScreenPoint,
     p2: ScreenPoint,
     // Fixed-point vertices for deterministic edge function evaluation
+    #[allow(dead_code)]
     p0_fixed: VertexFixed,
+    #[allow(dead_code)]
     p1_fixed: VertexFixed,
+    #[allow(dead_code)]
     p2_fixed: VertexFixed,
     dz_dx: f32,
     long_edge_is_left: bool,
@@ -429,6 +435,7 @@ fn rasterize_scanline_scalar(
 
 /// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[allow(dead_code)]
 #[inline(always)]
 fn rasterize_scanline_simd(
     pixels: &mut [u32],
@@ -496,6 +503,7 @@ fn rasterize_scanline_simd(
 
 /// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+#[allow(dead_code)]
 #[inline(always)]
 fn rasterize_scanline_simd(
     pixels: &mut [u32],
@@ -535,7 +543,9 @@ fn rasterize_scanline_simd(
 ///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
+    #[allow(dead_code)]
     tile_pixels: Vec<u32>,
+    #[allow(dead_code)]
     tile_depths: Vec<f32>,
     tiles_x: u32,
     tiles_y: u32,
@@ -974,7 +984,11 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(
+    width: usize,
+    height: usize,
+    triangle_count: usize,
+) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
@@ -986,6 +1000,7 @@ pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: u
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
     use crate::framebuffer::Framebuffer;

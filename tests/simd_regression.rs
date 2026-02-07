@@ -4,6 +4,8 @@
 //! over time. They measure the speedup ratio and fail if SIMD becomes slower than
 //! expected thresholds.
 
+#![allow(unused_imports, dead_code, clippy::type_complexity)]
+
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::_rdtsc;
 

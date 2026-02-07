@@ -1,5 +1,5 @@
-use abrash::obj_loader;
 use abrash::math::Vec3;
+use abrash::obj_loader;
 
 #[test]
 fn test_load_obj_integration() {

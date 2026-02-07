@@ -1,6 +1,12 @@
-use abrash::obj_loader::load_obj;
+#![allow(
+    clippy::unreadable_literal,
+    clippy::needless_raw_string_hashes,
+    clippy::uninlined_format_args
+)]
+
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
+use abrash::obj_loader::load_obj;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;

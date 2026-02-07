@@ -1,3 +1,10 @@
+#![allow(
+    dead_code,
+    clippy::cast_lossless,
+    clippy::uninlined_format_args,
+    clippy::type_complexity
+)]
+
 use abrash::{
     framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,

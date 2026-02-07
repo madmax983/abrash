@@ -1,7 +1,9 @@
+#![allow(clippy::unreadable_literal, clippy::uninlined_format_args)]
+
 /// Integration tests for Hi-Z buffer with tile renderer
 ///
 /// These tests verify that:
-/// 1. TileRenderer with Hi-Z produces identical output to without Hi-Z
+/// 1. `TileRenderer` with Hi-Z produces identical output to without Hi-Z
 /// 2. Hi-Z actually culls occluded triangles
 /// 3. Occlusion queries are correct (no false negatives)
 use abrash::framebuffer::Framebuffer;

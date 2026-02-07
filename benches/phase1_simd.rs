@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use abrash::{
     framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,

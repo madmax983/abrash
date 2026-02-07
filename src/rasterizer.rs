@@ -722,6 +722,83 @@ const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     rb | (ag << 8)
 }
 
+struct BilinearSampler<'a> {
+    pixels: &'a [u32],
+    width_usize: usize,
+    w_m1: i32,
+    h_m1: i32,
+}
+
+impl<'a> BilinearSampler<'a> {
+    #[inline(always)]
+    fn new(texture: &'a Texture) -> Self {
+        Self {
+            pixels: &texture.pixels,
+            width_usize: texture.width as usize,
+            w_m1: texture.width as i32 - 1,
+            h_m1: texture.height as i32 - 1,
+        }
+    }
+
+    #[inline(always)]
+    fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
+        let u_img_fixed = u_fixed - 128;
+        let v_img_fixed = v_fixed - 128;
+
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let w_m1 = self.w_m1;
+        let h_m1 = self.h_m1;
+
+        let (c00, c10, c01, c11) = if x0_raw >= 0 && x0_raw < w_m1 && y0_raw >= 0 && y0_raw < h_m1 {
+            let x0 = x0_raw as usize;
+            let y0 = y0_raw as usize;
+            let width_usize = self.width_usize;
+            let row0 = y0 * width_usize;
+            let row1 = row0 + width_usize;
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x0 + 1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                )
+            }
+        } else {
+            let x0 = x0_raw.clamp(0, w_m1) as usize;
+            let y0 = y0_raw.clamp(0, h_m1) as usize;
+            let x1 = (x0_raw + 1).clamp(0, w_m1) as usize;
+            let y1 = (y0_raw + 1).clamp(0, h_m1) as usize;
+
+            let width_usize = self.width_usize;
+            let row0 = y0 * width_usize;
+            let row1 = y1 * width_usize;
+
+            unsafe {
+                (
+                    *self.pixels.get_unchecked(row0 + x0),
+                    *self.pixels.get_unchecked(row0 + x1),
+                    *self.pixels.get_unchecked(row1 + x0),
+                    *self.pixels.get_unchecked(row1 + x1),
+                )
+            }
+        };
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        final_color | 0xFF00_0000
+    }
+}
+
 /// A simple 2D texture.
 pub struct Texture {
     pub width: u32,
@@ -1059,19 +1136,19 @@ const RECIPROCAL_TABLE: [f32; 17] = [
     0.0,
     1.0,
     0.5,
-    0.33333334,
+    0.333_333_34,
     0.25,
     0.2,
-    0.16666667,
-    0.14285715,
+    0.166_666_67,
+    0.142_857_15,
     0.125,
-    0.11111111,
+    0.111_111_11,
     0.1,
-    0.09090909,
-    0.083333336,
-    0.07692308,
-    0.071428575,
-    0.06666667,
+    0.090_909_09,
+    0.083_333_336,
+    0.076_923_08,
+    0.071_428_575,
+    0.066_666_67,
     0.0625,
 ];
 
@@ -1183,11 +1260,13 @@ fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                let sampler = BilinearSampler::new(texture);
+
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
                         // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        *pixel = sampler.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
