@@ -7,6 +7,7 @@ edition = "2024"
 default = ["backend-win32"]
 simd = []
 parallel = ["dep:rayon"]
+gpu-binning = ["dep:windows", "backend-win32"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
@@ -27,8 +28,24 @@ windows-sys = { version = "0.59", optional = true, features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
+# DirectX 12 bindings (for GPU compute binning)
+windows = { version = "0.59", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_Direct3D_Dxc",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Security",
+    "Win32_System_Threading",
+] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
+
+[build-dependencies]
+windows = { version = "0.59", optional = true, features = [
+    "Win32_Graphics_Direct3D_Dxc",
+] }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -87,6 +104,11 @@ harness = false
 [[bench]]
 name = "simd_micro_bench"
 harness = false
+
+[[bench]]
+name = "gpu_binning"
+harness = false
+required-features = ["backend-win32", "gpu-binning"]
 
 [[bin]]
 name = "simd_profiling"
