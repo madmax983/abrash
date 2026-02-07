@@ -27,6 +27,16 @@
 
 use std::ops::{Add, Mul, Sub};
 
+/// A 2D vector, commonly used for texture coordinates and 2D geometry.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec2;
+///
+/// let v = Vec2::new(1.0, 2.0);
+/// assert_eq!(v.x, 1.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
@@ -73,12 +83,33 @@ impl Mul<f32> for Vec2 {
     }
 }
 
+/// A 2x2 matrix for 2D transformations (rotation, scaling).
 #[derive(Debug, Clone, Copy)]
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
 }
 
 impl Mat2 {
+    /// Creates a rotation matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `angle` - The rotation angle in **radians**.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat2, Vec2};
+    /// use std::f32::consts::PI;
+    ///
+    /// // Rotate 90 degrees (PI/2) counter-clockwise
+    /// let m = Mat2::rotation(PI / 2.0);
+    /// let v = Vec2::new(1.0, 0.0);
+    /// let rotated = m.transform(v);
+    ///
+    /// assert!((rotated.x - 0.0).abs() < 1e-6);
+    /// assert!((rotated.y - 1.0).abs() < 1e-6);
+    /// ```
     #[must_use]
     pub fn rotation(angle: f32) -> Self {
         let cos = angle.cos();
@@ -473,6 +504,10 @@ impl Mul for Mat4 {
     }
 }
 
+/// A point in screen space (pixels).
+///
+/// * `x`, `y`: Integer pixel coordinates.
+/// * `z`: Depth value (usually retained for z-buffering).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenPoint {
     pub x: i32,
@@ -480,7 +515,31 @@ pub struct ScreenPoint {
     pub z: f32,
 }
 
-/// Project a 3D point to screen coordinates
+/// Projects a clip-space vertex to screen space coordinates.
+///
+/// This performs the Perspective Divide (`v / w`) and maps the result from
+/// Normalized Device Coordinates (NDC) to pixel coordinates.
+///
+/// # Arguments
+///
+/// * `v` - The clip-space position (x, y, z).
+/// * `w` - The clip-space w component.
+/// * `width` - Target viewport width.
+/// * `height` - Target viewport height.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Vec3, project_to_screen};
+///
+/// let v = Vec3::new(0.0, 0.0, 0.0);
+/// let w = 1.0;
+/// let p = project_to_screen(v, w, 800, 600);
+///
+/// // Center of screen
+/// assert_eq!(p.x, 400);
+/// assert_eq!(p.y, 300);
+/// ```
 #[must_use]
 pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
     // Perspective divide

@@ -19,7 +19,7 @@
 //! | 3840×2160 | 66.4 MB | ≥200 | **6% slower** (use scanline) |
 //!
 //! **Usage Guideline**: Use [`TileRenderer`] when resolution ≥ 1920×1080 AND triangle count ≤ 100.
-//! Use [`Rasterizer::fill_triangle_3d`](crate::rasterizer::Rasterizer::fill_triangle_3d) otherwise.
+//! Use [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d) otherwise.
 //!
 //! # Parallel Rendering
 //!
@@ -524,7 +524,7 @@ fn rasterize_scanline_simd(
 /// - Triangle count ≤ 100 per frame (after culling)
 ///
 /// For smaller resolutions or higher triangle counts, use
-/// [`Rasterizer::fill_triangle_3d`](crate::rasterizer::Rasterizer::fill_triangle_3d) instead,
+/// [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d) instead,
 /// as it avoids the prepare/bin/merge overhead.
 ///
 /// # Performance
@@ -939,7 +939,7 @@ impl TileRenderer {
 /// # Returns
 ///
 /// - `true` if tile-based rendering is recommended (framebuffer > 12 MB AND triangles ≤ 100)
-/// - `false` if scanline rendering is recommended (use [`Rasterizer::fill_triangle_3d`](crate::rasterizer::Rasterizer::fill_triangle_3d))
+/// - `false` if scanline rendering is recommended (use [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d))
 ///
 /// # Examples
 ///

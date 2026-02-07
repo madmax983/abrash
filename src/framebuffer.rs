@@ -12,9 +12,21 @@ pub struct Framebuffer {
 impl Framebuffer {
     /// Creates a new framebuffer with the given dimensions.
     ///
+    /// The buffer is initialized to opaque black (`0xFF000000`).
+    ///
     /// # Errors
     ///
     /// Returns an error if dimensions exceed `i32::MAX` or the total pixel count overflows `u32`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(800, 600).unwrap();
+    /// assert_eq!(fb.width(), 800);
+    /// assert_eq!(fb.height(), 600);
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 {
             return Err("Buffer dimensions too large (max i32::MAX)");
@@ -51,10 +63,37 @@ impl Framebuffer {
         &mut self.pixels
     }
 
+    /// Fills the entire framebuffer with a single color.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(10, 10).unwrap();
+    /// fb.clear(0xFFFF0000); // Fill with red
+    /// assert_eq!(fb.get_pixel(5, 5), Some(0xFFFF0000));
+    /// ```
     pub fn clear(&mut self, color: u32) {
         self.pixels.fill(color);
     }
 
+    /// Sets the color of a pixel at (x, y).
+    ///
+    /// If coordinates are out of bounds, this operation is ignored (safe).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// fb.set_pixel(50, 50, 0xFFFFFFFF);
+    /// assert_eq!(fb.get_pixel(50, 50), Some(0xFFFFFFFF));
+    ///
+    /// // Out of bounds is ignored
+    /// fb.set_pixel(200, 200, 0xFFFFFFFF);
+    /// ```
     #[inline]
     pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {

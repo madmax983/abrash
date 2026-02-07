@@ -10,11 +10,20 @@ pub struct ZBuffer {
 }
 
 impl ZBuffer {
-    /// Create a new z-buffer initialized to maximum depth.
+    /// Create a new z-buffer initialized to maximum depth (`f32::INFINITY`).
     ///
     /// # Errors
     ///
     /// Returns an error if dimensions exceed `i32::MAX` or the total pixel count overflows `u32`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::zbuffer::ZBuffer;
+    ///
+    /// let mut zb = ZBuffer::new(100, 100).unwrap();
+    /// assert_eq!(zb.get_depth(50, 50), Some(f32::INFINITY));
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 {
             return Err("Buffer dimensions too large (max i32::MAX)");
@@ -37,7 +46,29 @@ impl ZBuffer {
         self.depths.fill(f32::INFINITY);
     }
 
-    /// Test and set depth at pixel. Returns true if pixel should be drawn.
+    /// Performs a depth test and updates the buffer if the new depth is closer.
+    ///
+    /// # Returns
+    ///
+    /// * `true` - The new fragment is visible (closer than existing value), so the buffer was updated.
+    /// * `false` - The new fragment is occluded (or out of bounds), so no change occurred.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::zbuffer::ZBuffer;
+    ///
+    /// let mut zb = ZBuffer::new(100, 100).unwrap();
+    ///
+    /// // First draw: Depth 5.0 (passes, as 5.0 < INFINITY)
+    /// assert_eq!(zb.test_and_set(50, 50, 5.0), true);
+    ///
+    /// // Second draw: Depth 6.0 (fails, as 6.0 > 5.0)
+    /// assert_eq!(zb.test_and_set(50, 50, 6.0), false);
+    ///
+    /// // Third draw: Depth 4.0 (passes, as 4.0 < 5.0)
+    /// assert_eq!(zb.test_and_set(50, 50, 4.0), true);
+    /// ```
     #[inline]
     pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {

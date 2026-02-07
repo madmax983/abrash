@@ -378,10 +378,14 @@ fn draw_scanline_gouraud(
     }
 }
 
+/// Walks along an edge of a triangle, interpolating values.
+///
+/// Uses 16.16 fixed-point arithmetic for the X coordinate to ensure
+/// sub-pixel precision and avoid accumulation errors.
 pub(crate) struct EdgeWalker {
-    pub(crate) x: i64,
+    pub(crate) x: i64, // 16.16 fixed point
     pub(crate) z: f32,
-    dx_dy: i64,
+    dx_dy: i64, // 16.16 fixed point
     dz_dy: f32,
 }
 
@@ -800,7 +804,29 @@ impl Texture {
         }
     }
 
-    /// Sample texture using bilinear interpolation
+    /// Sample texture using bilinear interpolation.
+    ///
+    /// # Arguments
+    ///
+    /// * `u` - Normalized X coordinate [0.0, 1.0].
+    /// * `v` - Normalized Y coordinate [0.0, 1.0].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::rasterizer::Texture;
+    ///
+    /// let mut tex = Texture::new(2, 2).unwrap();
+    /// tex.set_pixel(0, 0, 0xFF000000); // Top-Left
+    /// tex.set_pixel(1, 0, 0xFFFFFFFF); // Top-Right
+    /// tex.set_pixel(0, 1, 0xFF000000); // Bottom-Left
+    /// tex.set_pixel(1, 1, 0xFFFFFFFF); // Bottom-Right
+    ///
+    /// // Sample between pixels (0.5, 0.0) -> (0+255)/2 = 127
+    /// let color = tex.get_pixel_bilinear(0.5, 0.25);
+    /// let r = (color >> 16) & 0xFF;
+    /// assert!(r > 100 && r < 150); // Approximately 127
+    /// ```
     #[must_use]
     pub fn get_pixel_bilinear(&self, u: f32, v: f32) -> u32 {
         let w = self.width as f32;
@@ -1209,7 +1235,33 @@ fn draw_scanline_textured_perspective(
     }
 }
 
-/// Fill a 3D triangle with perspective-correct texture mapping
+/// Fill a 3D triangle with perspective-correct texture mapping.
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices with `((Position, W), UV)` data.
+///   * `Position`: Clip-space position (`Vec3`).
+///   * `W`: Perspective depth component (`f32`).
+///   * `UV`: Texture coordinates (`Vec2`, 0.0-1.0).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::{fill_triangle_textured, Texture};
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::{Vec3, Vec2};
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let tex = Texture::new(32, 32).unwrap();
+///
+/// let v0 = ((Vec3::new(0.0, 0.5, 2.0), 2.0), Vec2::new(0.5, 0.0));
+/// let v1 = ((Vec3::new(-0.5, -0.5, 2.0), 2.0), Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(0.5, -0.5, 2.0), 2.0), Vec2::new(1.0, 1.0));
+///
+/// fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &tex);
+/// ```
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
