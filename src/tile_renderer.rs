@@ -650,6 +650,35 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width {} does not match TileRenderer width {}",
+            fb.width(),
+            self.width
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height {} does not match TileRenderer height {}",
+            fb.height(),
+            self.height
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width {} does not match TileRenderer width {}",
+            zb.width(),
+            self.width
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height {} does not match TileRenderer height {}",
+            zb.height(),
+            self.height
+        );
+
         self.prepared.clear();
         for bin in &mut self.tile_bins {
             bin.clear();
