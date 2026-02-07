@@ -90,7 +90,7 @@ use crate::zbuffer::ZBuffer;
 /// - Fixed-point scale factor: 256 (2^8)
 /// - Conversion: `fixed = (float * 256.0) as i32`
 /// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VertexFixed {
     pub x: i32, // 24.8 fixed point
     pub y: i32, // 24.8 fixed point
@@ -105,7 +105,7 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
     fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
@@ -115,17 +115,6 @@ impl VertexFixed {
         }
     }
 
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_x(self) -> i32 {
-        self.x >> 8
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_y(self) -> i32 {
-        self.y >> 8
-    }
 }
 
 /// Compute fixed-point edge function for triangle rasterization.
@@ -149,6 +138,7 @@ impl VertexFixed {
 /// This is intentional - we only care about the sign for edge testing, not the
 /// exact magnitude.
 #[inline(always)]
+#[allow(dead_code)]
 const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
     // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
     // All coordinates are 24.8 fixed point
@@ -424,12 +414,12 @@ fn rasterize_scanline_scalar(
     dz_dx: f32,
     color: u32,
 ) {
+    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
+    const INV_256: f32 = 1.0 / 256.0;
+
     // Convert to 24.8 fixed point for accumulation
     let mut z_fixed = (z_start * 256.0) as i32;
     let dz_dx_fixed = (dz_dx * 256.0) as i32;
-
-    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
-    const INV_256: f32 = 1.0 / 256.0;
 
     for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
         // Convert fixed-point to float for zbuffer comparison (Option A)
@@ -442,85 +432,6 @@ fn rasterize_scanline_scalar(
     }
 }
 
-/// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[inline(always)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    use std::arch::x86_64::*;
-
-    let len = pixels.len();
-    let mut i = 0;
-
-    unsafe {
-        // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
-        let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
-
-        // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
-        let mut depths_vec = _mm256_set_ps(
-            z_at_xs + 7.0 * dz_dx,
-            z_at_xs + 6.0 * dz_dx,
-            z_at_xs + 5.0 * dz_dx,
-            z_at_xs + 4.0 * dz_dx,
-            z_at_xs + 3.0 * dz_dx,
-            z_at_xs + 2.0 * dz_dx,
-            z_at_xs + 1.0 * dz_dx,
-            z_at_xs,
-        );
-
-        let color_vec = _mm256_set1_epi32(color as i32);
-
-        // Process 8 pixels at a time with AVX2
-        while i + 8 <= len {
-            // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
-            let zb_vals = _mm256_loadu_ps(zb_ptr);
-
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
-
-            // Conditional depth write via masked store
-            let depths_mut_ptr = depths.as_mut_ptr().add(i);
-            _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
-
-            // Conditional color write
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
-            _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
-
-            // Increment depths by stride (8*dz_dx) for next iteration
-            depths_vec = _mm256_add_ps(depths_vec, stride_vec);
-            i += 8;
-        }
-    }
-
-    // Handle remaining pixels with scalar fallback
-    let mut z = z_at_xs + (i as f32) * dz_dx;
-    for j in i..len {
-        if z < depths[j] {
-            depths[j] = z;
-            pixels[j] = color;
-        }
-        z += dz_dx;
-    }
-}
-
-/// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
-#[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-#[inline(always)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-}
 
 /// Tile-based renderer that bins triangles into 32×32 tiles for cache-friendly rendering.
 ///
@@ -550,8 +461,6 @@ fn rasterize_scanline_simd(
 ///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
-    tile_pixels: Vec<u32>,
-    tile_depths: Vec<f32>,
     tiles_x: u32,
     tiles_y: u32,
     width: u32,
@@ -559,8 +468,6 @@ pub struct TileRenderer {
     tile_bins: Vec<Vec<usize>>,
     prepared: Vec<PreparedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
-    #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
 }
 
 impl TileRenderer {
@@ -576,11 +483,7 @@ impl TileRenderer {
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
         let tile_count = (tiles_x * tiles_y) as usize;
-        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-
         Self {
-            tile_pixels: vec![0; tile_area],
-            tile_depths: vec![0.0; tile_area],
             tiles_x,
             tiles_y,
             width,
@@ -588,8 +491,6 @@ impl TileRenderer {
             tile_bins: vec![Vec::new(); tile_count],
             prepared: Vec::new(),
             hiz_buffer: None,
-            #[cfg(feature = "gpu-binning")]
-            gpu_binner: None,
         }
     }
 
@@ -606,34 +507,6 @@ impl TileRenderer {
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
         self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
-    }
-
-    /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
-    ///
-    /// When enabled, the tile renderer will use a D3D12 compute shader to bin triangles
-    /// to tiles on the GPU, which can provide 10-20× faster binning for triangle-heavy scenes.
-    ///
-    /// **Requirements:**
-    /// - `gpu-binning` feature must be enabled
-    /// - Windows platform with DirectX 12 support
-    /// - Suitable GPU adapter (non-software)
-    ///
-    /// **Performance:**
-    /// - Binning: 100 triangles <0.05ms, 1000 triangles <0.5ms
-    /// - Overall: 2-3× speedup for scenes with 100+ triangles
-    ///
-    /// # Errors
-    ///
-    /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
-            self.width,
-            self.height,
-            TILE_SIZE,
-            1000, // Max triangles per batch
-        )?);
-        Ok(())
     }
 
     /// Returns the number of tiles in X direction.
@@ -714,19 +587,7 @@ impl TileRenderer {
             hiz.build_pyramid(zb);
         }
 
-        // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-        #[cfg(feature = "gpu-binning")]
-        if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path
-            if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                eprintln!("GPU binning failed: {e}, falling back to CPU");
-                self.bin_triangles_cpu();
-            }
-        } else {
-            self.bin_triangles_cpu();
-        }
-
-        #[cfg(not(feature = "gpu-binning"))]
+        // Phase 2: Bin (CPU with optional Hi-Z occlusion culling)
         self.bin_triangles_cpu();
 
         // Phase 3+4: Render and merge each tile
@@ -1038,7 +899,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
@@ -1652,8 +1513,8 @@ mod tests {
         assert_eq!(fixed.z, (5.0 * 256.0) as i32); // 24.8 fixed point
 
         // Test conversion back to pixel coordinates
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
+        assert_eq!(fixed.x >> 8, 100);
+        assert_eq!(fixed.y >> 8, 200);
     }
 
     #[test]
@@ -1666,8 +1527,8 @@ mod tests {
         };
 
         // Integer part should round down
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
+        assert_eq!(fixed.x >> 8, 100);
+        assert_eq!(fixed.y >> 8, 200);
 
         // Verify the fractional parts are preserved
         assert_eq!(fixed.x & 0xFF, 128); // 0.5 * 256 = 128
