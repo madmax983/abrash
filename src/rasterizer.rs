@@ -4,7 +4,7 @@
 
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen, project_to_screen_with_inv_w};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -1232,9 +1232,10 @@ pub fn fill_triangle_textured(
         let height = fb.height();
 
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        // Optimization: Use internal helper to get 1/w for free (saves 3 divisions)
+        let (p0_orig, inv_w0) = project_to_screen_with_inv_w(v0.0.0, v0.0.1, width, height);
+        let (p1_orig, inv_w1) = project_to_screen_with_inv_w(v1.0.0, v1.0.1, width, height);
+        let (p2_orig, inv_w2) = project_to_screen_with_inv_w(v2.0.0, v2.0.1, width, height);
 
         // Backface Culling
         let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
@@ -1249,14 +1250,6 @@ pub fn fill_triangle_textured(
 
         // Prepare perspective attributes: q=1/w, u/w, v/w
         // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
-        let w0 = v0.0.1;
-        let w1 = v1.0.1;
-        let w2 = v2.0.1;
-
-        // Avoid division by zero
-        let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
-        let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
-        let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
 
         let u0 = v0.1.x * texture.width as f32 * inv_w0;
         let v0_val = v0.1.y * texture.height as f32 * inv_w0;
