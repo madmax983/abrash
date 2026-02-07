@@ -1,7 +1,7 @@
 use abrash::experimental::obj_loader::load_obj;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
-use abrash::platform::Window;
+use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -42,7 +42,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| format!("Failed to load OBJ: {}", e))?;
 
     // Compute normals for flat shading logic (simple color variation)
-    let normals = mesh.compute_face_normals();
+    let normals = mesh
+        .compute_face_normals()
+        .map_err(|e| format!("Failed to compute normals: {}", e))?;
 
     // Camera setup
     let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);

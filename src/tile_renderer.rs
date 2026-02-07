@@ -105,9 +105,9 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
-    fn from_screen_point(p: ScreenPoint) -> Self {
+    const fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
             x: p.x << 8, // Convert to 24.8 fixed point
             y: p.y << 8,
@@ -430,6 +430,7 @@ fn rasterize_scanline_scalar(
 /// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(clippy::wildcard_imports)]
 fn rasterize_scanline_simd(
     pixels: &mut [u32],
     depths: &mut [f32],
@@ -474,7 +475,7 @@ fn rasterize_scanline_simd(
             _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
 
             // Conditional color write
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
+            let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<i32>();
             _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
 
             // Increment depths by stride (8*dz_dx) for next iteration
@@ -974,7 +975,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
@@ -1572,6 +1573,7 @@ mod tests {
     // --- Fixed-point arithmetic tests ---
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn vertex_fixed_conversion() {
         // Test conversion from ScreenPoint to VertexFixed
         let p = ScreenPoint {
@@ -1768,8 +1770,7 @@ mod tests {
             .count();
         assert!(
             pixels_changed > 100,
-            "Expected at least 100 pixels rendered, got {}",
-            pixels_changed
+            "Expected at least 100 pixels rendered, got {pixels_changed}"
         );
     }
 }
