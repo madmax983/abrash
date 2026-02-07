@@ -53,8 +53,8 @@
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
 //!
-//! let mut fb = Framebuffer::new(3840, 2160); // 4K resolution
-//! let mut zb = ZBuffer::new(3840, 2160);
+//! let mut fb = Framebuffer::new(3840, 2160).unwrap(); // 4K resolution
+//! let mut zb = ZBuffer::new(3840, 2160).unwrap();
 //! let mut renderer = TileRenderer::new(3840, 2160);
 //!
 //! let triangles: Vec<ClipTriangle> = vec![
@@ -632,8 +632,8 @@ impl TileRenderer {
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
     /// let mut renderer = TileRenderer::new(1920, 1080);
-    /// let mut fb = Framebuffer::new(1920, 1080);
-    /// let mut zb = ZBuffer::new(1920, 1080);
+    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
     ///
     /// let triangles = vec![
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),

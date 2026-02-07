@@ -4,17 +4,21 @@ use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
-    let mut raw_positions = Vec::new();
-    let mut raw_uvs = Vec::new();
+    // Reserve reasonable initial capacity to avoid frequent reallocations
+    let mut raw_positions = Vec::with_capacity(1024);
+    let mut raw_uvs = Vec::with_capacity(1024);
 
     // We need to deduplicate vertices.
     // Key: (position_index, uv_index) -> Value: new_index
     // position_index is required, uv_index is optional.
-    let mut unique_vertices: HashMap<(usize, Option<usize>), usize> = HashMap::new();
+    let mut unique_vertices: HashMap<(usize, Option<usize>), usize> = HashMap::with_capacity(1024);
 
-    let mut final_vertices = Vec::new();
-    let mut final_uvs = Vec::new();
-    let mut final_indices = Vec::new();
+    let mut final_vertices = Vec::with_capacity(1024);
+    let mut final_uvs = Vec::with_capacity(1024);
+    let mut final_indices = Vec::with_capacity(1024);
+
+    // Reuse vector for face indices to avoid allocation per face
+    let mut face_indices = Vec::with_capacity(4);
 
     for (line_num, line) in source.lines().enumerate() {
         let line = line.trim();
@@ -29,17 +33,17 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
             "v" => {
                 let x = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing x", line_num))?
+                    .ok_or_else(|| format!("Line {}: Missing x", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid x", line_num))?;
                 let y = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing y", line_num))?
+                    .ok_or_else(|| format!("Line {}: Missing y", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid y", line_num))?;
                 let z = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing z", line_num))?
+                    .ok_or_else(|| format!("Line {}: Missing z", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid z", line_num))?;
                 raw_positions.push(Vec3::new(x, y, z));
@@ -47,19 +51,18 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
             "vt" => {
                 let u = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing u", line_num))?
+                    .ok_or_else(|| format!("Line {}: Missing u", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid u", line_num))?;
                 let v = parts
                     .next()
-                    .ok_or(format!("Line {}: Missing v", line_num))?
+                    .ok_or_else(|| format!("Line {}: Missing v", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid v", line_num))?;
                 raw_uvs.push(Vec2::new(u, v));
             }
             "f" => {
-                // Collect indices for the face
-                let mut face_indices = Vec::new();
+                face_indices.clear();
                 for part in parts {
                     // format: v, v/vt, v//vn, v/vt/vn
                     let mut segs = part.split('/');
@@ -67,14 +70,14 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Position index
                     let v_str = segs
                         .next()
-                        .ok_or(format!("Line {}: Invalid face format", line_num))?;
+                        .ok_or_else(|| format!("Line {}: Invalid face format", line_num))?;
                     let v_idx = v_str
                         .parse::<usize>()
                         .map_err(|_| format!("Line {}: Invalid vertex index", line_num))?;
                     // OBJ is 1-based
                     let v_idx = v_idx
                         .checked_sub(1)
-                        .ok_or(format!("Line {}: Vertex index 0 is invalid", line_num))?;
+                        .ok_or_else(|| format!("Line {}: Vertex index 0 is invalid", line_num))?;
 
                     // UV index
                     let mut vt_idx = None;
@@ -84,14 +87,14 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
                         vt_idx = Some(
                             idx.checked_sub(1)
-                                .ok_or(format!("Line {}: UV index 0 is invalid", line_num))?,
+                                .ok_or_else(|| format!("Line {}: UV index 0 is invalid", line_num))?,
                         );
                     }
 
                     // Look up or insert
                     let key = (v_idx, vt_idx);
-                    let index = if let Some(&idx) = unique_vertices.get(&key) {
-                        idx
+                    if let Some(&idx) = unique_vertices.get(&key) {
+                        face_indices.push(idx);
                     } else {
                         let new_idx = final_vertices.len();
 
@@ -103,7 +106,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                 v_idx + 1
                             ));
                         }
-                        final_vertices.push(raw_positions[v_idx]);
+                        // SAFETY: Checked bounds above
+                        final_vertices.push(unsafe { *raw_positions.get_unchecked(v_idx) });
 
                         // Push UV (or default 0,0)
                         if let Some(ti) = vt_idx {
@@ -114,16 +118,15 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                     ti + 1
                                 ));
                             }
-                            final_uvs.push(raw_uvs[ti]);
+                             // SAFETY: Checked bounds above
+                            final_uvs.push(unsafe { *raw_uvs.get_unchecked(ti) });
                         } else {
                             final_uvs.push(Vec2::new(0.0, 0.0));
                         }
 
                         unique_vertices.insert(key, new_idx);
-                        new_idx
+                        face_indices.push(new_idx);
                     };
-
-                    face_indices.push(index);
                 }
 
                 // Triangulate fan
