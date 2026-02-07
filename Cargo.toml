@@ -80,6 +80,10 @@ harness = false
 name = "simd_micro"
 harness = false
 
+[[bench]]
+name = "obj_loading"
+harness = false
+
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"

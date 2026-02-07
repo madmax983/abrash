@@ -47,11 +47,13 @@ impl PyramidLevel {
 ///
 /// # Example
 /// ```
-/// use abrash::{Framebuffer, ZBuffer, hiz_buffer::HiZBuffer};
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::hiz_buffer::HiZBuffer;
 ///
 /// let width = 800;
 /// let height = 600;
-/// let mut zb = ZBuffer::new(width, height);
+/// let mut zb = ZBuffer::new(width, height).unwrap();
 /// let mut hiz = HiZBuffer::new(width, height);
 ///
 /// // After rendering a frame, build the pyramid
