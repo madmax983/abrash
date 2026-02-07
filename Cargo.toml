@@ -73,6 +73,10 @@ name = "tile_rendering"
 harness = false
 
 [[bench]]
+name = "tile_rendering_textured"
+harness = false
+
+[[bench]]
 name = "phase1_simd"
 harness = false
 
