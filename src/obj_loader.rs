@@ -85,10 +85,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         let idx = vt_str
                             .parse::<usize>()
                             .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
-                        vt_idx = Some(
-                            idx.checked_sub(1)
-                                .ok_or_else(|| format!("Line {}: UV index 0 is invalid", line_num))?,
-                        );
+                        vt_idx =
+                            Some(idx.checked_sub(1).ok_or_else(|| {
+                                format!("Line {}: UV index 0 is invalid", line_num)
+                            })?);
                     }
 
                     // Look up or insert
@@ -118,7 +118,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                     ti + 1
                                 ));
                             }
-                             // SAFETY: Checked bounds above
+                            // SAFETY: Checked bounds above
                             final_uvs.push(unsafe { *raw_uvs.get_unchecked(ti) });
                         } else {
                             final_uvs.push(Vec2::new(0.0, 0.0));

@@ -11,3 +11,7 @@
 **[Reciprocal Table Win]**
 **Learning:** Replacing integer division by `count` (1..16) with a lookup table of reciprocals (`1.0/count`) yielded a ~3-11% improvement in textured triangle rasterization.
 **Action:** Always look for repeated divisions by small integers in hot loops and replace them with reciprocal multiplication.
+
+**[Allocation Reuse & Cache Aliasing]**
+**Learning:** Removing per-tile allocations in `render_single_tile` by reusing `Vec` buffers initially caused a massive 28% regression for 200+ triangles. The cause was 4KB cache aliasing between `tile_pixels` and `tile_depths` (both 4KB) being allocated back-to-back at conflicting cache set indices. Adding 32 elements (128 bytes) of padding to the capacity shifted the base pointers, resolving the conflict and turning the regression into a ~3.5% speedup.
+**Action:** When reusing large buffers (>= page size) that are accessed together in a tight loop, ensure they are not aligned to cache way multiples (e.g. 4KB) to avoid set conflicts. Use `Vec::with_capacity(size + padding)` to force offset.
