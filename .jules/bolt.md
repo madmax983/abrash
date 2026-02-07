@@ -11,3 +11,7 @@
 **[Reciprocal Table Win]**
 **Learning:** Replacing integer division by `count` (1..16) with a lookup table of reciprocals (`1.0/count`) yielded a ~3-11% improvement in textured triangle rasterization.
 **Action:** Always look for repeated divisions by small integers in hot loops and replace them with reciprocal multiplication.
+
+**[Tile Buffer Allocation]**
+**Learning:** Allocating 8KB buffers per tile in a software rasterizer is a performance killer (240k allocs/sec at 1080p). Reusing thread-local buffers eliminates this overhead completely.
+**Action:** Always hoist buffer allocations out of hot loops (like tile rendering), even if it means passing `&mut` buffers down the stack. Use `par_iter().for_each_init` for Rayon.
