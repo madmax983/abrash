@@ -18,8 +18,8 @@ fn generate_sphere_obj(rings: usize, sectors: usize) -> String {
             let y = theta.cos();
             let z = theta.sin() * phi.sin();
 
-            writeln!(obj, "v {} {} {}", x, y, z).unwrap();
-            writeln!(obj, "vt {} {}", u, v).unwrap();
+            writeln!(obj, "v {x} {y} {z}").unwrap();
+            writeln!(obj, "vt {u} {v}").unwrap();
         }
     }
 

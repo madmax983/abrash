@@ -3,150 +3,190 @@ use crate::mesh::Mesh;
 use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
+///
+/// # Errors
+/// Returns a string describing the error if parsing fails (e.g. invalid syntax, out of bounds indices).
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
-    // Reserve reasonable initial capacity to avoid frequent reallocations
-    let mut raw_positions = Vec::with_capacity(1024);
-    let mut raw_uvs = Vec::with_capacity(1024);
+    let parser = ObjParser::new();
+    parser.parse(source)
+}
 
-    // We need to deduplicate vertices.
-    // Key: (position_index, uv_index) -> Value: new_index
-    // position_index is required, uv_index is optional.
-    let mut unique_vertices: HashMap<(usize, Option<usize>), usize> = HashMap::with_capacity(1024);
+struct ObjParser {
+    raw_positions: Vec<Vec3>,
+    raw_uvs: Vec<Vec2>,
+    unique_vertices: HashMap<(usize, Option<usize>), usize>,
+    final_vertices: Vec<Vec3>,
+    final_uvs: Vec<Vec2>,
+    final_indices: Vec<[usize; 3]>,
+}
 
-    let mut final_vertices = Vec::with_capacity(1024);
-    let mut final_uvs = Vec::with_capacity(1024);
-    let mut final_indices = Vec::with_capacity(1024);
-
-    // Reuse vector for face indices to avoid allocation per face
-    let mut face_indices = Vec::with_capacity(4);
-
-    for (line_num, line) in source.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        let mut parts = line.split_whitespace();
-        let cmd = parts.next().unwrap_or("");
-
-        match cmd {
-            "v" => {
-                let x = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {}: Missing x", line_num))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid x", line_num))?;
-                let y = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {}: Missing y", line_num))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid y", line_num))?;
-                let z = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {}: Missing z", line_num))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid z", line_num))?;
-                raw_positions.push(Vec3::new(x, y, z));
-            }
-            "vt" => {
-                let u = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {}: Missing u", line_num))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid u", line_num))?;
-                let v = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {}: Missing v", line_num))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid v", line_num))?;
-                raw_uvs.push(Vec2::new(u, v));
-            }
-            "f" => {
-                face_indices.clear();
-                for part in parts {
-                    // format: v, v/vt, v//vn, v/vt/vn
-                    let mut segs = part.split('/');
-
-                    // Position index
-                    let v_str = segs
-                        .next()
-                        .ok_or_else(|| format!("Line {}: Invalid face format", line_num))?;
-                    let v_idx = v_str
-                        .parse::<usize>()
-                        .map_err(|_| format!("Line {}: Invalid vertex index", line_num))?;
-                    // OBJ is 1-based
-                    let v_idx = v_idx
-                        .checked_sub(1)
-                        .ok_or_else(|| format!("Line {}: Vertex index 0 is invalid", line_num))?;
-
-                    // UV index
-                    let mut vt_idx = None;
-                    if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
-                        let idx = vt_str
-                            .parse::<usize>()
-                            .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
-                        vt_idx = Some(
-                            idx.checked_sub(1)
-                                .ok_or_else(|| format!("Line {}: UV index 0 is invalid", line_num))?,
-                        );
-                    }
-
-                    // Look up or insert
-                    let key = (v_idx, vt_idx);
-                    if let Some(&idx) = unique_vertices.get(&key) {
-                        face_indices.push(idx);
-                    } else {
-                        let new_idx = final_vertices.len();
-
-                        // Push vertex
-                        if v_idx >= raw_positions.len() {
-                            return Err(format!(
-                                "Line {}: Vertex index {} out of bounds",
-                                line_num,
-                                v_idx + 1
-                            ));
-                        }
-                        // SAFETY: Checked bounds above
-                        final_vertices.push(unsafe { *raw_positions.get_unchecked(v_idx) });
-
-                        // Push UV (or default 0,0)
-                        if let Some(ti) = vt_idx {
-                            if ti >= raw_uvs.len() {
-                                return Err(format!(
-                                    "Line {}: UV index {} out of bounds",
-                                    line_num,
-                                    ti + 1
-                                ));
-                            }
-                             // SAFETY: Checked bounds above
-                            final_uvs.push(unsafe { *raw_uvs.get_unchecked(ti) });
-                        } else {
-                            final_uvs.push(Vec2::new(0.0, 0.0));
-                        }
-
-                        unique_vertices.insert(key, new_idx);
-                        face_indices.push(new_idx);
-                    };
-                }
-
-                // Triangulate fan
-                if face_indices.len() < 3 {
-                    return Err(format!("Line {}: Face has fewer than 3 vertices", line_num));
-                }
-
-                for i in 1..face_indices.len() - 1 {
-                    final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
-                }
-            }
-            _ => {} // Ignore normals (vn), groups (g), materials (usemtl), etc.
+impl ObjParser {
+    fn new() -> Self {
+        Self {
+            raw_positions: Vec::with_capacity(1024),
+            raw_uvs: Vec::with_capacity(1024),
+            unique_vertices: HashMap::with_capacity(1024),
+            final_vertices: Vec::with_capacity(1024),
+            final_uvs: Vec::with_capacity(1024),
+            final_indices: Vec::with_capacity(1024),
         }
     }
 
-    Ok(Mesh {
-        vertices: final_vertices,
-        indices: final_indices,
-        uvs: final_uvs,
-    })
+    fn parse(mut self, source: &str) -> Result<Mesh, String> {
+        let mut face_indices = Vec::with_capacity(4);
+
+        for (line_num, line) in source.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+
+            let mut parts = line.split_whitespace();
+            let cmd = parts.next().unwrap_or("");
+
+            match cmd {
+                "v" => self.parse_vertex(line_num, parts)?,
+                "vt" => self.parse_uv(line_num, parts)?,
+                "f" => self.parse_face(line_num, parts, &mut face_indices)?,
+                _ => {}
+            }
+        }
+
+        Ok(Mesh {
+            vertices: self.final_vertices,
+            indices: self.final_indices,
+            uvs: self.final_uvs,
+        })
+    }
+
+    fn parse_vertex<'a>(
+        &mut self,
+        line_num: usize,
+        mut parts: impl Iterator<Item = &'a str>,
+    ) -> Result<(), String> {
+        let x = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing x"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid x"))?;
+        let y = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing y"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid y"))?;
+        let z = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing z"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid z"))?;
+        self.raw_positions.push(Vec3::new(x, y, z));
+        Ok(())
+    }
+
+    fn parse_uv<'a>(
+        &mut self,
+        line_num: usize,
+        mut parts: impl Iterator<Item = &'a str>,
+    ) -> Result<(), String> {
+        let u = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing u"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid u"))?;
+        let v = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing v"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid v"))?;
+        self.raw_uvs.push(Vec2::new(u, v));
+        Ok(())
+    }
+
+    fn parse_face<'a>(
+        &mut self,
+        line_num: usize,
+        parts: impl Iterator<Item = &'a str>,
+        face_indices: &mut Vec<usize>,
+    ) -> Result<(), String> {
+        face_indices.clear();
+        for part in parts {
+            // format: v, v/vt, v//vn, v/vt/vn
+            let mut segs = part.split('/');
+
+            // Position index
+            let v_str = segs
+                .next()
+                .ok_or_else(|| format!("Line {line_num}: Invalid face format"))?;
+            let v_idx = v_str
+                .parse::<usize>()
+                .map_err(|_| format!("Line {line_num}: Invalid vertex index"))?;
+            // OBJ is 1-based
+            let v_idx = v_idx
+                .checked_sub(1)
+                .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
+
+            // UV index
+            let vt_idx = if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
+                let idx = vt_str
+                    .parse::<usize>()
+                    .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
+                Some(
+                    idx.checked_sub(1)
+                        .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                )
+            } else {
+                None
+            };
+
+            // Look up or insert
+            let key = (v_idx, vt_idx);
+            if let Some(&idx) = self.unique_vertices.get(&key) {
+                face_indices.push(idx);
+            } else {
+                let new_idx = self.final_vertices.len();
+
+                // Push vertex
+                if v_idx >= self.raw_positions.len() {
+                    return Err(format!(
+                        "Line {line_num}: Vertex index {} out of bounds",
+                        v_idx + 1
+                    ));
+                }
+                // SAFETY: Checked bounds above
+                self.final_vertices
+                    .push(unsafe { *self.raw_positions.get_unchecked(v_idx) });
+
+                // Push UV (or default 0,0)
+                if let Some(ti) = vt_idx {
+                    if ti >= self.raw_uvs.len() {
+                        return Err(format!(
+                            "Line {line_num}: UV index {} out of bounds",
+                            ti + 1
+                        ));
+                    }
+                    // SAFETY: Checked bounds above
+                    self.final_uvs
+                        .push(unsafe { *self.raw_uvs.get_unchecked(ti) });
+                } else {
+                    self.final_uvs.push(Vec2::new(0.0, 0.0));
+                }
+
+                self.unique_vertices.insert(key, new_idx);
+                face_indices.push(new_idx);
+            }
+        }
+
+        // Triangulate fan
+        if face_indices.len() < 3 {
+            return Err(format!("Line {line_num}: Face has fewer than 3 vertices"));
+        }
+
+        for i in 1..face_indices.len() - 1 {
+            self.final_indices
+                .push([face_indices[0], face_indices[i], face_indices[i + 1]]);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

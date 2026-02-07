@@ -12,7 +12,7 @@ const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF101010;
 
 // Embed a simple spaceship-like OBJ
-const SPACESHIP_OBJ: &str = r#"
+const SPACESHIP_OBJ: &str = r"
 # Simple Spacerocket
 v 0.0 1.5 0.0
 v 0.5 -0.5 0.5
@@ -30,7 +30,7 @@ f 6 3 2
 f 6 4 3
 f 6 5 4
 f 6 2 5
-"#;
+";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new("Abrash - OBJ Viewer", WIDTH, HEIGHT)?;
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut timestep = FixedTimestep::new(60);
 
     // Load the mesh
-    let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| format!("Failed to load OBJ: {}", e))?;
+    let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| format!("Failed to load OBJ: {e}"))?;
 
     // Compute normals for flat shading logic (simple color variation)
     let normals = mesh.compute_face_normals();

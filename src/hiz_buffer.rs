@@ -243,158 +243,7 @@ impl HiZBuffer {
         }
     }
 
-    /// SIMD 2×2 min-reduction using AVX2 (processes 8 reductions simultaneously)
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    fn build_level_simd(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        #[cfg(target_arch = "x86_64")]
-        {
-            use std::arch::x86_64::*;
 
-            let level_width = self.levels[level_idx as usize].width;
-            let level_height = self.levels[level_idx as usize].height;
-
-            // Only use SIMD for wide levels (amortize overhead)
-            // For narrow levels (<16 pixels), scalar is faster due to setup overhead.
-            const SIMD_WIDTH_THRESHOLD: u32 = 16;
-            if level_width < SIMD_WIDTH_THRESHOLD {
-                return self.build_level_scalar(level_idx, source, source_width);
-            }
-
-            // Process 8 output pixels at a time (optimized shuffle pattern)
-            let simd_width = 8;
-
-            for y in 0..level_height {
-                let mut x = 0;
-
-                // SIMD loop: process 8 output pixels at once
-                while x + simd_width <= level_width {
-                    let src_x = (x * 2) as usize;
-                    let src_y = (y * 2) as usize;
-                    let src_width_usize = source_width as usize;
-
-                    unsafe {
-                        // For 8 output pixels, we need 16 source values per row
-                        // Each 2×2 reduction: (i, i+1) from row0 and row1
-                        let row0_idx = src_y * src_width_usize + src_x;
-                        let row1_idx = (src_y + 1) * src_width_usize + src_x;
-
-                        // Bounds check
-                        if row0_idx + 16 <= source.len() && row1_idx + 16 <= source.len() {
-                            // Load 16 values from each row (2× 256-bit loads per row)
-                            let row0_lo = _mm256_loadu_ps(source.as_ptr().add(row0_idx));
-                            let row0_hi = _mm256_loadu_ps(source.as_ptr().add(row0_idx + 8));
-                            let row1_lo = _mm256_loadu_ps(source.as_ptr().add(row1_idx));
-                            let row1_hi = _mm256_loadu_ps(source.as_ptr().add(row1_idx + 8));
-
-                            // Vertical min: min(row0, row1) for both halves
-                            let min_vert_lo = _mm256_min_ps(row0_lo, row1_lo);
-                            let min_vert_hi = _mm256_min_ps(row0_hi, row1_hi);
-
-                            // Horizontal min-reduction using optimized 4-shuffle pattern
-                            // Goal: Minimize shuffles by clever use of hadd-style reduction
-                            //
-                            // min_vert_lo: [v0, v1, v2, v3 | v4, v5, v6, v7]
-                            // min_vert_hi: [v8, v9, v10, v11 | v12, v13, v14, v15]
-                            // Want: [min(v0,v1), min(v2,v3), ..., min(v14,v15)]
-
-                            // Use hadd-style shuffle: swap adjacent pairs then min
-                            // Shuffle to get: [v1, v0, v3, v2 | v5, v4, v7, v6]
-                            let swapped_lo = _mm256_permute_ps(min_vert_lo, 0b10_11_00_01);
-                            let swapped_hi = _mm256_permute_ps(min_vert_hi, 0b10_11_00_01);
-                            // swapped_lo: [v1, v0, v3, v2 | v5, v4, v7, v6]
-                            // swapped_hi: [v9, v8, v11, v10 | v13, v12, v15, v14]
-
-                            // Min with original to get horizontal pairs
-                            let min_pairs_lo = _mm256_min_ps(min_vert_lo, swapped_lo);
-                            let min_pairs_hi = _mm256_min_ps(min_vert_hi, swapped_hi);
-                            // min_pairs_lo: [min01, min01, min23, min23 | min45, min45, min67, min67]
-                            // min_pairs_hi: [min89, min89, min1011, min1011 | min1213, min1213, min1415, min1415]
-
-                            // Final packing strategy: use permute2f128 to rearrange lanes, then shuffle
-                            // Step 1: Gather low lanes [min01, min01, min23, min23, min89, min89, min1011, min1011]
-                            let low_lanes =
-                                _mm256_permute2f128_ps(min_pairs_lo, min_pairs_hi, 0x20);
-                            // Step 2: Gather high lanes [min45, min45, min67, min67, min1213, min1213, min1415, min1415]
-                            let high_lanes =
-                                _mm256_permute2f128_ps(min_pairs_lo, min_pairs_hi, 0x31);
-
-                            // Step 3: Shuffle to extract unique values and interleave
-                            // Mask 0b10_00_10_00 extracts indices [0, 2] from each source
-                            let final_result =
-                                _mm256_shuffle_ps(low_lanes, high_lanes, 0b10_00_10_00);
-                            // final_result: [min01, min23, min45, min67 | min89, min1011, min1213, min1415]
-
-                            // Store 8 results
-                            let dst_idx = (y * level_width + x) as usize;
-                            _mm256_storeu_ps(
-                                self.levels[level_idx as usize]
-                                    .depths
-                                    .as_mut_ptr()
-                                    .add(dst_idx),
-                                final_result,
-                            );
-                        } else {
-                            // Fallback to scalar for boundary cases
-                            for i in 0..simd_width {
-                                if x + i >= level_width {
-                                    break;
-                                }
-                                self.build_level_scalar_single(
-                                    level_idx,
-                                    source,
-                                    source_width,
-                                    x + i,
-                                    y,
-                                );
-                            }
-                        }
-                    }
-
-                    x += simd_width;
-                }
-
-                // Scalar tail for remaining pixels
-                while x < level_width {
-                    self.build_level_scalar_single(level_idx, source, source_width, x, y);
-                    x += 1;
-                }
-            }
-        }
-    }
-
-    /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
-    #[inline]
-    fn build_level_scalar_single(
-        &mut self,
-        level_idx: u32,
-        source: &[f32],
-        source_width: u32,
-        x: u32,
-        y: u32,
-    ) {
-        let src_x = (x * 2) as usize;
-        let src_y = (y * 2) as usize;
-        let source_width_usize = source_width as usize;
-
-        // Sample 2×2 quad from previous level
-        let d00 = source[src_y * source_width_usize + src_x];
-        let d10 = source
-            .get(src_y * source_width_usize + src_x + 1)
-            .copied()
-            .unwrap_or(d00);
-        let d01 = source
-            .get((src_y + 1) * source_width_usize + src_x)
-            .copied()
-            .unwrap_or(d00);
-        let d11 = source
-            .get((src_y + 1) * source_width_usize + src_x + 1)
-            .copied()
-            .unwrap_or(d00);
-
-        let min_depth = d00.min(d10).min(d01).min(d11);
-        let level_width = self.levels[level_idx as usize].width;
-        self.levels[level_idx as usize].depths[(y * level_width + x) as usize] = min_depth;
-    }
 
     /// Test if an AABB is potentially visible
     ///
@@ -480,6 +329,8 @@ impl HiZBuffer {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
+#[allow(clippy::unreadable_literal)]
 mod tests {
     use super::*;
 
@@ -726,7 +577,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 15.0; // Farther region (occluder is farther)
                 } else {
                     slice[y * 800 + x] = 10.0;
@@ -760,7 +611,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 5.0; // Closer region (occluder is closer)
                 } else {
                     slice[y * 800 + x] = 10.0;
@@ -853,8 +704,7 @@ mod tests {
             {
                 assert_eq!(
                     simd_depth, scalar_depth,
-                    "Mismatch at level {} index {}: SIMD={} vs Scalar={}",
-                    level_idx, i, simd_depth, scalar_depth
+                    "Mismatch at level {level_idx} index {i}: SIMD={simd_depth} vs Scalar={scalar_depth}"
                 );
             }
         }

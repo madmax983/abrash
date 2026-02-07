@@ -75,12 +75,11 @@ fn profile_scanline_lengths() {
             }
             let end_cycles = read_tsc();
             let cycles = (end_cycles - start_cycles) / iterations as u64;
-            let pixels_drawn = (len * 5 * 100) as f64; // ~5px height × 100 triangles
+            let pixels_drawn = f64::from(len * 5 * 100); // ~5px height × 100 triangles
             let cycles_per_pixel = cycles as f64 / pixels_drawn;
 
             println!(
-                "Scanline length ~{:3} px: {:6} µs/frame ({:8} cycles, {:.2} cycles/pixel)",
-                len, avg_time, cycles, cycles_per_pixel
+                "Scanline length ~{len:3} px: {avg_time:6} µs/frame ({cycles:8} cycles, {cycles_per_pixel:.2} cycles/pixel)"
             );
         }
 
@@ -119,7 +118,7 @@ fn profile_hiz_pyramid() {
         let elapsed = start.elapsed();
         let avg_time = elapsed.as_micros() / iterations;
         let pixels = width * height;
-        let ns_per_pixel = (avg_time * 1000) / pixels as u128;
+        let ns_per_pixel = (avg_time * 1000) / u128::from(pixels);
 
         // Measure cycles
         #[cfg(target_arch = "x86_64")]
@@ -130,11 +129,10 @@ fn profile_hiz_pyramid() {
             }
             let end_cycles = read_tsc();
             let cycles = (end_cycles - start_cycles) / iterations as u64;
-            let cycles_per_pixel = cycles as f64 / pixels as f64;
+            let cycles_per_pixel = cycles as f64 / f64::from(pixels);
 
             println!(
-                "{}: {:6} µs/build ({:3} ns/pixel, {:8} cycles, {:.2} cycles/pixel)",
-                name, avg_time, ns_per_pixel, cycles, cycles_per_pixel
+                "{name}: {avg_time:6} µs/build ({ns_per_pixel:3} ns/pixel, {cycles:8} cycles, {cycles_per_pixel:.2} cycles/pixel)"
             );
         }
 
@@ -196,7 +194,7 @@ fn profile_rendering_pipeline() {
         render_time,
         (render_time * 100) / total_time
     );
-    println!("Total time:  {:6} µs", total_time);
+    println!("Total time:  {total_time:6} µs");
 
     // Calculate triangles per second
     let tris_per_sec = (triangles.len() as u128 * iterations * 1_000_000) / total_time;
@@ -205,14 +203,6 @@ fn profile_rendering_pipeline() {
     println!();
 }
 
-fn profile_simd_vs_scalar_detailed() {
-    println!("## 4. SIMD vs Scalar Component Breakdown\n");
-
-    // This would require instrumenting the actual code with timing
-    // For now, we'll note that this needs internal instrumentation
-    println!("Note: Detailed SIMD vs scalar breakdown requires code instrumentation");
-    println!("See suggestions below for adding timing to hot paths.\n");
-}
 
 /// Generate horizontal triangles of specific scanline length
 fn generate_horizontal_triangles(
