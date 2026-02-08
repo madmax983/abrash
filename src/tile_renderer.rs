@@ -758,85 +758,6 @@ fn rasterize_scanline_scalar(
     }
 }
 
-/// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[inline(always)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    use std::arch::x86_64::*;
-
-    let len = pixels.len();
-    let mut i = 0;
-
-    unsafe {
-        // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
-        let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
-
-        // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
-        let mut depths_vec = _mm256_set_ps(
-            z_at_xs + 7.0 * dz_dx,
-            z_at_xs + 6.0 * dz_dx,
-            z_at_xs + 5.0 * dz_dx,
-            z_at_xs + 4.0 * dz_dx,
-            z_at_xs + 3.0 * dz_dx,
-            z_at_xs + 2.0 * dz_dx,
-            z_at_xs + 1.0 * dz_dx,
-            z_at_xs,
-        );
-
-        let color_vec = _mm256_set1_epi32(color as i32);
-
-        // Process 8 pixels at a time with AVX2
-        while i + 8 <= len {
-            // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
-            let zb_vals = _mm256_loadu_ps(zb_ptr);
-
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
-
-            // Conditional depth write via masked store
-            let depths_mut_ptr = depths.as_mut_ptr().add(i);
-            _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
-
-            // Conditional color write
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
-            _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
-
-            // Increment depths by stride (8*dz_dx) for next iteration
-            depths_vec = _mm256_add_ps(depths_vec, stride_vec);
-            i += 8;
-        }
-    }
-
-    // Handle remaining pixels with scalar fallback
-    let mut z = z_at_xs + (i as f32) * dz_dx;
-    for j in i..len {
-        if z < depths[j] {
-            depths[j] = z;
-            pixels[j] = color;
-        }
-        z += dz_dx;
-    }
-}
-
-/// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
-#[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-#[inline(always)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-}
 
 /// Tile-based renderer that bins triangles into 32×32 tiles for cache-friendly rendering.
 ///
@@ -876,8 +797,6 @@ pub struct TileRenderer {
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
-    #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
 }
 
 impl TileRenderer {
@@ -906,8 +825,6 @@ impl TileRenderer {
             prepared: Vec::new(),
             prepared_textured: Vec::new(),
             hiz_buffer: None,
-            #[cfg(feature = "gpu-binning")]
-            gpu_binner: None,
         }
     }
 
@@ -924,64 +841,6 @@ impl TileRenderer {
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
         self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
-    }
-
-    /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
-    ///
-    /// When enabled, the tile renderer will use a D3D12 compute shader to bin triangles
-    /// to tiles on the GPU, which can provide 10-20× faster binning for triangle-heavy scenes.
-    ///
-    /// **Requirements:**
-    /// - `gpu-binning` feature must be enabled
-    /// - Windows platform with DirectX 12 support
-    /// - Suitable GPU adapter (non-software)
-    ///
-    /// **Performance:**
-    /// - Binning: 100 triangles <0.05ms, 1000 triangles <0.5ms
-    /// - Overall: 2-3× speedup for scenes with 100+ triangles
-    ///
-    /// # Errors
-    ///
-    /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
-            self.width,
-            self.height,
-            TILE_SIZE,
-            1000, // Max triangles per batch
-        )?);
-        Ok(())
-    }
-
-    /// Enable two-level hierarchical GPU binning with Hi-Z culling.
-    ///
-    /// This method enables GPU compute shader binning with two-level hierarchical binning:
-    /// 1. Coarse binning pass: Bin triangles to 128×128 pixel coarse bins (GPU)
-    /// 2. Hi-Z culling pass: Cull occluded coarse bins using Hi-Z pyramid (CPU)
-    /// 3. Fine binning pass: Bin visible triangles to 32×32 fine tiles (GPU)
-    ///
-    /// Two-level binning can provide additional speedup over single-level GPU binning
-    /// by avoiding fine binning work for occluded regions of the screen.
-    ///
-    /// # Prerequisites
-    ///
-    /// - GPU binning must be enabled first via `enable_gpu_binning()`
-    /// - Hi-Z buffer should be enabled via `enable_hiz()` for effective culling
-    ///
-    /// # Returns
-    ///
-    /// `GpuError` if two-level binning initialization fails or GPU binning is not enabled.
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_two_level_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        let gpu = self.gpu_binner.as_mut().ok_or_else(|| {
-            crate::gpu::GpuError::DeviceCreation(windows::core::Error::from_hresult(
-                windows::core::HRESULT(0x8007_0057u32 as i32), // E_INVALIDARG
-            ))
-        })?;
-
-        gpu.enable_two_level_binning()?;
-        Ok(())
     }
 
     /// Returns the number of tiles in X direction.
@@ -1062,38 +921,7 @@ impl TileRenderer {
             }
         }
 
-        // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-        #[cfg(feature = "gpu-binning")]
-        if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path - check if two-level binning is enabled
-            if gpu.is_two_level_enabled() {
-                // Two-level hierarchical binning with Hi-Z culling
-                match gpu.bin_triangles_two_level(
-                    &self.prepared,
-                    self.hiz_buffer.as_ref(),
-                    &mut self.tile_bins,
-                ) {
-                    Ok(_stats) => {
-                        // Two-level binning succeeded
-                        // Stats available for debugging/profiling but not used in production
-                    }
-                    Err(e) => {
-                        eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
-                        self.bin_triangles_cpu();
-                    }
-                }
-            } else {
-                // Single-level GPU binning
-                if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                    eprintln!("GPU binning failed: {e}, falling back to CPU");
-                    self.bin_triangles_cpu();
-                }
-            }
-        } else {
-            self.bin_triangles_cpu();
-        }
-
-        #[cfg(not(feature = "gpu-binning"))]
+        // Phase 2: Bin (CPU with optional Hi-Z occlusion culling)
         self.bin_triangles_cpu();
 
         // Phase 3+4: Render and merge each tile

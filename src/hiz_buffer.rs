@@ -364,6 +364,7 @@ impl HiZBuffer {
 
     /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
     #[inline]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     fn build_level_scalar_single(
         &mut self,
         level_idx: u32,

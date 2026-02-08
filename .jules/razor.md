@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** Experimental GPU backend (DirectX 12 compute shaders) and unused procedural texture generation.
+**Cut:** Deleted `src/gpu` directory, `src/experimental` directory, `shaders/` directory, `build.rs`, and removed `windows` crate dependency.
+**Saved:** ~1000+ lines of code, complex build dependencies, and significant compile time. Enforced software rasterizer purity.
