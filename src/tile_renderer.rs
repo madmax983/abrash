@@ -1775,7 +1775,11 @@ mod tests {
         let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         let v2 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(tr.prepared.len(), 0, "Zero-area triangle should be rejected");
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Zero-area triangle should be rejected"
+        );
     }
 
     #[test]
@@ -1786,7 +1790,11 @@ mod tests {
         let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         let v2 = (Vec3::new(0.5, 0.0, 5.0), 5.0);
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(tr.prepared.len(), 0, "Collinear triangle should be rejected");
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Collinear triangle should be rejected"
+        );
     }
 
     #[test]
@@ -1809,6 +1817,103 @@ mod tests {
         let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
         assert_eq!(tr.prepared.len(), 1, "Normal triangle should be accepted");
+    }
+
+    #[test]
+    fn frustum_culling_rejects_triangle_left_of_frustum() {
+        let mut tr = TileRenderer::new(100, 100);
+        // All vertices have x < -w (left of frustum)
+        let w = 5.0;
+        let v0 = (Vec3::new(-10.0, 0.0, 5.0), w);
+        let v1 = (Vec3::new(-8.0, 1.0, 5.0), w);
+        let v2 = (Vec3::new(-9.0, -1.0, 5.0), w);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Triangle completely left of frustum should be culled"
+        );
+    }
+
+    #[test]
+    fn frustum_culling_rejects_triangle_right_of_frustum() {
+        let mut tr = TileRenderer::new(100, 100);
+        // All vertices have x > w (right of frustum)
+        let w = 5.0;
+        let v0 = (Vec3::new(10.0, 0.0, 5.0), w);
+        let v1 = (Vec3::new(8.0, 1.0, 5.0), w);
+        let v2 = (Vec3::new(9.0, -1.0, 5.0), w);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Triangle completely right of frustum should be culled"
+        );
+    }
+
+    #[test]
+    fn frustum_culling_rejects_triangle_above_frustum() {
+        let mut tr = TileRenderer::new(100, 100);
+        // All vertices have y > w (above frustum, before Y flip)
+        let w = 5.0;
+        let v0 = (Vec3::new(0.0, 10.0, 5.0), w);
+        let v1 = (Vec3::new(1.0, 8.0, 5.0), w);
+        let v2 = (Vec3::new(-1.0, 9.0, 5.0), w);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Triangle completely above frustum should be culled"
+        );
+    }
+
+    #[test]
+    fn frustum_culling_rejects_triangle_below_frustum() {
+        let mut tr = TileRenderer::new(100, 100);
+        // All vertices have y < -w (below frustum, before Y flip)
+        let w = 5.0;
+        let v0 = (Vec3::new(0.0, -10.0, 5.0), w);
+        let v1 = (Vec3::new(1.0, -8.0, 5.0), w);
+        let v2 = (Vec3::new(-1.0, -9.0, 5.0), w);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Triangle completely below frustum should be culled"
+        );
+    }
+
+    #[test]
+    fn frustum_culling_accepts_partially_visible_triangle() {
+        let mut tr = TileRenderer::new(100, 100);
+        // Triangle with one vertex outside frustum but should NOT be culled
+        // (only cull if ALL vertices are outside)
+        let w = 5.0;
+        let v0 = (Vec3::new(0.0, 0.0, 5.0), w); // Inside
+        let v1 = (Vec3::new(10.0, 0.0, 5.0), w); // Outside right
+        let v2 = (Vec3::new(0.0, 1.0, 5.0), w); // Inside
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            1,
+            "Partially visible triangle should NOT be culled"
+        );
+    }
+
+    #[test]
+    fn frustum_culling_accepts_fully_visible_triangle() {
+        let mut tr = TileRenderer::new(100, 100);
+        // Triangle completely within frustum bounds
+        let w = 5.0;
+        let v0 = (Vec3::new(0.0, 0.5, 5.0), w);
+        let v1 = (Vec3::new(-0.5, -0.5, 5.0), w);
+        let v2 = (Vec3::new(0.5, -0.5, 5.0), w);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(
+            tr.prepared.len(),
+            1,
+            "Fully visible triangle should be accepted"
+        );
     }
 
     #[test]
