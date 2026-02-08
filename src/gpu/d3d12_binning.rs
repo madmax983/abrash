@@ -13,7 +13,7 @@ use windows::{
     Win32::{
         Foundation::CloseHandle,
         Graphics::{Direct3D::ID3DBlob, Direct3D12::*},
-        System::Threading::{CreateEventW, WaitForSingleObject},
+        System::Threading::{CreateEventW, INFINITE, WaitForSingleObject},
     },
     core::Interface,
 };
@@ -41,6 +41,19 @@ pub struct GpuBinner {
     tiles_y: u32,
     tile_size: u32,
     max_triangles: usize,
+    width: u32,
+    height: u32,
+
+    // Two-level hierarchical binning (optional)
+    two_level_enabled: bool,
+    coarse_bin_size: u32,
+    coarse_bins_x: u32,
+    coarse_bins_y: u32,
+    coarse_bins_uav: Option<GpuBuffer>,
+    coarse_bins_readback: Option<GpuBuffer>,
+    coarse_binning_pso: Option<ID3D12PipelineState>,
+    visible_bins_upload: Option<GpuBuffer>,
+    fine_binning_pso: Option<ID3D12PipelineState>,
 }
 
 impl GpuBinner {
@@ -157,7 +170,8 @@ impl GpuBinner {
         let root_signature = Self::create_root_signature(device.raw())?;
 
         // Create compute PSO
-        let compute_pso = Self::create_compute_pso(device.raw(), &root_signature)?;
+        let shader_bytecode = include_bytes!("../../shaders/bin_triangles.cso");
+        let compute_pso = Self::create_compute_pso(device.raw(), &root_signature, shader_bytecode)?;
 
         // Create command list
         let command_list: ID3D12GraphicsCommandList = unsafe {
@@ -201,6 +215,18 @@ impl GpuBinner {
             tiles_y,
             tile_size,
             max_triangles,
+            width,
+            height,
+            // Two-level binning (not enabled by default)
+            two_level_enabled: false,
+            coarse_bin_size: 128,
+            coarse_bins_x: 0,
+            coarse_bins_y: 0,
+            coarse_bins_uav: None,
+            coarse_bins_readback: None,
+            coarse_binning_pso: None,
+            visible_bins_upload: None,
+            fine_binning_pso: None,
         })
     }
 
@@ -283,9 +309,8 @@ impl GpuBinner {
     fn create_compute_pso(
         device: &ID3D12Device,
         root_signature: &ID3D12RootSignature,
+        shader_bytecode: &[u8],
     ) -> Result<ID3D12PipelineState, GpuError> {
-        let shader_bytecode = include_bytes!("../../shaders/bin_triangles.cso");
-
         let desc = D3D12_COMPUTE_PIPELINE_STATE_DESC {
             pRootSignature: unsafe { std::mem::transmute_copy(root_signature) },
             CS: D3D12_SHADER_BYTECODE {
@@ -336,6 +361,458 @@ impl GpuBinner {
         self.readback_bins(tile_bins)?;
 
         Ok(())
+    }
+
+    /// Enable two-level hierarchical binning
+    ///
+    /// Allocates coarse binning buffers and compiles coarse binning shader.
+    /// After calling this, use bin_triangles_two_level() instead of bin_triangles().
+    pub fn enable_two_level_binning(&mut self) -> Result<(), GpuError> {
+        if self.two_level_enabled {
+            return Ok(()); // Already enabled
+        }
+
+        // Calculate coarse bin dimensions
+        self.coarse_bins_x = (self.width + self.coarse_bin_size - 1) / self.coarse_bin_size;
+        self.coarse_bins_y = (self.height + self.coarse_bin_size - 1) / self.coarse_bin_size;
+        let coarse_bin_count = (self.coarse_bins_x * self.coarse_bins_y) as usize;
+
+        // Allocate coarse bins UAV buffer
+        let coarse_bin_size = std::mem::size_of::<CoarseBinGpu>();
+        let coarse_bins_buffer_size = coarse_bin_count * coarse_bin_size;
+
+        let coarse_bins_uav = unsafe {
+            GpuBuffer::new(self.device.raw(), BufferType::Uav, coarse_bins_buffer_size)
+                .map_err(GpuError::DeviceCreation)?
+        };
+
+        // Allocate coarse bins readback buffer
+        let coarse_bins_readback = unsafe {
+            GpuBuffer::new(
+                self.device.raw(),
+                BufferType::Readback,
+                coarse_bins_buffer_size,
+            )
+            .map_err(GpuError::DeviceCreation)?
+        };
+
+        // Load and compile coarse binning shader
+        let coarse_shader = include_bytes!("../../shaders/bin_coarse.cso");
+        let coarse_binning_pso =
+            Self::create_compute_pso(self.device.raw(), &self.root_signature, coarse_shader)?;
+
+        // Load and compile fine binning shader
+        let fine_shader = include_bytes!("../../shaders/bin_fine.cso");
+        let fine_binning_pso =
+            Self::create_compute_pso(self.device.raw(), &self.root_signature, fine_shader)?;
+
+        // Allocate visible bins upload buffer (max size: all coarse bins could be visible)
+        let visible_bins_buffer_size = coarse_bin_count * coarse_bin_size;
+        let visible_bins_upload = unsafe {
+            GpuBuffer::new(
+                self.device.raw(),
+                BufferType::Upload,
+                visible_bins_buffer_size,
+            )
+            .map_err(GpuError::DeviceCreation)?
+        };
+
+        self.coarse_bins_uav = Some(coarse_bins_uav);
+        self.coarse_bins_readback = Some(coarse_bins_readback);
+        self.coarse_binning_pso = Some(coarse_binning_pso);
+        self.visible_bins_upload = Some(visible_bins_upload);
+        self.fine_binning_pso = Some(fine_binning_pso);
+        self.two_level_enabled = true;
+
+        Ok(())
+    }
+
+    /// Check if two-level binning is enabled
+    pub fn is_two_level_enabled(&self) -> bool {
+        self.two_level_enabled
+    }
+
+    /// Two-level binning: coarse → Hi-Z cull → fine
+    ///
+    /// This is the main entry point for two-level hierarchical binning.
+    /// Must call `enable_two_level_binning()` first.
+    ///
+    /// # Returns
+    /// Stats about culling effectiveness
+    pub fn bin_triangles_two_level(
+        &mut self,
+        triangles: &[crate::tile_renderer::PreparedTriangle],
+        hiz_buffer: Option<&crate::hiz_buffer::HiZBuffer>,
+        tile_bins: &mut Vec<Vec<usize>>,
+    ) -> Result<TwoLevelBinningStats, GpuError> {
+        if !self.two_level_enabled {
+            return Err(GpuError::DeviceCreation(
+                windows::core::Error::from_hresult(windows::core::HRESULT(0x8007_0057u32 as i32)),
+            ));
+        }
+
+        if triangles.is_empty() {
+            return Ok(TwoLevelBinningStats::default());
+        }
+
+        // Phase 1: Upload triangles
+        self.upload_triangles(triangles)?;
+
+        // Phase 2a: Coarse binning (GPU)
+        let coarse_bins = self.dispatch_coarse_binning(triangles.len() as u32)?;
+
+        // Phase 2b: Hi-Z culling (CPU)
+        let visible_bins = self.cull_coarse_bins(&coarse_bins, hiz_buffer);
+        let stats = TwoLevelBinningStats {
+            total_coarse_bins: coarse_bins.len(),
+            visible_coarse_bins: visible_bins.len(),
+            culled_coarse_bins: coarse_bins.len() - visible_bins.len(),
+        };
+
+        // Phase 2c: Fine binning (GPU, visible bins only)
+        self.dispatch_fine_binning(&visible_bins, tile_bins)?;
+
+        Ok(stats)
+    }
+
+    /// Dispatch coarse binning compute shader
+    fn dispatch_coarse_binning(
+        &mut self,
+        triangle_count: u32,
+    ) -> Result<Vec<CoarseBinCpu>, GpuError> {
+        let coarse_bins_uav = self.coarse_bins_uav.as_ref().ok_or_else(|| {
+            GpuError::DeviceCreation(windows::core::Error::from_hresult(windows::core::HRESULT(
+                0x8007_0057u32 as i32,
+            )))
+        })?;
+        let coarse_binning_pso = self.coarse_binning_pso.as_ref().ok_or_else(|| {
+            GpuError::DeviceCreation(windows::core::Error::from_hresult(windows::core::HRESULT(
+                0x8007_0057u32 as i32,
+            )))
+        })?;
+
+        unsafe {
+            // Reset command list
+            self.device
+                .command_allocator()
+                .reset()
+                .map_err(GpuError::CommandAllocatorCreation)?;
+            self.command_list
+                .Reset(
+                    self.device.command_allocator().raw(),
+                    Some(coarse_binning_pso),
+                )
+                .map_err(GpuError::DeviceCreation)?;
+
+            // Clear coarse bins UAV
+            let clear_values = [0u32, 0, 0, 0];
+            let gpu_uav_handle = unsafe {
+                let mut handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
+                handle.ptr += self.descriptor_size as u64;
+                handle
+            };
+            let cpu_uav_handle = unsafe {
+                let mut handle = self.descriptor_heap.GetCPUDescriptorHandleForHeapStart();
+                handle.ptr += self.descriptor_size as usize;
+                handle
+            };
+            self.command_list.ClearUnorderedAccessViewUint(
+                gpu_uav_handle,
+                cpu_uav_handle,
+                coarse_bins_uav.resource(),
+                &clear_values,
+                &[],
+            );
+
+            // Set pipeline state
+            self.command_list.SetPipelineState(coarse_binning_pso);
+            self.command_list
+                .SetComputeRootSignature(&self.root_signature);
+
+            // Set descriptor heap
+            let heaps = [Some(self.descriptor_heap.clone())];
+            self.command_list.SetDescriptorHeaps(&heaps);
+
+            // Set descriptor table
+            let gpu_handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
+            self.command_list
+                .SetComputeRootDescriptorTable(0, gpu_handle);
+
+            // Set root constants (triangle_count, coarse_bins_x, coarse_bins_y, coarse_bin_size)
+            let constants = [
+                triangle_count,
+                self.coarse_bins_x,
+                self.coarse_bins_y,
+                self.coarse_bin_size,
+            ];
+            self.command_list
+                .SetComputeRoot32BitConstants(1, 4, constants.as_ptr() as *const _, 0);
+
+            // Dispatch (64 threads per group)
+            let thread_groups = (triangle_count + 63) / 64;
+            self.command_list.Dispatch(thread_groups, 1, 1);
+
+            // Copy UAV to readback
+            let readback = self.coarse_bins_readback.as_ref().unwrap();
+            self.command_list
+                .CopyResource(readback.resource(), coarse_bins_uav.resource());
+
+            // Execute
+            self.command_list
+                .Close()
+                .map_err(GpuError::DeviceCreation)?;
+            let cmd_lists = [Some(self.command_list.cast::<ID3D12CommandList>().unwrap())];
+            self.device
+                .command_queue()
+                .raw()
+                .ExecuteCommandLists(&cmd_lists);
+
+            // Wait for completion
+            self.fence_value += 1;
+            self.device
+                .command_queue()
+                .raw()
+                .Signal(&self.fence, self.fence_value)
+                .map_err(GpuError::DeviceCreation)?;
+
+            if self.fence.GetCompletedValue() < self.fence_value {
+                let event =
+                    CreateEventW(None, false, false, None).map_err(GpuError::DeviceCreation)?;
+                self.fence
+                    .SetEventOnCompletion(self.fence_value, event)
+                    .map_err(GpuError::DeviceCreation)?;
+                WaitForSingleObject(event, u32::MAX);
+                CloseHandle(event).ok();
+            }
+
+            // Readback coarse bins
+            let readback = self.coarse_bins_readback.as_mut().unwrap();
+            let ptr = readback.map().map_err(GpuError::DeviceCreation)?;
+            let bin_count = (self.coarse_bins_x * self.coarse_bins_y) as usize;
+            let gpu_bins = std::slice::from_raw_parts(ptr as *const CoarseBinGpu, bin_count);
+
+            let mut coarse_bins = Vec::with_capacity(bin_count);
+            for (i, gpu_bin) in gpu_bins.iter().enumerate() {
+                let count = gpu_bin.count.min(510) as usize;
+                let mut bin = CoarseBinCpu {
+                    bin_index: i,
+                    triangle_indices: Vec::with_capacity(count),
+                };
+                for j in 0..count {
+                    bin.triangle_indices
+                        .push(gpu_bin.triangle_indices[j] as usize);
+                }
+                coarse_bins.push(bin);
+            }
+
+            readback.unmap();
+            Ok(coarse_bins)
+        }
+    }
+
+    /// Cull coarse bins using Hi-Z buffer (CPU)
+    fn cull_coarse_bins(
+        &self,
+        coarse_bins: &[CoarseBinCpu],
+        hiz_buffer: Option<&crate::hiz_buffer::HiZBuffer>,
+    ) -> Vec<CoarseBinCpu> {
+        let Some(hiz) = hiz_buffer else {
+            // No Hi-Z, all bins visible
+            return coarse_bins.to_vec();
+        };
+
+        coarse_bins
+            .iter()
+            .filter(|bin| {
+                if bin.triangle_indices.is_empty() {
+                    return false; // Skip empty bins
+                }
+
+                // Compute bin screen AABB
+                let bin_x = (bin.bin_index % self.coarse_bins_x as usize) as u32;
+                let bin_y = (bin.bin_index / self.coarse_bins_x as usize) as u32;
+                let min_x = (bin_x * self.coarse_bin_size) as i32;
+                let min_y = (bin_y * self.coarse_bin_size) as i32;
+                let max_x = min_x + self.coarse_bin_size as i32 - 1;
+                let max_y = min_y + self.coarse_bin_size as i32 - 1;
+
+                // Query Hi-Z
+                let bin_aabb = crate::hiz_buffer::AABB3D {
+                    min_x,
+                    max_x,
+                    min_y,
+                    max_y,
+                    min_depth: 0.0, // Conservative: assume bin could contain any depth
+                    max_depth: f32::INFINITY,
+                };
+
+                hiz.is_coarse_bin_visible(bin_aabb)
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Dispatch fine binning compute shader (visible bins only)
+    fn dispatch_fine_binning(
+        &mut self,
+        visible_bins: &[CoarseBinCpu],
+        tile_bins: &mut Vec<Vec<usize>>,
+    ) -> Result<(), GpuError> {
+        if visible_bins.is_empty() {
+            // No visible bins, clear all tile bins
+            for bin in tile_bins.iter_mut() {
+                bin.clear();
+            }
+            return Ok(());
+        }
+
+        let fine_binning_pso = self.fine_binning_pso.as_ref().ok_or_else(|| {
+            GpuError::DeviceCreation(windows::core::Error::from_hresult(windows::core::HRESULT(
+                0x8007_0057u32 as i32,
+            )))
+        })?;
+
+        unsafe {
+            // Step 1: Upload visible bins to GPU
+            let upload_buf = self.visible_bins_upload.as_mut().unwrap();
+            let ptr = upload_buf.map().map_err(GpuError::DeviceCreation)?;
+
+            // Convert CoarseBinCpu to VisibleCoarseBinGpu layout
+            let visible_gpu: Vec<VisibleCoarseBinGpu> = visible_bins
+                .iter()
+                .map(|bin| {
+                    let mut gpu_bin = VisibleCoarseBinGpu {
+                        coarse_bin_index: bin.bin_index as u32,
+                        triangle_count: bin.triangle_indices.len() as u32,
+                        _padding: [0; 2],
+                        triangle_indices: [0; 510],
+                    };
+                    for (i, &tri_idx) in bin.triangle_indices.iter().enumerate() {
+                        gpu_bin.triangle_indices[i] = tri_idx as u32;
+                    }
+                    gpu_bin
+                })
+                .collect();
+
+            std::ptr::copy_nonoverlapping(
+                visible_gpu.as_ptr() as *const u8,
+                ptr,
+                visible_gpu.len() * std::mem::size_of::<VisibleCoarseBinGpu>(),
+            );
+
+            upload_buf.unmap();
+
+            // Step 2: Reset command list
+            self.device
+                .command_allocator()
+                .reset()
+                .map_err(GpuError::CommandAllocatorCreation)?;
+            self.command_list
+                .Reset(
+                    self.device.command_allocator().raw(),
+                    Some(fine_binning_pso),
+                )
+                .map_err(GpuError::DeviceCreation)?;
+
+            // Step 3: Clear tile bins UAV (same as coarse binning clear pattern)
+            let clear_values = [0u32, 0, 0, 0];
+            let gpu_uav_handle = {
+                let mut handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
+                handle.ptr += self.descriptor_size as u64;
+                handle
+            };
+            let cpu_uav_handle = {
+                let mut handle = self.descriptor_heap.GetCPUDescriptorHandleForHeapStart();
+                handle.ptr += self.descriptor_size as usize;
+                handle
+            };
+            self.command_list.ClearUnorderedAccessViewUint(
+                gpu_uav_handle,
+                cpu_uav_handle,
+                self.tile_bins_uav.resource(),
+                &clear_values,
+                &[],
+            );
+
+            // Step 4: Set pipeline state
+            self.command_list.SetPipelineState(fine_binning_pso);
+            self.command_list
+                .SetComputeRootSignature(&self.root_signature);
+
+            // Step 5: Set descriptor heap
+            let heaps = [Some(self.descriptor_heap.clone())];
+            self.command_list.SetDescriptorHeaps(&heaps);
+
+            // Step 6: Set descriptor table
+            let gpu_handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
+            self.command_list
+                .SetComputeRootDescriptorTable(0, gpu_handle);
+
+            // Step 7: Set root constants (visible_bin_count, tiles_x, tiles_y, tile_size)
+            let constants = [visible_bins.len() as u32, self.tiles_x, self.tiles_y, 32];
+            self.command_list.SetComputeRoot32BitConstants(
+                1,
+                4,
+                constants.as_ptr() as *const std::ffi::c_void,
+                0,
+            );
+
+            // Step 8: Dispatch compute shader (one thread group per visible bin)
+            let thread_groups = (visible_bins.len() as u32 + 63) / 64;
+            self.command_list.Dispatch(thread_groups, 1, 1);
+
+            // Step 9: Close and execute command list
+            self.command_list
+                .Close()
+                .map_err(GpuError::DeviceCreation)?;
+
+            let cmd_lists = [Some(
+                self.command_list
+                    .cast::<ID3D12CommandList>()
+                    .map_err(GpuError::DeviceCreation)?,
+            )];
+            self.device
+                .command_queue()
+                .raw()
+                .ExecuteCommandLists(&cmd_lists);
+
+            // Step 10: Wait for GPU to finish (same pattern as dispatch_coarse_binning)
+            self.fence_value += 1;
+            self.device
+                .command_queue()
+                .raw()
+                .Signal(&self.fence, self.fence_value)
+                .map_err(GpuError::DeviceCreation)?;
+
+            if self.fence.GetCompletedValue() < self.fence_value {
+                let event = CreateEventW(None, false, false, None)
+                    .map_err(|e| GpuError::DeviceCreation(e.into()))?;
+                self.fence
+                    .SetEventOnCompletion(self.fence_value, event)
+                    .map_err(GpuError::DeviceCreation)?;
+                let _ = WaitForSingleObject(event, INFINITE);
+                let _ = CloseHandle(event);
+            }
+
+            // Step 11: Readback tile bins to CPU
+            let ptr = self.bins_readback.map().map_err(GpuError::DeviceCreation)?;
+
+            let tile_count = (self.tiles_x * self.tiles_y) as usize;
+            for tile_idx in 0..tile_count {
+                let offset = tile_idx * std::mem::size_of::<TileBinGpu>();
+                let tile_bin_ptr = ptr.add(offset) as *const TileBinGpu;
+                let tile_bin = &*tile_bin_ptr;
+
+                tile_bins[tile_idx].clear();
+                let count = tile_bin.count.min(256) as usize;
+                for i in 0..count {
+                    tile_bins[tile_idx].push(tile_bin.triangle_indices[i] as usize);
+                }
+            }
+
+            self.bins_readback.unmap();
+            Ok(())
+        }
     }
 
     /// Upload triangle data to GPU
@@ -504,6 +981,21 @@ impl GpuBinner {
     }
 }
 
+/// Statistics from two-level hierarchical binning
+#[derive(Debug, Default, Clone)]
+pub struct TwoLevelBinningStats {
+    pub total_coarse_bins: usize,
+    pub visible_coarse_bins: usize,
+    pub culled_coarse_bins: usize,
+}
+
+/// CPU representation of a coarse bin after GPU readback
+#[derive(Debug, Clone)]
+struct CoarseBinCpu {
+    bin_index: usize,
+    triangle_indices: Vec<usize>,
+}
+
 /// GPU representation of PreparedTriangle (80 bytes)
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -529,5 +1021,23 @@ struct PreparedTriangleGpu {
 #[repr(C)]
 struct TileBinGpu {
     count: u32,
+    triangle_indices: [u32; 510],
+}
+
+/// GPU representation of CoarseBin (2044 bytes: 4 + 510*4, same as TileBin)
+/// Depth range computed on CPU after readback to avoid atomic float issues
+#[repr(C)]
+struct CoarseBinGpu {
+    count: u32,
+    triangle_indices: [u32; 510],
+}
+
+/// GPU representation of VisibleCoarseBin for fine binning pass
+/// Contains coarse bin index + triangles for bins that passed Hi-Z culling
+#[repr(C)]
+struct VisibleCoarseBinGpu {
+    coarse_bin_index: u32,
+    triangle_count: u32,
+    _padding: [u32; 2], // Align to 16 bytes
     triangle_indices: [u32; 510],
 }

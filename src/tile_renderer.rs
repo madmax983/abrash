@@ -636,6 +636,36 @@ impl TileRenderer {
         Ok(())
     }
 
+    /// Enable two-level hierarchical GPU binning with Hi-Z culling.
+    ///
+    /// This method enables GPU compute shader binning with two-level hierarchical binning:
+    /// 1. Coarse binning pass: Bin triangles to 128×128 pixel coarse bins (GPU)
+    /// 2. Hi-Z culling pass: Cull occluded coarse bins using Hi-Z pyramid (CPU)
+    /// 3. Fine binning pass: Bin visible triangles to 32×32 fine tiles (GPU)
+    ///
+    /// Two-level binning can provide additional speedup over single-level GPU binning
+    /// by avoiding fine binning work for occluded regions of the screen.
+    ///
+    /// # Prerequisites
+    ///
+    /// - GPU binning must be enabled first via `enable_gpu_binning()`
+    /// - Hi-Z buffer should be enabled via `enable_hiz()` for effective culling
+    ///
+    /// # Returns
+    ///
+    /// `GpuError` if two-level binning initialization fails or GPU binning is not enabled.
+    #[cfg(feature = "gpu-binning")]
+    pub fn enable_two_level_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
+        let gpu = self.gpu_binner.as_mut().ok_or_else(|| {
+            crate::gpu::GpuError::DeviceCreation(windows::core::Error::from_hresult(
+                windows::core::HRESULT(0x8007_0057u32 as i32), // E_INVALIDARG
+            ))
+        })?;
+
+        gpu.enable_two_level_binning()?;
+        Ok(())
+    }
+
     /// Returns the number of tiles in X direction.
     #[must_use]
     pub const fn tiles_x(&self) -> u32 {
@@ -717,10 +747,29 @@ impl TileRenderer {
         // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
         #[cfg(feature = "gpu-binning")]
         if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path
-            if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                eprintln!("GPU binning failed: {e}, falling back to CPU");
-                self.bin_triangles_cpu();
+            // GPU binning path - check if two-level binning is enabled
+            if gpu.is_two_level_enabled() {
+                // Two-level hierarchical binning with Hi-Z culling
+                match gpu.bin_triangles_two_level(
+                    &self.prepared,
+                    self.hiz_buffer.as_ref(),
+                    &mut self.tile_bins,
+                ) {
+                    Ok(_stats) => {
+                        // Two-level binning succeeded
+                        // Stats available for debugging/profiling but not used in production
+                    }
+                    Err(e) => {
+                        eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
+                        self.bin_triangles_cpu();
+                    }
+                }
+            } else {
+                // Single-level GPU binning
+                if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
+                    eprintln!("GPU binning failed: {e}, falling back to CPU");
+                    self.bin_triangles_cpu();
+                }
             }
         } else {
             self.bin_triangles_cpu();

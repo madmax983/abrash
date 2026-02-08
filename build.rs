@@ -10,37 +10,50 @@ fn main() {
 fn compile_shaders() {
     use std::process::Command;
 
-    println!("cargo:rerun-if-changed=shaders/bin_triangles.hlsl");
-
-    let shader_src = "shaders/bin_triangles.hlsl";
-    let shader_out = "shaders/bin_triangles.cso";
+    // List of shaders to compile: (source, output, entry_point)
+    let shaders = [
+        (
+            "shaders/bin_triangles.hlsl",
+            "shaders/bin_triangles.cso",
+            "BinTriangles",
+        ),
+        (
+            "shaders/bin_coarse.hlsl",
+            "shaders/bin_coarse.cso",
+            "BinCoarse",
+        ),
+        ("shaders/bin_fine.hlsl", "shaders/bin_fine.cso", "BinFine"),
+    ];
 
     // Check if DXC (DirectX Shader Compiler) is available
     let dxc_path = find_dxc();
 
     match dxc_path {
         Some(dxc) => {
-            println!("cargo:info=Compiling shader: {shader_src} -> {shader_out}");
+            for (shader_src, shader_out, entry_point) in &shaders {
+                println!("cargo:rerun-if-changed={shader_src}");
+                println!("cargo:info=Compiling shader: {shader_src} -> {shader_out}");
 
-            let output = Command::new(&dxc)
-                .arg("-T")
-                .arg("cs_6_0") // Compute Shader Model 6.0
-                .arg("-E")
-                .arg("BinTriangles") // Entry point
-                .arg("-Fo")
-                .arg(shader_out)
-                .arg(shader_src)
-                .arg("-Zi") // Debug info
-                .arg("-Qembed_debug") // Embed debug info in shader
-                .output()
-                .expect("Failed to execute dxc.exe");
+                let output = Command::new(&dxc)
+                    .arg("-T")
+                    .arg("cs_6_0") // Compute Shader Model 6.0
+                    .arg("-E")
+                    .arg(entry_point) // Entry point
+                    .arg("-Fo")
+                    .arg(shader_out)
+                    .arg(shader_src)
+                    .arg("-Zi") // Debug info
+                    .arg("-Qembed_debug") // Embed debug info in shader
+                    .output()
+                    .expect("Failed to execute dxc.exe");
 
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                panic!("Shader compilation failed:\n{stderr}");
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    panic!("Shader compilation failed for {shader_src}:\n{stderr}");
+                }
+
+                println!("cargo:info=Shader {shader_src} compilation successful");
             }
-
-            println!("cargo:info=Shader compilation successful");
         }
         None => {
             println!("cargo:warning=DXC not found. GPU binning will not work.");
