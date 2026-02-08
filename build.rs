@@ -23,6 +23,11 @@ fn compile_shaders() {
             "BinCoarse",
         ),
         ("shaders/bin_fine.hlsl", "shaders/bin_fine.cso", "BinFine"),
+        (
+            "shaders/build_hiz_level.hlsl",
+            "shaders/build_hiz_level.cso",
+            "BuildHiZLevel",
+        ),
     ];
 
     // Check if DXC (DirectX Shader Compiler) is available

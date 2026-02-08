@@ -65,9 +65,12 @@ fn bench_cube_tiled_textured(c: &mut Criterion) {
         .iter()
         .map(|idx| {
             (
-                transformed[idx[0]], Vec2::new(0.0, 0.0),
-                transformed[idx[1]], Vec2::new(0.0, 1.0),
-                transformed[idx[2]], Vec2::new(1.0, 0.0),
+                transformed[idx[0]],
+                Vec2::new(0.0, 0.0),
+                transformed[idx[1]],
+                Vec2::new(0.0, 1.0),
+                transformed[idx[2]],
+                Vec2::new(1.0, 0.0),
             )
         })
         .collect();
@@ -87,7 +90,11 @@ fn bench_cube_scanline_textured(c: &mut Criterion) {
     let texture = Texture::new(32, 32).unwrap();
 
     // Use dummy UVs
-    let uvs = [Vec2::new(0.0, 0.0), Vec2::new(0.0, 1.0), Vec2::new(1.0, 0.0)];
+    let uvs = [
+        Vec2::new(0.0, 0.0),
+        Vec2::new(0.0, 1.0),
+        Vec2::new(1.0, 0.0),
+    ];
 
     c.bench_function("fill_cube_scanline_textured", |b| {
         b.iter(|| {
@@ -185,7 +192,7 @@ fn bench_crossover_scanline_textured_multi_res(c: &mut Criterion) {
                             (v0, uv0),
                             (v1, uv1),
                             (v2, uv2),
-                            &texture
+                            &texture,
                         );
                     }
                 });

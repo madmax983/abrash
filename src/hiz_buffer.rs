@@ -68,6 +68,9 @@ pub struct HiZBuffer {
     level_count: u32,
     levels: Vec<PyramidLevel>, // levels[0] conceptually references zbuffer, 1+ are reductions
     valid: bool,               // Pyramid needs rebuild after zbuffer writes
+
+    #[cfg(feature = "gpu-binning")]
+    gpu_builder: Option<crate::gpu::GpuHiZBuilder>,
 }
 
 impl HiZBuffer {
@@ -113,6 +116,9 @@ impl HiZBuffer {
             level_count,
             levels,
             valid: false,
+
+            #[cfg(feature = "gpu-binning")]
+            gpu_builder: None,
         }
     }
 
@@ -161,19 +167,57 @@ impl HiZBuffer {
         assert_eq!(zbuffer.width(), self.width);
         assert_eq!(zbuffer.height(), self.height);
 
-        // Build level 1 directly from zbuffer
-        let level0 = zbuffer.as_slice();
-        self.build_level(1, level0, self.width);
+        // Try GPU build first if enabled
+        #[cfg(feature = "gpu-binning")]
+        {
+            let use_gpu = self.gpu_builder.is_some();
+            if use_gpu {
+                // Take ownership temporarily to avoid borrow issues
+                let mut gpu = self.gpu_builder.take().unwrap();
 
-        // Build subsequent levels from previous levels
-        for level_idx in 2..self.level_count {
-            // Clone the previous level's depths to avoid borrowing issues
-            let prev_width = self.levels[(level_idx - 1) as usize].width;
-            let prev_depths = self.levels[(level_idx - 1) as usize].depths.clone();
-            self.build_level(level_idx, &prev_depths, prev_width);
+                let result = gpu
+                    .upload_zbuffer(zbuffer.as_slice())
+                    .and_then(|_| gpu.build_pyramid())
+                    .and_then(|_| gpu.download_pyramid(self));
+
+                // Put it back
+                self.gpu_builder = Some(gpu);
+
+                if result.is_ok() {
+                    // GPU build succeeded, pyramid is valid
+                    return;
+                }
+                // GPU build failed, fall through to CPU build
+            }
+        }
+
+        // CPU fallback
+        // Only build pyramid if there are levels beyond level 0
+        if self.level_count > 1 {
+            // Build level 1 directly from zbuffer
+            let level0 = zbuffer.as_slice();
+            self.build_level(1, level0, self.width);
+
+            // Build subsequent levels from previous levels
+            for level_idx in 2..self.level_count {
+                // Clone the previous level's depths to avoid borrowing issues
+                let prev_width = self.levels[(level_idx - 1) as usize].width;
+                let prev_depths = self.levels[(level_idx - 1) as usize].depths.clone();
+                self.build_level(level_idx, &prev_depths, prev_width);
+            }
         }
 
         self.valid = true;
+    }
+
+    /// Enable GPU-accelerated pyramid build
+    ///
+    /// Creates a GPU compute shader pipeline for building the Hi-Z pyramid on the GPU.
+    /// Falls back to CPU build if GPU initialization fails.
+    #[cfg(feature = "gpu-binning")]
+    pub fn enable_gpu_build(&mut self) -> Result<(), crate::gpu::GpuError> {
+        self.gpu_builder = Some(crate::gpu::GpuHiZBuilder::new(self.width, self.height)?);
+        Ok(())
     }
 
     /// Build a single pyramid level via 2×2 min-reduction
@@ -571,6 +615,51 @@ impl HiZBuffer {
         // Conservative test: If bin's closest point is farther than
         // pyramid's closest point, bin is fully occluded
         bin_aabb.min_depth <= pyramid_min
+    }
+
+    /// Write pyramid level data from GPU (for GPU Hi-Z pyramid build)
+    ///
+    /// This method allows the GPU Hi-Z builder to populate pyramid levels
+    /// directly from GPU-computed data.
+    ///
+    /// # Arguments
+    /// * `level` - Pyramid level index (0 = full resolution, 1+ = reductions)
+    /// * `data` - Depth values in row-major order (width × height floats)
+    ///
+    /// # Panics
+    /// Panics if level index is out of range or data size doesn't match level dimensions
+    #[cfg(feature = "gpu-binning")]
+    pub fn write_level_data(&mut self, level: u32, data: &[f32]) {
+        assert!(
+            level < self.level_count,
+            "Level index {} out of range (max {})",
+            level,
+            self.level_count - 1
+        );
+
+        let level_data = &mut self.levels[level as usize];
+        let expected_size = (level_data.width * level_data.height) as usize;
+        assert_eq!(
+            data.len(),
+            expected_size,
+            "Data size {} doesn't match level {} dimensions {}×{} (expected {} floats)",
+            data.len(),
+            level,
+            level_data.width,
+            level_data.height,
+            expected_size
+        );
+
+        // Copy GPU data into pyramid level
+        level_data.depths.copy_from_slice(data);
+    }
+
+    /// Mark pyramid as valid after GPU build
+    ///
+    /// This should be called after all pyramid levels have been written via write_level_data()
+    #[cfg(feature = "gpu-binning")]
+    pub fn mark_valid(&mut self) {
+        self.valid = true;
     }
 }
 
