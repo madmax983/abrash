@@ -352,12 +352,15 @@ impl Mat4 {
 
     /// Creates a perspective projection matrix.
     ///
+    /// This maps the view frustum to clip space. The result assumes a RH coordinate system
+    /// where camera looks down -Z.
+    ///
     /// # Arguments
     ///
     /// * `fov` - Vertical field of view in radians.
     /// * `aspect` - Aspect ratio (width / height).
-    /// * `near` - Distance to near clipping plane.
-    /// * `far` - Distance to far clipping plane.
+    /// * `near` - Distance to near clipping plane (must be > 0).
+    /// * `far` - Distance to far clipping plane (must be > near).
     ///
     /// # Examples
     ///
@@ -365,7 +368,8 @@ impl Mat4 {
     /// use abrash::math::Mat4;
     /// use std::f32::consts::PI;
     ///
-    /// let proj = Mat4::perspective(PI / 4.0, 1.33, 0.1, 100.0);
+    /// // 45 degree FOV, 4:3 aspect ratio, near 0.1, far 100.0
+    /// let proj = Mat4::perspective(PI / 4.0, 4.0 / 3.0, 0.1, 100.0);
     /// ```
     #[must_use]
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
@@ -383,6 +387,10 @@ impl Mat4 {
 
     /// Creates a View matrix (`LookAt`) for a camera.
     ///
+    /// Constructs a matrix that transforms world coordinates to camera coordinates.
+    ///
+    /// # Arguments
+    ///
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
@@ -392,9 +400,11 @@ impl Mat4 {
     /// ```
     /// use abrash::math::{Mat4, Vec3};
     ///
-    /// let eye = Vec3::new(0.0, 0.0, 5.0);
+    /// let eye = Vec3::new(0.0, 0.0, 10.0);
     /// let target = Vec3::new(0.0, 0.0, 0.0);
     /// let up = Vec3::new(0.0, 1.0, 0.0);
+    ///
+    /// // Camera at (0,0,10) looking at origin, Y is up.
     /// let view = Mat4::look_at(eye, target, up);
     /// ```
     #[must_use]
@@ -480,10 +490,42 @@ pub struct ScreenPoint {
     pub z: f32,
 }
 
-/// Project a 3D point to screen coordinates
+/// Project a 3D point in Clip Space to Screen Coordinates.
+///
+/// Takes a point in homogenous clip space (after projection matrix multiplication)
+/// and converts it to integer screen coordinates.
+///
+/// # Arguments
+///
+/// * `v` - The clip space position (x, y, z).
+/// * `w` - The clip space w component (used for perspective divide).
+/// * `width` - Screen width.
+/// * `height` - Screen height.
+///
+/// # Behavior
+///
+/// 1. Performs perspective division: `ndc = v / w`.
+/// 2. Maps NDC [-1, 1] to screen coordinates [0, width] / [0, height].
+/// 3. Flips Y coordinate (Screen Y increases downwards).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Vec3, project_to_screen};
+///
+/// let clip_pos = Vec3::new(0.0, 0.0, 5.0);
+/// let w = 5.0; // Point is 5 units away
+/// let screen_pt = project_to_screen(clip_pos, w, 800, 600);
+///
+/// // Center of screen
+/// assert_eq!(screen_pt.x, 400);
+/// assert_eq!(screen_pt.y, 300);
+/// ```
 #[must_use]
 pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
     // Perspective divide
+    // Note: This matches the "Magic Threshold" behavior in Vec3::normalize
+    // to prevent division by zero or extreme coordinates.
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
     let ndc_y = v.y * inv_w;

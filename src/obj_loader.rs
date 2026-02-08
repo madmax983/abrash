@@ -1,8 +1,58 @@
+//! Wavefront OBJ 3D Model Loader.
+//!
+//! This module provides functionality to parse Wavefront OBJ files into a `Mesh` structure
+//! suitable for rendering. It supports parsing vertices (`v`), texture coordinates (`vt`),
+//! and faces (`f`).
+//!
+//! # Features
+//!
+//! *   **Vertex Deduplication**: Vertices with unique position/UV combinations are automatically
+//!     deduplicated and indexed.
+//! *   **Triangulation**: Faces with more than 3 vertices (polygons) are automatically triangulated
+//!     using a triangle fan.
+//! *   **Safety**: All parsing is done with safe Rust, including bounds checking.
+//!
+//! # Limitations
+//!
+//! *   Normals (`vn`) are currently ignored.
+//! *   Materials (`mtllib`, `usemtl`) are ignored.
+//! *   Groups (`g`, `o`) are ignored; the entire file is loaded as a single mesh.
+
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
+///
+/// This function parses a string containing OBJ data and returns a `Mesh` object.
+///
+/// # Arguments
+///
+/// * `source` - A string slice containing the OBJ file content.
+///
+/// # Returns
+///
+/// * `Ok(Mesh)` - The parsed mesh on success.
+/// * `Err(String)` - An error message describing why parsing failed (e.g., malformed line, invalid index).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::obj_loader::load_obj;
+/// use abrash::math::Vec3;
+///
+/// let obj_data = "
+/// v -0.5 -0.5 0.0
+/// v  0.5 -0.5 0.0
+/// v  0.0  0.5 0.0
+/// f 1 2 3
+/// ";
+///
+/// let mesh = load_obj(obj_data).unwrap();
+/// assert_eq!(mesh.vertices.len(), 3);
+/// assert_eq!(mesh.indices.len(), 1);
+/// assert_eq!(mesh.vertices[0], Vec3::new(-0.5, -0.5, 0.0));
+/// ```
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);

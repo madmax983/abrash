@@ -28,8 +28,20 @@ impl XorShift32 {
 
 /// Generates a classic XOR texture.
 ///
+/// This creates a bitwise XOR pattern often used in early computer graphics demos.
+/// `color = (x ^ y) & 255`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::experimental::procedural::xor_pattern;
+///
+/// let tex = xor_pattern(256, 256).unwrap();
+/// assert_eq!(tex.width, 256);
+/// ```
+///
 /// # Errors
-/// Returns an error if the texture dimensions are invalid.
+/// Returns an error if the texture dimensions are invalid (e.g. 0 or too large).
 pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
     for y in 0..height {
@@ -43,6 +55,18 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
 }
 
 /// Generates a "Tech Grid" texture.
+///
+/// Creates a grid of lines with a solid background color.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::experimental::procedural::grid_pattern;
+///
+/// let green = 0xFF00FF00;
+/// let black = 0xFF000000;
+/// let tex = grid_pattern(256, 256, 32, green, black).unwrap();
+/// ```
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid or `cell_size` is 0.
@@ -68,6 +92,16 @@ pub fn grid_pattern(
 
 /// Generates static white noise.
 ///
+/// Uses a simple PRNG to generate random grayscale noise.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::experimental::procedural::white_noise;
+///
+/// let tex = white_noise(256, 256, 12345).unwrap();
+/// ```
+///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
 pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'static str> {
@@ -85,6 +119,16 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 }
 
 /// Generates a plasma effect.
+///
+/// Creates a smooth, psychedelic pattern using sine waves.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::experimental::procedural::plasma;
+///
+/// let tex = plasma(256, 256).unwrap();
+/// ```
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.

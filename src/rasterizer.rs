@@ -557,6 +557,24 @@ impl GouraudEdgeWalker {
 
 /// Fill a 3D triangle with Gouraud (per-vertex) shading
 /// Each vertex has a position (clip space + w) and color
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_gouraud;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let v0 = ((Vec3::new(0.0, 0.5, 5.0), 5.0), Vec3::new(1.0, 0.0, 0.0)); // Red
+/// let v1 = ((Vec3::new(-0.5, -0.5, 5.0), 5.0), Vec3::new(0.0, 1.0, 0.0)); // Green
+/// let v2 = ((Vec3::new(0.5, -0.5, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0)); // Blue
+///
+/// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
+/// ```
 pub fn fill_triangle_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -688,6 +706,42 @@ pub fn fill_triangle_gouraud(
 }
 
 /// Fill a 3D triangle with custom lighting
+///
+/// This function calculates per-triangle lighting (flat shading) using a directional light source
+/// and an ambient term.
+///
+/// # Arguments
+///
+/// * `normal` - The surface normal of the triangle (should be normalized).
+/// * `light_dir` - The direction the light is travelling (e.g., `-1.0 * light_position`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_lit;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::Vec3;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
+/// let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
+/// let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
+///
+/// let normal = Vec3::new(0.0, 0.0, 1.0);
+/// let light_dir = Vec3::new(0.0, 0.0, -1.0); // Light pointing towards camera (assuming camera at origin looking -Z)
+///
+/// fill_triangle_lit(
+///     &mut fb, &mut zb, v0, v1, v2,
+///     normal,
+///     Vec3::new(1.0, 0.0, 0.0), // Red object
+///     Vec3::new(0.1, 0.1, 0.1), // Dim ambient
+///     light_dir,
+///     Vec3::new(1.0, 1.0, 1.0)  // White light
+/// );
+/// ```
 #[allow(clippy::too_many_arguments)] // Rendering API requires all parameters explicitly
 pub fn fill_triangle_lit(
     fb: &mut Framebuffer,
@@ -717,10 +771,20 @@ pub fn fill_triangle_lit(
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// Filter mode for texture sampling.
+///
+/// This controls how the texture is sampled when UV coordinates fall between texels.
 pub enum FilterMode {
-    /// Nearest neighbor interpolation. Fast, but pixelated.
+    /// Nearest neighbor interpolation.
+    ///
+    /// Selects the color of the nearest texel center.
+    /// - **Pros:** Fastest, crisp edges (good for pixel art).
+    /// - **Cons:** Blocky appearance when magnified, aliasing artifacts when minified.
     Nearest,
-    /// Bilinear interpolation. Smoother, but slower.
+    /// Bilinear interpolation.
+    ///
+    /// Interpolates linearly between the four nearest texels.
+    /// - **Pros:** Smoother appearance, reduces blockiness.
+    /// - **Cons:** Slower, can look blurry.
     Bilinear,
 }
 
@@ -816,7 +880,15 @@ impl Texture {
         }
     }
 
-    /// Sample texture using bilinear interpolation
+    /// Sample texture using bilinear interpolation.
+    ///
+    /// This samples the texture at normalized coordinates (u, v) using bilinear interpolation,
+    /// providing a smoother look than nearest-neighbor sampling when scaling.
+    ///
+    /// # Arguments
+    ///
+    /// * `u` - Normalized X coordinate [0.0, 1.0].
+    /// * `v` - Normalized Y coordinate [0.0, 1.0].
     #[must_use]
     pub fn get_pixel_bilinear(&self, u: f32, v: f32) -> u32 {
         let w = self.width as f32;
@@ -915,9 +987,20 @@ impl Texture {
 
     /// Create a checkerboard texture.
     ///
+    /// The checker pattern automatically scales based on the texture dimensions (defaulting to 8x8 blocks).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::rasterizer::Texture;
+    ///
+    /// let tex = Texture::checkered(256, 256, 0xFF000000, 0xFFFFFFFF).unwrap();
+    /// assert_eq!(tex.width, 256);
+    /// ```
+    ///
     /// # Errors
     ///
-    /// Returns an error if the underlying `Texture::new` call fails.
+    /// Returns an error if the underlying `Texture::new` call fails (e.g., dimensions too large).
     pub fn checkered(width: u32, height: u32, c1: u32, c2: u32) -> Result<Self, &'static str> {
         let mut tex = Self::new(width, height)?;
         // Scale checks based on size, defaulting to 8x8 blocks
