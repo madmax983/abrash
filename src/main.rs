@@ -43,6 +43,11 @@ const DEMOS: &[Demo] = &[
         description: "Basic 3D cube rendering",
         example_name: "cube_3d",
     },
+    Demo {
+        name: "Terrain Flyover",
+        description: "Procedural terrain with Gouraud shading",
+        example_name: "terrain_flyover",
+    },
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

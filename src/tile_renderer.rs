@@ -67,13 +67,15 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
+#![allow(clippy::collapsible_if)]
+
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{
-    EdgeWalker, PerspectiveTextureGradients, PerspectiveTextureEdgeWalker,
-    PerspectiveSpanStart, RECIPROCAL_TABLE, Texture, is_backface, sort_by_y, FilterMode
+    EdgeWalker, FilterMode, PerspectiveSpanStart, PerspectiveTextureEdgeWalker,
+    PerspectiveTextureGradients, RECIPROCAL_TABLE, Texture, is_backface, sort_by_y,
 };
 use crate::zbuffer::ZBuffer;
 
@@ -93,7 +95,7 @@ use crate::zbuffer::ZBuffer;
 /// - Fixed-point scale factor: 256 (2^8)
 /// - Conversion: `fixed = (float * 256.0) as i32`
 /// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VertexFixed {
     pub x: i32, // 24.8 fixed point
     pub y: i32, // 24.8 fixed point
@@ -108,7 +110,7 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
     fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
@@ -740,12 +742,12 @@ fn rasterize_scanline_scalar(
     dz_dx: f32,
     color: u32,
 ) {
+    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
+    const INV_256: f32 = 1.0 / 256.0;
+
     // Convert to 24.8 fixed point for accumulation
     let mut z_fixed = (z_start * 256.0) as i32;
     let dz_dx_fixed = (dz_dx * 256.0) as i32;
-
-    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
-    const INV_256: f32 = 1.0 / 256.0;
 
     for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
         // Convert fixed-point to float for zbuffer comparison (Option A)
@@ -1688,7 +1690,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
@@ -1774,7 +1776,11 @@ mod tests {
         let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         let v2 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(tr.prepared.len(), 0, "Zero-area triangle should be rejected");
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Zero-area triangle should be rejected"
+        );
     }
 
     #[test]
@@ -1785,7 +1791,11 @@ mod tests {
         let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
         let v2 = (Vec3::new(0.5, 0.0, 5.0), 5.0);
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(tr.prepared.len(), 0, "Collinear triangle should be rejected");
+        assert_eq!(
+            tr.prepared.len(),
+            0,
+            "Collinear triangle should be rejected"
+        );
     }
 
     #[test]

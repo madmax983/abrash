@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
 use abrash::rasterizer::Texture;
-use abrash::tile_renderer::{TileRenderer, TexturedClipTriangle};
+use abrash::tile_renderer::{TexturedClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -76,9 +76,7 @@ fn test_textured_triangle_rendering() {
     let v2 = (Vec3::new(1.0, 1.0, 1.0), 1.0);
     let uv2 = Vec2::new(1.0, 0.0);
 
-    let triangles: Vec<TexturedClipTriangle> = vec![
-        (v0, uv0, v1, uv1, v2, uv2)
-    ];
+    let triangles: Vec<TexturedClipTriangle> = vec![(v0, uv0, v1, uv1, v2, uv2)];
 
     tr.render_batch_textured(&mut fb, &mut zb, &triangles, &tex);
 

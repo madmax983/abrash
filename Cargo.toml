@@ -77,6 +77,10 @@ name = "wasm_cube_3d"
 path = "examples/wasm_cube_3d.rs"
 required-features = ["backend-wasm"]
 
+[[example]]
+name = "terrain_flyover"
+path = "examples/terrain_flyover.rs"
+
 [[bench]]
 name = "rasterization"
 harness = false
