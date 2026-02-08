@@ -195,9 +195,15 @@ impl Texture {
 
     #[must_use]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
-        let x = x.clamp(0, self.width as i32 - 1) as usize;
-        let y = y.clamp(0, self.height as i32 - 1) as usize;
-        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        let xu = x as u32;
+        let yu = y as u32;
+        if xu < self.width && yu < self.height {
+            unsafe { *self.pixels.get_unchecked((yu * self.width + xu) as usize) }
+        } else {
+            let x = x.clamp(0, self.width as i32 - 1) as usize;
+            let y = y.clamp(0, self.height as i32 - 1) as usize;
+            unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        }
     }
 
     /// Create a checkerboard texture.

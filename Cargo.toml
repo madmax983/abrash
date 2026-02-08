@@ -110,6 +110,10 @@ name = "simd_micro_bench"
 harness = false
 
 [[bench]]
+name = "texture_sampling"
+harness = false
+
+[[bench]]
 name = "gpu_binning"
 harness = false
 required-features = ["backend-win32", "gpu-binning"]
