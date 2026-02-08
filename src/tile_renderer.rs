@@ -602,6 +602,25 @@ fn render_triangle_in_tile_textured(
                     tile_pixels[tile_idx] = match texture.filter_mode {
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => {
+                            let q = q_left;
+                            let q_sq = q * q;
+                            let lod = if q_sq > 0.000_000_1 {
+                                let inv_q_sq = 1.0 / q_sq;
+                                let u = u_left;
+                                let v = v_left;
+                                let u_x = (tri.gradients.du_dx * q - u * tri.gradients.dq_dx) * inv_q_sq * texture.width as f32;
+                                let v_x = (tri.gradients.dv_dx * q - v * tri.gradients.dq_dx) * inv_q_sq * texture.height as f32;
+                                let u_y = (tri.gradients.du_dy * q - u * tri.gradients.dq_dy) * inv_q_sq * texture.width as f32;
+                                let v_y = (tri.gradients.dv_dy * q - v * tri.gradients.dq_dy) * inv_q_sq * texture.height as f32;
+
+                                let d_max_sq = (u_x * u_x + v_x * v_x).max(u_y * u_y + v_y * v_y);
+                                0.5 * d_max_sq.log2()
+                            } else {
+                                0.0
+                            };
+                            texture.get_pixel_lod(u_tex, v_tex, lod)
+                        }
                     };
                 }
             }
@@ -702,11 +721,29 @@ fn rasterize_scanline_textured(
                     v_fix = v_fix.wrapping_add(dv_fix);
                 }
             }
-            FilterMode::Bilinear => {
+            FilterMode::Bilinear | FilterMode::Trilinear => {
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
                 let mut v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+                let lod = if texture.filter_mode == FilterMode::Trilinear {
+                    let q_sq = q * q;
+                    if q_sq > 0.000_000_1 {
+                         let inv_q_sq = 1.0 / q_sq;
+                         let u_x = (gradients.du_dx * q - u * gradients.dq_dx) * inv_q_sq * texture.width as f32;
+                         let v_x = (gradients.dv_dx * q - v * gradients.dq_dx) * inv_q_sq * texture.height as f32;
+                         let u_y = (gradients.du_dy * q - u * gradients.dq_dy) * inv_q_sq * texture.width as f32;
+                         let v_y = (gradients.dv_dy * q - v * gradients.dq_dy) * inv_q_sq * texture.height as f32;
+
+                         let d_max_sq = (u_x * u_x + v_x * v_x).max(u_y * u_y + v_y * v_y);
+                         0.5 * d_max_sq.log2()
+                    } else {
+                         0.0
+                    }
+                } else {
+                    0.0
+                };
 
                 for k in 0..count {
                     let depth_val = unsafe { depths.get_unchecked_mut(i + k) };
@@ -714,7 +751,13 @@ fn rasterize_scanline_textured(
 
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        if texture.filter_mode == FilterMode::Trilinear {
+                             let u_norm = (u_fix as f32) / 65536.0 / (texture.width as f32);
+                             let v_norm = (v_fix as f32) / 65536.0 / (texture.height as f32);
+                             *pixel = texture.get_pixel_lod(u_norm, v_norm, lod);
+                        } else {
+                            *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        }
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);

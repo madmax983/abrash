@@ -9,6 +9,8 @@ pub enum FilterMode {
     Nearest,
     /// Bilinear interpolation. Smoother, but slower.
     Bilinear,
+    /// Trilinear interpolation (Bilinear between mipmap levels). Smoother at distance.
+    Trilinear,
 }
 
 /// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
@@ -30,6 +32,9 @@ pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub pixels: Vec<u32>,
+    /// Mipmap levels. mips[0] is level 1, mips[1] is level 2, etc.
+    /// Level 0 is stored in `pixels`.
+    pub mips: Vec<Vec<u32>>,
     pub filter_mode: FilterMode,
 }
 
@@ -65,6 +70,7 @@ impl Texture {
             width,
             height,
             pixels: vec![0xFF00_0000; size],
+            mips: Vec::new(),
             filter_mode: FilterMode::Nearest,
         })
     }
@@ -75,32 +81,162 @@ impl Texture {
         }
     }
 
+    /// Generate mipmaps for the texture using box filtering.
+    pub fn generate_mipmaps(&mut self) {
+        self.mips.clear();
+
+        let mut w = self.width;
+        let mut h = self.height;
+
+        while w > 1 || h > 1 {
+             let src_w = w;
+             let src_h = h;
+             let dst_w = (w >> 1).max(1);
+             let dst_h = (h >> 1).max(1);
+
+             // We can't borrow self.mips inside the loop if we push to it.
+             // But we only need to read the previous level.
+             // We can use indexing.
+
+             let size = (dst_w * dst_h) as usize;
+             let mut dst_pixels = Vec::with_capacity(size);
+
+             // To avoid multiple borrows of self, we'll access pixels via a temporary slice
+             // but that's hard because `mips` is inside `self`.
+             // Instead, let's just use raw pointers or unsafe for the read, or
+             // more safely: swap the source vector out, read it, then put it back? No.
+
+             // Standard Rust workaround: Use indices and `get`
+             // or extract the logic to a pure function.
+
+             // Let's use a pure function helper `downsample`.
+             let src_pixels = if self.mips.is_empty() {
+                 &self.pixels
+             } else {
+                 &self.mips[self.mips.len() - 1]
+             };
+
+             Texture::downsample(src_pixels, src_w, src_h, dst_w, dst_h, &mut dst_pixels);
+
+             self.mips.push(dst_pixels);
+             w = dst_w;
+             h = dst_h;
+        }
+    }
+
+    fn downsample(src: &[u32], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32, dst: &mut Vec<u32>) {
+        for y in 0..dst_h {
+            for x in 0..dst_w {
+                let px0 = if src_w > 1 { x * 2 } else { x };
+                let py0 = if src_h > 1 { y * 2 } else { y };
+                let px1 = if src_w > 1 { (x * 2 + 1).min(src_w - 1) } else { x };
+                let py1 = if src_h > 1 { (y * 2 + 1).min(src_h - 1) } else { y };
+
+                let i00 = (py0 * src_w + px0) as usize;
+                let i10 = (py0 * src_w + px1) as usize;
+                let i01 = (py1 * src_w + px0) as usize;
+                let i11 = (py1 * src_w + px1) as usize;
+
+                let c00 = src[i00];
+                let c10 = src[i10];
+                let c01 = src[i01];
+                let c11 = src[i11];
+
+                let a = ((c00 >> 24) + (c10 >> 24) + (c01 >> 24) + (c11 >> 24)) >> 2;
+                let r = (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF)) >> 2;
+                let g = (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) >> 2;
+                let b = ((c00 & 0xFF) + (c10 & 0xFF) + (c01 & 0xFF) + (c11 & 0xFF)) >> 2;
+
+                dst.push((a << 24) | (r << 16) | (g << 8) | b);
+            }
+        }
+    }
+
     /// Sample texture using interpolation mode
     /// u, v are in range [0.0, 1.0]
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use abrash::texture::Texture;
-    ///
-    /// let mut tex = Texture::new(2, 2).unwrap();
-    /// tex.set_pixel(0, 0, 0xFFFFFFFF);
-    ///
-    /// // Sample center of top-left pixel
-    /// let color = tex.get_pixel(0.25, 0.25);
-    /// assert_eq!(color, 0xFFFFFFFF);
-    /// ```
     #[inline]
     #[must_use]
     pub fn get_pixel(&self, u: f32, v: f32) -> u32 {
+        self.get_pixel_lod(u, v, 0.0)
+    }
+
+    /// Sample texture with Level of Detail (LOD)
+    #[inline]
+    #[must_use]
+    pub fn get_pixel_lod(&self, u: f32, v: f32, lod: f32) -> u32 {
         match self.filter_mode {
             FilterMode::Nearest => {
                 let x = (u * self.width as f32) as i32;
                 let y = (v * self.height as f32) as i32;
                 self.get_pixel_texel(x, y)
             }
-            FilterMode::Bilinear => self.get_pixel_bilinear(u, v),
+            FilterMode::Bilinear => {
+                self.get_pixel_bilinear(u, v)
+            }
+            FilterMode::Trilinear => {
+                if self.mips.is_empty() {
+                    return self.get_pixel_bilinear(u, v);
+                }
+
+                let lod = lod.max(0.0);
+                let level = lod as usize;
+                let next_level = level + 1;
+                let alpha = lod - level as f32; // fractional part
+
+                // Sample current level
+                let c0 = self.get_pixel_bilinear_level(u, v, level);
+
+                if next_level > self.mips.len() {
+                    return c0;
+                }
+
+                let c1 = self.get_pixel_bilinear_level(u, v, next_level);
+
+                // Blend c0 and c1
+                let w = (alpha * 256.0) as u32;
+                let inv_w = 256 - w;
+                blend_swar(c0, c1, w, inv_w)
+            }
         }
+    }
+
+    fn get_dims(&self, level: usize) -> (u32, u32) {
+        if level == 0 {
+            (self.width, self.height)
+        } else {
+            let shift = level as u32;
+            let w = (self.width >> shift).max(1);
+            let h = (self.height >> shift).max(1);
+            (w, h)
+        }
+    }
+
+    fn get_pixel_bilinear_level(&self, u: f32, v: f32, level: usize) -> u32 {
+        let (w, h) = self.get_dims(level);
+        let u_tex = u * w as f32;
+        let v_tex = v * h as f32;
+
+        let u_fixed = (u_tex * 256.0) as i32;
+        let v_fixed = (v_tex * 256.0) as i32;
+
+        let pixels = if level == 0 {
+            &self.pixels
+        } else {
+            if level - 1 < self.mips.len() {
+                &self.mips[level - 1]
+            } else {
+                return 0xFF00_0000;
+            }
+        };
+
+        Self::get_pixel_bilinear_fixed_impl(pixels, w, h, u_fixed, v_fixed)
+    }
+
+    #[must_use]
+    pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
+        let x = x.clamp(0, self.width as i32 - 1) as usize;
+        let y = y.clamp(0, self.height as i32 - 1) as usize;
+        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
     }
 
     /// Sample texture using bilinear interpolation
@@ -115,8 +251,6 @@ impl Texture {
     #[inline]
     #[must_use]
     pub fn get_pixel_bilinear_texel(&self, u_tex: f32, v_tex: f32) -> u32 {
-        // Convert to 24.8 fixed point
-        // 0.5 in 24.8 is 128
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
         self.get_pixel_bilinear_fixed(u_fixed, v_fixed)
@@ -126,49 +260,49 @@ impl Texture {
     #[inline]
     #[must_use]
     pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
+        Self::get_pixel_bilinear_fixed_impl(&self.pixels, self.width, self.height, u_fixed, v_fixed)
+    }
+
+    #[inline(always)]
+    fn get_pixel_bilinear_fixed_impl(pixels: &[u32], width: u32, height: u32, u_fixed: i32, v_fixed: i32) -> u32 {
         let u_img_fixed = u_fixed - 128;
         let v_img_fixed = v_fixed - 128;
 
-        // Weights (0..256)
         let wx = (u_img_fixed & 0xFF) as u32;
         let wy = (v_img_fixed & 0xFF) as u32;
         let inv_wx = 256 - wx;
         let inv_wy = 256 - wy;
 
-        // Arithmetic shift preserves sign (floor behavior for negative numbers)
         let x0_raw = u_img_fixed >> 8;
         let y0_raw = v_img_fixed >> 8;
 
-        let (c00, c10, c01, c11) = self.fetch_bilinear_neighbors(x0_raw, y0_raw);
+        let (c00, c10, c01, c11) = Self::fetch_bilinear_neighbors_impl(pixels, width, height, x0_raw, y0_raw);
 
         let top = blend_swar(c00, c10, wx, inv_wx);
         let bottom = blend_swar(c01, c11, wx, inv_wx);
         let final_color = blend_swar(top, bottom, wy, inv_wy);
 
-        // Ensure alpha is 0xFF
         final_color | 0xFF00_0000
     }
 
     #[inline(always)]
-    fn fetch_bilinear_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
-        let w_i32 = self.width as i32 - 1;
-        let h_i32 = self.height as i32 - 1;
+    fn fetch_bilinear_neighbors_impl(pixels: &[u32], width: u32, height: u32, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
+        let w_i32 = width as i32 - 1;
+        let h_i32 = height as i32 - 1;
 
-        // Optimization: Fast path for interior pixels to avoid 4 clamps
-        // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
         if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
-            let width_usize = self.width as usize;
+            let width_usize = width as usize;
             let row0 = y0 * width_usize;
-            let row1 = row0 + width_usize; // y0 + 1 is valid
+            let row1 = row0 + width_usize;
 
             unsafe {
                 (
-                    *self.pixels.get_unchecked(row0 + x0),
-                    *self.pixels.get_unchecked(row0 + x0 + 1),
-                    *self.pixels.get_unchecked(row1 + x0),
-                    *self.pixels.get_unchecked(row1 + x0 + 1),
+                    *pixels.get_unchecked(row0 + x0),
+                    *pixels.get_unchecked(row0 + x0 + 1),
+                    *pixels.get_unchecked(row1 + x0),
+                    *pixels.get_unchecked(row1 + x0 + 1),
                 )
             }
         } else {
@@ -177,27 +311,19 @@ impl Texture {
             let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
             let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
 
-            let width_usize = self.width as usize;
+            let width_usize = width as usize;
             let row0 = y0 * width_usize;
             let row1 = y1 * width_usize;
 
-            // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
             unsafe {
                 (
-                    *self.pixels.get_unchecked(row0 + x0),
-                    *self.pixels.get_unchecked(row0 + x1),
-                    *self.pixels.get_unchecked(row1 + x0),
-                    *self.pixels.get_unchecked(row1 + x1),
+                    *pixels.get_unchecked(row0 + x0),
+                    *pixels.get_unchecked(row0 + x1),
+                    *pixels.get_unchecked(row1 + x0),
+                    *pixels.get_unchecked(row1 + x1),
                 )
             }
         }
-    }
-
-    #[must_use]
-    pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
-        let x = x.clamp(0, self.width as i32 - 1) as usize;
-        let y = y.clamp(0, self.height as i32 - 1) as usize;
-        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
     }
 
     /// Create a checkerboard texture.

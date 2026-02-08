@@ -718,6 +718,9 @@ pub struct PerspectiveTextureGradients {
     pub dq_dx: f32,
     pub du_dx: f32,
     pub dv_dx: f32,
+    pub dq_dy: f32,
+    pub du_dy: f32,
+    pub dv_dy: f32,
 }
 
 impl PerspectiveTextureGradients {
@@ -765,11 +768,23 @@ impl PerspectiveTextureGradients {
         let nx_v = uy * vv - uv * vy;
         let dv_dx = nx_v * inv_nz;
 
+        let ny_q = uq * vx - ux * vq;
+        let dq_dy = ny_q * inv_nz;
+
+        let ny_u = uu * vx - ux * vu;
+        let du_dy = ny_u * inv_nz;
+
+        let ny_v = uv * vx - ux * vv;
+        let dv_dy = ny_v * inv_nz;
+
         Self {
             dz_dx,
             dq_dx,
             du_dx,
             dv_dx,
+            dq_dy,
+            du_dy,
+            dv_dy,
         }
     }
 }
@@ -970,19 +985,48 @@ fn draw_scanline_textured_perspective(
                     v_fix = v_fix.wrapping_add(dv_fix);
                 }
             }
-            FilterMode::Bilinear => {
-                // Fixed point optimization for Bilinear
-                // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
+            FilterMode::Bilinear | FilterMode::Trilinear => {
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
                 let mut v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                let lod = if texture.filter_mode == FilterMode::Trilinear {
+                    // Compute LOD at span start (approximation for whole span)
+                    // u = S/Q, v = T/Q
+                    // du/dx = (SxQ - SQx)/Q^2
+                    // du/dy = (SyQ - SQy)/Q^2
+
+                    let q_sq = q * q;
+                    if q_sq > 0.000_000_1 {
+                         let inv_q_sq = 1.0 / q_sq;
+                         let u_x = (gradients.du_dx * q - u * gradients.dq_dx) * inv_q_sq * texture.width as f32;
+                         let v_x = (gradients.dv_dx * q - v * gradients.dq_dx) * inv_q_sq * texture.height as f32;
+                         let u_y = (gradients.du_dy * q - u * gradients.dq_dy) * inv_q_sq * texture.width as f32;
+                         let v_y = (gradients.dv_dy * q - v * gradients.dq_dy) * inv_q_sq * texture.height as f32;
+
+                         let d_max_sq = (u_x * u_x + v_x * v_x).max(u_y * u_y + v_y * v_y);
+                         0.5 * d_max_sq.log2()
+                    } else {
+                         0.0
+                    }
+                } else {
+                    0.0
+                };
+
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+
+                        // Use get_pixel_lod for Trilinear, fallback to optimized bilinear fixed for Bilinear
+                        if texture.filter_mode == FilterMode::Trilinear {
+                            // Need normalized UV for get_pixel_lod
+                             let u_norm = (u_fix as f32) / 65536.0 / (texture.width as f32);
+                             let v_norm = (v_fix as f32) / 65536.0 / (texture.height as f32);
+                             *pixel = texture.get_pixel_lod(u_norm, v_norm, lod);
+                        } else {
+                            *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        }
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
@@ -1160,6 +1204,25 @@ pub fn fill_triangle_textured(
                     let color = match texture.filter_mode {
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => {
+                            let q = q_left;
+                            let q_sq = q * q;
+                            let lod = if q_sq > 0.000_000_1 {
+                                let inv_q_sq = 1.0 / q_sq;
+                                let u = u_left;
+                                let v = v_left;
+                                let u_x = (gradients.du_dx * q - u * gradients.dq_dx) * inv_q_sq * texture.width as f32;
+                                let v_x = (gradients.dv_dx * q - v * gradients.dq_dx) * inv_q_sq * texture.height as f32;
+                                let u_y = (gradients.du_dy * q - u * gradients.dq_dy) * inv_q_sq * texture.width as f32;
+                                let v_y = (gradients.dv_dy * q - v * gradients.dq_dy) * inv_q_sq * texture.height as f32;
+
+                                let d_max_sq = (u_x * u_x + v_x * v_x).max(u_y * u_y + v_y * v_y);
+                                0.5 * d_max_sq.log2()
+                            } else {
+                                0.0
+                            };
+                            texture.get_pixel_lod(u_tex, v_tex, lod)
+                        }
                     };
                     fb.set_pixel(x_start, y, color);
                 }
