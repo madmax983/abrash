@@ -56,6 +56,31 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     nz >= 0.0
 }
 
+/// Helper to clip a horizontal span to the screen width.
+/// Returns (start, end, skip_count) if visible, or None if fully off-screen.
+/// `start` and `end` are guaranteed to be within [0, width-1].
+/// `skip_count` is the number of pixels skipped from the left (original_start - clamped_start), used to adjust attributes.
+#[inline(always)]
+fn clip_span(x_start: i64, x_end: i64, width: i32) -> Option<(i32, i32, i64)> {
+    if x_start > x_end {
+        return None;
+    }
+    let width_i64 = i64::from(width);
+    if x_start >= width_i64 || x_end < 0 {
+        return None;
+    }
+
+    let visible_start = x_start.max(0);
+    let visible_end = x_end.min(width_i64 - 1);
+
+    if visible_start > visible_end {
+        return None;
+    }
+
+    let skip = visible_start - x_start;
+    Some((visible_start as i32, visible_end as i32, skip))
+}
+
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
@@ -70,27 +95,13 @@ fn draw_scanline_flat(
     color: u32,
 ) {
     let width = fb.width() as i32;
-    // Clamp X range to screen bounds
-    let mut xs = x_start;
-    let mut xe = x_end;
-
     // Convert dz_dx to fixed-point for accumulation
     let dz_dx_fixed = (dz_dx * 256.0) as i32;
     let mut z_fixed = z_start_fixed;
 
-    if xs < 0 {
-        // Advance z if we start off-screen
-        z_fixed += (-i64::from(xs)) as i32 * dz_dx_fixed;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
-        return;
-    }
+    debug_assert!(x_start >= 0, "x_start must be >= 0");
+    debug_assert!(x_end < width, "x_end must be < width");
+    debug_assert!(x_start <= x_end, "x_start must be <= x_end");
 
     // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
     debug_assert_eq!(
@@ -100,13 +111,13 @@ fn draw_scanline_flat(
     );
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
-    let start_idx = y_offset + (xs as usize);
-    let end_idx = y_offset + (xe as usize);
+    let start_idx = y_offset + (x_start as usize);
+    let end_idx = y_offset + (x_end as usize);
 
     // SAFETY:
-    // 1. xs and xe are clamped to [0, width-1] by the logic above.
+    // 1. x_start and x_end are guaranteed to be in [0, width-1] by callers using `clip_span`.
     // 2. y is clamped to [0, height-1] by the caller.
-    // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
+    // 3. x_start <= x_end is guaranteed by `clip_span`.
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
@@ -247,23 +258,34 @@ pub fn fill_triangle_3d(
                 edge_b = EdgeWalker::new(p1, p2);
             }
 
-            let (x_start, x_end, z_left) = if long_edge_is_left {
-                ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z)
+            let (x_start, x_end, mut z_left) = if long_edge_is_left {
+                (edge_a.x >> 16, edge_b.x >> 16, edge_a.z)
             } else {
-                ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
+                (edge_b.x >> 16, edge_a.x >> 16, edge_b.z)
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                // Convert fixed-point to float for single-pixel zbuffer test
-                let z_left_float = (z_left as f32) / 256.0;
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left_float)
-                {
-                    fb.set_pixel(x_start, y, color);
+            // Use clip_span to handle screen boundaries and integer overflow
+            if let Some((xs, xe, skip)) = clip_span(x_start, x_end, width_i32) {
+                // Adjust Z for skipped pixels
+                if skip > 0 {
+                    // Calculate dz for the skipped distance
+                    // dz_dx is float, skip is i64.
+                    // We need to match the precision of draw_scanline_flat
+                    let dz_dx_fixed = (dz_dx * 256.0) as i32;
+                    // Potential overflow if skip is huge, but z is i32 (24.8) anyway.
+                    // If we wrap, we wrap.
+                    z_left = z_left.wrapping_add((skip as i32).wrapping_mul(dz_dx_fixed));
                 }
-            } else {
-                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+
+                if xs == xe {
+                     // Single pixel optimization
+                     let z_left_float = (z_left as f32) / 256.0;
+                     if zb.test_and_set(xs, y, z_left_float) {
+                         fb.set_pixel(xs, y, color);
+                     }
+                } else {
+                    draw_scanline_flat(fb, zb, y, xs, xe, z_left, dz_dx, color);
+                }
             }
 
             edge_a.step();
@@ -314,30 +336,17 @@ fn draw_scanline_gouraud(
     dc_dx: (i32, i32, i32),
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
     let mut z = z_start;
 
     // Use i64 for accumulators to prevent overflow when x_start is far off-screen
-    let mut r_i = c_start.0;
-    let mut g_i = c_start.1;
-    let mut b_i = c_start.2;
+    let r_i = c_start.0;
+    let g_i = c_start.1;
+    let b_i = c_start.2;
     let (dr, dg, db) = (i64::from(dc_dx.0), i64::from(dc_dx.1), i64::from(dc_dx.2));
 
-    // Clamp to screen bounds
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        z += (diff as f32) * dz_dx;
-        let diff_i64 = diff;
-        r_i += diff_i64 * dr;
-        g_i += diff_i64 * dg;
-        b_i += diff_i64 * db;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
+    debug_assert!(x_start >= 0, "x_start must be >= 0");
+    debug_assert!(x_end < width, "x_end must be < width");
+    debug_assert!(x_start <= x_end, "x_start must be <= x_end");
 
     // Optimization: Demote to i32 for the hot loop to reduce register pressure.
     // We used i64 above to handle large off-screen jumps safely without overflow.
@@ -350,20 +359,18 @@ fn draw_scanline_gouraud(
     let dg = dg as i32;
     let db = db as i32;
 
-    if xs <= xe {
-        // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-        let width_usize = fb.width() as usize;
-        let y_offset = (y as usize) * width_usize;
-        let start_idx = y_offset + (xs as usize);
-        let end_idx = y_offset + (xe as usize);
+    // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (x_start as usize);
+    let end_idx = y_offset + (x_end as usize);
 
-        // SAFETY:
-        // 1. xs and xe are clamped to [0, width-1] by the logic above.
-        // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
-        // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
-        // Therefore, the range is valid and within bounds.
-        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    // SAFETY:
+    // 1. x_start and x_end are guaranteed to be in [0, width-1] by callers using `clip_span`.
+    // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
+    // 3. x_start <= x_end is guaranteed by `clip_span`.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             // Check depth buffer
@@ -386,7 +393,6 @@ fn draw_scanline_gouraud(
             g_i += dg;
             b_i += db;
         }
-    }
 }
 
 pub(crate) struct EdgeWalker {
@@ -645,40 +651,42 @@ pub fn fill_triangle_gouraud(
                 edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
             }
 
-            let (x_start, x_end, z_left, c_left) = if long_edge_is_left {
-                (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.c,
-                )
+            let (x_start, x_end, mut z_left, mut c_left) = if long_edge_is_left {
+                (edge_a.x >> 16, edge_b.x >> 16, edge_a.z, edge_a.c)
             } else {
-                (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.c,
-                )
+                (edge_b.x >> 16, edge_a.x >> 16, edge_b.z, edge_b.c)
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+            if let Some((xs, xe, skip)) = clip_span(x_start, x_end, width_i32) {
+                if skip > 0 {
+                    let skip_f = skip as f32;
+                    z_left += skip_f * gradients.dz_dx;
+                    // Use wrapping math to avoid panics on extreme overflows
+                    let dr = i64::from(gradients.dc_dx.0);
+                    let dg = i64::from(gradients.dc_dx.1);
+                    let db = i64::from(gradients.dc_dx.2);
+                    c_left.0 = c_left.0.wrapping_add(skip.wrapping_mul(dr));
+                    c_left.1 = c_left.1.wrapping_add(skip.wrapping_mul(dg));
+                    c_left.2 = c_left.2.wrapping_add(skip.wrapping_mul(db));
                 }
-            } else {
-                draw_scanline_gouraud(
-                    fb,
-                    zb,
-                    y,
-                    x_start,
-                    x_end,
-                    z_left,
-                    c_left,
-                    gradients.dz_dx,
-                    gradients.dc_dx,
-                );
+
+                if xs == xe {
+                    if zb.test_and_set(xs, y, z_left) {
+                        fb.set_pixel(xs, y, pack_color_fixed(c_left));
+                    }
+                } else {
+                    draw_scanline_gouraud(
+                        fb,
+                        zb,
+                        y,
+                        xs,
+                        xe,
+                        z_left,
+                        c_left,
+                        gradients.dz_dx,
+                        gradients.dc_dx,
+                    );
+                }
             }
 
             edge_a.step();
@@ -1107,41 +1115,25 @@ fn draw_scanline_textured_perspective(
     gradients: &PerspectiveTextureGradients,
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
     let mut z = start.z;
     let mut q = start.q;
     let mut u = start.u;
     let mut v = start.v;
 
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        u += diff_f * gradients.du_dx;
-        v += diff_f * gradients.dv_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
-        return;
-    }
+    debug_assert!(x_start >= 0, "x_start must be >= 0");
+    debug_assert!(x_end < width, "x_end must be < width");
+    debug_assert!(x_start <= x_end, "x_start must be <= x_end");
 
     let span_size = 16;
-    let mut x = xs;
+    let mut x = x_start;
 
     // Calculate initial start values
     let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
     let mut u_tex_start = u * w_start;
     let mut v_tex_start = v * w_start;
 
-    while x <= xe {
-        let remaining = xe - x + 1;
+    while x <= x_end {
+        let remaining = x_end - x + 1;
         let count = remaining.min(span_size);
 
         // End values at 'x + count'
@@ -1348,59 +1340,66 @@ pub fn fill_triangle_textured(
                 edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
             }
 
-            let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
-                (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.q,
-                    edge_a.u,
-                    edge_a.v,
-                )
-            } else {
-                (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.q,
-                    edge_b.u,
-                    edge_b.v,
-                )
-            };
+            let (x_start, x_end, mut z_left, mut q_left, mut u_left, mut v_left) =
+                if long_edge_is_left {
+                    (
+                        edge_a.x >> 16,
+                        edge_b.x >> 16,
+                        edge_a.z,
+                        edge_a.q,
+                        edge_a.u,
+                        edge_a.v,
+                    )
+                } else {
+                    (
+                        edge_b.x >> 16,
+                        edge_a.x >> 16,
+                        edge_b.z,
+                        edge_b.q,
+                        edge_b.u,
+                        edge_b.v,
+                    )
+                };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                if x_start >= 0
-                    && x_start < width_i32
-                    && zb.test_and_set(x_start, y, z_left)
-                    && q_left.abs() > 0.000_001
-                {
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    let color = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                    };
-                    fb.set_pixel(x_start, y, color);
+            if let Some((xs, xe, skip)) = clip_span(x_start, x_end, width_i32) {
+                if skip > 0 {
+                    let s = skip as f32;
+                    z_left += s * gradients.dz_dx;
+                    q_left += s * gradients.dq_dx;
+                    u_left += s * gradients.du_dx;
+                    v_left += s * gradients.dv_dx;
                 }
-            } else {
-                draw_scanline_textured_perspective(
-                    fb,
-                    zb,
-                    texture,
-                    y,
-                    x_start,
-                    x_end,
-                    PerspectiveSpanStart {
-                        z: z_left,
-                        q: q_left,
-                        u: u_left,
-                        v: v_left,
-                    },
-                    &gradients,
-                );
+
+                if xs == xe {
+                    if q_left.abs() > 0.000_001 && zb.test_and_set(xs, y, z_left) {
+                        let w = 1.0 / q_left;
+                        let u_tex = u_left * w;
+                        let v_tex = v_left * w;
+                        let color = match texture.filter_mode {
+                            FilterMode::Nearest => {
+                                texture.get_pixel_texel(u_tex as i32, v_tex as i32)
+                            }
+                            FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        };
+                        fb.set_pixel(xs, y, color);
+                    }
+                } else {
+                    draw_scanline_textured_perspective(
+                        fb,
+                        zb,
+                        texture,
+                        y,
+                        xs,
+                        xe,
+                        PerspectiveSpanStart {
+                            z: z_left,
+                            q: q_left,
+                            u: u_left,
+                            v: v_left,
+                        },
+                        &gradients,
+                    );
+                }
             }
 
             edge_a.step();

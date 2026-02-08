@@ -13,3 +13,11 @@
 **2024-05-27 - [Fix Integer Overflow in Texture Allocation]**
 **Threat:** Integer overflow when calculating texture buffer size `(width * height)` for large dimensions (e.g., 65536x65536). This resulted in a small allocation (wrapping to 0) but valid dimensions, causing heap buffer overflow during pixel access.
 **Defense:** Changed `Texture::new` to return `Result`, enforced `width * height` fits in `u32` and `usize`, and added regression test `tests/security_texture_overflow.rs`.
+
+**2025-02-23 - [Fix Integer Overflow in Rasterizer Coordinates]**
+**Threat:** Integer overflow in `fill_triangle_3d` (and variants) when projected vertex coordinates exceed `i32` range (e.g., extremely wide triangles due to camera proximity). This caused `x_start` to wrap to negative values, bypassing screen bounds checks and potentially causing incorrect rendering or infinite loops.
+**Defense:** Switched coordinate calculations to `i64` in the rasterizer and implemented strict clamping via a new `clip_span` helper before casting to `i32`. Added `debug_assert!` contracts to `draw_scanline_*` functions.
+
+**2025-02-23 - [Harden OBJ Loader]**
+**Threat:** Unnecessary use of `unsafe { get_unchecked }` in `obj_loader.rs` which could lead to Undefined Behavior if index validation logic had subtle bugs.
+**Defense:** Removed all `unsafe` blocks and replaced them with safe indexing. The performance impact is negligible for mesh loading.
