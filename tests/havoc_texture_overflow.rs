@@ -1,4 +1,4 @@
-use abrash::rasterizer::Texture;
+use abrash::texture::Texture;
 use proptest::prelude::*;
 
 proptest! {
