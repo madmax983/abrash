@@ -1166,6 +1166,50 @@ mod tests {
     }
 
     #[test]
+    fn prepare_triangle_rejects_degenerate_zero_area() {
+        let mut tr = TileRenderer::new(100, 100);
+        // All three vertices at the same point → zero area
+        let v0 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
+        let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
+        let v2 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(tr.prepared.len(), 0, "Zero-area triangle should be rejected");
+    }
+
+    #[test]
+    fn prepare_triangle_rejects_degenerate_collinear() {
+        let mut tr = TileRenderer::new(100, 100);
+        // Three collinear vertices → zero area
+        let v0 = (Vec3::new(-0.5, 0.0, 5.0), 5.0);
+        let v1 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
+        let v2 = (Vec3::new(0.5, 0.0, 5.0), 5.0);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(tr.prepared.len(), 0, "Collinear triangle should be rejected");
+    }
+
+    #[test]
+    fn prepare_triangle_rejects_tiny_subpixel() {
+        let mut tr = TileRenderer::new(100, 100);
+        // Triangle with area < 0.5 pixels (subpixel, effectively invisible)
+        let v0 = (Vec3::new(0.0, 0.0, 5.0), 5.0);
+        let v1 = (Vec3::new(0.001, 0.0, 5.0), 5.0);
+        let v2 = (Vec3::new(0.0, 0.001, 5.0), 5.0);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(tr.prepared.len(), 0, "Subpixel triangle should be rejected");
+    }
+
+    #[test]
+    fn prepare_triangle_accepts_normal_triangle() {
+        let mut tr = TileRenderer::new(100, 100);
+        // Normal visible triangle
+        let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
+        let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
+        let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
+        tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
+        assert_eq!(tr.prepared.len(), 1, "Normal triangle should be accepted");
+    }
+
+    #[test]
     fn prepare_triangle_sorts_by_y() {
         let mut tr = TileRenderer::new(100, 100);
         let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
