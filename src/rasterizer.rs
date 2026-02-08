@@ -80,7 +80,9 @@ fn draw_scanline_flat(
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z_fixed += (-i64::from(xs)) as i32 * dz_dx_fixed;
+        // Use i64 for multiplication to avoid overflow, then wrapping_add for accumulation
+        let diff = -i64::from(xs);
+        z_fixed = z_fixed.wrapping_add((diff * i64::from(dz_dx_fixed)) as i32);
         xs = 0;
     }
 
