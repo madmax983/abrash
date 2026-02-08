@@ -2,7 +2,7 @@
 //!
 //! Provides functions to generate textures algorithmically.
 
-use crate::rasterizer::Texture;
+use crate::texture::Texture;
 
 /// A simple Xorshift random number generator for deterministic noise.
 struct XorShift32 {

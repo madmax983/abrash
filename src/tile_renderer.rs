@@ -73,8 +73,9 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveTextureGradients, PerspectiveTextureEdgeWalker,
-    PerspectiveSpanStart, RECIPROCAL_TABLE, Texture, is_backface, sort_by_y, FilterMode
+    PerspectiveSpanStart, RECIPROCAL_TABLE, is_backface, sort_by_y,
 };
+use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).

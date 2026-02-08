@@ -11,6 +11,7 @@ pub mod experimental;
 pub mod hiz_buffer;
 pub mod obj_loader;
 pub mod tile_renderer;
+pub mod texture;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
