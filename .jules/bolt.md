@@ -11,3 +11,7 @@
 **[Reciprocal Table Win]**
 **Learning:** Replacing integer division by `count` (1..16) with a lookup table of reciprocals (`1.0/count`) yielded a ~3-11% improvement in textured triangle rasterization.
 **Action:** Always look for repeated divisions by small integers in hot loops and replace them with reciprocal multiplication.
+
+**[TextureView Optimization]**
+**Learning:** Extracting hot fields (pixels, width) from a struct containing a Vec into a stack-allocated view struct (TextureView) can significantly improve performance (6% in bilinear) by avoiding double indirection. Passing this small view struct by value is crucial for performance.
+**Action:** Always prefer &[T] slice access over Vec<T> access in hot loops, and bundle necessary metadata into a small Copy struct to pass by value.
