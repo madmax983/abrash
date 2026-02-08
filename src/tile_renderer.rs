@@ -72,8 +72,8 @@ use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{
-    EdgeWalker, PerspectiveTextureGradients, PerspectiveTextureEdgeWalker,
-    PerspectiveSpanStart, RECIPROCAL_TABLE, is_backface, sort_by_y,
+    EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
+    RECIPROCAL_TABLE, is_backface, sort_by_y,
 };
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
