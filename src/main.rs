@@ -14,7 +14,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 use std::{error::Error, io, process::Command};
 
@@ -29,6 +29,7 @@ struct Args {
 struct Demo {
     name: &'static str,
     description: &'static str,
+    instructions: &'static str,
     example_name: &'static str,
 }
 
@@ -36,12 +37,20 @@ const DEMOS: &[Demo] = &[
     Demo {
         name: "Lit Cube",
         description: "Flat shaded cube with directional lighting",
+        instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "lit_cube",
     },
     Demo {
         name: "Cube 3D",
         description: "Basic 3D cube rendering",
+        instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "cube_3d",
+    },
+    Demo {
+        name: "OBJ Viewer",
+        description: "Loads and renders a 3D model (Spaceship)",
+        instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
+        example_name: "obj_viewer",
     },
 ];
 
@@ -132,47 +141,56 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 
     loop {
         terminal.draw(|f| {
-            let chunks = Layout::default()
+            // Main vertical layout
+            let main_chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .margin(1)
                 .constraints(
                     [
-                        Constraint::Length(3),
-                        Constraint::Min(0),
-                        Constraint::Length(3),
+                        Constraint::Length(3), // Title
+                        Constraint::Min(0),    // Content
+                        Constraint::Length(3), // Help
                     ]
                     .as_ref(),
                 )
                 .split(f.area());
 
+            // Title
             let title = Paragraph::new("Abrash Engine Dashboard")
                 .style(
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 )
-                .block(Block::default().borders(Borders::ALL));
-            f.render_widget(title, chunks[0]);
+                .block(Block::default().borders(Borders::ALL))
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(title, main_chunks[0]);
 
+            // Content Split (List vs Details)
+            let content_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    [
+                        Constraint::Percentage(40), // List
+                        Constraint::Percentage(60), // Details
+                    ]
+                    .as_ref(),
+                )
+                .split(main_chunks[1]);
+
+            // Demo List
             let items: Vec<ListItem> = DEMOS
                 .iter()
                 .map(|demo| {
-                    let lines = vec![
-                        Line::from(Span::styled(
-                            demo.name,
-                            Style::default().add_modifier(Modifier::BOLD),
-                        )),
-                        Line::from(Span::styled(
-                            format!("  {}", demo.description),
-                            Style::default().fg(Color::Gray),
-                        )),
-                    ];
-                    ListItem::new(lines).style(Style::default().fg(Color::White))
+                    ListItem::new(Span::styled(
+                        format!(" {} ", demo.name),
+                        Style::default().fg(Color::White),
+                    ))
                 })
                 .collect();
 
-            let items = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title("Demos"))
+            let items_list = List::new(items)
+                .block(Block::default().borders(Borders::ALL).title(" Demos "))
                 .highlight_style(
                     Style::default()
                         .bg(Color::Blue)
@@ -180,12 +198,57 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 )
                 .highlight_symbol(">> ");
 
-            f.render_stateful_widget(items, chunks[1], &mut app.state);
+            f.render_stateful_widget(items_list, content_chunks[0], &mut app.state);
 
-            let help = Paragraph::new("Select with ↑/↓, Enter to Launch, Q to Quit")
-                .style(Style::default().fg(Color::DarkGray))
-                .block(Block::default().borders(Borders::ALL));
-            f.render_widget(help, chunks[2]);
+            // Details Pane
+            if let Some(i) = app.state.selected() {
+                let demo = &DEMOS[i];
+
+                let details_text = vec![
+                    Line::from(Span::styled(
+                        "Description:",
+                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                    )),
+                    Line::from(format!("  {}\n", demo.description)),
+                    Line::from(Span::styled(
+                        "Instructions:",
+                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                    )),
+                    Line::from(format!("{}\n", demo.instructions)),
+                    Line::from(Span::styled(
+                        "Command:",
+                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                    )),
+                    Line::from(Span::styled(
+                        if std::env::consts::OS == "windows" {
+                            format!("  cargo run --release --example {}", demo.example_name)
+                        } else {
+                            format!(
+                                "  cargo run --release --example {} --no-default-features --features backend-tui",
+                                demo.example_name
+                            )
+                        },
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                ];
+
+                let details = Paragraph::new(details_text)
+                    .block(Block::default().borders(Borders::ALL).title(" Details "))
+                    .wrap(Wrap { trim: true });
+                f.render_widget(details, content_chunks[1]);
+            } else {
+                let placeholder = Paragraph::new("Select a demo to view details")
+                    .block(Block::default().borders(Borders::ALL))
+                    .style(Style::default().fg(Color::DarkGray));
+                f.render_widget(placeholder, content_chunks[1]);
+            }
+
+            // Help Bar
+            let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
+                .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+                .alignment(ratatui::layout::Alignment::Center)
+                .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
+            f.render_widget(help, main_chunks[2]);
         })?;
 
         if let Event::Key(key) = event::read()? {
@@ -226,18 +289,35 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("Launching {name}...");
-    let mut child = Command::new("cargo")
-        .arg("run")
+    println!("Preparing to launch {name}...");
+
+    let mut cmd = Command::new("cargo");
+    cmd.arg("run")
         .arg("--release")
         .arg("--example")
-        .arg(name)
-        .spawn()?;
+        .arg(name);
+
+    // Smart Launch: On non-Windows systems, default to TUI backend to ensure
+    // the example runs (as Win32 API is not available).
+    if std::env::consts::OS != "windows" {
+        println!(
+            "ℹ️  Non-Windows OS detected ({}). Enabling TUI backend...",
+            std::env::consts::OS
+        );
+        cmd.arg("--no-default-features")
+            .arg("--features")
+            .arg("backend-tui");
+    }
+
+    let mut child = cmd.spawn()?;
 
     let status = child.wait()?;
 
     if !status.success() {
-        eprintln!("Demo exited with error: {status}");
+        eprintln!("❌ Demo exited with error: {status}");
+        // Give user a chance to read the error
+        println!("Press Enter to return to dashboard...");
+        let _ = std::io::stdin().read_line(&mut String::new());
     }
 
     Ok(())
