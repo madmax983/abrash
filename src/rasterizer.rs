@@ -718,6 +718,9 @@ pub struct PerspectiveTextureGradients {
     pub dq_dx: f32,
     pub du_dx: f32,
     pub dv_dx: f32,
+    pub dq_dy: f32,
+    pub du_dy: f32,
+    pub dv_dy: f32,
 }
 
 impl PerspectiveTextureGradients {
@@ -765,11 +768,24 @@ impl PerspectiveTextureGradients {
         let nx_v = uy * vv - uv * vy;
         let dv_dx = nx_v * inv_nz;
 
+        // Calculate Y gradients
+        let ny_q = uq * vx - ux * vq;
+        let dq_dy = ny_q * inv_nz;
+
+        let ny_u = uu * vx - ux * vu;
+        let du_dy = ny_u * inv_nz;
+
+        let ny_v = uv * vx - ux * vv;
+        let dv_dy = ny_v * inv_nz;
+
         Self {
             dz_dx,
             dq_dx,
             du_dx,
             dv_dx,
+            dq_dy,
+            du_dy,
+            dv_dy,
         }
     }
 }
@@ -989,6 +1005,59 @@ fn draw_scanline_textured_perspective(
                     v_fix = v_fix.wrapping_add(dv_fix);
                 }
             }
+            FilterMode::Trilinear => {
+                // For Trilinear, we need LOD
+                // Calculate LOD at span center (approx)
+                // We use span start values for calculation to avoid extra per-pixel work
+                // u_tex_start, v_tex_start are u/q * w = u * w^2 ? No.
+                // u_tex = u * w. u in span is u/w.
+                // u_tex_start is the actual texture coordinate at start of span.
+
+                // Derivatives at start of span:
+                // q_start is q at start of span.
+                let w = w_start; // 1/q
+                let w_sq = w * w;
+
+                // Derivatives of u_tex w.r.t screen X
+                // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                // gradients.du_dx is du/dx for the variable u (which is U/W).
+                // Wait.
+                // In setup: u is U/W. q is 1/W.
+                // Texture coord U_tex = u / q.
+                // d(u/q)/dx = (u'q - uq')/q^2
+                // u' = gradients.du_dx. q' = gradients.dq_dx.
+
+                // Calculate X derivatives
+                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+
+                // Calculate Y derivatives
+                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
+                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+
+                let lod = 0.5 * max_rho_sq.log2();
+
+                // Interpolate
+                let mut u_fix = (u_tex_start * 65536.0) as i32;
+                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let u_float = (u_fix as f32) / 65536.0;
+                        let v_float = (v_fix as f32) / 65536.0;
+                        *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
+                    }
+                    z += gradients.dz_dx;
+                    u_fix = u_fix.wrapping_add(du_fix);
+                    v_fix = v_fix.wrapping_add(dv_fix);
+                }
+            }
         }
 
         // Advance state
@@ -1160,6 +1229,25 @@ pub fn fill_triangle_textured(
                     let color = match texture.filter_mode {
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => {
+                            // Calculate LOD for single pixel
+                            // q = 1/w.
+                            // u_tex = u/q.
+                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                            let w = 1.0 / q_left;
+                            let w_sq = w * w;
+
+                            let du_tex_dx = (gradients.du_dx * q_left - u_left * gradients.dq_dx) * w_sq;
+                            let dv_tex_dx = (gradients.dv_dx * q_left - v_left * gradients.dq_dx) * w_sq;
+                            let du_tex_dy = (gradients.du_dy * q_left - u_left * gradients.dq_dy) * w_sq;
+                            let dv_tex_dy = (gradients.dv_dy * q_left - v_left * gradients.dq_dy) * w_sq;
+
+                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
+                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+
+                            let lod = 0.5 * max_rho_sq.log2();
+                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                        }
                     };
                     fb.set_pixel(x_start, y, color);
                 }

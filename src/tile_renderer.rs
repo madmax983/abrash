@@ -602,6 +602,27 @@ fn render_triangle_in_tile_textured(
                     tile_pixels[tile_idx] = match texture.filter_mode {
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => {
+                            // Calculate LOD for single pixel
+                            // For a single pixel, we can estimate gradients based on the triangle gradients
+                            // projected to this pixel.
+                            // q = 1/w.
+                            // u_tex = u/q.
+                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                            let w = 1.0 / q_left;
+                            let w_sq = w * w;
+
+                            let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
+                            let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
+                            let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
+                            let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+
+                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
+                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+
+                            let lod = 0.5 * max_rho_sq.log2();
+                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                        }
                     };
                 }
             }
@@ -715,6 +736,42 @@ fn rasterize_scanline_textured(
                     if z < *depth_val {
                         *depth_val = z;
                         *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                    }
+                    z += gradients.dz_dx;
+                    u_fix = u_fix.wrapping_add(du_fix);
+                    v_fix = v_fix.wrapping_add(dv_fix);
+                }
+            }
+            FilterMode::Trilinear => {
+                // Calculate LOD once per span (approximation)
+                let w = w_start; // 1/q
+                let w_sq = w * w;
+
+                // Derivatives of u_tex w.r.t screen X/Y
+                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
+                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+
+                let lod = 0.5 * max_rho_sq.log2();
+
+                let mut u_fix = (u_tex_start * 65536.0) as i32;
+                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+                for k in 0..count {
+                    let depth_val = unsafe { depths.get_unchecked_mut(i + k) };
+                    let pixel = unsafe { pixels.get_unchecked_mut(i + k) };
+
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let u_float = (u_fix as f32) / 65536.0;
+                        let v_float = (v_fix as f32) / 65536.0;
+                        *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);

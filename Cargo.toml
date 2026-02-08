@@ -94,6 +94,10 @@ name = "tile_rendering_textured"
 harness = false
 
 [[bench]]
+name = "mipmapping"
+harness = false
+
+[[bench]]
 name = "phase1_simd"
 harness = false
 
