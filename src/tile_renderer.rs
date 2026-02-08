@@ -761,6 +761,7 @@ fn rasterize_scanline_scalar(
 /// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(dead_code)]
 fn rasterize_scanline_simd(
     pixels: &mut [u32],
     depths: &mut [f32],
@@ -828,6 +829,7 @@ fn rasterize_scanline_simd(
 /// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
 #[inline(always)]
+#[allow(dead_code)]
 fn rasterize_scanline_simd(
     pixels: &mut [u32],
     depths: &mut [f32],
@@ -866,7 +868,9 @@ fn rasterize_scanline_simd(
 ///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
+    #[cfg(not(feature = "parallel"))]
     tile_pixels: Vec<u32>,
+    #[cfg(not(feature = "parallel"))]
     tile_depths: Vec<f32>,
     tiles_x: u32,
     tiles_y: u32,
@@ -893,10 +897,13 @@ impl TileRenderer {
         let tiles_x = width.div_ceil(TILE_SIZE);
         let tiles_y = height.div_ceil(TILE_SIZE);
         let tile_count = (tiles_x * tiles_y) as usize;
+        #[cfg(not(feature = "parallel"))]
         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
 
         Self {
+            #[cfg(not(feature = "parallel"))]
             tile_pixels: vec![0; tile_area],
+            #[cfg(not(feature = "parallel"))]
             tile_depths: vec![0.0; tile_area],
             tiles_x,
             tiles_y,
@@ -1045,6 +1052,27 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height must match TileRenderer height"
+        );
+
         self.prepared.clear();
         for bin in &mut self.tile_bins {
             bin.clear();
@@ -1200,6 +1228,27 @@ impl TileRenderer {
         triangles: &[TexturedClipTriangle],
         texture: &Texture,
     ) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height must match TileRenderer height"
+        );
+
         self.prepared_textured.clear();
         for bin in &mut self.tile_bins {
             bin.clear();
@@ -1598,6 +1647,7 @@ impl TileRenderer {
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
     /// Only copies the rows between `y_min` and `y_max` (inclusive, screen coords).
     #[allow(clippy::too_many_arguments)]
+    #[cfg(not(feature = "parallel"))]
     fn merge_tile_direct(
         tile_pixels: &[u32],
         tile_depths: &[f32],
