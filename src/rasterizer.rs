@@ -66,7 +66,7 @@ fn draw_scanline_flat(
     y: i32,
     x_start: i32,
     x_end: i32,
-    z_start_fixed: i32, // 24.8 fixed point
+    z_start: f32,
     dz_dx: f32,
     color: u32,
 ) {
@@ -74,14 +74,12 @@ fn draw_scanline_flat(
     // Clamp X range to screen bounds
     let mut xs = x_start;
     let mut xe = x_end;
-
-    // Convert dz_dx to fixed-point for accumulation
-    let dz_dx_fixed = (dz_dx * 256.0) as i32;
-    let mut z_fixed = z_start_fixed;
+    let mut z = z_start;
 
     if xs < 0 {
         // Advance z if we start off-screen
-        z_fixed += (-i64::from(xs)) as i32 * dz_dx_fixed;
+        let diff = -xs as f32;
+        z += diff * dz_dx;
         xs = 0;
     }
 
@@ -111,17 +109,12 @@ fn draw_scanline_flat(
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
-    const INV_256: f32 = 1.0 / 256.0;
-
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        // Convert fixed-point to float for zbuffer comparison (Option A)
-        let z_float = (z_fixed as f32) * INV_256;
-        if z_float < *depth_val {
-            *depth_val = z_float;
+        if z < *depth_val {
+            *depth_val = z;
             *pixel = color;
         }
-        z_fixed += dz_dx_fixed;
+        z += dz_dx;
     }
 }
 
@@ -264,7 +257,10 @@ pub fn fill_triangle_3d(
                     fb.set_pixel(x_start, y, color);
                 }
             } else {
-                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+                // Convert fixed-point to float for scanline interpolation
+                // This avoids per-pixel int->float conversion in the inner loop
+                let z_left_float = (z_left as f32) / 256.0;
+                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left_float, dz_dx, color);
             }
 
             edge_a.step();
@@ -1312,20 +1308,20 @@ mod tests {
     }
 
     #[test]
-    fn draw_scanline_flat_fixed_point_conversion() {
-        // Test that draw_scanline_flat correctly converts fixed to float
+    fn draw_scanline_flat_interpolation() {
+        // Test that draw_scanline_flat correctly interpolates z
         let width = 100;
         let height = 1;
 
         let mut fb = Framebuffer::new(width, height).unwrap();
         let mut zb = ZBuffer::new(width, height).unwrap();
 
-        // Draw a scanline with fixed-point z
-        let z_start_fixed = (5.0 * 256.0) as i32; // 5.0 in 24.8 fixed point
+        // Draw a scanline with float z
+        let z_start = 5.0;
         let dz_dx = 0.01; // Slight gradient
         let color = 0xFFFF_0000;
 
-        draw_scanline_flat(&mut fb, &mut zb, 0, 0, 99, z_start_fixed, dz_dx, color);
+        draw_scanline_flat(&mut fb, &mut zb, 0, 0, 99, z_start, dz_dx, color);
 
         // Verify all pixels were drawn
         for x in 0..width {
@@ -1337,12 +1333,11 @@ mod tests {
             );
         }
 
-        // Verify zbuffer was updated correctly (with 24.8 fixed-point precision)
+        // Verify zbuffer was updated correctly
         let zb_slice = zb.as_slice();
-        // Fixed-point introduces small rounding errors, but values should increase
         assert!(
-            (zb_slice[0] - 5.0).abs() < 0.02,
-            "First pixel: got {}, expected ~5.0",
+            (zb_slice[0] - 5.0).abs() < 0.0001,
+            "First pixel: got {}, expected 5.0",
             zb_slice[0]
         );
         assert!(
