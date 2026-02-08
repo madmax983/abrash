@@ -46,6 +46,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     .ok_or_else(|| format!("Line {}: Missing z", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid z", line_num))?;
+
+                if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+                    return Err(format!("Line {}: Coordinates must be finite", line_num));
+                }
                 raw_positions.push(Vec3::new(x, y, z));
             }
             "vt" => {
@@ -59,6 +63,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     .ok_or_else(|| format!("Line {}: Missing v", line_num))?
                     .parse::<f32>()
                     .map_err(|_| format!("Line {}: Invalid v", line_num))?;
+
+                if !u.is_finite() || !v.is_finite() {
+                    return Err(format!("Line {}: UV coordinates must be finite", line_num));
+                }
                 raw_uvs.push(Vec2::new(u, v));
             }
             "f" => {
