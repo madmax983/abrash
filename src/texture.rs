@@ -151,12 +151,10 @@ impl Texture {
 
     #[inline(always)]
     fn fetch_bilinear_neighbors(&self, x0_raw: i32, y0_raw: i32) -> (u32, u32, u32, u32) {
-        let w_i32 = self.width as i32 - 1;
-        let h_i32 = self.height as i32 - 1;
-
         // Optimization: Fast path for interior pixels to avoid 4 clamps
-        // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
-        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+        // Use unsigned cast to check 0 <= x < width-1 in one op
+        // We need x0_raw + 1 to be valid, so x0_raw < width - 1.
+        if (x0_raw as u32) < (self.width - 1) && (y0_raw as u32) < (self.height - 1) {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
             let width_usize = self.width as usize;
@@ -172,6 +170,8 @@ impl Texture {
                 )
             }
         } else {
+            let w_i32 = self.width as i32 - 1;
+            let h_i32 = self.height as i32 - 1;
             let x0 = x0_raw.clamp(0, w_i32) as usize;
             let y0 = y0_raw.clamp(0, h_i32) as usize;
             let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
@@ -195,9 +195,14 @@ impl Texture {
 
     #[must_use]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
-        let x = x.clamp(0, self.width as i32 - 1) as usize;
-        let y = y.clamp(0, self.height as i32 - 1) as usize;
-        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        if (x as u32) < self.width && (y as u32) < self.height {
+            let width_usize = self.width as usize;
+            unsafe { *self.pixels.get_unchecked((y as usize) * width_usize + (x as usize)) }
+        } else {
+            let x = x.clamp(0, self.width as i32 - 1) as usize;
+            let y = y.clamp(0, self.height as i32 - 1) as usize;
+            unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        }
     }
 
     /// Create a checkerboard texture.
