@@ -52,6 +52,12 @@ const DEMOS: &[Demo] = &[
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "obj_viewer",
     },
+    Demo {
+        name: "Post FX",
+        description: "Retro post-processing effects (CRT, Grayscale)",
+        instructions: "• Mouse: None\n• Keyboard: Auto-cycling effects",
+        example_name: "post_fx",
+    },
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -292,10 +298,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     println!("Preparing to launch {name}...");
 
     let mut cmd = Command::new("cargo");
-    cmd.arg("run")
-        .arg("--release")
-        .arg("--example")
-        .arg(name);
+    cmd.arg("run").arg("--release").arg("--example").arg(name);
 
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure
     // the example runs (as Win32 API is not available).

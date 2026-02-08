@@ -67,6 +67,8 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
+#![allow(clippy::collapsible_if)]
+
 use crate::clipping::clip_triangle_against_near_plane;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};

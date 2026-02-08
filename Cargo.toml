@@ -73,6 +73,10 @@ name = "lit_cube"
 path = "examples/lit_cube.rs"
 
 [[example]]
+name = "post_fx"
+path = "examples/post_fx.rs"
+
+[[example]]
 name = "wasm_cube_3d"
 path = "examples/wasm_cube_3d.rs"
 required-features = ["backend-wasm"]

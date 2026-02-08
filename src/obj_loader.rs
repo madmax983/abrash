@@ -33,39 +33,39 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
             "v" => {
                 let x = parts
                     .next()
-                    .ok_or_else(|| format!("Line {}: Missing x", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing x"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid x", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid x"))?;
                 let y = parts
                     .next()
-                    .ok_or_else(|| format!("Line {}: Missing y", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing y"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid y", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid y"))?;
                 let z = parts
                     .next()
-                    .ok_or_else(|| format!("Line {}: Missing z", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing z"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid z", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid z"))?;
 
                 if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-                    return Err(format!("Line {}: Coordinates must be finite", line_num));
+                    return Err(format!("Line {line_num}: Coordinates must be finite"));
                 }
                 raw_positions.push(Vec3::new(x, y, z));
             }
             "vt" => {
                 let u = parts
                     .next()
-                    .ok_or_else(|| format!("Line {}: Missing u", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing u"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid u", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid u"))?;
                 let v = parts
                     .next()
-                    .ok_or_else(|| format!("Line {}: Missing v", line_num))?
+                    .ok_or_else(|| format!("Line {line_num}: Missing v"))?
                     .parse::<f32>()
-                    .map_err(|_| format!("Line {}: Invalid v", line_num))?;
+                    .map_err(|_| format!("Line {line_num}: Invalid v"))?;
 
                 if !u.is_finite() || !v.is_finite() {
-                    return Err(format!("Line {}: UV coordinates must be finite", line_num));
+                    return Err(format!("Line {line_num}: UV coordinates must be finite"));
                 }
                 raw_uvs.push(Vec2::new(u, v));
             }
@@ -78,24 +78,24 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Position index
                     let v_str = segs
                         .next()
-                        .ok_or_else(|| format!("Line {}: Invalid face format", line_num))?;
+                        .ok_or_else(|| format!("Line {line_num}: Invalid face format"))?;
                     let v_idx = v_str
                         .parse::<usize>()
-                        .map_err(|_| format!("Line {}: Invalid vertex index", line_num))?;
+                        .map_err(|_| format!("Line {line_num}: Invalid vertex index"))?;
                     // OBJ is 1-based
                     let v_idx = v_idx
                         .checked_sub(1)
-                        .ok_or_else(|| format!("Line {}: Vertex index 0 is invalid", line_num))?;
+                        .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
                     // UV index
                     let mut vt_idx = None;
                     if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
                         let idx = vt_str
                             .parse::<usize>()
-                            .map_err(|_| format!("Line {}: Invalid UV index", line_num))?;
+                            .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
                         vt_idx =
                             Some(idx.checked_sub(1).ok_or_else(|| {
-                                format!("Line {}: UV index 0 is invalid", line_num)
+                                format!("Line {line_num}: UV index 0 is invalid")
                             })?);
                     }
 
@@ -139,7 +139,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                 // Triangulate fan
                 if face_indices.len() < 3 {
-                    return Err(format!("Line {}: Face has fewer than 3 vertices", line_num));
+                    return Err(format!("Line {line_num}: Face has fewer than 3 vertices"));
                 }
 
                 for i in 1..face_indices.len() - 1 {
