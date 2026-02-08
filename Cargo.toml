@@ -110,6 +110,11 @@ name = "gpu_binning"
 harness = false
 required-features = ["backend-win32", "gpu-binning"]
 
+[[bench]]
+name = "two_level_binning"
+harness = false
+required-features = ["backend-win32", "gpu-binning"]
+
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"
