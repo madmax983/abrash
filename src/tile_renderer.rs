@@ -1194,7 +1194,8 @@ impl TileRenderer {
                         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                         (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
                     },
-                    |(tile_pixels, tile_depths), &(tx, ty)| {
+                    |buffers, &(tx, ty)| {
+                        let (tile_pixels, tile_depths) = &mut *buffers;
                         if let Some((clear_y_min, clear_y_max)) = render_single_tile(
                             tx,
                             ty,
@@ -1224,14 +1225,8 @@ impl TileRenderer {
                                 // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
                                 // writes to non-overlapping regions determined by unique (tx, ty)
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(
-                                        fb_start + col,
-                                        tile_pixels[tile_row_offset + col],
-                                    );
-                                    zb_ptr.write(
-                                        fb_start + col,
-                                        tile_depths[tile_row_offset + col],
-                                    );
+                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -1360,7 +1355,8 @@ impl TileRenderer {
                         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                         (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
                     },
-                    |(tile_pixels, tile_depths), &(tx, ty)| {
+                    |buffers, &(tx, ty)| {
+                        let (tile_pixels, tile_depths) = &mut *buffers;
                         if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
                             tx,
                             ty,
@@ -1389,14 +1385,8 @@ impl TileRenderer {
                                 let fb_start = row as usize * width as usize + tile_x0 as usize;
 
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(
-                                        fb_start + col,
-                                        tile_pixels[tile_row_offset + col],
-                                    );
-                                    zb_ptr.write(
-                                        fb_start + col,
-                                        tile_depths[tile_row_offset + col],
-                                    );
+                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
