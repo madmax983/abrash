@@ -249,17 +249,15 @@ pub fn fill_triangle_3d(
 
             let dx = i64::from(x_end) - i64::from(x_start);
 
+            // Convert fixed-point to float for zbuffer test/interpolation
+            let z_left_float = (z_left as f32) / 256.0;
+
             if dx <= 0 {
-                // Convert fixed-point to float for single-pixel zbuffer test
-                let z_left_float = (z_left as f32) / 256.0;
                 if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left_float)
                 {
                     fb.set_pixel(x_start, y, color);
                 }
             } else {
-                // Convert fixed-point to float for scanline interpolation
-                // This avoids per-pixel int->float conversion in the inner loop
-                let z_left_float = (z_left as f32) / 256.0;
                 draw_scanline_flat(fb, zb, y, x_start, x_end, z_left_float, dz_dx, color);
             }
 
@@ -404,7 +402,7 @@ impl EdgeWalker {
             // Convert z to 24.8 fixed point
             let z0_fixed = (p_start.z * 256.0) as i32;
             let z1_fixed = (p_end.z * 256.0) as i32;
-            let dz = (z1_fixed - z0_fixed) as i64;
+            let dz = i64::from(z1_fixed - z0_fixed);
 
             (
                 ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
@@ -420,7 +418,7 @@ impl EdgeWalker {
         }
     }
 
-    pub(crate) fn step(&mut self) {
+    pub(crate) const fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
     }
@@ -722,6 +720,7 @@ pub struct PerspectiveTextureGradients {
 
 impl PerspectiveTextureGradients {
     #[allow(clippy::too_many_arguments)]
+    #[must_use]
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -854,20 +853,20 @@ pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.0,
     1.0,
     0.5,
-    0.33333334,
+    0.333_333_34,
     0.25,
     0.2,
-    0.16666667,
-    0.14285715,
+    0.166_666_67,
+    0.142_857_15,
     0.125,
-    0.11111111,
+    0.111_111_11,
     0.1,
-    0.09090909,
-    0.083333336,
-    0.07692308,
-    0.071428575,
-    0.06666667,
-    0.0625,
+    0.090_909_09,
+    0.083_333_336,
+    0.076_923_08,
+    0.071_428_575,
+    0.066_666_67,
+    0.062_5,
 ];
 
 /// Draw a single scanline with perspective-correct texture mapping
