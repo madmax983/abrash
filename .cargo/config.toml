@@ -1,0 +1,5 @@
+[alias]
+# Run Miri using nightly without changing the project's default toolchain.
+miri-setup = "miri setup"
+miri-smoke = "miri test --lib rasterizer::tests::"
+miri-test = "miri test --lib"

@@ -281,12 +281,10 @@ pub fn fill_triangle_3d(
             let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left)
-                    // SAFETY:
-                    // 1. x_start is checked to be within [0, width) above.
-                    // 2. y is constrained by y_start..=y_end which are clamped to [0, height) outside the loop.
+                if x_start >= 0 && x_start < width_i32 {
+                    // SAFETY: Safe due to clamps on x_start and y.
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left_float) {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                             fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         }
                     }
@@ -1390,8 +1388,9 @@ mod tests {
         assert!((walker.z - expected_z).abs() < 0.0001);
 
         assert!(
-            z_float > 1.0 && z_float < 2.0,
-            "z should be interpolated between 1.0 and 2.0, got {z_float}",
+            walker.z > 1.0 && walker.z < 2.0,
+            "z should be interpolated between 1.0 and 2.0, got {}",
+            walker.z,
         );
     }
 

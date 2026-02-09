@@ -87,3 +87,23 @@ The engine follows a standard graphics pipeline architecture:
 ## License
 
 MIT
+
+## Miri Setup
+
+Miri is useful for catching undefined behavior in unsafe and low-level code paths.
+This project keeps `stable` as the default toolchain and runs Miri via `nightly`.
+
+```bash
+# One-time install
+rustup toolchain install nightly
+rustup component add miri --toolchain nightly
+
+# One-time stdlib setup for Miri
+cargo +nightly miri-setup
+
+# Fast smoke run (recommended during development)
+cargo +nightly miri-smoke
+
+# Run library tests under Miri
+cargo +nightly miri-test
+```
