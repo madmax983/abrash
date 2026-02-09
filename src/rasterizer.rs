@@ -97,6 +97,12 @@ fn draw_scanline_flat(
         zb.width(),
         "Framebuffer and ZBuffer widths must match"
     );
+
+    // SAFETY CHECK: Ensure y is within bounds before calculating offsets
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -347,6 +353,11 @@ fn draw_scanline_gouraud(
 
     if xs <= xe {
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+        // SAFETY CHECK: Ensure y is within bounds before calculating offsets
+        if y < 0 || y >= fb.height() as i32 {
+            return;
+        }
+
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
         let start_idx = y_offset + (xs as usize);
@@ -922,6 +933,11 @@ fn draw_scanline_textured_perspective(
     }
 
     if xs > xe {
+        return;
+    }
+
+    // SAFETY CHECK: Ensure y is within bounds before calculating offsets for unsafe access
+    if y < 0 || y >= fb.height() as i32 {
         return;
     }
 

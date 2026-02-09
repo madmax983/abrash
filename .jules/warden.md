@@ -13,3 +13,11 @@
 **2024-05-27 - [Fix Integer Overflow in Texture Allocation]**
 **Threat:** Integer overflow when calculating texture buffer size `(width * height)` for large dimensions (e.g., 65536x65536). This resulted in a small allocation (wrapping to 0) but valid dimensions, causing heap buffer overflow during pixel access.
 **Defense:** Changed `Texture::new` to return `Result`, enforced `width * height` fits in `u32` and `usize`, and added regression test `tests/security_texture_overflow.rs`.
+
+**2026-02-06 - [Remove Dead Unsafe Code & Harden Rasterizer]**
+**Threat:** Unused `unsafe` code in `src/tile_renderer.rs` (`rasterize_scanline_simd`) increased attack surface and maintenance burden.
+**Defense:** Removed dead code.
+**Threat:** `unsafe` indexing in `src/obj_loader.rs` relied on manual bounds checks which could be bypassed by future refactoring.
+**Defense:** Replaced with safe indexing; compiler optimization handles the rest.
+**Threat:** Missing `y` bounds check in `draw_scanline_*` functions (internal optimization) could allow out-of-bounds access if caller logic failed.
+**Defense:** Added explicit `if y < 0 || y >= height { return; }` checks to enforce safety contract locally.
