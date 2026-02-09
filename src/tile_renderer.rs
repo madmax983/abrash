@@ -207,13 +207,16 @@ pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f3
 
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 #[derive(Clone, Copy)]
-pub struct PreparedTriangle {
+pub(crate) struct PreparedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
     // Fixed-point vertices for deterministic edge function evaluation
+    #[allow(dead_code)]
     pub p0_fixed: VertexFixed,
+    #[allow(dead_code)]
     pub p1_fixed: VertexFixed,
+    #[allow(dead_code)]
     pub p2_fixed: VertexFixed,
     pub dz_dx: f32,
     pub long_edge_is_left: bool,
@@ -228,12 +231,15 @@ pub struct PreparedTriangle {
 
 /// A textured triangle prepared for rasterization.
 #[derive(Clone, Copy)]
-pub struct PreparedTexturedTriangle {
+pub(crate) struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
+    #[allow(dead_code)]
     pub p0_fixed: VertexFixed,
+    #[allow(dead_code)]
     pub p1_fixed: VertexFixed,
+    #[allow(dead_code)]
     pub p2_fixed: VertexFixed,
     pub q0: f32,
     pub q1: f32,
