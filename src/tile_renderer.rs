@@ -837,17 +837,13 @@ fn rasterize_scanline_simd(
         // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
         let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
 
-        // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
-        let mut depths_vec = _mm256_set_ps(
-            z_at_xs + 7.0 * dz_dx,
-            z_at_xs + 6.0 * dz_dx,
-            z_at_xs + 5.0 * dz_dx,
-            z_at_xs + 4.0 * dz_dx,
-            z_at_xs + 3.0 * dz_dx,
-            z_at_xs + 2.0 * dz_dx,
-            z_at_xs + 1.0 * dz_dx,
-            z_at_xs,
-        );
+        // Initialize depth vector using vector arithmetic:
+        // depths = z_at_xs + [0, 1, 2, 3, 4, 5, 6, 7] * dz_dx
+        // Note: set_ps takes arguments in reverse order (e7, e6, ..., e0)
+        let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+        let dz_vec = _mm256_set1_ps(dz_dx);
+        let base = _mm256_set1_ps(z_at_xs);
+        let mut depths_vec = _mm256_add_ps(base, _mm256_mul_ps(offsets, dz_vec));
 
         let color_vec = _mm256_set1_epi32(color as i32);
 
@@ -860,13 +856,23 @@ fn rasterize_scanline_simd(
             // Compare: depth < zbuffer (8 comparisons in parallel)
             let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
 
-            // Conditional depth write via masked store
-            let depths_mut_ptr = depths.as_mut_ptr().add(i);
-            _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
+            // Conditional writes using blend + unconditional store (faster than maskstore)
 
-            // Conditional color write
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
-            _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
+            // 1. Update depths
+            let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
+            _mm256_storeu_ps(depths.as_mut_ptr().add(i), blended_depths);
+
+            // 2. Update pixels
+            // Cast to/from float vectors to use blendv_ps (zero-cost on AVX2)
+            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+            let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+
+            let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
+            let color_vec_ps = _mm256_castsi256_ps(color_vec);
+
+            let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
+
+            _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
 
             // Increment depths by stride (8*dz_dx) for next iteration
             depths_vec = _mm256_add_ps(depths_vec, stride_vec);
