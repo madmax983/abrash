@@ -167,3 +167,7 @@ harness = false
 [[bench]]
 name = "clipping_optimization"
 harness = false
+
+[[bench]]
+name = "software_two_level_binning"
+harness = false
