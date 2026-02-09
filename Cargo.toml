@@ -50,6 +50,7 @@ windows = { version = "0.59", optional = true, features = [
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.0"
+rand = "0.8"
 
 [[bench]]
 name = "math"
@@ -131,6 +132,10 @@ required-features = ["backend-win32", "gpu-binning"]
 name = "gpu_hiz_build"
 harness = false
 required-features = ["backend-win32", "gpu-binning"]
+
+[[bench]]
+name = "hiz_benchmark"
+harness = false
 
 [[bin]]
 name = "simd_profiling"
