@@ -250,12 +250,12 @@ pub fn fill_triangle_3d(
             let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left)
+                if x_start >= 0 && x_start < width_i32 {
                     // SAFETY:
                     // 1. x_start is checked to be within [0, width) above.
                     // 2. y is constrained by y_start..=y_end which are clamped to [0, height) outside the loop.
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left_float) {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                             fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         }
                     }
@@ -984,26 +984,47 @@ fn draw_scanline_textured_perspective(
 
                 // Hoist texture properties
                 let tex_pixels = &texture.pixels;
-                let tex_w = texture.width as u32;
-                let tex_h = texture.height as u32;
+                let tex_w = texture.width;
+                let tex_h = texture.height;
                 let tex_w_usize = tex_w as usize;
+                let width_shift = texture.width_shift;
 
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Inline sampling
-                        let u = u_fix >> 16;
-                        let v = v_fix >> 16;
-                        let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                            tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
-                        } else {
-                            texture.get_pixel_texel(u, v)
-                        };
-                        *pixel = color;
+                if let Some(shift) = width_shift {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[((v as usize) << shift) + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
+                    }
                 }
             }
             FilterMode::Bilinear => {
@@ -1359,8 +1380,9 @@ mod tests {
         assert!((walker.z - expected_z).abs() < 0.0001);
 
         assert!(
-            z_float > 1.0 && z_float < 2.0,
-            "z should be interpolated between 1.0 and 2.0, got {z_float}",
+            walker.z > 1.0 && walker.z < 2.0,
+            "z should be interpolated between 1.0 and 2.0, got {}",
+            walker.z
         );
     }
 

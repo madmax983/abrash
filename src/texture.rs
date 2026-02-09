@@ -44,6 +44,8 @@ pub struct Texture {
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
     pub mips: Vec<Vec<u32>>,
     pub filter_mode: FilterMode,
+    /// Pre-computed shift for width if width is a power of two.
+    pub width_shift: Option<u32>,
 }
 
 impl Texture {
@@ -74,12 +76,19 @@ impl Texture {
             .filter(|&s| u32::try_from(s).is_ok())
             .ok_or("Texture size overflow")? as usize;
 
+        let width_shift = if width.is_power_of_two() {
+            Some(width.trailing_zeros())
+        } else {
+            None
+        };
+
         Ok(Self {
             width,
             height,
             pixels: vec![0xFF00_0000; size],
             mips: Vec::new(),
             filter_mode: FilterMode::Nearest,
+            width_shift,
         })
     }
 
