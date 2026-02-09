@@ -159,3 +159,6 @@ suboptimal_flops = "allow"
 [[bench]]
 name = "parallel_tile_rendering"
 harness = false
+[[bench]]
+name = "clipping_optimization"
+harness = false
