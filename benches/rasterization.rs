@@ -194,34 +194,5 @@ criterion_group!(
     bench_fill_triangle_textured_perspective_stress,
     bench_fill_triangle_textured_bilinear,
     bench_fill_triangle_clipped,
-    bench_get_pixel_bilinear_fixed
 );
 criterion_main!(benches);
-
-fn bench_get_pixel_bilinear_fixed(c: &mut Criterion) {
-    c.bench_function("get_pixel_bilinear_fixed", |b| {
-        let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
-        // Simulate iterating over a span
-        let mut u = 100 * 256;
-        let mut v = 100 * 256;
-        let du = 100;
-        let dv = 50;
-        let mask = 0xFFFF; // Keep within 0..65535 (256.0 in 24.8)
-
-        b.iter(|| {
-            // Unroll slightly
-            black_box(tex.get_pixel_bilinear_fixed(u, v));
-            u = (u + du) & mask;
-            v = (v + dv) & mask;
-            black_box(tex.get_pixel_bilinear_fixed(u, v));
-            u = (u + du) & mask;
-            v = (v + dv) & mask;
-            black_box(tex.get_pixel_bilinear_fixed(u, v));
-            u = (u + du) & mask;
-            v = (v + dv) & mask;
-            black_box(tex.get_pixel_bilinear_fixed(u, v));
-            u = (u + du) & mask;
-            v = (v + dv) & mask;
-        });
-    });
-}
