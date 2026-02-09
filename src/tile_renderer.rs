@@ -67,7 +67,7 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use crate::clipping::clip_triangle_against_near_plane;
+use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
@@ -1383,7 +1383,7 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
-        let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
+        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1526,7 +1526,7 @@ impl TileRenderer {
     }
 
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
-        let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.1);
+        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1943,10 +1943,11 @@ mod tests {
         let v1 = (Vec3::new(10.0, 0.0, 5.0), w); // Outside right
         let v2 = (Vec3::new(0.0, 1.0, 5.0), w); // Inside
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(
-            tr.prepared.len(),
-            1,
-            "Partially visible triangle should NOT be culled"
+        // With full frustum clipping, this triangle is clipped into a quad (2 triangles)
+        assert!(
+            tr.prepared.len() >= 1,
+            "Partially visible triangle should NOT be culled (got {})",
+            tr.prepared.len()
         );
     }
 

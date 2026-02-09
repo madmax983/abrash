@@ -2,7 +2,7 @@
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
 
-use crate::clipping::clip_triangle_against_near_plane;
+use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::texture::{FilterMode, Texture};
@@ -148,7 +148,7 @@ pub fn fill_triangle_3d(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.1);
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
     for i in 0..clipped.count {
         let base = i * 3;
@@ -563,7 +563,7 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
     for i in 0..clipped.count {
         let base = i * 3;
@@ -1015,7 +1015,7 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
     for i in 0..clipped.count {
         let base = i * 3;

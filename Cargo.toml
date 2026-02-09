@@ -86,6 +86,10 @@ name = "culling"
 harness = false
 
 [[bench]]
+name = "clipping_benchmark"
+harness = false
+
+[[bench]]
 name = "tile_rendering"
 harness = false
 
