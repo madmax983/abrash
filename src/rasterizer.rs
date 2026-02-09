@@ -249,11 +249,8 @@ pub fn fill_triangle_3d(
 
             let dx = i64::from(x_end) - i64::from(x_start);
 
-            // Convert fixed-point to float for zbuffer test/interpolation
-            let z_left_float = (z_left as f32) / 256.0;
-
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 {
+                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left)
                     // SAFETY:
                     // 1. x_start is checked to be within [0, width) above.
                     // 2. y is constrained by y_start..=y_end which are clamped to [0, height) outside the loop.
@@ -264,7 +261,7 @@ pub fn fill_triangle_3d(
                     }
                 }
             } else {
-                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left_float, dz_dx, color);
+                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             }
 
             edge_a.step();
@@ -392,39 +389,34 @@ fn draw_scanline_gouraud(
 
 pub(crate) struct EdgeWalker {
     pub(crate) x: i64,
-    pub(crate) z: i32, // 24.8 fixed point
     dx_dy: i64,
-    dz_dy: i32, // 24.8 fixed point
+    pub(crate) z: f32,
+    dz_dy: f32,
 }
 
 impl EdgeWalker {
     pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let (dx_dy, dz_dy) = if height == 0.0 {
-            (0, 0)
+            (0, 0.0)
         } else {
             let inv_h = 1.0 / height;
 
-            // Convert z to 24.8 fixed point
-            let z0_fixed = (p_start.z * 256.0) as i32;
-            let z1_fixed = (p_end.z * 256.0) as i32;
-            let dz = i64::from(z1_fixed - z0_fixed);
-
             (
                 ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
-                ((dz as f32) * inv_h) as i32,
+                (p_end.z - p_start.z) * inv_h,
             )
         };
 
         Self {
             x: i64::from(p_start.x) << 16,
-            z: (p_start.z * 256.0) as i32, // Convert to 24.8 fixed point
+            z: p_start.z,
             dx_dy,
             dz_dy,
         }
     }
 
-    pub(crate) const fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
     }
@@ -432,7 +424,7 @@ impl EdgeWalker {
     pub(crate) fn step_n(&mut self, n: i32) {
         let n_i64 = i64::from(n);
         self.x += self.dx_dy * n_i64;
-        self.z += self.dz_dy * n;
+        self.z += self.dz_dy * (n as f32);
     }
 }
 
@@ -1325,8 +1317,8 @@ mod tests {
     use crate::zbuffer::ZBuffer;
 
     #[test]
-    fn edge_walker_fixed_point_z_conversion() {
-        // Test that EdgeWalker correctly converts z to 24.8 fixed point
+    fn edge_walker_z_interpolation() {
+        // Test that EdgeWalker correctly interpolates z
         let p0 = ScreenPoint { x: 0, y: 0, z: 1.0 };
         let p1 = ScreenPoint {
             x: 100,
@@ -1336,18 +1328,17 @@ mod tests {
 
         let walker = EdgeWalker::new(p0, p1);
 
-        // z should be converted to 24.8 fixed point: 1.0 * 256 = 256
-        assert_eq!(walker.z, 256);
+        // z should be 1.0
+        assert!((walker.z - 1.0).abs() < 0.0001);
 
-        // dz_dy should also be in fixed point: (2.0 - 1.0) / 100.0 = 0.01
-        // In 24.8: 0.01 * 256 = 2.56 ≈ 2 or 3 (depends on rounding)
-        let expected_dz_dy = ((2.0_f32 - 1.0_f32) / 100.0_f32 * 256.0) as i32;
-        assert_eq!(walker.dz_dy, expected_dz_dy);
+        // dz_dy should be (2.0 - 1.0) / 100.0 = 0.01
+        let expected_dz_dy = (2.0_f32 - 1.0_f32) / 100.0_f32;
+        assert!((walker.dz_dy - expected_dz_dy).abs() < 0.0001);
     }
 
     #[test]
     fn edge_walker_step_accumulates_correctly() {
-        // Test that stepping accumulates z correctly in fixed point
+        // Test that stepping accumulates z correctly
         let p0 = ScreenPoint { x: 0, y: 0, z: 1.0 };
         let p1 = ScreenPoint {
             x: 100,
@@ -1364,13 +1355,9 @@ mod tests {
         walker.step_n(50);
 
         // After 50 steps, z should be initial + 50*dz
-        let expected_z = initial_z + dz * 50;
-        assert_eq!(walker.z, expected_z);
+        let expected_z = initial_z + dz * 50.0;
+        assert!((walker.z - expected_z).abs() < 0.0001);
 
-        // Convert back to float for verification
-        let z_float = (walker.z as f32) / 256.0;
-        // With 24.8 fixed point, expect some rounding error
-        // The ideal would be 1.5, but we get ~1.39 due to integer truncation in dz_dy
         assert!(
             z_float > 1.0 && z_float < 2.0,
             "z should be interpolated between 1.0 and 2.0, got {z_float}",
@@ -1395,10 +1382,10 @@ mod tests {
 
         // Should have zero gradients
         assert_eq!(walker.dx_dy, 0);
-        assert_eq!(walker.dz_dy, 0);
+        assert_eq!(walker.dz_dy, 0.0);
 
-        // z should still be converted correctly
-        assert_eq!(walker.z, (1.0 * 256.0) as i32);
+        // z should still be correct
+        assert!((walker.z - 1.0).abs() < 0.0001);
     }
 
     #[test]
