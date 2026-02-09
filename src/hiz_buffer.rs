@@ -264,8 +264,8 @@ impl HiZBuffer {
         let sw = source_width as usize;
         let sh = source.len() / sw;
 
-        let odd_width = (source_width % 2) != 0;
-        let odd_height = (sh % 2) != 0;
+        let odd_width = !source_width.is_multiple_of(2);
+        let odd_height = !sh.is_multiple_of(2);
 
         let safe_width = if odd_width { level_width - 1 } else { level_width };
         let safe_height = if odd_height {
@@ -794,8 +794,8 @@ mod tests {
         // Row 2: 9.0 10.0 11.0 12.0
         // Row 3: 13.0 14.0 15.0 16.0
         let slice = zb.as_mut_slice();
-        for i in 0..16 {
-            slice[i] = (i + 1) as f32;
+        for (i, d) in slice.iter_mut().enumerate().take(16) {
+            *d = (i + 1) as f32;
         }
 
         let mut hiz = HiZBuffer::new(4, 4);
@@ -809,10 +809,10 @@ mod tests {
         let level1 = &hiz.levels[1];
         assert_eq!(level1.width, 2);
         assert_eq!(level1.height, 2);
-        assert_eq!(level1.depths[0], 1.0); // Top-left quad
-        assert_eq!(level1.depths[1], 3.0); // Top-right quad
-        assert_eq!(level1.depths[2], 9.0); // Bottom-left quad
-        assert_eq!(level1.depths[3], 11.0); // Bottom-right quad
+        assert!((level1.depths[0] - 1.0).abs() < f32::EPSILON); // Top-left quad
+        assert!((level1.depths[1] - 3.0).abs() < f32::EPSILON); // Top-right quad
+        assert!((level1.depths[2] - 9.0).abs() < f32::EPSILON); // Bottom-left quad
+        assert!((level1.depths[3] - 11.0).abs() < f32::EPSILON); // Bottom-right quad
     }
 
     #[test]
@@ -834,7 +834,7 @@ mod tests {
         let level2 = &hiz.levels[2];
         assert_eq!(level2.width, 1);
         assert_eq!(level2.height, 1);
-        assert_eq!(level2.depths[0], 0.0); // Minimum of entire zbuffer
+        assert!((level2.depths[0] - 0.0).abs() < f32::EPSILON); // Minimum of entire zbuffer
     }
 
     #[test]
@@ -857,7 +857,7 @@ mod tests {
         for level_idx in 1..hiz.level_count() {
             let level = &hiz.levels[level_idx as usize];
             for depth in &level.depths {
-                assert_eq!(*depth, 5.0);
+                assert!((*depth - 5.0).abs() < f32::EPSILON);
             }
         }
     }
@@ -957,7 +957,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 15.0; // Farther region (occluder is farther)
                 } else {
                     slice[y * 800 + x] = 10.0;
@@ -991,7 +991,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..600 {
             for x in 0..800 {
-                if x >= 100 && x < 200 && y >= 100 && y < 200 {
+                if (100..200).contains(&x) && (100..200).contains(&y) {
                     slice[y * 800 + x] = 5.0; // Closer region (occluder is closer)
                 } else {
                     slice[y * 800 + x] = 10.0;
@@ -1043,10 +1043,10 @@ mod tests {
 
         // Fill with pseudo-random pattern to test all code paths
         let slice = zb.as_mut_slice();
-        for i in 0..slice.len() {
+        for (i, d) in slice.iter_mut().enumerate() {
             // Generate pseudo-random depth values using simple hash
             let hash = ((i.wrapping_mul(2654435761)) >> 16) as f32 / 65536.0;
-            slice[i] = hash * 100.0;
+            *d = hash * 100.0;
         }
 
         // Build pyramid with SIMD
@@ -1128,9 +1128,7 @@ mod tests {
 
         // Fill zbuffer with depth 10.0
         let slice = zb.as_mut_slice();
-        for i in 0..slice.len() {
-            slice[i] = 10.0;
-        }
+        slice.fill(10.0);
 
         let mut hiz = HiZBuffer::new(1920, 1080);
         hiz.build_pyramid(&zb);
@@ -1155,9 +1153,7 @@ mod tests {
 
         // Fill zbuffer with depth 5.0
         let slice = zb.as_mut_slice();
-        for i in 0..slice.len() {
-            slice[i] = 5.0;
-        }
+        slice.fill(5.0);
 
         let mut hiz = HiZBuffer::new(1920, 1080);
         hiz.build_pyramid(&zb);
@@ -1220,7 +1216,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         for y in 0..1080 {
             for x in 0..1920 {
-                if x >= 64 && x < 128 && y >= 64 && y < 128 {
+                if (64..128).contains(&x) && (64..128).contains(&y) {
                     slice[y * 1920 + x] = 5.0; // Closer occluder
                 } else {
                     slice[y * 1920 + x] = 10.0;
@@ -1251,9 +1247,10 @@ mod tests {
 
         // Fill zbuffer with depth 10.0
         let slice = zb.as_mut_slice();
-        for i in 0..slice.len() {
-            slice[i] = 10.0;
-        }
+        slice.fill(10.0);
+        slice.fill(10.0);
+        slice.fill(10.0);
+        slice.fill(10.0);
 
         let mut hiz = HiZBuffer::new(1920, 1080);
         hiz.build_pyramid(&zb);
@@ -1367,9 +1364,9 @@ mod tests {
 
         // Fill zbuffer with depth 10.0
         let slice = zb.as_mut_slice();
-        for i in 0..slice.len() {
-            slice[i] = 10.0;
-        }
+        slice.fill(10.0);
+        slice.fill(10.0);
+        slice.fill(10.0);
 
         let mut hiz = HiZBuffer::new(1920, 1080);
         hiz.build_pyramid(&zb);

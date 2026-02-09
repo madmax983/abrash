@@ -459,6 +459,46 @@ impl Default for Mat4 {
 impl Mul for Mat4 {
     type Output = Self;
 
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    #[inline]
+    fn mul(self, other: Self) -> Self {
+        unsafe {
+            use std::arch::x86_64::*;
+            let mut result = Self { m: [[0.0; 4]; 4] };
+
+            // Load rows of B
+            let b0 = _mm_loadu_ps(other.m[0].as_ptr());
+            let b1 = _mm_loadu_ps(other.m[1].as_ptr());
+            let b2 = _mm_loadu_ps(other.m[2].as_ptr());
+            let b3 = _mm_loadu_ps(other.m[3].as_ptr());
+
+            for i in 0..4 {
+                // Load row i of A
+                let row_a = _mm_loadu_ps(self.m[i].as_ptr());
+
+                // Broadcast A[i][0]
+                let a0 = _mm_shuffle_ps(row_a, row_a, 0x00);
+                let mut row_res = _mm_mul_ps(a0, b0);
+
+                // Broadcast A[i][1]
+                let a1 = _mm_shuffle_ps(row_a, row_a, 0x55);
+                row_res = _mm_add_ps(row_res, _mm_mul_ps(a1, b1));
+
+                // Broadcast A[i][2]
+                let a2 = _mm_shuffle_ps(row_a, row_a, 0xAA);
+                row_res = _mm_add_ps(row_res, _mm_mul_ps(a2, b2));
+
+                // Broadcast A[i][3]
+                let a3 = _mm_shuffle_ps(row_a, row_a, 0xFF);
+                row_res = _mm_add_ps(row_res, _mm_mul_ps(a3, b3));
+
+                _mm_storeu_ps(result.m[i].as_mut_ptr(), row_res);
+            }
+            result
+        }
+    }
+
+    #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
     fn mul(self, other: Self) -> Self {
         let mut result = Self { m: [[0.0; 4]; 4] };
         for i in 0..4 {
