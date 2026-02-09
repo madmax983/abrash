@@ -22,3 +22,8 @@
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
 **Fate:** Merged
 **Lesson:** Depth buffers contain valuable structural information that can be reused for non-photorealistic rendering.
+
+## [Procedural Terrain]
+**Concept:** A heightmap-based terrain generator using 2D Value Noise.
+**Fate:** Merged
+**Lesson:** Simple noise functions combined with low-poly rendering can create compelling 3D environments without complex assets.
