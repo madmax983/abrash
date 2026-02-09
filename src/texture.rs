@@ -9,6 +9,8 @@ pub enum FilterMode {
     Nearest,
     /// Bilinear interpolation. Smoother, but slower.
     Bilinear,
+    /// Trilinear interpolation. Smoother with mipmaps, best quality but slower.
+    Trilinear,
 }
 
 /// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
@@ -25,11 +27,22 @@ const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     rb | (ag << 8)
 }
 
+/// Helper to average 4 colors (simple box filter)
+fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
+    let r = (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF)) / 4;
+    let g = (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
+    let b = ((c00 & 0xFF) + (c10 & 0xFF) + (c01 & 0xFF) + (c11 & 0xFF)) / 4;
+
+    0xFF00_0000 | (r << 16) | (g << 8) | b
+}
+
 /// A simple 2D texture.
 pub struct Texture {
     pub width: u32,
     pub height: u32,
     pub pixels: Vec<u32>,
+    /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
+    pub mips: Vec<Vec<u32>>,
     pub filter_mode: FilterMode,
 }
 
@@ -65,6 +78,7 @@ impl Texture {
             width,
             height,
             pixels: vec![0xFF00_0000; size],
+            mips: Vec::new(),
             filter_mode: FilterMode::Nearest,
         })
     }
@@ -72,6 +86,59 @@ impl Texture {
     pub fn set_pixel(&mut self, x: u32, y: u32, color: u32) {
         if x < self.width && y < self.height {
             self.pixels[(y * self.width + x) as usize] = color;
+        }
+    }
+
+    /// Generates mipmaps for the texture.
+    /// Should be called after modifying pixels if Trilinear filtering is used.
+    pub fn generate_mipmaps(&mut self) {
+        let mut width = self.width;
+        let mut height = self.height;
+        // Start from base level
+        // We can't hold a reference to `self.pixels` while pushing to `self.mips`
+        // So we will reconstruct the previous level based on index
+
+        self.mips.clear();
+
+        while width > 1 || height > 1 {
+            let next_width = (width / 2).max(1);
+            let next_height = (height / 2).max(1);
+            let size = (next_width * next_height) as usize;
+            let mut next_pixels = Vec::with_capacity(size);
+
+            // Get previous level pixels
+            let prev_pixels = if self.mips.is_empty() {
+                &self.pixels
+            } else {
+                self.mips.last().unwrap()
+            };
+
+            for y in 0..next_height {
+                for x in 0..next_width {
+                    // Box filter: average 2x2 block from previous level
+                    let src_x = x * 2;
+                    let src_y = y * 2;
+
+                    // Helper to get pixel safely
+                    let get = |px: u32, py: u32| -> u32 {
+                        let px = px.min(width - 1);
+                        let py = py.min(height - 1);
+                        prev_pixels[(py * width + px) as usize]
+                    };
+
+                    let p00 = get(src_x, src_y);
+                    let p10 = get(src_x + 1, src_y);
+                    let p01 = get(src_x, src_y + 1);
+                    let p11 = get(src_x + 1, src_y + 1);
+
+                    let avg = average_4_colors(p00, p10, p01, p11);
+                    next_pixels.push(avg);
+                }
+            }
+
+            self.mips.push(next_pixels);
+            width = next_width;
+            height = next_height;
         }
     }
 
@@ -100,7 +167,100 @@ impl Texture {
                 self.get_pixel_texel(x, y)
             }
             FilterMode::Bilinear => self.get_pixel_bilinear(u, v),
+            // Without explicit LOD, fall back to bilinear (LOD 0)
+            FilterMode::Trilinear => self.get_pixel_bilinear(u, v),
         }
+    }
+
+    /// Sample texture using trilinear interpolation with given LOD
+    #[must_use]
+    pub fn get_pixel_trilinear(&self, u: f32, v: f32, lod: f32) -> u32 {
+        if lod <= 0.0 || self.mips.is_empty() {
+            return self.get_pixel_bilinear(u, v);
+        }
+
+        let max_level = self.mips.len() as f32;
+        if lod >= max_level {
+            // Sample max level
+            return self.sample_mip(u, v, self.mips.len() - 1);
+        }
+
+        let level = lod.floor();
+        let frac = lod - level;
+        let level_idx = level as usize;
+
+        let c0 = if level_idx == 0 {
+            self.get_pixel_bilinear(u, v)
+        } else {
+            self.sample_mip(u, v, level_idx - 1)
+        };
+
+        let c1 = self.sample_mip(u, v, level_idx);
+
+        // Blend c0 and c1
+        // We can reuse blend_swar if we convert frac to integer weight
+        let weight = (frac * 256.0) as u32;
+        let inv_weight = 256 - weight;
+
+        let final_color = blend_swar(c0, c1, weight, inv_weight);
+        final_color | 0xFF000000 // Force alpha
+    }
+
+    /// Helper to sample a specific mip level
+    fn sample_mip(&self, u: f32, v: f32, mip_idx: usize) -> u32 {
+        let pixels = &self.mips[mip_idx];
+        let width = (self.width >> (mip_idx + 1)).max(1);
+        let height = (self.height >> (mip_idx + 1)).max(1);
+
+        let w = width as f32;
+        let h = height as f32;
+
+        let u_tex = u * w;
+        let v_tex = v * h;
+
+        let u_fixed = (u_tex * 256.0) as i32;
+        let v_fixed = (v_tex * 256.0) as i32;
+
+        let u_img_fixed = u_fixed - 128;
+        let v_img_fixed = v_fixed - 128;
+
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let w_i32 = width as i32 - 1;
+        let h_i32 = height as i32 - 1;
+
+        // Manual neighbor fetch for mips
+        let (c00, c10, c01, c11) = {
+             let x0 = x0_raw.clamp(0, w_i32) as usize;
+            let y0 = y0_raw.clamp(0, h_i32) as usize;
+            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+            let width_usize = width as usize;
+            let row0 = y0 * width_usize;
+            let row1 = y1 * width_usize;
+
+            unsafe {
+                (
+                    *pixels.get_unchecked(row0 + x0),
+                    *pixels.get_unchecked(row0 + x1),
+                    *pixels.get_unchecked(row1 + x0),
+                    *pixels.get_unchecked(row1 + x1),
+                )
+            }
+        };
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+
+        final_color | 0xFF00_0000
     }
 
     /// Sample texture using bilinear interpolation
@@ -217,6 +377,7 @@ impl Texture {
                 tex.set_pixel(x, y, if check { c1 } else { c2 });
             }
         }
+        tex.generate_mipmaps();
         Ok(tex)
     }
 }
