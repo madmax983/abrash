@@ -1,4 +1,3 @@
-#![allow(clippy::collapsible_if)]
 //! Tile-based rendering for improved cache locality at high resolutions.
 //!
 //! This module implements a tile-based rasterizer that subdivides the framebuffer into 32×32 pixel
@@ -373,19 +372,17 @@ fn render_triangle_in_tile(
 
         let dx = i64::from(x_end) - i64::from(x_start);
 
-        if dx <= 0 {
+        if dx <= 0 && x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
             // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                // Convert fixed-point to float for zbuffer comparison
-                let z_left_float = (z_left_fixed as f32) / 256.0;
-                if z_left_float < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left_float;
-                    tile_pixels[tile_idx] = color;
-                }
+            let tile_idx =
+                ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
+            // Convert fixed-point to float for zbuffer comparison
+            let z_left_float = (z_left_fixed as f32) / 256.0;
+            if z_left_float < tile_depths[tile_idx] {
+                tile_depths[tile_idx] = z_left_float;
+                tile_pixels[tile_idx] = color;
             }
-        } else {
+        } else if dx > 0 {
             // Clamp X to tile and screen bounds
             let xs = x_start.max(tile_x0).max(0);
             let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
@@ -590,44 +587,42 @@ fn render_triangle_in_tile_textured(
 
         let dx = i64::from(x_end) - i64::from(x_start);
 
-        if dx <= 0 {
+        if dx <= 0 && x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
             // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] && q_left.abs() > 0.000_001 {
-                    tile_depths[tile_idx] = z_left;
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    tile_pixels[tile_idx] = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        FilterMode::Trilinear => {
-                            // Calculate LOD for single pixel
-                            // For a single pixel, we can estimate gradients based on the triangle gradients
-                            // projected to this pixel.
-                            // q = 1/w.
-                            // u_tex = u/q.
-                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                            let w = 1.0 / q_left;
-                            let w_sq = w * w;
+            let tile_idx =
+                ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
+            if z_left < tile_depths[tile_idx] && q_left.abs() > 0.000_001 {
+                tile_depths[tile_idx] = z_left;
+                let w = 1.0 / q_left;
+                let u_tex = u_left * w;
+                let v_tex = v_left * w;
+                tile_pixels[tile_idx] = match texture.filter_mode {
+                    FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                    FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                    FilterMode::Trilinear => {
+                        // Calculate LOD for single pixel
+                        // For a single pixel, we can estimate gradients based on the triangle gradients
+                        // projected to this pixel.
+                        // q = 1/w.
+                        // u_tex = u/q.
+                        // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                        let w = 1.0 / q_left;
+                        let w_sq = w * w;
 
-                            let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
-                            let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
-                            let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
-                            let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+                        let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
+                        let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
+                        let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
+                        let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
 
-                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+                        let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
+                                            du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
 
-                            let lod = 0.5 * max_rho_sq.log2();
-                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
-                        }
-                    };
-                }
+                        let lod = 0.5 * max_rho_sq.log2();
+                        texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                    }
+                };
             }
-        } else {
+        } else if dx > 0 {
             // Clamp X to tile and screen bounds
             let xs = x_start.max(tile_x0).max(0);
             let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
@@ -939,8 +934,6 @@ pub struct TileRenderer {
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
-    #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
 }
 
 impl TileRenderer {
@@ -972,8 +965,6 @@ impl TileRenderer {
             prepared: Vec::new(),
             prepared_textured: Vec::new(),
             hiz_buffer: None,
-            #[cfg(feature = "gpu-binning")]
-            gpu_binner: None,
         }
     }
 
@@ -990,64 +981,6 @@ impl TileRenderer {
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
         self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
-    }
-
-    /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
-    ///
-    /// When enabled, the tile renderer will use a D3D12 compute shader to bin triangles
-    /// to tiles on the GPU, which can provide 10-20× faster binning for triangle-heavy scenes.
-    ///
-    /// **Requirements:**
-    /// - `gpu-binning` feature must be enabled
-    /// - Windows platform with DirectX 12 support
-    /// - Suitable GPU adapter (non-software)
-    ///
-    /// **Performance:**
-    /// - Binning: 100 triangles <0.05ms, 1000 triangles <0.5ms
-    /// - Overall: 2-3× speedup for scenes with 100+ triangles
-    ///
-    /// # Errors
-    ///
-    /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
-            self.width,
-            self.height,
-            TILE_SIZE,
-            1000, // Max triangles per batch
-        )?);
-        Ok(())
-    }
-
-    /// Enable two-level hierarchical GPU binning with Hi-Z culling.
-    ///
-    /// This method enables GPU compute shader binning with two-level hierarchical binning:
-    /// 1. Coarse binning pass: Bin triangles to 128×128 pixel coarse bins (GPU)
-    /// 2. Hi-Z culling pass: Cull occluded coarse bins using Hi-Z pyramid (CPU)
-    /// 3. Fine binning pass: Bin visible triangles to 32×32 fine tiles (GPU)
-    ///
-    /// Two-level binning can provide additional speedup over single-level GPU binning
-    /// by avoiding fine binning work for occluded regions of the screen.
-    ///
-    /// # Prerequisites
-    ///
-    /// - GPU binning must be enabled first via `enable_gpu_binning()`
-    /// - Hi-Z buffer should be enabled via `enable_hiz()` for effective culling
-    ///
-    /// # Returns
-    ///
-    /// `GpuError` if two-level binning initialization fails or GPU binning is not enabled.
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_two_level_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        let gpu = self.gpu_binner.as_mut().ok_or_else(|| {
-            crate::gpu::GpuError::DeviceCreation(windows::core::Error::from_hresult(
-                windows::core::HRESULT(0x8007_0057u32 as i32), // E_INVALIDARG
-            ))
-        })?;
-
-        gpu.enable_two_level_binning()?;
-        Ok(())
     }
 
     /// Returns the number of tiles in X direction.
@@ -1147,44 +1080,11 @@ impl TileRenderer {
         }
 
         // Build Hi-Z pyramid from previous frame (temporal coherence)
-        if let Some(ref mut hiz) = self.hiz_buffer {
-            if !hiz.is_valid() {
-                hiz.build_pyramid(zb);
-            }
+        if let Some(hiz) = self.hiz_buffer.as_mut().filter(|h| !h.is_valid()) {
+            hiz.build_pyramid(zb);
         }
 
-        // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-        #[cfg(feature = "gpu-binning")]
-        if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path - check if two-level binning is enabled
-            if gpu.is_two_level_enabled() {
-                // Two-level hierarchical binning with Hi-Z culling
-                match gpu.bin_triangles_two_level(
-                    &self.prepared,
-                    self.hiz_buffer.as_ref(),
-                    &mut self.tile_bins,
-                ) {
-                    Ok(_stats) => {
-                        // Two-level binning succeeded
-                        // Stats available for debugging/profiling but not used in production
-                    }
-                    Err(e) => {
-                        eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
-                        self.bin_triangles_cpu();
-                    }
-                }
-            } else {
-                // Single-level GPU binning
-                if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                    eprintln!("GPU binning failed: {e}, falling back to CPU");
-                    self.bin_triangles_cpu();
-                }
-            }
-        } else {
-            self.bin_triangles_cpu();
-        }
-
-        #[cfg(not(feature = "gpu-binning"))]
+        // Phase 2: Bin (CPU with optional Hi-Z occlusion culling)
         self.bin_triangles_cpu();
 
         // Phase 3+4: Render and merge each tile
@@ -1344,10 +1244,8 @@ impl TileRenderer {
         }
 
         // Build Hi-Z pyramid from previous frame (temporal coherence)
-        if let Some(ref mut hiz) = self.hiz_buffer {
-            if !hiz.is_valid() {
-                hiz.build_pyramid(zb);
-            }
+        if let Some(hiz) = self.hiz_buffer.as_mut().filter(|h| !h.is_valid()) {
+            hiz.build_pyramid(zb);
         }
 
         // Phase 2: Bin (CPU only for now)
