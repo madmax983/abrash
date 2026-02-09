@@ -49,12 +49,12 @@ where
 /// Returns true if the triangle should be culled (ccw winding for front faces).
 #[inline(always)]
 pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-    let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-    let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-    let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-    let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    let ux = i64::from(p1.x) - i64::from(p0.x);
+    let uy = i64::from(p1.y) - i64::from(p0.y);
+    let vx = i64::from(p2.x) - i64::from(p0.x);
+    let vy = i64::from(p2.y) - i64::from(p0.y);
     let nz = ux * vy - uy * vx;
-    nz >= 0.0
+    nz >= 0
 }
 
 /// Draw a single scanline for flat shading with Z-buffering
@@ -975,10 +975,24 @@ fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                // Hoist texture properties
+                let tex_pixels = &texture.pixels;
+                let tex_w = texture.width as u32;
+                let tex_h = texture.height as u32;
+                let tex_w_usize = tex_w as usize;
+
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                        // Inline sampling
+                        let u = u_fix >> 16;
+                        let v = v_fix >> 16;
+                        let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                            tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                        } else {
+                            texture.get_pixel_texel(u, v)
+                        };
+                        *pixel = color;
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
