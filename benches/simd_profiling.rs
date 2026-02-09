@@ -2,6 +2,9 @@ use abrash::{
     framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
     zbuffer::ZBuffer,
 };
+use comfy_table::{
+    modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Attribute, Cell, Color, Table,
+};
 use std::time::Instant;
 
 #[cfg(target_arch = "x86_64")]
@@ -22,7 +25,7 @@ fn read_tsc() -> u64 {
 
 /// Detailed profiling benchmark to identify SIMD bottlenecks
 fn main() {
-    println!("=== SIMD Profiling Analysis ===\n");
+    println!("\n🎨 Mosaic Profiler: SIMD Analysis\n");
 
     // Test different scanline lengths
     profile_scanline_lengths();
@@ -35,7 +38,18 @@ fn main() {
 }
 
 fn profile_scanline_lengths() {
-    println!("## 1. Scanline Length Analysis\n");
+    println!("📦 Scanline Length Analysis");
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Scanline Length (px)").add_attribute(Attribute::Bold),
+            Cell::new("Time (µs/frame)").add_attribute(Attribute::Bold),
+            Cell::new("Cycles").add_attribute(Attribute::Bold),
+            Cell::new("Cycles/Pixel").add_attribute(Attribute::Bold),
+        ]);
 
     let lengths = [4, 8, 16, 32, 64, 128, 256, 512];
 
@@ -78,21 +92,48 @@ fn profile_scanline_lengths() {
             let pixels_drawn = (len * 5 * 100) as f64; // ~5px height × 100 triangles
             let cycles_per_pixel = cycles as f64 / pixels_drawn;
 
-            println!(
-                "Scanline length ~{:3} px: {:6} µs/frame ({:8} cycles, {:.2} cycles/pixel)",
-                len, avg_time, cycles, cycles_per_pixel
-            );
+            let color = if cycles_per_pixel < 1000.0 {
+                Color::Green
+            } else {
+                Color::Yellow
+            };
+
+            table.add_row(vec![
+                Cell::new(len),
+                Cell::new(avg_time),
+                Cell::new(cycles),
+                Cell::new(format!("{:.2}", cycles_per_pixel)).fg(color),
+            ]);
         }
 
         #[cfg(not(target_arch = "x86_64"))]
-        println!("Scanline length ~{:3} px: {:6} µs/frame", len, avg_time);
+        {
+            table.add_row(vec![
+                Cell::new(len),
+                Cell::new(avg_time),
+                Cell::new("N/A"),
+                Cell::new("N/A"),
+            ]);
+        }
     }
 
-    println!();
+    println!("{table}\n");
 }
 
 fn profile_hiz_pyramid() {
-    println!("## 2. Hi-Z Pyramid Build Profiling\n");
+    println!("🏗️  Hi-Z Pyramid Build Profiling");
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Resolution").add_attribute(Attribute::Bold),
+            Cell::new("Time (µs/build)").add_attribute(Attribute::Bold),
+            Cell::new("ns/Pixel").add_attribute(Attribute::Bold),
+            Cell::new("Cycles").add_attribute(Attribute::Bold),
+            Cell::new("Cycles/Pixel").add_attribute(Attribute::Bold),
+        ]);
 
     let resolutions = [
         (800, 600, "800×600"),
@@ -132,24 +173,32 @@ fn profile_hiz_pyramid() {
             let cycles = (end_cycles - start_cycles) / iterations as u64;
             let cycles_per_pixel = cycles as f64 / pixels as f64;
 
-            println!(
-                "{}: {:6} µs/build ({:3} ns/pixel, {:8} cycles, {:.2} cycles/pixel)",
-                name, avg_time, ns_per_pixel, cycles, cycles_per_pixel
-            );
+            table.add_row(vec![
+                Cell::new(name).add_attribute(Attribute::Bold),
+                Cell::new(avg_time),
+                Cell::new(ns_per_pixel),
+                Cell::new(cycles),
+                Cell::new(format!("{:.2}", cycles_per_pixel)).fg(Color::Cyan),
+            ]);
         }
 
         #[cfg(not(target_arch = "x86_64"))]
-        println!(
-            "{}: {:6} µs/build ({:3} ns/pixel)",
-            name, avg_time, ns_per_pixel
-        );
+        {
+            table.add_row(vec![
+                Cell::new(name).add_attribute(Attribute::Bold),
+                Cell::new(avg_time),
+                Cell::new(ns_per_pixel),
+                Cell::new("N/A"),
+                Cell::new("N/A"),
+            ]);
+        }
     }
 
-    println!();
+    println!("{table}\n");
 }
 
 fn profile_rendering_pipeline() {
-    println!("## 3. Full Rendering Pipeline Breakdown\n");
+    println!("🚀 Full Rendering Pipeline Breakdown");
 
     let triangles = generate_test_scene(100, 1920, 1080);
 
@@ -186,32 +235,40 @@ fn profile_rendering_pipeline() {
 
     let render_time = total_time - clear_time;
 
-    println!(
-        "Clear time:  {:6} µs ({:3}%)",
-        clear_time,
-        (clear_time * 100) / total_time
-    );
-    println!(
-        "Render time: {:6} µs ({:3}%)",
-        render_time,
-        (render_time * 100) / total_time
-    );
-    println!("Total time:  {:6} µs", total_time);
+    let clear_percent = (clear_time * 100) / total_time;
+    let render_percent = (render_time * 100) / total_time;
 
     // Calculate triangles per second
     let tris_per_sec = (triangles.len() as u128 * iterations * 1_000_000) / total_time;
-    println!("\nThroughput: {} M triangles/sec", tris_per_sec / 1_000_000);
+    let m_tris_per_sec = tris_per_sec / 1_000_000;
 
-    println!();
-}
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS);
 
-fn profile_simd_vs_scalar_detailed() {
-    println!("## 4. SIMD vs Scalar Component Breakdown\n");
+    table.add_row(vec![
+        Cell::new("Clear Time").add_attribute(Attribute::Bold),
+        Cell::new(format!("{clear_time} µs")),
+        Cell::new(format!("{clear_percent}%")).fg(Color::Blue),
+    ]);
+    table.add_row(vec![
+        Cell::new("Render Time").add_attribute(Attribute::Bold),
+        Cell::new(format!("{render_time} µs")),
+        Cell::new(format!("{render_percent}%")).fg(Color::Magenta),
+    ]);
+    table.add_row(vec![
+        Cell::new("Total Time").add_attribute(Attribute::Bold),
+        Cell::new(format!("{total_time} µs")).add_attribute(Attribute::Bold),
+        Cell::new("100%"),
+    ]);
 
-    // This would require instrumenting the actual code with timing
-    // For now, we'll note that this needs internal instrumentation
-    println!("Note: Detailed SIMD vs scalar breakdown requires code instrumentation");
-    println!("See suggestions below for adding timing to hot paths.\n");
+    println!("{table}");
+
+    println!(
+        "\n📈 Throughput: {} M triangles/sec\n",
+        m_tris_per_sec
+    );
 }
 
 /// Generate horizontal triangles of specific scanline length

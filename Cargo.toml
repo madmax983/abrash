@@ -38,6 +38,7 @@ windows = { version = "0.59", optional = true, features = [
     "Win32_Security",
     "Win32_System_Threading",
 ] }
+comfy-table = "7.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
@@ -140,7 +141,6 @@ harness = false
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"
-required-features = ["backend-win32"]
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
