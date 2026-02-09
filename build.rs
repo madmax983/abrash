@@ -1,5 +1,7 @@
 // Build script for compiling HLSL shaders to DXIL bytecode
 // Only runs when gpu-binning feature is enabled
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::single_match_else)]
 
 fn main() {
     #[cfg(feature = "gpu-binning")]

@@ -62,10 +62,8 @@ fn bench_clipping_grid(c: &mut Criterion) {
     let mvp = model * view * projection;
 
     // Pre-transform vertices to simulate the pipeline state just before rasterization/clipping
-    let transformed_verts: Vec<(Vec3, f32)> = vertices
-        .iter()
-        .map(|v| mvp.transform_point(*v))
-        .collect();
+    let transformed_verts: Vec<(Vec3, f32)> =
+        vertices.iter().map(|v| mvp.transform_point(*v)).collect();
 
     c.bench_function("fill_grid_clipping", |b| {
         b.iter(|| {

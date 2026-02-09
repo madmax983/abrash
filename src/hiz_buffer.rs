@@ -267,7 +267,11 @@ impl HiZBuffer {
         let odd_width = (source_width % 2) != 0;
         let odd_height = (sh % 2) != 0;
 
-        let safe_width = if odd_width { level_width - 1 } else { level_width };
+        let safe_width = if odd_width {
+            level_width - 1
+        } else {
+            level_width
+        };
         let safe_height = if odd_height {
             level_height - 1
         } else {

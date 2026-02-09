@@ -28,9 +28,12 @@ const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
 }
 
 /// Helper to average 4 colors (simple box filter)
-fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
-    let r = (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF)) / 4;
-    let g = (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
+const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
+    let r =
+        (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF))
+            / 4;
+    let g =
+        (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
     let b = ((c00 & 0xFF) + (c10 & 0xFF) + (c01 & 0xFF) + (c11 & 0xFF)) / 4;
 
     0xFF00_0000 | (r << 16) | (g << 8) | b
@@ -91,6 +94,10 @@ impl Texture {
 
     /// Generates mipmaps for the texture.
     /// Should be called after modifying pixels if Trilinear filtering is used.
+    ///
+    /// # Panics
+    ///
+    /// Panics if memory allocation fails or internal state is inconsistent (should not happen).
     pub fn generate_mipmaps(&mut self) {
         let mut width = self.width;
         let mut height = self.height;
@@ -166,9 +173,7 @@ impl Texture {
                 let y = (v * self.height as f32) as i32;
                 self.get_pixel_texel(x, y)
             }
-            FilterMode::Bilinear => self.get_pixel_bilinear(u, v),
-            // Without explicit LOD, fall back to bilinear (LOD 0)
-            FilterMode::Trilinear => self.get_pixel_bilinear(u, v),
+            FilterMode::Bilinear | FilterMode::Trilinear => self.get_pixel_bilinear(u, v),
         }
     }
 
@@ -203,7 +208,7 @@ impl Texture {
         let inv_weight = 256 - weight;
 
         let final_color = blend_swar(c0, c1, weight, inv_weight);
-        final_color | 0xFF000000 // Force alpha
+        final_color | 0xFF00_0000 // Force alpha
     }
 
     /// Helper to sample a specific mip level
@@ -237,7 +242,7 @@ impl Texture {
 
         // Manual neighbor fetch for mips
         let (c00, c10, c01, c11) = {
-             let x0 = x0_raw.clamp(0, w_i32) as usize;
+            let x0 = x0_raw.clamp(0, w_i32) as usize;
             let y0 = y0_raw.clamp(0, h_i32) as usize;
             let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
             let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;

@@ -292,10 +292,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     println!("Preparing to launch {name}...");
 
     let mut cmd = Command::new("cargo");
-    cmd.arg("run")
-        .arg("--release")
-        .arg("--example")
-        .arg(name);
+    cmd.arg("run").arg("--release").arg("--example").arg(name);
 
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure
     // the example runs (as Win32 API is not available).
