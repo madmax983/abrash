@@ -2,12 +2,13 @@
 name = "abrash"
 version = "0.1.0"
 edition = "2024"
+autobenches = false
 
 [features]
 default = ["backend-win32"]
 simd = []
 parallel = ["dep:rayon"]
-gpu-binning = ["dep:windows", "backend-win32"]
+gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
@@ -18,6 +19,7 @@ crossterm = { version = "0.29.0", optional = true }
 ratatui = { version = "0.30.0", optional = true }
 ratzilla = { version = "0.3", optional = true }
 rayon = { version = "1.10", optional = true }
+abrash-gpu = { path = "crates/abrash-gpu", optional = true, default-features = false, features = ["gpu-binning"] }
 
 # Win32 API bindings
 windows-sys = { version = "0.59", optional = true, features = [

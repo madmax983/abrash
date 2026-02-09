@@ -18,6 +18,64 @@ use windows::{
     core::Interface,
 };
 
+/// Minimal screen-space vertex input used by GPU triangle binning.
+#[derive(Debug, Clone, Copy)]
+pub struct ScreenVertexInput {
+    pub x: i32,
+    pub y: i32,
+    pub z: f32,
+}
+
+/// Fixed-point vertex used by GPU edge setup.
+#[derive(Debug, Clone, Copy)]
+pub struct VertexFixedInput {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+/// Triangle payload consumed by GPU binning shaders.
+#[derive(Debug, Clone, Copy)]
+pub struct PreparedTriangleInput {
+    pub p0: ScreenVertexInput,
+    pub p1: ScreenVertexInput,
+    pub p2: ScreenVertexInput,
+    pub p0_fixed: VertexFixedInput,
+    pub p1_fixed: VertexFixedInput,
+    pub p2_fixed: VertexFixedInput,
+    pub dz_dx: f32,
+    pub long_edge_is_left: bool,
+    pub color: u32,
+    pub aabb_min_x: i32,
+    pub aabb_min_y: i32,
+    pub aabb_max_x: i32,
+    pub aabb_max_y: i32,
+    pub min_depth: f32,
+    pub max_depth: f32,
+}
+
+/// Axis-aligned bounding box used for Hi-Z visibility queries.
+#[derive(Debug, Clone, Copy)]
+pub struct Aabb3d {
+    pub min_x: i32,
+    pub max_x: i32,
+    pub min_y: i32,
+    pub max_y: i32,
+    pub min_depth: f32,
+    pub max_depth: f32,
+}
+
+/// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
+pub trait HiZOcclusion {
+    fn is_coarse_bin_visible(&self, bin_aabb: Aabb3d) -> bool;
+}
+
+/// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
+pub trait HiZPyramidWriter {
+    fn write_level_data(&mut self, level: u32, data: &[f32]);
+    fn mark_valid(&mut self);
+}
+
 /// GPU compute binning pipeline
 pub struct GpuBinner {
     device: D3D12Device,
@@ -170,7 +228,7 @@ impl GpuBinner {
         let root_signature = Self::create_root_signature(device.raw())?;
 
         // Create compute PSO
-        let shader_bytecode = include_bytes!("../../shaders/bin_triangles.cso");
+        let shader_bytecode = include_bytes!("../shaders/bin_triangles.cso");
         let compute_pso = Self::create_compute_pso(device.raw(), &root_signature, shader_bytecode)?;
 
         // Create command list
@@ -336,7 +394,7 @@ impl GpuBinner {
     /// * `tile_bins` - Output vector to populate with binned triangle indices
     pub fn bin_triangles(
         &mut self,
-        triangles: &[crate::tile_renderer::PreparedTriangle],
+        triangles: &[PreparedTriangleInput],
         tile_bins: &mut Vec<Vec<usize>>,
     ) -> Result<(), GpuError> {
         if triangles.is_empty() {
@@ -397,12 +455,12 @@ impl GpuBinner {
         };
 
         // Load and compile coarse binning shader
-        let coarse_shader = include_bytes!("../../shaders/bin_coarse.cso");
+        let coarse_shader = include_bytes!("../shaders/bin_coarse.cso");
         let coarse_binning_pso =
             Self::create_compute_pso(self.device.raw(), &self.root_signature, coarse_shader)?;
 
         // Load and compile fine binning shader
-        let fine_shader = include_bytes!("../../shaders/bin_fine.cso");
+        let fine_shader = include_bytes!("../shaders/bin_fine.cso");
         let fine_binning_pso =
             Self::create_compute_pso(self.device.raw(), &self.root_signature, fine_shader)?;
 
@@ -441,8 +499,8 @@ impl GpuBinner {
     /// Stats about culling effectiveness
     pub fn bin_triangles_two_level(
         &mut self,
-        triangles: &[crate::tile_renderer::PreparedTriangle],
-        hiz_buffer: Option<&crate::hiz_buffer::HiZBuffer>,
+        triangles: &[PreparedTriangleInput],
+        hiz_buffer: Option<&dyn HiZOcclusion>,
         tile_bins: &mut Vec<Vec<usize>>,
     ) -> Result<TwoLevelBinningStats, GpuError> {
         if !self.two_level_enabled {
@@ -506,12 +564,12 @@ impl GpuBinner {
 
             // Clear coarse bins UAV
             let clear_values = [0u32, 0, 0, 0];
-            let gpu_uav_handle = unsafe {
+            let gpu_uav_handle = {
                 let mut handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
                 handle.ptr += self.descriptor_size as u64;
                 handle
             };
-            let cpu_uav_handle = unsafe {
+            let cpu_uav_handle = {
                 let mut handle = self.descriptor_heap.GetCPUDescriptorHandleForHeapStart();
                 handle.ptr += self.descriptor_size as usize;
                 handle
@@ -614,7 +672,7 @@ impl GpuBinner {
     fn cull_coarse_bins(
         &self,
         coarse_bins: &[CoarseBinCpu],
-        hiz_buffer: Option<&crate::hiz_buffer::HiZBuffer>,
+        hiz_buffer: Option<&dyn HiZOcclusion>,
     ) -> Vec<CoarseBinCpu> {
         let Some(hiz) = hiz_buffer else {
             // No Hi-Z, all bins visible
@@ -637,7 +695,7 @@ impl GpuBinner {
                 let max_y = min_y + self.coarse_bin_size as i32 - 1;
 
                 // Query Hi-Z
-                let bin_aabb = crate::hiz_buffer::AABB3D {
+                let bin_aabb = Aabb3d {
                     min_x,
                     max_x,
                     min_y,
@@ -818,7 +876,7 @@ impl GpuBinner {
     /// Upload triangle data to GPU
     fn upload_triangles(
         &mut self,
-        triangles: &[crate::tile_renderer::PreparedTriangle],
+        triangles: &[PreparedTriangleInput],
     ) -> Result<(), GpuError> {
         unsafe {
             let ptr = self
@@ -892,12 +950,12 @@ impl GpuBinner {
 
             // Clear UAV buffer before binning (zero all counts)
             let clear_values = [0u32, 0, 0, 0];
-            let gpu_uav_handle = unsafe {
+            let gpu_uav_handle = {
                 let mut handle = self.descriptor_heap.GetGPUDescriptorHandleForHeapStart();
                 handle.ptr += self.descriptor_size as u64; // Advance to UAV (SRV is at offset 0)
                 handle
             };
-            let cpu_uav_handle = unsafe {
+            let cpu_uav_handle = {
                 let mut handle = self.descriptor_heap.GetCPUDescriptorHandleForHeapStart();
                 handle.ptr += self.descriptor_size as usize; // Advance to UAV
                 handle
@@ -1161,7 +1219,7 @@ impl GpuHiZBuilder {
         let root_signature = Self::create_root_signature(device.raw())?;
 
         // Create compute PSO (shader bytecode will be loaded from compiled .cso)
-        let shader_bytecode = include_bytes!("../../shaders/build_hiz_level.cso");
+        let shader_bytecode = include_bytes!("../shaders/build_hiz_level.cso");
         let compute_pso = Self::create_compute_pso(device.raw(), &root_signature, shader_bytecode)?;
 
         // Create command list
@@ -1376,9 +1434,9 @@ impl GpuHiZBuilder {
         descriptor_size: u32,
         zbuffer_texture: &ID3D12Resource,
         pyramid_levels: &[ID3D12Resource],
-        width: u32,
-        height: u32,
-        level_count: u32,
+        _width: u32,
+        _height: u32,
+        _level_count: u32,
     ) -> Result<(), GpuError> {
         unsafe {
             let mut cpu_handle = descriptor_heap.GetCPUDescriptorHandleForHeapStart();
@@ -1425,10 +1483,7 @@ impl GpuHiZBuilder {
 
             // Create SRV/UAV for pyramid levels 1..N
             for (idx, level_texture) in pyramid_levels.iter().enumerate() {
-                let level_idx = idx + 1;
-                let scale = 1u32 << level_idx;
-                let level_width = width.div_ceil(scale);
-                let level_height = height.div_ceil(scale);
+                let _level_idx = idx + 1;
 
                 // SRV for this level (as source for next level)
                 let srv_desc = D3D12_SHADER_RESOURCE_VIEW_DESC {
@@ -1588,8 +1643,6 @@ impl GpuHiZBuilder {
 
             // Copy zbuffer data row by row (respecting D3D12 row pitch alignment)
             let row_pitch = Self::aligned_row_pitch(self.width, std::mem::size_of::<f32>() as u32);
-            let row_bytes = self.width as usize * std::mem::size_of::<f32>();
-
             for y in 0..self.height as usize {
                 let src_offset = y * self.width as usize;
                 let dst_offset = y * (row_pitch as usize / std::mem::size_of::<f32>());
@@ -1757,8 +1810,6 @@ impl GpuHiZBuilder {
             );
 
             // Get destination resource (always pyramid_levels, never zbuffer)
-            let dest_resource = &self.pyramid_levels[(level - 1) as usize];
-
             // Dispatch compute shader (8×8 thread groups)
             let thread_groups_x = (dst_width + 7) / 8;
             let thread_groups_y = (dst_height + 7) / 8;
@@ -1791,7 +1842,7 @@ impl GpuHiZBuilder {
     /// * `hiz_buffer` - Target HiZBuffer to populate with pyramid data
     pub fn download_pyramid(
         &mut self,
-        hiz_buffer: &mut crate::hiz_buffer::HiZBuffer,
+        hiz_buffer: &mut dyn HiZPyramidWriter,
     ) -> Result<(), GpuError> {
         unsafe {
             // Reset command list for copy operations
@@ -2006,7 +2057,7 @@ impl GpuHiZBuilder {
                 }
 
                 hiz_buffer.write_level_data(0, &level_data);
-                byte_offset += (self.height as usize * row_pitch as usize);
+                byte_offset += self.height as usize * row_pitch as usize;
             }
 
             // Copy levels 1..N (respecting aligned row pitch)
@@ -2034,7 +2085,7 @@ impl GpuHiZBuilder {
                 }
 
                 hiz_buffer.write_level_data(level, &level_data);
-                byte_offset += (level_height as usize * row_pitch as usize);
+                byte_offset += level_height as usize * row_pitch as usize;
             }
 
             self.pyramid_readback.Unmap(0, None);
@@ -2072,3 +2123,5 @@ impl GpuHiZBuilder {
         Ok(())
     }
 }
+
+

@@ -6,6 +6,7 @@ version = 4
 name = "abrash"
 version = "0.1.0"
 dependencies = [
+ "abrash-gpu",
  "clap",
  "comfy-table",
  "criterion",
@@ -18,6 +19,13 @@ dependencies = [
  "web-time",
  "windows",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "abrash-gpu"
+version = "0.1.0"
+dependencies = [
+ "windows",
 ]
 
 [[package]]

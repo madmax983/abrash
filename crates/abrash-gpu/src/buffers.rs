@@ -10,7 +10,7 @@
 #[cfg(feature = "gpu-binning")]
 use windows::{
     Win32::Foundation::{E_FAIL, E_INVALIDARG},
-    Win32::Graphics::{Direct3D::D3D_FEATURE_LEVEL_11_0, Direct3D12::*, Dxgi::Common::*},
+    Win32::Graphics::{Direct3D12::*, Dxgi::Common::*},
     core::{Error, Result},
 };
 
@@ -180,7 +180,13 @@ mod tests {
     // Helper to create a test device
     unsafe fn create_test_device() -> Result<ID3D12Device> {
         let mut device: Option<ID3D12Device> = None;
-        unsafe { D3D12CreateDevice(None, D3D_FEATURE_LEVEL_11_0, &mut device)? };
+        unsafe {
+            D3D12CreateDevice(
+                None,
+                windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0,
+                &mut device,
+            )?
+        };
         device.ok_or_else(|| Error::from_hresult(E_FAIL))
     }
 
