@@ -1,6 +1,12 @@
 //! Depth buffer for hidden surface removal.
 //!
 //! Stores depth values per pixel for proper 3D occlusion.
+//!
+//! # Depth Convention
+//!
+//! *   **Smaller Z** is closer to the camera.
+//! *   **Larger Z** is further away.
+//! *   The buffer is initialized to `f32::INFINITY`.
 
 /// Z-buffer for depth testing
 pub struct ZBuffer {

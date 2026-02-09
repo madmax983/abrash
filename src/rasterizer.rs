@@ -1,6 +1,21 @@
 //! 2D Rasterization primitives.
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
+//!
+//! # Rasterization Rules
+//!
+//! This module implements a standard **Scanline Rasterization** algorithm.
+//!
+//! 1.  **Triangle Setup**: Vertices are sorted by Y-coordinate.
+//! 2.  **Edge Walking**: The left and right edges of the triangle are traced row by row.
+//! 3.  **Span Filling**: For each scanline, a horizontal span of pixels is filled between the left and right edges.
+//! 4.  **Top-Left Rule**: To prevent double-drawing on shared edges, the rasterizer follows standard fill conventions.
+//!
+//! # Performance
+//!
+//! *   **Fixed-Point Math**: Internal interpolation often uses 16.16 fixed-point arithmetic for speed.
+//! *   **Z-Buffering**: Depth testing is performed per-pixel.
+//! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
@@ -118,7 +133,21 @@ fn draw_scanline_flat(
     }
 }
 
-/// Fill a 3D triangle with z-buffer test
+/// Fill a 3D triangle with z-buffer test.
+///
+/// This function takes vertices in **Homogeneous Clip Space**.
+/// It handles:
+/// 1.  Frustum Clipping
+/// 2.  Perspective Division (converting to Normalized Device Coordinates)
+/// 3.  Viewport Mapping (converting to Screen Space)
+/// 4.  Rasterization & Depth Testing
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices as `(Position, W)`. `Position` is `Vec3` (x,y,z).
+/// *   `color` - 0xAARRGGBB color value.
 ///
 /// # Examples
 ///
@@ -131,7 +160,9 @@ fn draw_scanline_flat(
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
 ///
-/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0); // (Position, W)
+/// // Define vertices in Clip Space (x, y, z, w)
+/// // Visible range: -w <= x,y,z <= w
+/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
 /// let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
 /// let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
 /// let color = 0xFFFF0000; // Red

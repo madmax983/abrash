@@ -1,7 +1,17 @@
 //! Pixel buffer management.
 //!
 //! Framebuffer stores pixels in row-major order as 32-bit RGBA values.
-//! Color format: 0xAARRGGBB (little-endian: BB GG RR AA in memory).
+//!
+//! # Pixel Format
+//!
+//! Colors are stored as `u32` in **0xAARRGGBB** format.
+//!
+//! *   **Alpha**: High byte (0xFF......)
+//! *   **Red**: Second byte (0x..FF....)
+//! *   **Green**: Third byte (0x....FF..)
+//! *   **Blue**: Low byte (0x......FF)
+//!
+//! On Little-Endian machines (x86, ARM), this maps to `[B, G, R, A]` in memory.
 
 pub struct Framebuffer {
     pixels: Vec<u32>,
@@ -55,6 +65,21 @@ impl Framebuffer {
         self.pixels.fill(color);
     }
 
+    /// Sets a pixel at (x, y) to the given color.
+    ///
+    /// Silently ignores out-of-bounds coordinates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// // Set pixel at (10, 10) to Red
+    /// fb.set_pixel(10, 10, 0xFFFF0000);
+    ///
+    /// assert_eq!(fb.get_pixel(10, 10), Some(0xFFFF0000));
+    /// ```
     #[inline]
     pub fn set_pixel(&mut self, x: i32, y: i32, color: u32) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {

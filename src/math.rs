@@ -17,10 +17,19 @@
 //!
 //! This implies that the order of multiplication matches the order of transformations:
 //!
-//! ```text
+//! ```
+//! # use abrash::math::{Mat4, Vec3};
 //! // Scale, then Rotate, then Translate
-//! let M = Scale * Rotation * Translation;
-//! let v_prime = v * M;
+//! let scale = Mat4::scale(2.0, 2.0, 2.0);
+//! let rotate = Mat4::rotation_y(1.57); // 90 degrees
+//! let translate = Mat4::translation(10.0, 0.0, 0.0);
+//!
+//! // Combine transformations
+//! let transform = scale * rotate * translate;
+//!
+//! // Apply to a vector
+//! let v = Vec3::new(1.0, 0.0, 0.0);
+//! let (v_prime, _) = transform.transform_point(v);
 //! ```
 //!
 //! All operations use `f32` for compatibility with graphics APIs.
@@ -148,8 +157,20 @@ impl Vec3 {
 
     /// Calculates the cross product with another vector.
     ///
-    /// Returns a vector perpendicular to both input vectors.
-    /// Useful for calculating surface normals.
+    /// Returns a vector perpendicular to both input vectors using the Right-Hand Rule.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// // X cross Y = Z (Right-Handed)
+    /// let x = Vec3::new(1.0, 0.0, 0.0);
+    /// let y = Vec3::new(0.0, 1.0, 0.0);
+    /// let z = x.cross(y);
+    ///
+    /// assert_eq!(z, Vec3::new(0.0, 0.0, 1.0));
+    /// ```
     #[must_use]
     pub fn cross(&self, other: Self) -> Self {
         Self {
