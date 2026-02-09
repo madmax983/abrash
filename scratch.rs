@@ -1,6 +1,1 @@
-fn main() {
-    let mut tuple = (vec![1], vec![2]);
-    let reference = &mut tuple;
-    let (a, b) = reference;
-    println!("{:?} {:?}", a, b);
-}
+fn main() { let x: u32 = 5; println!("{}", x.is_multiple_of(2)); }

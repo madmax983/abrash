@@ -253,9 +253,15 @@ pub fn fill_triangle_3d(
             let z_left_float = (z_left as f32) / 256.0;
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left_float)
-                {
-                    fb.set_pixel(x_start, y, color);
+                if x_start >= 0 && x_start < width_i32 {
+                    // SAFETY:
+                    // 1. x_start is checked to be within [0, width) above.
+                    // 2. y is constrained by y_start..=y_end which are clamped to [0, height) outside the loop.
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left_float) {
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        }
+                    }
                 }
             } else {
                 draw_scanline_flat(fb, zb, y, x_start, x_end, z_left_float, dz_dx, color);
@@ -659,8 +665,17 @@ pub fn fill_triangle_gouraud(
             let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && zb.test_and_set(x_start, y, z_left) {
-                    fb.set_pixel(x_start, y, pack_color_fixed(c_left));
+                if x_start >= 0 && x_start < width_i32 {
+                    // SAFETY: Safe due to clamps on x_start and y
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            fb.set_pixel_unchecked(
+                                x_start as usize,
+                                y as usize,
+                                pack_color_fixed(c_left),
+                            );
+                        }
+                    }
                 }
             } else {
                 draw_scanline_gouraud(
@@ -1231,38 +1246,52 @@ pub fn fill_triangle_textured(
             let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx <= 0 {
-                if x_start >= 0
-                    && x_start < width_i32
-                    && zb.test_and_set(x_start, y, z_left)
-                    && q_left.abs() > 0.000_001
-                {
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    let color = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        FilterMode::Trilinear => {
-                            // Calculate LOD for single pixel
-                            // q = 1/w.
-                            // u_tex = u/q.
-                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
+                    // SAFETY: Safe due to clamps on x_start and y
+                    unsafe {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                             let w = 1.0 / q_left;
-                            let w_sq = w * w;
+                            let u_tex = u_left * w;
+                            let v_tex = v_left * w;
+                            let color = match texture.filter_mode {
+                                FilterMode::Nearest => {
+                                    texture.get_pixel_texel(u_tex as i32, v_tex as i32)
+                                }
+                                FilterMode::Bilinear => {
+                                    texture.get_pixel_bilinear_texel(u_tex, v_tex)
+                                }
+                                FilterMode::Trilinear => {
+                                    // Calculate LOD for single pixel
+                                    // q = 1/w.
+                                    // u_tex = u/q.
+                                    // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
+                                    let w = 1.0 / q_left;
+                                    let w_sq = w * w;
 
-                            let du_tex_dx = (gradients.du_dx * q_left - u_left * gradients.dq_dx) * w_sq;
-                            let dv_tex_dx = (gradients.dv_dx * q_left - v_left * gradients.dq_dx) * w_sq;
-                            let du_tex_dy = (gradients.du_dy * q_left - u_left * gradients.dq_dy) * w_sq;
-                            let dv_tex_dy = (gradients.dv_dy * q_left - v_left * gradients.dq_dy) * w_sq;
+                                    let du_tex_dx =
+                                        (gradients.du_dx * q_left - u_left * gradients.dq_dx)
+                                            * w_sq;
+                                    let dv_tex_dx =
+                                        (gradients.dv_dx * q_left - v_left * gradients.dq_dx)
+                                            * w_sq;
+                                    let du_tex_dy =
+                                        (gradients.du_dy * q_left - u_left * gradients.dq_dy)
+                                            * w_sq;
+                                    let dv_tex_dy =
+                                        (gradients.dv_dy * q_left - v_left * gradients.dq_dy)
+                                            * w_sq;
 
-                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+                                    let max_rho_sq = (du_tex_dx * du_tex_dx
+                                        + dv_tex_dx * dv_tex_dx)
+                                        .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
-                            let lod = 0.5 * max_rho_sq.log2();
-                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                                    let lod = 0.5 * max_rho_sq.log2();
+                                    texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                                }
+                            };
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         }
-                    };
-                    fb.set_pixel(x_start, y, color);
+                    }
                 }
             } else {
                 draw_scanline_textured_perspective(
@@ -1344,8 +1373,7 @@ mod tests {
         // The ideal would be 1.5, but we get ~1.39 due to integer truncation in dz_dy
         assert!(
             z_float > 1.0 && z_float < 2.0,
-            "z should be interpolated between 1.0 and 2.0, got {}",
-            z_float
+            "z should be interpolated between 1.0 and 2.0, got {z_float}",
         );
     }
 
@@ -1395,8 +1423,7 @@ mod tests {
 
         assert!(
             rendered_pixels > 100,
-            "Expected at least 100 pixels rendered, got {}",
-            rendered_pixels
+            "Expected at least 100 pixels rendered, got {rendered_pixels}",
         );
 
         // Verify center pixel is red (triangle is centered)
@@ -1429,8 +1456,7 @@ mod tests {
             assert_eq!(
                 fb.get_pixel(x as i32, 0),
                 Some(color),
-                "Pixel at x={} should be colored",
-                x
+                "Pixel at x={x} should be colored",
             );
         }
 
