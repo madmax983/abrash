@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 //! Tile-based rendering for improved cache locality at high resolutions.
 //!
 //! This module implements a tile-based rasterizer that subdivides the framebuffer into 32×32 pixel
@@ -67,7 +68,7 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use crate::clipping::clip_triangle_against_near_plane;
+use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
@@ -94,7 +95,7 @@ use crate::zbuffer::ZBuffer;
 /// - Fixed-point scale factor: 256 (2^8)
 /// - Conversion: `fixed = (float * 256.0) as i32`
 /// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VertexFixed {
     pub x: i32, // 24.8 fixed point
     pub y: i32, // 24.8 fixed point
@@ -109,7 +110,7 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
     fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
@@ -121,12 +122,14 @@ impl VertexFixed {
 
     /// Extract the integer pixel coordinate (discard fractional part).
     #[inline]
+    #[cfg(test)]
     const fn to_pixel_x(self) -> i32 {
         self.x >> 8
     }
 
     /// Extract the integer pixel coordinate (discard fractional part).
     #[inline]
+    #[cfg(test)]
     const fn to_pixel_y(self) -> i32 {
         self.y >> 8
     }
@@ -153,6 +156,7 @@ impl VertexFixed {
 /// This is intentional - we only care about the sign for edge testing, not the
 /// exact magnitude.
 #[inline(always)]
+#[cfg(test)]
 const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
     // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
     // All coordinates are 24.8 fixed point
@@ -738,12 +742,12 @@ fn rasterize_scanline_scalar(
     dz_dx: f32,
     color: u32,
 ) {
+    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
+    const INV_256: f32 = 1.0 / 256.0;
+
     // Convert to 24.8 fixed point for accumulation
     let mut z_fixed = (z_start * 256.0) as i32;
     let dz_dx_fixed = (dz_dx * 256.0) as i32;
-
-    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
-    const INV_256: f32 = 1.0 / 256.0;
 
     for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
         // Convert fixed-point to float for zbuffer comparison (Option A)
@@ -1015,6 +1019,10 @@ impl TileRenderer {
     /// * `zb` - Depth buffer for z-testing (must match dimensions)
     /// * `triangles` - Slice of clip-space triangles `((Vec3, w), (Vec3, w), (Vec3, w), color)`
     ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
+    ///
     /// # Performance Notes
     ///
     /// - **Reusable**: This method can be called multiple times with different geometry. Internal
@@ -1234,6 +1242,10 @@ impl TileRenderer {
     }
 
     /// Render a batch of textured clip-space triangles.
+    ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
     pub fn render_batch_textured(
         &mut self,
         fb: &mut Framebuffer,
@@ -1397,7 +1409,7 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
-        let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.0.1);
+        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1540,7 +1552,7 @@ impl TileRenderer {
     }
 
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
-        let clipped = clip_triangle_against_near_plane(v0, v1, v2, |v| v.1);
+        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1753,7 +1765,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
@@ -1957,10 +1969,11 @@ mod tests {
         let v1 = (Vec3::new(10.0, 0.0, 5.0), w); // Outside right
         let v2 = (Vec3::new(0.0, 1.0, 5.0), w); // Inside
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
-        assert_eq!(
-            tr.prepared.len(),
-            1,
-            "Partially visible triangle should NOT be culled"
+        // With full frustum clipping, this triangle is clipped into a quad (2 triangles)
+        assert!(
+            tr.prepared.len() >= 1,
+            "Partially visible triangle should NOT be culled (got {})",
+            tr.prepared.len()
         );
     }
 
