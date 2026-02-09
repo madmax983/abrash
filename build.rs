@@ -33,38 +33,35 @@ fn compile_shaders() {
     // Check if DXC (DirectX Shader Compiler) is available
     let dxc_path = find_dxc();
 
-    match dxc_path {
-        Some(dxc) => {
-            for (shader_src, shader_out, entry_point) in &shaders {
-                println!("cargo:rerun-if-changed={shader_src}");
-                println!("cargo:info=Compiling shader: {shader_src} -> {shader_out}");
+    if let Some(dxc) = dxc_path {
+        for (shader_src, shader_out, entry_point) in &shaders {
+            println!("cargo:rerun-if-changed={shader_src}");
+            println!("cargo:info=Compiling shader: {shader_src} -> {shader_out}");
 
-                let output = Command::new(&dxc)
-                    .arg("-T")
-                    .arg("cs_6_0") // Compute Shader Model 6.0
-                    .arg("-E")
-                    .arg(entry_point) // Entry point
-                    .arg("-Fo")
-                    .arg(shader_out)
-                    .arg(shader_src)
-                    .arg("-Zi") // Debug info
-                    .arg("-Qembed_debug") // Embed debug info in shader
-                    .output()
-                    .expect("Failed to execute dxc.exe");
+            let output = Command::new(&dxc)
+                .arg("-T")
+                .arg("cs_6_0") // Compute Shader Model 6.0
+                .arg("-E")
+                .arg(entry_point) // Entry point
+                .arg("-Fo")
+                .arg(shader_out)
+                .arg(shader_src)
+                .arg("-Zi") // Debug info
+                .arg("-Qembed_debug") // Embed debug info in shader
+                .output()
+                .expect("Failed to execute dxc.exe");
 
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    panic!("Shader compilation failed for {shader_src}:\n{stderr}");
-                }
-
-                println!("cargo:info=Shader {shader_src} compilation successful");
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                panic!("Shader compilation failed for {shader_src}:\n{stderr}");
             }
+
+            println!("cargo:info=Shader {shader_src} compilation successful");
         }
-        None => {
-            println!("cargo:warning=DXC not found. GPU binning will not work.");
-            println!("cargo:warning=Install Windows SDK or place dxc.exe in PATH");
-            // Don't fail the build - just warn. The feature will compile but not run.
-        }
+    } else {
+        println!("cargo:warning=DXC not found. GPU binning will not work.");
+        println!("cargo:warning=Install Windows SDK or place dxc.exe in PATH");
+        // Don't fail the build - just warn. The feature will compile but not run.
     }
 }
 
@@ -73,10 +70,13 @@ fn find_dxc() -> Option<String> {
     // Try to find dxc.exe in common locations
 
     // 1. Check if it's in PATH
-    if let Ok(output) = std::process::Command::new("dxc").arg("--version").output() {
-        if output.status.success() {
-            return Some("dxc".to_string());
-        }
+    if std::process::Command::new("dxc")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("dxc".to_string());
     }
 
     // 2. Check Windows SDK locations

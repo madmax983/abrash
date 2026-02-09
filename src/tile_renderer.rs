@@ -2028,7 +2028,7 @@ mod tests {
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
         // With full frustum clipping, this triangle is clipped into a quad (2 triangles)
         assert!(
-            tr.prepared.len() >= 1,
+            !tr.prepared.is_empty(),
             "Partially visible triangle should NOT be culled (got {})",
             tr.prepared.len()
         );
