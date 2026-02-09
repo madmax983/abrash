@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 //! Tile-based rendering for improved cache locality at high resolutions.
 //!
 //! This module implements a tile-based rasterizer that subdivides the framebuffer into 32×32 pixel
@@ -94,7 +95,7 @@ use crate::zbuffer::ZBuffer;
 /// - Fixed-point scale factor: 256 (2^8)
 /// - Conversion: `fixed = (float * 256.0) as i32`
 /// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VertexFixed {
     pub x: i32, // 24.8 fixed point
     pub y: i32, // 24.8 fixed point
@@ -109,7 +110,7 @@ impl VertexFixed {
     /// The integer screen coordinates are shifted left by 8 bits to create the
     /// 24.8 fixed-point representation. For example:
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (ScreenPoint uses i32)
+    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
     fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
@@ -121,12 +122,14 @@ impl VertexFixed {
 
     /// Extract the integer pixel coordinate (discard fractional part).
     #[inline]
+    #[cfg(test)]
     const fn to_pixel_x(self) -> i32 {
         self.x >> 8
     }
 
     /// Extract the integer pixel coordinate (discard fractional part).
     #[inline]
+    #[cfg(test)]
     const fn to_pixel_y(self) -> i32 {
         self.y >> 8
     }
@@ -153,6 +156,7 @@ impl VertexFixed {
 /// This is intentional - we only care about the sign for edge testing, not the
 /// exact magnitude.
 #[inline(always)]
+#[cfg(test)]
 const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
     // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
     // All coordinates are 24.8 fixed point
@@ -262,7 +266,9 @@ fn render_single_tile(
     tiles_x: u32,
     width: u32,
     _height: u32,
-) -> Option<(Vec<u32>, Vec<f32>, i32, i32)> {
+    tile_pixels: &mut [u32],
+    tile_depths: &mut [f32],
+) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
     if tile_bins[bin_idx].is_empty() {
         return None;
@@ -283,11 +289,6 @@ fn render_single_tile(
         clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
     }
 
-    // Allocate tile-local buffers
-    let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-    let mut tile_pixels = vec![0u32; tile_area];
-    let mut tile_depths = vec![f32::INFINITY; tile_area];
-
     // Clear only the rows that will be touched
     let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
     let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
@@ -299,8 +300,8 @@ fn render_single_tile(
     for &tri_idx in bin {
         let tri = &prepared[tri_idx];
         render_triangle_in_tile(
-            &mut tile_pixels,
-            &mut tile_depths,
+            tile_pixels,
+            tile_depths,
             tri,
             tile_x0,
             tile_y0,
@@ -310,7 +311,7 @@ fn render_single_tile(
         );
     }
 
-    Some((tile_pixels, tile_depths, clear_y_min, clear_y_max))
+    Some((clear_y_min, clear_y_max))
 }
 
 /// Render a triangle into tile-local buffers. Free function to avoid `&mut self` borrow conflicts.
@@ -741,12 +742,12 @@ fn rasterize_scanline_scalar(
     dz_dx: f32,
     color: u32,
 ) {
+    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
+    const INV_256: f32 = 1.0 / 256.0;
+
     // Convert to 24.8 fixed point for accumulation
     let mut z_fixed = (z_start * 256.0) as i32;
     let dz_dx_fixed = (dz_dx * 256.0) as i32;
-
-    // Use multiplication instead of division (3-5 cycles vs 10-20 cycles)
-    const INV_256: f32 = 1.0 / 256.0;
 
     for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
         // Convert fixed-point to float for zbuffer comparison (Option A)
@@ -1018,6 +1019,10 @@ impl TileRenderer {
     /// * `zb` - Depth buffer for z-testing (must match dimensions)
     /// * `triangles` - Slice of clip-space triangles `((Vec3, w), (Vec3, w), (Vec3, w), color)`
     ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
+    ///
     /// # Performance Notes
     ///
     /// - **Reusable**: This method can be called multiple times with different geometry. Internal
@@ -1131,20 +1136,20 @@ impl TileRenderer {
             // Sequential rendering
             for ty in 0..self.tiles_y {
                 for tx in 0..self.tiles_x {
-                    if let Some((tile_pixels, tile_depths, clear_y_min, clear_y_max)) =
-                        render_single_tile(
-                            tx,
-                            ty,
-                            &self.tile_bins,
-                            &self.prepared,
-                            self.tiles_x,
-                            self.width,
-                            self.height,
-                        )
-                    {
+                    if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                        tx,
+                        ty,
+                        &self.tile_bins,
+                        &self.prepared,
+                        self.tiles_x,
+                        self.width,
+                        self.height,
+                        &mut self.tile_pixels,
+                        &mut self.tile_depths,
+                    ) {
                         Self::merge_tile_direct(
-                            &tile_pixels,
-                            &tile_depths,
+                            &self.tile_pixels,
+                            &self.tile_depths,
                             fb,
                             zb,
                             tx,
@@ -1184,34 +1189,54 @@ impl TileRenderer {
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared;
 
-                tiles.par_iter().for_each(move |&(tx, ty)| {
-                    if let Some((tile_pixels, tile_depths, clear_y_min, clear_y_max)) =
-                        render_single_tile(tx, ty, tile_bins, prepared, tiles_x, width, height)
-                    {
-                        // Merge tile into framebuffer/zbuffer
-                        let tile_x0 = tx * TILE_SIZE;
-                        let tile_y0 = ty * TILE_SIZE;
-                        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                        let tile_cols = (tile_x_end - tile_x0) as usize;
+                tiles.par_iter().for_each_init(
+                    || {
+                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                    },
+                    |(tile_pixels, tile_depths), &(tx, ty)| {
+                        if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                            tx,
+                            ty,
+                            tile_bins,
+                            prepared,
+                            tiles_x,
+                            width,
+                            height,
+                            tile_pixels,
+                            tile_depths,
+                        ) {
+                            // Merge tile into framebuffer/zbuffer
+                            let tile_x0 = tx * TILE_SIZE;
+                            let tile_y0 = ty * TILE_SIZE;
+                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                            let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                        let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                        let row_end = (clear_y_max as u32 + 1)
-                            .min(tile_y0 + TILE_SIZE)
-                            .min(height);
+                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                            let row_end = (clear_y_max as u32 + 1)
+                                .min(tile_y0 + TILE_SIZE)
+                                .min(height);
 
-                        for row in row_begin..row_end {
-                            let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                            let fb_start = row as usize * width as usize + tile_x0 as usize;
+                            for row in row_begin..row_end {
+                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                            // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
-                            // writes to non-overlapping regions determined by unique (tx, ty)
-                            for col in 0..tile_cols {
-                                fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
+                                // writes to non-overlapping regions determined by unique (tx, ty)
+                                for col in 0..tile_cols {
+                                    fb_ptr.write(
+                                        fb_start + col,
+                                        tile_pixels[tile_row_offset + col],
+                                    );
+                                    zb_ptr.write(
+                                        fb_start + col,
+                                        tile_depths[tile_row_offset + col],
+                                    );
+                                }
                             }
                         }
-                    }
-                });
+                    },
+                );
             }
         }
 
@@ -1222,6 +1247,10 @@ impl TileRenderer {
     }
 
     /// Render a batch of textured clip-space triangles.
+    ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
     pub fn render_batch_textured(
         &mut self,
         fb: &mut Framebuffer,
@@ -1326,46 +1355,53 @@ impl TileRenderer {
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_textured;
 
-                tiles.par_iter().for_each(move |&(tx, ty)| {
-                    // Allocate thread-local buffers
-                    let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                    let mut tile_pixels = vec![0u32; tile_area];
-                    let mut tile_depths = vec![f32::INFINITY; tile_area];
+                tiles.par_iter().for_each_init(
+                    || {
+                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                    },
+                    |(tile_pixels, tile_depths), &(tx, ty)| {
+                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
+                            tx,
+                            ty,
+                            tile_bins,
+                            prepared,
+                            tiles_x,
+                            width,
+                            height,
+                            texture,
+                            tile_pixels,
+                            tile_depths,
+                        ) {
+                            // Merge tile into framebuffer/zbuffer
+                            let tile_x0 = tx * TILE_SIZE;
+                            let tile_y0 = ty * TILE_SIZE;
+                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                            let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                    if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
-                        tx,
-                        ty,
-                        tile_bins,
-                        prepared,
-                        tiles_x,
-                        width,
-                        height,
-                        texture,
-                        &mut tile_pixels,
-                        &mut tile_depths,
-                    ) {
-                        // Merge tile into framebuffer/zbuffer
-                        let tile_x0 = tx * TILE_SIZE;
-                        let tile_y0 = ty * TILE_SIZE;
-                        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                        let tile_cols = (tile_x_end - tile_x0) as usize;
+                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                            let row_end = (clear_y_max as u32 + 1)
+                                .min(tile_y0 + TILE_SIZE)
+                                .min(height);
 
-                        let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                        let row_end = (clear_y_max as u32 + 1)
-                            .min(tile_y0 + TILE_SIZE)
-                            .min(height);
+                            for row in row_begin..row_end {
+                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                        for row in row_begin..row_end {
-                            let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                            let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                            for col in 0..tile_cols {
-                                fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                for col in 0..tile_cols {
+                                    fb_ptr.write(
+                                        fb_start + col,
+                                        tile_pixels[tile_row_offset + col],
+                                    );
+                                    zb_ptr.write(
+                                        fb_start + col,
+                                        tile_depths[tile_row_offset + col],
+                                    );
+                                }
                             }
                         }
-                    }
-                });
+                    },
+                );
             }
         }
 
@@ -1739,7 +1775,7 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);

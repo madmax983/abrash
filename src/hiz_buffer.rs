@@ -408,6 +408,7 @@ impl HiZBuffer {
 
     /// Helper to process a single output pixel (used for SIMD tail and boundary cases)
     #[inline]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     fn build_level_scalar_single(
         &mut self,
         level_idx: u32,
@@ -532,7 +533,7 @@ impl HiZBuffer {
     /// 1. Convert bin AABB to pyramid level 2 coordinates (128×128 = 32 * 2^2)
     /// 2. Sample all pyramid cells covering the bin region
     /// 3. Find minimum depth across all samples
-    /// 4. Compare bin's min_depth against pyramid's min_depth
+    /// 4. Compare bin's `min_depth` against pyramid's `min_depth`
     ///
     /// # Returns
     /// - `true` if the bin is potentially visible (must be subdivided)
@@ -566,6 +567,8 @@ impl HiZBuffer {
     /// ```
     #[must_use]
     pub fn is_coarse_bin_visible(&self, bin_aabb: AABB3D) -> bool {
+        const COARSE_BIN_LEVEL: u32 = 2;
+
         if !self.valid {
             return true; // Pyramid invalid, assume visible
         }
@@ -587,7 +590,6 @@ impl HiZBuffer {
 
         // Query pyramid at level 2 (128×128 = 32 * 2^2)
         // For 1920×1080: level 2 is 480×270 (each cell covers 4×4 pixels)
-        const COARSE_BIN_LEVEL: u32 = 2;
         let scale = 1u32 << COARSE_BIN_LEVEL; // 2^2 = 4
 
         // Ensure level 2 exists
