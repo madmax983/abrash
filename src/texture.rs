@@ -354,10 +354,21 @@ impl Texture {
     }
 
     #[must_use]
+    #[inline]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {
-        let x = x.clamp(0, self.width as i32 - 1) as usize;
-        let y = y.clamp(0, self.height as i32 - 1) as usize;
-        unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        // Optimization: Fast path for in-bounds coordinates.
+        // Casting to u32 handles negative checks implicitly (negative i32 becomes large u32).
+        if (x as u32) < self.width && (y as u32) < self.height {
+            unsafe {
+                *self
+                    .pixels
+                    .get_unchecked((y as usize) * (self.width as usize) + (x as usize))
+            }
+        } else {
+            let x = x.clamp(0, self.width as i32 - 1) as usize;
+            let y = y.clamp(0, self.height as i32 - 1) as usize;
+            unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+        }
     }
 
     /// Create a checkerboard texture.
