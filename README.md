@@ -1,14 +1,27 @@
 # Abrash Graphics Engine 🎻
 
-**Abrash** is a software rasterization engine written in Rust, designed for educational purposes and retro-graphics enthusiasts. It pays homage to the software rendering techniques popularized by legends like Michael Abrash.
+**Abrash** is a software rasterization engine written in Rust, designed for educational purposes and retro-graphics enthusiasts. It pays homage to the software rendering techniques popularized by legends like Michael Abrash in his "Graphics Programming Black Book".
+
+The goal is to demystify the GPU pipeline by implementing every stage—from vertex transformation to pixel shading—in pure, readable Rust.
+
+## Philosophy 📜
+
+> "The best way to learn how a car works is to build one from scratch."
+
+Modern graphics APIs (Vulkan, DirectX 12) are powerful but complex black boxes. **Abrash** peels back the layers:
+*   **No GPU acceleration:** Everything runs on the CPU.
+*   **No obscure drivers:** The code is the documentation.
+*   **No magic:** Every pixel on screen can be traced back to a specific line of code.
 
 ## Features ✨
 
-*   **Software Rasterization:** Triangle filling with flat and lit shading.
-*   **3D Pipeline:** Complete vertex transformation pipeline (Clip Space -> Screen Space).
-*   **Z-Buffering:** Depth testing for correct visibility.
-*   **Math Library:** Custom `Vec3` and `Mat4` implementations optimized for graphics.
-*   **Platform Abstraction:** Native Windows windowing support, with a TUI backend for cross-platform compatibility.
+*   **Software Rasterization:** Triangle filling with flat, Gouraud, and perspective-correct textured shading.
+*   **3D Pipeline:** Complete vertex transformation pipeline (Model -> View -> Projection -> Clip Space -> Screen Space).
+*   **Z-Buffering:** Pixel-perfect depth testing for correct visibility.
+*   **Math Library:** Custom `Vec3` and `Mat4` implementations optimized for graphics (SIMD-ready logic).
+*   **Platform Abstraction:**
+    *   **Native Windows:** High-performance windowing using Win32.
+    *   **TUI Backend:** Runs in your terminal for true cross-platform compatibility (Linux/macOS).
 
 ## Quick Start 🚀
 
@@ -16,7 +29,7 @@ Ensure you have Rust installed. Clone the repository and run the examples!
 
 ### Running the Demo
 
-The main binary runs a lit 3D cube demo:
+The main binary runs a lit 3D cube demo. Use `--release` for smooth performance!
 
 ```bash
 cargo run --release
@@ -27,25 +40,49 @@ cargo run --release
 Explore different capabilities of the engine through the provided examples:
 
 ```bash
-# A 3D wireframe cube
-cargo run --example cube_3d
+# A simple 3D wireframe cube (good for debugging transformations)
+cargo run --release --example cube_3d
 
-# A solid cube with lighting (similar to main)
-cargo run --example lit_cube
+# A solid cube with simple lighting
+cargo run --release --example lit_cube
 
-# WebAssembly compatible cube demo
-cargo run --example wasm_cube_3d
+# A textured rotating cube with perspective correction
+cargo run --release --example textured_cube
 ```
 
-> **Note:** Use `--release` for smooth performance, as software rendering is CPU-intensive!
+**Note for Linux/macOS users:**
+The default backend uses Win32. To run on non-Windows systems, use the TUI backend:
+```bash
+cargo run --release --no-default-features --features backend-tui
+```
 
 ## Architecture 🏛️
 
-*   **`math`**: The mathematical foundation. Uses **Row-Vector** convention (`v * M`) and a Right-Handed coordinate system.
-*   **`rasterizer`**: Low-level pixel drawing and 2D primitive filling.
-*   **`framebuffer`**: Manages the pixel buffer (0xAARRGGBB format).
-*   **`zbuffer`**: Manages the depth buffer.
-*   **`platform`**: Window creation and event handling.
+The engine follows a standard graphics pipeline architecture:
+
+```text
+[ Mesh Data ]
+      ⬇
+[ Vertex Processing (Math) ]  <-- (Model -> World -> View -> Clip Space)
+      ⬇
+[ Clipping ]                  <-- (Sutherland-Hodgman Algorithm)
+      ⬇
+[ Rasterization ]             <-- (Triangle Setup & Edge Walking)
+      ⬇
+[ Fragment Processing ]       <-- (Interpolation & Shading)
+      ⬇
+[ Depth Test (Z-Buffer) ]     <-- (Visibility Check)
+      ⬇
+[ Framebuffer ]               <-- (Pixel Storage 0xAARRGGBB)
+```
+
+### Coordinate System
+
+*   **Handedness:** Right-Handed (Y-Up, X-Right, -Z-Forward).
+*   **Matrices:** **Row-Major** storage.
+*   **Transformations:** **Row-Vector** convention ($v \cdot M$).
+    *   Vectors are rows: `[x, y, z, w]`
+    *   Multiplication order: `v_prime = v * Scale * Rotation * Translation`
 
 ## License
 
