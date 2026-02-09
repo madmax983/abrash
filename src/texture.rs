@@ -221,8 +221,8 @@ impl Texture {
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
 
-        let u_img_fixed = u_fixed - 128;
-        let v_img_fixed = v_fixed - 128;
+        let u_img_fixed = u_fixed.wrapping_sub(128);
+        let v_img_fixed = v_fixed.wrapping_sub(128);
 
         let wx = (u_img_fixed & 0xFF) as u32;
         let wy = (v_img_fixed & 0xFF) as u32;
@@ -286,8 +286,8 @@ impl Texture {
     #[inline]
     #[must_use]
     pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
-        let u_img_fixed = u_fixed - 128;
-        let v_img_fixed = v_fixed - 128;
+        let u_img_fixed = u_fixed.wrapping_sub(128);
+        let v_img_fixed = v_fixed.wrapping_sub(128);
 
         // Weights (0..256)
         let wx = (u_img_fixed & 0xFF) as u32;
