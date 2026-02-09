@@ -119,52 +119,6 @@ impl VertexFixed {
         }
     }
 
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_x(self) -> i32 {
-        self.x >> 8
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    const fn to_pixel_y(self) -> i32 {
-        self.y >> 8
-    }
-}
-
-/// Compute fixed-point edge function for triangle rasterization.
-///
-/// The edge function computes the signed area of the parallelogram formed by
-/// vectors (p - v0) and (v1 - v0). It's used to determine if a point is inside
-/// a triangle.
-///
-/// # Returns
-///
-/// - Positive if point p is on the "right" side of edge v0→v1
-/// - Negative if point p is on the "left" side
-/// - Zero if point p is exactly on the edge
-///
-/// # Format
-///
-/// Input coordinates are in 24.8 fixed-point. The result is in 16.16 fixed-point
-/// due to the multiplication of two 24.8 values:
-/// - (24.8) * (24.8) = (48.16) → truncated to i32 preserves upper 32 bits
-///
-/// This is intentional - we only care about the sign for edge testing, not the
-/// exact magnitude.
-#[inline(always)]
-const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
-    // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
-    // All coordinates are 24.8 fixed point
-    let dx = px - v0.x;
-    let dy = py - v0.y;
-    let edge_dx = v1.x - v0.x;
-    let edge_dy = v1.y - v0.y;
-
-    // Multiply: (24.8) * (24.8) = (48.16)
-    // The i32 result keeps the upper 32 bits, giving us 16.16 fixed point
-    // This is fine for edge testing - we only care about the sign
-    (dx as i64 * edge_dy as i64 - dy as i64 * edge_dx as i64) as i32
 }
 
 #[cfg(feature = "parallel")]
@@ -759,87 +713,6 @@ fn rasterize_scanline_scalar(
     }
 }
 
-/// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[inline(always)]
-#[allow(dead_code)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    use std::arch::x86_64::*;
-
-    let len = pixels.len();
-    let mut i = 0;
-
-    unsafe {
-        // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
-        let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
-
-        // Initialize depth vector: [z0, z1, z2, z3, z4, z5, z6, z7]
-        let mut depths_vec = _mm256_set_ps(
-            z_at_xs + 7.0 * dz_dx,
-            z_at_xs + 6.0 * dz_dx,
-            z_at_xs + 5.0 * dz_dx,
-            z_at_xs + 4.0 * dz_dx,
-            z_at_xs + 3.0 * dz_dx,
-            z_at_xs + 2.0 * dz_dx,
-            z_at_xs + 1.0 * dz_dx,
-            z_at_xs,
-        );
-
-        let color_vec = _mm256_set1_epi32(color as i32);
-
-        // Process 8 pixels at a time with AVX2
-        while i + 8 <= len {
-            // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
-            let zb_vals = _mm256_loadu_ps(zb_ptr);
-
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
-
-            // Conditional depth write via masked store
-            let depths_mut_ptr = depths.as_mut_ptr().add(i);
-            _mm256_maskstore_ps(depths_mut_ptr, _mm256_castps_si256(mask), depths_vec);
-
-            // Conditional color write
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut i32;
-            _mm256_maskstore_epi32(pixels_ptr, _mm256_castps_si256(mask), color_vec);
-
-            // Increment depths by stride (8*dz_dx) for next iteration
-            depths_vec = _mm256_add_ps(depths_vec, stride_vec);
-            i += 8;
-        }
-    }
-
-    // Handle remaining pixels with scalar fallback
-    let mut z = z_at_xs + (i as f32) * dz_dx;
-    for j in i..len {
-        if z < depths[j] {
-            depths[j] = z;
-            pixels[j] = color;
-        }
-        z += dz_dx;
-    }
-}
-
-/// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
-#[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-#[inline(always)]
-#[allow(dead_code)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-}
 
 /// Tile-based renderer that bins triangles into 32×32 tiles for cache-friendly rendering.
 ///
@@ -881,8 +754,6 @@ pub struct TileRenderer {
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
-    #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
 }
 
 impl TileRenderer {
@@ -914,8 +785,6 @@ impl TileRenderer {
             prepared: Vec::new(),
             prepared_textured: Vec::new(),
             hiz_buffer: None,
-            #[cfg(feature = "gpu-binning")]
-            gpu_binner: None,
         }
     }
 
@@ -932,64 +801,6 @@ impl TileRenderer {
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
         self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
-    }
-
-    /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
-    ///
-    /// When enabled, the tile renderer will use a D3D12 compute shader to bin triangles
-    /// to tiles on the GPU, which can provide 10-20× faster binning for triangle-heavy scenes.
-    ///
-    /// **Requirements:**
-    /// - `gpu-binning` feature must be enabled
-    /// - Windows platform with DirectX 12 support
-    /// - Suitable GPU adapter (non-software)
-    ///
-    /// **Performance:**
-    /// - Binning: 100 triangles <0.05ms, 1000 triangles <0.5ms
-    /// - Overall: 2-3× speedup for scenes with 100+ triangles
-    ///
-    /// # Errors
-    ///
-    /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
-            self.width,
-            self.height,
-            TILE_SIZE,
-            1000, // Max triangles per batch
-        )?);
-        Ok(())
-    }
-
-    /// Enable two-level hierarchical GPU binning with Hi-Z culling.
-    ///
-    /// This method enables GPU compute shader binning with two-level hierarchical binning:
-    /// 1. Coarse binning pass: Bin triangles to 128×128 pixel coarse bins (GPU)
-    /// 2. Hi-Z culling pass: Cull occluded coarse bins using Hi-Z pyramid (CPU)
-    /// 3. Fine binning pass: Bin visible triangles to 32×32 fine tiles (GPU)
-    ///
-    /// Two-level binning can provide additional speedup over single-level GPU binning
-    /// by avoiding fine binning work for occluded regions of the screen.
-    ///
-    /// # Prerequisites
-    ///
-    /// - GPU binning must be enabled first via `enable_gpu_binning()`
-    /// - Hi-Z buffer should be enabled via `enable_hiz()` for effective culling
-    ///
-    /// # Returns
-    ///
-    /// `GpuError` if two-level binning initialization fails or GPU binning is not enabled.
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_two_level_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        let gpu = self.gpu_binner.as_mut().ok_or_else(|| {
-            crate::gpu::GpuError::DeviceCreation(windows::core::Error::from_hresult(
-                windows::core::HRESULT(0x8007_0057u32 as i32), // E_INVALIDARG
-            ))
-        })?;
-
-        gpu.enable_two_level_binning()?;
-        Ok(())
     }
 
     /// Returns the number of tiles in X direction.
@@ -1091,38 +902,7 @@ impl TileRenderer {
             }
         }
 
-        // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-        #[cfg(feature = "gpu-binning")]
-        if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path - check if two-level binning is enabled
-            if gpu.is_two_level_enabled() {
-                // Two-level hierarchical binning with Hi-Z culling
-                match gpu.bin_triangles_two_level(
-                    &self.prepared,
-                    self.hiz_buffer.as_ref(),
-                    &mut self.tile_bins,
-                ) {
-                    Ok(_stats) => {
-                        // Two-level binning succeeded
-                        // Stats available for debugging/profiling but not used in production
-                    }
-                    Err(e) => {
-                        eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
-                        self.bin_triangles_cpu();
-                    }
-                }
-            } else {
-                // Single-level GPU binning
-                if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                    eprintln!("GPU binning failed: {e}, falling back to CPU");
-                    self.bin_triangles_cpu();
-                }
-            }
-        } else {
-            self.bin_triangles_cpu();
-        }
-
-        #[cfg(not(feature = "gpu-binning"))]
+        // Phase 2: Bin (CPU with optional Hi-Z occlusion culling)
         self.bin_triangles_cpu();
 
         // Phase 3+4: Render and merge each tile
@@ -2486,122 +2266,6 @@ mod tests {
     // --- Fixed-point arithmetic tests ---
 
     #[test]
-    fn vertex_fixed_conversion() {
-        // Test conversion from ScreenPoint to VertexFixed
-        let p = ScreenPoint {
-            x: 100,
-            y: 200,
-            z: 5.0,
-        };
-
-        let fixed = VertexFixed::from_screen_point(p);
-
-        // 24.8 fixed point: value << 8
-        assert_eq!(fixed.x, 100 << 8); // 25600
-        assert_eq!(fixed.y, 200 << 8); // 51200
-        assert_eq!(fixed.z, (5.0 * 256.0) as i32); // 24.8 fixed point
-
-        // Test conversion back to pixel coordinates
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-    }
-
-    #[test]
-    fn vertex_fixed_subpixel_precision() {
-        // Test that 24.8 format supports sub-pixel precision
-        let fixed = VertexFixed {
-            x: (100 << 8) + 128, // 100.5 in 24.8 format (128 = 256/2)
-            y: (200 << 8) + 64,  // 200.25 in 24.8 format (64 = 256/4)
-            z: 256,              // 1.0 in 24.8 fixed-point
-        };
-
-        // Integer part should round down
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-
-        // Verify the fractional parts are preserved
-        assert_eq!(fixed.x & 0xFF, 128); // 0.5 * 256 = 128
-        assert_eq!(fixed.y & 0xFF, 64); // 0.25 * 256 = 64
-    }
-
-    #[test]
-    fn edge_function_fixed_correctness() {
-        // Create a simple CCW triangle with vertices at (0, 0), (100, 0), (50, 100)
-        // Winding: v0→v1 is right, v1→v2 is up-left, v2→v0 is down-left → CCW when viewed from top-down
-        let v0 = VertexFixed { x: 0, y: 0, z: 256 }; // 1.0 in 24.8 fixed-point;
-        let v1 = VertexFixed {
-            x: 100 << 8,
-            y: 0,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-        let v2 = VertexFixed {
-            x: 50 << 8,
-            y: 100 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-
-        // Test point inside triangle (50, 50)
-        let inside_x = 50 << 8;
-        let inside_y = 50 << 8;
-
-        // For edge function, all three should have consistent sign for inside points
-        let e0 = edge_function_fixed(inside_x, inside_y, v0, v1);
-        let e1 = edge_function_fixed(inside_x, inside_y, v1, v2);
-        let e2 = edge_function_fixed(inside_x, inside_y, v2, v0);
-
-        // All should have the same sign (either all positive or all negative) for point inside
-        // This triangle is actually CW in screen space (Y increases downward), so edges will be negative
-        let all_same_sign = (e0 < 0 && e1 < 0 && e2 < 0) || (e0 > 0 && e1 > 0 && e2 > 0);
-        assert!(
-            all_same_sign,
-            "Point inside triangle should have consistent edge signs: e0={e0}, e1={e1}, e2={e2}"
-        );
-
-        // Test point outside triangle (200, 50) - far to the right
-        let outside_x = 200 << 8;
-        let outside_y = 50 << 8;
-
-        let e0_out = edge_function_fixed(outside_x, outside_y, v0, v1);
-        let e1_out = edge_function_fixed(outside_x, outside_y, v1, v2);
-        let e2_out = edge_function_fixed(outside_x, outside_y, v2, v0);
-
-        // At least one edge function should have opposite sign for outside point
-        let all_same_sign_out =
-            (e0_out < 0 && e1_out < 0 && e2_out < 0) || (e0_out > 0 && e1_out > 0 && e2_out > 0);
-        assert!(
-            !all_same_sign_out,
-            "Point outside triangle should not have consistent edge signs"
-        );
-    }
-
-    #[test]
-    fn edge_function_fixed_deterministic() {
-        // Fixed-point should give identical results for same inputs
-        let v0 = VertexFixed {
-            x: 10 << 8,
-            y: 20 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-        let v1 = VertexFixed {
-            x: 30 << 8,
-            y: 40 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-
-        let px = 25 << 8;
-        let py = 35 << 8;
-
-        // Call multiple times
-        let result1 = edge_function_fixed(px, py, v0, v1);
-        let result2 = edge_function_fixed(px, py, v0, v1);
-        let result3 = edge_function_fixed(px, py, v0, v1);
-
-        // Should be identical (deterministic)
-        assert_eq!(result1, result2);
-        assert_eq!(result2, result3);
-    }
-
-    #[test]
     fn fixed_point_triangle_rendering_matches_float() {
         // Verify that triangles prepared with fixed-point vertices still render correctly
         let width = 100;
@@ -2635,55 +2299,4 @@ mod tests {
         }
     }
 
-    #[test]
-    #[cfg(feature = "simd")]
-    fn verify_simd_execution_with_wide_scanlines() {
-        // This test creates horizontal triangles with scanlines >32 pixels
-        // to verify SIMD code path executes (check stderr for [DEBUG] output)
-        use crate::framebuffer::Framebuffer;
-        use crate::math::Vec3;
-        use crate::zbuffer::ZBuffer;
-
-        let width = 1920;
-        let height = 1080;
-        let mut fb = Framebuffer::new(width, height).unwrap();
-        let mut zb = ZBuffer::new(width, height).unwrap();
-        let mut renderer = TileRenderer::new(width, height);
-
-        // Create wide horizontal triangles spanning most of the screen
-        // Use NDC coordinates that will create scanlines >32 pixels wide
-        let z1 = 5.0;
-        let z2 = 6.0;
-        let triangles = vec![
-            // Very wide triangle (-0.8 to 0.8 in NDC = ~3072 pixels at 1920 width)
-            (
-                (Vec3::new(-0.8, 0.0, z1), z1),
-                (Vec3::new(0.8, 0.0, z1), z1),
-                (Vec3::new(0.0, 0.1, z1), z1),
-                0xFFFF_0000,
-            ),
-            (
-                (Vec3::new(-0.8, -0.2, z2), z2),
-                (Vec3::new(0.8, -0.2, z2), z2),
-                (Vec3::new(0.0, -0.1, z2), z2),
-                0xFF00_FF00,
-            ),
-        ];
-
-        fb.clear(0xFF_00_00_00);
-        zb.clear();
-        renderer.render_batch(&mut fb, &mut zb, &triangles);
-
-        // Verify triangles were rendered (at least some pixels changed)
-        let pixels_changed = fb
-            .as_slice()
-            .iter()
-            .filter(|&&p| p != 0xFF_00_00_00)
-            .count();
-        assert!(
-            pixels_changed > 100,
-            "Expected at least 100 pixels rendered, got {}",
-            pixels_changed
-        );
-    }
 }
