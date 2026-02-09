@@ -1,3 +1,5 @@
+#![allow(clippy::manual_is_multiple_of)]
+
 /// Hierarchical Z-Buffer for efficient occlusion culling
 ///
 /// The Hi-Z buffer maintains a depth pyramid where each level stores the minimum
