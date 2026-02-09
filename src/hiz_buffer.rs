@@ -259,30 +259,75 @@ impl HiZBuffer {
     fn build_level_scalar(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
         let level_width = self.levels[level_idx as usize].width;
         let level_height = self.levels[level_idx as usize].height;
+        let dest = &mut self.levels[level_idx as usize].depths;
 
-        for y in 0..level_height {
-            for x in 0..level_width {
-                let src_x = (x * 2) as usize;
-                let src_y = (y * 2) as usize;
+        let sw = source_width as usize;
+        let sh = source.len() / sw;
 
-                // Sample 2×2 quad from previous level
-                let d00 = source[src_y * source_width as usize + src_x];
-                let d10 = source
-                    .get(src_y * source_width as usize + src_x + 1)
-                    .copied()
-                    .unwrap_or(d00); // Clamp to border
-                let d01 = source
-                    .get((src_y + 1) * source_width as usize + src_x)
-                    .copied()
-                    .unwrap_or(d00);
-                let d11 = source
-                    .get((src_y + 1) * source_width as usize + src_x + 1)
-                    .copied()
-                    .unwrap_or(d00);
+        let odd_width = (source_width % 2) != 0;
+        let odd_height = (sh % 2) != 0;
 
-                // Store minimum (closest) depth
-                let min_depth = d00.min(d10).min(d01).min(d11);
-                self.levels[level_idx as usize].depths[(y * level_width + x) as usize] = min_depth;
+        let safe_width = if odd_width { level_width - 1 } else { level_width };
+        let safe_height = if odd_height {
+            level_height - 1
+        } else {
+            level_height
+        };
+
+        for y in 0..safe_height {
+            let src_y = (y * 2) as usize;
+            let row0_start = src_y * sw;
+            let row1_start = (src_y + 1) * sw;
+
+            // Slice rows to avoid bounds checks in inner loop
+            let row0 = &source[row0_start..];
+            let row1 = &source[row1_start..];
+            let dst_row = &mut dest[(y * level_width) as usize..];
+
+            for x in 0..safe_width {
+                let sx = (x * 2) as usize;
+
+                // Direct access: we know sx+1 is valid because x < safe_width
+                let d00 = row0[sx];
+                let d10 = row0[sx + 1];
+                let d01 = row1[sx];
+                let d11 = row1[sx + 1];
+
+                dst_row[x as usize] = d00.min(d10).min(d01).min(d11);
+            }
+
+            // Handle last column if odd width
+            if odd_width {
+                let x = safe_width;
+                let sx = (x * 2) as usize;
+                let d00 = row0[sx];
+                let d01 = row1[sx];
+                // Clamp to left column
+                dst_row[x as usize] = d00.min(d01);
+            }
+        }
+
+        // Handle last row if odd height
+        if odd_height {
+            let y = safe_height;
+            let src_y = (y * 2) as usize;
+            let row0_start = src_y * sw;
+            let row0 = &source[row0_start..];
+            let dst_row = &mut dest[(y * level_width) as usize..];
+
+            for x in 0..safe_width {
+                let sx = (x * 2) as usize;
+                let d00 = row0[sx];
+                let d10 = row0[sx + 1];
+                // Clamp to top row
+                dst_row[x as usize] = d00.min(d10);
+            }
+
+            if odd_width {
+                let x = safe_width;
+                let sx = (x * 2) as usize;
+                let d00 = row0[sx];
+                dst_row[x as usize] = d00;
             }
         }
     }
