@@ -936,6 +936,7 @@ pub struct TileRenderer {
     hiz_buffer: Option<HiZBuffer>,
     #[cfg(feature = "gpu-binning")]
     gpu_binner: Option<crate::gpu::GpuBinner>,
+    use_two_level_binning: bool,
 }
 
 impl TileRenderer {
@@ -969,6 +970,7 @@ impl TileRenderer {
             hiz_buffer: None,
             #[cfg(feature = "gpu-binning")]
             gpu_binner: None,
+            use_two_level_binning: false,
         }
     }
 
@@ -985,6 +987,23 @@ impl TileRenderer {
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
         self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
+    }
+
+    /// Enable software-based two-level hierarchical binning.
+    ///
+    /// This method enables a software optimization that uses a two-level binning strategy:
+    /// 1. Coarse binning: Triangles are first checked against large 128x128 pixel bins.
+    /// 2. Hi-Z culling: Coarse bins are checked for visibility against the Hi-Z buffer (if enabled).
+    /// 3. Fine binning: Only visible coarse bins are subdivided into 32x32 tiles.
+    ///
+    /// This is particularly effective for large triangles or when Hi-Z culling is enabled,
+    /// as it allows skipping fine-grained binning for occluded regions.
+    pub fn enable_software_two_level_binning(&mut self) {
+        self.use_two_level_binning = true;
+        // Two-level binning benefits significantly from Hi-Z, so enable it if not already enabled
+        if self.hiz_buffer.is_none() {
+            self.enable_hiz();
+        }
     }
 
     /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
@@ -1683,6 +1702,11 @@ impl TileRenderer {
 
     /// CPU binning path with optional Hi-Z occlusion culling
     fn bin_triangles_cpu(&mut self) {
+        if self.use_two_level_binning {
+            self.bin_triangles_two_level_cpu();
+            return;
+        }
+
         let prepared_len = self.prepared.len();
         for i in 0..prepared_len {
             // Occlusion test before binning (if Hi-Z is enabled)
@@ -1703,6 +1727,88 @@ impl TileRenderer {
             }
 
             self.bin_triangle(i);
+        }
+    }
+
+    fn bin_triangles_two_level_cpu(&mut self) {
+        let prepared_len = self.prepared.len();
+        let coarse_size = 4; // 4x4 tiles = 128x128 pixels
+
+        for i in 0..prepared_len {
+            let tri = &self.prepared[i];
+
+            // If Hi-Z is enabled, we can use it to cull coarse bins
+            // First, check if the whole triangle is occluded (fast rejection)
+            if let Some(ref hiz) = self.hiz_buffer {
+                let aabb = AABB3D {
+                    min_x: tri.aabb_min_x,
+                    max_x: tri.aabb_max_x,
+                    min_y: tri.aabb_min_y,
+                    max_y: tri.aabb_max_y,
+                    min_depth: tri.min_depth,
+                    max_depth: tri.max_depth,
+                };
+
+                if !hiz.is_potentially_visible(aabb) {
+                    continue;
+                }
+            }
+
+            let tile_size_i32 = TILE_SIZE as i32;
+
+            // Calculate triangle bounds in tile coordinates
+            let tx_min_tri = (tri.aabb_min_x / tile_size_i32) as u32;
+            let ty_min_tri = (tri.aabb_min_y / tile_size_i32) as u32;
+            let tx_max_tri = ((tri.aabb_max_x / tile_size_i32) as u32).min(self.tiles_x - 1);
+            let ty_max_tri = ((tri.aabb_max_y / tile_size_i32) as u32).min(self.tiles_y - 1);
+
+            // Calculate bounds in coarse bin coordinates
+            let cx_min = tx_min_tri / coarse_size;
+            let cy_min = ty_min_tri / coarse_size;
+            let cx_max = tx_max_tri / coarse_size;
+            let cy_max = ty_max_tri / coarse_size;
+
+            for cy in cy_min..=cy_max {
+                for cx in cx_min..=cx_max {
+                    // Check visibility of this coarse bin
+                    let mut visible = true;
+                    if let Some(ref hiz) = self.hiz_buffer {
+                        let bin_min_x = (cx * coarse_size * TILE_SIZE) as i32;
+                        let bin_min_y = (cy * coarse_size * TILE_SIZE) as i32;
+                        let bin_max_x = bin_min_x + (coarse_size * TILE_SIZE) as i32 - 1;
+                        let bin_max_y = bin_min_y + (coarse_size * TILE_SIZE) as i32 - 1;
+
+                        // Clamp to screen
+                        let bin_aabb = AABB3D {
+                            min_x: bin_min_x.max(0),
+                            max_x: bin_max_x.min(self.width as i32 - 1),
+                            min_y: bin_min_y.max(0),
+                            max_y: bin_max_y.min(self.height as i32 - 1),
+                            min_depth: tri.min_depth,
+                            max_depth: tri.max_depth,
+                        };
+
+                        if !hiz.is_potentially_visible(bin_aabb) {
+                            visible = false;
+                        }
+                    }
+
+                    if visible {
+                        // Iterate over fine tiles within this coarse bin
+                        let tx_start = (cx * coarse_size).max(tx_min_tri);
+                        let ty_start = (cy * coarse_size).max(ty_min_tri);
+                        let tx_end = ((cx + 1) * coarse_size - 1).min(tx_max_tri);
+                        let ty_end = ((cy + 1) * coarse_size - 1).min(ty_max_tri);
+
+                        for ty in ty_start..=ty_end {
+                            for tx in tx_start..=tx_end {
+                                let bin_idx = (ty * self.tiles_x + tx) as usize;
+                                self.tile_bins[bin_idx].push(i);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
