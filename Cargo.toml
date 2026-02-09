@@ -171,3 +171,7 @@ harness = false
 [[bench]]
 name = "software_two_level_binning"
 harness = false
+
+[[bench]]
+name = "post_process"
+harness = false
