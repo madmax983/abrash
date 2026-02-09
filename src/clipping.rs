@@ -63,7 +63,7 @@ const NEAR: f32 = 0.001;
 /// Clip a triangle against the view frustum (6 planes) in Homogeneous Clip Space.
 ///
 /// Returns a list of triangles (fan triangulation of the clipped polygon).
-pub fn clip_triangle_to_frustum<V: Lerp + Copy + Default>(
+pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     v0: V,
     v1: V,
     v2: V,
@@ -75,20 +75,30 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy + Default>(
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
 
-    let inside_mask = |p: Vec3, w: f32| -> u8 {
-        let mut mask = 0;
-        if p.x >= -w { mask |= 1; }
-        if p.x <= w  { mask |= 2; }
-        if p.y >= -w { mask |= 4; }
-        if p.y <= w  { mask |= 8; }
-        if p.z >= -w { mask |= 16; }
-        if p.z <= w  { mask |= 32; }
-        mask
-    };
+    // Unrolled inside mask check
+    let mut m0 = 0;
+    if p0.x >= -w0 { m0 |= 1; }
+    if p0.x <= w0  { m0 |= 2; }
+    if p0.y >= -w0 { m0 |= 4; }
+    if p0.y <= w0  { m0 |= 8; }
+    if p0.z >= -w0 { m0 |= 16; }
+    if p0.z <= w0  { m0 |= 32; }
 
-    let m0 = inside_mask(p0, w0);
-    let m1 = inside_mask(p1, w1);
-    let m2 = inside_mask(p2, w2);
+    let mut m1 = 0;
+    if p1.x >= -w1 { m1 |= 1; }
+    if p1.x <= w1  { m1 |= 2; }
+    if p1.y >= -w1 { m1 |= 4; }
+    if p1.y <= w1  { m1 |= 8; }
+    if p1.z >= -w1 { m1 |= 16; }
+    if p1.z <= w1  { m1 |= 32; }
+
+    let mut m2 = 0;
+    if p2.x >= -w2 { m2 |= 1; }
+    if p2.x <= w2  { m2 |= 2; }
+    if p2.y >= -w2 { m2 |= 4; }
+    if p2.y <= w2  { m2 |= 8; }
+    if p2.z >= -w2 { m2 |= 16; }
+    if p2.z <= w2  { m2 |= 32; }
 
     let all_in = m0 & m1 & m2;
     if all_in == 0x3F {
@@ -115,7 +125,6 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy + Default>(
     // Double buffering for vertex lists
     // A triangle clipped by 6 planes can have at most 9 vertices (usually).
     // We use a safe upper bound of 12 for the polygon vertices.
-    // The final triangulation can produce more vertices in the output structure.
     let mut buf1 = [v0; 12];
     let mut buf2 = [v0; 12];
 
@@ -125,87 +134,77 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy + Default>(
     buf1[2] = v2;
     let mut count = 3;
 
-    // Define clip planes
-    // Each plane is defined by a function that returns the signed distance to the plane.
-    // Point is inside if distance >= 0.
-    let planes: [fn(Vec3, f32) -> f32; 6] = [
-        // Left: x >= -w -> x + w >= 0
-        |p: Vec3, w: f32| p.x + w,
-        // Right: x <= w -> w - x >= 0
-        |p: Vec3, w: f32| w - p.x,
-        // Bottom: y >= -w -> y + w >= 0
-        |p: Vec3, w: f32| p.y + w,
-        // Top: y <= w -> w - y >= 0
-        |p: Vec3, w: f32| w - p.y,
-        // Near: z >= -w -> z + w >= 0 (Standard OpenGL)
-        // Note: Use a small epsilon for Near to avoid w=0 issues if needed,
-        // but typically z+w is fine. The previous code used w >= 0.001.
-        // Let's use z + w >= 0. But strictly speaking, we want to clip things behind the camera.
-        // If we use z + w >= 0, that's z_ndc >= -1.
-        |p: Vec3, w: f32| p.z + w,
-        // Far: z <= w -> w - z >= 0
-        |p: Vec3, w: f32| w - p.z,
-    ];
+    // Macro to handle clipping logic for a plane
+    // Reads from $buf_in, writes to $buf_out
+    macro_rules! clip_plane {
+        ($buf_in:ident, $buf_out:ident, $dist_fn:expr) => {
+            if count > 0 {
+                let mut out_count = 0;
+                let prev_idx = count - 1;
+                let mut prev_v = $buf_in[prev_idx];
+                let (prev_pos, prev_w) = get_pos(&prev_v);
+                let mut prev_d = $dist_fn(prev_pos, prev_w);
 
-    // Current buffer pointer (swapping logic)
-    // We start reading from buf1, writing to buf2.
-    // Then swap.
-    // Since we can't easily return references to local variables, we just copy data.
+                for i in 0..count {
+                    let curr_v = $buf_in[i];
+                    let (curr_pos, curr_w) = get_pos(&curr_v);
+                    let curr_d = $dist_fn(curr_pos, curr_w);
 
-    for plane in planes {
-        if count == 0 {
-            break;
-        }
-
-        let mut out_count = 0;
-
-        // We always read from 'buf1' (conceptually) and write to 'buf2', then copy back.
-
-        let prev_idx = count - 1;
-        let mut prev_v = buf1[prev_idx];
-        let (prev_pos, prev_w) = get_pos(&prev_v);
-        let mut prev_d = plane(prev_pos, prev_w);
-
-        for i in 0..count {
-            let curr_v = buf1[i];
-            let (curr_pos, curr_w) = get_pos(&curr_v);
-            let curr_d = plane(curr_pos, curr_w);
-
-            if curr_d >= 0.0 {
-                // Current is inside
-                if prev_d < 0.0 {
-                    // Entered: add intersection
-                    let t = prev_d / (prev_d - curr_d);
-                    if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
-                        out_count += 1;
+                    if curr_d >= 0.0 {
+                        // Current is inside
+                        if prev_d < 0.0 {
+                            // Entered: add intersection
+                            let t = prev_d / (prev_d - curr_d);
+                            if out_count < 12 {
+                                $buf_out[out_count] = prev_v.lerp(curr_v, t);
+                                out_count += 1;
+                            }
+                        }
+                        // Add current
+                        if out_count < 12 {
+                            $buf_out[out_count] = curr_v;
+                            out_count += 1;
+                        }
+                    } else {
+                        // Current is outside
+                        if prev_d >= 0.0 {
+                            // Exited: add intersection
+                            let t = prev_d / (prev_d - curr_d);
+                            if out_count < 12 {
+                                $buf_out[out_count] = prev_v.lerp(curr_v, t);
+                                out_count += 1;
+                            }
+                        }
                     }
+
+                    prev_v = curr_v;
+                    prev_d = curr_d;
                 }
-                // Add current
-                if out_count < 12 {
-                    buf2[out_count] = curr_v;
-                    out_count += 1;
-                }
-            } else {
-                // Current is outside
-                if prev_d >= 0.0 {
-                    // Exited: add intersection
-                    let t = prev_d / (prev_d - curr_d);
-                    if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
-                        out_count += 1;
-                    }
-                }
+                count = out_count;
             }
-
-            prev_v = curr_v;
-            prev_d = curr_d;
-        }
-
-        // Swap buffers (copy buf2 to buf1)
-        count = out_count;
-        buf1[..count].copy_from_slice(&buf2[..count]);
+        };
     }
+
+    // Unroll loop over 6 planes using ping-pong buffering
+    // 1. Left: x >= -w -> x + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.x + w);
+
+    // 2. Right: x <= w -> w - x >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.x);
+
+    // 3. Bottom: y >= -w -> y + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.y + w);
+
+    // 4. Top: y <= w -> w - y >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.y);
+
+    // 5. Near: z >= -w -> z + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.z + w);
+
+    // 6. Far: z <= w -> w - z >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.z);
+
+    // Result is in buf1 (since we did an even number of ping-pongs)
 
     // Triangulate (Fan)
     let mut result = ClippedTriangles {
