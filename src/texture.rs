@@ -208,9 +208,52 @@ impl Texture {
         final_color | 0xFF00_0000 // Force alpha
     }
 
+    /// Sample texture using trilinear interpolation with given LOD and 16.16 fixed point UVs
+    #[inline]
+    #[must_use]
+    pub fn get_pixel_trilinear_fixed(&self, u_fix: i32, v_fix: i32, lod: f32) -> u32 {
+        if lod <= 0.0 || self.mips.is_empty() {
+            // Level 0 (Base). 16.16 >> 8 -> 24.8
+            return self.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+        }
+
+        let max_level = self.mips.len() as f32;
+        if lod >= max_level {
+            // Max level.
+            let mip_idx = self.mips.len() - 1;
+            // Level L = mip_idx + 1. Shift = 8 + L = 9 + mip_idx.
+            let shift = 9 + mip_idx;
+            return self.sample_mip_fixed(u_fix >> shift, v_fix >> shift, mip_idx);
+        }
+
+        let level = lod.floor();
+        let frac = lod - level;
+        let level_idx = level as usize;
+
+        let c0 = if level_idx == 0 {
+            self.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8)
+        } else {
+            let mip_idx = level_idx - 1;
+            let shift = 9 + mip_idx;
+            self.sample_mip_fixed(u_fix >> shift, v_fix >> shift, mip_idx)
+        };
+
+        let c1 = {
+            let mip_idx = level_idx;
+            let shift = 9 + mip_idx;
+            self.sample_mip_fixed(u_fix >> shift, v_fix >> shift, mip_idx)
+        };
+
+        // Blend c0 and c1
+        let weight = (frac * 256.0) as u32;
+        let inv_weight = 256 - weight;
+
+        let final_color = blend_swar(c0, c1, weight, inv_weight);
+        final_color | 0xFF00_0000
+    }
+
     /// Helper to sample a specific mip level
     fn sample_mip(&self, u: f32, v: f32, mip_idx: usize) -> u32 {
-        let pixels = &self.mips[mip_idx];
         let width = (self.width >> (mip_idx + 1)).max(1);
         let height = (self.height >> (mip_idx + 1)).max(1);
 
@@ -222,6 +265,16 @@ impl Texture {
 
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
+
+        self.sample_mip_fixed(u_fixed, v_fixed, mip_idx)
+    }
+
+    /// Helper to sample a specific mip level with fixed point coordinates (24.8)
+    #[inline]
+    fn sample_mip_fixed(&self, u_fixed: i32, v_fixed: i32, mip_idx: usize) -> u32 {
+        let pixels = &self.mips[mip_idx];
+        let width = (self.width >> (mip_idx + 1)).max(1);
+        let height = (self.height >> (mip_idx + 1)).max(1);
 
         let u_img_fixed = u_fixed.wrapping_sub(128);
         let v_img_fixed = v_fixed.wrapping_sub(128);
@@ -392,5 +445,76 @@ impl Texture {
         }
         tex.generate_mipmaps();
         Ok(tex)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_pixel_trilinear_fixed_interpolation() {
+        // 4x4 texture with checkerboard
+        let mut tex = Texture::new(4, 4).unwrap();
+        // Level 0 (4x4): Checkerboard
+        // (0,0) Black (00), (1,0) White (FF)
+        // (0,1) White (FF), (1,1) Black (00)
+        for y in 0..4 {
+            for x in 0..4 {
+                let color = if (x + y) % 2 == 0 { 0xFF000000 } else { 0xFFFFFFFF };
+                tex.set_pixel(x, y, color);
+            }
+        }
+        tex.generate_mipmaps();
+
+        // Level 1 (2x2):
+        // Each pixel is average of 2x2 block from Level 0.
+        // Block (0,0) to (1,1): Black, White, White, Black. Avg: 127 (0x7F).
+        // So Level 1 should be all grey (0xFF7F7F7F).
+
+        // Test at (0.5, 0.5) texel coordinates (center of top-left pixel of Level 0).
+        // Level 0 value: Black (0x00).
+        // Level 1 value: Grey (0x7F).
+        // LOD 0.5 -> Average of Level 0 and Level 1 -> (0 + 127)/2 = 63 (0x3F).
+
+        let u_fix = 32768; // 0.5 * 65536
+        let v_fix = 32768;
+        let lod = 0.5;
+
+        let pixel = tex.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
+        let r = (pixel >> 16) & 0xFF;
+
+        // Allow some tolerance for integer arithmetic
+        assert!(r >= 60 && r <= 66, "Expected ~63 (0x3F), got {}", r);
+    }
+
+    #[test]
+    fn sample_mip_fixed_level_selection() {
+        let mut tex = Texture::new(4, 4).unwrap();
+        // Fill base level with Black
+        for i in 0..16 { tex.pixels[i] = 0xFF000000; }
+        tex.generate_mipmaps();
+
+        // Manually set Level 1 (2x2) to White
+        // mips[0] is Level 1.
+        if let Some(l1) = tex.mips.get_mut(0) {
+            for p in l1.iter_mut() { *p = 0xFFFFFFFF; }
+        }
+
+        // Test sampling Level 1 directly via LOD=1.0
+        // u=0.5, v=0.5.
+        // Level 0 (Base): Black.
+        // Level 1 (mips[0]): White.
+        // Result should be White.
+
+        let u_fix = 32768;
+        let v_fix = 32768;
+        let pixel = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 1.0);
+
+        assert_eq!(pixel, 0xFFFFFFFF, "LOD 1.0 should sample from Level 1 (White)");
+
+        // Test LOD=0.0 -> Black
+        let pixel_l0 = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 0.0);
+        assert_eq!(pixel_l0, 0xFF000000, "LOD 0.0 should sample from Level 0 (Black)");
     }
 }
