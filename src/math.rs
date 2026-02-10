@@ -499,7 +499,9 @@ impl Mul for Mat4 {
     #[inline]
     fn mul(self, other: Self) -> Self {
         unsafe {
-            use std::arch::x86_64::*;
+            use std::arch::x86_64::{
+                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_shuffle_ps, _mm_storeu_ps,
+            };
             let mut result = Self { m: [[0.0; 4]; 4] };
 
             // Load rows of B

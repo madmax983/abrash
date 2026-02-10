@@ -13,9 +13,13 @@
 //!
 //! On Little-Endian machines (x86, ARM), this maps to `[B, G, R, A]` in memory.
 
+/// A 32-bit pixel buffer.
 pub struct Framebuffer {
+    /// Pixel data in row-major order (0xAARRGGBB).
     pixels: Vec<u32>,
+    /// Width of the buffer in pixels.
     width: u32,
+    /// Height of the buffer in pixels.
     height: u32,
 }
 
@@ -24,7 +28,16 @@ impl Framebuffer {
     ///
     /// # Errors
     ///
-    /// Returns an error if dimensions exceed `i32::MAX` or the total pixel count overflows `u32`.
+    /// Returns an error if:
+    /// *   Dimensions exceed `i32::MAX` (for signed coordinate compatibility).
+    /// *   The total pixel count overflows `u32` (preventing huge allocations).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    /// let fb = Framebuffer::new(800, 600).unwrap();
+    /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 {
             return Err("Buffer dimensions too large (max i32::MAX)");

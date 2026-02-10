@@ -108,7 +108,12 @@ pub fn compute_vertex_normals(mesh: &Mesh) -> Vec<Vec3> {
 const fn hash(n: u32) -> u32 {
     let mut n = n;
     n = (n << 13) ^ n;
-    n = n.wrapping_mul(n.wrapping_mul(n).wrapping_mul(15_731).wrapping_add(789_221))
+    n = n
+        .wrapping_mul(
+            n.wrapping_mul(n)
+                .wrapping_mul(15_731)
+                .wrapping_add(789_221),
+        )
         .wrapping_add(1_376_312_589);
     n
 }
