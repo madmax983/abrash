@@ -52,7 +52,25 @@ const DEMOS: &[Demo] = &[
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "obj_viewer",
     },
+    Demo {
+        name: "GPU Cube",
+        description: "Hardware-accelerated cube rendering with wgpu",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "gpu_cube",
+    },
 ];
+
+fn demo_command(example_name: &str) -> String {
+    if example_name == "gpu_cube" {
+        "cargo run --release --example gpu_cube --features gpu-render".to_string()
+    } else if std::env::consts::OS == "windows" {
+        format!("cargo run --release --example {example_name}")
+    } else {
+        format!(
+            "cargo run --release --example {example_name} --no-default-features --features backend-tui"
+        )
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -207,27 +225,26 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 let details_text = vec![
                     Line::from(Span::styled(
                         "Description:",
-                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Cyan),
                     )),
                     Line::from(format!("  {}\n", demo.description)),
                     Line::from(Span::styled(
                         "Instructions:",
-                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Cyan),
                     )),
                     Line::from(format!("{}\n", demo.instructions)),
                     Line::from(Span::styled(
                         "Command:",
-                        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Cyan),
                     )),
                     Line::from(Span::styled(
-                        if std::env::consts::OS == "windows" {
-                            format!("  cargo run --release --example {}", demo.example_name)
-                        } else {
-                            format!(
-                                "  cargo run --release --example {} --no-default-features --features backend-tui",
-                                demo.example_name
-                            )
-                        },
+                        format!("  {}", demo_command(demo.example_name)),
                         Style::default().fg(Color::DarkGray),
                     )),
                 ];
@@ -292,14 +309,15 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     println!("Preparing to launch {name}...");
 
     let mut cmd = Command::new("cargo");
-    cmd.arg("run")
-        .arg("--release")
-        .arg("--example")
-        .arg(name);
+    cmd.arg("run").arg("--release").arg("--example").arg(name);
+
+    if name == "gpu_cube" {
+        cmd.arg("--features").arg("gpu-render");
+    }
 
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure
     // the example runs (as Win32 API is not available).
-    if std::env::consts::OS != "windows" {
+    if std::env::consts::OS != "windows" && name != "gpu_cube" {
         println!(
             "ℹ️  Non-Windows OS detected ({}). Enabling TUI backend...",
             std::env::consts::OS

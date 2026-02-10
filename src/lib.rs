@@ -15,3 +15,6 @@ pub mod tile_renderer;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
+
+#[cfg(feature = "gpu-render")]
+pub mod gpu_render;
