@@ -1193,14 +1193,11 @@ pub fn fill_triangle_textured(
 
         // Prepare perspective attributes: q=1/w, u/w, v/w
         // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
-        let w0 = v0.0.1;
-        let w1 = v1.0.1;
-        let w2 = v2.0.1;
 
-        // Avoid division by zero
-        let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
-        let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
-        let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+        // Optimization: Reuse inv_w calculated during projection to avoid division
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
 
         let u0 = v0.1.x * texture.width as f32 * inv_w0;
         let v0_val = v0.1.y * texture.height as f32 * inv_w0;
@@ -1212,14 +1209,18 @@ pub fn fill_triangle_textured(
         let v2_val = v2.1.y * texture.height as f32 * inv_w2;
 
         // Sort by y
-        // We need to keep track of all attributes (p, q, u, v)
+        // We need to keep track of all attributes (p, u, v) - q is inside p
         let mut verts = [
-            (p0_orig, inv_w0, u0, v0_val),
-            (p1_orig, inv_w1, u1, v1_val),
-            (p2_orig, inv_w2, u2, v2_val),
+            (p0_orig, u0, v0_val),
+            (p1_orig, u1, v1_val),
+            (p2_orig, u2, v2_val),
         ];
-        sort_by_y(&mut verts, |(p, _, _, _)| p.y);
-        let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
+        sort_by_y(&mut verts, |(p, _, _)| p.y);
+        let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
+
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
@@ -1379,11 +1380,17 @@ mod tests {
     #[test]
     fn edge_walker_z_interpolation() {
         // Test that EdgeWalker correctly interpolates z
-        let p0 = ScreenPoint { x: 0, y: 0, z: 1.0 };
+        let p0 = ScreenPoint {
+            x: 0,
+            y: 0,
+            z: 1.0,
+            inv_w: 1.0,
+        };
         let p1 = ScreenPoint {
             x: 100,
             y: 100,
             z: 2.0,
+            inv_w: 1.0,
         };
 
         let walker = EdgeWalker::new(p0, p1);
@@ -1399,11 +1406,17 @@ mod tests {
     #[test]
     fn edge_walker_step_accumulates_correctly() {
         // Test that stepping accumulates z correctly
-        let p0 = ScreenPoint { x: 0, y: 0, z: 1.0 };
+        let p0 = ScreenPoint {
+            x: 0,
+            y: 0,
+            z: 1.0,
+            inv_w: 1.0,
+        };
         let p1 = ScreenPoint {
             x: 100,
             y: 100,
             z: 2.0,
+            inv_w: 1.0,
         };
 
         let mut walker = EdgeWalker::new(p0, p1);
@@ -1432,11 +1445,13 @@ mod tests {
             x: 0,
             y: 100,
             z: 1.0,
+            inv_w: 1.0,
         };
         let p1 = ScreenPoint {
             x: 100,
             y: 100,
             z: 2.0,
+            inv_w: 1.0,
         };
 
         let walker = EdgeWalker::new(p0, p1);

@@ -556,6 +556,11 @@ pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,
     pub z: f32,
+    /// Reciprocal of the W coordinate (1/w) used for perspective-correct interpolation.
+    ///
+    /// Storing this avoids recomputing the division during triangle setup,
+    /// saving ~10-20 CPU cycles per vertex.
+    pub inv_w: f32,
 }
 
 /// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
@@ -583,6 +588,7 @@ pub fn project_to_screen_optimized(
         x: screen_x,
         y: screen_y,
         z: depth,
+        inv_w,
     }
 }
 

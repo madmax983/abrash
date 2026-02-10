@@ -1502,13 +1502,10 @@ impl TileRenderer {
                 continue;
             }
 
-            let w0 = cv0.0.1;
-            let w1 = cv1.0.1;
-            let w2 = cv2.0.1;
-
-            let inv_w0 = if w0.abs() > 0.0001 { 1.0 / w0 } else { 1.0 };
-            let inv_w1 = if w1.abs() > 0.0001 { 1.0 / w1 } else { 1.0 };
-            let inv_w2 = if w2.abs() > 0.0001 { 1.0 / w2 } else { 1.0 };
+            // Optimization: Reuse inv_w from projection
+            let inv_w0 = p0_orig.inv_w;
+            let inv_w1 = p1_orig.inv_w;
+            let inv_w2 = p2_orig.inv_w;
 
             let u0 = cv0.1.x * tex_w * inv_w0;
             let v0_val = cv0.1.y * tex_h * inv_w0;
@@ -1518,12 +1515,16 @@ impl TileRenderer {
             let v2_val = cv2.1.y * tex_h * inv_w2;
 
             let mut verts = [
-                (p0_orig, inv_w0, u0, v0_val),
-                (p1_orig, inv_w1, u1, v1_val),
-                (p2_orig, inv_w2, u2, v2_val),
+                (p0_orig, u0, v0_val),
+                (p1_orig, u1, v1_val),
+                (p2_orig, u2, v2_val),
             ];
-            sort_by_y(&mut verts, |(p, _, _, _)| p.y);
-            let [(p0, q0, u0, v0), (p1, q1, u1, v1), (p2, q2, u2, v2)] = verts;
+            sort_by_y(&mut verts, |(p, _, _)| p.y);
+            let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
+
+            let q0 = p0.inv_w;
+            let q1 = p1.inv_w;
+            let q2 = p2.inv_w;
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
@@ -2683,6 +2684,7 @@ mod tests {
             x: 100,
             y: 200,
             z: 5.0,
+            inv_w: 1.0,
         };
 
         let fixed = VertexFixed::from_screen_point(p);
