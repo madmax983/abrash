@@ -10,6 +10,7 @@ pub mod clipping;
 pub mod experimental;
 pub mod hiz_buffer;
 pub mod obj_loader;
+pub mod post_process;
 pub mod texture;
 pub mod tile_renderer;
 

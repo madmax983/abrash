@@ -1,7 +1,7 @@
 ## [RetroFX]
 **Concept:** A post-processing pipeline for applying screen-space effects like Grayscale and Scanlines to the framebuffer.
-**Fate:** In Progress
-**Lesson:** TBD
+**Fate:** Merged
+**Lesson:** Simple integer arithmetic (fixed-point luminance, bitwise darkening) is incredibly efficient for full-frame effects.
 
 ## [Depth Fog]
 **Concept:** A z-buffer based fog effect that blends pixels with a fog color based on their depth.
@@ -22,3 +22,8 @@
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
 **Fate:** Merged
 **Lesson:** Depth buffers contain valuable structural information that can be reused for non-photorealistic rendering.
+
+## [Procedural Terrain]
+**Concept:** A procedural terrain generator using Value Noise to create Meshes.
+**Fate:** Merged
+**Lesson:** Isolating experimental features in `src/experimental` allows for rapid prototyping without affecting core logic.

@@ -190,7 +190,10 @@ harness = false
 name = "vec3_bench"
 harness = false
 
-
 [[bench]]
 name = "transform_points_bench"
+harness = false
+
+[[bench]]
+name = "post_process"
 harness = false

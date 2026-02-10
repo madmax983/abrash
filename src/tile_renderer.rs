@@ -721,8 +721,10 @@ fn rasterize_scanline_textured(
                 }
             }
             FilterMode::Bilinear => {
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                // Fixed point optimization for Bilinear
+                // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
+                let mut u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let mut v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
@@ -732,7 +734,7 @@ fn rasterize_scanline_textured(
 
                     if z < *depth_val {
                         *depth_val = z;
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);

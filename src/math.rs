@@ -552,9 +552,17 @@ pub struct ScreenPoint {
     pub z: f32,
 }
 
-/// Project a 3D point to screen coordinates
+/// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
+///
+/// This avoids repetitive integer-to-float conversions and divisions.
 #[must_use]
-pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
+#[inline]
+pub fn project_to_screen_optimized(
+    v: Vec3,
+    w: f32,
+    half_width: f32,
+    half_height: f32,
+) -> ScreenPoint {
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -562,12 +570,21 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let depth = v.z * inv_w;
 
     // NDC to screen coordinates
-    let screen_x = ((ndc_x + 1.0) * 0.5 * width as f32) as i32;
-    let screen_y = ((1.0 - ndc_y) * 0.5 * height as f32) as i32; // Flip Y
+    let screen_x = ((ndc_x + 1.0) * half_width) as i32;
+    let screen_y = ((1.0 - ndc_y) * half_height) as i32; // Flip Y
 
     ScreenPoint {
         x: screen_x,
         y: screen_y,
         z: depth,
     }
+}
+
+/// Project a 3D point to screen coordinates
+#[must_use]
+#[inline]
+pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoint {
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+    project_to_screen_optimized(v, w, half_width, half_height)
 }

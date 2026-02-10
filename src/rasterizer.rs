@@ -19,7 +19,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
@@ -181,19 +181,21 @@ pub fn fill_triangle_3d(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0, v0.1, width, height);
-        let p1_orig = project_to_screen(v1.0, v1.1, width, height);
-        let p2_orig = project_to_screen(v2.0, v2.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0, v0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0, v1.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0, v2.1, half_width, half_height);
 
         // Backface Culling (on original unsorted vertices)
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -590,19 +592,21 @@ pub fn fill_triangle_gouraud(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -1013,41 +1017,68 @@ fn draw_scanline_textured_perspective(
 
                 // Hoist texture properties
                 let tex_pixels = &texture.pixels;
-                let tex_w = texture.width as u32;
-                let tex_h = texture.height as u32;
+                let tex_w = texture.width;
+                let tex_h = texture.height;
                 let tex_w_usize = tex_w as usize;
 
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Inline sampling
-                        let u = u_fix >> 16;
-                        let v = v_fix >> 16;
-                        let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                            tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
-                        } else {
-                            texture.get_pixel_texel(u, v)
-                        };
-                        *pixel = color;
+                let shift = texture.width_shift;
+                // Optimization: Loop versioning.
+                // Duplicate the loop to specialize for power-of-two textures.
+                // This hoists the branch `if shift < 32` out of the tight loop and allows
+                // the use of bitwise shifting `v << shift` instead of multiplication `v * width`.
+                if shift < 32 {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[((v as usize) << shift) + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
+                    }
                 }
             }
             FilterMode::Bilinear => {
                 // Fixed point optimization for Bilinear
                 // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
+                // to avoid per-pixel subtraction in get_pixel_bilinear_fixed
+                let mut u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let mut v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        // Convert 16.16 to 24.8 (x >> 8) and sample without offset
+                        *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
@@ -1135,19 +1166,21 @@ pub fn fill_triangle_textured(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
         let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
