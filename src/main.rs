@@ -64,6 +64,12 @@ const DEMOS: &[Demo] = &[
         instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_pyramid",
     },
+    Demo {
+        name: "GPU OBJ",
+        description: "Hardware-accelerated OBJ rendering (Spaceship)",
+        instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
+        example_name: "gpu_obj",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {

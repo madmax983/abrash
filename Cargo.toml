@@ -93,6 +93,11 @@ name = "gpu_pyramid"
 path = "examples/gpu_pyramid.rs"
 required-features = ["gpu-render"]
 
+[[example]]
+name = "gpu_obj"
+path = "examples/gpu_obj.rs"
+required-features = ["gpu-render"]
+
 [[bench]]
 name = "rasterization"
 harness = false
