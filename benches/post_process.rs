@@ -29,5 +29,18 @@ fn benchmark_scanlines(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_grayscale, benchmark_scanlines);
+fn benchmark_invert(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    fb.clear(0xFF000000);
+
+    c.bench_function("apply_invert 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_invert(black_box(&mut fb));
+        })
+    });
+}
+
+criterion_group!(benches, benchmark_grayscale, benchmark_scanlines, benchmark_invert);
 criterion_main!(benches);
