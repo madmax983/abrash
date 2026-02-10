@@ -9,7 +9,7 @@ The goal is to demystify the GPU pipeline by implementing every stage—from ver
 > "The best way to learn how a car works is to build one from scratch."
 
 Modern graphics APIs (Vulkan, DirectX 12) are powerful but complex black boxes. **Abrash** peels back the layers:
-*   **No GPU acceleration:** Everything runs on the CPU.
+*   **Optional GPU acceleration:** CPU rasterization remains the core path, with opt-in GPU features (`gpu-render`, `gpu-binning`) for hardware-backed experiments.
 *   **No obscure drivers:** The code is the documentation.
 *   **No magic:** Every pixel on screen can be traced back to a specific line of code.
 
@@ -48,6 +48,9 @@ cargo run --release --example lit_cube
 
 # A textured rotating cube with perspective correction
 cargo run --release --example textured_cube
+
+# A hardware-accelerated rotating cube (wgpu)
+cargo run --release --example gpu_cube --features gpu-render
 ```
 
 **Note for Linux/macOS users:**

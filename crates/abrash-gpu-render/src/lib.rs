@@ -4,7 +4,7 @@
 //! code used by the main abrash package.
 
 use bytemuck::{Pod, Zeroable};
-use std::{sync::Arc, time::Instant};
+use std::{fmt, sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalSize,
@@ -89,6 +89,90 @@ pub struct GpuVertex {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GpuTriangle {
     pub vertices: [GpuVertex; 3],
+}
+
+/// Runtime configuration for the GPU demo window and animation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GpuDemoConfig {
+    pub title: String,
+    pub width: u32,
+    pub height: u32,
+    pub rotation_speed: f32,
+    pub clear_color: [f64; 4],
+}
+
+impl Default for GpuDemoConfig {
+    fn default() -> Self {
+        Self {
+            title: "Abrash GPU Cube (wgpu)".to_string(),
+            width: 1280,
+            height: 720,
+            rotation_speed: 0.8,
+            clear_color: [0.05, 0.08, 0.12, 1.0],
+        }
+    }
+}
+
+/// Validation errors for indexed triangle meshes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeshValidationError {
+    EmptyVertices,
+    EmptyIndices,
+    IndexCountNotMultipleOf3 { index_count: usize },
+    IndexOutOfBounds { index: u16, vertex_count: usize },
+}
+
+impl fmt::Display for MeshValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyVertices => write!(f, "mesh must contain at least one vertex"),
+            Self::EmptyIndices => write!(f, "mesh must contain at least one index"),
+            Self::IndexCountNotMultipleOf3 { index_count } => {
+                write!(f, "index count ({index_count}) must be a multiple of 3")
+            }
+            Self::IndexOutOfBounds {
+                index,
+                vertex_count,
+            } => {
+                write!(
+                    f,
+                    "index {index} is out of bounds for vertex count {vertex_count}"
+                )
+            }
+        }
+    }
+}
+
+/// Validates that a mesh is a non-empty indexed triangle list.
+pub fn validate_mesh(vertices: &[GpuVertex], indices: &[u16]) -> Result<(), MeshValidationError> {
+    if vertices.is_empty() {
+        return Err(MeshValidationError::EmptyVertices);
+    }
+    if indices.is_empty() {
+        return Err(MeshValidationError::EmptyIndices);
+    }
+    if indices.len() % 3 != 0 {
+        return Err(MeshValidationError::IndexCountNotMultipleOf3 {
+            index_count: indices.len(),
+        });
+    }
+    for &index in indices {
+        if usize::from(index) >= vertices.len() {
+            return Err(MeshValidationError::IndexOutOfBounds {
+                index,
+                vertex_count: vertices.len(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Validates that demo configuration has a drawable window size.
+pub fn validate_demo_config(config: &GpuDemoConfig) -> Result<(), &'static str> {
+    if config.width == 0 || config.height == 0 {
+        return Err("Window dimensions must be non-zero");
+    }
+    Ok(())
 }
 
 /// Returns a colored unit cube mesh (8 vertices, 36 indices).
@@ -185,10 +269,17 @@ struct GpuCubeApp {
     depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
     start_time: Instant,
+    rotation_speed: f32,
+    clear_color: wgpu::Color,
 }
 
 impl GpuCubeApp {
-    async fn new(window: Arc<Window>) -> Result<Self, String> {
+    async fn new(
+        window: Arc<Window>,
+        vertices: Vec<GpuVertex>,
+        indices: Vec<u16>,
+        demo_config: &GpuDemoConfig,
+    ) -> Result<Self, String> {
         let size = window.inner_size();
         if size.width == 0 || size.height == 0 {
             return Err("Window size must be non-zero".to_string());
@@ -332,7 +423,6 @@ impl GpuCubeApp {
             multiview: None,
         });
 
-        let (vertices, indices) = unit_cube_mesh();
         let raw_vertices: Vec<VertexRaw> = vertices
             .iter()
             .map(|v| VertexRaw {
@@ -370,6 +460,13 @@ impl GpuCubeApp {
             depth_texture,
             depth_view,
             start_time: Instant::now(),
+            rotation_speed: demo_config.rotation_speed,
+            clear_color: wgpu::Color {
+                r: demo_config.clear_color[0],
+                g: demo_config.clear_color[1],
+                b: demo_config.clear_color[2],
+                a: demo_config.clear_color[3],
+            },
         })
     }
 
@@ -410,7 +507,7 @@ impl GpuCubeApp {
     }
 
     fn update(&mut self) {
-        let angle = self.start_time.elapsed().as_secs_f32() * 0.8;
+        let angle = self.start_time.elapsed().as_secs_f32() * self.rotation_speed;
         let uniform = SceneUniform {
             angle,
             aspect: self.config.width as f32 / self.config.height as f32,
@@ -439,12 +536,7 @@ impl GpuCubeApp {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.05,
-                            g: 0.08,
-                            b: 0.12,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -475,16 +567,31 @@ impl GpuCubeApp {
 
 /// Runs the hardware-accelerated rotating cube demo.
 pub fn run_gpu_cube() -> Result<(), String> {
+    run_gpu_cube_with_config(GpuDemoConfig::default())
+}
+
+/// Runs the hardware-accelerated rotating cube demo with custom runtime settings.
+pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
+    validate_demo_config(&config).map_err(str::to_string)?;
+    let (vertices, indices) = unit_cube_mesh();
+    validate_mesh(&vertices, &indices)
+        .map_err(|err| format!("Invalid demo mesh for GPU cube: {err}"))?;
+
     let event_loop = EventLoop::new().map_err(|e| format!("Failed to create event loop: {e}"))?;
     let window = Arc::new(
         WindowBuilder::new()
-            .with_title("Abrash GPU Cube (wgpu)")
-            .with_inner_size(PhysicalSize::new(1280, 720))
+            .with_title(config.title.as_str())
+            .with_inner_size(PhysicalSize::new(config.width, config.height))
             .build(&event_loop)
             .map_err(|e| format!("Failed to create window: {e}"))?,
     );
 
-    let mut app = pollster::block_on(GpuCubeApp::new(window.clone()))?;
+    let mut app = pollster::block_on(GpuCubeApp::new(
+        window.clone(),
+        vertices,
+        indices,
+        &config,
+    ))?;
 
     event_loop
         .run(move |event, elwt| match event {
