@@ -459,6 +459,17 @@ impl Mat4 {
         (Vec3::new(x, y, z), w)
     }
 
+    /// Transforms multiple points by this matrix.
+    ///
+    /// Output buffer must have same length as input points.
+    /// Returns (transformed_point, w_component) for each point.
+    pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+        assert_eq!(points.len(), output.len());
+        for (p, out) in points.iter().zip(output.iter_mut()) {
+            *out = self.transform_point(*p);
+        }
+    }
+
     /// Transform a normal vector (ignores translation, uses upper-left 3x3).
     ///
     /// This is essential for correct lighting calculations after transformation.
