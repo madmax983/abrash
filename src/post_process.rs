@@ -17,6 +17,8 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::*;
 
 /// Applies a grayscale filter to the framebuffer in-place.
 ///
@@ -40,6 +42,19 @@ use crate::framebuffer::Framebuffer;
 /// assert_eq!(p & 0xFF, 76);
 /// ```
 pub fn apply_grayscale(fb: &mut Framebuffer) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                apply_grayscale_avx2(fb);
+            }
+            return;
+        }
+    }
+    apply_grayscale_scalar(fb);
+}
+
+fn apply_grayscale_scalar(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
     for pixel in pixels.iter_mut() {
         // Format: 0xAARRGGBB
@@ -52,6 +67,69 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
         let luminance = (77 * r + 150 * g + 29 * b) >> 8;
 
         // Preserve Alpha, set RGB to luminance
+        *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
+    }
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_grayscale_avx2(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+    let mut chunks = pixels.chunks_exact_mut(8);
+
+    let w_r = _mm256_set1_epi32(77);
+    let w_g = _mm256_set1_epi32(150);
+    let w_b = _mm256_set1_epi32(29);
+    // Mask for extracting components: 0x000000FF
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    // Mask for extracting alpha: 0xFF000000. Note: i32 constant must be careful with sign
+    let mask_alpha = _mm256_set1_epi32(0xFF000000u32 as i32);
+
+    for chunk in &mut chunks {
+        // Load 8 pixels (32 bytes)
+        let p = unsafe { _mm256_loadu_si256(chunk.as_ptr() as *const __m256i) };
+
+        // Extract components. Format 0xAARRGGBB.
+        // B: bits 0-7
+        // G: bits 8-15
+        // R: bits 16-23
+        // A: bits 24-31
+
+        let b = _mm256_and_si256(p, mask_ff);
+        let g = _mm256_and_si256(_mm256_srli_epi32(p, 8), mask_ff);
+        let r = _mm256_and_si256(_mm256_srli_epi32(p, 16), mask_ff);
+        let a = _mm256_and_si256(p, mask_alpha);
+
+        // Weighted sum
+        let y_r = _mm256_mullo_epi32(r, w_r);
+        let y_g = _mm256_mullo_epi32(g, w_g);
+        let y_b = _mm256_mullo_epi32(b, w_b);
+
+        let sum = _mm256_add_epi32(_mm256_add_epi32(y_r, y_g), y_b);
+        let y = _mm256_srli_epi32(sum, 8); // luminance
+
+        // Reconstruct pixel: A | (y << 16) | (y << 8) | y
+        let out = _mm256_or_si256(
+            a,
+            _mm256_or_si256(
+                _mm256_slli_epi32(y, 16),
+                _mm256_or_si256(
+                    _mm256_slli_epi32(y, 8),
+                    y
+                )
+            )
+        );
+
+        unsafe { _mm256_storeu_si256(chunk.as_mut_ptr() as *mut __m256i, out) };
+    }
+
+    // Handle remaining pixels with scalar fallback
+    for pixel in chunks.into_remainder() {
+        let p = *pixel;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+        let luminance = (77 * r + 150 * g + 29 * b) >> 8;
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
     }
 }
@@ -76,6 +154,19 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 /// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
 /// ```
 pub fn apply_scanlines(fb: &mut Framebuffer) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                apply_scanlines_avx2(fb);
+            }
+            return;
+        }
+    }
+    apply_scanlines_scalar(fb);
+}
+
+fn apply_scanlines_scalar(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
@@ -89,6 +180,40 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
             let p = *pixel;
             // Halve RGB components: (color >> 1) & mask
             // Preserve Alpha: (p & 0xFF00_0000)
+            *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+        }
+    }
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_scanlines_avx2(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let pixels = fb.as_mut_slice();
+
+    let mask_7f = _mm256_set1_epi32(0x7F7F7F7F);
+    let mask_alpha = _mm256_set1_epi32(0xFF000000u32 as i32);
+
+    // Iterate over odd rows only
+    for y in (1..height).step_by(2) {
+        let start = y * width;
+        let end = start + width;
+        let row = &mut pixels[start..end];
+
+        let mut chunks = row.chunks_exact_mut(8);
+
+        for chunk in &mut chunks {
+            let p = unsafe { _mm256_loadu_si256(chunk.as_ptr() as *const __m256i) };
+            let shifted = _mm256_srli_epi32(p, 1);
+            let masked = _mm256_and_si256(shifted, mask_7f);
+            let alpha = _mm256_and_si256(p, mask_alpha);
+            let out = _mm256_or_si256(masked, alpha);
+            unsafe { _mm256_storeu_si256(chunk.as_mut_ptr() as *mut __m256i, out) };
+        }
+
+        for pixel in chunks.into_remainder() {
+            let p = *pixel;
             *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
         }
     }

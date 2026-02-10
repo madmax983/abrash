@@ -30,18 +30,8 @@ fn bench_cast_cost(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("simd_blend", |b| {
-        b.iter_batched(
-            || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
-            |(mut depths, mut pixels)| {
-                unsafe {
-                     run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
-                }
-                black_box((depths, pixels));
-            },
-            BatchSize::SmallInput,
-        );
-    });
+    let color = 0xFFFF0000;
+    const SMALL_SIZE: usize = 1024;
 
     group.bench_function("simd_blend", |b| {
         b.iter_batched(

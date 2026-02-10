@@ -390,7 +390,8 @@ fn render_triangle_in_tile(
 
             if xs <= xe {
                 // Calculate z at xs
-                let dx_start = (xs - x_start) as f32;
+                // SAFETY: Cast to i64 to prevent overflow when x_start is very negative (i32::MIN)
+                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
                 let z_at_xs = z_left + dx_start * dz_dx;
 
                 let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
@@ -629,7 +630,8 @@ fn render_triangle_in_tile_textured(
             let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
 
             if xs <= xe {
-                let dx_start = (xs - x_start) as f32;
+                // SAFETY: Cast to i64 to prevent overflow when x_start is very negative (i32::MIN)
+                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
                 let z_start = z_left + dx_start * tri.gradients.dz_dx;
                 let q_start = q_left + dx_start * tri.gradients.dq_dx;
                 let u_start = u_left + dx_start * tri.gradients.du_dx;
