@@ -1021,22 +1021,47 @@ fn draw_scanline_textured_perspective(
                 let tex_h = texture.height as u32;
                 let tex_w_usize = tex_w as usize;
 
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Inline sampling
-                        let u = u_fix >> 16;
-                        let v = v_fix >> 16;
-                        let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                            tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
-                        } else {
-                            texture.get_pixel_texel(u, v)
-                        };
-                        *pixel = color;
+                let shift = texture.width_shift;
+                // Optimization: Loop versioning.
+                // Duplicate the loop to specialize for power-of-two textures.
+                // This hoists the branch `if shift < 32` out of the tight loop and allows
+                // the use of bitwise shifting `v << shift` instead of multiplication `v * width`.
+                if shift < 32 {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[((v as usize) << shift) + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            // Inline sampling
+                            let u = u_fix >> 16;
+                            let v = v_fix >> 16;
+                            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                                tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                            } else {
+                                texture.get_pixel_texel(u, v)
+                            };
+                            *pixel = color;
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
+                    }
                 }
             }
             FilterMode::Bilinear => {

@@ -40,6 +40,10 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 pub struct Texture {
     pub width: u32,
     pub height: u32,
+    /// Shift amount for power-of-two textures (log2(width)).
+    /// Used to replace multiplication with shifting for index calculation.
+    /// Value is `0xFF` if width is not a power of two.
+    pub width_shift: u8,
     pub pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
     pub mips: Vec<Vec<u32>>,
@@ -74,18 +78,38 @@ impl Texture {
             .filter(|&s| u32::try_from(s).is_ok())
             .ok_or("Texture size overflow")? as usize;
 
+        let width_shift = if width.is_power_of_two() {
+            width.trailing_zeros() as u8
+        } else {
+            0xFF
+        };
+
         Ok(Self {
             width,
             height,
+            width_shift,
             pixels: vec![0xFF00_0000; size],
             mips: Vec::new(),
             filter_mode: FilterMode::Nearest,
         })
     }
 
+    /// Calculate the byte offset for the start of a row.
+    ///
+    /// Uses bitwise shift if `width` is a power of two, otherwise falls back to multiplication.
+    #[inline(always)]
+    pub fn row_offset(&self, y: usize) -> usize {
+        if self.width_shift < 32 {
+            y << self.width_shift
+        } else {
+            y * (self.width as usize)
+        }
+    }
+
     pub fn set_pixel(&mut self, x: u32, y: u32, color: u32) {
         if x < self.width && y < self.height {
-            self.pixels[(y * self.width + x) as usize] = color;
+            let idx = self.row_offset(y as usize) + (x as usize);
+            self.pixels[idx] = color;
         }
     }
 
@@ -326,9 +350,9 @@ impl Texture {
         if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
-            let width_usize = self.width as usize;
-            let row0 = y0 * width_usize;
-            let row1 = row0 + width_usize; // y0 + 1 is valid
+
+            let row0 = self.row_offset(y0);
+            let row1 = row0 + (self.width as usize); // y0 + 1 is valid, so row1 is next row
 
             unsafe {
                 (
@@ -344,9 +368,8 @@ impl Texture {
             let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
             let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
 
-            let width_usize = self.width as usize;
-            let row0 = y0 * width_usize;
-            let row1 = y1 * width_usize;
+            let row0 = self.row_offset(y0);
+            let row1 = self.row_offset(y1);
 
             // SAFETY: We clamped coordinates to valid ranges [0, width-1] / [0, height-1]
             unsafe {
@@ -369,12 +392,12 @@ impl Texture {
             unsafe {
                 *self
                     .pixels
-                    .get_unchecked((y as usize) * (self.width as usize) + (x as usize))
+                    .get_unchecked(self.row_offset(y as usize) + (x as usize))
             }
         } else {
             let x = x.clamp(0, self.width as i32 - 1) as usize;
             let y = y.clamp(0, self.height as i32 - 1) as usize;
-            unsafe { *self.pixels.get_unchecked(y * self.width as usize + x) }
+            unsafe { *self.pixels.get_unchecked(self.row_offset(y) + x) }
         }
     }
 
