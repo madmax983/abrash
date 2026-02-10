@@ -19,7 +19,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
@@ -181,19 +181,21 @@ pub fn fill_triangle_3d(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0, v0.1, width, height);
-        let p1_orig = project_to_screen(v1.0, v1.1, width, height);
-        let p2_orig = project_to_screen(v2.0, v2.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0, v0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0, v1.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0, v2.1, half_width, half_height);
 
         // Backface Culling (on original unsorted vertices)
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -590,19 +592,21 @@ pub fn fill_triangle_gouraud(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -1135,19 +1139,21 @@ pub fn fill_triangle_textured(
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
     for i in 0..clipped.count {
         let base = i * 3;
         let v0 = clipped.tris[base];
         let v1 = clipped.tris[base + 1];
         let v2 = clipped.tris[base + 2];
 
-        let width = fb.width();
-        let height = fb.height();
-
         // Project to screen
-        let p0_orig = project_to_screen(v0.0.0, v0.0.1, width, height);
-        let p1_orig = project_to_screen(v1.0.0, v1.0.1, width, height);
-        let p2_orig = project_to_screen(v2.0.0, v2.0.1, width, height);
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
         let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
