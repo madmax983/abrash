@@ -186,6 +186,40 @@ fn bench_fill_triangle_clipped(c: &mut Criterion) {
     });
 }
 
+fn bench_fill_triangle_textured_small_batch(c: &mut Criterion) {
+    c.bench_function("fill_triangle_textured_small_batch", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+        let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
+
+        // 100 small triangles
+        let triangles: Vec<_> = (0..100).map(|i| {
+            let offset = (i as f32) * 5.0;
+            // Ensure they are on screen
+            let x = (offset % 700.0) + 10.0;
+            let y = (offset % 500.0) + 10.0;
+            let v0 = ((Vec3::new(x, y, 0.5), 1.0), Vec2::new(0.0, 0.0));
+            let v1 = ((Vec3::new(x + 10.0, y, 0.5), 1.0), Vec2::new(1.0, 0.0));
+            let v2 = ((Vec3::new(x, y + 10.0, 0.5), 1.0), Vec2::new(0.0, 1.0));
+            (v0, v1, v2)
+        }).collect();
+
+        b.iter(|| {
+            zb.clear();
+            for (v0, v1, v2) in &triangles {
+                fill_triangle_textured(
+                    &mut fb,
+                    &mut zb,
+                    black_box(*v0),
+                    black_box(*v1),
+                    black_box(*v2),
+                    &tex,
+                );
+            }
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_fill_triangle_3d_large,
@@ -195,6 +229,7 @@ criterion_group!(
     bench_fill_triangle_textured_perspective_stress,
     bench_fill_triangle_textured_bilinear,
     bench_fill_triangle_clipped,
+    bench_fill_triangle_textured_small_batch,
     bench_get_pixel_bilinear_fixed
 );
 criterion_main!(benches);
