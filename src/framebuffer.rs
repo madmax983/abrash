@@ -118,8 +118,13 @@ impl Framebuffer {
     pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
         let x = x.max(0) as u32;
         let y = y.max(0) as u32;
-        let x_end = (x + width).min(self.width);
-        let y_end = (y + height).min(self.height);
+
+        if x >= self.width || y >= self.height {
+            return;
+        }
+
+        let x_end = x.saturating_add(width).min(self.width);
+        let y_end = y.saturating_add(height).min(self.height);
 
         for row in y..y_end {
             let start = (row * self.width + x) as usize;
