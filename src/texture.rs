@@ -15,7 +15,7 @@ pub enum FilterMode {
 
 /// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
 #[inline(always)]
-const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
+pub const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     let rb0 = c0 & 0x00FF_00FF;
     let ag0 = (c0 >> 8) & 0x00FF_00FF;
     let rb1 = c1 & 0x00FF_00FF;
