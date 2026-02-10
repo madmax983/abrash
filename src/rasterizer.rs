@@ -1129,9 +1129,7 @@ fn draw_scanline_textured_perspective(
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        let u_float = (u_fix as f32) / 65536.0;
-                        let v_float = (v_fix as f32) / 65536.0;
-                        *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
+                        *pixel = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
