@@ -1,7 +1,7 @@
 ## [RetroFX]
 **Concept:** A post-processing pipeline for applying screen-space effects like Grayscale and Scanlines to the framebuffer.
-**Fate:** In Progress
-**Lesson:** TBD
+**Fate:** Merged
+**Lesson:** Simple integer arithmetic (fixed-point luminance, bitwise darkening) is incredibly efficient for full-frame effects.
 
 ## [Depth Fog]
 **Concept:** A z-buffer based fog effect that blends pixels with a fog color based on their depth.
