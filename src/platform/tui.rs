@@ -37,40 +37,6 @@ pub struct TuiWindow {
 
 const DEFAULT_REFRESH_HZ: u32 = 60;
 
-/// Query the monitor refresh rate via platform APIs.
-///
-/// On Windows, queries `EnumDisplaySettingsW` for the primary monitor's refresh rate.
-/// Falls back to `DEFAULT_REFRESH_HZ` on non-Windows or if the query fails.
-#[allow(clippy::missing_const_for_fn)]
-fn query_refresh_rate() -> u32 {
-    #[cfg(target_os = "windows")]
-    {
-        // SAFETY: EnumDisplaySettingsW with null device name queries the primary monitor.
-        // DEVMODEW must be zero-initialized with dmSize set before the call.
-        unsafe {
-            use std::mem;
-            use windows_sys::Win32::Graphics::Gdi::{
-                DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW,
-            };
-
-            let mut devmode: DEVMODEW = mem::zeroed();
-            devmode.dmSize = mem::size_of::<DEVMODEW>() as u16;
-
-            if EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &raw mut devmode) != 0
-                && devmode.dmDisplayFrequency > 0
-            {
-                devmode.dmDisplayFrequency
-            } else {
-                DEFAULT_REFRESH_HZ
-            }
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        DEFAULT_REFRESH_HZ
-    }
-}
-
 impl WindowBackend for TuiWindow {
     fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         enable_raw_mode().map_err(|_| WindowError::RegistrationFailed)?;
@@ -81,8 +47,7 @@ impl WindowBackend for TuiWindow {
 
         terminal.clear().ok();
 
-        let hz = query_refresh_rate();
-        let target_frame_time = Duration::from_secs_f64(1.0 / f64::from(hz));
+        let target_frame_time = Duration::from_secs_f64(1.0 / f64::from(DEFAULT_REFRESH_HZ));
 
         Ok(Self {
             width,

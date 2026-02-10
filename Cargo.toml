@@ -10,7 +10,7 @@ simd = []
 parallel = ["dep:rayon"]
 gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
 backend-win32 = ["dep:windows-sys"]
-backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
+backend-tui = ["dep:crossterm", "dep:ratatui"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
 
 [dependencies]

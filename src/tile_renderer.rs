@@ -400,44 +400,6 @@ fn render_triangle_in_tile(
                 let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
                 let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
 
-                // SIMD disabled after extensive profiling and optimization (2026-02-06)
-                //
-                // **History:**
-                // - Initial AVX2 SIMD: 3.8× slower than scalar
-                // - Re-enabled with adaptive threshold (≥32 pixels): 4.0× slower
-                //
-                // **Root causes:**
-                // 1. Masked store penalty: _mm256_maskstore_ps/epi32 is extremely slow
-                //    - Each masked store: 10-15 cycles
-                //    - Scalar conditional write: 1-2 cycles
-                //    - 8× penalty per SIMD operation
-                // 2. Setup overhead: Initializing depth vectors, stride computation
-                //    - 10-20 cycles fixed cost per scanline
-                //    - Not amortized for typical scanlines (10-50 pixels)
-                // 3. Memory bandwidth: 8-wide loads may saturate L1 cache
-                //    - Cache line contention with adjacent scanlines
-                //    - Prefetcher less effective with strided access
-                //
-                // **Benchmark results (1080p, 100 iterations):**
-                // - Scalar: 457 µs/frame
-                // - SIMD (with threshold): 1,840 µs/frame (4.0× slower)
-                //
-                // **Attempts:**
-                // - ✅ Added adaptive threshold (≥32 pixels)
-                // - ❌ Still 4.0× slower than scalar
-                //
-                // **Conclusion:**
-                // Scanline rasterization is unsuited for SIMD due to:
-                // - Small typical scanlines (10-50 pixels, not 64+)
-                // - Masked store penalty dominates (10-15 cycles each)
-                // - Memory bandwidth saturation
-                //
-                // Alternative optimizations:
-                // - ✅ Parallel (Rayon): 3-4× speedup on 4-core, 7-8× on 8-core
-                // - ✅ Tiling: 1.2-2.5× speedup at 4K with cache locality
-                //
-                // Scalar + parallel is optimal for this workload.
-                // See: SIMD_PROFILING_ANALYSIS.md for full profiling data
                 rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
             }
         }
@@ -806,93 +768,6 @@ fn rasterize_scanline_scalar(
     }
 }
 
-/// AVX2 vectorized scanline rasterization: process 8 pixels per iteration
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[inline(always)]
-#[allow(dead_code)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    use std::arch::x86_64::*;
-
-    let len = pixels.len();
-    let mut i = 0;
-
-    unsafe {
-        // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
-        let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
-
-        // Initialize depth vector using vector arithmetic:
-        // depths = z_at_xs + [0, 1, 2, 3, 4, 5, 6, 7] * dz_dx
-        // Note: set_ps takes arguments in reverse order (e7, e6, ..., e0)
-        let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
-        let dz_vec = _mm256_set1_ps(dz_dx);
-        let base = _mm256_set1_ps(z_at_xs);
-        let mut depths_vec = _mm256_add_ps(base, _mm256_mul_ps(offsets, dz_vec));
-
-        let color_vec = _mm256_set1_epi32(color as i32);
-
-        // Process 8 pixels at a time with AVX2
-        while i + 8 <= len {
-            // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
-            let zb_vals = _mm256_loadu_ps(zb_ptr);
-
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
-
-            // Conditional writes using blend + unconditional store (faster than maskstore)
-
-            // 1. Update depths
-            let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
-            _mm256_storeu_ps(depths.as_mut_ptr().add(i), blended_depths);
-
-            // 2. Update pixels
-            // Cast to/from float vectors to use blendv_ps (zero-cost on AVX2)
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-            let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
-
-            let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
-            let color_vec_ps = _mm256_castsi256_ps(color_vec);
-
-            let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
-
-            _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
-
-            // Increment depths by stride (8*dz_dx) for next iteration
-            depths_vec = _mm256_add_ps(depths_vec, stride_vec);
-            i += 8;
-        }
-    }
-
-    // Handle remaining pixels with scalar fallback
-    let mut z = z_at_xs + (i as f32) * dz_dx;
-    for j in i..len {
-        if z < depths[j] {
-            depths[j] = z;
-            pixels[j] = color;
-        }
-        z += dz_dx;
-    }
-}
-
-/// Fallback for when SIMD is not available (non-x86_64 or feature disabled)
-#[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-#[inline(always)]
-#[allow(dead_code)]
-fn rasterize_scanline_simd(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_at_xs: f32,
-    dz_dx: f32,
-    color: u32,
-) {
-    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-}
 
 /// Tile-based renderer that bins triangles into 32×32 tiles for cache-friendly rendering.
 ///
@@ -1525,18 +1400,9 @@ impl TileRenderer {
             }
 
             // Gradients
-            let (gradients, long_edge_is_left) = {
-                let g = PerspectiveTextureGradients::new(
-                    p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
-                );
-
-                let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-                let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-                let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-                let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-                let left = ux * vy - uy * vx > 0.0;
-                (g, left)
-            };
+            let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new(
+                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+            );
 
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
