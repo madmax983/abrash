@@ -23,22 +23,19 @@ name = "abrash"
 version = "0.1.0"
 dependencies = [
  "abrash-gpu",
- "bytemuck",
+ "abrash-gpu-render",
  "clap",
  "comfy-table",
  "criterion",
  "crossterm",
- "pollster",
  "proptest",
  "rand 0.8.5",
  "ratatui",
  "ratzilla",
  "rayon",
  "web-time 1.1.0",
- "wgpu",
  "windows 0.59.0",
  "windows-sys 0.59.0",
- "winit",
 ]
 
 [[package]]
@@ -46,6 +43,16 @@ name = "abrash-gpu"
 version = "0.1.0"
 dependencies = [
  "windows 0.59.0",
+]
+
+[[package]]
+name = "abrash-gpu-render"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
