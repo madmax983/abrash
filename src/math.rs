@@ -462,11 +462,11 @@ impl Mat4 {
     /// Transforms multiple points by this matrix.
     ///
     /// Output buffer must have same length as input points.
-    /// Returns `(transformed_point, w_component)` for each point.
+    /// Returns (`transformed_point`, `w_component`) for each point.
     ///
     /// # Panics
     ///
-    /// Panics if `points` and `output` have different lengths.
+    /// Panics if `points.len()` does not equal `output.len()`.
     pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
         assert_eq!(points.len(), output.len());
         for (p, out) in points.iter().zip(output.iter_mut()) {

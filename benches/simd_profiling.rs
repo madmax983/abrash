@@ -10,6 +10,8 @@ use std::time::Instant;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::_rdtsc;
 
+type ProfilingTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
+
 /// Safe wrapper for RDTSC instruction
 #[cfg(target_arch = "x86_64")]
 #[inline]
@@ -274,7 +276,7 @@ fn profile_rendering_pipeline() {
 fn generate_horizontal_triangles(
     scanline_len: u32,
     count: usize,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+) -> Vec<ProfilingTriangle> {
     let mut triangles = Vec::new();
     let width = scanline_len as f32;
 
@@ -300,7 +302,7 @@ fn generate_test_scene(
     count: usize,
     width: u32,
     height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+) -> Vec<ProfilingTriangle> {
     let mut triangles = Vec::new();
 
     for i in 0..count {
