@@ -281,16 +281,21 @@ impl Texture {
         // 0.5 in 24.8 is 128
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
-        self.get_pixel_bilinear_fixed(u_fixed, v_fixed)
+        self.get_pixel_bilinear_fixed_no_offset(u_fixed.wrapping_sub(128), v_fixed.wrapping_sub(128))
     }
 
     /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates
     #[inline]
     #[must_use]
     pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
-        let u_img_fixed = u_fixed.wrapping_sub(128);
-        let v_img_fixed = v_fixed.wrapping_sub(128);
+        self.get_pixel_bilinear_fixed_no_offset(u_fixed.wrapping_sub(128), v_fixed.wrapping_sub(128))
+    }
 
+    /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates.
+    /// Assumes coordinates are already offset by -0.5 (128 units).
+    #[inline]
+    #[must_use]
+    pub fn get_pixel_bilinear_fixed_no_offset(&self, u_img_fixed: i32, v_img_fixed: i32) -> u32 {
         // Weights (0..256)
         let wx = (u_img_fixed & 0xFF) as u32;
         let wy = (v_img_fixed & 0xFF) as u32;
