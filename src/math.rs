@@ -462,7 +462,11 @@ impl Mat4 {
     /// Transforms multiple points by this matrix.
     ///
     /// Output buffer must have same length as input points.
-    /// Returns (transformed_point, w_component) for each point.
+    /// Returns `(transformed_point, w_component)` for each point.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `points` and `output` have different lengths.
     pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
         assert_eq!(points.len(), output.len());
         for (p, out) in points.iter().zip(output.iter_mut()) {
@@ -495,7 +499,9 @@ impl Mul for Mat4 {
     #[inline]
     fn mul(self, other: Self) -> Self {
         unsafe {
-            use std::arch::x86_64::*;
+            use std::arch::x86_64::{
+                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_shuffle_ps, _mm_storeu_ps,
+            };
             let mut result = Self { m: [[0.0; 4]; 4] };
 
             // Load rows of B
