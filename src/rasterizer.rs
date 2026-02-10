@@ -921,6 +921,136 @@ pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.062_5,
 ];
 
+/// Helper for calculating LOD for trilinear filtering
+#[inline(always)]
+pub(crate) fn calculate_perspective_lod(
+    gradients: &PerspectiveTextureGradients,
+    q: f32,
+    u: f32,
+    v: f32,
+    w: f32, // 1/q
+) -> f32 {
+    let w_sq = w * w;
+    let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+    let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+    let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+    let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+    let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+        .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+
+    0.5 * max_rho_sq.log2()
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_span_nearest(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    mut z: f32,
+    dz_dx: f32,
+    u_tex_start: f32,
+    v_tex_start: f32,
+    du_tex_step: f32,
+    dv_tex_step: f32,
+) {
+    // Fixed point optimization for Nearest Neighbor
+    let mut u_fix = (u_tex_start * 65536.0) as i32;
+    let mut v_fix = (v_tex_start * 65536.0) as i32;
+    let du_fix = (du_tex_step * 65536.0) as i32;
+    let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+    // Hoist texture properties
+    let tex_pixels = &texture.pixels;
+    let tex_w = texture.width;
+    let tex_h = texture.height;
+    let tex_w_usize = tex_w as usize;
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            // Inline sampling
+            let u = u_fix >> 16;
+            let v = v_fix >> 16;
+            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+            } else {
+                texture.get_pixel_texel(u, v)
+            };
+            *pixel = color;
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_span_bilinear(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    mut z: f32,
+    dz_dx: f32,
+    u_tex_start: f32,
+    v_tex_start: f32,
+    du_tex_step: f32,
+    dv_tex_step: f32,
+) {
+    // Fixed point optimization for Bilinear
+    // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
+    let mut u_fix = (u_tex_start * 65536.0) as i32;
+    let mut v_fix = (v_tex_start * 65536.0) as i32;
+    let du_fix = (du_tex_step * 65536.0) as i32;
+    let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            // Convert 16.16 to 24.8 (x >> 8)
+            *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_span_trilinear(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    mut z: f32,
+    dz_dx: f32,
+    u_tex_start: f32,
+    v_tex_start: f32,
+    du_tex_step: f32,
+    dv_tex_step: f32,
+    lod: f32,
+) {
+    // Interpolate
+    let mut u_fix = (u_tex_start * 65536.0) as i32;
+    let mut v_fix = (v_tex_start * 65536.0) as i32;
+    let du_fix = (du_tex_step * 65536.0) as i32;
+    let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            let u_float = (u_fix as f32) / 65536.0;
+            let v_float = (v_fix as f32) / 65536.0;
+            *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
+    }
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
@@ -1005,107 +1135,45 @@ fn draw_scanline_textured_perspective(
 
         match texture.filter_mode {
             FilterMode::Nearest => {
-                // Fixed point optimization for Nearest Neighbor
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                // Hoist texture properties
-                let tex_pixels = &texture.pixels;
-                let tex_w = texture.width as u32;
-                let tex_h = texture.height as u32;
-                let tex_w_usize = tex_w as usize;
-
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Inline sampling
-                        let u = u_fix >> 16;
-                        let v = v_fix >> 16;
-                        let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                            tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
-                        } else {
-                            texture.get_pixel_texel(u, v)
-                        };
-                        *pixel = color;
-                    }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
-                }
+                draw_span_nearest(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_tex_start,
+                    v_tex_start,
+                    du_tex_step,
+                    dv_tex_step,
+                );
             }
             FilterMode::Bilinear => {
-                // Fixed point optimization for Bilinear
-                // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
-                    }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
-                }
+                draw_span_bilinear(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_tex_start,
+                    v_tex_start,
+                    du_tex_step,
+                    dv_tex_step,
+                );
             }
             FilterMode::Trilinear => {
-                // For Trilinear, we need LOD
-                // Calculate LOD at span center (approx)
-                // We use span start values for calculation to avoid extra per-pixel work
-                // u_tex_start, v_tex_start are u/q * w = u * w^2 ? No.
-                // u_tex = u * w. u in span is u/w.
-                // u_tex_start is the actual texture coordinate at start of span.
-
-                // Derivatives at start of span:
-                // q_start is q at start of span.
-                let w = w_start; // 1/q
-                let w_sq = w * w;
-
-                // Derivatives of u_tex w.r.t screen X
-                // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                // gradients.du_dx is du/dx for the variable u (which is U/W).
-                // Wait.
-                // In setup: u is U/W. q is 1/W.
-                // Texture coord U_tex = u / q.
-                // d(u/q)/dx = (u'q - uq')/q^2
-                // u' = gradients.du_dx. q' = gradients.dq_dx.
-
-                // Calculate X derivatives
-                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
-                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-
-                // Calculate Y derivatives
-                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
-                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
-
-                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
-
-                let lod = 0.5 * max_rho_sq.log2();
-
-                // Interpolate
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        let u_float = (u_fix as f32) / 65536.0;
-                        let v_float = (v_fix as f32) / 65536.0;
-                        *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
-                    }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
-                }
+                let lod = calculate_perspective_lod(gradients, q, u, v, w_start);
+                draw_span_trilinear(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_tex_start,
+                    v_tex_start,
+                    du_tex_step,
+                    dv_tex_step,
+                    lod,
+                );
             }
         }
 
@@ -1282,31 +1350,9 @@ pub fn fill_triangle_textured(
                                     texture.get_pixel_bilinear_texel(u_tex, v_tex)
                                 }
                                 FilterMode::Trilinear => {
-                                    // Calculate LOD for single pixel
-                                    // q = 1/w.
-                                    // u_tex = u/q.
-                                    // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                                    let w = 1.0 / q_left;
-                                    let w_sq = w * w;
-
-                                    let du_tex_dx =
-                                        (gradients.du_dx * q_left - u_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let dv_tex_dx =
-                                        (gradients.dv_dx * q_left - v_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let du_tex_dy =
-                                        (gradients.du_dy * q_left - u_left * gradients.dq_dy)
-                                            * w_sq;
-                                    let dv_tex_dy =
-                                        (gradients.dv_dy * q_left - v_left * gradients.dq_dy)
-                                            * w_sq;
-
-                                    let max_rho_sq = (du_tex_dx * du_tex_dx
-                                        + dv_tex_dx * dv_tex_dx)
-                                        .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-
-                                    let lod = 0.5 * max_rho_sq.log2();
+                                    let lod = calculate_perspective_lod(
+                                        &gradients, q_left, u_left, v_left, w,
+                                    );
                                     texture.get_pixel_trilinear(u_tex, v_tex, lod)
                                 }
                             };

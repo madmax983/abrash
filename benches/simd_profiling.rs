@@ -3,7 +3,7 @@ use abrash::{
     zbuffer::ZBuffer,
 };
 use comfy_table::{
-    modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Attribute, Cell, Color, Table,
+    Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL,
 };
 use std::time::Instant;
 
@@ -265,10 +265,7 @@ fn profile_rendering_pipeline() {
 
     println!("{table}");
 
-    println!(
-        "\n📈 Throughput: {} M triangles/sec\n",
-        m_tris_per_sec
-    );
+    println!("\n📈 Throughput: {} M triangles/sec\n", m_tris_per_sec);
 }
 
 /// Generate horizontal triangles of specific scanline length

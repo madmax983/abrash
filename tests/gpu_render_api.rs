@@ -31,9 +31,7 @@ fn validate_mesh_rejects_non_triangle_index_count() {
 
     assert_eq!(
         validate_mesh(&vertices, &indices),
-        Err(MeshValidationError::IndexCountNotMultipleOf3 {
-            index_count: 4
-        })
+        Err(MeshValidationError::IndexCountNotMultipleOf3 { index_count: 4 })
     );
 }
 

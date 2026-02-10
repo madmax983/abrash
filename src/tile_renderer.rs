@@ -74,7 +74,7 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
-    RECIPROCAL_TABLE, is_backface, sort_by_y,
+    RECIPROCAL_TABLE, calculate_perspective_lod, is_backface, sort_by_y,
 };
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
@@ -600,24 +600,13 @@ fn render_triangle_in_tile_textured(
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
                         FilterMode::Trilinear => {
-                            // Calculate LOD for single pixel
-                            // For a single pixel, we can estimate gradients based on the triangle gradients
-                            // projected to this pixel.
-                            // q = 1/w.
-                            // u_tex = u/q.
-                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                            let w = 1.0 / q_left;
-                            let w_sq = w * w;
-
-                            let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
-                            let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
-                            let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
-                            let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
-
-                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
-
-                            let lod = 0.5 * max_rho_sq.log2();
+                            let lod = calculate_perspective_lod(
+                                &tri.gradients,
+                                q_left,
+                                u_left,
+                                v_left,
+                                w,
+                            );
                             texture.get_pixel_trilinear(u_tex, v_tex, lod)
                         }
                     };
@@ -740,20 +729,7 @@ fn rasterize_scanline_textured(
                 }
             }
             FilterMode::Trilinear => {
-                // Calculate LOD once per span (approximation)
-                let w = w_start; // 1/q
-                let w_sq = w * w;
-
-                // Derivatives of u_tex w.r.t screen X/Y
-                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
-                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
-                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
-
-                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
-
-                let lod = 0.5 * max_rho_sq.log2();
+                let lod = calculate_perspective_lod(gradients, q, u, v, w_start);
 
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
                 let mut v_fix = (v_tex_start * 65536.0) as i32;
@@ -1296,8 +1272,10 @@ impl TileRenderer {
                                 // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
                                 // writes to non-overlapping regions determined by unique (tx, ty)
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -1456,8 +1434,10 @@ impl TileRenderer {
                                 let fb_start = row as usize * width as usize + tile_x0 as usize;
 
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -1923,7 +1903,11 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(
+    width: usize,
+    height: usize,
+    triangle_count: usize,
+) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);
