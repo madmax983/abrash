@@ -5,7 +5,10 @@ use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
+use clap::Parser;
 use std::f32::consts::PI;
+use std::fs;
+use std::path::PathBuf;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -32,14 +35,65 @@ f 6 5 4
 f 6 2 5
 "#;
 
+#[derive(Parser, Debug)]
+#[command(
+    author,
+    version,
+    about = "Simple software-rendered OBJ viewer for Abrash Engine",
+    long_about = None
+)]
+struct Args {
+    /// Path to the OBJ file to load (optional)
+    #[arg(value_name = "FILE")]
+    input: Option<PathBuf>,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut window = Window::new("Abrash - OBJ Viewer", WIDTH, HEIGHT)?;
+    let args = Args::parse();
+
+    println!("🎨 Abrash OBJ Viewer");
+    println!("======================");
+
+    let (mesh_source, source_name) = match args.input {
+        Some(path) => {
+            let content = match fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("❌ Failed to read file '{}': {}", path.display(), e);
+                    std::process::exit(1);
+                }
+            };
+            println!("📂 Loading file: {}", path.display());
+            (content, path.display().to_string())
+        }
+        None => {
+            println!("🚀 No file provided. Loading built-in Spaceship model.");
+            (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string())
+        }
+    };
+
+    // Load the mesh
+    let mesh = match load_obj(&mesh_source) {
+        Ok(m) => {
+            println!("✅ Model loaded successfully!");
+            println!("   • Vertices:  {}", m.vertices.len());
+            println!("   • Triangles: {}", m.indices.len());
+            m
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to parse OBJ: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    println!("🎮 Controls: Auto-rotating (interactive controls coming soon)");
+    println!("======================\n");
+
+    let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
+    let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
     let mut timestep = FixedTimestep::new(60);
-
-    // Load the mesh
-    let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| format!("Failed to load OBJ: {}", e))?;
 
     // Compute normals for flat shading logic (simple color variation)
     let normals = mesh.compute_face_normals();
