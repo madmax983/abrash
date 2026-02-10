@@ -37,6 +37,13 @@ use crate::mesh::Mesh;
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
+    // Nodes in the chains.
+    struct CacheNode {
+        vt_idx: usize, // usize::MAX if None
+        new_idx: usize,
+        next: usize, // usize::MAX if None
+    }
+
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
@@ -52,12 +59,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // value usize::MAX indicates "None".
     let mut cache_head: Vec<usize> = Vec::with_capacity(1024);
 
-    // Nodes in the chains.
-    struct CacheNode {
-        vt_idx: usize, // usize::MAX if None
-        new_idx: usize,
-        next: usize, // usize::MAX if None
-    }
     let mut cache_nodes: Vec<CacheNode> = Vec::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
@@ -141,9 +142,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         let idx = vt_str
                             .parse::<usize>()
                             .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
-                        Some(idx.checked_sub(1).ok_or_else(|| {
-                            format!("Line {line_num}: UV index 0 is invalid")
-                        })?)
+                        Some(
+                            idx.checked_sub(1)
+                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                        )
                     } else {
                         None
                     };

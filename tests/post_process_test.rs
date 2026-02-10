@@ -41,5 +41,8 @@ fn test_apply_scanlines() {
     // 0xFF -> 0x7F
     // Result: 0xFF7F7F7F
     let p1 = fb.get_pixel(0, 1).unwrap();
-    assert_eq!(p1, 0xFF7F7F7F, "Row 1 should be darkened to half brightness");
+    assert_eq!(
+        p1, 0xFF7F7F7F,
+        "Row 1 should be darkened to half brightness"
+    );
 }

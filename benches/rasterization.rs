@@ -193,16 +193,18 @@ fn bench_fill_triangle_textured_small_batch(c: &mut Criterion) {
         let tex = Texture::checkered(256, 256, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
 
         // 100 small triangles
-        let triangles: Vec<_> = (0..100).map(|i| {
-            let offset = (i as f32) * 5.0;
-            // Ensure they are on screen
-            let x = (offset % 700.0) + 10.0;
-            let y = (offset % 500.0) + 10.0;
-            let v0 = ((Vec3::new(x, y, 0.5), 1.0), Vec2::new(0.0, 0.0));
-            let v1 = ((Vec3::new(x + 10.0, y, 0.5), 1.0), Vec2::new(1.0, 0.0));
-            let v2 = ((Vec3::new(x, y + 10.0, 0.5), 1.0), Vec2::new(0.0, 1.0));
-            (v0, v1, v2)
-        }).collect();
+        let triangles: Vec<_> = (0..100)
+            .map(|i| {
+                let offset = (i as f32) * 5.0;
+                // Ensure they are on screen
+                let x = (offset % 700.0) + 10.0;
+                let y = (offset % 500.0) + 10.0;
+                let v0 = ((Vec3::new(x, y, 0.5), 1.0), Vec2::new(0.0, 0.0));
+                let v1 = ((Vec3::new(x + 10.0, y, 0.5), 1.0), Vec2::new(1.0, 0.0));
+                let v2 = ((Vec3::new(x, y + 10.0, 0.5), 1.0), Vec2::new(0.0, 1.0));
+                (v0, v1, v2)
+            })
+            .collect();
 
         b.iter(|| {
             zb.clear();

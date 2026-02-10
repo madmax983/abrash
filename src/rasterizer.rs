@@ -19,8 +19,8 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
-use crate::texture::{blend_swar, FilterMode, Texture};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
+use crate::texture::{FilterMode, Texture, blend_swar};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -1200,7 +1200,15 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_nearest(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
                 );
             }
             FilterMode::Bilinear => {
@@ -1214,7 +1222,15 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_bilinear(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
                 );
             }
             FilterMode::Trilinear => {
@@ -1240,7 +1256,16 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_trilinear(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix, lod,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    lod,
                 );
             }
         }
@@ -1427,18 +1452,18 @@ pub fn fill_triangle_textured(
                                     let w = 1.0 / q_left;
                                     let w_sq = w * w;
 
-                                    let du_tex_dx =
-                                        (gradients.du_dx * q_left - u_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let dv_tex_dx =
-                                        (gradients.dv_dx * q_left - v_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let du_tex_dy =
-                                        (gradients.du_dy * q_left - u_left * gradients.dq_dy)
-                                            * w_sq;
-                                    let dv_tex_dy =
-                                        (gradients.dv_dy * q_left - v_left * gradients.dq_dy)
-                                            * w_sq;
+                                    let du_tex_dx = (gradients.du_dx * q_left
+                                        - u_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let dv_tex_dx = (gradients.dv_dx * q_left
+                                        - v_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let du_tex_dy = (gradients.du_dy * q_left
+                                        - u_left * gradients.dq_dy)
+                                        * w_sq;
+                                    let dv_tex_dy = (gradients.dv_dy * q_left
+                                        - v_left * gradients.dq_dy)
+                                        * w_sq;
 
                                     let max_rho_sq = (du_tex_dx * du_tex_dx
                                         + dv_tex_dx * dv_tex_dx)
