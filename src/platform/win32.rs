@@ -30,6 +30,10 @@ pub struct Win32Window {
 
 impl WindowBackend for Win32Window {
     fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+        if width > i32::MAX as u32 || height > i32::MAX as u32 || width == 0 || height == 0 {
+            return Err(WindowError::CreationFailed);
+        }
+
         unsafe {
             let hinstance = GetModuleHandleW(null_mut());
 
