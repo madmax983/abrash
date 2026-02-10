@@ -1,16 +1,44 @@
-//! 3D mesh representation.
+//! 3D Mesh representation.
+//!
+//! A mesh is a collection of vertices, indices (forming triangles), and optional UV coordinates.
+//!
+//! # Examples
+//!
+//! ```
+//! use abrash::mesh::Mesh;
+//! use abrash::math::Vec3;
+//!
+//! let mut mesh = Mesh::new();
+//! mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+//! mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+//! mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+//! mesh.indices.push([0, 1, 2]);
+//! ```
 
 use crate::math::{Vec2, Vec3};
 
 /// A 3D mesh with vertices and triangle indices
 #[derive(Debug, Clone)]
 pub struct Mesh {
+    /// List of 3D vertices (x, y, z).
     pub vertices: Vec<Vec3>,
+    /// List of triangles, each defined by 3 indices into `vertices`.
     pub indices: Vec<[usize; 3]>,
+    /// List of texture coordinates (u, v) for each vertex.
+    /// If present, must have same length as `vertices`.
     pub uvs: Vec<Vec2>,
 }
 
 impl Mesh {
+    /// Creates a new empty mesh.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::mesh::Mesh;
+    /// let mesh = Mesh::new();
+    /// assert!(mesh.vertices.is_empty());
+    /// ```
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -20,7 +48,19 @@ impl Mesh {
         }
     }
 
-    /// Create a cube centered at origin
+    /// Create a cube centered at origin with side length `size`.
+    ///
+    /// The cube has 8 vertices and 12 triangles (2 per face).
+    /// Does not include UV coordinates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::mesh::Mesh;
+    /// let cube = Mesh::cube(2.0);
+    /// assert_eq!(cube.vertices.len(), 8);
+    /// assert_eq!(cube.indices.len(), 12);
+    /// ```
     #[must_use]
     pub fn cube(size: f32) -> Self {
         let h = size / 2.0;
@@ -68,7 +108,27 @@ impl Mesh {
         }
     }
 
-    /// Compute face normal for each triangle
+    /// Compute face normal for each triangle.
+    ///
+    /// Returns a vector of normals, one per triangle (in `indices` order).
+    /// Normals are normalized.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::mesh::Mesh;
+    /// use abrash::math::Vec3;
+    ///
+    /// let mut mesh = Mesh::new();
+    /// mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+    /// mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+    /// mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+    /// mesh.indices.push([0, 1, 2]);
+    ///
+    /// let normals = mesh.compute_face_normals();
+    /// assert_eq!(normals.len(), 1);
+    /// assert_eq!(normals[0], Vec3::new(0.0, 0.0, 1.0));
+    /// ```
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
         self.indices

@@ -1,3 +1,21 @@
+//! Post-processing effects.
+//!
+//! Functions to apply full-screen effects to a `Framebuffer`.
+//!
+//! # Examples
+//!
+//! ```
+//! use abrash::framebuffer::Framebuffer;
+//! use abrash::post_process::{apply_grayscale, apply_scanlines};
+//!
+//! let mut fb = Framebuffer::new(100, 100).unwrap();
+//! // ... render something ...
+//!
+//! // Apply effects
+//! apply_grayscale(&mut fb);
+//! apply_scanlines(&mut fb);
+//! ```
+
 use crate::framebuffer::Framebuffer;
 
 /// Applies a grayscale filter to the framebuffer in-place.
@@ -6,6 +24,21 @@ use crate::framebuffer::Framebuffer;
 /// `Y = 0.299*R + 0.587*G + 0.114*B`
 ///
 /// Approximated as: `Y = (77*R + 150*G + 29*B) >> 8`
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_grayscale;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFFFF0000); // Red
+/// apply_grayscale(&mut fb);
+/// // Red component is 255. 77*255/256 = 76.
+/// // Result should be grey (76, 76, 76).
+/// let p = fb.get_pixel(0, 0).unwrap();
+/// assert_eq!(p & 0xFF, 76);
+/// ```
 pub fn apply_grayscale(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
     for pixel in pixels.iter_mut() {
@@ -24,6 +57,24 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 }
 
 /// Simulates CRT scanlines by darkening every odd row.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_scanlines;
+///
+/// let mut fb = Framebuffer::new(1, 2).unwrap();
+/// fb.clear(0xFFFFFFFF); // White
+/// apply_scanlines(&mut fb);
+///
+/// // Row 0 is untouched
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF);
+///
+/// // Row 1 is darkened (halved)
+/// // 0xFF >> 1 = 0x7F
+/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
+/// ```
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

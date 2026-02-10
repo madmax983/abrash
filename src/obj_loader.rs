@@ -1,8 +1,41 @@
+//! Wavefront OBJ file loader.
+//!
+//! This module provides a simple parser for `.obj` files.
+//!
+//! # Supported Features
+//!
+//! *   **Vertices (`v`)**: 3D positions (x, y, z).
+//! *   **Texture Coordinates (`vt`)**: 2D UVs (u, v).
+//! *   **Faces (`f`)**: Triangles and Quads (automatically triangulated).
+//!     *   Supports `v`, `v/vt`, `v//vn`, and `v/vt/vn` formats.
+//!
+//! # Limitations
+//!
+//! *   **Normals (`vn`)**: Parsed but currently ignored/discarded.
+//! *   **Materials (`usemtl`, `mtllib`)**: Ignored.
+//! *   **Groups (`g`, `o`)**: Ignored.
+
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::obj_loader::load_obj;
+///
+/// let obj_source = "
+/// v 0.0 0.0 0.0
+/// v 1.0 0.0 0.0
+/// v 0.0 1.0 0.0
+/// f 1 2 3
+/// ";
+///
+/// let mesh = load_obj(obj_source).unwrap();
+/// assert_eq!(mesh.vertices.len(), 3);
+/// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reserve reasonable initial capacity to avoid frequent reallocations

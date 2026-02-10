@@ -98,7 +98,8 @@ impl Texture {
     ///
     /// Uses bitwise shift if `width` is a power of two, otherwise falls back to multiplication.
     #[inline(always)]
-    pub fn row_offset(&self, y: usize) -> usize {
+    #[must_use]
+    pub const fn row_offset(&self, y: usize) -> usize {
         if self.width_shift < 32 {
             y << self.width_shift
         } else {

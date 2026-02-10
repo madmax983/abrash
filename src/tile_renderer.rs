@@ -819,7 +819,11 @@ fn rasterize_scanline_simd(
     dz_dx: f32,
     color: u32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_ps, _mm256_castps_si256, _mm256_castsi256_ps,
+        _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_ps, _mm256_set1_epi32,
+        _mm256_set1_ps, _mm256_set_ps, _mm256_storeu_ps, _mm256_storeu_si256, __m256i,
+    };
 
     let len = pixels.len();
     let mut i = 0;
