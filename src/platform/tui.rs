@@ -3,7 +3,7 @@
 //! Renders the framebuffer into a terminal using half-block characters.
 
 use super::framebuffer_widget::FramebufferWidget;
-use super::{Event, WindowBackend, WindowError};
+use super::{Event, WindowError};
 use crate::framebuffer::Framebuffer;
 use crossterm::{
     event::{self, KeyCode, KeyEventKind},
@@ -71,8 +71,12 @@ fn query_refresh_rate() -> u32 {
     }
 }
 
-impl WindowBackend for TuiWindow {
-    fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+impl TuiWindow {
+    /// Create a new TUI window.
+    ///
+    /// # Errors
+    /// Returns a [`WindowError`] if the terminal cannot be initialized.
+    pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         enable_raw_mode().map_err(|_| WindowError::RegistrationFailed)?;
         let mut stdout = stdout();
         execute!(stdout, EnterAlternateScreen).map_err(|_| WindowError::CreationFailed)?;
@@ -99,19 +103,22 @@ impl WindowBackend for TuiWindow {
         })
     }
 
-    fn is_open(&self) -> bool {
+    #[must_use]
+    pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
-    fn width(&self) -> u32 {
+    #[must_use]
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
-    fn height(&self) -> u32 {
+    #[must_use]
+    pub const fn height(&self) -> u32 {
         self.height
     }
 
-    fn poll_events(&mut self) -> Vec<Event> {
+    pub fn poll_events(&mut self) -> Vec<Event> {
         self.frame_start = Instant::now();
         let mut events = Vec::new();
 
@@ -134,7 +141,7 @@ impl WindowBackend for TuiWindow {
         events
     }
 
-    fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
+    pub fn blit_framebuffer(&mut self, framebuffer: &Framebuffer) {
         self.frame_count += 1;
         self.frames_since_update += 1;
 

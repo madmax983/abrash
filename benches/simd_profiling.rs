@@ -3,7 +3,7 @@ use abrash::{
     zbuffer::ZBuffer,
 };
 use comfy_table::{
-    modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Attribute, Cell, Color, Table,
+    Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL,
 };
 use std::time::Instant;
 
@@ -22,6 +22,9 @@ fn read_tsc() -> u64 {
 fn read_tsc() -> u64 {
     0 // Fallback for non-x86_64 architectures
 }
+
+type Vertex = (Vec3, f32);
+type Triangle = (Vertex, Vertex, Vertex, u32);
 
 /// Detailed profiling benchmark to identify SIMD bottlenecks
 fn main() {
@@ -265,16 +268,11 @@ fn profile_rendering_pipeline() {
 
     println!("{table}");
 
-    println!(
-        "\n📈 Throughput: {m_tris_per_sec} M triangles/sec\n"
-    );
+    println!("\n📈 Throughput: {m_tris_per_sec} M triangles/sec\n");
 }
 
 /// Generate horizontal triangles of specific scanline length
-fn generate_horizontal_triangles(
-    scanline_len: u32,
-    count: usize,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<Triangle> {
     let mut triangles = Vec::new();
     let width = scanline_len as f32;
 
@@ -296,11 +294,7 @@ fn generate_horizontal_triangles(
 }
 
 /// Generate test scene with triangles
-fn generate_test_scene(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<Triangle> {
     let mut triangles = Vec::new();
 
     for i in 0..count {

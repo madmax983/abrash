@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::texture::Texture;
-    use abrash::framebuffer::Framebuffer;
 
     #[test]
     fn test_trilinear_lod_safety() {

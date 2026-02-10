@@ -29,8 +29,11 @@ const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
 
 /// Helper to average 4 colors (simple box filter)
 const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
-    let r = (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF)) / 4;
-    let g = (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
+    let r =
+        (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF))
+            / 4;
+    let g =
+        (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
     let b = ((c00 & 0xFF) + (c10 & 0xFF) + (c01 & 0xFF) + (c11 & 0xFF)) / 4;
 
     0xFF00_0000 | (r << 16) | (g << 8) | b
@@ -98,7 +101,8 @@ impl Texture {
     ///
     /// Uses bitwise shift if `width` is a power of two, otherwise falls back to multiplication.
     #[inline(always)]
-    pub fn row_offset(&self, y: usize) -> usize {
+    #[must_use]
+    pub const fn row_offset(&self, y: usize) -> usize {
         if self.width_shift < 32 {
             y << self.width_shift
         } else {
@@ -316,7 +320,7 @@ impl Texture {
 
         // Manual neighbor fetch for mips
         let (c00, c10, c01, c11) = {
-             let x0 = x0_raw.clamp(0, w_i32) as usize;
+            let x0 = x0_raw.clamp(0, w_i32) as usize;
             let y0 = y0_raw.clamp(0, h_i32) as usize;
             let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
             let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
@@ -358,14 +362,20 @@ impl Texture {
         // 0.5 in 24.8 is 128
         let u_fixed = (u_tex * 256.0) as i32;
         let v_fixed = (v_tex * 256.0) as i32;
-        self.get_pixel_bilinear_fixed_no_offset(u_fixed.wrapping_sub(128), v_fixed.wrapping_sub(128))
+        self.get_pixel_bilinear_fixed_no_offset(
+            u_fixed.wrapping_sub(128),
+            v_fixed.wrapping_sub(128),
+        )
     }
 
     /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates
     #[inline]
     #[must_use]
     pub fn get_pixel_bilinear_fixed(&self, u_fixed: i32, v_fixed: i32) -> u32 {
-        self.get_pixel_bilinear_fixed_no_offset(u_fixed.wrapping_sub(128), v_fixed.wrapping_sub(128))
+        self.get_pixel_bilinear_fixed_no_offset(
+            u_fixed.wrapping_sub(128),
+            v_fixed.wrapping_sub(128),
+        )
     }
 
     /// Sample texture using bilinear interpolation with 24.8 fixed point texel coordinates.
@@ -489,7 +499,11 @@ mod tests {
         // (0,1) White (FF), (1,1) Black (00)
         for y in 0..4 {
             for x in 0..4 {
-                let color = if (x + y) % 2 == 0 { 0xFF000000 } else { 0xFFFFFFFF };
+                let color = if (x + y) % 2 == 0 {
+                    0xFF000000
+                } else {
+                    0xFFFFFFFF
+                };
                 tex.set_pixel(x, y, color);
             }
         }
@@ -520,13 +534,17 @@ mod tests {
     fn sample_mip_fixed_level_selection() {
         let mut tex = Texture::new(4, 4).unwrap();
         // Fill base level with Black
-        for i in 0..16 { tex.pixels[i] = 0xFF000000; }
+        for i in 0..16 {
+            tex.pixels[i] = 0xFF000000;
+        }
         tex.generate_mipmaps();
 
         // Manually set Level 1 (2x2) to White
         // mips[0] is Level 1.
         if let Some(l1) = tex.mips.get_mut(0) {
-            for p in l1.iter_mut() { *p = 0xFFFFFFFF; }
+            for p in l1.iter_mut() {
+                *p = 0xFFFFFFFF;
+            }
         }
 
         // Test sampling Level 1 directly via LOD=1.0
@@ -539,10 +557,16 @@ mod tests {
         let v_fix = 32768;
         let pixel = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 1.0);
 
-        assert_eq!(pixel, 0xFFFFFFFF, "LOD 1.0 should sample from Level 1 (White)");
+        assert_eq!(
+            pixel, 0xFFFFFFFF,
+            "LOD 1.0 should sample from Level 1 (White)"
+        );
 
         // Test LOD=0.0 -> Black
         let pixel_l0 = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 0.0);
-        assert_eq!(pixel_l0, 0xFF000000, "LOD 0.0 should sample from Level 0 (Black)");
+        assert_eq!(
+            pixel_l0, 0xFF000000,
+            "LOD 0.0 should sample from Level 0 (Black)"
+        );
     }
 }

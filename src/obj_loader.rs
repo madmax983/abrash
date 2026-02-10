@@ -93,9 +93,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         let idx = vt_str
                             .parse::<usize>()
                             .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
-                        Some(idx.checked_sub(1).ok_or_else(|| {
-                            format!("Line {line_num}: UV index 0 is invalid")
-                        })?)
+                        Some(
+                            idx.checked_sub(1)
+                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                        )
                     } else {
                         None
                     };

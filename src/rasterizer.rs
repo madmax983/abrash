@@ -19,7 +19,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
@@ -1115,8 +1115,8 @@ fn draw_scanline_textured_perspective(
                 let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
                 let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
 
-                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
                 let lod = 0.5 * max_rho_sq.log2();
 
@@ -1320,18 +1320,18 @@ pub fn fill_triangle_textured(
                                     let w = 1.0 / q_left;
                                     let w_sq = w * w;
 
-                                    let du_tex_dx =
-                                        (gradients.du_dx * q_left - u_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let dv_tex_dx =
-                                        (gradients.dv_dx * q_left - v_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let du_tex_dy =
-                                        (gradients.du_dy * q_left - u_left * gradients.dq_dy)
-                                            * w_sq;
-                                    let dv_tex_dy =
-                                        (gradients.dv_dy * q_left - v_left * gradients.dq_dy)
-                                            * w_sq;
+                                    let du_tex_dx = (gradients.du_dx * q_left
+                                        - u_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let dv_tex_dx = (gradients.dv_dx * q_left
+                                        - v_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let du_tex_dy = (gradients.du_dy * q_left
+                                        - u_left * gradients.dq_dy)
+                                        * w_sq;
+                                    let dv_tex_dy = (gradients.dv_dy * q_left
+                                        - v_left * gradients.dq_dy)
+                                        * w_sq;
 
                                     let max_rho_sq = (du_tex_dx * du_tex_dx
                                         + dv_tex_dx * dv_tex_dx)
