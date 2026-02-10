@@ -20,7 +20,7 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
-use crate::texture::{FilterMode, Texture};
+use crate::texture::{blend_swar, FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -925,8 +925,6 @@ pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.062_5,
 ];
 
-/// Draw a single scanline with perspective-correct texture mapping
-/// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_span_nearest(
@@ -935,17 +933,11 @@ fn draw_span_nearest(
     texture: &Texture,
     mut z: f32,
     dz_dx: f32,
-    u_tex_start: f32,
-    v_tex_start: f32,
-    du_tex_step: f32,
-    dv_tex_step: f32,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
 ) {
-    // Fixed point optimization for Nearest Neighbor
-    let mut u_fix = (u_tex_start * 65536.0) as i32;
-    let mut v_fix = (v_tex_start * 65536.0) as i32;
-    let du_fix = (du_tex_step * 65536.0) as i32;
-    let dv_fix = (dv_tex_step * 65536.0) as i32;
-
     // Hoist texture properties
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
@@ -953,88 +945,45 @@ fn draw_span_nearest(
     let tex_w_usize = tex_w as usize;
 
     let shift = texture.width_shift;
-
-    // Check if the entire span is within texture bounds
-    let count = fb_slice.len() as i32;
-    let end_u = u_fix.wrapping_add(du_fix.wrapping_mul(count - 1));
-    let end_v = v_fix.wrapping_add(dv_fix.wrapping_mul(count - 1));
-
-    // Check min and max u/v to ensure all pixels in the span are within bounds.
-    let u0 = u_fix >> 16;
-    let v0 = v_fix >> 16;
-    let u1 = end_u >> 16;
-    let v1 = end_v >> 16;
-
-    let safe = (u0 as u32) < tex_w
-        && (u1 as u32) < tex_w
-        && (v0 as u32) < tex_h
-        && (v1 as u32) < tex_h;
-
     // Optimization: Loop versioning.
+    // Duplicate the loop to specialize for power-of-two textures.
+    // This hoists the branch `if shift < 32` out of the tight loop and allows
+    // the use of bitwise shifting `v << shift` instead of multiplication `v * width`.
     if shift < 32 {
-        if safe {
-            // Fast path: no bounds checks
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    let u = (u_fix >> 16) as usize;
-                    let v = (v_fix >> 16) as usize;
-                    // SAFETY: Verified 'safe' means u,v are within bounds
-                    *pixel = unsafe { *tex_pixels.get_unchecked((v << shift) + u) };
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                // Inline sampling
+                let u = u_fix >> 16;
+                let v = v_fix >> 16;
+                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                    tex_pixels[((v as usize) << shift) + (u as usize)]
+                } else {
+                    texture.get_pixel_texel(u, v)
+                };
+                *pixel = color;
             }
-        } else {
-            // Slow path: bounds checks per pixel
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    let u = u_fix >> 16;
-                    let v = v_fix >> 16;
-                    let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                        unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
-                    } else {
-                        texture.get_pixel_texel(u, v)
-                    };
-                    *pixel = color;
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
+            z += dz_dx;
+            u_fix = u_fix.wrapping_add(du_fix);
+            v_fix = v_fix.wrapping_add(dv_fix);
         }
     } else {
-        if safe {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    let u = (u_fix >> 16) as usize;
-                    let v = (v_fix >> 16) as usize;
-                    *pixel = unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) };
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                // Inline sampling
+                let u = u_fix >> 16;
+                let v = v_fix >> 16;
+                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                    tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                } else {
+                    texture.get_pixel_texel(u, v)
+                };
+                *pixel = color;
             }
-        } else {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    let u = u_fix >> 16;
-                    let v = v_fix >> 16;
-                    let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                        unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
-                    } else {
-                        texture.get_pixel_texel(u, v)
-                    };
-                    *pixel = color;
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
+            z += dz_dx;
+            u_fix = u_fix.wrapping_add(du_fix);
+            v_fix = v_fix.wrapping_add(dv_fix);
         }
     }
 }
@@ -1047,132 +996,91 @@ fn draw_span_bilinear(
     texture: &Texture,
     mut z: f32,
     dz_dx: f32,
-    u_tex_start: f32,
-    v_tex_start: f32,
-    du_tex_step: f32,
-    dv_tex_step: f32,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
 ) {
-    use crate::texture::blend_swar;
-
-    // Fixed point optimization for Bilinear
-    // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
-    // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
-    // to avoid per-pixel subtraction in get_pixel_bilinear_fixed
-    let mut u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
-    let mut v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
-    let du_fix = (du_tex_step * 65536.0) as i32;
-    let dv_fix = (dv_tex_step * 65536.0) as i32;
-
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
     let tex_h = texture.height;
-    let tex_w_usize = tex_w as usize;
-
-    // Check if the entire span is within texture bounds
-    let count = fb_slice.len() as i32;
-    let end_u = u_fix.wrapping_add(du_fix.wrapping_mul(count - 1));
-    let end_v = v_fix.wrapping_add(dv_fix.wrapping_mul(count - 1));
-
-    let u0 = u_fix >> 8;
-    let v0 = v_fix >> 8;
-    let u1 = end_u >> 8;
-    let v1 = end_v >> 8;
-
-    let w_minus_1 = (tex_w as i32).wrapping_sub(1);
-    let h_minus_1 = (tex_h as i32).wrapping_sub(1);
-
-    // Check if within [0, width-1) and [0, height-1)
-    let safe = (u0 as u32) < (w_minus_1 as u32)
-        && (u1 as u32) < (w_minus_1 as u32)
-        && (v0 as u32) < (h_minus_1 as u32)
-        && (v1 as u32) < (h_minus_1 as u32);
-
     let shift = texture.width_shift;
 
-    if safe {
-        if shift < 32 {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Manual bilinear interpolation
-                    // u_fix is 16.16. We need 24.8 format for weights.
-                    // Fraction (high 8 bits of 16-bit fraction) -> (u >> 8) & 0xFF
-                    let wx = ((u_fix >> 8) & 0xFF) as u32;
-                    let wy = ((v_fix >> 8) & 0xFF) as u32;
-                    let inv_wx = 256 - wx;
-                    let inv_wy = 256 - wy;
+    let w_i32 = (tex_w as i32).wrapping_sub(1);
+    let h_i32 = (tex_h as i32).wrapping_sub(1);
+    let tex_w_usize = tex_w as usize;
 
-                    // Integer part is at >> 16
-                    let x0 = (u_fix >> 16) as usize;
-                    let y0 = (v_fix >> 16) as usize;
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
 
-                    let row0 = y0 << shift;
+            let u_img_fixed = u_fix >> 8;
+            let v_img_fixed = v_fix >> 8;
+
+            let wx = (u_img_fixed & 0xFF) as u32;
+            let wy = (v_img_fixed & 0xFF) as u32;
+            let inv_wx = 256 - wx;
+            let inv_wy = 256 - wy;
+
+            let x0_raw = u_img_fixed >> 8;
+            let y0_raw = v_img_fixed >> 8;
+
+            let (c00, c10, c01, c11) =
+                if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                    let x0 = x0_raw as usize;
+                    let y0 = y0_raw as usize;
+
+                    let row0 = if shift < 32 {
+                        y0 << shift
+                    } else {
+                        y0 * tex_w_usize
+                    };
                     let row1 = row0 + tex_w_usize;
 
-                    let (c00, c10, c01, c11) = unsafe {
+                    unsafe {
                         (
                             *tex_pixels.get_unchecked(row0 + x0),
                             *tex_pixels.get_unchecked(row0 + x0 + 1),
                             *tex_pixels.get_unchecked(row1 + x0),
                             *tex_pixels.get_unchecked(row1 + x0 + 1),
                         )
+                    }
+                } else {
+                    let x0 = x0_raw.clamp(0, w_i32) as usize;
+                    let y0 = y0_raw.clamp(0, h_i32) as usize;
+                    let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                    let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                    let row0 = if shift < 32 {
+                        y0 << shift
+                    } else {
+                        y0 * tex_w_usize
+                    };
+                    let row1 = if shift < 32 {
+                        y1 << shift
+                    } else {
+                        y1 * tex_w_usize
                     };
 
-                    let top = blend_swar(c00, c10, wx, inv_wx);
-                    let bottom = blend_swar(c01, c11, wx, inv_wx);
-                    let final_color = blend_swar(top, bottom, wy, inv_wy);
-
-                    *pixel = final_color | 0xFF00_0000;
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
-        } else {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    let wx = ((u_fix >> 8) & 0xFF) as u32;
-                    let wy = ((v_fix >> 8) & 0xFF) as u32;
-                    let inv_wx = 256 - wx;
-                    let inv_wy = 256 - wy;
-
-                    let x0 = (u_fix >> 16) as usize;
-                    let y0 = (v_fix >> 16) as usize;
-
-                    let row0 = y0 * tex_w_usize;
-                    let row1 = row0 + tex_w_usize;
-
-                    let (c00, c10, c01, c11) = unsafe {
+                    unsafe {
                         (
                             *tex_pixels.get_unchecked(row0 + x0),
-                            *tex_pixels.get_unchecked(row0 + x0 + 1),
+                            *tex_pixels.get_unchecked(row0 + x1),
                             *tex_pixels.get_unchecked(row1 + x0),
-                            *tex_pixels.get_unchecked(row1 + x0 + 1),
+                            *tex_pixels.get_unchecked(row1 + x1),
                         )
-                    };
+                    }
+                };
 
-                    let top = blend_swar(c00, c10, wx, inv_wx);
-                    let bottom = blend_swar(c01, c11, wx, inv_wx);
-                    let final_color = blend_swar(top, bottom, wy, inv_wy);
+            let top = blend_swar(c00, c10, wx, inv_wx);
+            let bottom = blend_swar(c01, c11, wx, inv_wx);
+            let final_color = blend_swar(top, bottom, wy, inv_wy);
 
-                    *pixel = final_color | 0xFF00_0000;
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
+            *pixel = final_color | 0xFF00_0000;
         }
-    } else {
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            if z < *depth_val {
-                *depth_val = z;
-                *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
-            }
-            z += dz_dx;
-            u_fix = u_fix.wrapping_add(du_fix);
-            v_fix = v_fix.wrapping_add(dv_fix);
-        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
     }
 }
 
@@ -1184,45 +1092,12 @@ fn draw_span_trilinear(
     texture: &Texture,
     mut z: f32,
     dz_dx: f32,
-    u_tex_start: f32,
-    v_tex_start: f32,
-    du_tex_step: f32,
-    dv_tex_step: f32,
-    q: f32,
-    u: f32,
-    v: f32,
-    w_start: f32,
-    gradients: &PerspectiveTextureGradients,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    lod: f32,
 ) {
-    // For Trilinear, we need LOD
-    // Calculate LOD at span center (approx)
-    // We use span start values for calculation to avoid extra per-pixel work
-
-    // Derivatives at start of span:
-    // q_start is q at start of span.
-    let w = w_start; // 1/q
-    let w_sq = w * w;
-
-    // Derivatives of u_tex w.r.t screen X
-    // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-    let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
-    let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-
-    // Calculate Y derivatives
-    let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
-    let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
-
-    let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                        du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
-
-    let lod = 0.5 * max_rho_sq.log2();
-
-    // Interpolate
-    let mut u_fix = (u_tex_start * 65536.0) as i32;
-    let mut v_fix = (v_tex_start * 65536.0) as i32;
-    let du_fix = (du_tex_step * 65536.0) as i32;
-    let dv_fix = (dv_tex_step * 65536.0) as i32;
-
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
         if z < *depth_val {
             *depth_val = z;
@@ -1318,53 +1193,60 @@ fn draw_scanline_textured_perspective(
 
         match texture.filter_mode {
             FilterMode::Nearest => {
+                // Fixed point optimization for Nearest Neighbor
+                let u_fix = (u_tex_start * 65536.0) as i32;
+                let v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
                 draw_span_nearest(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_tex_start,
-                    v_tex_start,
-                    du_tex_step,
-                    dv_tex_step,
+                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
                 );
             }
             FilterMode::Bilinear => {
+                // Fixed point optimization for Bilinear
+                // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
+                // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
+                // to avoid per-pixel subtraction in get_pixel_bilinear_fixed
+                let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
                 draw_span_bilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_tex_start,
-                    v_tex_start,
-                    du_tex_step,
-                    dv_tex_step,
+                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
                 );
             }
             FilterMode::Trilinear => {
+                // For Trilinear, we need LOD.
+                // Calculate LOD at span start to avoid extra per-pixel work.
+                let w = w_start; // 1/q
+                let w_sq = w * w;
+
+                // Derivatives of texture coordinates with respect to screen x/y.
+                // u_tex = u / q, v_tex = v / q.
+                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+                let lod = 0.5 * max_rho_sq.log2();
+
+                let u_fix = (u_tex_start * 65536.0) as i32;
+                let v_fix = (v_tex_start * 65536.0) as i32;
+                let du_fix = (du_tex_step * 65536.0) as i32;
+                let dv_fix = (dv_tex_step * 65536.0) as i32;
+
                 draw_span_trilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_tex_start,
-                    v_tex_start,
-                    du_tex_step,
-                    dv_tex_step,
-                    q,
-                    u,
-                    v,
-                    w_start,
-                    gradients,
+                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix, lod,
                 );
             }
         }
 
         // Advance state
-        z += gradients.dz_dx * (count as f32); // Advance z
+        z += gradients.dz_dx * count as f32;
         q = q_end;
         u = u_end;
         v = v_end;
