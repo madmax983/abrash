@@ -17,7 +17,6 @@
 
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
-use std::collections::HashMap;
 
 /// Load a Mesh from a Wavefront OBJ string source.
 ///
@@ -42,10 +41,24 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
 
-    // We need to deduplicate vertices.
-    // Key: (position_index, uv_index) -> Value: new_index
-    // position_index is required, uv_index is optional.
-    let mut unique_vertices: HashMap<(usize, Option<usize>), usize> = HashMap::with_capacity(1024);
+    // Deduplication structure:
+    // We replace the standard HashMap with a custom separate-chaining lookup table
+    // indexed directly by vertex index (v_idx). This avoids hashing overhead and
+    // takes advantage of the fact that unique `(v_idx, vt_idx)` pairs are sparse
+    // but clustered by `v_idx`.
+
+    // Head of the chain for each v_idx. Stores index into `cache_nodes`.
+    // We initialize/grow this parallel to `raw_positions`.
+    // value usize::MAX indicates "None".
+    let mut cache_head: Vec<usize> = Vec::with_capacity(1024);
+
+    // Nodes in the chains.
+    struct CacheNode {
+        vt_idx: usize, // usize::MAX if None
+        new_idx: usize,
+        next: usize, // usize::MAX if None
+    }
+    let mut cache_nodes: Vec<CacheNode> = Vec::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
@@ -85,6 +98,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     return Err(format!("Line {line_num}: Coordinates must be finite"));
                 }
                 raw_positions.push(Vec3::new(x, y, z));
+                // Grow cache_head to match raw_positions
+                cache_head.push(usize::MAX);
             }
             "vt" => {
                 let u = parts
@@ -134,20 +149,35 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     };
 
                     // Look up or insert
-                    let key = (v_idx, vt_idx);
-                    if let Some(&idx) = unique_vertices.get(&key) {
+                    if v_idx >= raw_positions.len() {
+                        return Err(format!(
+                            "Line {}: Vertex index {} out of bounds",
+                            line_num,
+                            v_idx + 1
+                        ));
+                    }
+
+                    // Key for lookup
+                    let vt_key = vt_idx.unwrap_or(usize::MAX);
+
+                    // Linear scan in the cache chain for this vertex
+                    let mut found_idx = None;
+                    let mut curr = cache_head[v_idx];
+                    while curr != usize::MAX {
+                        let node = &cache_nodes[curr];
+                        if node.vt_idx == vt_key {
+                            found_idx = Some(node.new_idx);
+                            break;
+                        }
+                        curr = node.next;
+                    }
+
+                    if let Some(idx) = found_idx {
                         face_indices.push(idx);
                     } else {
                         let new_idx = final_vertices.len();
 
                         // Push vertex
-                        if v_idx >= raw_positions.len() {
-                            return Err(format!(
-                                "Line {}: Vertex index {} out of bounds",
-                                line_num,
-                                v_idx + 1
-                            ));
-                        }
                         final_vertices.push(raw_positions[v_idx]);
 
                         // Push UV (or default 0,0)
@@ -164,7 +194,15 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             final_uvs.push(Vec2::new(0.0, 0.0));
                         }
 
-                        unique_vertices.insert(key, new_idx);
+                        // Insert into cache
+                        let new_node_idx = cache_nodes.len();
+                        cache_nodes.push(CacheNode {
+                            vt_idx: vt_key,
+                            new_idx,
+                            next: cache_head[v_idx],
+                        });
+                        cache_head[v_idx] = new_node_idx;
+
                         face_indices.push(new_idx);
                     }
                 }

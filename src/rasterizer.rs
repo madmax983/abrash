@@ -1218,41 +1218,22 @@ fn draw_scanline_textured_perspective(
                 );
             }
             FilterMode::Trilinear => {
-                // For Trilinear, we need LOD
-                // Calculate LOD at span center (approx)
-                // We use span start values for calculation to avoid extra per-pixel work
-                // u_tex_start, v_tex_start are u/q * w = u * w^2 ? No.
-                // u_tex = u * w. u in span is u/w.
-                // u_tex_start is the actual texture coordinate at start of span.
-
-                // Derivatives at start of span:
-                // q_start is q at start of span.
+                // For Trilinear, we need LOD.
+                // Calculate LOD at span start to avoid extra per-pixel work.
                 let w = w_start; // 1/q
                 let w_sq = w * w;
 
-                // Derivatives of u_tex w.r.t screen X
-                // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                // gradients.du_dx is du/dx for the variable u (which is U/W).
-                // Wait.
-                // In setup: u is U/W. q is 1/W.
-                // Texture coord U_tex = u / q.
-                // d(u/q)/dx = (u'q - uq')/q^2
-                // u' = gradients.du_dx. q' = gradients.dq_dx.
-
-                // Calculate X derivatives
+                // Derivatives of texture coordinates with respect to screen x/y.
+                // u_tex = u / q, v_tex = v / q.
                 let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
                 let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-
-                // Calculate Y derivatives
                 let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
                 let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
 
-                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
-
+                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
                 let lod = 0.5 * max_rho_sq.log2();
 
-                // Interpolate
                 let u_fix = (u_tex_start * 65536.0) as i32;
                 let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
@@ -1264,10 +1245,8 @@ fn draw_scanline_textured_perspective(
             }
         }
 
-        // Advance z
-        z += gradients.dz_dx * count as f32;
-
         // Advance state
+        z += gradients.dz_dx * count as f32;
         q = q_end;
         u = u_end;
         v = v_end;
@@ -1279,8 +1258,6 @@ fn draw_scanline_textured_perspective(
         x += count;
     }
 }
-
-/// Fill a 3D triangle with perspective-correct texture mapping
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
