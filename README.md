@@ -51,6 +51,9 @@ cargo run --release --example textured_cube
 
 # A hardware-accelerated rotating cube (wgpu)
 cargo run --release --example gpu_cube --features gpu-render
+
+# A hardware-accelerated pyramid mesh via generic GPU runner
+cargo run --release --example gpu_pyramid --features gpu-render
 ```
 
 GPU cube controls: drag left mouse to orbit, mouse wheel to zoom, arrows/WASD to orbit,
