@@ -1074,15 +1074,30 @@ fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-                for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                    if z < *depth_val {
-                        *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8) and sample without offset
-                        *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
+                let shift = texture.width_shift;
+
+                if shift < 32 {
+                    // Power-of-two optimization: Use specialized method with shifts
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            *pixel = texture.get_pixel_bilinear_fixed_pow2(u_fix >> 8, v_fix >> 8);
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    // Generic path: Use specialized method with multiplication
+                    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                        if z < *depth_val {
+                            *depth_val = z;
+                            *pixel = texture.get_pixel_bilinear_fixed_generic(u_fix >> 8, v_fix >> 8);
+                        }
+                        z += gradients.dz_dx;
+                        u_fix = u_fix.wrapping_add(du_fix);
+                        v_fix = v_fix.wrapping_add(dv_fix);
+                    }
                 }
             }
             FilterMode::Trilinear => {

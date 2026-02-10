@@ -15,7 +15,7 @@ pub enum FilterMode {
 
 /// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
 #[inline(always)]
-const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
+pub(crate) const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     let rb0 = c0 & 0x00FF_00FF;
     let ag0 = (c0 >> 8) & 0x00FF_00FF;
     let rb1 = c1 & 0x00FF_00FF;
@@ -391,6 +391,108 @@ impl Texture {
         let final_color = blend_swar(top, bottom, wy, inv_wy);
 
         // Ensure alpha is 0xFF
+        final_color | 0xFF00_0000
+    }
+
+    /// Optimized bilinear sampling for power-of-two textures.
+    #[inline]
+    #[must_use]
+    pub fn get_pixel_bilinear_fixed_pow2(&self, u_img_fixed: i32, v_img_fixed: i32) -> u32 {
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let w_i32 = self.width as i32 - 1;
+        let h_i32 = self.height as i32 - 1;
+        let shift = self.width_shift;
+
+        let (c00, c10, c01, c11) = {
+            if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                let x0 = x0_raw as usize;
+                let y0 = y0_raw as usize;
+                let row0 = y0 << shift;
+                let row1 = row0 + (self.width as usize);
+                (
+                    self.pixels[row0 + x0],
+                    self.pixels[row0 + x0 + 1],
+                    self.pixels[row1 + x0],
+                    self.pixels[row1 + x0 + 1],
+                )
+            } else {
+                let x0 = x0_raw.clamp(0, w_i32) as usize;
+                let y0 = y0_raw.clamp(0, h_i32) as usize;
+                let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                let row0 = y0 << shift;
+                let row1 = y1 << shift;
+                (
+                    self.pixels[row0 + x0],
+                    self.pixels[row0 + x1],
+                    self.pixels[row1 + x0],
+                    self.pixels[row1 + x1],
+                )
+            }
+        };
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
+        final_color | 0xFF00_0000
+    }
+
+    /// Optimized bilinear sampling for generic textures using multiplication.
+    #[inline]
+    #[must_use]
+    pub fn get_pixel_bilinear_fixed_generic(&self, u_img_fixed: i32, v_img_fixed: i32) -> u32 {
+        let wx = (u_img_fixed & 0xFF) as u32;
+        let wy = (v_img_fixed & 0xFF) as u32;
+        let inv_wx = 256 - wx;
+        let inv_wy = 256 - wy;
+
+        let x0_raw = u_img_fixed >> 8;
+        let y0_raw = v_img_fixed >> 8;
+
+        let w_i32 = self.width as i32 - 1;
+        let h_i32 = self.height as i32 - 1;
+        let width_usize = self.width as usize;
+
+        let (c00, c10, c01, c11) = {
+            if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                let x0 = x0_raw as usize;
+                let y0 = y0_raw as usize;
+                let row0 = y0 * width_usize;
+                let row1 = row0 + width_usize;
+                (
+                    self.pixels[row0 + x0],
+                    self.pixels[row0 + x0 + 1],
+                    self.pixels[row1 + x0],
+                    self.pixels[row1 + x0 + 1],
+                )
+            } else {
+                let x0 = x0_raw.clamp(0, w_i32) as usize;
+                let y0 = y0_raw.clamp(0, h_i32) as usize;
+                let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                let row0 = y0 * width_usize;
+                let row1 = y1 * width_usize;
+                (
+                    self.pixels[row0 + x0],
+                    self.pixels[row0 + x1],
+                    self.pixels[row1 + x0],
+                    self.pixels[row1 + x1],
+                )
+            }
+        };
+
+        let top = blend_swar(c00, c10, wx, inv_wx);
+        let bottom = blend_swar(c01, c11, wx, inv_wx);
+        let final_color = blend_swar(top, bottom, wy, inv_wy);
         final_color | 0xFF00_0000
     }
 
