@@ -55,7 +55,7 @@ const DEMOS: &[Demo] = &[
     Demo {
         name: "GPU Cube",
         description: "Hardware-accelerated cube rendering with wgpu",
-        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_cube",
     },
 ];

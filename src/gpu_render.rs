@@ -3,6 +3,7 @@
 #![cfg(feature = "gpu-render")]
 
 pub use abrash_gpu_render::{
-    GpuDemoConfig, GpuTriangle, GpuVertex, MeshValidationError, run_gpu_cube,
-    run_gpu_cube_with_config, unit_cube_mesh, validate_demo_config, validate_mesh,
+    GpuDemoConfig, GpuInteractionController, GpuTriangle, GpuVertex, MeshValidationError,
+    run_gpu_cube, run_gpu_cube_with_config, run_mesh_demo, unit_cube_mesh, validate_demo_config,
+    validate_mesh,
 };

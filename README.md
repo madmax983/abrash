@@ -53,6 +53,9 @@ cargo run --release --example textured_cube
 cargo run --release --example gpu_cube --features gpu-render
 ```
 
+GPU cube controls: drag left mouse to orbit, mouse wheel to zoom, arrows/WASD to orbit,
+`Q`/`E` to zoom, `Space` to toggle auto-rotation, `R` to reset camera.
+
 **Note for Linux/macOS users:**
 The default backend uses Win32. To run on non-Windows systems, use the TUI backend:
 ```bash

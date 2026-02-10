@@ -1,7 +1,8 @@
 #![cfg(feature = "gpu-render")]
 
 use abrash::gpu_render::{
-    GpuDemoConfig, GpuVertex, MeshValidationError, validate_demo_config, validate_mesh,
+    GpuDemoConfig, GpuInteractionController, GpuVertex, MeshValidationError, validate_demo_config,
+    validate_mesh,
 };
 
 #[test]
@@ -64,4 +65,52 @@ fn validate_demo_config_rejects_zero_dimensions() {
         validate_demo_config(&config),
         Err("Window dimensions must be non-zero")
     );
+}
+
+#[test]
+fn validate_demo_config_rejects_invalid_distance_range() {
+    let config = GpuDemoConfig {
+        min_distance: 5.0,
+        max_distance: 4.0,
+        ..GpuDemoConfig::default()
+    };
+
+    assert_eq!(
+        validate_demo_config(&config),
+        Err("min_distance must be less than or equal to max_distance")
+    );
+}
+
+#[test]
+fn run_mesh_demo_is_exposed() {
+    let _ = abrash::gpu_render::run_mesh_demo
+        as fn(Vec<GpuVertex>, Vec<u16>, GpuDemoConfig) -> Result<(), String>;
+}
+
+#[test]
+fn interaction_controller_updates_yaw_from_keyboard() {
+    let config = GpuDemoConfig::default();
+    let mut controller = GpuInteractionController::new(&config);
+
+    controller.set_move_right(true);
+    controller.update(0.5, &config);
+
+    assert!(controller.yaw_radians() > config.initial_yaw);
+}
+
+#[test]
+fn interaction_controller_clamps_distance() {
+    let config = GpuDemoConfig {
+        initial_distance: 3.0,
+        min_distance: 2.0,
+        max_distance: 4.0,
+        ..GpuDemoConfig::default()
+    };
+    let mut controller = GpuInteractionController::new(&config);
+
+    controller.adjust_zoom(-10.0, &config);
+    assert_eq!(controller.distance(), 2.0);
+
+    controller.adjust_zoom(10.0, &config);
+    assert_eq!(controller.distance(), 4.0);
 }

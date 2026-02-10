@@ -8,16 +8,18 @@ use std::{fmt, sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowBuilder},
 };
 
 const SHADER_SRC: &str = r#"
 struct Uniforms {
-    angle: f32,
+    yaw: f32,
+    pitch: f32,
     aspect: f32,
-    _pad0: vec2<f32>,
+    distance: f32,
 };
 
 @group(0) @binding(0)
@@ -35,10 +37,10 @@ struct VsOut {
 
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
-    let cy = cos(uniforms.angle);
-    let sy = sin(uniforms.angle);
-    let cx = cos(uniforms.angle * 0.63);
-    let sx = sin(uniforms.angle * 0.63);
+    let cy = cos(uniforms.yaw);
+    let sy = sin(uniforms.yaw);
+    let cx = cos(uniforms.pitch);
+    let sx = sin(uniforms.pitch);
 
     let ry = vec3<f32>(
         input.position.x * cy + input.position.z * sy,
@@ -52,7 +54,7 @@ fn vs_main(input: VsIn) -> VsOut {
         ry.y * sx + ry.z * cx
     );
 
-    let world = vec3<f32>(rx.x, rx.y, rx.z - 4.5);
+    let world = vec3<f32>(rx.x, rx.y, rx.z - uniforms.distance);
 
     let fov = 1.0;
     let f = 1.0 / tan(fov * 0.5);
@@ -97,7 +99,18 @@ pub struct GpuDemoConfig {
     pub title: String,
     pub width: u32,
     pub height: u32,
+    pub enable_keyboard_input: bool,
+    pub enable_mouse_input: bool,
+    pub auto_rotate: bool,
     pub rotation_speed: f32,
+    pub key_rotation_speed: f32,
+    pub key_zoom_speed: f32,
+    pub mouse_sensitivity: f32,
+    pub initial_yaw: f32,
+    pub initial_pitch: f32,
+    pub initial_distance: f32,
+    pub min_distance: f32,
+    pub max_distance: f32,
     pub clear_color: [f64; 4],
 }
 
@@ -107,8 +120,188 @@ impl Default for GpuDemoConfig {
             title: "Abrash GPU Cube (wgpu)".to_string(),
             width: 1280,
             height: 720,
+            enable_keyboard_input: true,
+            enable_mouse_input: true,
+            auto_rotate: true,
             rotation_speed: 0.8,
+            key_rotation_speed: 1.6,
+            key_zoom_speed: 3.0,
+            mouse_sensitivity: 0.01,
+            initial_yaw: 0.0,
+            initial_pitch: 0.35,
+            initial_distance: 4.5,
+            min_distance: 1.5,
+            max_distance: 20.0,
             clear_color: [0.05, 0.08, 0.12, 1.0],
+        }
+    }
+}
+
+/// Stateful keyboard/mouse interaction controller for a mesh demo camera.
+#[derive(Debug, Clone)]
+pub struct GpuInteractionController {
+    yaw: f32,
+    pitch: f32,
+    distance: f32,
+    move_left: bool,
+    move_right: bool,
+    move_up: bool,
+    move_down: bool,
+    zoom_in: bool,
+    zoom_out: bool,
+    drag_active: bool,
+    last_cursor: Option<(f64, f64)>,
+    auto_rotate_enabled: bool,
+}
+
+impl GpuInteractionController {
+    #[must_use]
+    pub fn new(config: &GpuDemoConfig) -> Self {
+        Self {
+            yaw: config.initial_yaw,
+            pitch: config.initial_pitch,
+            distance: config.initial_distance,
+            move_left: false,
+            move_right: false,
+            move_up: false,
+            move_down: false,
+            zoom_in: false,
+            zoom_out: false,
+            drag_active: false,
+            last_cursor: None,
+            auto_rotate_enabled: config.auto_rotate,
+        }
+    }
+
+    #[must_use]
+    pub const fn yaw_radians(&self) -> f32 {
+        self.yaw
+    }
+
+    #[must_use]
+    pub const fn pitch_radians(&self) -> f32 {
+        self.pitch
+    }
+
+    #[must_use]
+    pub const fn distance(&self) -> f32 {
+        self.distance
+    }
+
+    pub fn set_move_left(&mut self, pressed: bool) {
+        self.move_left = pressed;
+    }
+
+    pub fn set_move_right(&mut self, pressed: bool) {
+        self.move_right = pressed;
+    }
+
+    pub fn set_move_up(&mut self, pressed: bool) {
+        self.move_up = pressed;
+    }
+
+    pub fn set_move_down(&mut self, pressed: bool) {
+        self.move_down = pressed;
+    }
+
+    pub fn adjust_zoom(&mut self, delta: f32, config: &GpuDemoConfig) {
+        self.distance = (self.distance + delta).clamp(config.min_distance, config.max_distance);
+    }
+
+    pub fn reset(&mut self, config: &GpuDemoConfig) {
+        self.yaw = config.initial_yaw;
+        self.pitch = config.initial_pitch;
+        self.distance = config.initial_distance.clamp(config.min_distance, config.max_distance);
+    }
+
+    pub fn toggle_auto_rotate(&mut self) {
+        self.auto_rotate_enabled = !self.auto_rotate_enabled;
+    }
+
+    pub fn update(&mut self, dt_seconds: f32, config: &GpuDemoConfig) {
+        if self.auto_rotate_enabled {
+            self.yaw += config.rotation_speed * dt_seconds;
+        }
+
+        if config.enable_keyboard_input {
+            if self.move_left {
+                self.yaw -= config.key_rotation_speed * dt_seconds;
+            }
+            if self.move_right {
+                self.yaw += config.key_rotation_speed * dt_seconds;
+            }
+            if self.move_up {
+                self.pitch += config.key_rotation_speed * dt_seconds;
+            }
+            if self.move_down {
+                self.pitch -= config.key_rotation_speed * dt_seconds;
+            }
+            if self.zoom_in {
+                self.adjust_zoom(-config.key_zoom_speed * dt_seconds, config);
+            }
+            if self.zoom_out {
+                self.adjust_zoom(config.key_zoom_speed * dt_seconds, config);
+            }
+        }
+
+        self.pitch = self.pitch.clamp(-1.45, 1.45);
+        self.distance = self.distance.clamp(config.min_distance, config.max_distance);
+    }
+
+    pub fn apply_mouse_drag(&mut self, dx: f32, dy: f32, config: &GpuDemoConfig) {
+        self.yaw += dx * config.mouse_sensitivity;
+        self.pitch -= dy * config.mouse_sensitivity;
+        self.pitch = self.pitch.clamp(-1.45, 1.45);
+    }
+
+    pub fn handle_window_event(&mut self, event: &WindowEvent, config: &GpuDemoConfig) {
+        match event {
+            WindowEvent::KeyboardInput { event, .. } if config.enable_keyboard_input => {
+                let pressed = event.state == ElementState::Pressed;
+                if let PhysicalKey::Code(code) = event.physical_key {
+                    match code {
+                        KeyCode::ArrowLeft | KeyCode::KeyA => self.set_move_left(pressed),
+                        KeyCode::ArrowRight | KeyCode::KeyD => self.set_move_right(pressed),
+                        KeyCode::ArrowUp | KeyCode::KeyW => self.set_move_up(pressed),
+                        KeyCode::ArrowDown | KeyCode::KeyS => self.set_move_down(pressed),
+                        KeyCode::KeyQ => self.zoom_in = pressed,
+                        KeyCode::KeyE => self.zoom_out = pressed,
+                        KeyCode::Space if pressed => self.toggle_auto_rotate(),
+                        KeyCode::KeyR if pressed => self.reset(config),
+                        _ => {}
+                    }
+                }
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } if config.enable_mouse_input => {
+                self.drag_active = *state == ElementState::Pressed;
+                if !self.drag_active {
+                    self.last_cursor = None;
+                }
+            }
+            WindowEvent::CursorMoved { position, .. } if config.enable_mouse_input => {
+                if self.drag_active {
+                    if let Some((last_x, last_y)) = self.last_cursor {
+                        self.apply_mouse_drag(
+                            (position.x - last_x) as f32,
+                            (position.y - last_y) as f32,
+                            config,
+                        );
+                    }
+                    self.last_cursor = Some((position.x, position.y));
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } if config.enable_mouse_input => {
+                let zoom_delta = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => -(*y) * config.key_zoom_speed * 0.2,
+                    MouseScrollDelta::PixelDelta(px) => -(px.y as f32) * config.key_zoom_speed * 0.01,
+                };
+                self.adjust_zoom(zoom_delta, config);
+            }
+            _ => {}
         }
     }
 }
@@ -171,6 +364,16 @@ pub fn validate_mesh(vertices: &[GpuVertex], indices: &[u16]) -> Result<(), Mesh
 pub fn validate_demo_config(config: &GpuDemoConfig) -> Result<(), &'static str> {
     if config.width == 0 || config.height == 0 {
         return Err("Window dimensions must be non-zero");
+    }
+    if config.min_distance <= 0.0 || config.max_distance <= 0.0 {
+        return Err("Camera distance limits must be positive");
+    }
+    if config.min_distance > config.max_distance {
+        return Err("min_distance must be less than or equal to max_distance");
+    }
+    if config.initial_distance < config.min_distance || config.initial_distance > config.max_distance
+    {
+        return Err("initial_distance must be within [min_distance, max_distance]");
     }
     Ok(())
 }
@@ -249,16 +452,17 @@ impl VertexRaw {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct SceneUniform {
-    angle: f32,
+    yaw: f32,
+    pitch: f32,
     aspect: f32,
-    _pad: [f32; 2],
+    distance: f32,
 }
 
-struct GpuCubeApp {
+struct GpuMeshApp {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    surface_config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
@@ -268,17 +472,18 @@ struct GpuCubeApp {
     uniform_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
-    start_time: Instant,
-    rotation_speed: f32,
+    last_update: Instant,
+    demo_config: GpuDemoConfig,
+    interaction: GpuInteractionController,
     clear_color: wgpu::Color,
 }
 
-impl GpuCubeApp {
+impl GpuMeshApp {
     async fn new(
         window: Arc<Window>,
         vertices: Vec<GpuVertex>,
         indices: Vec<u16>,
-        demo_config: &GpuDemoConfig,
+        demo_config: GpuDemoConfig,
     ) -> Result<Self, String> {
         let size = window.inner_size();
         if size.width == 0 || size.height == 0 {
@@ -326,7 +531,7 @@ impl GpuCubeApp {
             .find(|mode| *mode == wgpu::PresentMode::Fifo)
             .unwrap_or(capabilities.present_modes[0]);
 
-        let config = wgpu::SurfaceConfiguration {
+        let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
             width: size.width,
@@ -336,17 +541,19 @@ impl GpuCubeApp {
             alpha_mode: capabilities.alpha_modes[0],
             view_formats: vec![],
         };
-        surface.configure(&device, &config);
+        surface.configure(&device, &surface_config);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("GPU Cube Shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
+        let interaction = GpuInteractionController::new(&demo_config);
         let uniform = SceneUniform {
-            angle: 0.0,
-            aspect: config.width as f32 / config.height as f32,
-            _pad: [0.0, 0.0],
+            yaw: interaction.yaw_radians(),
+            pitch: interaction.pitch_radians(),
+            aspect: surface_config.width as f32 / surface_config.height as f32,
+            distance: interaction.distance(),
         };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -414,7 +621,7 @@ impl GpuCubeApp {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
+                    format: surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -443,13 +650,19 @@ impl GpuCubeApp {
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        let (depth_texture, depth_view) = Self::create_depth_resources(&device, &config);
+        let (depth_texture, depth_view) = Self::create_depth_resources(&device, &surface_config);
+        let clear_color = wgpu::Color {
+            r: demo_config.clear_color[0],
+            g: demo_config.clear_color[1],
+            b: demo_config.clear_color[2],
+            a: demo_config.clear_color[3],
+        };
 
         Ok(Self {
             surface,
             device,
             queue,
-            config,
+            surface_config,
             size,
             pipeline,
             vertex_buffer,
@@ -459,14 +672,10 @@ impl GpuCubeApp {
             uniform_bind_group,
             depth_texture,
             depth_view,
-            start_time: Instant::now(),
-            rotation_speed: demo_config.rotation_speed,
-            clear_color: wgpu::Color {
-                r: demo_config.clear_color[0],
-                g: demo_config.clear_color[1],
-                b: demo_config.clear_color[2],
-                a: demo_config.clear_color[3],
-            },
+            last_update: Instant::now(),
+            interaction,
+            demo_config,
+            clear_color,
         })
     }
 
@@ -498,20 +707,31 @@ impl GpuCubeApp {
         }
 
         self.size = new_size;
-        self.config.width = new_size.width;
-        self.config.height = new_size.height;
-        self.surface.configure(&self.device, &self.config);
-        let (depth_texture, depth_view) = Self::create_depth_resources(&self.device, &self.config);
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
+        self.surface.configure(&self.device, &self.surface_config);
+        let (depth_texture, depth_view) =
+            Self::create_depth_resources(&self.device, &self.surface_config);
         self.depth_texture = depth_texture;
         self.depth_view = depth_view;
     }
 
+    fn handle_window_event(&mut self, event: &WindowEvent) {
+        self.interaction
+            .handle_window_event(event, &self.demo_config);
+    }
+
     fn update(&mut self) {
-        let angle = self.start_time.elapsed().as_secs_f32() * self.rotation_speed;
+        let now = Instant::now();
+        let dt = (now - self.last_update).as_secs_f32();
+        self.last_update = now;
+        self.interaction.update(dt, &self.demo_config);
+
         let uniform = SceneUniform {
-            angle,
-            aspect: self.config.width as f32 / self.config.height as f32,
-            _pad: [0.0, 0.0],
+            yaw: self.interaction.yaw_radians(),
+            pitch: self.interaction.pitch_radians(),
+            aspect: self.surface_config.width as f32 / self.surface_config.height as f32,
+            distance: self.interaction.distance(),
         };
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
@@ -565,17 +785,15 @@ impl GpuCubeApp {
     }
 }
 
-/// Runs the hardware-accelerated rotating cube demo.
-pub fn run_gpu_cube() -> Result<(), String> {
-    run_gpu_cube_with_config(GpuDemoConfig::default())
-}
-
-/// Runs the hardware-accelerated rotating cube demo with custom runtime settings.
-pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
+/// Runs a hardware-accelerated mesh demo with camera controls.
+pub fn run_mesh_demo(
+    vertices: Vec<GpuVertex>,
+    indices: Vec<u16>,
+    config: GpuDemoConfig,
+) -> Result<(), String> {
     validate_demo_config(&config).map_err(str::to_string)?;
-    let (vertices, indices) = unit_cube_mesh();
     validate_mesh(&vertices, &indices)
-        .map_err(|err| format!("Invalid demo mesh for GPU cube: {err}"))?;
+        .map_err(|err| format!("Invalid mesh for GPU render demo: {err}"))?;
 
     let event_loop = EventLoop::new().map_err(|e| format!("Failed to create event loop: {e}"))?;
     let window = Arc::new(
@@ -586,39 +804,55 @@ pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
             .map_err(|e| format!("Failed to create window: {e}"))?,
     );
 
-    let mut app = pollster::block_on(GpuCubeApp::new(
+    let mut app = pollster::block_on(GpuMeshApp::new(
         window.clone(),
         vertices,
         indices,
-        &config,
+        config,
     ))?;
 
     event_loop
-        .run(move |event, elwt| match event {
-            Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
-                WindowEvent::CloseRequested => elwt.exit(),
-                WindowEvent::Resized(size) => app.resize(size),
-                WindowEvent::RedrawRequested => {
-                    app.update();
-                    match app.render() {
-                        Ok(()) => {}
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            app.resize(app.size);
+        .run(move |event, elwt| {
+            match event {
+                Event::WindowEvent { event, window_id } if window_id == window.id() => {
+                    app.handle_window_event(&event);
+                    match event {
+                        WindowEvent::CloseRequested => elwt.exit(),
+                        WindowEvent::Resized(size) => app.resize(size),
+                        WindowEvent::RedrawRequested => {
+                            app.update();
+                            match app.render() {
+                                Ok(()) => {}
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    app.resize(app.size);
+                                }
+                                Err(wgpu::SurfaceError::OutOfMemory) => {
+                                    elwt.exit();
+                                }
+                                Err(wgpu::SurfaceError::Timeout) => {
+                                    eprintln!("Surface timeout; skipping frame");
+                                }
+                            }
                         }
-                        Err(wgpu::SurfaceError::OutOfMemory) => {
-                            elwt.exit();
-                        }
-                        Err(wgpu::SurfaceError::Timeout) => {
-                            eprintln!("Surface timeout; skipping frame");
-                        }
+                        _ => {}
                     }
                 }
+                Event::AboutToWait => {
+                    window.request_redraw();
+                }
                 _ => {}
-            },
-            Event::AboutToWait => {
-                window.request_redraw();
             }
-            _ => {}
         })
         .map_err(|e| format!("Event loop error: {e}"))
+}
+
+/// Runs the hardware-accelerated rotating cube demo.
+pub fn run_gpu_cube() -> Result<(), String> {
+    run_gpu_cube_with_config(GpuDemoConfig::default())
+}
+
+/// Runs the hardware-accelerated rotating cube demo with custom runtime settings.
+pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
+    let (vertices, indices) = unit_cube_mesh();
+    run_mesh_demo(vertices, indices, config)
 }
