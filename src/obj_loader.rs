@@ -115,8 +115,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                 v_idx + 1
                             ));
                         }
-                        // SAFETY: Checked bounds above
-                        final_vertices.push(unsafe { *raw_positions.get_unchecked(v_idx) });
+                        final_vertices.push(raw_positions[v_idx]);
 
                         // Push UV (or default 0,0)
                         if let Some(ti) = vt_idx {
@@ -127,8 +126,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                     ti + 1
                                 ));
                             }
-                            // SAFETY: Checked bounds above
-                            final_uvs.push(unsafe { *raw_uvs.get_unchecked(ti) });
+                            final_uvs.push(raw_uvs[ti]);
                         } else {
                             final_uvs.push(Vec2::new(0.0, 0.0));
                         }
