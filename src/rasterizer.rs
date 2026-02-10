@@ -1038,16 +1038,18 @@ fn draw_scanline_textured_perspective(
             FilterMode::Bilinear => {
                 // Fixed point optimization for Bilinear
                 // Use 16.16 for accumulation to maintain precision, then downshift to 24.8 for sampling
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
+                // to avoid per-pixel subtraction in get_pixel_bilinear_fixed
+                let mut u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let mut v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                     if z < *depth_val {
                         *depth_val = z;
-                        // Convert 16.16 to 24.8 (x >> 8)
-                        *pixel = texture.get_pixel_bilinear_fixed(u_fix >> 8, v_fix >> 8);
+                        // Convert 16.16 to 24.8 (x >> 8) and sample without offset
+                        *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
                     }
                     z += gradients.dz_dx;
                     u_fix = u_fix.wrapping_add(du_fix);
