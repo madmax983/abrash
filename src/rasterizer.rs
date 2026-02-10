@@ -1017,8 +1017,8 @@ fn draw_scanline_textured_perspective(
 
                 // Hoist texture properties
                 let tex_pixels = &texture.pixels;
-                let tex_w = texture.width as u32;
-                let tex_h = texture.height as u32;
+                let tex_w = texture.width;
+                let tex_h = texture.height;
                 let tex_w_usize = tex_w as usize;
 
                 let shift = texture.width_shift;

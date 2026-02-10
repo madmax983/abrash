@@ -89,7 +89,7 @@ fn profile_scanline_lengths() {
             }
             let end_cycles = read_tsc();
             let cycles = (end_cycles - start_cycles) / iterations as u64;
-            let pixels_drawn = (len * 5 * 100) as f64; // ~5px height × 100 triangles
+            let pixels_drawn = f64::from(len * 5 * 100); // ~5px height × 100 triangles
             let cycles_per_pixel = cycles as f64 / pixels_drawn;
 
             let color = if cycles_per_pixel < 1000.0 {
@@ -102,7 +102,7 @@ fn profile_scanline_lengths() {
                 Cell::new(len),
                 Cell::new(avg_time),
                 Cell::new(cycles),
-                Cell::new(format!("{:.2}", cycles_per_pixel)).fg(color),
+                Cell::new(format!("{cycles_per_pixel:.2}")).fg(color),
             ]);
         }
 
@@ -160,7 +160,7 @@ fn profile_hiz_pyramid() {
         let elapsed = start.elapsed();
         let avg_time = elapsed.as_micros() / iterations;
         let pixels = width * height;
-        let ns_per_pixel = (avg_time * 1000) / pixels as u128;
+        let ns_per_pixel = (avg_time * 1000) / u128::from(pixels);
 
         // Measure cycles
         #[cfg(target_arch = "x86_64")]
@@ -171,14 +171,14 @@ fn profile_hiz_pyramid() {
             }
             let end_cycles = read_tsc();
             let cycles = (end_cycles - start_cycles) / iterations as u64;
-            let cycles_per_pixel = cycles as f64 / pixels as f64;
+            let cycles_per_pixel = cycles as f64 / f64::from(pixels);
 
             table.add_row(vec![
                 Cell::new(name).add_attribute(Attribute::Bold),
                 Cell::new(avg_time),
                 Cell::new(ns_per_pixel),
                 Cell::new(cycles),
-                Cell::new(format!("{:.2}", cycles_per_pixel)).fg(Color::Cyan),
+                Cell::new(format!("{cycles_per_pixel:.2}")).fg(Color::Cyan),
             ]);
         }
 
@@ -266,8 +266,7 @@ fn profile_rendering_pipeline() {
     println!("{table}");
 
     println!(
-        "\n📈 Throughput: {} M triangles/sec\n",
-        m_tris_per_sec
+        "\n📈 Throughput: {m_tris_per_sec} M triangles/sec\n"
     );
 }
 
