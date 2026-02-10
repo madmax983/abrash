@@ -556,6 +556,8 @@ pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,
     pub z: f32,
+    /// 1.0 / w (perspective divide factor), pre-calculated to avoid redundant divisions.
+    pub inv_w: f32,
 }
 
 /// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
@@ -583,6 +585,7 @@ pub fn project_to_screen_optimized(
         x: screen_x,
         y: screen_y,
         z: depth,
+        inv_w,
     }
 }
 
