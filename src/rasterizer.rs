@@ -1010,77 +1010,79 @@ fn draw_span_bilinear(
     let h_i32 = (tex_h as i32).wrapping_sub(1);
     let tex_w_usize = tex_w as usize;
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+    // Optimization: Use a macro to hoist the `shift < 32` check out of the hot loop.
+    // This allows the compiler to generate two specialized versions of the loop:
+    // one using bit-shifting (fast) and one using multiplication (slower),
+    // without branching inside the loop for every pixel.
+    macro_rules! process_span_bilinear {
+        ($op:tt, $val:expr) => {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    *depth_val = z;
 
-            let u_img_fixed = u_fix >> 8;
-            let v_img_fixed = v_fix >> 8;
+                    let u_img_fixed = u_fix >> 8;
+                    let v_img_fixed = v_fix >> 8;
 
-            let wx = (u_img_fixed & 0xFF) as u32;
-            let wy = (v_img_fixed & 0xFF) as u32;
-            let inv_wx = 256 - wx;
-            let inv_wy = 256 - wy;
+                    let wx = (u_img_fixed & 0xFF) as u32;
+                    let wy = (v_img_fixed & 0xFF) as u32;
+                    let inv_wx = 256 - wx;
+                    let inv_wy = 256 - wy;
 
-            let x0_raw = u_img_fixed >> 8;
-            let y0_raw = v_img_fixed >> 8;
+                    let x0_raw = u_img_fixed >> 8;
+                    let y0_raw = v_img_fixed >> 8;
 
-            let (c00, c10, c01, c11) =
-                if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
-                    let x0 = x0_raw as usize;
-                    let y0 = y0_raw as usize;
+                    let (c00, c10, c01, c11) =
+                        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                            let x0 = x0_raw as usize;
+                            let y0 = y0_raw as usize;
 
-                    let row0 = if shift < 32 {
-                        y0 << shift
-                    } else {
-                        y0 * tex_w_usize
-                    };
-                    let row1 = row0 + tex_w_usize;
+                            let row0 = y0 $op $val;
+                            let row1 = row0 + tex_w_usize;
 
-                    unsafe {
-                        (
-                            *tex_pixels.get_unchecked(row0 + x0),
-                            *tex_pixels.get_unchecked(row0 + x0 + 1),
-                            *tex_pixels.get_unchecked(row1 + x0),
-                            *tex_pixels.get_unchecked(row1 + x0 + 1),
-                        )
-                    }
-                } else {
-                    let x0 = x0_raw.clamp(0, w_i32) as usize;
-                    let y0 = y0_raw.clamp(0, h_i32) as usize;
-                    let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                    let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+                            unsafe {
+                                (
+                                    *tex_pixels.get_unchecked(row0 + x0),
+                                    *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                    *tex_pixels.get_unchecked(row1 + x0),
+                                    *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                )
+                            }
+                        } else {
+                            let x0 = x0_raw.clamp(0, w_i32) as usize;
+                            let y0 = y0_raw.clamp(0, h_i32) as usize;
+                            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
 
-                    let row0 = if shift < 32 {
-                        y0 << shift
-                    } else {
-                        y0 * tex_w_usize
-                    };
-                    let row1 = if shift < 32 {
-                        y1 << shift
-                    } else {
-                        y1 * tex_w_usize
-                    };
+                            let row0 = y0 $op $val;
+                            let row1 = y1 $op $val;
 
-                    unsafe {
-                        (
-                            *tex_pixels.get_unchecked(row0 + x0),
-                            *tex_pixels.get_unchecked(row0 + x1),
-                            *tex_pixels.get_unchecked(row1 + x0),
-                            *tex_pixels.get_unchecked(row1 + x1),
-                        )
-                    }
-                };
+                            unsafe {
+                                (
+                                    *tex_pixels.get_unchecked(row0 + x0),
+                                    *tex_pixels.get_unchecked(row0 + x1),
+                                    *tex_pixels.get_unchecked(row1 + x0),
+                                    *tex_pixels.get_unchecked(row1 + x1),
+                                )
+                            }
+                        };
 
-            let top = blend_swar(c00, c10, wx, inv_wx);
-            let bottom = blend_swar(c01, c11, wx, inv_wx);
-            let final_color = blend_swar(top, bottom, wy, inv_wy);
+                    let top = blend_swar(c00, c10, wx, inv_wx);
+                    let bottom = blend_swar(c01, c11, wx, inv_wx);
+                    let final_color = blend_swar(top, bottom, wy, inv_wy);
 
-            *pixel = final_color | 0xFF00_0000;
-        }
-        z += dz_dx;
-        u_fix = u_fix.wrapping_add(du_fix);
-        v_fix = v_fix.wrapping_add(dv_fix);
+                    *pixel = final_color | 0xFF00_0000;
+                }
+                z += dz_dx;
+                u_fix = u_fix.wrapping_add(du_fix);
+                v_fix = v_fix.wrapping_add(dv_fix);
+            }
+        };
+    }
+
+    if shift < 32 {
+        process_span_bilinear!(<<, shift);
+    } else {
+        process_span_bilinear!(*, tex_w_usize);
     }
 }
 
