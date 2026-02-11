@@ -34,9 +34,39 @@ fn bench_transform_points_manual_loop(c: &mut Criterion) {
     });
 }
 
+fn bench_transform_points_scalar_100k(c: &mut Criterion) {
+    c.bench_function("transform_points_scalar_100k", |b| {
+        let m = Mat4::rotation_y(0.5);
+        let points: Vec<Vec3> = (0..100_000)
+            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
+            .collect();
+        let mut output = vec![(Vec3::default(), 0.0); 100_000];
+
+        b.iter(|| {
+            m.transform_points(black_box(&points), black_box(&mut output));
+        });
+    });
+}
+
+fn bench_transform_points_parallel_100k(c: &mut Criterion) {
+    c.bench_function("transform_points_parallel_100k", |b| {
+        let m = Mat4::rotation_y(0.5);
+        let points: Vec<Vec3> = (0..100_000)
+            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
+            .collect();
+        let mut output = vec![(Vec3::default(), 0.0); 100_000];
+
+        b.iter(|| {
+            m.transform_points_parallel(black_box(&points), black_box(&mut output));
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_transform_points_scalar,
-    bench_transform_points_manual_loop
+    bench_transform_points_manual_loop,
+    bench_transform_points_scalar_100k,
+    bench_transform_points_parallel_100k
 );
 criterion_main!(benches);
