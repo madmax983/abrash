@@ -6,6 +6,7 @@ use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use clap::Parser;
+use comfy_table::{presets, Cell, Color, Table};
 use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
@@ -51,8 +52,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    println!("🎨 Abrash OBJ Viewer");
-    println!("======================");
+    println!("\n🎨 Abrash OBJ Viewer");
 
     let (mesh_source, source_name) = match args.input {
         Some(path) => {
@@ -63,21 +63,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     std::process::exit(1);
                 }
             };
-            println!("📂 Loading file: {}", path.display());
             (content, path.display().to_string())
         }
-        None => {
-            println!("🚀 No file provided. Loading built-in Spaceship model.");
-            (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string())
-        }
+        None => (
+            SPACESHIP_OBJ.to_string(),
+            "Built-in Spaceship".to_string(),
+        ),
     };
 
     // Load the mesh
     let mesh = match load_obj(&mesh_source) {
         Ok(m) => {
-            println!("✅ Model loaded successfully!");
-            println!("   • Vertices:  {}", m.vertices.len());
-            println!("   • Triangles: {}", m.indices.len());
+            let mut table = Table::new();
+            table
+                .load_preset(presets::UTF8_FULL)
+                .set_header(vec![
+                    Cell::new("Property").fg(Color::Cyan),
+                    Cell::new("Value").fg(Color::Cyan),
+                ])
+                .add_row(vec![
+                    Cell::new("Source"),
+                    Cell::new(&source_name).fg(Color::Yellow),
+                ])
+                .add_row(vec![
+                    Cell::new("Status"),
+                    Cell::new("✅ Loaded Successfully").fg(Color::Green),
+                ])
+                .add_row(vec![
+                    Cell::new("Vertices"),
+                    Cell::new(m.vertices.len().to_string()),
+                ])
+                .add_row(vec![
+                    Cell::new("Triangles"),
+                    Cell::new(m.indices.len().to_string()),
+                ]);
+
+            println!("{table}");
             m
         }
         Err(e) => {
@@ -86,8 +107,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    println!("🎮 Controls: Auto-rotating (interactive controls coming soon)");
-    println!("======================\n");
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Mouse"),
+            Cell::new("(Coming Soon)").fg(Color::DarkGrey),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating"),
+        ]);
+
+    println!("\n🎮 Controls");
+    println!("{controls}\n");
 
     let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
     let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
