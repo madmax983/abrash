@@ -211,7 +211,9 @@ impl GpuInteractionController {
     pub fn reset(&mut self, config: &GpuDemoConfig) {
         self.yaw = config.initial_yaw;
         self.pitch = config.initial_pitch;
-        self.distance = config.initial_distance.clamp(config.min_distance, config.max_distance);
+        self.distance = config
+            .initial_distance
+            .clamp(config.min_distance, config.max_distance);
     }
 
     pub fn toggle_auto_rotate(&mut self) {
@@ -245,7 +247,9 @@ impl GpuInteractionController {
         }
 
         self.pitch = self.pitch.clamp(-1.45, 1.45);
-        self.distance = self.distance.clamp(config.min_distance, config.max_distance);
+        self.distance = self
+            .distance
+            .clamp(config.min_distance, config.max_distance);
     }
 
     pub fn apply_mouse_drag(&mut self, dx: f32, dy: f32, config: &GpuDemoConfig) {
@@ -297,7 +301,9 @@ impl GpuInteractionController {
             WindowEvent::MouseWheel { delta, .. } if config.enable_mouse_input => {
                 let zoom_delta = match delta {
                     MouseScrollDelta::LineDelta(_, y) => -(*y) * config.key_zoom_speed * 0.2,
-                    MouseScrollDelta::PixelDelta(px) => -(px.y as f32) * config.key_zoom_speed * 0.01,
+                    MouseScrollDelta::PixelDelta(px) => {
+                        -(px.y as f32) * config.key_zoom_speed * 0.01
+                    }
                 };
                 self.adjust_zoom(zoom_delta, config);
             }
@@ -371,7 +377,8 @@ pub fn validate_demo_config(config: &GpuDemoConfig) -> Result<(), &'static str> 
     if config.min_distance > config.max_distance {
         return Err("min_distance must be less than or equal to max_distance");
     }
-    if config.initial_distance < config.min_distance || config.initial_distance > config.max_distance
+    if config.initial_distance < config.min_distance
+        || config.initial_distance > config.max_distance
     {
         return Err("initial_distance must be within [min_distance, max_distance]");
     }
@@ -804,44 +811,37 @@ pub fn run_mesh_demo(
             .map_err(|e| format!("Failed to create window: {e}"))?,
     );
 
-    let mut app = pollster::block_on(GpuMeshApp::new(
-        window.clone(),
-        vertices,
-        indices,
-        config,
-    ))?;
+    let mut app = pollster::block_on(GpuMeshApp::new(window.clone(), vertices, indices, config))?;
 
     event_loop
-        .run(move |event, elwt| {
-            match event {
-                Event::WindowEvent { event, window_id } if window_id == window.id() => {
-                    app.handle_window_event(&event);
-                    match event {
-                        WindowEvent::CloseRequested => elwt.exit(),
-                        WindowEvent::Resized(size) => app.resize(size),
-                        WindowEvent::RedrawRequested => {
-                            app.update();
-                            match app.render() {
-                                Ok(()) => {}
-                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                                    app.resize(app.size);
-                                }
-                                Err(wgpu::SurfaceError::OutOfMemory) => {
-                                    elwt.exit();
-                                }
-                                Err(wgpu::SurfaceError::Timeout) => {
-                                    eprintln!("Surface timeout; skipping frame");
-                                }
+        .run(move |event, elwt| match event {
+            Event::WindowEvent { event, window_id } if window_id == window.id() => {
+                app.handle_window_event(&event);
+                match event {
+                    WindowEvent::CloseRequested => elwt.exit(),
+                    WindowEvent::Resized(size) => app.resize(size),
+                    WindowEvent::RedrawRequested => {
+                        app.update();
+                        match app.render() {
+                            Ok(()) => {}
+                            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                app.resize(app.size);
+                            }
+                            Err(wgpu::SurfaceError::OutOfMemory) => {
+                                elwt.exit();
+                            }
+                            Err(wgpu::SurfaceError::Timeout) => {
+                                eprintln!("Surface timeout; skipping frame");
                             }
                         }
-                        _ => {}
                     }
+                    _ => {}
                 }
-                Event::AboutToWait => {
-                    window.request_redraw();
-                }
-                _ => {}
             }
+            Event::AboutToWait => {
+                window.request_redraw();
+            }
+            _ => {}
         })
         .map_err(|e| format!("Event loop error: {e}"))
 }

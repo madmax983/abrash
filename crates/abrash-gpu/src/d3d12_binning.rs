@@ -874,10 +874,7 @@ impl GpuBinner {
     }
 
     /// Upload triangle data to GPU
-    fn upload_triangles(
-        &mut self,
-        triangles: &[PreparedTriangleInput],
-    ) -> Result<(), GpuError> {
+    fn upload_triangles(&mut self, triangles: &[PreparedTriangleInput]) -> Result<(), GpuError> {
         unsafe {
             let ptr = self
                 .triangle_upload
@@ -2123,5 +2120,3 @@ impl GpuHiZBuilder {
         Ok(())
     }
 }
-
-

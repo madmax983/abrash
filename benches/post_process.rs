@@ -42,5 +42,10 @@ fn benchmark_invert(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_grayscale, benchmark_scanlines, benchmark_invert);
+criterion_group!(
+    benches,
+    benchmark_grayscale,
+    benchmark_scanlines,
+    benchmark_invert
+);
 criterion_main!(benches);
