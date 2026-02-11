@@ -219,3 +219,7 @@ required-features = ["gpu-render"]
 name = "gpu_engine_compare"
 harness = false
 required-features = ["gpu-engine-compare"]
+
+[[bench]]
+name = "phong_shading"
+harness = false

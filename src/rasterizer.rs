@@ -1623,6 +1623,368 @@ pub fn fill_triangle_textured(
     }
 }
 
+#[derive(Clone, Copy)]
+struct PhongGradients {
+    dz_dx: f32,
+    dnx_dx: f32, // d(nx/w)/dx
+    dny_dx: f32,
+    dnz_dx: f32,
+}
+
+impl PhongGradients {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        n0: Vec3,
+        n1: Vec3,
+        n2: Vec3,
+    ) -> Self {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let uz = p1.z - p0.z;
+        let unx = n1.x - n0.x;
+        let uny = n1.y - n0.y;
+        let unz = n1.z - n0.z;
+
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        let vz = p2.z - p0.z;
+        let vnx = n2.x - n0.x;
+        let vny = n2.y - n0.y;
+        let vnz = n2.z - n0.z;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_nx = uy * vnx - unx * vy;
+        let dnx_dx = nx_nx * inv_nz;
+
+        let nx_ny = uy * vny - uny * vy;
+        let dny_dx = nx_ny * inv_nz;
+
+        let nx_nz = uy * vnz - unz * vy;
+        let dnz_dx = nx_nz * inv_nz;
+
+        Self {
+            dz_dx,
+            dnx_dx,
+            dny_dx,
+            dnz_dx,
+        }
+    }
+}
+
+struct PhongEdgeWalker {
+    x: i64,
+    z: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    dx_dy: i64,
+    dz_dy: f32,
+    dnx_dy: f32,
+    dny_dy: f32,
+    dnz_dy: f32,
+}
+
+impl PhongEdgeWalker {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        n_start: Vec3,
+        n_end: Vec3,
+    ) -> Self {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * inv_h;
+        let dny_dy = (n_end.y - n_start.y) * inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * inv_h;
+
+        Self {
+            x: i64::from(p_start.x) << 16,
+            z: p_start.z,
+            nx: n_start.x,
+            ny: n_start.y,
+            nz: n_start.z,
+            dx_dy,
+            dz_dy,
+            dnx_dy,
+            dny_dy,
+            dnz_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.nx += self.dnx_dy;
+        self.ny += self.dny_dy;
+        self.nz += self.dnz_dy;
+    }
+
+    fn step_n(&mut self, n: i64) {
+        let n_f = n as f32;
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
+        self.z += self.dz_dy * n_f;
+        self.nx += self.dnx_dy * n_f;
+        self.ny += self.dny_dy * n_f;
+        self.nz += self.dnz_dy * n_f;
+    }
+}
+
+struct PhongSpanStart {
+    z: f32,
+    // q unused in optimization
+    nx: f32,
+    ny: f32,
+    nz: f32,
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_phong(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: PhongSpanStart,
+    gradients: &PhongGradients,
+    pre_diffuse: Vec3,
+    neg_light_dir: Vec3,
+    ambient: Vec3,
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+
+    let mut z = start.z;
+    let mut nx = start.nx;
+    let mut ny = start.ny;
+    let mut nz = start.nz;
+
+    if xs < 0 {
+        let diff = -i64::from(xs);
+        let diff_f = diff as f32;
+        z += diff_f * gradients.dz_dx;
+        nx += diff_f * gradients.dnx_dx;
+        ny += diff_f * gradients.dny_dx;
+        nz += diff_f * gradients.dnz_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
+
+    // SAFETY: Clamped above.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+
+            // Optimization: Skip w calculation.
+            // normal = normalize(nx*w, ny*w, nz*w) == normalize(nx, ny, nz)
+            let normal = Vec3::new(nx, ny, nz).normalize();
+
+            // Lighting calculation
+            let intensity = normal.dot(neg_light_dir).max(0.0);
+            let diffuse = pre_diffuse * intensity;
+            let final_color_vec = ambient + diffuse;
+            *pixel = color_to_u32(final_color_vec);
+        }
+
+        z += gradients.dz_dx;
+        nx += gradients.dnx_dx;
+        ny += gradients.dny_dx;
+        nz += gradients.dnz_dx;
+    }
+}
+
+/// Fill a 3D triangle with Phong Shading (per-pixel lighting).
+///
+/// This function interpolates the normal vector across the triangle surface
+/// and computes the lighting equation at every pixel.
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices defined as `((Position, W), Normal)`.
+#[allow(clippy::too_many_arguments)]
+pub fn fill_triangle_phong(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec3),
+    v1: ((Vec3, f32), Vec3),
+    v2: ((Vec3, f32), Vec3),
+    color: Vec3,
+    light_dir: Vec3,
+    light_color: Vec3,
+    ambient: Vec3,
+) {
+    assert_same_dimensions(fb, zb);
+
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
+
+        // Project to screen
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
+
+        // Backface Culling
+        if is_backface(p0_orig, p1_orig, p2_orig) {
+            continue;
+        }
+
+        // Prepare attributes: q=1/w, n/w
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
+
+        let n0 = v0.1 * inv_w0;
+        let n1 = v1.1 * inv_w1;
+        let n2 = v2.1 * inv_w2;
+
+        let mut verts = [
+            (p0_orig, n0),
+            (p1_orig, n1),
+            (p2_orig, n2),
+        ];
+        sort_by_y(&mut verts, |(p, _)| p.y);
+        let [(p0, n0), (p1, n1), (p2, n2)] = verts;
+
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
+
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
+
+        if y_start > y_end {
+            continue;
+        }
+
+        // Gradients and Edge Walking
+        let (gradients, long_edge_is_left) = {
+            let g = PhongGradients::new(p0, p1, p2, n0, n1, n2);
+            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            let left = ux * vy - uy * vx > 0.0;
+            (g, left)
+        };
+
+        let mut edge_a = PhongEdgeWalker::new(p0, p2, n0, n2);
+        if y_start > p0.y {
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+
+        let mut edge_b = if y_start < p1.y {
+            let mut e = PhongEdgeWalker::new(p0, p1, n0, n1);
+            if y_start > p0.y {
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
+            }
+            e
+        } else {
+            let mut e = PhongEdgeWalker::new(p1, p2, n1, n2);
+            if y_start > p1.y {
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
+            }
+            e
+        };
+
+        // Precalculate lighting constants
+        let pre_diffuse = color * light_color;
+        let neg_light_dir = light_dir * -1.0;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = PhongEdgeWalker::new(p1, p2, n1, n2);
+            }
+
+            let (x_start, x_end, z_left, nx_left, ny_left, nz_left) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.nx,
+                    edge_a.ny,
+                    edge_a.nz,
+                )
+            } else {
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.nx,
+                    edge_b.ny,
+                    edge_b.nz,
+                )
+            };
+
+            let dx = i64::from(x_end) - i64::from(x_start);
+
+            if dx > 0 {
+                draw_scanline_phong(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
+                    PhongSpanStart {
+                        z: z_left,
+                        nx: nx_left,
+                        ny: ny_left,
+                        nz: nz_left,
+                    },
+                    &gradients,
+                    pre_diffuse,
+                    neg_light_dir,
+                    ambient,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
