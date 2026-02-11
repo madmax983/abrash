@@ -13,7 +13,16 @@ pub enum FilterMode {
     Trilinear,
 }
 
-/// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register)
+/// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register).
+///
+/// **SWAR** is a technique to perform parallel operations on data packed into general-purpose registers,
+/// avoiding the need for specialized SIMD instructions (like AVX or NEON).
+///
+/// This function treats a 32-bit integer as two 16-bit slots (or four 8-bit slots with gaps)
+/// to blend two color channels simultaneously.
+///
+/// *   `c0`, `c1`: Packed color channels (e.g., Red/Blue or Green/Alpha).
+/// *   `w`, `inv_w`: Weight and inverse weight (sum must be 256 for 8-bit precision).
 #[inline(always)]
 #[must_use]
 pub const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {

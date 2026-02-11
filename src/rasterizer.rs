@@ -39,7 +39,7 @@ fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
 }
 
 /// Helper to prepare scanline slices.
-/// Returns (fb_slice, zb_slice, adjusted_z_start) or None if off-screen.
+/// Returns (`fb_slice`, `zb_slice`, `adjusted_z_start`) or `None` if off-screen.
 #[inline(always)]
 fn prepare_scanline<'a>(
     fb: &'a mut Framebuffer,
@@ -114,7 +114,7 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     let vx = i64::from(p2.x) - i64::from(p0.x);
     let vy = i64::from(p2.y) - i64::from(p0.y);
     // Use i128 to prevent overflow during cross product calculation for large coordinates
-    let nz = (ux as i128) * (vy as i128) - (uy as i128) * (vx as i128);
+    let nz = i128::from(ux) * i128::from(vy) - i128::from(uy) * i128::from(vx);
     nz >= 0
 }
 
@@ -1340,10 +1340,59 @@ fn draw_scanline_textured_perspective(
         x += count;
     }
 }
+/// Fill a 3D triangle with texture mapping.
+///
+/// This function performs perspective-correct texture mapping using standard scanline rasterization.
+/// It interpolates texture coordinates ($u, v$) and perspective term ($1/w$) across the triangle surface.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices, each defined as `((Position, W), UV)`.
+///     *   `Position`: 3D vertex position in Clip Space (before perspective divide).
+///     *   `W`: Homogeneous W coordinate (distance from camera plane).
+///     *   `UV`: Texture coordinates in range $[0.0, 1.0]$.
+/// *   `texture` - The source texture to map onto the triangle.
+///
+/// # Perspective Correction
+///
+/// To avoid texture swimming (warping) when viewing triangles at an angle, this rasterizer
+/// performs perspective-correct interpolation:
+/// 1.  At each vertex, calculate $q = 1/w$, $u' = u/w$, $v' = v/w$.
+/// 2.  Linearly interpolate $q, u', v'$ across the screen.
+/// 3.  Per-pixel (or per-span), recover $u = u'/q$ and $v = v'/q$.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_textured;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::texture::Texture;
+/// use abrash::math::{Vec3, Vec2};
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // Create a simple checkerboard texture
+/// let texture = Texture::checkered(32, 32, 0xFFFFFFFF, 0xFF000000).unwrap();
+///
+/// // Define vertices in Clip Space ((Position, W), UV)
+/// // Triangle covering center of screen
+/// let v0 = ((Vec3::new(0.0, 0.5, 5.0), 5.0), Vec2::new(0.5, 0.0));
+/// let v1 = ((Vec3::new(-0.5, -0.5, 5.0), 5.0), Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(0.5, -0.5, 5.0), 5.0), Vec2::new(1.0, 1.0));
+///
+/// fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+///
+/// // Verify center pixel was drawn
+/// assert_ne!(fb.get_pixel(50, 50), Some(0x00000000));
+/// ```
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec2), // (Position, W), UV
+    v0: ((Vec3, f32), Vec2),
     v1: ((Vec3, f32), Vec2),
     v2: ((Vec3, f32), Vec2),
     texture: &Texture,
