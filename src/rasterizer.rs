@@ -38,6 +38,51 @@ fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
     );
 }
 
+/// Helper to prepare scanline slices.
+/// Returns (fb_slice, zb_slice, adjusted_z_start) or None if off-screen.
+#[inline(always)]
+fn prepare_scanline<'a>(
+    fb: &'a mut Framebuffer,
+    zb: &'a mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    mut z: f32,
+    dz_dx: f32,
+) -> Option<(&'a mut [u32], &'a mut [f32], f32)> {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+
+    if xs < 0 {
+        let diff = -xs as f32;
+        z += diff * dz_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return None;
+    }
+
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
+
+    // SAFETY:
+    // 1. xs and xe are clamped to [0, width-1].
+    // 2. y is assumed to be within bounds by caller (clamped in fill_triangle).
+    // 3. start_idx <= end_idx because xs <= xe.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    Some((fb_slice, zb_slice, z))
+}
+
 /// Helper to sort 3 vertices by Y coordinate
 ///
 /// Optimization: Uses a manual sorting network to avoid the heap allocation
@@ -85,51 +130,47 @@ fn draw_scanline_flat(
     dz_dx: f32,
     color: u32,
 ) {
-    let width = fb.width() as i32;
-    // Clamp X range to screen bounds
-    let mut xs = x_start;
-    let mut xe = x_end;
-    let mut z = z_start;
-
-    if xs < 0 {
-        // Advance z if we start off-screen
-        let diff = -xs as f32;
-        z += diff * dz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
-        return;
-    }
-
-    // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-    debug_assert_eq!(
-        fb.width(),
-        zb.width(),
-        "Framebuffer and ZBuffer widths must match"
-    );
-    let width_usize = fb.width() as usize;
-    let y_offset = (y as usize) * width_usize;
-    let start_idx = y_offset + (xs as usize);
-    let end_idx = y_offset + (xe as usize);
-
-    // SAFETY:
-    // 1. xs and xe are clamped to [0, width-1] by the logic above.
-    // 2. y is clamped to [0, height-1] by the caller.
-    // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
-    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
-            *pixel = color;
+    if let Some((fb_slice, zb_slice, mut z)) =
+        prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
+    {
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                *pixel = color;
+            }
+            z += dz_dx;
         }
-        z += dz_dx;
+    }
+}
+
+/// Draw a single scanline for flat shading with Z-buffering and Alpha Blending
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_flat_blended(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    if let Some((fb_slice, zb_slice, mut z)) =
+        prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
+    {
+        // Alpha blending parameters
+        let alpha = (color >> 24) & 0xFF;
+        let inv_alpha = 255 - alpha;
+
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            // Test Z but do not write Z for transparent pixels
+            if z < *depth_val {
+                let dest_color = *pixel;
+                *pixel = blend_swar(color, dest_color, alpha, inv_alpha);
+            }
+            z += dz_dx;
+        }
     }
 }
 
@@ -286,13 +327,29 @@ pub fn fill_triangle_3d(
                 if x_start >= 0 && x_start < width_i32 {
                     // SAFETY: Safe due to clamps on x_start and y.
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        let alpha = (color >> 24) & 0xFF;
+                        if alpha == 0xFF {
+                            if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                                fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                            }
+                        } else {
+                            // Transparent single pixel
+                            let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
+                            if z_left < z_current {
+                                let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
+                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
+                                fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
+                            }
                         }
                     }
                 }
             } else {
-                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 0xFF {
+                    draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+                } else {
+                    draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+                }
             }
 
             edge_a.step();

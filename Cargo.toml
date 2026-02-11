@@ -204,6 +204,10 @@ name = "post_process"
 harness = false
 
 [[bench]]
+name = "transparency_bench"
+harness = false
+
+[[bench]]
 name = "gpu_render"
 harness = false
 required-features = ["gpu-render"]
