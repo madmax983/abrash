@@ -420,7 +420,8 @@ impl Texture {
 
         // Optimization: Fast path for interior pixels to avoid 4 clamps
         // w_i32 is width - 1. If x0_raw < w_i32, then x0_raw <= width - 2, so x0_raw + 1 <= width - 1.
-        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+        // We use unsigned comparison to combine the non-negative check with the upper bound check.
+        if (x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32) {
             let x0 = x0_raw as usize;
             let y0 = y0_raw as usize;
 

@@ -1093,7 +1093,7 @@ fn draw_span_bilinear(
                         cached_y0 = y0_raw;
 
                         let (t00, t10, t01, t11) =
-                            if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                            if (x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32) {
                                 let x0 = x0_raw as usize;
                                 let y0 = y0_raw as usize;
 
