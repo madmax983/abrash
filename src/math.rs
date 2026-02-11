@@ -606,8 +606,9 @@ pub fn project_to_screen_optimized(
     let depth = v.z * inv_w;
 
     // NDC to screen coordinates
-    let screen_x = ((ndc_x + 1.0) * half_width) as i32;
-    let screen_y = ((1.0 - ndc_y) * half_height) as i32; // Flip Y
+    // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN
+    let screen_x = (((ndc_x + 1.0) * half_width) as i32).max(i32::MIN + 1);
+    let screen_y = (((1.0 - ndc_y) * half_height) as i32).max(i32::MIN + 1); // Flip Y
 
     ScreenPoint {
         x: screen_x,
