@@ -1007,7 +1007,6 @@ fn draw_span_nearest(
     if shift < 32 {
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             if z < *depth_val {
-                *depth_val = z;
                 // Inline sampling
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
@@ -1016,7 +1015,15 @@ fn draw_span_nearest(
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
-                *pixel = color;
+
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z;
+                    *pixel = color;
+                } else if alpha > 0 {
+                    let dest = *pixel;
+                    *pixel = blend_swar(color, dest, alpha, 255 - alpha);
+                }
             }
             z += dz_dx;
             u_fix = u_fix.wrapping_add(du_fix);
@@ -1025,7 +1032,6 @@ fn draw_span_nearest(
     } else {
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             if z < *depth_val {
-                *depth_val = z;
                 // Inline sampling
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
@@ -1034,7 +1040,15 @@ fn draw_span_nearest(
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
-                *pixel = color;
+
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z;
+                    *pixel = color;
+                } else if alpha > 0 {
+                    let dest = *pixel;
+                    *pixel = blend_swar(color, dest, alpha, 255 - alpha);
+                }
             }
             z += dz_dx;
             u_fix = u_fix.wrapping_add(du_fix);
@@ -1080,8 +1094,6 @@ fn draw_span_bilinear(
 
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 if z < *depth_val {
-                    *depth_val = z;
-
                     let u_img_fixed = u_fix >> 8;
                     let v_img_fixed = v_fix >> 8;
 
@@ -1141,7 +1153,14 @@ fn draw_span_bilinear(
                     let bottom = blend_swar(c01, c11, wx, inv_wx);
                     let final_color = blend_swar(top, bottom, wy, inv_wy);
 
-                    *pixel = final_color | 0xFF00_0000;
+                    let alpha = (final_color >> 24) & 0xFF;
+                    if alpha == 255 {
+                        *depth_val = z;
+                        *pixel = final_color;
+                    } else if alpha > 0 {
+                        let dest = *pixel;
+                        *pixel = blend_swar(final_color, dest, alpha, 255 - alpha);
+                    }
                 }
                 z += dz_dx;
                 u_fix = u_fix.wrapping_add(du_fix);
@@ -1173,8 +1192,16 @@ fn draw_span_trilinear(
 ) {
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
         if z < *depth_val {
-            *depth_val = z;
-            *pixel = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
+            let color = texture.get_pixel_trilinear_fixed(u_fix, v_fix, lod);
+            let alpha = (color >> 24) & 0xFF;
+
+            if alpha == 255 {
+                *depth_val = z;
+                *pixel = color;
+            } else if alpha > 0 {
+                let dest = *pixel;
+                *pixel = blend_swar(color, dest, alpha, 255 - alpha);
+            }
         }
         z += dz_dx;
         u_fix = u_fix.wrapping_add(du_fix);
@@ -1555,7 +1582,8 @@ pub fn fill_triangle_textured(
                 if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
                     // SAFETY: Safe due to clamps on x_start and y
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
+                        if z_left < z_current {
                             let w = 1.0 / q_left;
                             let u_tex = u_left * w;
                             let v_tex = v_left * w;
@@ -1595,7 +1623,19 @@ pub fn fill_triangle_textured(
                                     texture.get_pixel_trilinear(u_tex, v_tex, lod)
                                 }
                             };
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+
+                            let alpha = (color >> 24) & 0xFF;
+                            if alpha == 255 {
+                                // Manually update Z
+                                let width_usize = fb.width() as usize;
+                                let idx = (y as usize) * width_usize + (x_start as usize);
+                                *zb.as_mut_slice().get_unchecked_mut(idx) = z_left;
+                                fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                            } else if alpha > 0 {
+                                let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
+                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
+                                fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
+                            }
                         }
                     }
                 }

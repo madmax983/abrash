@@ -242,8 +242,7 @@ impl Texture {
         let weight = (frac * 256.0) as u32;
         let inv_weight = 256 - weight;
 
-        let final_color = blend_swar(c0, c1, weight, inv_weight);
-        final_color | 0xFF00_0000 // Force alpha
+        blend_swar(c0, c1, weight, inv_weight)
     }
 
     /// Sample texture using trilinear interpolation with given LOD and 16.16 fixed point UVs
@@ -286,8 +285,7 @@ impl Texture {
         let weight = (frac * 256.0) as u32;
         let inv_weight = 256 - weight;
 
-        let final_color = blend_swar(c0, c1, weight, inv_weight);
-        final_color | 0xFF00_0000
+        blend_swar(c0, c1, weight, inv_weight)
     }
 
     /// Helper to sample a specific mip level
@@ -351,9 +349,7 @@ impl Texture {
 
         let top = blend_swar(c00, c10, wx, inv_wx);
         let bottom = blend_swar(c01, c11, wx, inv_wx);
-        let final_color = blend_swar(top, bottom, wy, inv_wy);
-
-        final_color | 0xFF00_0000
+        blend_swar(top, bottom, wy, inv_wy)
     }
 
     /// Sample texture using bilinear interpolation
@@ -407,10 +403,7 @@ impl Texture {
 
         let top = blend_swar(c00, c10, wx, inv_wx);
         let bottom = blend_swar(c01, c11, wx, inv_wx);
-        let final_color = blend_swar(top, bottom, wy, inv_wy);
-
-        // Ensure alpha is 0xFF
-        final_color | 0xFF00_0000
+        blend_swar(top, bottom, wy, inv_wy)
     }
 
     #[inline(always)]
