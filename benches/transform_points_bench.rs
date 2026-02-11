@@ -4,7 +4,9 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 fn bench_transform_points_scalar(c: &mut Criterion) {
     c.bench_function("transform_points_scalar_1000", |b| {
         let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..1000).map(|i| Vec3::new(i as f32, i as f32, i as f32)).collect();
+        let points: Vec<Vec3> = (0..1000)
+            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
+            .collect();
         let mut output = vec![(Vec3::default(), 0.0); 1000];
 
         b.iter(|| {
@@ -16,7 +18,9 @@ fn bench_transform_points_scalar(c: &mut Criterion) {
 fn bench_transform_points_manual_loop(c: &mut Criterion) {
     c.bench_function("transform_points_manual_loop_1000", |b| {
         let m = Mat4::rotation_y(0.5);
-        let points: Vec<Vec3> = (0..1000).map(|i| Vec3::new(i as f32, i as f32, i as f32)).collect();
+        let points: Vec<Vec3> = (0..1000)
+            .map(|i| Vec3::new(i as f32, i as f32, i as f32))
+            .collect();
         let mut output = vec![(Vec3::default(), 0.0); 1000];
 
         b.iter(|| {
@@ -30,5 +34,9 @@ fn bench_transform_points_manual_loop(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_transform_points_scalar, bench_transform_points_manual_loop);
+criterion_group!(
+    benches,
+    bench_transform_points_scalar,
+    bench_transform_points_manual_loop
+);
 criterion_main!(benches);

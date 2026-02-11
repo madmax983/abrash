@@ -267,7 +267,11 @@ impl HiZBuffer {
         let odd_width = !source_width.is_multiple_of(2);
         let odd_height = !sh.is_multiple_of(2);
 
-        let safe_width = if odd_width { level_width - 1 } else { level_width };
+        let safe_width = if odd_width {
+            level_width - 1
+        } else {
+            level_width
+        };
         let safe_height = if odd_height {
             level_height - 1
         } else {
@@ -331,7 +335,6 @@ impl HiZBuffer {
             }
         }
     }
-
 
     /// Test if an AABB is potentially visible
     ///
@@ -881,7 +884,6 @@ mod tests {
         // Invalid pyramid should assume everything is visible
         assert!(hiz.is_potentially_visible(aabb));
     }
-
 
     #[test]
     fn test_coarse_bin_visible_when_closer() {

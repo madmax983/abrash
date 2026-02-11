@@ -18,6 +18,12 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 
+struct CacheNode {
+    vt_idx: usize, // usize::MAX if None
+    new_idx: usize,
+    next: usize, // usize::MAX if None
+}
+
 /// Load a Mesh from a Wavefront OBJ string source.
 ///
 /// # Examples
@@ -53,11 +59,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     let mut cache_head: Vec<usize> = Vec::with_capacity(1024);
 
     // Nodes in the chains.
-    struct CacheNode {
-        vt_idx: usize, // usize::MAX if None
-        new_idx: usize,
-        next: usize, // usize::MAX if None
-    }
     let mut cache_nodes: Vec<CacheNode> = Vec::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
@@ -141,9 +142,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         let idx = vt_str
                             .parse::<usize>()
                             .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
-                        Some(idx.checked_sub(1).ok_or_else(|| {
-                            format!("Line {line_num}: UV index 0 is invalid")
-                        })?)
+                        Some(
+                            idx.checked_sub(1)
+                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                        )
                     } else {
                         None
                     };

@@ -77,28 +77,64 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
 
     // Unrolled inside mask check
     let mut m0 = 0;
-    if p0.x >= -w0 { m0 |= 1; }
-    if p0.x <= w0  { m0 |= 2; }
-    if p0.y >= -w0 { m0 |= 4; }
-    if p0.y <= w0  { m0 |= 8; }
-    if p0.z >= -w0 { m0 |= 16; }
-    if p0.z <= w0  { m0 |= 32; }
+    if p0.x >= -w0 {
+        m0 |= 1;
+    }
+    if p0.x <= w0 {
+        m0 |= 2;
+    }
+    if p0.y >= -w0 {
+        m0 |= 4;
+    }
+    if p0.y <= w0 {
+        m0 |= 8;
+    }
+    if p0.z >= -w0 {
+        m0 |= 16;
+    }
+    if p0.z <= w0 {
+        m0 |= 32;
+    }
 
     let mut m1 = 0;
-    if p1.x >= -w1 { m1 |= 1; }
-    if p1.x <= w1  { m1 |= 2; }
-    if p1.y >= -w1 { m1 |= 4; }
-    if p1.y <= w1  { m1 |= 8; }
-    if p1.z >= -w1 { m1 |= 16; }
-    if p1.z <= w1  { m1 |= 32; }
+    if p1.x >= -w1 {
+        m1 |= 1;
+    }
+    if p1.x <= w1 {
+        m1 |= 2;
+    }
+    if p1.y >= -w1 {
+        m1 |= 4;
+    }
+    if p1.y <= w1 {
+        m1 |= 8;
+    }
+    if p1.z >= -w1 {
+        m1 |= 16;
+    }
+    if p1.z <= w1 {
+        m1 |= 32;
+    }
 
     let mut m2 = 0;
-    if p2.x >= -w2 { m2 |= 1; }
-    if p2.x <= w2  { m2 |= 2; }
-    if p2.y >= -w2 { m2 |= 4; }
-    if p2.y <= w2  { m2 |= 8; }
-    if p2.z >= -w2 { m2 |= 16; }
-    if p2.z <= w2  { m2 |= 32; }
+    if p2.x >= -w2 {
+        m2 |= 1;
+    }
+    if p2.x <= w2 {
+        m2 |= 2;
+    }
+    if p2.y >= -w2 {
+        m2 |= 4;
+    }
+    if p2.y <= w2 {
+        m2 |= 8;
+    }
+    if p2.z >= -w2 {
+        m2 |= 16;
+    }
+    if p2.z <= w2 {
+        m2 |= 32;
+    }
 
     let all_in = m0 & m1 & m2;
     if all_in == 0x3F {
@@ -107,10 +143,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         tris[0] = v0;
         tris[1] = v1;
         tris[2] = v2;
-        return ClippedTriangles {
-            tris,
-            count: 1,
-        };
+        return ClippedTriangles { tris, count: 1 };
     }
 
     let any_in = m0 | m1 | m2;
@@ -354,15 +387,25 @@ mod tests {
         assert!(result.count > 0, "Should output at least one triangle");
 
         for i in 0..result.count {
-             let base = i * 3;
-             for k in 0..3 {
-                 let v = result.tris[base + k];
-                 let (pos, w) = v;
-                 // Check Right Plane: x <= w
-                 assert!(pos.x <= w + 0.001, "Point x={} w={} violates Right Plane", pos.x, w);
-                 // Check Left Plane: x >= -w
-                 assert!(pos.x >= -w - 0.001, "Point x={} w={} violates Left Plane", pos.x, w);
-             }
+            let base = i * 3;
+            for k in 0..3 {
+                let v = result.tris[base + k];
+                let (pos, w) = v;
+                // Check Right Plane: x <= w
+                assert!(
+                    pos.x <= w + 0.001,
+                    "Point x={} w={} violates Right Plane",
+                    pos.x,
+                    w
+                );
+                // Check Left Plane: x >= -w
+                assert!(
+                    pos.x >= -w - 0.001,
+                    "Point x={} w={} violates Left Plane",
+                    pos.x,
+                    w
+                );
+            }
         }
     }
 

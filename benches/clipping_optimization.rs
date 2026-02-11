@@ -1,6 +1,6 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use abrash::clipping::clip_triangle_to_frustum;
 use abrash::math::Vec3;
-use abrash::clipping::clip_triangle_to_frustum; // The new optimized implementation
+use criterion::{Criterion, black_box, criterion_group, criterion_main}; // The new optimized implementation
 
 // Helper traits/structs copied for benchmark legacy implementation
 pub trait Lerp: Copy + Clone {
@@ -10,7 +10,9 @@ pub trait Lerp: Copy + Clone {
 
 impl Lerp for (Vec3, f32) {
     fn lerp(self, other: Self, t: f32) -> Self {
-        fn lerp_f32(a: f32, b: f32, t: f32) -> f32 { a + (b - a) * t }
+        fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+            a + (b - a) * t
+        }
         fn lerp_vec3(a: Vec3, b: Vec3, t: f32) -> Vec3 {
             Vec3 {
                 x: lerp_f32(a.x, b.x, t),
@@ -40,12 +42,24 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
 
     let inside_mask = |p: Vec3, w: f32| -> u8 {
         let mut mask = 0;
-        if p.x >= -w { mask |= 1; }
-        if p.x <= w  { mask |= 2; }
-        if p.y >= -w { mask |= 4; }
-        if p.y <= w  { mask |= 8; }
-        if p.z >= -w { mask |= 16; }
-        if p.z <= w  { mask |= 32; }
+        if p.x >= -w {
+            mask |= 1;
+        }
+        if p.x <= w {
+            mask |= 2;
+        }
+        if p.y >= -w {
+            mask |= 4;
+        }
+        if p.y <= w {
+            mask |= 8;
+        }
+        if p.z >= -w {
+            mask |= 16;
+        }
+        if p.z <= w {
+            mask |= 32;
+        }
         mask
     };
 
@@ -64,7 +78,10 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
 
     let any_in = m0 | m1 | m2;
     if any_in != 0x3F {
-        return ClippedTriangles { tris: [v0; 24], count: 0 };
+        return ClippedTriangles {
+            tris: [v0; 24],
+            count: 0,
+        };
     }
 
     let mut buf1 = [v0; 12];
@@ -84,7 +101,9 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
     ];
 
     for plane in planes {
-        if count == 0 { break; }
+        if count == 0 {
+            break;
+        }
         let mut out_count = 0;
         let prev_idx = count - 1;
         let mut prev_v = buf1[prev_idx];
@@ -124,7 +143,10 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
         buf1[..count].copy_from_slice(&buf2[..count]);
     }
 
-    let mut result = ClippedTriangles { tris: [v0; 24], count: 0 };
+    let mut result = ClippedTriangles {
+        tris: [v0; 24],
+        count: 0,
+    };
     if count >= 3 {
         let pivot = buf1[0];
         for i in 1..count - 1 {
@@ -157,9 +179,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v0 = (Vec3::new(0.0, 0.0, 0.0), 1.0);
         let v1 = (Vec3::new(0.5, 0.0, 0.0), 1.0);
         let v2 = (Vec3::new(0.0, 0.5, 0.0), 1.0);
-        b.iter(|| {
-            clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v)
-        });
+        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v));
     });
 
     // Case 2: Clipping needed (straddling near plane)
@@ -176,9 +196,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v0 = (Vec3::new(0.0, 0.0, 1.0), 1.0);
         let v1 = (Vec3::new(0.0, 2.0, -1.0), -1.0);
         let v2 = (Vec3::new(2.0, 0.0, -1.0), -1.0);
-        b.iter(|| {
-            clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v)
-        });
+        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v));
     });
 
     group.finish();

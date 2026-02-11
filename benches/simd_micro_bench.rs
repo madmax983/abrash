@@ -18,14 +18,12 @@ fn bench_cast_cost(c: &mut Criterion) {
     let i32_data: Vec<i32> = (0..BUFFER_SIZE as i32).collect();
 
     group.bench_function("round_trip_cast", |b| {
-        b.iter(|| {
-            unsafe {
-                for chunk in i32_data.chunks_exact(8) {
-                    let i32_vec = _mm256_loadu_si256(chunk.as_ptr() as *const __m256i);
-                    let float_vec = _mm256_castsi256_ps(i32_vec);
-                    let back_to_i32 = _mm256_castps_si256(float_vec);
-                    black_box(back_to_i32);
-                }
+        b.iter(|| unsafe {
+            for chunk in i32_data.chunks_exact(8) {
+                let i32_vec = _mm256_loadu_si256(chunk.as_ptr() as *const __m256i);
+                let float_vec = _mm256_castsi256_ps(i32_vec);
+                let back_to_i32 = _mm256_castps_si256(float_vec);
+                black_box(back_to_i32);
             }
         });
     });
@@ -35,7 +33,7 @@ fn bench_cast_cost(c: &mut Criterion) {
             || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
             |(mut depths, mut pixels)| {
                 unsafe {
-                     run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
+                    run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
                 }
                 black_box((depths, pixels));
             },
@@ -48,7 +46,7 @@ fn bench_cast_cost(c: &mut Criterion) {
             || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
             |(mut depths, mut pixels)| {
                 unsafe {
-                     run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
+                    run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
                 }
                 black_box((depths, pixels));
             },
@@ -203,7 +201,12 @@ fn bench_never_update(c: &mut Criterion) {
 
     group.bench_function("scalar", |b| {
         b.iter_batched(
-            || (vec![f32::NEG_INFINITY; BUFFER_SIZE], vec![0u32; BUFFER_SIZE]),
+            || {
+                (
+                    vec![f32::NEG_INFINITY; BUFFER_SIZE],
+                    vec![0u32; BUFFER_SIZE],
+                )
+            },
             |(mut depths, mut pixels)| {
                 run_scalar(&mut depths, &mut pixels, color);
                 black_box((depths, pixels));
@@ -214,7 +217,12 @@ fn bench_never_update(c: &mut Criterion) {
 
     group.bench_function("simd_maskstore", |b| {
         b.iter_batched(
-            || (vec![f32::NEG_INFINITY; BUFFER_SIZE], vec![0u32; BUFFER_SIZE]),
+            || {
+                (
+                    vec![f32::NEG_INFINITY; BUFFER_SIZE],
+                    vec![0u32; BUFFER_SIZE],
+                )
+            },
             |(mut depths, mut pixels)| {
                 unsafe { run_float_maskstore(&mut depths, &mut pixels, color, BUFFER_SIZE) };
                 black_box((depths, pixels));
@@ -225,7 +233,12 @@ fn bench_never_update(c: &mut Criterion) {
 
     group.bench_function("simd_blend", |b| {
         b.iter_batched(
-            || (vec![f32::NEG_INFINITY; BUFFER_SIZE], vec![0u32; BUFFER_SIZE]),
+            || {
+                (
+                    vec![f32::NEG_INFINITY; BUFFER_SIZE],
+                    vec![0u32; BUFFER_SIZE],
+                )
+            },
             |(mut depths, mut pixels)| {
                 unsafe { run_float_blend_store(&mut depths, &mut pixels, color, BUFFER_SIZE) };
                 black_box((depths, pixels));

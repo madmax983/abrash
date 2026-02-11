@@ -19,8 +19,8 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_to_screen_optimized, ScreenPoint, Vec2, Vec3};
-use crate::texture::{blend_swar, FilterMode, Texture};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
+use crate::texture::{FilterMode, Texture, blend_swar};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -1010,77 +1010,75 @@ fn draw_span_bilinear(
     let h_i32 = (tex_h as i32).wrapping_sub(1);
     let tex_w_usize = tex_w as usize;
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
+    macro_rules! process_span {
+        ($calc_row:expr) => {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    *depth_val = z;
 
-            let u_img_fixed = u_fix >> 8;
-            let v_img_fixed = v_fix >> 8;
+                    let u_img_fixed = u_fix >> 8;
+                    let v_img_fixed = v_fix >> 8;
 
-            let wx = (u_img_fixed & 0xFF) as u32;
-            let wy = (v_img_fixed & 0xFF) as u32;
-            let inv_wx = 256 - wx;
-            let inv_wy = 256 - wy;
+                    let wx = (u_img_fixed & 0xFF) as u32;
+                    let wy = (v_img_fixed & 0xFF) as u32;
+                    let inv_wx = 256 - wx;
+                    let inv_wy = 256 - wy;
 
-            let x0_raw = u_img_fixed >> 8;
-            let y0_raw = v_img_fixed >> 8;
+                    let x0_raw = u_img_fixed >> 8;
+                    let y0_raw = v_img_fixed >> 8;
 
-            let (c00, c10, c01, c11) =
-                if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
-                    let x0 = x0_raw as usize;
-                    let y0 = y0_raw as usize;
+                    let (c00, c10, c01, c11) =
+                        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                            let x0 = x0_raw as usize;
+                            let y0 = y0_raw as usize;
 
-                    let row0 = if shift < 32 {
-                        y0 << shift
-                    } else {
-                        y0 * tex_w_usize
-                    };
-                    let row1 = row0 + tex_w_usize;
+                            let row0 = $calc_row(y0);
+                            let row1 = row0 + tex_w_usize;
 
-                    unsafe {
-                        (
-                            *tex_pixels.get_unchecked(row0 + x0),
-                            *tex_pixels.get_unchecked(row0 + x0 + 1),
-                            *tex_pixels.get_unchecked(row1 + x0),
-                            *tex_pixels.get_unchecked(row1 + x0 + 1),
-                        )
-                    }
-                } else {
-                    let x0 = x0_raw.clamp(0, w_i32) as usize;
-                    let y0 = y0_raw.clamp(0, h_i32) as usize;
-                    let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                    let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+                            unsafe {
+                                (
+                                    *tex_pixels.get_unchecked(row0 + x0),
+                                    *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                    *tex_pixels.get_unchecked(row1 + x0),
+                                    *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                )
+                            }
+                        } else {
+                            let x0 = x0_raw.clamp(0, w_i32) as usize;
+                            let y0 = y0_raw.clamp(0, h_i32) as usize;
+                            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
 
-                    let row0 = if shift < 32 {
-                        y0 << shift
-                    } else {
-                        y0 * tex_w_usize
-                    };
-                    let row1 = if shift < 32 {
-                        y1 << shift
-                    } else {
-                        y1 * tex_w_usize
-                    };
+                            let row0 = $calc_row(y0);
+                            let row1 = $calc_row(y1);
 
-                    unsafe {
-                        (
-                            *tex_pixels.get_unchecked(row0 + x0),
-                            *tex_pixels.get_unchecked(row0 + x1),
-                            *tex_pixels.get_unchecked(row1 + x0),
-                            *tex_pixels.get_unchecked(row1 + x1),
-                        )
-                    }
-                };
+                            unsafe {
+                                (
+                                    *tex_pixels.get_unchecked(row0 + x0),
+                                    *tex_pixels.get_unchecked(row0 + x1),
+                                    *tex_pixels.get_unchecked(row1 + x0),
+                                    *tex_pixels.get_unchecked(row1 + x1),
+                                )
+                            }
+                        };
 
-            let top = blend_swar(c00, c10, wx, inv_wx);
-            let bottom = blend_swar(c01, c11, wx, inv_wx);
-            let final_color = blend_swar(top, bottom, wy, inv_wy);
+                    let top = blend_swar(c00, c10, wx, inv_wx);
+                    let bottom = blend_swar(c01, c11, wx, inv_wx);
+                    let final_color = blend_swar(top, bottom, wy, inv_wy);
 
-            *pixel = final_color | 0xFF00_0000;
-        }
-        z += dz_dx;
-        u_fix = u_fix.wrapping_add(du_fix);
-        v_fix = v_fix.wrapping_add(dv_fix);
+                    *pixel = final_color | 0xFF00_0000;
+                }
+                z += dz_dx;
+                u_fix = u_fix.wrapping_add(du_fix);
+                v_fix = v_fix.wrapping_add(dv_fix);
+            }
+        };
+    }
+
+    if shift < 32 {
+        process_span!(|y| y << shift);
+    } else {
+        process_span!(|y| y * tex_w_usize);
     }
 }
 
@@ -1200,7 +1198,15 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_nearest(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
                 );
             }
             FilterMode::Bilinear => {
@@ -1214,7 +1220,15 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_bilinear(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
                 );
             }
             FilterMode::Trilinear => {
@@ -1240,7 +1254,16 @@ fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 draw_span_trilinear(
-                    fb_slice, zb_slice, texture, z, gradients.dz_dx, u_fix, v_fix, du_fix, dv_fix, lod,
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    lod,
                 );
             }
         }
@@ -1427,18 +1450,18 @@ pub fn fill_triangle_textured(
                                     let w = 1.0 / q_left;
                                     let w_sq = w * w;
 
-                                    let du_tex_dx =
-                                        (gradients.du_dx * q_left - u_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let dv_tex_dx =
-                                        (gradients.dv_dx * q_left - v_left * gradients.dq_dx)
-                                            * w_sq;
-                                    let du_tex_dy =
-                                        (gradients.du_dy * q_left - u_left * gradients.dq_dy)
-                                            * w_sq;
-                                    let dv_tex_dy =
-                                        (gradients.dv_dy * q_left - v_left * gradients.dq_dy)
-                                            * w_sq;
+                                    let du_tex_dx = (gradients.du_dx * q_left
+                                        - u_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let dv_tex_dx = (gradients.dv_dx * q_left
+                                        - v_left * gradients.dq_dx)
+                                        * w_sq;
+                                    let du_tex_dy = (gradients.du_dy * q_left
+                                        - u_left * gradients.dq_dy)
+                                        * w_sq;
+                                    let dv_tex_dy = (gradients.dv_dy * q_left
+                                        - v_left * gradients.dq_dy)
+                                        * w_sq;
 
                                     let max_rho_sq = (du_tex_dx * du_tex_dx
                                         + dv_tex_dx * dv_tex_dx)

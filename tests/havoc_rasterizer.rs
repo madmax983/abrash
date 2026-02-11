@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::rasterizer::fill_triangle_3d;
-use abrash::zbuffer::ZBuffer;
 use abrash::texture::Texture;
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_rasterizer_nan_coords() {
