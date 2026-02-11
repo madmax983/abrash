@@ -18,6 +18,23 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 
+/// Optimized integer parser for OBJ indices.
+/// Replaces generic `str::parse::<usize>` to avoid overhead.
+#[inline]
+fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
+    if bytes.is_empty() {
+        return None;
+    }
+    let mut n: usize = 0;
+    for &b in bytes {
+        if b < b'0' || b > b'9' {
+            return None;
+        }
+        n = n.checked_mul(10)?.checked_add((b - b'0') as usize)?;
+    }
+    Some(n)
+}
+
 /// Load a Mesh from a Wavefront OBJ string source.
 ///
 /// # Examples
@@ -125,32 +142,56 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 face_indices.clear();
                 for part in parts {
                     // format: v, v/vt, v//vn, v/vt/vn
-                    let mut segs = part.split('/');
+                    // Manual parsing to avoid split() iterator overhead
+                    let bytes = part.as_bytes();
 
-                    // Position index
-                    let v_str = segs
-                        .next()
-                        .ok_or_else(|| format!("Line {line_num}: Invalid face format"))?;
-                    let v_idx = v_str
-                        .parse::<usize>()
-                        .map_err(|_| format!("Line {line_num}: Invalid vertex index"))?;
-                    // OBJ is 1-based
+                    // Find first '/' to separate v from vt/vn
+                    // This is faster than split('/').next()
+                    let mut first_slash = bytes.len();
+                    for (i, &b) in bytes.iter().enumerate() {
+                        if b == b'/' {
+                            first_slash = i;
+                            break;
+                        }
+                    }
+
+                    // Parse v_idx (0..first_slash)
+                    let v_idx = fast_parse_usize(&bytes[0..first_slash])
+                        .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
+
                     let v_idx = v_idx
                         .checked_sub(1)
                         .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
-                    // UV index
-                    let vt_idx = if let Some(vt_str) = segs.next().filter(|s| !s.is_empty()) {
-                        let idx = vt_str
-                            .parse::<usize>()
-                            .map_err(|_| format!("Line {line_num}: Invalid UV index"))?;
-                        Some(
-                            idx.checked_sub(1)
-                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
-                        )
-                    } else {
-                        None
-                    };
+                    // Parse vt_idx if present
+                    let mut vt_idx = None;
+                    if first_slash < bytes.len() {
+                        let after_slash = first_slash + 1;
+                        if after_slash < bytes.len() {
+                            // Check if next char is also '/' (case v//vn)
+                            if bytes[after_slash] != b'/' {
+                                // It's v/vt...
+                                // Find end of vt (next slash or end of string)
+                                let mut end_vt = bytes.len();
+                                for i in after_slash..bytes.len() {
+                                    if bytes[i] == b'/' {
+                                        end_vt = i;
+                                        break;
+                                    }
+                                }
+
+                                let vt_bytes = &bytes[after_slash..end_vt];
+                                if !vt_bytes.is_empty() {
+                                    let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
+                                        format!("Line {line_num}: Invalid UV index")
+                                    })?;
+                                    vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                        format!("Line {line_num}: UV index 0 is invalid")
+                                    })?);
+                                }
+                            }
+                        }
+                    }
 
                     // Look up or insert
                     if v_idx >= raw_positions.len() {
