@@ -93,7 +93,7 @@ impl<'a> AsciiConverter<'a> {
     }
 }
 
-impl<'a> fmt::Display for AsciiConverter<'a> {
+impl fmt::Display for AsciiConverter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();

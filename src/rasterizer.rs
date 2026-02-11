@@ -1071,6 +1071,13 @@ fn draw_span_bilinear(
     // without branching inside the loop for every pixel.
     macro_rules! process_span_bilinear {
         ($op:tt, $val:expr) => {
+            let mut cached_x0 = i32::MIN;
+            let mut cached_y0 = i32::MIN;
+            let mut c00 = 0;
+            let mut c10 = 0;
+            let mut c01 = 0;
+            let mut c11 = 0;
+
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 if z < *depth_val {
                     *depth_val = z;
@@ -1078,48 +1085,57 @@ fn draw_span_bilinear(
                     let u_img_fixed = u_fix >> 8;
                     let v_img_fixed = v_fix >> 8;
 
+                    let x0_raw = u_img_fixed >> 8;
+                    let y0_raw = v_img_fixed >> 8;
+
+                    if x0_raw != cached_x0 || y0_raw != cached_y0 {
+                        cached_x0 = x0_raw;
+                        cached_y0 = y0_raw;
+
+                        let (t00, t10, t01, t11) =
+                            if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                                let x0 = x0_raw as usize;
+                                let y0 = y0_raw as usize;
+
+                                let row0 = y0 $op $val;
+                                let row1 = row0 + tex_w_usize;
+
+                                unsafe {
+                                    (
+                                        *tex_pixels.get_unchecked(row0 + x0),
+                                        *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                        *tex_pixels.get_unchecked(row1 + x0),
+                                        *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                    )
+                                }
+                            } else {
+                                let x0 = x0_raw.clamp(0, w_i32) as usize;
+                                let y0 = y0_raw.clamp(0, h_i32) as usize;
+                                let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                                let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                                let row0 = y0 $op $val;
+                                let row1 = y1 $op $val;
+
+                                unsafe {
+                                    (
+                                        *tex_pixels.get_unchecked(row0 + x0),
+                                        *tex_pixels.get_unchecked(row0 + x1),
+                                        *tex_pixels.get_unchecked(row1 + x0),
+                                        *tex_pixels.get_unchecked(row1 + x1),
+                                    )
+                                }
+                            };
+                        c00 = t00;
+                        c10 = t10;
+                        c01 = t01;
+                        c11 = t11;
+                    }
+
                     let wx = (u_img_fixed & 0xFF) as u32;
                     let wy = (v_img_fixed & 0xFF) as u32;
                     let inv_wx = 256 - wx;
                     let inv_wy = 256 - wy;
-
-                    let x0_raw = u_img_fixed >> 8;
-                    let y0_raw = v_img_fixed >> 8;
-
-                    let (c00, c10, c01, c11) =
-                        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
-                            let x0 = x0_raw as usize;
-                            let y0 = y0_raw as usize;
-
-                            let row0 = y0 $op $val;
-                            let row1 = row0 + tex_w_usize;
-
-                            unsafe {
-                                (
-                                    *tex_pixels.get_unchecked(row0 + x0),
-                                    *tex_pixels.get_unchecked(row0 + x0 + 1),
-                                    *tex_pixels.get_unchecked(row1 + x0),
-                                    *tex_pixels.get_unchecked(row1 + x0 + 1),
-                                )
-                            }
-                        } else {
-                            let x0 = x0_raw.clamp(0, w_i32) as usize;
-                            let y0 = y0_raw.clamp(0, h_i32) as usize;
-                            let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                            let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
-
-                            let row0 = y0 $op $val;
-                            let row1 = y1 $op $val;
-
-                            unsafe {
-                                (
-                                    *tex_pixels.get_unchecked(row0 + x0),
-                                    *tex_pixels.get_unchecked(row0 + x1),
-                                    *tex_pixels.get_unchecked(row1 + x0),
-                                    *tex_pixels.get_unchecked(row1 + x1),
-                                )
-                            }
-                        };
 
                     let top = blend_swar(c00, c10, wx, inv_wx);
                     let bottom = blend_swar(c01, c11, wx, inv_wx);
