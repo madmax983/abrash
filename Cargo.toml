@@ -10,6 +10,7 @@ simd = []
 parallel = ["dep:rayon"]
 gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
 gpu-render = ["dep:abrash-gpu-render"]
+gpu-engine-compare = ["gpu-render", "dep:bevy", "dep:fyrox"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
@@ -22,6 +23,8 @@ ratzilla = { version = "0.3", optional = true }
 rayon = { version = "1.10", optional = true }
 abrash-gpu = { path = "crates/abrash-gpu", optional = true, default-features = false, features = ["gpu-binning"] }
 abrash-gpu-render = { path = "crates/abrash-gpu-render", optional = true }
+bevy = { version = "0.18.0", default-features = false, optional = true }
+fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-impl"], optional = true }
 
 # Win32 API bindings
 windows-sys = { version = "0.59", optional = true, features = [
@@ -211,3 +214,8 @@ harness = false
 name = "gpu_render"
 harness = false
 required-features = ["gpu-render"]
+
+[[bench]]
+name = "gpu_engine_compare"
+harness = false
+required-features = ["gpu-engine-compare"]

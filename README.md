@@ -64,6 +64,11 @@ GPU renderer benchmarks:
 cargo bench --bench gpu_render --features gpu-render
 ```
 
+Engine comparison benchmarks (headless update loops for Bevy/Fyrox plus wgpu offscreen reference):
+```bash
+cargo bench --bench gpu_engine_compare --features gpu-engine-compare
+```
+
 **Note for Linux/macOS users:**
 The default backend uses Win32. To run on non-Windows systems, use the TUI backend:
 ```bash
