@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** Experimental tile-based renderer, GPU compute binning, manual SIMD intrinsics, and speculative parallelism.
+**Cut:** Deleted `TileRenderer`, `abrash-gpu`, SIMD code in `math.rs`, and unused experimental modules.
+**Saved:** ~2000 lines of code, 3 complex dependencies, and removed unsafe threading/SIMD logic.
