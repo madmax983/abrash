@@ -3,6 +3,7 @@
 //! Used by both the TUI (crossterm) and WASM (ratzilla) backends to render
 //! a [`Framebuffer`] into a ratatui terminal using Unicode half-block characters.
 
+use crate::color;
 use crate::framebuffer::Framebuffer;
 use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
 
@@ -52,8 +53,8 @@ impl Widget for FramebufferWidget<'_> {
                     .unwrap_or(0);
 
                 // unpack (r, g, b) from u32 0xRRGGBB
-                let (r1, g1, b1) = ((p_top >> 16) as u8, (p_top >> 8) as u8, p_top as u8);
-                let (r2, g2, b2) = ((p_bot >> 16) as u8, (p_bot >> 8) as u8, p_bot as u8);
+                let (r1, g1, b1, _) = color::unpack_color(p_top);
+                let (r2, g2, b2, _) = color::unpack_color(p_bot);
 
                 if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
                     cell.set_char('▀')

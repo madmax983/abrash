@@ -18,9 +18,10 @@
 //! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
 
 use crate::clipping::clip_triangle_to_frustum;
+use crate::color::{blend_swar, from_vec3, pack_color};
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
-use crate::texture::{FilterMode, Texture, blend_swar};
+use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -359,28 +360,13 @@ pub fn fill_triangle_3d(
     }
 }
 
-/// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
-#[must_use]
-pub fn color_to_u32(color: Vec3) -> u32 {
-    let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
-    let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
-    let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
-    0xFF00_0000 | (r << 16) | (g << 8) | b
-}
-
-/// Helper to pack 8-bit color channels into u32 ARGB
-#[inline(always)]
-const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
-    0xFF00_0000 | (r << 16) | (g << 8) | b
-}
-
 /// Helper for fast color packing from fixed point.
 #[inline(always)]
 fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
-    pack_color_channels(r, g, b)
+    let r = (c.0 >> 16).clamp(0, 255) as u8;
+    let g = (c.1 >> 16).clamp(0, 255) as u8;
+    let b = (c.2 >> 16).clamp(0, 255) as u8;
+    pack_color(r, g, b, 255)
 }
 
 // Fixed point scale factor (16.16)
@@ -457,16 +443,12 @@ fn draw_scanline_gouraud(
             if z < *depth_val {
                 *depth_val = z;
                 // Unpack fixed point color
-                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                // 16.16 fixed point means 255.0 is 0x00FF0000
-                let r = r_i.clamp(0, 0x00FF_0000);
-                let g = g_i.clamp(0, 0x00FF_0000);
-                let b = b_i.clamp(0, 0x00FF_0000);
+                // 16.16 fixed point means 255.0 is 0x00FF0000. Shift down by 16 to get integer value.
+                let r = (r_i >> 16).clamp(0, 255) as u8;
+                let g = (g_i >> 16).clamp(0, 255) as u8;
+                let b = (b_i >> 16).clamp(0, 255) as u8;
 
-                *pixel = 0xFF00_0000
-                    | ((r as u32) & 0x00FF_0000)
-                    | (((g as u32) & 0x00FF_0000) >> 8)
-                    | (((b as u32) & 0x00FF_0000) >> 16);
+                *pixel = pack_color(r, g, b, 255);
             }
             z += dz_dx;
             r_i += dr;
@@ -799,10 +781,10 @@ pub fn fill_triangle_lit(
     let intensity = normal.dot(light_dir * -1.0).max(0.0);
     let diffuse = base_color * light_color * intensity;
 
-    // Combine and clamp (clamping handled by color_to_u32)
+    // Combine and clamp (clamping handled by from_vec3)
     let final_color = ambient + diffuse;
 
-    let color_u32 = color_to_u32(final_color);
+    let color_u32 = from_vec3(final_color);
     fill_triangle_3d(fb, zb, v0, v1, v2, color_u32);
 }
 

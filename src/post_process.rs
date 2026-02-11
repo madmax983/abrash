@@ -17,6 +17,7 @@
 //! apply_invert(&mut fb);
 //! ```
 
+use crate::color;
 use crate::framebuffer::Framebuffer;
 
 /// Applies a grayscale filter to the framebuffer in-place.
@@ -52,17 +53,12 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
     }
 
     for pixel in pixels.iter_mut() {
-        // Format: 0xAARRGGBB
         let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
-
-        // Fixed-point luminance calculation
-        let luminance = (77 * r + 150 * g + 29 * b) >> 8;
+        let lum = color::luminance(p);
+        let alpha = ((p >> 24) & 0xFF) as u8;
 
         // Preserve Alpha, set RGB to luminance
-        *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
+        *pixel = color::pack_color(lum, lum, lum, alpha);
     }
 }
 
@@ -227,11 +223,9 @@ unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
     // Handle remaining pixels scalar
     for pixel in pixels[simd_len..].iter_mut() {
         let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
-        let luminance = (77 * r + 150 * g + 29 * b) >> 8;
-        *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
+        let lum = color::luminance(p);
+        let alpha = ((p >> 24) & 0xFF) as u8;
+        *pixel = color::pack_color(lum, lum, lum, alpha);
     }
 }
 

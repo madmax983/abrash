@@ -24,6 +24,7 @@
 //! assert!(art.contains('@')); // White maps to dense characters
 //! ```
 
+use crate::color;
 use crate::framebuffer::Framebuffer;
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
@@ -93,7 +94,7 @@ impl<'a> AsciiConverter<'a> {
         for y in 0..height {
             for x in 0..width {
                 if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
-                    let luminance = Self::pixel_luminance(pixel);
+                    let luminance = color::luminance(pixel);
                     result.push(self.charset.map(luminance));
                 }
             }
@@ -102,16 +103,6 @@ impl<'a> AsciiConverter<'a> {
         result
     }
 
-    /// Calculates luminance using standard weights (Rec. 601).
-    /// Y = 0.299*R + 0.587*G + 0.114*B
-    fn pixel_luminance(pixel: u32) -> u8 {
-        let r = ((pixel >> 16) & 0xFF) as u32;
-        let g = ((pixel >> 8) & 0xFF) as u32;
-        let b = (pixel & 0xFF) as u32;
-
-        // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
-        ((77 * r + 150 * g + 29 * b) >> 8) as u8
-    }
 }
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
@@ -137,13 +128,11 @@ impl Widget for AsciiConverter<'_> {
                 }
 
                 if let Some(pixel) = self.framebuffer.get_pixel(fb_x as i32, fb_y as i32) {
-                    let luminance = Self::pixel_luminance(pixel);
+                    let luminance = color::luminance(pixel);
                     let ch = self.charset.map(luminance);
 
                     // Extract color for FG
-                    let r = ((pixel >> 16) & 0xFF) as u8;
-                    let g = ((pixel >> 8) & 0xFF) as u8;
-                    let b = (pixel & 0xFF) as u8;
+                    let (r, g, b, _) = color::unpack_color(pixel);
 
                     if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
                         cell.set_char(ch).set_fg(Color::Rgb(r, g, b));
@@ -161,13 +150,13 @@ mod tests {
     #[test]
     fn test_luminance_calculation() {
         // White
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFFFFFF), 255);
+        assert_eq!(color::luminance(0xFFFFFFFF), 255);
         // Black
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF000000), 0);
+        assert_eq!(color::luminance(0xFF000000), 0);
         // Red (pure) -> ~76
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF0000), 76);
+        assert_eq!(color::luminance(0xFFFF0000), 76);
         // Green (pure) -> ~149
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF00FF00), 149);
+        assert_eq!(color::luminance(0xFF00FF00), 149);
     }
 
     #[test]

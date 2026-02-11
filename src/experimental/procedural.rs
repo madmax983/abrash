@@ -2,6 +2,7 @@
 //!
 //! Provides functions to generate textures algorithmically.
 
+use crate::color;
 use crate::texture::Texture;
 
 /// A simple Xorshift random number generator for deterministic noise.
@@ -35,7 +36,7 @@ pub fn xor_pattern(width: u32, height: u32) -> Result<Texture, &'static str> {
     for y in 0..height {
         for x in 0..width {
             let v = ((x ^ y) & 255) as u8;
-            let color = 0xFF00_0000 | (u32::from(v) << 16) | (u32::from(v) << 8) | u32::from(v);
+            let color = color::pack_color(v, v, v, 255);
             tex.set_pixel(x, y, color);
         }
     }
@@ -77,7 +78,7 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
     for y in 0..height {
         for x in 0..width {
             let v = (rng.next() & 0xFF) as u8;
-            let color = 0xFF00_0000 | (u32::from(v) << 16) | (u32::from(v) << 8) | u32::from(v);
+            let color = color::pack_color(v, v, v, 255);
             tex.set_pixel(x, y, color);
         }
     }
@@ -105,11 +106,11 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
             let normalized = (val + 1.0) * 0.5; // 0 to 1
 
             // Map to a psychedelic palette
-            let r = ((normalized * std::f32::consts::PI).sin().abs() * 255.0) as u32;
-            let g = (((normalized * std::f32::consts::PI) + 2.0).sin().abs() * 255.0) as u32;
-            let b = (((normalized * std::f32::consts::PI) + 4.0).sin().abs() * 255.0) as u32;
+            let r = ((normalized * std::f32::consts::PI).sin().abs() * 255.0) as u8;
+            let g = (((normalized * std::f32::consts::PI) + 2.0).sin().abs() * 255.0) as u8;
+            let b = (((normalized * std::f32::consts::PI) + 4.0).sin().abs() * 255.0) as u8;
 
-            let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+            let color = color::pack_color(r, g, b, 255);
             tex.set_pixel(x, y, color);
         }
     }

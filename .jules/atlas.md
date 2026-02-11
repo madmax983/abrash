@@ -17,3 +17,13 @@
 1.  **Introduce Bridge:** Added `mesh_to_gpu` in `src/gpu_render.rs` to standardise the conversion from `Mesh` to `GpuVertex` + indices.
 2.  **Verify with Example:** Created `examples/gpu_obj.rs` to demonstrate loading an OBJ (CPU) and rendering it via the GPU backend using the new bridge.
 3.  **Result:** High cohesion in the `gpu_render` compatibility layer; Low coupling between core mesh logic and GPU implementation.
+
+## [Centralized Color Utilities]
+**Tangle:** Color manipulation logic (packing/unpacking u32, luminance calculation, blending) was scattered across `rasterizer`, `texture`, `post_process`, and `experimental` modules. This violated DRY and made it difficult to change color representation or add new color features without editing multiple files.
+
+**Blueprint:**
+1.  **Extract Module:** Created `src/color.rs` as a central utility module for all color operations.
+2.  **Consolidate Logic:** Moved `pack_color`, `unpack_color`, `luminance`, `blend_swar`, and `from_vec3` logic into `color.rs`.
+3.  **Refactor Dependencies:** Updated all consumers (`rasterizer`, `texture`, etc.) to depend on `color.rs`, making it a leaf node in the dependency graph (along with `math`).
+
+**Stability:** High cohesion for color logic. `rasterizer` and `texture` are now focused on their core responsibilities, delegating color math to `color.rs`.
