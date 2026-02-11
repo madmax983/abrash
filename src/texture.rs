@@ -422,12 +422,31 @@ impl Texture {
             let row1 = row0 + (self.width as usize); // y0 + 1 is valid, so row1 is next row
 
             unsafe {
-                (
-                    *self.pixels.get_unchecked(row0 + x0),
-                    *self.pixels.get_unchecked(row0 + x0 + 1),
-                    *self.pixels.get_unchecked(row1 + x0),
-                    *self.pixels.get_unchecked(row1 + x0 + 1),
-                )
+                // Optimization: Read 2 pixels at a time as u64.
+                // This reduces memory instructions and address calculations.
+                // We use read_unaligned because x0 might not be 8-byte aligned.
+                #[cfg(target_endian = "little")]
+                {
+                    let ptr = self.pixels.as_ptr();
+                    let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
+                    let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+
+                    (
+                        row0_pair as u32,
+                        (row0_pair >> 32) as u32,
+                        row1_pair as u32,
+                        (row1_pair >> 32) as u32,
+                    )
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    (
+                        *self.pixels.get_unchecked(row0 + x0),
+                        *self.pixels.get_unchecked(row0 + x0 + 1),
+                        *self.pixels.get_unchecked(row1 + x0),
+                        *self.pixels.get_unchecked(row1 + x0 + 1),
+                    )
+                }
             }
         } else {
             let x0 = x0_raw.clamp(0, w_i32) as usize;
