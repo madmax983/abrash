@@ -59,6 +59,11 @@ cargo run --release --example gpu_pyramid --features gpu-render
 GPU cube controls: drag left mouse to orbit, mouse wheel to zoom, arrows/WASD to orbit,
 `Q`/`E` to zoom, `Space` to toggle auto-rotation, `R` to reset camera.
 
+GPU renderer benchmarks:
+```bash
+cargo bench --bench gpu_render --features gpu-render
+```
+
 **Note for Linux/macOS users:**
 The default backend uses Win32. To run on non-Windows systems, use the TUI backend:
 ```bash

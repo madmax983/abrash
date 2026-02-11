@@ -2,8 +2,8 @@
 
 pub use abrash_gpu_render::{
     GpuDemoConfig, GpuInteractionController, GpuTriangle, GpuVertex, MeshValidationError,
-    run_gpu_cube, run_gpu_cube_with_config, run_mesh_demo, unit_cube_mesh, validate_demo_config,
-    validate_mesh,
+    GpuOffscreenBench, GpuOffscreenBenchConfig, run_gpu_cube, run_gpu_cube_with_config,
+    run_mesh_demo, unit_cube_mesh, validate_demo_config, validate_mesh,
 };
 
 /// Converts a CPU `Mesh` to GPU-compatible vertex and index buffers.

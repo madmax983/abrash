@@ -291,19 +291,19 @@ pub fn fill_triangle_3d(
 
         let mut edge_a = EdgeWalker::new(p0, p2);
         if y_start > p0.y {
-            edge_a.step_n(y_start - p0.y);
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
             let mut e = EdgeWalker::new(p0, p1);
             if y_start > p0.y {
-                e.step_n(y_start - p0.y);
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
             let mut e = EdgeWalker::new(p1, p2);
             if y_start > p1.y {
-                e.step_n(y_start - p1.y);
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
             e
         };
@@ -509,9 +509,8 @@ impl EdgeWalker {
         self.z += self.dz_dy;
     }
 
-    pub(crate) fn step_n(&mut self, n: i32) {
-        let n_i64 = i64::from(n);
-        self.x += self.dx_dy * n_i64;
+    pub(crate) fn step_n(&mut self, n: i64) {
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
         self.z += self.dz_dy * (n as f32);
     }
 }
@@ -625,14 +624,13 @@ impl GouraudEdgeWalker {
         self.c.2 += self.dc_dy.2;
     }
 
-    fn step_n(&mut self, n: i32) {
+    fn step_n(&mut self, n: i64) {
         let n_f = n as f32;
-        let n_i64 = i64::from(n);
-        self.x += self.dx_dy * n_i64;
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
         self.z += self.dz_dy * n_f;
-        self.c.0 += self.dc_dy.0 * n_i64;
-        self.c.1 += self.dc_dy.1 * n_i64;
-        self.c.2 += self.dc_dy.2 * n_i64;
+        self.c.0 = self.c.0.wrapping_add(self.dc_dy.0.wrapping_mul(n));
+        self.c.1 = self.c.1.wrapping_add(self.dc_dy.1.wrapping_mul(n));
+        self.c.2 = self.c.2.wrapping_add(self.dc_dy.2.wrapping_mul(n));
     }
 }
 
@@ -704,19 +702,19 @@ pub fn fill_triangle_gouraud(
 
         let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
         if y_start > p0.y {
-            edge_a.step_n(y_start - p0.y);
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
             let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
             if y_start > p0.y {
-                e.step_n(y_start - p0.y);
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
             let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
             if y_start > p1.y {
-                e.step_n(y_start - p1.y);
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
             e
         };
@@ -943,10 +941,9 @@ impl PerspectiveTextureEdgeWalker {
         self.v += self.dv_dy;
     }
 
-    pub(crate) fn step_n(&mut self, n: i32) {
-        let n_i64 = i64::from(n);
+    pub(crate) fn step_n(&mut self, n: i64) {
         let n_f = n as f32;
-        self.x += self.dx_dy * n_i64;
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
         self.z += self.dz_dy * n_f;
         self.q += self.dq_dy * n_f;
         self.u += self.du_dy * n_f;
@@ -1442,19 +1439,19 @@ pub fn fill_triangle_textured(
 
         let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
         if y_start > p0.y {
-            edge_a.step_n(y_start - p0.y);
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
             let mut e = PerspectiveTextureEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1);
             if y_start > p0.y {
-                e.step_n(y_start - p0.y);
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
             let mut e = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
             if y_start > p1.y {
-                e.step_n(y_start - p1.y);
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
             e
         };
