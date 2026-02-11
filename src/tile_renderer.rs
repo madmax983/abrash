@@ -339,20 +339,20 @@ fn render_triangle_in_tile(
     // Edge A: always p0→p2 (long edge)
     let mut edge_a = EdgeWalker::new(tri.p0, tri.p2);
     if y_start > tri.p0.y {
-        edge_a.step_n(y_start - tri.p0.y);
+        edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
     }
 
     // Edge B: depends on whether y_start is above or below p1.y
     let mut edge_b = if y_start < tri.p1.y {
         let mut e = EdgeWalker::new(tri.p0, tri.p1);
         if y_start > tri.p0.y {
-            e.step_n(y_start - tri.p0.y);
+            e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
         }
         e
     } else {
         let mut e = EdgeWalker::new(tri.p1, tri.p2);
         if y_start > tri.p1.y {
-            e.step_n(y_start - tri.p1.y);
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
         }
         e
     };
@@ -390,7 +390,7 @@ fn render_triangle_in_tile(
 
             if xs <= xe {
                 // Calculate z at xs
-                let dx_start = (xs - x_start) as f32;
+                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
                 let z_at_xs = z_left + dx_start * dz_dx;
 
                 let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
@@ -536,7 +536,7 @@ fn render_triangle_in_tile_textured(
         tri.p0, tri.p2, tri.q0, tri.q2, tri.u0, tri.u2, tri.v0, tri.v2,
     );
     if y_start > tri.p0.y {
-        edge_a.step_n(y_start - tri.p0.y);
+        edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
     }
 
     let mut edge_b = if y_start < tri.p1.y {
@@ -544,7 +544,7 @@ fn render_triangle_in_tile_textured(
             tri.p0, tri.p1, tri.q0, tri.q1, tri.u0, tri.u1, tri.v0, tri.v1,
         );
         if y_start > tri.p0.y {
-            e.step_n(y_start - tri.p0.y);
+            e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
         }
         e
     } else {
@@ -552,7 +552,7 @@ fn render_triangle_in_tile_textured(
             tri.p1, tri.p2, tri.q1, tri.q2, tri.u1, tri.u2, tri.v1, tri.v2,
         );
         if y_start > tri.p1.y {
-            e.step_n(y_start - tri.p1.y);
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
         }
         e
     };
@@ -637,7 +637,7 @@ fn render_triangle_in_tile_textured(
             let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
 
             if xs <= xe {
-                let dx_start = (xs - x_start) as f32;
+                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
                 let z_start = z_left + dx_start * tri.gradients.dz_dx;
                 let q_start = q_left + dx_start * tri.gradients.dq_dx;
                 let u_start = u_left + dx_start * tri.gradients.du_dx;
