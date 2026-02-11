@@ -118,3 +118,9 @@ fn offscreen_benchmark_types_are_exposed() {
     let _ = std::any::type_name::<GpuOffscreenBenchConfig>();
     let _ = std::any::type_name::<GpuOffscreenBench>();
 }
+
+#[test]
+fn offscreen_benchmark_config_exposes_draw_repeats() {
+    let cfg = GpuOffscreenBenchConfig::default();
+    assert_eq!(cfg.draw_repeats, 1);
+}

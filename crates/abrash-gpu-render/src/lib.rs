@@ -866,6 +866,7 @@ pub struct GpuOffscreenBenchConfig {
     pub initial_pitch: f32,
     pub initial_distance: f32,
     pub rotation_speed: f32,
+    pub draw_repeats: u32,
     pub clear_color: [f64; 4],
 }
 
@@ -878,6 +879,7 @@ impl Default for GpuOffscreenBenchConfig {
             initial_pitch: 0.35,
             initial_distance: 4.5,
             rotation_speed: 0.8,
+            draw_repeats: 1,
             clear_color: [0.05, 0.08, 0.12, 1.0],
         }
     }
@@ -911,6 +913,9 @@ impl GpuOffscreenBench {
     ) -> Result<Self, String> {
         if config.width == 0 || config.height == 0 {
             return Err("Offscreen benchmark dimensions must be non-zero".to_string());
+        }
+        if config.draw_repeats == 0 {
+            return Err("Offscreen benchmark draw_repeats must be >= 1".to_string());
         }
         validate_mesh(vertices, indices).map_err(|err| format!("Invalid benchmark mesh: {err}"))?;
 
@@ -1139,7 +1144,9 @@ impl GpuOffscreenBench {
             pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            pass.draw_indexed(0..self.index_count, 0, 0..1);
+            for _ in 0..self.config.draw_repeats {
+                pass.draw_indexed(0..self.index_count, 0, 0..1);
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));
