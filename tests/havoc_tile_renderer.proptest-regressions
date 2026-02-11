@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 4859d68068db6e0697050106140f03dc20c9e3e21538ce7628530690895e01db # shrinks to triangles = [((Vec3 { x: -19461560000000.0, y: 0.0, z: 0.0 }, 311677460000000.0), (Vec3 { x: NaN, y: NaN, z: NaN }, -0.0), (Vec3 { x: 0.0, y: 0.0, z: 0.0 }, -9.276624e37), 0)]
+cc 6cdec160f287296f147da9ebbb1d6d6f4b24e6c7de6e9c13e7d58b546b1be9e7 # shrinks to triangles = [((Vec3 { x: 1e30, y: 1e30, z: 1e30 }, 0.0), (Vec3 { x: 0.0, y: 0.0, z: 0.0 }, -3.2594962e24), (Vec3 { x: 0.0, y: 71760380.0, z: 0.0 }, 6.6435687e37), 0)]

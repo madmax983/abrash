@@ -1486,6 +1486,13 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
+        // Robustness: Reject non-finite vertices
+        if !v0.0.0.x.is_finite() || !v0.0.0.y.is_finite() || !v0.0.0.z.is_finite() || !v0.0.1.is_finite() ||
+           !v1.0.0.x.is_finite() || !v1.0.0.y.is_finite() || !v1.0.0.z.is_finite() || !v1.0.1.is_finite() ||
+           !v2.0.0.x.is_finite() || !v2.0.0.y.is_finite() || !v2.0.0.z.is_finite() || !v2.0.1.is_finite() {
+            return;
+        }
+
         let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
         for i in 0..clipped.count {
@@ -1497,6 +1504,14 @@ impl TileRenderer {
             let p0_orig = project_to_screen(cv0.0.0, cv0.0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0.0, cv2.0.1, self.width, self.height);
+
+            // Guard band check to prevent integer overflow in rasterizer for extreme coordinates
+            let limit = 100_000;
+            if p0_orig.x.abs() > limit || p0_orig.y.abs() > limit ||
+               p1_orig.x.abs() > limit || p1_orig.y.abs() > limit ||
+               p2_orig.x.abs() > limit || p2_orig.y.abs() > limit {
+                continue;
+            }
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
                 continue;
@@ -1630,6 +1645,13 @@ impl TileRenderer {
     }
 
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
+        // Robustness: Reject non-finite vertices to prevent downstream UB in integer casting
+        if !v0.0.x.is_finite() || !v0.0.y.is_finite() || !v0.0.z.is_finite() || !v0.1.is_finite() ||
+           !v1.0.x.is_finite() || !v1.0.y.is_finite() || !v1.0.z.is_finite() || !v1.1.is_finite() ||
+           !v2.0.x.is_finite() || !v2.0.y.is_finite() || !v2.0.z.is_finite() || !v2.1.is_finite() {
+            return;
+        }
+
         let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
         for i in 0..clipped.count {
@@ -1641,6 +1663,14 @@ impl TileRenderer {
             let p0_orig = project_to_screen(cv0.0, cv0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0, cv2.1, self.width, self.height);
+
+            // Guard band check
+            let limit = 100_000;
+            if p0_orig.x.abs() > limit || p0_orig.y.abs() > limit ||
+               p1_orig.x.abs() > limit || p1_orig.y.abs() > limit ||
+               p2_orig.x.abs() > limit || p2_orig.y.abs() > limit {
+                continue;
+            }
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
                 continue;

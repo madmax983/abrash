@@ -82,44 +82,6 @@ impl Mul<f32> for Vec2 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Mat2 {
-    pub m: [[f32; 2]; 2],
-}
-
-impl Mat2 {
-    #[must_use]
-    pub fn rotation(angle: f32) -> Self {
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        Self {
-            m: [[cos, -sin], [sin, cos]],
-        }
-    }
-
-    #[must_use]
-    pub fn transform(&self, v: Vec2) -> Vec2 {
-        Vec2 {
-            x: self.m[0][0] * v.x + self.m[0][1] * v.y,
-            y: self.m[1][0] * v.x + self.m[1][1] * v.y,
-        }
-    }
-
-    /// Transform multiple vectors at once
-    #[must_use]
-    pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        vertices.iter().map(|&v| self.transform(v)).collect()
-    }
-
-    /// Transform vertices in place
-    pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
-        for v in vertices.iter_mut() {
-            *v = self.transform(*v);
-        }
-    }
-}
-
 /// A 3-component vector commonly used for positions, directions, and colors.
 ///
 /// # Examples
@@ -581,8 +543,26 @@ pub fn project_to_screen_optimized(
     let depth = v.z * inv_w;
 
     // NDC to screen coordinates
-    let screen_x = ((ndc_x + 1.0) * half_width) as i32;
-    let screen_y = ((1.0 - ndc_y) * half_height) as i32; // Flip Y
+    let screen_x_f = (ndc_x + 1.0) * half_width;
+    let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
+
+    // Saturate to i32 bounds to avoid undefined behavior or overflow.
+    // Use MIN + 1 to safe-guard against potential abs() or negation panics on MIN.
+    let screen_x = if screen_x_f >= 2147483647.0 {
+        2147483647
+    } else if screen_x_f <= -2147483647.0 {
+        -2147483647
+    } else {
+        screen_x_f as i32
+    };
+
+    let screen_y = if screen_y_f >= 2147483647.0 {
+        2147483647
+    } else if screen_y_f <= -2147483647.0 {
+        -2147483647
+    } else {
+        screen_y_f as i32
+    };
 
     ScreenPoint {
         x: screen_x,

@@ -1,5 +1,4 @@
 use abrash::obj_loader::load_obj;
-use abrash::math::{Vec2, Vec3};
 
 #[test]
 fn test_valid_obj() {
