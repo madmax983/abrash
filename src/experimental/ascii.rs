@@ -25,6 +25,7 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+use std::fmt;
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
 use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
@@ -73,18 +74,27 @@ pub struct AsciiConverter<'a> {
 impl<'a> AsciiConverter<'a> {
     /// Creates a new ASCII converter for the given framebuffer.
     #[must_use]
-    pub fn new(framebuffer: &'a Framebuffer, charset: AsciiCharset) -> Self {
+    pub const fn new(framebuffer: &'a Framebuffer, charset: AsciiCharset) -> Self {
         Self {
             framebuffer,
             charset,
         }
     }
 
-    /// Converts the framebuffer to a String representation.
-    ///
-    /// Each row is terminated by a newline character.
-    #[must_use]
-    pub fn to_string(&self) -> String {
+    /// Calculates luminance using standard weights (Rec. 601).
+    /// Y = 0.299*R + 0.587*G + 0.114*B
+    const fn pixel_luminance(pixel: u32) -> u8 {
+        let r = (pixel >> 16) & 0xFF;
+        let g = (pixel >> 8) & 0xFF;
+        let b = pixel & 0xFF;
+
+        // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
+        ((77 * r + 150 * g + 29 * b) >> 8) as u8
+    }
+}
+
+impl<'a> fmt::Display for AsciiConverter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();
         // Estimate capacity: (width + 1) * height
@@ -99,18 +109,7 @@ impl<'a> AsciiConverter<'a> {
             }
             result.push('\n');
         }
-        result
-    }
-
-    /// Calculates luminance using standard weights (Rec. 601).
-    /// Y = 0.299*R + 0.587*G + 0.114*B
-    fn pixel_luminance(pixel: u32) -> u8 {
-        let r = ((pixel >> 16) & 0xFF) as u32;
-        let g = ((pixel >> 8) & 0xFF) as u32;
-        let b = (pixel & 0xFF) as u32;
-
-        // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
-        ((77 * r + 150 * g + 29 * b) >> 8) as u8
+        write!(f, "{result}")
     }
 }
 

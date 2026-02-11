@@ -467,6 +467,21 @@ impl Mat4 {
     /// # Panics
     ///
     /// Panics if `points.len()` does not equal `output.len()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let m = Mat4::scale(2.0, 2.0, 2.0);
+    /// let points = [Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)];
+    /// let mut output = vec![(Vec3::default(), 0.0); 2];
+    ///
+    /// m.transform_points(&points, &mut output);
+    ///
+    /// assert_eq!(output[0].0, Vec3::new(2.0, 0.0, 0.0));
+    /// assert_eq!(output[1].0, Vec3::new(0.0, 2.0, 0.0));
+    /// ```
     pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
         assert_eq!(points.len(), output.len());
         for (p, out) in points.iter().zip(output.iter_mut()) {
@@ -482,6 +497,20 @@ impl Mat4 {
     /// # Panics
     ///
     /// Panics if `points.len()` does not equal `output.len()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let m = Mat4::translation(10.0, 0.0, 0.0);
+    /// let points = [Vec3::new(0.0, 0.0, 0.0); 100];
+    /// let mut output = vec![(Vec3::default(), 0.0); 100];
+    ///
+    /// m.transform_points_parallel(&points, &mut output);
+    ///
+    /// assert_eq!(output[0].0, Vec3::new(10.0, 0.0, 0.0));
+    /// ```
     pub fn transform_points_parallel(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
         assert_eq!(points.len(), output.len());
 
@@ -581,7 +610,12 @@ pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,
     pub z: f32,
-    /// Reciprocal of the W coordinate (1/w) used for perspective-correct interpolation.
+    /// Reciprocal of the Homogeneous W coordinate ($1/w$).
+    ///
+    /// This value is critical for perspective-correct texture mapping and attribute interpolation.
+    /// By storing $1/w$, the rasterizer can interpolate attributes in screen space linearly
+    /// (e.g., $u/w$, $v/w$) and then recover the true perspective-correct value per pixel
+    /// by dividing by the interpolated $1/w$.
     ///
     /// Storing this avoids recomputing the division during triangle setup,
     /// saving ~10-20 CPU cycles per vertex.

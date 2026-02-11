@@ -65,6 +65,7 @@ impl ZBuffer {
     ///
     /// Caller must ensure x and y are within bounds.
     #[inline]
+    #[must_use]
     pub unsafe fn get_depth_unchecked(&self, x: usize, y: usize) -> f32 {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds

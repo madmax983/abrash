@@ -118,7 +118,26 @@ impl Framebuffer {
     ///
     /// # Safety
     ///
-    /// Caller must ensure x and y are within bounds.
+    /// Caller must ensure `x < width` and `y < height`.
+    /// Calling this with out-of-bounds coordinates results in Undefined Behavior
+    /// (likely a buffer overflow or segmentation fault).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// let x = 50;
+    /// let y = 50;
+    /// let color = 0xFFFF0000;
+    ///
+    /// if (x as u32) < fb.width() && (y as u32) < fb.height() {
+    ///     unsafe {
+    ///         fb.set_pixel_unchecked(x, y, color);
+    ///     }
+    /// }
+    /// ```
     pub unsafe fn set_pixel_unchecked(&mut self, x: usize, y: usize, color: u32) {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds
@@ -131,8 +150,24 @@ impl Framebuffer {
     ///
     /// # Safety
     ///
-    /// Caller must ensure x and y are within bounds.
+    /// Caller must ensure `x < width` and `y < height`.
+    /// Calling this with out-of-bounds coordinates results in Undefined Behavior.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(100, 100).unwrap();
+    /// let x = 10;
+    /// let y = 10;
+    ///
+    /// if (x as u32) < fb.width() && (y as u32) < fb.height() {
+    ///     let color = unsafe { fb.get_pixel_unchecked(x, y) };
+    /// }
+    /// ```
     #[inline]
+    #[must_use]
     pub unsafe fn get_pixel_unchecked(&self, x: usize, y: usize) -> u32 {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds
