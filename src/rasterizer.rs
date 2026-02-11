@@ -68,7 +68,8 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     let uy = i64::from(p1.y) - i64::from(p0.y);
     let vx = i64::from(p2.x) - i64::from(p0.x);
     let vy = i64::from(p2.y) - i64::from(p0.y);
-    let nz = ux * vy - uy * vx;
+    // Use i128 to prevent overflow during cross product calculation for large coordinates
+    let nz = (ux as i128) * (vy as i128) - (uy as i128) * (vx as i128);
     nz >= 0
 }
 
@@ -1673,5 +1674,37 @@ mod tests {
             "Last pixel: got {}, expected between 5.0 and 7.0",
             zb_slice[99]
         );
+    }
+
+    #[test]
+    fn test_is_backface_overflow() {
+        // Construct points that maximize the coordinate differences
+        // p0 at (MIN, MIN)
+        let p0 = ScreenPoint {
+            x: i32::MIN,
+            y: i32::MIN,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        // p1 at (MAX, MIN) -> ux = MAX - MIN approx 4e9
+        let p1 = ScreenPoint {
+            x: i32::MAX,
+            y: i32::MIN,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        // p2 at (MIN, MAX) -> vy = MAX - MIN approx 4e9
+        let p2 = ScreenPoint {
+            x: i32::MIN,
+            y: i32::MAX,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+
+        // ux * vy approx 1.6e19, which exceeds i64::MAX (9e18)
+        // This should not panic
+        let result = is_backface(p0, p1, p2);
+
+        assert_eq!(result, true);
     }
 }
