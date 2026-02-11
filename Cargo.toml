@@ -106,6 +106,10 @@ name = "rasterization"
 harness = false
 
 [[bench]]
+name = "bilinear_optimization"
+harness = false
+
+[[bench]]
 name = "culling"
 harness = false
 

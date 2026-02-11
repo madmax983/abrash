@@ -980,7 +980,7 @@ pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
     0.062_5,
 ];
 
-#[inline(always)]
+#[inline]
 #[allow(clippy::too_many_arguments)]
 fn draw_span_nearest(
     fb_slice: &mut [u32],
@@ -1043,7 +1043,7 @@ fn draw_span_nearest(
     }
 }
 
-#[inline(always)]
+#[inline]
 #[allow(clippy::too_many_arguments)]
 fn draw_span_bilinear(
     fb_slice: &mut [u32],
@@ -1071,6 +1071,14 @@ fn draw_span_bilinear(
     // without branching inside the loop for every pixel.
     macro_rules! process_span_bilinear {
         ($op:tt, $val:expr) => {
+            // Texel cache for magnification optimization
+            let mut cached_x0 = i32::MIN;
+            let mut cached_y0 = i32::MIN;
+            let mut c00_cache = 0;
+            let mut c10_cache = 0;
+            let mut c01_cache = 0;
+            let mut c11_cache = 0;
+
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 if z < *depth_val {
                     *depth_val = z;
@@ -1086,8 +1094,10 @@ fn draw_span_bilinear(
                     let x0_raw = u_img_fixed >> 8;
                     let y0_raw = v_img_fixed >> 8;
 
-                    let (c00, c10, c01, c11) =
-                        if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
+                    let (c00, c10, c01, c11) = if x0_raw == cached_x0 && y0_raw == cached_y0 {
+                        (c00_cache, c10_cache, c01_cache, c11_cache)
+                    } else {
+                        let result = if x0_raw >= 0 && x0_raw < w_i32 && y0_raw >= 0 && y0_raw < h_i32 {
                             let x0 = x0_raw as usize;
                             let y0 = y0_raw as usize;
 
@@ -1120,6 +1130,16 @@ fn draw_span_bilinear(
                                 )
                             }
                         };
+
+                        // Update cache
+                        cached_x0 = x0_raw;
+                        cached_y0 = y0_raw;
+                        c00_cache = result.0;
+                        c10_cache = result.1;
+                        c01_cache = result.2;
+                        c11_cache = result.3;
+                        result
+                    };
 
                     let top = blend_swar(c00, c10, wx, inv_wx);
                     let bottom = blend_swar(c01, c11, wx, inv_wx);
