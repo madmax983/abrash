@@ -202,3 +202,8 @@ harness = false
 [[bench]]
 name = "post_process"
 harness = false
+
+[[bench]]
+name = "gpu_render"
+harness = false
+required-features = ["gpu-render"]

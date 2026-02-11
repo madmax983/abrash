@@ -1,8 +1,8 @@
 #![cfg(feature = "gpu-render")]
 
 use abrash::gpu_render::{
-    GpuDemoConfig, GpuInteractionController, GpuVertex, MeshValidationError, validate_demo_config,
-    validate_mesh,
+    GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig,
+    GpuVertex, MeshValidationError, validate_demo_config, validate_mesh,
 };
 
 #[test]
@@ -111,4 +111,10 @@ fn interaction_controller_clamps_distance() {
 
     controller.adjust_zoom(10.0, &config);
     assert_eq!(controller.distance(), 4.0);
+}
+
+#[test]
+fn offscreen_benchmark_types_are_exposed() {
+    let _ = std::any::type_name::<GpuOffscreenBenchConfig>();
+    let _ = std::any::type_name::<GpuOffscreenBench>();
 }
