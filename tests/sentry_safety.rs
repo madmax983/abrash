@@ -9,7 +9,7 @@ mod tests {
         let mut tex = Texture::new(16, 16).unwrap();
         // Fill with some data
         for i in 0..16 * 16 {
-            tex.pixels[i] = 0xFFFFFFFF;
+            tex.pixels[i] = 0xFFFF_FFFF;
         }
         tex.generate_mipmaps();
 
@@ -20,13 +20,13 @@ mod tests {
         // Test Edge Case LODs
         let val_nan = tex.get_pixel_trilinear(0.5, 0.5, f32::NAN);
         // We just care that it doesn't panic
-        assert_eq!(val_nan, 0xFFFFFFFF);
+        assert_eq!(val_nan, 0xFFFF_FFFF);
 
         let val_inf = tex.get_pixel_trilinear(0.5, 0.5, f32::INFINITY);
-        assert_eq!(val_inf, 0xFFFFFFFF); // Should sample lowest mip (1x1) which is white
+        assert_eq!(val_inf, 0xFFFF_FFFF); // Should sample lowest mip (1x1) which is white
 
         let val_neg_inf = tex.get_pixel_trilinear(0.5, 0.5, f32::NEG_INFINITY);
-        assert_eq!(val_neg_inf, 0xFFFFFFFF); // Should sample base level
+        assert_eq!(val_neg_inf, 0xFFFF_FFFF); // Should sample base level
     }
 
     #[test]
@@ -54,7 +54,7 @@ mod tests {
         let v = Vec3::new(1.0, 2.0, 3.0);
         let (_, w) = m.transform_point(v);
 
-        assert_eq!(w, 1.0);
+        assert!((w - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -65,7 +65,7 @@ mod tests {
         // x + width = 10 + u32::MAX wraps to 9
         // min(100) -> 9
         // range 10..9 -> Panic!
-        fb.clear_rect(10, 10, u32::MAX, 10, 0xFFFFFFFF);
+        fb.clear_rect(10, 10, u32::MAX, 10, 0xFFFF_FFFF);
     }
 
     #[test]

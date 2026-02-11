@@ -9,7 +9,7 @@
 //! - Pixel-identical GPU vs CPU output
 //! - Odd dimensions (1023×767)
 //! - Edge cases (empty, uniform, gradient depths)
-//! - HiZBuffer integration (enable_gpu_build)
+//! - `HiZBuffer` integration (`enable_gpu_build`)
 //! - Occlusion queries with GPU pyramid
 //! - Upload/download round-trip
 
