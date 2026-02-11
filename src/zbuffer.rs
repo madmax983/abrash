@@ -59,6 +59,18 @@ impl ZBuffer {
         }
     }
 
+    /// Get depth at pixel without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure x and y are within bounds.
+    #[inline]
+    pub unsafe fn get_depth_unchecked(&self, x: usize, y: usize) -> f32 {
+        let idx = y * self.width as usize + x;
+        // SAFETY: Caller guarantees bounds
+        unsafe { *self.depths.get_unchecked(idx) }
+    }
+
     /// Get depth at pixel
     #[inline]
     #[must_use]
