@@ -3,7 +3,7 @@ use abrash::{
     zbuffer::ZBuffer,
 };
 use comfy_table::{
-    modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Attribute, Cell, Color, Table,
+    Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL,
 };
 use std::time::Instant;
 
@@ -267,16 +267,11 @@ fn profile_rendering_pipeline() {
 
     println!("{table}");
 
-    println!(
-        "\n📈 Throughput: {m_tris_per_sec} M triangles/sec\n"
-    );
+    println!("\n📈 Throughput: {m_tris_per_sec} M triangles/sec\n");
 }
 
 /// Generate horizontal triangles of specific scanline length
-fn generate_horizontal_triangles(
-    scanline_len: u32,
-    count: usize,
-) -> Vec<ProfilingTriangle> {
+fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<ProfilingTriangle> {
     let mut triangles = Vec::new();
     let width = scanline_len as f32;
 
@@ -298,11 +293,7 @@ fn generate_horizontal_triangles(
 }
 
 /// Generate test scene with triangles
-fn generate_test_scene(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<ProfilingTriangle> {
+fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<ProfilingTriangle> {
     let mut triangles = Vec::new();
 
     for i in 0..count {

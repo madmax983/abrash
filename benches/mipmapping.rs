@@ -4,7 +4,7 @@ use abrash::mesh::Mesh;
 use abrash::rasterizer::fill_triangle_textured;
 use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 /// Setup a cube's transformed vertices and MVP for consistent benchmarks
 fn setup_cube(aspect: f32) -> (Mesh, Vec<(Vec3, f32)>) {
@@ -40,7 +40,11 @@ fn bench_trilinear_filter(c: &mut Criterion) {
     // Fill with pattern
     for y in 0..64 {
         for x in 0..64 {
-            let color = if (x + y) % 2 == 0 { 0xFFFFFFFF } else { 0xFF000000 };
+            let color = if (x + y) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
             texture.set_pixel(x, y, color);
         }
     }

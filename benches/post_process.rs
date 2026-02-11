@@ -1,6 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
 use abrash::framebuffer::Framebuffer;
 use abrash::post_process;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_grayscale(c: &mut Criterion) {
     let width = 1920;

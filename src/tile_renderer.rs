@@ -609,13 +609,21 @@ fn render_triangle_in_tile_textured(
                             let w = 1.0 / q_left;
                             let w_sq = w * w;
 
-                            let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
-                            let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
-                            let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
-                            let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+                            let du_tex_dx = (tri.gradients.du_dx * q_left
+                                - u_left * tri.gradients.dq_dx)
+                                * w_sq;
+                            let dv_tex_dx = (tri.gradients.dv_dx * q_left
+                                - v_left * tri.gradients.dq_dx)
+                                * w_sq;
+                            let du_tex_dy = (tri.gradients.du_dy * q_left
+                                - u_left * tri.gradients.dq_dy)
+                                * w_sq;
+                            let dv_tex_dy = (tri.gradients.dv_dy * q_left
+                                - v_left * tri.gradients.dq_dy)
+                                * w_sq;
 
-                            let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                             du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+                            let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                                .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
                             let lod = 0.5 * max_rho_sq.log2();
                             texture.get_pixel_trilinear(u_tex, v_tex, lod)
@@ -752,8 +760,8 @@ fn rasterize_scanline_textured(
                 let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
                 let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
 
-                let max_rho_sq = (du_tex_dx*du_tex_dx + dv_tex_dx*dv_tex_dx).max(
-                                 du_tex_dy*du_tex_dy + dv_tex_dy*dv_tex_dy);
+                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
                 let lod = 0.5 * max_rho_sq.log2();
 
@@ -820,9 +828,9 @@ fn rasterize_scanline_simd(
     color: u32,
 ) {
     use std::arch::x86_64::{
-        _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_ps, _mm256_castps_si256, _mm256_castsi256_ps,
-        _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_ps, _mm256_set1_epi32,
-        _mm256_set1_ps, _mm256_set_ps, _mm256_storeu_ps, _mm256_storeu_si256, __m256i,
+        __m256i, _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_ps, _mm256_castps_si256,
+        _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_ps,
+        _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_storeu_ps, _mm256_storeu_si256,
     };
 
     let len = pixels.len();
@@ -1302,8 +1310,10 @@ impl TileRenderer {
                                 // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
                                 // writes to non-overlapping regions determined by unique (tx, ty)
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -1462,8 +1472,10 @@ impl TileRenderer {
                                 let fb_start = row as usize * width as usize + tile_x0 as usize;
 
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr.write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -1930,7 +1942,11 @@ impl TileRenderer {
 ///
 /// See `docs/adr/001-tile-based-rendering.md` for full benchmark analysis.
 #[must_use]
-pub const fn should_use_tiled_rendering(width: usize, height: usize, triangle_count: usize) -> bool {
+pub const fn should_use_tiled_rendering(
+    width: usize,
+    height: usize,
+    triangle_count: usize,
+) -> bool {
     let pixels = width * height;
     // Calculate framebuffer size in megabytes (4 bytes per pixel + 4 bytes per depth = 8 bytes total)
     let framebuffer_mb = (pixels * 8) / (1024 * 1024);

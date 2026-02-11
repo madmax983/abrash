@@ -1,4 +1,4 @@
-use abrash::gpu_render::{mesh_to_gpu, run_mesh_demo, GpuDemoConfig};
+use abrash::gpu_render::{GpuDemoConfig, mesh_to_gpu, run_mesh_demo};
 use abrash::obj_loader::load_obj;
 
 const SPACESHIP_OBJ: &str = r#"
@@ -25,12 +25,20 @@ fn main() -> Result<(), String> {
     // 1. Load Mesh (CPU)
     println!("Loading OBJ...");
     let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| e.to_string())?;
-    println!("Mesh loaded: {} vertices, {} triangles", mesh.vertices.len(), mesh.indices.len());
+    println!(
+        "Mesh loaded: {} vertices, {} triangles",
+        mesh.vertices.len(),
+        mesh.indices.len()
+    );
 
     // 2. Convert to GPU Format (Bridge)
     println!("Converting to GPU format...");
     let (vertices, indices) = mesh_to_gpu(&mesh)?;
-    println!("Conversion successful: {} GPU vertices, {} indices", vertices.len(), indices.len());
+    println!(
+        "Conversion successful: {} GPU vertices, {} indices",
+        vertices.len(),
+        indices.len()
+    );
 
     // 3. Configure and Run (GPU)
     let config = GpuDemoConfig {

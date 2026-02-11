@@ -89,11 +89,7 @@ fn bench_software_binning_comparison(c: &mut Criterion) {
         let triangle = generate_large_triangle(0.5);
 
         b.iter(|| {
-            renderer.render_batch(
-                black_box(&mut fb),
-                black_box(&mut zb),
-                black_box(&triangle),
-            );
+            renderer.render_batch(black_box(&mut fb), black_box(&mut zb), black_box(&triangle));
         });
     });
 
@@ -106,11 +102,7 @@ fn bench_software_binning_comparison(c: &mut Criterion) {
         let triangle = generate_large_triangle(0.5);
 
         b.iter(|| {
-            renderer.render_batch(
-                black_box(&mut fb),
-                black_box(&mut zb),
-                black_box(&triangle),
-            );
+            renderer.render_batch(black_box(&mut fb), black_box(&mut zb), black_box(&triangle));
         });
     });
 

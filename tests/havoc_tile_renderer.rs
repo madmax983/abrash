@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::tile_renderer::{TileRenderer, ClipTriangle};
-use abrash::zbuffer::ZBuffer;
 use abrash::math::Vec3;
+use abrash::tile_renderer::{ClipTriangle, TileRenderer};
+use abrash::zbuffer::ZBuffer;
 use proptest::prelude::*;
 
 // Strategy to generate random Vec3 with potential edge cases
@@ -12,7 +12,11 @@ fn vec3_strategy() -> impl Strategy<Value = Vec3> {
         // Extreme values
         Just(Vec3::new(f32::NAN, f32::NAN, f32::NAN)),
         Just(Vec3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY)),
-        Just(Vec3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY)),
+        Just(Vec3::new(
+            f32::NEG_INFINITY,
+            f32::NEG_INFINITY,
+            f32::NEG_INFINITY
+        )),
         Just(Vec3::new(0.0, 0.0, 0.0)),
         Just(Vec3::new(1e30, 1e30, 1e30)),
     ]

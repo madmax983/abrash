@@ -5,9 +5,9 @@
 
 use abrash::{
     framebuffer::Framebuffer,
+    math::Vec3,
     tile_renderer::{ClipTriangle, TileRenderer},
     zbuffer::ZBuffer,
-    math::Vec3,
 };
 
 /// Helper to create a clip-space vertex
@@ -73,8 +73,7 @@ fn test_software_two_level_matches_single_level() {
     }
 
     assert_eq!(
-        diff_count,
-        0,
+        diff_count, 0,
         "Two-level and single-level rendering differ in {diff_count} pixels"
     );
 }
