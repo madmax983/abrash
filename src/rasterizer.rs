@@ -23,6 +23,13 @@ use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
 use crate::texture::{FilterMode, Texture, blend_swar};
 use crate::zbuffer::ZBuffer;
 
+/// Helper struct to bundle Framebuffer and ZBuffer references.
+/// This reduces the number of arguments passed to drawing functions.
+pub(crate) struct RasterBuffers<'a> {
+    pub(crate) fb: &'a mut Framebuffer,
+    pub(crate) zb: &'a mut ZBuffer,
+}
+
 /// Helper to ensure buffer dimensions match
 #[inline]
 fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
@@ -76,8 +83,7 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_scanline_flat(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
+    buffers: &mut RasterBuffers,
     y: i32,
     x_start: i32,
     x_end: i32,
@@ -85,7 +91,7 @@ fn draw_scanline_flat(
     dz_dx: f32,
     color: u32,
 ) {
-    let width = fb.width() as i32;
+    let width = buffers.fb.width() as i32;
     // Clamp X range to screen bounds
     let mut xs = x_start;
     let mut xe = x_end;
@@ -105,6 +111,9 @@ fn draw_scanline_flat(
     if xs > xe {
         return;
     }
+
+    let fb = &mut buffers.fb;
+    let zb = &mut buffers.zb;
 
     // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
     debug_assert_eq!(
@@ -179,10 +188,12 @@ pub fn fill_triangle_3d(
 ) {
     assert_same_dimensions(fb, zb);
 
+    let mut buffers = RasterBuffers { fb, zb };
+
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
-    let width = fb.width();
-    let height = fb.height();
+    let width = buffers.fb.width();
+    let height = buffers.fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
@@ -286,13 +297,13 @@ pub fn fill_triangle_3d(
                 if x_start >= 0 && x_start < width_i32 {
                     // SAFETY: Safe due to clamps on x_start and y.
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        if buffers.zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            buffers.fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         }
                     }
                 }
             } else {
-                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+                draw_scanline_flat(&mut buffers, y, x_start, x_end, z_left, dz_dx, color);
             }
 
             edge_a.step();
@@ -307,7 +318,7 @@ pub fn color_to_u32(color: Vec3) -> u32 {
     let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
     let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
     let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
-    0xFF00_0000 | (r << 16) | (g << 8) | b
+    pack_color_channels(r, g, b)
 }
 
 /// Helper to pack 8-bit color channels into u32 ARGB
@@ -325,6 +336,16 @@ fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
     pack_color_channels(r, g, b)
 }
 
+/// Helper to pack 16.16 fixed point color channels into u32 ARGB
+#[inline(always)]
+fn pack_color_from_16_16(r: i32, g: i32, b: i32) -> u32 {
+    let r = r.clamp(0, 0x00FF_0000) as u32;
+    let g = g.clamp(0, 0x00FF_0000) as u32;
+    let b = b.clamp(0, 0x00FF_0000) as u32;
+
+    0xFF00_0000 | (r & 0x00FF_0000) | ((g & 0x00FF_0000) >> 8) | ((b & 0x00FF_0000) >> 16)
+}
+
 // Fixed point scale factor (16.16)
 pub(crate) const FIXED_SCALE: f32 = 65536.0;
 
@@ -332,8 +353,7 @@ pub(crate) const FIXED_SCALE: f32 = 65536.0;
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_scanline_gouraud(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
+    buffers: &mut RasterBuffers,
     y: i32,
     x_start: i32,
     x_end: i32,
@@ -342,7 +362,7 @@ fn draw_scanline_gouraud(
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
-    let width = fb.width() as i32;
+    let width = buffers.fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = z_start;
@@ -380,6 +400,9 @@ fn draw_scanline_gouraud(
     let db = db as i32;
 
     if xs <= xe {
+        let fb = &mut buffers.fb;
+        let zb = &mut buffers.zb;
+
         // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
@@ -398,17 +421,7 @@ fn draw_scanline_gouraud(
             // Check depth buffer
             if z < *depth_val {
                 *depth_val = z;
-                // Unpack fixed point color
-                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                // 16.16 fixed point means 255.0 is 0x00FF0000
-                let r = r_i.clamp(0, 0x00FF_0000);
-                let g = g_i.clamp(0, 0x00FF_0000);
-                let b = b_i.clamp(0, 0x00FF_0000);
-
-                *pixel = 0xFF00_0000
-                    | ((r as u32) & 0x00FF_0000)
-                    | (((g as u32) & 0x00FF_0000) >> 8)
-                    | (((b as u32) & 0x00FF_0000) >> 16);
+                *pixel = pack_color_from_16_16(r_i, g_i, b_i);
             }
             z += dz_dx;
             r_i += dr;
@@ -590,10 +603,12 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
+    let mut buffers = RasterBuffers { fb, zb };
+
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
-    let width = fb.width();
-    let height = fb.height();
+    let width = buffers.fb.width();
+    let height = buffers.fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
@@ -693,8 +708,8 @@ pub fn fill_triangle_gouraud(
                 if x_start >= 0 && x_start < width_i32 {
                     // SAFETY: Safe due to clamps on x_start and y
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                            fb.set_pixel_unchecked(
+                        if buffers.zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            buffers.fb.set_pixel_unchecked(
                                 x_start as usize,
                                 y as usize,
                                 pack_color_fixed(c_left),
@@ -704,8 +719,7 @@ pub fn fill_triangle_gouraud(
                 }
             } else {
                 draw_scanline_gouraud(
-                    fb,
-                    zb,
+                    &mut buffers,
                     y,
                     x_start,
                     x_end,
@@ -1116,8 +1130,7 @@ fn draw_span_trilinear(
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_scanline_textured_perspective(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
+    buffers: &mut RasterBuffers,
     texture: &Texture,
     y: i32,
     x_start: i32,
@@ -1125,7 +1138,7 @@ fn draw_scanline_textured_perspective(
     start: PerspectiveSpanStart,
     gradients: &PerspectiveTextureGradients,
 ) {
-    let width = fb.width() as i32;
+    let width = buffers.fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = start.z;
@@ -1183,6 +1196,9 @@ fn draw_scanline_textured_perspective(
         let inv_count = RECIPROCAL_TABLE[count as usize];
         let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
         let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
+
+        let fb = &mut buffers.fb;
+        let zb = &mut buffers.zb;
 
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
@@ -1295,10 +1311,12 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
+    let mut buffers = RasterBuffers { fb, zb };
+
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
-    let width = fb.width();
-    let height = fb.height();
+    let width = buffers.fb.width();
+    let height = buffers.fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
@@ -1314,13 +1332,7 @@ pub fn fill_triangle_textured(
         let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -1435,7 +1447,7 @@ pub fn fill_triangle_textured(
                 if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
                     // SAFETY: Safe due to clamps on x_start and y
                     unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        if buffers.zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                             let w = 1.0 / q_left;
                             let u_tex = u_left * w;
                             let v_tex = v_left * w;
@@ -1475,14 +1487,13 @@ pub fn fill_triangle_textured(
                                     texture.get_pixel_trilinear(u_tex, v_tex, lod)
                                 }
                             };
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                            buffers.fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         }
                     }
                 }
             } else {
                 draw_scanline_textured_perspective(
-                    fb,
-                    zb,
+                    &mut buffers,
                     texture,
                     y,
                     x_start,
@@ -1645,7 +1656,11 @@ mod tests {
         let dz_dx = 0.01; // Slight gradient
         let color = 0xFFFF_0000;
 
-        draw_scanline_flat(&mut fb, &mut zb, 0, 0, 99, z_start, dz_dx, color);
+        let mut buffers = RasterBuffers {
+            fb: &mut fb,
+            zb: &mut zb,
+        };
+        draw_scanline_flat(&mut buffers, 0, 0, 99, z_start, dz_dx, color);
 
         // Verify all pixels were drawn
         for x in 0..width {
