@@ -91,6 +91,43 @@ impl<'a> AsciiConverter<'a> {
         // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
         ((77 * r + 150 * g + 29 * b) >> 8) as u8
     }
+
+    /// Converts the framebuffer to a string with ANSI color codes.
+    ///
+    /// This method generates a string where each character is prefixed with an ANSI
+    /// escape code for its color (RGB), resetting color at the end of each line.
+    #[must_use]
+    pub fn to_colored_string(&self) -> String {
+        let width = self.framebuffer.width();
+        let height = self.framebuffer.height();
+        // Estimate capacity: (width * (chars per pixel + overhead)) * height
+        // ANSI sequence is roughly "\x1b[38;2;RRR;GGG;BBBmC" -> ~20 chars
+        let mut result = String::with_capacity(((width * 20) * height) as usize);
+
+        for y in 0..height {
+            for x in 0..width {
+                if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
+                    let luminance = Self::pixel_luminance(pixel);
+                    let ch = self.charset.map(luminance);
+
+                    let r = (pixel >> 16) & 0xFF;
+                    let g = (pixel >> 8) & 0xFF;
+                    let b = pixel & 0xFF;
+
+                    // ANSI 24-bit color: ESC[38;2;R;G;Bm
+                    // Note: This allocation inside loop is not ideal for performance but acceptable for ASCII resolution.
+                    // A better approach would be to write directly to the buffer.
+                    use std::fmt::Write;
+                    let _ = write!(result, "\x1b[38;2;{};{};{}m{}", r, g, b, ch);
+                } else {
+                    result.push(' ');
+                }
+            }
+            // Reset color at end of line
+            result.push_str("\x1b[0m\n");
+        }
+        result
+    }
 }
 
 impl fmt::Display for AsciiConverter<'_> {
