@@ -489,45 +489,6 @@ impl Mat4 {
         }
     }
 
-    /// Transforms multiple points by this matrix in parallel (if `parallel` feature is enabled).
-    ///
-    /// Output buffer must have same length as input points.
-    /// Returns (`transformed_point`, `w_component`) for each point.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `points.len()` does not equal `output.len()`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use abrash::math::{Mat4, Vec3};
-    ///
-    /// let m = Mat4::translation(10.0, 0.0, 0.0);
-    /// let points = [Vec3::new(0.0, 0.0, 0.0); 100];
-    /// let mut output = vec![(Vec3::default(), 0.0); 100];
-    ///
-    /// m.transform_points_parallel(&points, &mut output);
-    ///
-    /// assert_eq!(output[0].0, Vec3::new(10.0, 0.0, 0.0));
-    /// ```
-    pub fn transform_points_parallel(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
-        assert_eq!(points.len(), output.len());
-
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            self.transform_points(points, output);
-        }
-    }
-
     /// Transform a normal vector (ignores translation, uses upper-left 3x3).
     ///
     /// This is essential for correct lighting calculations after transformation.
