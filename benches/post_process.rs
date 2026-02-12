@@ -42,10 +42,24 @@ fn benchmark_invert(c: &mut Criterion) {
     });
 }
 
+fn benchmark_sepia(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    fb.clear(0xFFFFFFFF); // White
+
+    c.bench_function("apply_sepia 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_sepia(black_box(&mut fb));
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
     benchmark_scanlines,
-    benchmark_invert
+    benchmark_invert,
+    benchmark_sepia
 );
 criterion_main!(benches);
