@@ -1837,6 +1837,207 @@ struct PhongSpanStart {
     nz: f32,
 }
 
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "x86"),
+    target_feature = "avx2"
+))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+unsafe fn draw_scanline_phong_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    mut z: f32,
+    mut nx: f32,
+    mut ny: f32,
+    mut nz: f32,
+    gradients: &PhongGradients,
+    pre_diffuse: Vec3,
+    neg_light_dir: Vec3,
+    ambient: Vec3,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Load constants
+    let dz_dx_vec = _mm256_set1_ps(gradients.dz_dx);
+    let dnx_dx_vec = _mm256_set1_ps(gradients.dnx_dx);
+    let dny_dx_vec = _mm256_set1_ps(gradients.dny_dx);
+    let dnz_dx_vec = _mm256_set1_ps(gradients.dnz_dx);
+
+    let lx = _mm256_set1_ps(neg_light_dir.x);
+    let ly = _mm256_set1_ps(neg_light_dir.y);
+    let lz = _mm256_set1_ps(neg_light_dir.z);
+
+    let diff_r = _mm256_set1_ps(pre_diffuse.x);
+    let diff_g = _mm256_set1_ps(pre_diffuse.y);
+    let diff_b = _mm256_set1_ps(pre_diffuse.z);
+
+    let amb_r = _mm256_set1_ps(ambient.x);
+    let amb_g = _mm256_set1_ps(ambient.y);
+    let amb_b = _mm256_set1_ps(ambient.z);
+
+    let epsilon = _mm256_set1_ps(0.0001);
+    let zero = _mm256_setzero_ps();
+    let one = _mm256_set1_ps(1.0);
+    let one_point_five = _mm256_set1_ps(1.5);
+    let zero_point_five = _mm256_set1_ps(0.5);
+    let scale_255 = _mm256_set1_ps(255.0);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    // Initial offsets for 8 pixels
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z), _mm256_mul_ps(dz_dx_vec, offsets));
+    let mut nx_vec = _mm256_add_ps(_mm256_set1_ps(nx), _mm256_mul_ps(dnx_dx_vec, offsets));
+    let mut ny_vec = _mm256_add_ps(_mm256_set1_ps(ny), _mm256_mul_ps(dny_dx_vec, offsets));
+    let mut nz_vec = _mm256_add_ps(_mm256_set1_ps(nz), _mm256_mul_ps(dnz_dx_vec, offsets));
+
+    // Steps for 8 pixels
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+    let dnx_step = _mm256_mul_ps(dnx_dx_vec, _mm256_set1_ps(8.0));
+    let dny_step = _mm256_mul_ps(dny_dx_vec, _mm256_set1_ps(8.0));
+    let dnz_step = _mm256_mul_ps(dnz_dx_vec, _mm256_set1_ps(8.0));
+
+    while i + 8 <= len {
+        // Load depth buffer
+        let depth_ptr = zb_slice.as_mut_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+
+        // Z-test
+        let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+        let mask_int = _mm256_castps_si256(mask);
+
+        // If any pixel passes Z-test
+        if _mm256_movemask_ps(mask) != 0 {
+            // Update Z-buffer
+            // Optimization: Use load-blend-store instead of maskstore which can be slow
+            let old_z = _mm256_loadu_ps(depth_ptr);
+            let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+            _mm256_storeu_ps(depth_ptr, new_z);
+
+            // Shading
+            let nx_sq = _mm256_mul_ps(nx_vec, nx_vec);
+            let ny_sq = _mm256_mul_ps(ny_vec, ny_vec);
+            let nz_sq = _mm256_mul_ps(nz_vec, nz_vec);
+            let len_sq = _mm256_add_ps(nx_sq, _mm256_add_ps(ny_sq, nz_sq));
+
+            // Check if len_sq > epsilon
+            let len_valid = _mm256_cmp_ps(len_sq, epsilon, _CMP_GT_OQ);
+
+            // Calculate rsqrt. Avoid rsqrt(0) by blending with 1.0 (doesn't matter what value, masked out later)
+            let safe_len_sq = _mm256_blendv_ps(one, len_sq, len_valid);
+            let rsqrt = _mm256_rsqrt_ps(safe_len_sq);
+
+            // Newton-Raphson iteration: y = y * (1.5 - 0.5 * x * y * y)
+            let iter1 = _mm256_mul_ps(safe_len_sq, _mm256_mul_ps(rsqrt, rsqrt));
+            let iter2 = _mm256_sub_ps(one_point_five, _mm256_mul_ps(zero_point_five, iter1));
+            let inv_len = _mm256_mul_ps(rsqrt, iter2);
+
+            // Dot product (unnormalized)
+            let dot_x = _mm256_mul_ps(nx_vec, lx);
+            let dot_y = _mm256_mul_ps(ny_vec, ly);
+            let dot_z = _mm256_mul_ps(nz_vec, lz);
+            let dot_unorm = _mm256_add_ps(dot_x, _mm256_add_ps(dot_y, dot_z));
+
+            // Intensity
+            let intensity_raw = _mm256_mul_ps(dot_unorm, inv_len);
+            let intensity = _mm256_max_ps(zero, intensity_raw);
+
+            // Apply mask for valid length
+            let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
+
+            // Calculate Color
+            let r = _mm256_add_ps(amb_r, _mm256_mul_ps(diff_r, intensity));
+            let g = _mm256_add_ps(amb_g, _mm256_mul_ps(diff_g, intensity));
+            let b = _mm256_add_ps(amb_b, _mm256_mul_ps(diff_b, intensity));
+
+            // Clamp and convert to u32
+            // Clamp 0.0-1.0
+            let r_clamp = _mm256_min_ps(_mm256_max_ps(r, zero), one);
+            let g_clamp = _mm256_min_ps(_mm256_max_ps(g, zero), one);
+            let b_clamp = _mm256_min_ps(_mm256_max_ps(b, zero), one);
+
+            // Scale to 255.0
+            let r_255 = _mm256_mul_ps(r_clamp, scale_255);
+            let g_255 = _mm256_mul_ps(g_clamp, scale_255);
+            let b_255 = _mm256_mul_ps(b_clamp, scale_255);
+
+            // Convert to i32 (truncation match scalar?) Scalar uses `as u32` which is truncation.
+            // cvttps truncates.
+            let r_i = _mm256_cvttps_epi32(r_255);
+            let g_i = _mm256_cvttps_epi32(g_255);
+            let b_i = _mm256_cvttps_epi32(b_255);
+
+            // Pack: 0xFF000000 | (r << 16) | (g << 8) | b
+            let pixel_val = _mm256_or_si256(
+                alpha_mask,
+                _mm256_or_si256(
+                    _mm256_slli_epi32(r_i, 16),
+                    _mm256_or_si256(_mm256_slli_epi32(g_i, 8), b_i),
+                ),
+            );
+
+            // Store pixels
+            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+            let old_color = _mm256_loadu_si256(fb_ptr);
+            // blendv_epi8 blends based on the high bit of each byte.
+            // Our mask is 32-bit 0xFFFFFFFF or 0x00000000, so it works for bytes too.
+            let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+            _mm256_storeu_si256(fb_ptr, new_color);
+        }
+
+        // Advance
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        nx_vec = _mm256_add_ps(nx_vec, dnx_step);
+        ny_vec = _mm256_add_ps(ny_vec, dny_step);
+        nz_vec = _mm256_add_ps(nz_vec, dnz_step);
+
+        i += 8;
+    }
+
+    // Scalar tail loop
+    while i < len {
+        // We need to extract current scalar values from vector state or recompute?
+        // Recomputing is safer/easier than extraction.
+        // Or simply maintain scalar counters parallel to vector?
+        // But vector state is already advanced.
+
+        // Let's just recompute for the tail from the current `i`.
+        // x_current = x_start + i
+        // value = start + gradient * i
+
+        let i_f = i as f32;
+        let mut z = z + i_f * gradients.dz_dx;
+        let mut nx = nx + i_f * gradients.dnx_dx;
+        let mut ny = ny + i_f * gradients.dny_dx;
+        let mut nz = nz + i_f * gradients.dnz_dx;
+
+        let pixel = &mut fb_slice[i];
+        let depth_val = &mut zb_slice[i];
+
+        if z < *depth_val {
+            *depth_val = z;
+
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
+
+            let intensity = if len_sq > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                (dot_unorm * inv_len).max(0.0)
+            } else {
+                0.0
+            };
+
+            let diffuse = pre_diffuse * intensity;
+            let final_color_vec = ambient + diffuse;
+            *pixel = color_to_u32(final_color_vec);
+        }
+
+        i += 1;
+    }
+}
+
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_scanline_phong(
@@ -1886,6 +2087,28 @@ fn draw_scanline_phong(
     // SAFETY: Clamped above.
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "x86"),
+        target_feature = "avx2"
+    ))]
+    if is_x86_feature_detected!("avx2") {
+        unsafe {
+            draw_scanline_phong_simd(
+                fb_slice,
+                zb_slice,
+                z,
+                nx,
+                ny,
+                nz,
+                gradients,
+                pre_diffuse,
+                neg_light_dir,
+                ambient,
+            );
+        }
+        return;
+    }
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
         if z < *depth_val {
