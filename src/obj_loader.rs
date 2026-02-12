@@ -27,7 +27,7 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     }
     let mut n: usize = 0;
     for &b in bytes {
-        if b < b'0' || b > b'9' {
+        if !b.is_ascii_digit() {
             return None;
         }
         n = n.checked_mul(10)?.checked_add((b - b'0') as usize)?;
@@ -173,8 +173,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                 // It's v/vt...
                                 // Find end of vt (next slash or end of string)
                                 let mut end_vt = bytes.len();
-                                for i in after_slash..bytes.len() {
-                                    if bytes[i] == b'/' {
+                                for (i, &b) in bytes.iter().enumerate().skip(after_slash) {
+                                    if b == b'/' {
                                         end_vt = i;
                                         break;
                                     }
@@ -208,13 +208,20 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Linear scan in the cache chain for this vertex
                     let mut found_idx = None;
                     let mut curr = cache_head[v_idx];
+                    let mut depth = 0;
                     while curr != usize::MAX {
+                        // DoS protection: limit chain depth to prevent O(N^2) behavior
+                        // when many vertices share the same position but differ in other attributes.
+                        if depth >= 8 {
+                            break;
+                        }
                         let node = &cache_nodes[curr];
                         if node.vt_idx == vt_key {
                             found_idx = Some(node.new_idx);
                             break;
                         }
                         curr = node.next;
+                        depth += 1;
                     }
 
                     if let Some(idx) = found_idx {

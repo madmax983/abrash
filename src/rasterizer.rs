@@ -1782,6 +1782,7 @@ impl PhongEdgeWalker {
     }
 }
 
+#[derive(Clone, Copy)]
 struct PhongSpanStart {
     z: f32,
     // q unused in optimization
