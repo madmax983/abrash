@@ -220,6 +220,38 @@ impl Vec3 {
             *self
         }
     }
+
+    /// Returns a normalized unit vector using a fast inverse square root approximation.
+    ///
+    /// This is faster than `normalize()` but slightly less accurate (error ~0.17%).
+    /// Suitable for lighting calculations where extreme precision is not required.
+    #[must_use]
+    pub fn fast_normalize(&self) -> Self {
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+            }
+        } else {
+            *self
+        }
+    }
+}
+
+/// Computes the fast inverse square root of a number ($1/\sqrt{x}$).
+///
+/// Uses the famous Quake III algorithm (0x5f3759df constant).
+#[inline]
+#[must_use]
+pub fn fast_inv_sqrt(n: f32) -> f32 {
+    let x2 = n * 0.5;
+    let i = n.to_bits();
+    let i = 0x5f37_59df - (i >> 1);
+    let y = f32::from_bits(i);
+    y * (1.5 - (x2 * y * y))
 }
 
 impl Add for Vec3 {
@@ -517,9 +549,12 @@ impl Mat4 {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
+            points
+                .par_iter()
+                .zip(output.par_iter_mut())
+                .for_each(|(p, out)| {
+                    *out = self.transform_point(*p);
+                });
         }
 
         #[cfg(not(feature = "parallel"))]
