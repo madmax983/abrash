@@ -429,8 +429,20 @@ mod tests {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        assert!((r as i32 - 100).abs() <= 2, "Red mismatch for red pixel, got {}", r);
-        assert!((g as i32 - 89).abs() <= 2, "Green mismatch for red pixel, got {}", g);
-        assert!((b as i32 - 69).abs() <= 2, "Blue mismatch for red pixel, got {}", b);
+        assert!(
+            (r as i32 - 100).abs() <= 2,
+            "Red mismatch for red pixel, got {}",
+            r
+        );
+        assert!(
+            (g as i32 - 89).abs() <= 2,
+            "Green mismatch for red pixel, got {}",
+            g
+        );
+        assert!(
+            (b as i32 - 69).abs() <= 2,
+            "Blue mismatch for red pixel, got {}",
+            b
+        );
     }
 }

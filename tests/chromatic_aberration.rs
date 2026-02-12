@@ -28,21 +28,33 @@ fn test_chromatic_aberration_shift() {
     // G = Old(50, 50).G = 255
     // B = Old(55, 50).B = 0
     // Result: 0, 255, 0 (Green)
-    assert_eq!(fb.get_pixel(50, 50).unwrap() & 0x00FFFFFF, 0x0000FF00, "Center pixel should be Green");
+    assert_eq!(
+        fb.get_pixel(50, 50).unwrap() & 0x00FFFFFF,
+        0x0000FF00,
+        "Center pixel should be Green"
+    );
 
     // At (55, 50):
     // R = Old(50, 50).R = 255
     // G = Old(55, 50).G = 0
     // B = Old(60, 50).B = 0
     // Result: 255, 0, 0 (Red)
-    assert_eq!(fb.get_pixel(55, 50).unwrap() & 0x00FFFFFF, 0x00FF0000, "Right-shifted pixel should receive Red");
+    assert_eq!(
+        fb.get_pixel(55, 50).unwrap() & 0x00FFFFFF,
+        0x00FF0000,
+        "Right-shifted pixel should receive Red"
+    );
 
     // At (45, 50):
     // R = Old(40, 50).R = 0
     // G = Old(45, 50).G = 0
     // B = Old(50, 50).B = 255
     // Result: 0, 0, 255 (Blue)
-    assert_eq!(fb.get_pixel(45, 50).unwrap() & 0x00FFFFFF, 0x000000FF, "Left-shifted pixel should receive Blue");
+    assert_eq!(
+        fb.get_pixel(45, 50).unwrap() & 0x00FFFFFF,
+        0x000000FF,
+        "Left-shifted pixel should receive Blue"
+    );
 }
 
 #[test]

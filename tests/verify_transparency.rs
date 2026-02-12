@@ -51,7 +51,10 @@ fn test_textured_transparency() {
     // 4. Assertions
     // Top-Left (0,0) maps to UV (0,0) -> Transparent. Should be Red.
     let tl = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(tl, 0xFFFF0000, "Top-Left pixel should remain Red (background)");
+    assert_eq!(
+        tl, 0xFFFF0000,
+        "Top-Left pixel should remain Red (background)"
+    );
 
     // Top-Right (9,0) maps to UV (1,0) -> Green. Should be Green.
     let tr = fb.get_pixel(9, 0).unwrap();
@@ -70,8 +73,14 @@ fn test_textured_transparency() {
     // Note: The blend implementation might use 256 for inv_alpha (255-alpha), etc.
     // Let's just check it's not Red and not White.
     let br = fb.get_pixel(9, 9).unwrap();
-    assert_ne!(br, 0xFFFF0000, "Bottom-Right pixel should blended (not pure Red)");
-    assert_ne!(br, 0xFFFFFFFF, "Bottom-Right pixel should blended (not pure White)");
+    assert_ne!(
+        br, 0xFFFF0000,
+        "Bottom-Right pixel should blended (not pure Red)"
+    );
+    assert_ne!(
+        br, 0xFFFFFFFF,
+        "Bottom-Right pixel should blended (not pure White)"
+    );
 
     // Check specific blended value if possible, but exact match depends on blend formula (0..255 vs 0..256 scale)
 }

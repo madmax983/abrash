@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
     use abrash::obj_loader::load_obj;
+    use std::time::Instant;
 
     #[test]
     fn test_dos_bucket_collision() {
@@ -12,7 +12,7 @@ mod tests {
             obj.push_str(&format!("vt {} {}\n", i as f32 / n as f32, 0.0));
         }
 
-        for i in 0..n/3 {
+        for i in 0..n / 3 {
             let idx1 = i * 3 + 1;
             let idx2 = i * 3 + 2;
             let idx3 = i * 3 + 3;

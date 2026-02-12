@@ -73,6 +73,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         next: usize, // usize::MAX if None
     }
 
+    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
+    const MAX_CHAIN_LENGTH: usize = 8;
+
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
@@ -96,9 +99,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
     // Reuse vector for face indices to avoid allocation per face
     let mut face_indices = Vec::with_capacity(4);
-
-    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
-    const MAX_CHAIN_LENGTH: usize = 8;
 
     for (line_num, line) in source.lines().enumerate() {
         let line = line.trim();

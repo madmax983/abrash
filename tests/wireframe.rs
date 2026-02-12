@@ -22,7 +22,11 @@ fn test_fill_triangle_wireframe_draws_edges() {
     // Verify center is NOT drawn (it's wireframe)
     // Center of triangle (0, 0) projected is (50, 50)
     let center_pixel = fb.get_pixel(50, 50);
-    assert_eq!(center_pixel, Some(0x00000000), "Center pixel should be empty in wireframe");
+    assert_eq!(
+        center_pixel,
+        Some(0x00000000),
+        "Center pixel should be empty in wireframe"
+    );
 
     // Verify vertices are drawn
     // Project vertices roughly:
@@ -40,13 +44,29 @@ fn test_fill_triangle_wireframe_draws_edges() {
     // v2 projected ~ (55, 55)
 
     // Check v0
-    assert_eq!(fb.get_pixel(50, 45), Some(color), "Vertex v0 should be drawn");
+    assert_eq!(
+        fb.get_pixel(50, 45),
+        Some(color),
+        "Vertex v0 should be drawn"
+    );
     // Check v1
-    assert_eq!(fb.get_pixel(45, 55), Some(color), "Vertex v1 should be drawn");
+    assert_eq!(
+        fb.get_pixel(45, 55),
+        Some(color),
+        "Vertex v1 should be drawn"
+    );
     // Check v2
-    assert_eq!(fb.get_pixel(55, 55), Some(color), "Vertex v2 should be drawn");
+    assert_eq!(
+        fb.get_pixel(55, 55),
+        Some(color),
+        "Vertex v2 should be drawn"
+    );
 
     // Check edge point (midpoint of v1-v2)
     // Midpoint is (50, 55)
-    assert_eq!(fb.get_pixel(50, 55), Some(color), "Bottom edge midpoint should be drawn");
+    assert_eq!(
+        fb.get_pixel(50, 55),
+        Some(color),
+        "Bottom edge midpoint should be drawn"
+    );
 }

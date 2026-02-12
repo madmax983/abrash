@@ -1,16 +1,16 @@
 #![cfg(feature = "gpu-engine-compare")]
 
-use abrash::gpu_render::{unit_cube_mesh, GpuOffscreenBench, GpuOffscreenBenchConfig};
+use abrash::gpu_render::{GpuOffscreenBench, GpuOffscreenBenchConfig, unit_cube_mesh};
 use bevy::{
     app::{App, Update},
     ecs::{component::Component, system::Query},
 };
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use fyrox::{
     core::algebra::{Vector2, Vector3},
     scene::{
-        base::BaseBuilder, graph::GraphUpdateSwitches, pivot::PivotBuilder,
-        transform::TransformBuilder, Scene,
+        Scene, base::BaseBuilder, graph::GraphUpdateSwitches, pivot::PivotBuilder,
+        transform::TransformBuilder,
     },
 };
 
