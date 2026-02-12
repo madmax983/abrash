@@ -20,7 +20,7 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
-use crate::texture::{FilterMode, Texture, blend_swar};
+use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -1163,12 +1163,8 @@ fn draw_span_bilinear(
 
                     let wx = (u_img_fixed & 0xFF) as u32;
                     let wy = (v_img_fixed & 0xFF) as u32;
-                    let inv_wx = 256 - wx;
-                    let inv_wy = 256 - wy;
 
-                    let top = blend_swar(c00, c10, wx, inv_wx);
-                    let bottom = blend_swar(c01, c11, wx, inv_wx);
-                    let final_color = blend_swar(top, bottom, wy, inv_wy);
+                    let final_color = blend_four_way(c00, c10, c01, c11, wx, wy);
 
                     let alpha = (final_color >> 24) & 0xFF;
                     if alpha == 255 {
