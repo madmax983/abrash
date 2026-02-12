@@ -1113,12 +1113,29 @@ fn draw_span_bilinear(
                                 let row1 = row0 + tex_w_usize;
 
                                 unsafe {
-                                    (
-                                        *tex_pixels.get_unchecked(row0 + x0),
-                                        *tex_pixels.get_unchecked(row0 + x0 + 1),
-                                        *tex_pixels.get_unchecked(row1 + x0),
-                                        *tex_pixels.get_unchecked(row1 + x0 + 1),
-                                    )
+                                    // Optimization: Read 2 pixels at a time as u64.
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let ptr = tex_pixels.as_ptr();
+                                        let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
+                                        let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+
+                                        (
+                                            row0_pair as u32,
+                                            (row0_pair >> 32) as u32,
+                                            row1_pair as u32,
+                                            (row1_pair >> 32) as u32,
+                                        )
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        (
+                                            *tex_pixels.get_unchecked(row0 + x0),
+                                            *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                            *tex_pixels.get_unchecked(row1 + x0),
+                                            *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                        )
+                                    }
                                 }
                             } else {
                                 let x0 = x0_raw.clamp(0, w_i32) as usize;
