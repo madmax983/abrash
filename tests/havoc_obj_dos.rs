@@ -1,5 +1,5 @@
-use std::time::Instant;
 use abrash::obj_loader::load_obj;
+use std::time::Instant;
 
 #[test]
 fn test_obj_dos_quadratic_blowup() {
@@ -27,5 +27,9 @@ fn test_obj_dos_quadratic_blowup() {
     println!("Loaded {} vertices in {:?}", num_verts, duration);
 
     // If it takes more than 1 second, it's likely quadratic
-    assert!(duration.as_secs_f32() < 1.0, "OBJ loading took too long: {:?}", duration);
+    assert!(
+        duration.as_secs_f32() < 1.0,
+        "OBJ loading took too long: {:?}",
+        duration
+    );
 }

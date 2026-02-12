@@ -571,9 +571,12 @@ impl Mat4 {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
+            points
+                .par_iter()
+                .zip(output.par_iter_mut())
+                .for_each(|(p, out)| {
+                    *out = self.transform_point(*p);
+                });
         }
 
         #[cfg(not(feature = "parallel"))]

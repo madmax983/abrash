@@ -96,7 +96,8 @@ pub fn apply_vhs_glitch(fb: &mut Framebuffer, time: u32) {
             // We clamp or wrap x. Clamping is simpler for now.
 
             // Red Channel
-            let r_x = (x as isize + row_offset - aber_offset).clamp(0, (width - 1) as isize) as usize;
+            let r_x =
+                (x as isize + row_offset - aber_offset).clamp(0, (width - 1) as isize) as usize;
             let r_src_idx = y * width + r_x;
             let r_col = source_pixels[r_src_idx];
             let r = (r_col >> 16) & 0xFF;
@@ -108,7 +109,8 @@ pub fn apply_vhs_glitch(fb: &mut Framebuffer, time: u32) {
             let g = (g_col >> 8) & 0xFF;
 
             // Blue Channel
-            let b_x = (x as isize + row_offset + aber_offset).clamp(0, (width - 1) as isize) as usize;
+            let b_x =
+                (x as isize + row_offset + aber_offset).clamp(0, (width - 1) as isize) as usize;
             let b_src_idx = y * width + b_x;
             let b_col = source_pixels[b_src_idx];
             let b = b_col & 0xFF;

@@ -452,26 +452,64 @@ fn draw_scanline_gouraud(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            // Check depth buffer
-            if z < *depth_val {
-                *depth_val = z;
-                // Unpack fixed point color
-                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                // 16.16 fixed point means 255.0 is 0x00FF0000
-                let r = r_i.clamp(0, 0x00FF_0000);
-                let g = g_i.clamp(0, 0x00FF_0000);
-                let b = b_i.clamp(0, 0x00FF_0000);
+        // Optimization: Check for fast path (no clamping needed)
+        // If all color channels are within [0, 255] for the entire span, we can skip clamping.
+        // r_i is 16.16 fixed point. Max value is 255.0 = 0x00FF_0000.
+        // We calculate end values based on start + delta * count.
+        let count = xe - xs;
+        let r_end = r_i.wrapping_add(dr.wrapping_mul(count));
+        let g_end = g_i.wrapping_add(dg.wrapping_mul(count));
+        let b_end = b_i.wrapping_add(db.wrapping_mul(count));
 
-                *pixel = 0xFF00_0000
-                    | ((r as u32) & 0x00FF_0000)
-                    | (((g as u32) & 0x00FF_0000) >> 8)
-                    | (((b as u32) & 0x00FF_0000) >> 16);
+        // Use strict upper bound 0x0100_0000 (256.0) to ensure integer part fits in u8.
+        // Cast to u32 handles negative check (becomes large u32).
+        let safe_limit: u32 = 0x0100_0000;
+        let safe = (r_i as u32) < safe_limit
+            && (r_end as u32) < safe_limit
+            && (g_i as u32) < safe_limit
+            && (g_end as u32) < safe_limit
+            && (b_i as u32) < safe_limit
+            && (b_end as u32) < safe_limit;
+
+        if safe {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    *depth_val = z;
+                    // Fast path: direct shift, no clamp/mask
+                    // r_i as u32 >> 16 extracts the integer part (0..255)
+                    let r = (r_i as u32) >> 16;
+                    let g = (g_i as u32) >> 16;
+                    let b = (b_i as u32) >> 16;
+
+                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                }
+                z += dz_dx;
+                r_i += dr;
+                g_i += dg;
+                b_i += db;
             }
-            z += dz_dx;
-            r_i += dr;
-            g_i += dg;
-            b_i += db;
+        } else {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                // Check depth buffer
+                if z < *depth_val {
+                    *depth_val = z;
+                    // Unpack fixed point color
+                    // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
+                    // 16.16 fixed point means 255.0 is 0x00FF0000
+                    let r = r_i.clamp(0, 0x00FF_0000);
+                    let g = g_i.clamp(0, 0x00FF_0000);
+                    let b = b_i.clamp(0, 0x00FF_0000);
+
+                    *pixel = 0xFF00_0000
+                        | ((r as u32) & 0x00FF_0000)
+                        | (((g as u32) & 0x00FF_0000) >> 8)
+                        | (((b as u32) & 0x00FF_0000) >> 16);
+                }
+                z += dz_dx;
+                r_i += dr;
+                g_i += dg;
+                b_i += db;
+            }
         }
     }
 }
@@ -1747,12 +1785,7 @@ struct PhongEdgeWalker {
 
 impl PhongEdgeWalker {
     #[allow(clippy::too_many_arguments)]
-    fn new(
-        p_start: ScreenPoint,
-        p_end: ScreenPoint,
-        n_start: Vec3,
-        n_end: Vec3,
-    ) -> Self {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, n_start: Vec3, n_end: Vec3) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
@@ -1939,11 +1972,7 @@ pub fn fill_triangle_phong(
         let n1 = v1.1 * inv_w1;
         let n2 = v2.1 * inv_w2;
 
-        let mut verts = [
-            (p0_orig, n0),
-            (p1_orig, n1),
-            (p2_orig, n2),
-        ];
+        let mut verts = [(p0_orig, n0), (p1_orig, n1), (p2_orig, n2)];
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, n0), (p1, n1), (p2, n2)] = verts;
 
