@@ -19,7 +19,7 @@
 
 use crate::clipping::{clip_line_to_frustum, clip_triangle_to_frustum};
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
+use crate::math::{ScreenPoint, Vec2, Vec3, fast_inv_sqrt, project_to_screen_optimized};
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
@@ -1117,8 +1117,8 @@ fn draw_span_bilinear(
                                     #[cfg(target_endian = "little")]
                                     {
                                         let ptr = tex_pixels.as_ptr();
-                                        let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
-                                        let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+                                        let row0_pair = ptr.add(row0 + x0).cast::<u64>().read_unaligned();
+                                        let row1_pair = ptr.add(row1 + x0).cast::<u64>().read_unaligned();
 
                                         (
                                             row0_pair as u32,
@@ -1858,12 +1858,21 @@ fn draw_scanline_phong(
         if z < *depth_val {
             *depth_val = z;
 
-            // Optimization: Skip w calculation.
-            // normal = normalize(nx*w, ny*w, nz*w) == normalize(nx, ny, nz)
-            let normal = Vec3::new(nx, ny, nz).fast_normalize();
+            // Optimization: Deferred Normalization.
+            // Instead of constructing a Vec3 and calling fast_normalize() (which does len_sq, inv_sqrt, and 3 muls),
+            // we compute len_sq and the unnormalized dot product first.
+            // intensity = dot(N_norm, L) = dot(N / |N|, L) = dot(N, L) / |N| = dot(N, L) * fast_inv_sqrt(|N|^2)
+            // This saves 2 multiplications per pixel and avoids Vec3 construction overhead.
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
-            // Lighting calculation
-            let intensity = normal.dot(neg_light_dir).max(0.0);
+            let intensity = if len_sq > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                (dot_unorm * inv_len).max(0.0)
+            } else {
+                0.0
+            };
+
             let diffuse = pre_diffuse * intensity;
             let final_color_vec = ambient + diffuse;
             *pixel = color_to_u32(final_color_vec);

@@ -97,6 +97,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reuse vector for face indices to avoid allocation per face
     let mut face_indices = Vec::with_capacity(4);
 
+    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
+    const MAX_CHAIN_LENGTH: usize = 8;
+
     for (line_num, line) in source.lines().enumerate() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -218,15 +221,13 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     let vt_key = vt_idx.unwrap_or(usize::MAX);
 
                     // Linear scan in the cache chain for this vertex
-                    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
-                    const MAX_CHAIN_LENGTH: usize = 8;
                     let mut found_idx = None;
                     let mut curr = cache_head[v_idx];
                     let mut depth = 0;
                     while curr != usize::MAX {
                         // DoS protection: limit chain depth to prevent O(N^2) behavior
                         // when many vertices share the same position but differ in other attributes.
-                        if depth >= 8 {
+                        if depth >= MAX_CHAIN_LENGTH {
                             break;
                         }
                         let node = &cache_nodes[curr];
