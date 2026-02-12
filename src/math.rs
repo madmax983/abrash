@@ -220,6 +220,25 @@ impl Vec3 {
             *self
         }
     }
+
+    /// Returns a normalized unit vector using a fast inverse square root approximation.
+    ///
+    /// This is faster than `normalize()` but slightly less precise.
+    /// It is suitable for lighting calculations where extreme precision is not required.
+    #[must_use]
+    pub fn fast_normalize(&self) -> Self {
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        // Avoid division by zero
+        if len_sq < 0.000_001 {
+            return *self;
+        }
+        let inv_len = fast_inv_sqrt(len_sq);
+        Self {
+            x: self.x * inv_len,
+            y: self.y * inv_len,
+            z: self.z * inv_len,
+        }
+    }
 }
 
 impl Add for Vec3 {
@@ -517,9 +536,12 @@ impl Mat4 {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
+            points
+                .par_iter()
+                .zip(output.par_iter_mut())
+                .for_each(|(p, out)| {
+                    *out = self.transform_point(*p);
+                });
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -659,4 +681,50 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
     project_to_screen_optimized(v, w, half_width, half_height)
+}
+
+/// Computes the inverse square root of a number using the Quake III algorithm.
+///
+/// This is an approximation that is faster than `1.0 / sqrt(x)`.
+#[must_use]
+#[inline]
+pub fn fast_inv_sqrt(n: f32) -> f32 {
+    let i = n.to_bits();
+    let i = 0x5f37_59df - (i >> 1);
+    let y = f32::from_bits(i);
+    y * (1.5 - 0.5 * n * y * y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fast_inv_sqrt() {
+        let inputs = [1.0, 4.0, 16.0, 100.0, 0.25];
+        for &x in &inputs {
+            let approx = fast_inv_sqrt(x);
+            let exact = 1.0 / x.sqrt();
+            let diff = (approx - exact).abs();
+            // Quake III algorithm usually has error < 1%
+            assert!(
+                diff < 0.01 * exact,
+                "x={x}, approx={approx}, exact={exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_fast_normalize() {
+        let v = Vec3::new(3.0, 4.0, 0.0); // Length 5
+        let n = v.fast_normalize();
+
+        // Exact is (0.6, 0.8, 0.0)
+        assert!((n.x - 0.6).abs() < 0.01);
+        assert!((n.y - 0.8).abs() < 0.01);
+        assert!((n.z - 0.0).abs() < 0.01);
+
+        // Length should be approx 1
+        assert!((n.length() - 1.0).abs() < 0.01);
+    }
 }

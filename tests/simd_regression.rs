@@ -7,10 +7,7 @@
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::_rdtsc;
 
-use abrash::{
-    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
-    zbuffer::ZBuffer,
-};
+use abrash::math::Vec3;
 
 /// Safe wrapper for RDTSC instruction
 #[cfg(target_arch = "x86_64")]
