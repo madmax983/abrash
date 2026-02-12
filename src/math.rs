@@ -108,7 +108,14 @@ impl Mat2 {
         }
     }
 
+    /// Transforms a vector by this matrix.
+    ///
+    /// # Performance
+    ///
+    /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
+    /// vectorize loops that call this function.
     #[must_use]
+    #[inline]
     pub fn transform(&self, v: Vec2) -> Vec2 {
         Vec2 {
             x: self.m[0][0] * v.x + self.m[0][1] * v.y,
@@ -492,6 +499,11 @@ impl Mat4 {
     /// Returns a tuple `(transformed_point, w_component)`.
     /// The `w` component is used for perspective division.
     ///
+    /// # Performance
+    ///
+    /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
+    /// vectorize loops that call this function.
+    ///
     /// # Examples
     ///
     /// ```
@@ -505,6 +517,7 @@ impl Mat4 {
     /// assert_eq!(w, 1.0);
     /// ```
     #[must_use]
+    #[inline]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
         let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
@@ -588,7 +601,13 @@ impl Mat4 {
     /// Transform a normal vector (ignores translation, uses upper-left 3x3).
     ///
     /// This is essential for correct lighting calculations after transformation.
+    ///
+    /// # Performance
+    ///
+    /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
+    /// vectorize loops that call this function.
     #[must_use]
+    #[inline]
     pub fn transform_normal(&self, n: Vec3) -> Vec3 {
         let x = self.m[0][0] * n.x + self.m[1][0] * n.y + self.m[2][0] * n.z;
         let y = self.m[0][1] * n.x + self.m[1][1] * n.y + self.m[2][1] * n.z;
