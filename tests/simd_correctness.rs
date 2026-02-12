@@ -7,7 +7,7 @@ proptest! {
         vx in -1000.0f32..1000.0,
         vy in -1000.0f32..1000.0,
         vz in -1000.0f32..1000.0,
-        angle in -3.14f32..3.14,
+        angle in -std::f32::consts::PI..std::f32::consts::PI,
         tx in -100.0f32..100.0,
         ty in -100.0f32..100.0,
         tz in -100.0f32..100.0,

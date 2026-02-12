@@ -25,7 +25,7 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
-use std::fmt;
+use std::fmt::{self, Write};
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
 use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
@@ -117,8 +117,7 @@ impl<'a> AsciiConverter<'a> {
                     // ANSI 24-bit color: ESC[38;2;R;G;Bm
                     // Note: This allocation inside loop is not ideal for performance but acceptable for ASCII resolution.
                     // A better approach would be to write directly to the buffer.
-                    use std::fmt::Write;
-                    let _ = write!(result, "\x1b[38;2;{};{};{}m{}", r, g, b, ch);
+                    let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
                 } else {
                     result.push(' ');
                 }
