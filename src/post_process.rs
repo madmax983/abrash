@@ -146,6 +146,49 @@ pub fn apply_invert(fb: &mut Framebuffer) {
     }
 }
 
+/// Applies a sepia tone effect to the framebuffer in-place.
+///
+/// Converts the image to sepia using standard luminance weights and tinting.
+///
+/// Formula:
+/// ```text
+/// NewR = (0.393 * R + 0.769 * G + 0.189 * B)
+/// NewG = (0.349 * R + 0.686 * G + 0.168 * B)
+/// NewB = (0.272 * R + 0.534 * G + 0.131 * B)
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_sepia;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
+/// apply_sepia(&mut fb);
+/// // Result is tinted yellowish-brown.
+/// ```
+pub fn apply_sepia(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        // Fixed-point arithmetic (scaled by 1024)
+        let new_r = (402 * r + 787 * g + 194 * b) >> 10;
+        let new_g = (357 * r + 702 * g + 172 * b) >> 10;
+        let new_b = (279 * r + 547 * g + 134 * b) >> 10;
+
+        let new_r = new_r.min(255);
+        let new_g = new_g.min(255);
+        let new_b = new_b.min(255);
+
+        *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+    }
+}
+
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
@@ -292,5 +335,42 @@ mod tests {
                 "Pixel {x} mismatch. Got {r}, expected {expected_gray}",
             );
         }
+    }
+
+    #[test]
+    fn test_apply_sepia() {
+        let mut fb = Framebuffer::new(1, 1).unwrap();
+        // Set pixel to white (255, 255, 255)
+        fb.set_pixel(0, 0, 0xFFFFFFFF);
+        apply_sepia(&mut fb);
+
+        // Expected values for White input (255, 255, 255):
+        // R: (0.393 + 0.769 + 0.189) * 255 = 1.351 * 255 = 344.5 -> 255
+        // G: (0.349 + 0.686 + 0.168) * 255 = 1.203 * 255 = 306.7 -> 255
+        // B: (0.272 + 0.534 + 0.131) * 255 = 0.937 * 255 = 238.9 -> 238 (approx)
+
+        let p = fb.get_pixel(0, 0).unwrap();
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        assert_eq!(r, 255, "Red channel mismatch");
+        assert_eq!(g, 255, "Green channel mismatch");
+        assert!(b >= 235 && b <= 240, "Blue channel mismatch, got {}", b);
+
+        // Test with Red (255, 0, 0)
+        fb.set_pixel(0, 0, 0xFFFF0000);
+        apply_sepia(&mut fb);
+        // R: 0.393 * 255 = 100
+        // G: 0.349 * 255 = 89
+        // B: 0.272 * 255 = 69
+        let p = fb.get_pixel(0, 0).unwrap();
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        assert!((r as i32 - 100).abs() <= 2, "Red mismatch for red pixel, got {}", r);
+        assert!((g as i32 - 89).abs() <= 2, "Green mismatch for red pixel, got {}", g);
+        assert!((b as i32 - 69).abs() <= 2, "Blue mismatch for red pixel, got {}", b);
     }
 }
