@@ -265,6 +265,68 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     result
 }
 
+/// Clip a line segment against the view frustum (6 planes) in Homogeneous Clip Space.
+///
+/// Returns `Some((v0, v1))` if the line is partially or fully visible, `None` if fully culled.
+pub fn clip_line_to_frustum<V: Lerp + Copy>(
+    v0: V,
+    v1: V,
+    get_pos: impl Fn(&V) -> (Vec3, f32),
+) -> Option<(V, V)> {
+    let mut curr_v0 = v0;
+    let mut curr_v1 = v1;
+
+    // Helper macro to clip against a single plane
+    // If a point is outside (dist < 0), we find the intersection.
+    macro_rules! clip_plane {
+        ($dist_fn:expr) => {
+            let (p0, w0) = get_pos(&curr_v0);
+            let (p1, w1) = get_pos(&curr_v1);
+            let d0 = $dist_fn(p0, w0);
+            let d1 = $dist_fn(p1, w1);
+
+            if d0 >= 0.0 && d1 >= 0.0 {
+                // Both inside, do nothing
+            } else if d0 < 0.0 && d1 < 0.0 {
+                // Both outside, cull entire line
+                return None;
+            } else {
+                // One in, one out. Clip.
+                let t = d0 / (d0 - d1);
+                let intersection = curr_v0.lerp(curr_v1, t);
+
+                if d0 < 0.0 {
+                    // v0 is outside, replace v0
+                    curr_v0 = intersection;
+                } else {
+                    // v1 is outside, replace v1
+                    curr_v1 = intersection;
+                }
+            }
+        };
+    }
+
+    // 1. Left: x >= -w -> x + w >= 0
+    clip_plane!(|p: Vec3, w: f32| p.x + w);
+
+    // 2. Right: x <= w -> w - x >= 0
+    clip_plane!(|p: Vec3, w: f32| w - p.x);
+
+    // 3. Bottom: y >= -w -> y + w >= 0
+    clip_plane!(|p: Vec3, w: f32| p.y + w);
+
+    // 4. Top: y <= w -> w - y >= 0
+    clip_plane!(|p: Vec3, w: f32| w - p.y);
+
+    // 5. Near: z >= -w -> z + w >= 0
+    clip_plane!(|p: Vec3, w: f32| p.z + w);
+
+    // 6. Far: z <= w -> w - z >= 0
+    clip_plane!(|p: Vec3, w: f32| w - p.z);
+
+    Some((curr_v0, curr_v1))
+}
+
 // Keep the old function for now if needed, or deprecate.
 pub fn clip_triangle_against_near_plane<V: Lerp>(
     v0: V,

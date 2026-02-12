@@ -17,10 +17,10 @@
 //! *   **Z-Buffering**: Depth testing is performed per-pixel.
 //! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
 
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::{clip_line_to_frustum, clip_triangle_to_frustum};
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
-use crate::texture::{FilterMode, Texture, blend_swar};
+use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -1113,12 +1113,29 @@ fn draw_span_bilinear(
                                 let row1 = row0 + tex_w_usize;
 
                                 unsafe {
-                                    (
-                                        *tex_pixels.get_unchecked(row0 + x0),
-                                        *tex_pixels.get_unchecked(row0 + x0 + 1),
-                                        *tex_pixels.get_unchecked(row1 + x0),
-                                        *tex_pixels.get_unchecked(row1 + x0 + 1),
-                                    )
+                                    // Optimization: Read 2 pixels at a time as u64.
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let ptr = tex_pixels.as_ptr();
+                                        let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
+                                        let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+
+                                        (
+                                            row0_pair as u32,
+                                            (row0_pair >> 32) as u32,
+                                            row1_pair as u32,
+                                            (row1_pair >> 32) as u32,
+                                        )
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        (
+                                            *tex_pixels.get_unchecked(row0 + x0),
+                                            *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                            *tex_pixels.get_unchecked(row1 + x0),
+                                            *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                        )
+                                    }
                                 }
                             } else {
                                 let x0 = x0_raw.clamp(0, w_i32) as usize;
@@ -1146,12 +1163,8 @@ fn draw_span_bilinear(
 
                     let wx = (u_img_fixed & 0xFF) as u32;
                     let wy = (v_img_fixed & 0xFF) as u32;
-                    let inv_wx = 256 - wx;
-                    let inv_wy = 256 - wy;
 
-                    let top = blend_swar(c00, c10, wx, inv_wx);
-                    let bottom = blend_swar(c01, c11, wx, inv_wx);
-                    let final_color = blend_swar(top, bottom, wy, inv_wy);
+                    let final_color = blend_four_way(c00, c10, c01, c11, wx, wy);
 
                     let alpha = (final_color >> 24) & 0xFF;
                     if alpha == 255 {
@@ -1847,7 +1860,7 @@ fn draw_scanline_phong(
 
             // Optimization: Skip w calculation.
             // normal = normalize(nx*w, ny*w, nz*w) == normalize(nx, ny, nz)
-            let normal = Vec3::new(nx, ny, nz).normalize();
+            let normal = Vec3::new(nx, ny, nz).fast_normalize();
 
             // Lighting calculation
             let intensity = normal.dot(neg_light_dir).max(0.0);
@@ -2026,6 +2039,111 @@ pub fn fill_triangle_phong(
     }
 }
 
+/// Draw a 3D line with Z-buffering.
+///
+/// Handles frustum clipping and perspective projection.
+///
+/// # Arguments
+///
+/// * `v0`, `v1` - Vertices defined as `(Position, W)`.
+pub fn draw_line_3d(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    color: u32,
+) {
+    // Clip against frustum (returns None if fully culled)
+    if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(v0, v1, |v| *v) {
+        let width = fb.width();
+        let height = fb.height();
+        let half_width = width as f32 * 0.5;
+        let half_height = height as f32 * 0.5;
+
+        // Project to screen
+        let p0 = project_to_screen_optimized(v0_clipped.0, v0_clipped.1, half_width, half_height);
+        let p1 = project_to_screen_optimized(v1_clipped.0, v1_clipped.1, half_width, half_height);
+
+        // Bresenham's algorithm with Z interpolation
+        // Standard integer-based line drawing
+        let mut x0 = p0.x;
+        let mut y0 = p0.y;
+        let x1 = p1.x;
+        let y1 = p1.y;
+
+        // Z-interpolation (linear in screen space for simplicity/speed, though technically 1/z is linear)
+        // For wireframes, linear Z is usually acceptable.
+        let mut z = p0.z;
+        let z_end = p1.z;
+
+        let dx = (x1 - x0).abs();
+        let dy = -(y1 - y0).abs();
+        let sx = if x0 < x1 { 1 } else { -1 };
+        let sy = if y0 < y1 { 1 } else { -1 };
+        let mut err = dx + dy;
+
+        // Calculate step size for Z interpolation
+        // Total steps = max(|dx|, |dy|)
+        let steps = dx.max(-dy);
+        let dz = if steps > 0 {
+            (z_end - z) / (steps as f32)
+        } else {
+            0.0
+        };
+
+        loop {
+            // Check bounds (clipping should handle most cases, but guard against precision issues)
+            if x0 >= 0 && x0 < width as i32 && y0 >= 0 && y0 < height as i32 {
+                // Z-test
+                // SAFETY: Bounds checked.
+                unsafe {
+                    let idx = (y0 as usize) * (width as usize) + (x0 as usize);
+                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx);
+                    // Use standard depth test (less is closer for negative Z, wait.
+                    // Project to screen produces z = v.z / w.
+                    // If using standard OpenGL conventions, z is in [-1, 1].
+                    // But rasterizer uses z < *depth_val.
+                    // Let's assume standard behavior.
+                    if z < *z_buffer_val {
+                        *z_buffer_val = z;
+                        fb.set_pixel_unchecked(x0 as usize, y0 as usize, color);
+                    }
+                }
+            }
+
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x0 += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y0 += sy;
+            }
+            z += dz;
+        }
+    }
+}
+
+/// Fill a 3D triangle in wireframe mode.
+///
+/// Draws the three edges of the triangle as lines.
+pub fn fill_triangle_wireframe(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    color: u32,
+) {
+    draw_line_3d(fb, zb, v0, v1, color);
+    draw_line_3d(fb, zb, v1, v2, color);
+    draw_line_3d(fb, zb, v2, v0, color);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2114,7 +2232,7 @@ mod tests {
 
         // Should have zero gradients
         assert_eq!(walker.dx_dy, 0);
-        assert_eq!(walker.dz_dy, 0.0);
+        assert!((walker.dz_dy - 0.0).abs() < f32::EPSILON);
 
         // z should still be correct
         assert!((walker.z - 1.0).abs() < 0.0001);
@@ -2227,6 +2345,6 @@ mod tests {
         // This should not panic
         let result = is_backface(p0, p1, p2);
 
-        assert_eq!(result, true);
+        assert!(result);
     }
 }

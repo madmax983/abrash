@@ -39,7 +39,7 @@ proptest! {
         // Setup a small texture
         let mut tex = Texture::new(4, 4).unwrap();
         // Fill with some data
-        tex.set_pixel(0, 0, 0xFFFFFFFF);
+        tex.set_pixel(0, 0, 0xFFFF_FFFF);
         tex.generate_mipmaps();
 
         // Trilinear sampling with arbitrary coordinates and LOD

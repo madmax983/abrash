@@ -94,5 +94,5 @@ fn test_phong_shading_gradient() {
     let top_g = (top_pixel >> 8) & 0xFF;
     let bottom_g = (bottom_left >> 8) & 0xFF;
 
-    assert!(top_g > bottom_g, "Top pixel should be brighter than bottom pixel ({} vs {})", top_g, bottom_g);
+    assert!(top_g > bottom_g, "Top pixel should be brighter than bottom pixel ({top_g} vs {bottom_g})");
 }

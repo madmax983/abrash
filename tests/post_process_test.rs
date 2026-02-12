@@ -5,7 +5,7 @@ use abrash::post_process;
 fn test_apply_grayscale() {
     let mut fb = Framebuffer::new(2, 2).unwrap();
     // Fill with red
-    fb.clear(0xFFFF0000);
+    fb.clear(0xFFFF_0000);
 
     // Apply grayscale
     post_process::apply_grayscale(&mut fb);
@@ -20,29 +20,29 @@ fn test_apply_grayscale() {
 
     assert_eq!(r, g);
     assert_eq!(g, b);
-    assert_eq!(r, 76, "Expected grayscale value 76 for pure red, got {}", r);
+    assert_eq!(r, 76, "Expected grayscale value 76 for pure red, got {r}");
 }
 
 #[test]
 fn test_apply_scanlines() {
     let mut fb = Framebuffer::new(2, 2).unwrap();
     // Fill with white
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
 
     // Apply scanlines (darken odd rows)
     post_process::apply_scanlines(&mut fb);
 
     // Row 0 should be unchanged (white)
     let p0 = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(p0, 0xFFFFFFFF, "Row 0 should be unchanged");
+    assert_eq!(p0, 0xFFFF_FFFF, "Row 0 should be unchanged");
 
     // Row 1 should be darkened.
     // Assuming implementation halves the brightness:
     // 0xFF -> 0x7F
-    // Result: 0xFF7F7F7F
+    // Result: 0xFF7F_7F7F
     let p1 = fb.get_pixel(0, 1).unwrap();
     assert_eq!(
-        p1, 0xFF7F7F7F,
+        p1, 0xFF7F_7F7F,
         "Row 1 should be darkened to half brightness"
     );
 }

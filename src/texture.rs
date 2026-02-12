@@ -37,6 +37,45 @@ pub const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
     rb | (ag << 8)
 }
 
+/// Helper for 4-way bilinear blending using SWAR accumulation.
+///
+/// This is more efficient than calling `blend_swar` 3 times because it minimizes bitwise masking and shifting.
+/// It unpacks the 4 colors once, accumulates weighted contributions, and then packs the result.
+///
+/// *   `c00`, `c10`, `c01`, `c11`: Neighbors (Top-Left, Top-Right, Bottom-Left, Bottom-Right).
+/// *   `wx`, `wy`: Horizontal and vertical weights (0..256).
+#[inline(always)]
+#[must_use]
+pub const fn blend_four_way(c00: u32, c10: u32, c01: u32, c11: u32, wx: u32, wy: u32) -> u32 {
+    let inv_wx = 256 - wx;
+    let inv_wy = 256 - wy;
+
+    // Weights for each corner (u64 to match accumulator width)
+    let w00 = (inv_wx * inv_wy) as u64;
+    let w10 = (wx * inv_wy) as u64;
+    let w01 = (inv_wx * wy) as u64;
+    let w11 = (wx * wy) as u64;
+
+    // Unpack and accumulate
+    // Use u64 to prevent overflow when multiplying 8-bit components by 16-bit weights
+    // (max result ~16.7 million, which fits in 24 bits, but packed channels overlap in u32)
+    let mut acc_rb = (c00 as u64 & 0x00FF_00FF) * w00;
+    acc_rb += (c10 as u64 & 0x00FF_00FF) * w10;
+    acc_rb += (c01 as u64 & 0x00FF_00FF) * w01;
+    acc_rb += (c11 as u64 & 0x00FF_00FF) * w11;
+
+    let mut acc_ag = ((c00 as u64 >> 8) & 0x00FF_00FF) * w00;
+    acc_ag += ((c10 as u64 >> 8) & 0x00FF_00FF) * w10;
+    acc_ag += ((c01 as u64 >> 8) & 0x00FF_00FF) * w01;
+    acc_ag += ((c11 as u64 >> 8) & 0x00FF_00FF) * w11;
+
+    // Pack
+    let rb = (acc_rb >> 16) as u32 & 0x00FF_00FF;
+    let ag = (acc_ag >> 16) as u32 & 0x00FF_00FF;
+
+    rb | (ag << 8)
+}
+
 /// Helper to average 4 colors (simple box filter)
 const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
     let r =
@@ -193,11 +232,11 @@ impl Texture {
     /// use abrash::texture::Texture;
     ///
     /// let mut tex = Texture::new(2, 2).unwrap();
-    /// tex.set_pixel(0, 0, 0xFFFFFFFF);
+    /// tex.set_pixel(0, 0, 0xFFFF_FFFF);
     ///
     /// // Sample center of top-left pixel
     /// let color = tex.get_pixel(0.25, 0.25);
-    /// assert_eq!(color, 0xFFFFFFFF);
+    /// assert_eq!(color, 0xFFFF_FFFF);
     /// ```
     #[inline]
     #[must_use]
@@ -392,8 +431,6 @@ impl Texture {
         // Weights (0..256)
         let wx = (u_img_fixed & 0xFF) as u32;
         let wy = (v_img_fixed & 0xFF) as u32;
-        let inv_wx = 256 - wx;
-        let inv_wy = 256 - wy;
 
         // Arithmetic shift preserves sign (floor behavior for negative numbers)
         let x0_raw = u_img_fixed >> 8;
@@ -401,9 +438,7 @@ impl Texture {
 
         let (c00, c10, c01, c11) = self.fetch_bilinear_neighbors(x0_raw, y0_raw);
 
-        let top = blend_swar(c00, c10, wx, inv_wx);
-        let bottom = blend_swar(c01, c11, wx, inv_wx);
-        blend_swar(top, bottom, wy, inv_wy)
+        blend_four_way(c00, c10, c01, c11, wx, wy)
     }
 
     #[inline(always)]
@@ -422,12 +457,31 @@ impl Texture {
             let row1 = row0 + (self.width as usize); // y0 + 1 is valid, so row1 is next row
 
             unsafe {
-                (
-                    *self.pixels.get_unchecked(row0 + x0),
-                    *self.pixels.get_unchecked(row0 + x0 + 1),
-                    *self.pixels.get_unchecked(row1 + x0),
-                    *self.pixels.get_unchecked(row1 + x0 + 1),
-                )
+                // Optimization: Read 2 pixels at a time as u64.
+                // This reduces memory instructions and address calculations.
+                // We use read_unaligned because x0 might not be 8-byte aligned.
+                #[cfg(target_endian = "little")]
+                {
+                    let ptr = self.pixels.as_ptr();
+                    let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
+                    let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+
+                    (
+                        row0_pair as u32,
+                        (row0_pair >> 32) as u32,
+                        row1_pair as u32,
+                        (row1_pair >> 32) as u32,
+                    )
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    (
+                        *self.pixels.get_unchecked(row0 + x0),
+                        *self.pixels.get_unchecked(row0 + x0 + 1),
+                        *self.pixels.get_unchecked(row1 + x0),
+                        *self.pixels.get_unchecked(row1 + x0 + 1),
+                    )
+                }
             }
         } else {
             let x0 = x0_raw.clamp(0, w_i32) as usize;
@@ -504,9 +558,9 @@ mod tests {
         for y in 0..4 {
             for x in 0..4 {
                 let color = if (x + y) % 2 == 0 {
-                    0xFF000000
+                    0xFF00_0000
                 } else {
-                    0xFFFFFFFF
+                    0xFFFF_FFFF
                 };
                 tex.set_pixel(x, y, color);
             }
@@ -531,7 +585,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // Allow some tolerance for integer arithmetic
-        assert!(r >= 60 && r <= 66, "Expected ~63 (0x3F), got {}", r);
+        assert!((60..=66).contains(&r), "Expected ~63 (0x3F), got {r}");
     }
 
     #[test]
@@ -539,7 +593,7 @@ mod tests {
         let mut tex = Texture::new(4, 4).unwrap();
         // Fill base level with Black
         for i in 0..16 {
-            tex.pixels[i] = 0xFF000000;
+            tex.pixels[i] = 0xFF00_0000;
         }
         tex.generate_mipmaps();
 
@@ -547,7 +601,7 @@ mod tests {
         // mips[0] is Level 1.
         if let Some(l1) = tex.mips.get_mut(0) {
             for p in l1.iter_mut() {
-                *p = 0xFFFFFFFF;
+                *p = 0xFFFF_FFFF;
             }
         }
 
@@ -562,14 +616,14 @@ mod tests {
         let pixel = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 1.0);
 
         assert_eq!(
-            pixel, 0xFFFFFFFF,
+            pixel, 0xFFFF_FFFF,
             "LOD 1.0 should sample from Level 1 (White)"
         );
 
         // Test LOD=0.0 -> Black
         let pixel_l0 = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 0.0);
         assert_eq!(
-            pixel_l0, 0xFF000000,
+            pixel_l0, 0xFF00_0000,
             "LOD 0.0 should sample from Level 0 (Black)"
         );
     }
