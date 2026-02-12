@@ -146,6 +146,60 @@ pub fn apply_invert(fb: &mut Framebuffer) {
     }
 }
 
+/// Applies a sepia tone filter to the framebuffer in-place.
+///
+/// This gives the image a reddish-brown vintage look.
+///
+/// Formula:
+/// tr = 0.393*R + 0.769*G + 0.189*B
+/// tg = 0.349*R + 0.686*G + 0.168*B
+/// tb = 0.272*R + 0.534*G + 0.131*B
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_sepia;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF000000); // Black
+/// apply_sepia(&mut fb);
+/// // Black stays black
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFF000000);
+/// ```
+pub fn apply_sepia(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        // Fixed-point calculation (10-bit precision)
+        // 0.393 * 1024 = 402
+        // 0.769 * 1024 = 787
+        // 0.189 * 1024 = 194
+        let tr = (402 * r + 787 * g + 194 * b) >> 10;
+
+        // 0.349 * 1024 = 357
+        // 0.686 * 1024 = 702
+        // 0.168 * 1024 = 172
+        let tg = (357 * r + 702 * g + 172 * b) >> 10;
+
+        // 0.272 * 1024 = 279
+        // 0.534 * 1024 = 547
+        // 0.131 * 1024 = 134
+        let tb = (279 * r + 547 * g + 134 * b) >> 10;
+
+        let r_out = tr.min(255);
+        let g_out = tg.min(255);
+        let b_out = tb.min(255);
+
+        *pixel = (p & 0xFF00_0000) | (r_out << 16) | (g_out << 8) | b_out;
+    }
+}
+
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
