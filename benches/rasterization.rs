@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::rasterizer::{fill_triangle_3d, fill_triangle_gouraud, fill_triangle_textured};
+use abrash::rasterizer::{fill_triangle_3d, fill_triangle_gouraud, fill_triangle_textured, fill_triangle_wireframe};
 use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
@@ -29,6 +29,30 @@ fn bench_fill_triangle_gouraud(c: &mut Criterion) {
                 black_box((v0, c0)),
                 black_box((v1, c1)),
                 black_box((v2, c2)),
+            );
+        });
+    });
+}
+
+fn bench_fill_triangle_wireframe(c: &mut Criterion) {
+    c.bench_function("fill_triangle_wireframe", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+
+        // Same large triangle as in other benchmarks
+        let v0 = (Vec3::new(0.0, 0.9, 0.5), 1.0);
+        let v1 = (Vec3::new(-0.9, -0.9, 0.5), 1.0);
+        let v2 = (Vec3::new(0.9, -0.9, 0.5), 1.0);
+
+        b.iter(|| {
+            zb.clear();
+            fill_triangle_wireframe(
+                &mut fb,
+                &mut zb,
+                black_box(v0),
+                black_box(v1),
+                black_box(v2),
+                black_box(0xFFFF_FFFF),
             );
         });
     });
@@ -232,7 +256,8 @@ criterion_group!(
     bench_fill_triangle_textured_bilinear,
     bench_fill_triangle_clipped,
     bench_fill_triangle_textured_small_batch,
-    bench_get_pixel_bilinear_fixed
+    bench_get_pixel_bilinear_fixed,
+    bench_fill_triangle_wireframe
 );
 criterion_main!(benches);
 
