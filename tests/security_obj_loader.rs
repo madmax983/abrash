@@ -1,4 +1,4 @@
-use abrash::math::{Vec2, Vec3};
+// use abrash::math::{Vec2, Vec3};
 use abrash::obj_loader::load_obj;
 
 #[test]
