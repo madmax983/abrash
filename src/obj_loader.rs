@@ -206,15 +206,24 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     let vt_key = vt_idx.unwrap_or(usize::MAX);
 
                     // Linear scan in the cache chain for this vertex
+                    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
+                    const MAX_CHAIN_LENGTH: usize = 8;
                     let mut found_idx = None;
                     let mut curr = cache_head[v_idx];
+                    let mut chain_len = 0;
+
                     while curr != usize::MAX {
+                        if chain_len >= MAX_CHAIN_LENGTH {
+                            break;
+                        }
+
                         let node = &cache_nodes[curr];
                         if node.vt_idx == vt_key {
                             found_idx = Some(node.new_idx);
                             break;
                         }
                         curr = node.next;
+                        chain_len += 1;
                     }
 
                     if let Some(idx) = found_idx {

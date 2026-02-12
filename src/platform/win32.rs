@@ -164,6 +164,10 @@ impl WindowBackend for Win32Window {
 }
 
 unsafe fn register_window_class(hinstance: HINSTANCE, class_name: &[u16]) -> bool {
+    if class_name.last() != Some(&0) {
+        return false;
+    }
+
     let wc = WNDCLASSW {
         style: CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
         lpfnWndProc: Some(window_proc),
