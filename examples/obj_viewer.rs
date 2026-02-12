@@ -6,7 +6,7 @@ use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use clap::Parser;
-use comfy_table::{presets, Cell, Color, Table};
+use comfy_table::{Cell, Color, Table, presets};
 use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
@@ -65,10 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             (content, path.display().to_string())
         }
-        None => (
-            SPACESHIP_OBJ.to_string(),
-            "Built-in Spaceship".to_string(),
-        ),
+        None => (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
     };
 
     // Load the mesh
@@ -118,10 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Cell::new("Mouse"),
             Cell::new("(Coming Soon)").fg(Color::DarkGrey),
         ])
-        .add_row(vec![
-            Cell::new("Keyboard"),
-            Cell::new("Auto-rotating"),
-        ]);
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
 
     println!("\n🎮 Controls");
     println!("{controls}\n");

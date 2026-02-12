@@ -1,8 +1,8 @@
 #![cfg(feature = "gpu-render")]
 
 use abrash::gpu_render::{
-    GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig,
-    GpuVertex, unit_cube_mesh,
+    GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig, GpuVertex,
+    unit_cube_mesh,
 };
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 
@@ -143,11 +143,16 @@ fn bench_gpu_offscreen_heavy_frames(c: &mut Criterion) {
             continue;
         }
 
-        group.bench_function(BenchmarkId::new("frame", format!("{label}_{tri_count}tri")), |b| {
-            b.iter(|| {
-                bench.render_frame().expect("heavy offscreen frame should render");
-            });
-        });
+        group.bench_function(
+            BenchmarkId::new("frame", format!("{label}_{tri_count}tri")),
+            |b| {
+                b.iter(|| {
+                    bench
+                        .render_frame()
+                        .expect("heavy offscreen frame should render");
+                });
+            },
+        );
     }
 
     group.finish();

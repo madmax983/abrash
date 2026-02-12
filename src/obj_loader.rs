@@ -27,7 +27,7 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     }
     let mut n: usize = 0;
     for &b in bytes {
-        if b < b'0' || b > b'9' {
+        if !b.is_ascii_digit() {
             return None;
         }
         n = n.checked_mul(10)?.checked_add((b - b'0') as usize)?;
@@ -173,8 +173,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                 // It's v/vt...
                                 // Find end of vt (next slash or end of string)
                                 let mut end_vt = bytes.len();
-                                for i in after_slash..bytes.len() {
-                                    if bytes[i] == b'/' {
+                                for (i, &b) in bytes.iter().enumerate().skip(after_slash) {
+                                    if b == b'/' {
                                         end_vt = i;
                                         break;
                                     }

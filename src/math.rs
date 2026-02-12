@@ -220,6 +220,41 @@ impl Vec3 {
             *self
         }
     }
+
+    /// Returns a normalized unit vector using fast inverse square root approximation.
+    ///
+    /// This is significantly faster than `normalize()` but slightly less precise.
+    /// It is suitable for per-pixel lighting calculations where extreme precision is not required.
+    ///
+    /// # Behavior for Small Vectors
+    ///
+    /// If the squared length is less than `1.0e-8` (equivalent to length < `0.0001`),
+    /// returns the original vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let v = Vec3::new(3.0, 4.0, 0.0);
+    /// let n = v.fast_normalize();
+    /// assert!((n.x - 0.6).abs() < 0.005);
+    /// assert!((n.y - 0.8).abs() < 0.005);
+    /// ```
+    #[must_use]
+    pub fn fast_normalize(&self) -> Self {
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        if len_sq > 1.0e-8 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+            }
+        } else {
+            *self
+        }
+    }
 }
 
 impl Add for Vec3 {
@@ -517,9 +552,12 @@ impl Mat4 {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
+            points
+                .par_iter()
+                .zip(output.par_iter_mut())
+                .for_each(|(p, out)| {
+                    *out = self.transform_point(*p);
+                });
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -659,4 +697,20 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
     project_to_screen_optimized(v, w, half_width, half_height)
+}
+
+/// Fast inverse square root approximation (Quake III algorithm).
+///
+/// Returns an approximation of `1.0 / sqrt(n)`.
+///
+/// # Magic Constant
+///
+/// Uses `0x5f37_59df` for the initial guess.
+#[inline(always)]
+fn fast_inv_sqrt(n: f32) -> f32 {
+    let xhalf = 0.5 * n;
+    let i = n.to_bits();
+    let i = 0x5f37_59df - (i >> 1);
+    let y = f32::from_bits(i);
+    y * (1.5 - xhalf * y * y)
 }

@@ -1,4 +1,3 @@
-
 use abrash::math::{Vec3, project_to_screen_optimized};
 
 #[test]

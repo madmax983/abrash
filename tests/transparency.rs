@@ -48,7 +48,15 @@ fn test_transparency_blending() {
     let g = (center_pixel >> 8) & 0xFF;
     let b = center_pixel & 0xFF;
 
-    assert!(r > 100 && r < 150, "Red channel should be blended (expected ~127, got {})", r);
+    assert!(
+        r > 100 && r < 150,
+        "Red channel should be blended (expected ~127, got {})",
+        r
+    );
     assert_eq!(g, 0, "Green channel should be 0");
-    assert!(b > 100 && b < 150, "Blue channel should be blended (expected ~127, got {})", b);
+    assert!(
+        b > 100 && b < 150,
+        "Blue channel should be blended (expected ~127, got {})",
+        b
+    );
 }
