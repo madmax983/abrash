@@ -36,6 +36,15 @@
 
 use std::ops::{Add, Mul, Sub};
 
+#[inline]
+fn fast_inv_sqrt(n: f32) -> f32 {
+    let xhalf = 0.5 * n;
+    let i = n.to_bits();
+    let i = 0x5f3759df - (i >> 1);
+    let y = f32::from_bits(i);
+    y * (1.5 - xhalf * y * y)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
@@ -211,6 +220,25 @@ impl Vec3 {
         let len = self.length();
         if len > 0.0001 {
             let inv_len = 1.0 / len;
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+            }
+        } else {
+            *self
+        }
+    }
+
+    /// Returns a normalized unit vector using fast inverse square root approximation.
+    ///
+    /// This is faster than `normalize()` but slightly less accurate.
+    /// Useful for lighting calculations where extreme precision is not required.
+    #[must_use]
+    pub fn fast_normalize(&self) -> Self {
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        if len_sq > 0.0001 {
+            let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -659,4 +687,21 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
     project_to_screen_optimized(v, w, half_width, half_height)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fast_normalize_accuracy() {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let n1 = v.normalize();
+        let n2 = v.fast_normalize();
+
+        let diff = n1 - n2;
+        assert!(diff.x.abs() < 0.001);
+        assert!(diff.y.abs() < 0.001);
+        assert!(diff.z.abs() < 0.001);
+    }
 }
