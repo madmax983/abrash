@@ -660,3 +660,72 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let half_height = height as f32 * 0.5;
     project_to_screen_optimized(v, w, half_width, half_height)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vec3_normalize_basic() {
+        let v = Vec3::new(3.0, 0.0, 0.0);
+        let n = v.normalize();
+        assert!((n.x - 1.0).abs() < 1e-6);
+        assert!((n.y - 0.0).abs() < 1e-6);
+        assert!((n.z - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn vec3_normalize_small_vector() {
+        // Below threshold (0.0001)
+        let v_small = Vec3::new(0.00001, 0.0, 0.0);
+        assert_eq!(v_small.normalize(), v_small);
+    }
+
+    #[test]
+    fn vec3_normalize_zero() {
+        let v_zero = Vec3::new(0.0, 0.0, 0.0);
+        assert_eq!(v_zero.normalize(), v_zero);
+    }
+
+    #[test]
+    fn project_to_screen_clamping() {
+        // Test that screen coordinates are clamped to avoid i32::MIN
+        let width = 100.0;
+        let height = 100.0;
+
+        // Simulate a point that projects to negative infinity
+        // We use project_to_screen_optimized directly
+        // ndc_x will be -inf
+        let v = Vec3::new(f32::NEG_INFINITY, 0.0, 1.0);
+
+        // When w=1.0, inv_w=1.0. ndc_x = -inf.
+        // screen_x = ((-inf + 1.0) * 50.0) as i32 = i32::MIN
+        // Result should be clamped to i32::MIN + 1
+        let p = project_to_screen_optimized(v, 1.0, width * 0.5, height * 0.5);
+
+        assert!(p.x >= i32::MIN + 1);
+
+        // Also verify positive infinity clamps to i32::MAX
+        let v_pos = Vec3::new(f32::INFINITY, 0.0, 1.0);
+        let p_pos = project_to_screen_optimized(v_pos, 1.0, width * 0.5, height * 0.5);
+        assert_eq!(p_pos.x, i32::MAX);
+    }
+
+    #[test]
+    fn mat4_identity() {
+        let m = Mat4::identity();
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let (p, w) = m.transform_point(v);
+        assert_eq!(p, v);
+        assert_eq!(w, 1.0);
+    }
+
+    #[test]
+    fn mat4_translation() {
+        let m = Mat4::translation(10.0, 20.0, 30.0);
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let (p, w) = m.transform_point(v);
+        assert_eq!(p, Vec3::new(11.0, 22.0, 33.0));
+        assert_eq!(w, 1.0);
+    }
+}
