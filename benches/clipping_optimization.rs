@@ -110,8 +110,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
         let (prev_pos, prev_w) = get_pos(&prev_v);
         let mut prev_d = plane(prev_pos, prev_w);
 
-        for i in 0..count {
-            let curr_v = buf1[i];
+        for &curr_v in buf1.iter().take(count) {
             let (curr_pos, curr_w) = get_pos(&curr_v);
             let curr_d = plane(curr_pos, curr_w);
 
@@ -127,13 +126,11 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
                     buf2[out_count] = curr_v;
                     out_count += 1;
                 }
-            } else {
-                if prev_d >= 0.0 {
-                    let t = prev_d / (prev_d - curr_d);
-                    if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
-                        out_count += 1;
-                    }
+            } else if prev_d >= 0.0 {
+                let t = prev_d / (prev_d - curr_d);
+                if out_count < 12 {
+                    buf2[out_count] = prev_v.lerp(curr_v, t);
+                    out_count += 1;
                 }
             }
             prev_v = curr_v;

@@ -193,11 +193,11 @@ impl Texture {
     /// use abrash::texture::Texture;
     ///
     /// let mut tex = Texture::new(2, 2).unwrap();
-    /// tex.set_pixel(0, 0, 0xFFFFFFFF);
+    /// tex.set_pixel(0, 0, 0xFFFF_FFFF);
     ///
     /// // Sample center of top-left pixel
     /// let color = tex.get_pixel(0.25, 0.25);
-    /// assert_eq!(color, 0xFFFFFFFF);
+    /// assert_eq!(color, 0xFFFF_FFFF);
     /// ```
     #[inline]
     #[must_use]
@@ -523,9 +523,9 @@ mod tests {
         for y in 0..4 {
             for x in 0..4 {
                 let color = if (x + y) % 2 == 0 {
-                    0xFF000000
+                    0xFF00_0000
                 } else {
-                    0xFFFFFFFF
+                    0xFFFF_FFFF
                 };
                 tex.set_pixel(x, y, color);
             }
@@ -550,7 +550,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // Allow some tolerance for integer arithmetic
-        assert!(r >= 60 && r <= 66, "Expected ~63 (0x3F), got {}", r);
+        assert!((60..=66).contains(&r), "Expected ~63 (0x3F), got {r}");
     }
 
     #[test]
@@ -558,7 +558,7 @@ mod tests {
         let mut tex = Texture::new(4, 4).unwrap();
         // Fill base level with Black
         for i in 0..16 {
-            tex.pixels[i] = 0xFF000000;
+            tex.pixels[i] = 0xFF00_0000;
         }
         tex.generate_mipmaps();
 
@@ -566,7 +566,7 @@ mod tests {
         // mips[0] is Level 1.
         if let Some(l1) = tex.mips.get_mut(0) {
             for p in l1.iter_mut() {
-                *p = 0xFFFFFFFF;
+                *p = 0xFFFF_FFFF;
             }
         }
 
@@ -581,14 +581,14 @@ mod tests {
         let pixel = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 1.0);
 
         assert_eq!(
-            pixel, 0xFFFFFFFF,
+            pixel, 0xFFFF_FFFF,
             "LOD 1.0 should sample from Level 1 (White)"
         );
 
         // Test LOD=0.0 -> Black
         let pixel_l0 = tex.get_pixel_trilinear_fixed(u_fix, v_fix, 0.0);
         assert_eq!(
-            pixel_l0, 0xFF000000,
+            pixel_l0, 0xFF00_0000,
             "LOD 0.0 should sample from Level 0 (Black)"
         );
     }

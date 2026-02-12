@@ -160,13 +160,13 @@ mod tests {
     #[test]
     fn test_luminance_calculation() {
         // White
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFFFFFF), 255);
+        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF_FFFF), 255);
         // Black
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF000000), 0);
+        assert_eq!(AsciiConverter::pixel_luminance(0xFF00_0000), 0);
         // Red (pure) -> ~76
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF0000), 76);
+        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF_0000), 76);
         // Green (pure) -> ~149
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF00FF00), 149);
+        assert_eq!(AsciiConverter::pixel_luminance(0xFF00_FF00), 149);
     }
 
     #[test]
@@ -178,16 +178,16 @@ mod tests {
         assert_eq!(charset.map(255), '@');
         // Mid-grey -> somewhere in middle
         let mid = charset.map(128);
-        assert!(mid == '+' || mid == '=' || mid == '*', "Got {}", mid);
+        assert!(mid == '+' || mid == '=' || mid == '*', "Got {mid}");
     }
 
     #[test]
     fn test_to_string() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
-        fb.set_pixel(0, 0, 0xFFFFFFFF); // White -> @
-        fb.set_pixel(1, 0, 0xFF000000); // Black -> ' '
-        fb.set_pixel(0, 1, 0xFF000000); // Black -> ' '
-        fb.set_pixel(1, 1, 0xFFFFFFFF); // White -> @
+        fb.set_pixel(0, 0, 0xFFFF_FFFF); // White -> @
+        fb.set_pixel(1, 0, 0xFF00_0000); // Black -> ' '
+        fb.set_pixel(0, 1, 0xFF00_0000); // Black -> ' '
+        fb.set_pixel(1, 1, 0xFFFF_FFFF); // White -> @
 
         let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
         let s = converter.to_string();
@@ -198,12 +198,12 @@ mod tests {
     #[test]
     fn test_block_charset() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
-        fb.set_pixel(0, 0, 0xFF808080); // Mid-grey
+        fb.set_pixel(0, 0, 0xFF80_8080); // Mid-grey
 
         let converter = AsciiConverter::new(&fb, AsciiCharset::Blocks);
         let s = converter.to_string();
 
         // Should use one of the middle block characters
-        assert!(s.contains('▒') || s.contains('▓'), "Got {}", s);
+        assert!(s.contains('▒') || s.contains('▓'), "Got {s}");
     }
 }

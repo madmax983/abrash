@@ -242,23 +242,23 @@ mod tests {
     #[test]
     fn test_apply_invert() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
-        fb.set_pixel(0, 0, 0xFF000000); // Black
-        fb.set_pixel(1, 0, 0xFFFFFFFF); // White
-        fb.set_pixel(0, 1, 0xFFFF0000); // Red
-        fb.set_pixel(1, 1, 0xFF00FF00); // Green
+        fb.set_pixel(0, 0, 0xFF00_0000); // Black
+        fb.set_pixel(1, 0, 0xFFFF_FFFF); // White
+        fb.set_pixel(0, 1, 0xFFFF_0000); // Red
+        fb.set_pixel(1, 1, 0xFF00_FF00); // Green
 
         apply_invert(&mut fb);
 
-        assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF); // White
-        assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFF000000); // Black
-        assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF00FFFF); // Cyan
-        assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFFFF00FF); // Magenta
+        assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF); // White
+        assert_eq!(fb.get_pixel(1, 0).unwrap(), 0xFF00_0000); // Black
+        assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF00_FFFF); // Cyan
+        assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFFFF_00FF); // Magenta
     }
 
     #[test]
     fn test_apply_grayscale() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
-        fb.set_pixel(0, 0, 0xFFFF0000); // Red
+        fb.set_pixel(0, 0, 0xFFFF_0000); // Red
         apply_grayscale(&mut fb);
         // Red component is 255. 77*255/256 = 76.
         // Result should be grey (76, 76, 76).
@@ -276,7 +276,7 @@ mod tests {
         // We use multiples of 16 to ensure distinct grayscale values.
         for x in 0..width as i32 {
             let val = (x * 10) as u32;
-            fb.set_pixel(x, 0, 0xFF000000 | (val << 16));
+            fb.set_pixel(x, 0, 0xFF00_0000 | (val << 16));
         }
 
         apply_grayscale(&mut fb);
@@ -289,8 +289,7 @@ mod tests {
             let r = (p >> 16) & 0xFF;
             assert_eq!(
                 r, expected_gray,
-                "Pixel {} mismatch. Got {}, expected {}",
-                x, r, expected_gray
+                "Pixel {x} mismatch. Got {r}, expected {expected_gray}",
             );
         }
     }
