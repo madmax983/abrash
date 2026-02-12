@@ -1782,6 +1782,7 @@ impl PhongEdgeWalker {
     }
 }
 
+#[derive(Clone, Copy)]
 struct PhongSpanStart {
     z: f32,
     // q unused in optimization
@@ -1846,7 +1847,7 @@ fn draw_scanline_phong(
 
             // Optimization: Skip w calculation.
             // normal = normalize(nx*w, ny*w, nz*w) == normalize(nx, ny, nz)
-            let normal = Vec3::new(nx, ny, nz).normalize();
+            let normal = Vec3::new(nx, ny, nz).fast_normalize();
 
             // Lighting calculation
             let intensity = normal.dot(neg_light_dir).max(0.0);

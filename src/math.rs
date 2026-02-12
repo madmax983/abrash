@@ -220,6 +220,25 @@ impl Vec3 {
             *self
         }
     }
+
+    /// Returns a normalized unit vector using fast inverse square root approximation.
+    ///
+    /// This is faster than `normalize()` but slightly less precise.
+    /// Useful for per-pixel lighting calculations where speed is critical.
+    #[must_use]
+    pub fn fast_normalize(&self) -> Self {
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        if len_sq > 1.0e-8 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+            }
+        } else {
+            *self
+        }
+    }
 }
 
 impl Add for Vec3 {
@@ -659,4 +678,44 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
     project_to_screen_optimized(v, w, half_width, half_height)
+}
+
+/// Fast Inverse Square Root approximation (Quake III algorithm).
+///
+/// Computes $1 / \sqrt{n}$.
+#[must_use]
+#[inline]
+pub fn fast_inv_sqrt(n: f32) -> f32 {
+    let x2 = n * 0.5;
+    let mut i = n.to_bits();
+    // Evil floating point bit level hacking
+    i = 0x5f37_59df - (i >> 1);
+    let y = f32::from_bits(i);
+    // 1st Newton-Raphson iteration
+    y * (1.5 - (x2 * y * y))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fast_inv_sqrt_accuracy() {
+        let values = [1.0, 2.0, 4.0, 100.0, 10000.0];
+        for &v in &values {
+            let fast = fast_inv_sqrt(v);
+            let exact = 1.0 / v.sqrt();
+            let error = (fast - exact).abs() / exact;
+
+            // Allow 1% error (it's an approximation)
+            assert!(
+                error < 0.01,
+                "Value: {}, Fast: {}, Exact: {}, Error: {}",
+                v,
+                fast,
+                exact,
+                error
+            );
+        }
+    }
 }
