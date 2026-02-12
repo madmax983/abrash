@@ -6,11 +6,6 @@ autobenches = false
 
 [features]
 default = ["backend-win32"]
-simd = []
-parallel = ["dep:rayon"]
-gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
-gpu-render = ["dep:abrash-gpu-render"]
-gpu-engine-compare = ["gpu-render", "dep:bevy", "dep:fyrox"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui"]
@@ -20,11 +15,7 @@ clap = { version = "4.5.57", features = ["derive"] }
 crossterm = { version = "0.29.0", optional = true }
 ratatui = { version = "0.30.0", optional = true }
 ratzilla = { version = "0.3", optional = true }
-rayon = { version = "1.10", optional = true }
-abrash-gpu = { path = "crates/abrash-gpu", optional = true, default-features = false, features = ["gpu-binning"] }
-abrash-gpu-render = { path = "crates/abrash-gpu-render", optional = true }
-bevy = { version = "0.18.0", default-features = false, optional = true }
-fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-impl"], optional = true }
+comfy-table = "7.1"
 
 # Win32 API bindings
 windows-sys = { version = "0.59", optional = true, features = [
@@ -35,25 +26,8 @@ windows-sys = { version = "0.59", optional = true, features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# DirectX 12 bindings (for GPU compute binning)
-windows = { version = "0.59", optional = true, features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Direct3D12",
-    "Win32_Graphics_Direct3D_Dxc",
-    "Win32_Graphics_Dxgi",
-    "Win32_Graphics_Dxgi_Common",
-    "Win32_Security",
-    "Win32_System_Threading",
-] }
-comfy-table = "7.1"
-
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
-
-[build-dependencies]
-windows = { version = "0.59", optional = true, features = [
-    "Win32_Graphics_Direct3D_Dxc",
-] }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -86,21 +60,6 @@ name = "wasm_cube_3d"
 path = "examples/wasm_cube_3d.rs"
 required-features = ["backend-wasm"]
 
-[[example]]
-name = "gpu_cube"
-path = "examples/gpu_cube.rs"
-required-features = ["gpu-render"]
-
-[[example]]
-name = "gpu_pyramid"
-path = "examples/gpu_pyramid.rs"
-required-features = ["gpu-render"]
-
-[[example]]
-name = "gpu_obj"
-path = "examples/gpu_obj.rs"
-required-features = ["gpu-render"]
-
 [[bench]]
 name = "rasterization"
 harness = false
@@ -126,43 +85,8 @@ name = "mipmapping"
 harness = false
 
 [[bench]]
-name = "phase1_simd"
-harness = false
-
-[[bench]]
-name = "simd_micro"
-harness = false
-
-[[bench]]
 name = "obj_loading"
 harness = false
-
-[[bench]]
-name = "simd_micro_bench"
-harness = false
-
-[[bench]]
-name = "gpu_binning"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "two_level_binning"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "gpu_hiz_build"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "hiz_benchmark"
-harness = false
-
-[[bin]]
-name = "simd_profiling"
-path = "benches/simd_profiling.rs"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -183,15 +107,9 @@ too_many_lines = "allow"
 struct_field_names = "allow"
 # mul_add without hardware FMA falls back to slow software impl — keep a*b+c
 suboptimal_flops = "allow"
-[[bench]]
-name = "parallel_tile_rendering"
-harness = false
-[[bench]]
-name = "clipping_optimization"
-harness = false
 
 [[bench]]
-name = "software_two_level_binning"
+name = "clipping_optimization"
 harness = false
 
 [[bench]]
@@ -209,16 +127,6 @@ harness = false
 [[bench]]
 name = "transparency_bench"
 harness = false
-
-[[bench]]
-name = "gpu_render"
-harness = false
-required-features = ["gpu-render"]
-
-[[bench]]
-name = "gpu_engine_compare"
-harness = false
-required-features = ["gpu-engine-compare"]
 
 [[bench]]
 name = "phong_shading"

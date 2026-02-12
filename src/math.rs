@@ -489,7 +489,7 @@ impl Mat4 {
         }
     }
 
-    /// Transforms multiple points by this matrix in parallel (if `parallel` feature is enabled).
+    /// Transforms multiple points by this matrix in parallel (deprecated, now sequential).
     ///
     /// Output buffer must have same length as input points.
     /// Returns (`transformed_point`, `w_component`) for each point.
@@ -497,35 +497,8 @@ impl Mat4 {
     /// # Panics
     ///
     /// Panics if `points.len()` does not equal `output.len()`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use abrash::math::{Mat4, Vec3};
-    ///
-    /// let m = Mat4::translation(10.0, 0.0, 0.0);
-    /// let points = [Vec3::new(0.0, 0.0, 0.0); 100];
-    /// let mut output = vec![(Vec3::default(), 0.0); 100];
-    ///
-    /// m.transform_points_parallel(&points, &mut output);
-    ///
-    /// assert_eq!(output[0].0, Vec3::new(10.0, 0.0, 0.0));
-    /// ```
     pub fn transform_points_parallel(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
-        assert_eq!(points.len(), output.len());
-
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            points.par_iter().zip(output.par_iter_mut()).for_each(|(p, out)| {
-                *out = self.transform_point(*p);
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            self.transform_points(points, output);
-        }
+        self.transform_points(points, output);
     }
 
     /// Transform a normal vector (ignores translation, uses upper-left 3x3).
@@ -549,48 +522,6 @@ impl Default for Mat4 {
 impl Mul for Mat4 {
     type Output = Self;
 
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[inline]
-    fn mul(self, other: Self) -> Self {
-        unsafe {
-            use std::arch::x86_64::{
-                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_shuffle_ps, _mm_storeu_ps,
-            };
-            let mut result = Self { m: [[0.0; 4]; 4] };
-
-            // Load rows of B
-            let b0 = _mm_loadu_ps(other.m[0].as_ptr());
-            let b1 = _mm_loadu_ps(other.m[1].as_ptr());
-            let b2 = _mm_loadu_ps(other.m[2].as_ptr());
-            let b3 = _mm_loadu_ps(other.m[3].as_ptr());
-
-            for i in 0..4 {
-                // Load row i of A
-                let row_a = _mm_loadu_ps(self.m[i].as_ptr());
-
-                // Broadcast A[i][0]
-                let a0 = _mm_shuffle_ps(row_a, row_a, 0x00);
-                let mut row_res = _mm_mul_ps(a0, b0);
-
-                // Broadcast A[i][1]
-                let a1 = _mm_shuffle_ps(row_a, row_a, 0x55);
-                row_res = _mm_add_ps(row_res, _mm_mul_ps(a1, b1));
-
-                // Broadcast A[i][2]
-                let a2 = _mm_shuffle_ps(row_a, row_a, 0xAA);
-                row_res = _mm_add_ps(row_res, _mm_mul_ps(a2, b2));
-
-                // Broadcast A[i][3]
-                let a3 = _mm_shuffle_ps(row_a, row_a, 0xFF);
-                row_res = _mm_add_ps(row_res, _mm_mul_ps(a3, b3));
-
-                _mm_storeu_ps(result.m[i].as_mut_ptr(), row_res);
-            }
-            result
-        }
-    }
-
-    #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
     fn mul(self, other: Self) -> Self {
         let mut result = Self { m: [[0.0; 4]; 4] };
         for i in 0..4 {

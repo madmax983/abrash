@@ -37,11 +37,6 @@ fn test_textured_triangle_rendering() {
     // Top-Right: Screen (100, 0) -> NDC (1, 1)
     // Bottom-Left: Screen (0, 100) -> NDC (-1, -1)
 
-    // So vertices:
-    let v0 = (Vec3::new(-1.0, 1.0, 1.0), 1.0); // Top-Left
-    let uv0 = Vec2::new(0.0, 0.0);
-
-    let v1 = (Vec3::new(1.0, 1.0, 1.0), 1.0); // Top-Right (Wait, winding order?)
     // CCW winding is front face?
     // Top-Left -> Bottom-Left -> Top-Right?
     // (-1, 1) -> (-1, -1) -> (1, 1)

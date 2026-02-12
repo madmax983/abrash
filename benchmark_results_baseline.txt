@@ -1,3 +1,0 @@
-apply_grayscale 1080p: ~1.83 ms
-apply_scanlines 1080p: ~293 µs
-apply_invert 1080p: ~433 µs

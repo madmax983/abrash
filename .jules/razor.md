@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** GPU compute binning (`src/gpu`, `src/gpu_render.rs`) and SIMD/Parallel rendering paths in `src/tile_renderer.rs` that were slower/unused. HiZ occlusion culling infrastructure (`src/hiz_buffer.rs`).
+**Cut:** Deleted entire GPU backend, experimental modules, HiZ buffer, and removed SIMD/parallel feature flags and dependencies (`rayon`, `windows`).
+**Saved:** ~2000+ lines of code, complex dependencies, build times, and cognitive load of hybrid rendering paths.

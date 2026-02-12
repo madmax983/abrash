@@ -1782,6 +1782,7 @@ impl PhongEdgeWalker {
     }
 }
 
+#[derive(Clone, Copy)]
 struct PhongSpanStart {
     z: f32,
     // q unused in optimization
@@ -2113,7 +2114,7 @@ mod tests {
 
         // Should have zero gradients
         assert_eq!(walker.dx_dy, 0);
-        assert_eq!(walker.dz_dy, 0.0);
+        assert!(walker.dz_dy.abs() < f32::EPSILON);
 
         // z should still be correct
         assert!((walker.z - 1.0).abs() < 0.0001);
@@ -2226,6 +2227,6 @@ mod tests {
         // This should not panic
         let result = is_backface(p0, p1, p2);
 
-        assert_eq!(result, true);
+        assert!(result);
     }
 }

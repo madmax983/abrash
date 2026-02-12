@@ -52,34 +52,10 @@ const DEMOS: &[Demo] = &[
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "obj_viewer",
     },
-    Demo {
-        name: "GPU Cube",
-        description: "Hardware-accelerated cube rendering with wgpu",
-        instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
-        example_name: "gpu_cube",
-    },
-    Demo {
-        name: "GPU Pyramid",
-        description: "Hardware-accelerated pyramid mesh via generic GPU mesh runner",
-        instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
-        example_name: "gpu_pyramid",
-    },
-    Demo {
-        name: "GPU OBJ",
-        description: "Hardware-accelerated OBJ rendering (Spaceship)",
-        instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
-        example_name: "gpu_obj",
-    },
 ];
 
-fn is_gpu_render_example(example_name: &str) -> bool {
-    example_name.starts_with("gpu_")
-}
-
 fn demo_command(example_name: &str) -> String {
-    if is_gpu_render_example(example_name) {
-        format!("cargo run --release --example {example_name} --features gpu-render")
-    } else if std::env::consts::OS == "windows" {
+    if std::env::consts::OS == "windows" {
         format!("cargo run --release --example {example_name}")
     } else {
         format!(
@@ -327,13 +303,9 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::new("cargo");
     cmd.arg("run").arg("--release").arg("--example").arg(name);
 
-    if is_gpu_render_example(name) {
-        cmd.arg("--features").arg("gpu-render");
-    }
-
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure
     // the example runs (as Win32 API is not available).
-    if std::env::consts::OS != "windows" && !is_gpu_render_example(name) {
+    if std::env::consts::OS != "windows" {
         println!(
             "ℹ️  Non-Windows OS detected ({}). Enabling TUI backend...",
             std::env::consts::OS
