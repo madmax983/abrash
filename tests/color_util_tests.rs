@@ -1,5 +1,5 @@
+use abrash::color::color_to_u32;
 use abrash::math::Vec3;
-use abrash::rasterizer::color_to_u32;
 
 #[test]
 fn test_color_to_u32() {

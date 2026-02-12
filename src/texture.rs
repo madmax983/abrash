@@ -2,6 +2,8 @@
 //!
 //! Moving texture logic here allows multiple rasterizers to share it without depending on each other.
 
+use crate::color::{average_4_colors, blend_swar};
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// Filter mode for texture sampling.
 pub enum FilterMode {
@@ -11,42 +13,6 @@ pub enum FilterMode {
     Bilinear,
     /// Trilinear interpolation. Smoother with mipmaps, best quality but slower.
     Trilinear,
-}
-
-/// Helper for bilinear interpolation blending using SWAR (SIMD Within A Register).
-///
-/// **SWAR** is a technique to perform parallel operations on data packed into general-purpose registers,
-/// avoiding the need for specialized SIMD instructions (like AVX or NEON).
-///
-/// This function treats a 32-bit integer as two 16-bit slots (or four 8-bit slots with gaps)
-/// to blend two color channels simultaneously.
-///
-/// *   `c0`, `c1`: Packed color channels (e.g., Red/Blue or Green/Alpha).
-/// *   `w`, `inv_w`: Weight and inverse weight (sum must be 256 for 8-bit precision).
-#[inline(always)]
-#[must_use]
-pub const fn blend_swar(c0: u32, c1: u32, w: u32, inv_w: u32) -> u32 {
-    let rb0 = c0 & 0x00FF_00FF;
-    let ag0 = (c0 >> 8) & 0x00FF_00FF;
-    let rb1 = c1 & 0x00FF_00FF;
-    let ag1 = (c1 >> 8) & 0x00FF_00FF;
-
-    let rb = ((rb0 * inv_w + rb1 * w) >> 8) & 0x00FF_00FF;
-    let ag = ((ag0 * inv_w + ag1 * w) >> 8) & 0x00FF_00FF;
-
-    rb | (ag << 8)
-}
-
-/// Helper to average 4 colors (simple box filter)
-const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
-    let r =
-        (((c00 >> 16) & 0xFF) + ((c10 >> 16) & 0xFF) + ((c01 >> 16) & 0xFF) + ((c11 >> 16) & 0xFF))
-            / 4;
-    let g =
-        (((c00 >> 8) & 0xFF) + ((c10 >> 8) & 0xFF) + ((c01 >> 8) & 0xFF) + ((c11 >> 8) & 0xFF)) / 4;
-    let b = ((c00 & 0xFF) + (c10 & 0xFF) + (c01 & 0xFF) + (c11 & 0xFF)) / 4;
-
-    0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
 /// A simple 2D texture.

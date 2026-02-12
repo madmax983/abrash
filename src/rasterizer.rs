@@ -18,9 +18,10 @@
 //! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
 
 use crate::clipping::clip_triangle_to_frustum;
+use crate::color::{blend_swar, color_to_u32};
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen_optimized};
-use crate::texture::{FilterMode, Texture, blend_swar};
+use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to ensure buffer dimensions match
@@ -309,8 +310,6 @@ pub fn fill_triangle_3d(
             e
         };
 
-        let width_i32 = width as i32;
-
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
                 edge_b = EdgeWalker::new(p1, p2);
@@ -322,65 +321,35 @@ pub fn fill_triangle_3d(
                 ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 {
-                    // SAFETY: Safe due to clamps on x_start and y.
-                    unsafe {
-                        let alpha = (color >> 24) & 0xFF;
-                        if alpha == 0xFF {
-                            if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, color);
-                            }
-                        } else {
-                            // Transparent single pixel
-                            let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
-                            if z_left < z_current {
-                                let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
-                            }
-                        }
-                    }
-                }
+            let alpha = (color >> 24) & 0xFF;
+            if alpha == 0xFF {
+                draw_scanline_flat(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end.max(x_start),
+                    z_left,
+                    dz_dx,
+                    color,
+                );
             } else {
-                let alpha = (color >> 24) & 0xFF;
-                if alpha == 0xFF {
-                    draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                } else {
-                    draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                }
+                draw_scanline_flat_blended(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end.max(x_start),
+                    z_left,
+                    dz_dx,
+                    color,
+                );
             }
 
             edge_a.step();
             edge_b.step();
         }
     }
-}
-
-/// Convert Vec3 color (0.0-1.0 per channel) to u32 ARGB
-#[must_use]
-pub fn color_to_u32(color: Vec3) -> u32 {
-    let r = (color.x.clamp(0.0, 1.0) * 255.0) as u32;
-    let g = (color.y.clamp(0.0, 1.0) * 255.0) as u32;
-    let b = (color.z.clamp(0.0, 1.0) * 255.0) as u32;
-    0xFF00_0000 | (r << 16) | (g << 8) | b
-}
-
-/// Helper to pack 8-bit color channels into u32 ARGB
-#[inline(always)]
-const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
-    0xFF00_0000 | (r << 16) | (g << 8) | b
-}
-
-/// Helper for fast color packing from fixed point.
-#[inline(always)]
-fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
-    let r = (c.0 >> 16).clamp(0, 255) as u32;
-    let g = (c.1 >> 16).clamp(0, 255) as u32;
-    let b = (c.2 >> 16).clamp(0, 255) as u32;
-    pack_color_channels(r, g, b)
 }
 
 // Fixed point scale factor (16.16)
@@ -720,8 +689,6 @@ pub fn fill_triangle_gouraud(
             e
         };
 
-        let width_i32 = width as i32;
-
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
                 edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
@@ -743,34 +710,17 @@ pub fn fill_triangle_gouraud(
                 )
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 {
-                    // SAFETY: Safe due to clamps on x_start and y
-                    unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                            fb.set_pixel_unchecked(
-                                x_start as usize,
-                                y as usize,
-                                pack_color_fixed(c_left),
-                            );
-                        }
-                    }
-                }
-            } else {
-                draw_scanline_gouraud(
-                    fb,
-                    zb,
-                    y,
-                    x_start,
-                    x_end,
-                    z_left,
-                    c_left,
-                    gradients.dz_dx,
-                    gradients.dc_dx,
-                );
-            }
+            draw_scanline_gouraud(
+                fb,
+                zb,
+                y,
+                x_start,
+                x_end.max(x_start),
+                z_left,
+                c_left,
+                gradients.dz_dx,
+                gradients.dc_dx,
+            );
 
             edge_a.step();
             edge_b.step();
@@ -1461,13 +1411,7 @@ pub fn fill_triangle_textured(
         let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -1549,8 +1493,6 @@ pub fn fill_triangle_textured(
             e
         };
 
-        let width_i32 = width as i32;
-
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
                 edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
@@ -1576,86 +1518,21 @@ pub fn fill_triangle_textured(
                 )
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
-                    // SAFETY: Safe due to clamps on x_start and y
-                    unsafe {
-                        let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
-                        if z_left < z_current {
-                            let w = 1.0 / q_left;
-                            let u_tex = u_left * w;
-                            let v_tex = v_left * w;
-                            let color = match texture.filter_mode {
-                                FilterMode::Nearest => {
-                                    texture.get_pixel_texel(u_tex as i32, v_tex as i32)
-                                }
-                                FilterMode::Bilinear => {
-                                    texture.get_pixel_bilinear_texel(u_tex, v_tex)
-                                }
-                                FilterMode::Trilinear => {
-                                    // Calculate LOD for single pixel
-                                    // q = 1/w.
-                                    // u_tex = u/q.
-                                    // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                                    let w = 1.0 / q_left;
-                                    let w_sq = w * w;
-
-                                    let du_tex_dx = (gradients.du_dx * q_left
-                                        - u_left * gradients.dq_dx)
-                                        * w_sq;
-                                    let dv_tex_dx = (gradients.dv_dx * q_left
-                                        - v_left * gradients.dq_dx)
-                                        * w_sq;
-                                    let du_tex_dy = (gradients.du_dy * q_left
-                                        - u_left * gradients.dq_dy)
-                                        * w_sq;
-                                    let dv_tex_dy = (gradients.dv_dy * q_left
-                                        - v_left * gradients.dq_dy)
-                                        * w_sq;
-
-                                    let max_rho_sq = (du_tex_dx * du_tex_dx
-                                        + dv_tex_dx * dv_tex_dx)
-                                        .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-
-                                    let lod = 0.5 * max_rho_sq.log2();
-                                    texture.get_pixel_trilinear(u_tex, v_tex, lod)
-                                }
-                            };
-
-                            let alpha = (color >> 24) & 0xFF;
-                            if alpha == 255 {
-                                // Manually update Z
-                                let width_usize = fb.width() as usize;
-                                let idx = (y as usize) * width_usize + (x_start as usize);
-                                *zb.as_mut_slice().get_unchecked_mut(idx) = z_left;
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, color);
-                            } else if alpha > 0 {
-                                let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
-                            }
-                        }
-                    }
-                }
-            } else {
-                draw_scanline_textured_perspective(
-                    fb,
-                    zb,
-                    texture,
-                    y,
-                    x_start,
-                    x_end,
-                    PerspectiveSpanStart {
-                        z: z_left,
-                        q: q_left,
-                        u: u_left,
-                        v: v_left,
-                    },
-                    &gradients,
-                );
-            }
+            draw_scanline_textured_perspective(
+                fb,
+                zb,
+                texture,
+                y,
+                x_start,
+                x_end.max(x_start),
+                PerspectiveSpanStart {
+                    z: z_left,
+                    q: q_left,
+                    u: u_left,
+                    v: v_left,
+                },
+                &gradients,
+            );
 
             edge_a.step();
             edge_b.step();
@@ -1734,12 +1611,7 @@ struct PhongEdgeWalker {
 
 impl PhongEdgeWalker {
     #[allow(clippy::too_many_arguments)]
-    fn new(
-        p_start: ScreenPoint,
-        p_end: ScreenPoint,
-        n_start: Vec3,
-        n_end: Vec3,
-    ) -> Self {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, n_start: Vec3, n_end: Vec3) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
@@ -1782,6 +1654,7 @@ impl PhongEdgeWalker {
     }
 }
 
+#[derive(Clone, Copy)]
 struct PhongSpanStart {
     z: f32,
     // q unused in optimization
@@ -1916,11 +1789,7 @@ pub fn fill_triangle_phong(
         let n1 = v1.1 * inv_w1;
         let n2 = v2.1 * inv_w2;
 
-        let mut verts = [
-            (p0_orig, n0),
-            (p1_orig, n1),
-            (p2_orig, n2),
-        ];
+        let mut verts = [(p0_orig, n0), (p1_orig, n1), (p2_orig, n2)];
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, n0), (p1, n1), (p2, n2)] = verts;
 
@@ -2005,7 +1874,7 @@ pub fn fill_triangle_phong(
                     zb,
                     y,
                     x_start,
-                    x_end,
+                x_end.max(x_start),
                     PhongSpanStart {
                         z: z_left,
                         nx: nx_left,

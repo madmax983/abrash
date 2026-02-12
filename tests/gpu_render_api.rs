@@ -1,8 +1,8 @@
 #![cfg(feature = "gpu-render")]
 
 use abrash::gpu_render::{
-    GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig,
-    GpuVertex, MeshValidationError, validate_demo_config, validate_mesh,
+    GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig, GpuVertex,
+    MeshValidationError, validate_demo_config, validate_mesh,
 };
 
 #[test]
