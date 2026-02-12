@@ -297,6 +297,31 @@ impl Mul for Vec3 {
 /// A 4x4 transformation matrix used for 3D graphics.
 ///
 /// stored in **Row-Major** order.
+///
+/// # Transformation Order
+///
+/// Since this library uses row vectors ($v \cdot M$), transformations are applied in the order they are multiplied.
+/// To achieve the standard "Scale, then Rotate, then Translate" effect for a model matrix, you must multiply in that order:
+///
+/// $$ M_{model} = M_{scale} \cdot M_{rotate} \cdot M_{translate} $$
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Mat4, Vec3};
+///
+/// // Create individual transformations
+/// let scale = Mat4::scale(2.0, 2.0, 2.0);
+/// let rotation = Mat4::rotation_y(1.57); // 90 degrees
+/// let translation = Mat4::translation(10.0, 5.0, 0.0);
+///
+/// // Combine them: S -> R -> T
+/// let model_matrix = scale * rotation * translation;
+///
+/// // Apply to a point
+/// let p = Vec3::new(1.0, 0.0, 0.0);
+/// let (p_transformed, _) = model_matrix.transform_point(p);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
