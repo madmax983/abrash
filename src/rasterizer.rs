@@ -1117,8 +1117,8 @@ fn draw_span_bilinear(
                                     #[cfg(target_endian = "little")]
                                     {
                                         let ptr = tex_pixels.as_ptr();
-                                        let row0_pair = (ptr.add(row0 + x0) as *const u64).read_unaligned();
-                                        let row1_pair = (ptr.add(row1 + x0) as *const u64).read_unaligned();
+                                        let row0_pair = ptr.add(row0 + x0).cast::<u64>().read_unaligned();
+                                        let row1_pair = ptr.add(row1 + x0).cast::<u64>().read_unaligned();
 
                                         (
                                             row0_pair as u32,

@@ -189,6 +189,66 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
     }
 }
 
+/// Applies chromatic aberration by shifting Red and Blue channels.
+///
+/// *   Red channel is shifted left by `offset`.
+/// *   Blue channel is shifted right by `offset`.
+/// *   Green channel remains unchanged.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_chromatic_aberration;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
+/// apply_chromatic_aberration(&mut fb, 5);
+/// ```
+pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
+    if offset == 0 {
+        return;
+    }
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let offset = offset as usize;
+
+    let mut row_buffer = vec![0u32; width];
+    let pixels = fb.as_mut_slice();
+
+    for y in 0..height {
+        let row_start = y * width;
+        let row_end = row_start + width;
+        let row_pixels = &mut pixels[row_start..row_end];
+
+        // Copy current row to scratch buffer
+        row_buffer.copy_from_slice(row_pixels);
+
+        for x in 0..width {
+            // Green (G) from current pixel
+            let g = (row_buffer[x] >> 8) & 0xFF;
+            // Alpha (A) from current pixel
+            let a = (row_buffer[x] >> 24) & 0xFF;
+
+            // Red (R) from left (x - offset)
+            let r = if x >= offset {
+                (row_buffer[x - offset] >> 16) & 0xFF
+            } else {
+                0
+            };
+
+            // Blue (B) from right (x + offset)
+            let b = if x + offset < width {
+                row_buffer[x + offset] & 0xFF
+            } else {
+                0
+            };
+
+            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+}
+
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {

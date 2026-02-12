@@ -226,7 +226,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     while curr != usize::MAX {
                         // DoS protection: limit chain depth to prevent O(N^2) behavior
                         // when many vertices share the same position but differ in other attributes.
-                        if depth >= 8 {
+                        if depth >= MAX_CHAIN_LENGTH {
                             break;
                         }
                         let node = &cache_nodes[curr];
