@@ -37,10 +37,11 @@
 use std::ops::{Add, Mul, Sub};
 
 #[inline]
-fn fast_inv_sqrt(n: f32) -> f32 {
+#[must_use]
+pub fn fast_inv_sqrt(n: f32) -> f32 {
     let xhalf = 0.5 * n;
     let i = n.to_bits();
-    let i = 0x5f3759df - (i >> 1);
+    let i = 0x5f37_59df - (i >> 1);
     let y = f32::from_bits(i);
     y * (1.5 - xhalf * y * y)
 }
