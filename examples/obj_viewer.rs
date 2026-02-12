@@ -1,5 +1,7 @@
+use abrash::experimental::ascii::{AsciiCharset, AsciiConverter};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
@@ -47,6 +49,80 @@ struct Args {
     /// Path to the OBJ file to load (optional)
     #[arg(value_name = "FILE")]
     input: Option<PathBuf>,
+
+    /// Render in ASCII mode to stdout
+    #[arg(long)]
+    ascii: bool,
+
+    /// Render in Colored ASCII mode to stdout
+    #[arg(long)]
+    colored_ascii: bool,
+
+    /// Width for ASCII rendering (default: 100)
+    #[arg(long, default_value = "100")]
+    width: u32,
+
+    /// Height for ASCII rendering (default: 50)
+    #[arg(long, default_value = "50")]
+    height: u32,
+}
+
+fn render_mesh(
+    framebuffer: &mut Framebuffer,
+    zbuffer: &mut ZBuffer,
+    mesh: &Mesh,
+    normals: &[Vec3],
+    mvp: &Mat4,
+    normal_mat: &Mat4,
+    base_color: Vec3,
+) {
+    for (i, tri_indices) in mesh.indices.iter().enumerate() {
+        let v0 = mesh.vertices[tri_indices[0]];
+        let v1 = mesh.vertices[tri_indices[1]];
+        let v2 = mesh.vertices[tri_indices[2]];
+
+        // Transform vertices
+        let (clip0, w0) = mvp.transform_point(v0);
+        let (clip1, w1) = mvp.transform_point(v1);
+        let (clip2, w2) = mvp.transform_point(v2);
+
+        // Simple backface culling
+        if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
+            continue;
+        }
+
+        // Calculate color based on normal
+        // Since Mesh doesn't store normals per vertex, we use the face normal
+        let normal = if i < normals.len() {
+            normals[i]
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+
+        // Rotate normal
+        let world_normal = normal_mat.transform_normal(normal);
+
+        // Simple directional light from top-right
+        let light_dir = Vec3::new(0.5, 1.0, 0.5).normalize();
+        let diffuse = world_normal.dot(light_dir).max(0.5);
+
+        let color_vec = base_color * diffuse;
+
+        // Pack color (ARGB)
+        let r = (color_vec.x * 255.0).min(255.0) as u32;
+        let g = (color_vec.y * 255.0).min(255.0) as u32;
+        let b = (color_vec.z * 255.0).min(255.0) as u32;
+        let color = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+        fill_triangle_3d(
+            framebuffer,
+            zbuffer,
+            (clip0, w0),
+            (clip1, w1),
+            (clip2, w2),
+            color,
+        );
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -126,98 +202,98 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🎮 Controls");
     println!("{controls}\n");
 
-    let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
-    let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let mut timestep = FixedTimestep::new(60);
-
-    // Compute normals for flat shading logic (simple color variation)
+    // Compute normals for flat shading logic
     let normals = mesh.compute_face_normals();
-
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 1.0, 3.0), // eye
-        Vec3::new(0.0, 0.0, 0.0), // target
-        Vec3::new(0.0, 1.0, 0.0), // up
-    );
-
+    let base_color = Vec3::new(0.4, 0.6, 1.0); // Light blue
     let mut angle_y: f32 = 0.0;
 
-    // Simple palette based on normal direction
-    let base_color = Vec3::new(0.4, 0.6, 1.0); // Light blue
+    if args.ascii || args.colored_ascii {
+        let width = args.width;
+        let height = args.height;
+        let mut framebuffer = Framebuffer::new(width, height)?;
+        let mut zbuffer = ZBuffer::new(width, height)?;
 
-    while window.is_open() {
-        window.poll_events();
+        let projection = Mat4::perspective(PI / 3.0, width as f32 / height as f32, 0.1, 100.0);
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
 
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle_y += 1.0 * timestep.dt();
-        }
+        // Clear screen
+        print!("\x1b[2J");
 
-        framebuffer.clear(BACKGROUND);
-        zbuffer.clear();
+        loop {
+            angle_y += 0.02;
 
-        // Model matrix (rotation)
-        let model = Mat4::rotation_y(angle_y);
+            framebuffer.clear(BACKGROUND);
+            zbuffer.clear();
 
-        // MVP matrix
-        let mvp = projection * (view * model);
+            let model = Mat4::rotation_y(angle_y);
+            let mvp = projection * (view * model);
+            let normal_mat = model;
 
-        // Rotation matrix for normals (upper 3x3 of model)
-        let normal_mat = model; // For rotation only, this is fine
-
-        // Transform and render each triangle
-        for (i, tri_indices) in mesh.indices.iter().enumerate() {
-            let v0 = mesh.vertices[tri_indices[0]];
-            let v1 = mesh.vertices[tri_indices[1]];
-            let v2 = mesh.vertices[tri_indices[2]];
-
-            // Transform vertices
-            let (clip0, w0) = mvp.transform_point(v0);
-            let (clip1, w1) = mvp.transform_point(v1);
-            let (clip2, w2) = mvp.transform_point(v2);
-
-            // Simple backface culling
-            if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
-                continue;
-            }
-
-            // Calculate color based on normal
-            // Since Mesh doesn't store normals per vertex, we use the face normal
-            let normal = if i < normals.len() {
-                normals[i]
-            } else {
-                Vec3::new(0.0, 1.0, 0.0)
-            };
-
-            // Rotate normal
-            let world_normal = normal_mat.transform_normal(normal);
-
-            // Simple directional light from top-right
-            let light_dir = Vec3::new(0.5, 1.0, 0.5).normalize();
-            let diffuse = world_normal.dot(light_dir).max(0.2);
-
-            let color_vec = base_color * diffuse;
-
-            // Pack color (ARGB)
-            let r = (color_vec.x * 255.0).min(255.0) as u32;
-            let g = (color_vec.y * 255.0).min(255.0) as u32;
-            let b = (color_vec.z * 255.0).min(255.0) as u32;
-            let color = 0xFF000000 | (r << 16) | (g << 8) | b;
-
-            fill_triangle_3d(
+            render_mesh(
                 &mut framebuffer,
                 &mut zbuffer,
-                (clip0, w0),
-                (clip1, w1),
-                (clip2, w2),
-                color,
+                &mesh,
+                &normals,
+                &mvp,
+                &normal_mat,
+                base_color,
             );
-        }
 
-        window.blit_framebuffer(&framebuffer);
+            let converter = AsciiConverter::new(&framebuffer, AsciiCharset::Standard);
+            let output = if args.colored_ascii {
+                converter.to_colored_string()
+            } else {
+                converter.to_string()
+            };
+
+            print!("\x1b[H{}", output);
+            std::thread::sleep(std::time::Duration::from_millis(33));
+        }
+    } else {
+        let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
+        let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
+        let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+        let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
+        let mut timestep = FixedTimestep::new(60);
+
+        let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 1.0, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        while window.is_open() {
+            window.poll_events();
+
+            let steps = timestep.update();
+            for _ in 0..steps {
+                angle_y += 1.0 * timestep.dt();
+            }
+
+            framebuffer.clear(BACKGROUND);
+            zbuffer.clear();
+
+            let model = Mat4::rotation_y(angle_y);
+            let mvp = projection * (view * model);
+            let normal_mat = model;
+
+            render_mesh(
+                &mut framebuffer,
+                &mut zbuffer,
+                &mesh,
+                &normals,
+                &mvp,
+                &normal_mat,
+                base_color,
+            );
+
+            window.blit_framebuffer(&framebuffer);
+        }
     }
 
     Ok(())
