@@ -222,20 +222,20 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     const MAX_CHAIN_LENGTH: usize = 8;
                     let mut found_idx = None;
                     let mut curr = cache_head[v_idx];
-                    let mut chain_len = 0;
-
+                    let mut depth = 0;
                     while curr != usize::MAX {
-                        if chain_len >= MAX_CHAIN_LENGTH {
+                        // DoS protection: limit chain depth to prevent O(N^2) behavior
+                        // when many vertices share the same position but differ in other attributes.
+                        if depth >= 8 {
                             break;
                         }
-
                         let node = &cache_nodes[curr];
                         if node.vt_idx == vt_key {
                             found_idx = Some(node.new_idx);
                             break;
                         }
                         curr = node.next;
-                        chain_len += 1;
+                        depth += 1;
                     }
 
                     if let Some(idx) = found_idx {

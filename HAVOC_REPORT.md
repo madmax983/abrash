@@ -30,3 +30,15 @@
 - **Outcome:** Unpredictable rendering, potential future UB.
 
 **The Fix:** Added explicit `.is_finite()` checks to reject invalid geometry early.
+
+## 4. CPU Exhaustion via OBJ Cache Collision
+**The Trigger:** An OBJ file with 50,000+ vertices sharing the same 3D position but unique texture coordinates (or normals).
+
+**The Mechanism:**
+- The OBJ loader uses a custom linked-list cache (`cache_nodes` and `cache_head`) to deduplicate vertices.
+- Vertices are indexed by their raw position index `v_idx`.
+- When many `f` commands reference the same `v` index but different `vt` indices, the linked list for that `v_idx` grows linearly.
+- Each lookup iterates the list.
+- **Outcome:** Quadratic complexity $O(N^2)$ for loading the mesh. A 50k vertex file takes >30 seconds to load instead of <100ms. DoS.
+
+**The Fix:** Implemented a depth limit (8) for the cache chain traversal. If a match isn't found within 8 steps, the vertex is treated as new (skipping deduplication) to ensure O(1) lookup time.
