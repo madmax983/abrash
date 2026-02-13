@@ -90,6 +90,7 @@ pub mod time;
 pub mod zbuffer;
 
 pub mod clipping;
+pub mod culling;
 pub mod experimental;
 pub mod hiz_buffer;
 pub mod obj_loader;

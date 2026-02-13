@@ -62,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         height: 256,
         pixels: normal_map_pixels,
         width_shift: 8,
+        mips: Vec::new(),
         filter_mode: abrash::texture::FilterMode::Nearest,
     };
 
