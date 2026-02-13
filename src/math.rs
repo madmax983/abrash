@@ -523,7 +523,9 @@ impl Mat4 {
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         unsafe {
-            use std::arch::x86_64::{_mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps};
+            use std::arch::x86_64::{
+                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
+            };
 
             let row0 = _mm_loadu_ps(self.m[0].as_ptr());
             let row1 = _mm_loadu_ps(self.m[1].as_ptr());
@@ -803,14 +805,101 @@ mod tests {
         let (scalar_p, scalar_w) = transform_point_scalar(&m, v);
 
         let diff_p = simd_p - scalar_p;
-        assert!(diff_p.x.abs() < 0.0001, "X mismatch: {} vs {}", simd_p.x, scalar_p.x);
-        assert!(diff_p.y.abs() < 0.0001, "Y mismatch: {} vs {}", simd_p.y, scalar_p.y);
-        assert!(diff_p.z.abs() < 0.0001, "Z mismatch: {} vs {}", simd_p.z, scalar_p.z);
-        assert!((simd_w - scalar_w).abs() < 0.0001, "W mismatch: {} vs {}", simd_w, scalar_w);
+        assert!(
+            diff_p.x.abs() < 0.0001,
+            "X mismatch: {} vs {}",
+            simd_p.x,
+            scalar_p.x
+        );
+        assert!(
+            diff_p.y.abs() < 0.0001,
+            "Y mismatch: {} vs {}",
+            simd_p.y,
+            scalar_p.y
+        );
+        assert!(
+            diff_p.z.abs() < 0.0001,
+            "Z mismatch: {} vs {}",
+            simd_p.z,
+            scalar_p.z
+        );
+        assert!(
+            (simd_w - scalar_w).abs() < 0.0001,
+            "W mismatch: {} vs {}",
+            simd_w,
+            scalar_w
+        );
+    }
+
+    #[test]
+    fn test_perspective_projection() {
+        use std::f32::consts::PI;
+        let fov = PI / 2.0; // 90 degrees
+        let aspect = 1.0;
+        let near = 1.0;
+        let far = 10.0;
+        let proj = Mat4::perspective(fov, aspect, near, far);
+
+        // Point on near plane (0, 0, -1) -> should map to w=1, z/w = -1 (OpenGL style: -1 to 1)
+        // Wait, standard GL perspective maps -near to -1 and -far to 1 (or 0 to 1 depending on depth range).
+        // Let's check the implementation:
+        // [0][0] = f / aspect
+        // [2][2] = (far + near) / (near - far) (This is typically negative)
+        // [2][3] = -1.0
+        // [3][2] = 2 * far * near / (near - far)
+        //
+        // p = (0, 0, -near)
+        // x' = 0
+        // y' = 0
+        // z' = p.z * m[2][2] + m[3][2]
+        // w' = p.z * m[2][3] + m[3][3] = -p.z = near
+        //
+        // z_ndc = z' / w'
+        // Let's verify with actual values.
+
+        let p_near = Vec3::new(0.0, 0.0, -near);
+        let (p_near_prime, w_near) = proj.transform_point(p_near);
+
+        assert!((w_near - near).abs() < 1e-5, "w at near plane should be near");
+        // In standard GL, z_ndc at near is -1.0
+        let z_ndc_near = p_near_prime.z / w_near;
+        assert!((z_ndc_near - (-1.0)).abs() < 1e-5, "NDZ z at near should be -1.0, got {}", z_ndc_near);
+
+        let p_far = Vec3::new(0.0, 0.0, -far);
+        let (p_far_prime, w_far) = proj.transform_point(p_far);
+        assert!((w_far - far).abs() < 1e-5, "w at far plane should be far");
+        // In standard GL, z_ndc at far is 1.0
+        let z_ndc_far = p_far_prime.z / w_far;
+        assert!((z_ndc_far - 1.0).abs() < 1e-5, "NDC z at far should be 1.0, got {}", z_ndc_far);
+    }
+
+    #[test]
+    fn test_look_at() {
+        let eye = Vec3::new(0.0, 0.0, 10.0);
+        let target = Vec3::new(0.0, 0.0, 0.0);
+        let up = Vec3::new(0.0, 1.0, 0.0);
+        let view = Mat4::look_at(eye, target, up);
+
+        // Point at target (world origin) should map to (0, 0, -10) in camera space
+        // because camera is at (0, 0, 10) looking at origin, so origin is 10 units in front (negative Z)
+        let p = Vec3::new(0.0, 0.0, 0.0);
+        let (p_view, _) = view.transform_point(p);
+
+        assert!((p_view.x - 0.0).abs() < 1e-5);
+        assert!((p_view.y - 0.0).abs() < 1e-5);
+        assert!((p_view.z - (-10.0)).abs() < 1e-5);
+
+        // Point at eye should map to (0, 0, 0)
+        let (p_eye, _) = view.transform_point(eye);
+        assert!(p_eye.length() < 1e-5);
     }
 }
 
 /// A 4-component vector, often used for homogeneous coordinates or tangents.
+///
+/// In the rasterization pipeline, `Vec4` is used for:
+/// *   Homogeneous coordinates (x, y, z, w) where w is the perspective term.
+/// *   Tangent vectors in Normal Mapping, where w stores the handedness of the tangent basis.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {
     pub x: f32,
@@ -820,13 +909,23 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
-    /// Creates a new vector.
+    /// Creates a new 4D vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec4;
+    ///
+    /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
+    /// assert_eq!(v.w, 1.0);
+    /// ```
     #[must_use]
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
 }
 
+/// Multiply vector by scalar.
 impl std::ops::Mul<f32> for Vec4 {
     type Output = Self;
     fn mul(self, scalar: f32) -> Self {
@@ -839,6 +938,7 @@ impl std::ops::Mul<f32> for Vec4 {
     }
 }
 
+/// Component-wise addition.
 impl std::ops::Add for Vec4 {
     type Output = Self;
     fn add(self, other: Self) -> Self {
@@ -851,6 +951,7 @@ impl std::ops::Add for Vec4 {
     }
 }
 
+/// Component-wise subtraction.
 impl std::ops::Sub for Vec4 {
     type Output = Self;
     fn sub(self, other: Self) -> Self {

@@ -633,4 +633,97 @@ mod tests {
         // Should clip to 2 triangles (quad) since 2 are inside
         assert_eq!(result.count, 2);
     }
+
+    #[test]
+    fn test_line_fully_inside() {
+        // Line fully inside the frustum
+        // -w <= x,y,z <= w
+        let w = 10.0;
+        let v0: Vertex = (Vec3::new(0.0, 0.0, 0.0), w);
+        let v1: Vertex = (Vec3::new(1.0, 1.0, 5.0), w);
+
+        let result = clip_line_to_frustum(v0, v1, get_pos);
+
+        assert!(result.is_some());
+        let (r0, r1) = result.unwrap();
+        assert_eq!(r0, v0);
+        assert_eq!(r1, v1);
+    }
+
+    #[test]
+    fn test_line_fully_outside() {
+        // Line fully outside the frustum (to the right)
+        // x > w
+        let w = 10.0;
+        let v0: Vertex = (Vec3::new(20.0, 0.0, 0.0), w);
+        let v1: Vertex = (Vec3::new(25.0, 0.0, 0.0), w);
+
+        let result = clip_line_to_frustum(v0, v1, get_pos);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_line_intersects_one_plane() {
+        // Line crossing the Right plane (x = w)
+        // v0 inside: (5, 0, 0, 10) -> 5 <= 10
+        // v1 outside: (15, 0, 0, 10) -> 15 > 10
+        // Intersection should be at x=10
+        let w = 10.0;
+        let v0: Vertex = (Vec3::new(5.0, 0.0, 0.0), w);
+        let v1: Vertex = (Vec3::new(15.0, 0.0, 0.0), w);
+
+        let result = clip_line_to_frustum(v0, v1, get_pos);
+
+        assert!(result.is_some());
+        let (r0, r1) = result.unwrap();
+
+        // v0 should be unchanged
+        assert_eq!(r0, v0);
+
+        // r1 should be on the boundary x=w=10
+        // Interpolation: (15-5) range. 5 is 5 units from 10. 15 is 5 units from 10. Midpoint.
+        // t = 0.5.
+        // r1 pos = lerp(5, 15, 0.5) = 10.
+        assert!((r1.0.x - 10.0).abs() < 1e-6);
+        assert!((r1.0.y - 0.0).abs() < 1e-6);
+        assert!((r1.0.z - 0.0).abs() < 1e-6);
+        assert!((r1.1 - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_line_spanning_frustum() {
+        // Line crossing Left and Right planes
+        // v0: (-20, 0, 0, 10) -> Outside Left
+        // v1: ( 20, 0, 0, 10) -> Outside Right
+        let w = 10.0;
+        let v0: Vertex = (Vec3::new(-20.0, 0.0, 0.0), w);
+        let v1: Vertex = (Vec3::new(20.0, 0.0, 0.0), w);
+
+        let result = clip_line_to_frustum(v0, v1, get_pos);
+
+        assert!(result.is_some());
+        let (r0, r1) = result.unwrap();
+
+        // r0 should be at x = -10
+        assert!((r0.0.x - (-10.0)).abs() < 1e-6);
+        // r1 should be at x = 10
+        assert!((r1.0.x - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_line_on_boundary() {
+        // Line lying exactly on the Near plane boundary (z = -w)
+        let w = 10.0;
+        let v0: Vertex = (Vec3::new(0.0, 0.0, -10.0), w);
+        let v1: Vertex = (Vec3::new(0.0, 5.0, -10.0), w);
+
+        let result = clip_line_to_frustum(v0, v1, get_pos);
+
+        assert!(result.is_some());
+        let (r0, r1) = result.unwrap();
+
+        assert_eq!(r0, v0);
+        assert_eq!(r1, v1);
+    }
 }

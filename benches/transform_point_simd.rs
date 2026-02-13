@@ -17,15 +17,11 @@ fn bench_transform_point_single(c: &mut Criterion) {
     let v = Vec3::new(1.0, 2.0, 3.0);
 
     group.bench_function("simd_optimized", |b| {
-        b.iter(|| {
-            m.transform_point(black_box(v))
-        });
+        b.iter(|| m.transform_point(black_box(v)));
     });
 
     group.bench_function("scalar_baseline", |b| {
-        b.iter(|| {
-            transform_point_scalar_impl(black_box(&m), black_box(v))
-        });
+        b.iter(|| transform_point_scalar_impl(black_box(&m), black_box(v)));
     });
 
     group.finish();
