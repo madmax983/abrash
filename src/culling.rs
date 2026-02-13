@@ -24,6 +24,7 @@ impl Plane {
 
     /// Signed distance from a point to the plane.
     /// Positive if on the side of the normal.
+    #[must_use]
     pub fn distance_to_point(&self, point: Vec3) -> f32 {
         self.normal.dot(point) + self.distance
     }
@@ -40,6 +41,7 @@ impl Frustum {
     /// Assumes Row-Major matrix where `v_clip = v_world * M`.
     ///
     /// The planes are extracted such that the normal points **inside** the frustum.
+    #[must_use]
     pub fn from_matrix(m: Mat4) -> Self {
         // In Row-Vector convention v' = v * M,
         // x' = v . Col0
@@ -102,6 +104,7 @@ impl Frustum {
     /// Check if a sphere intersects or is inside the frustum.
     /// Returns `true` if the sphere is visible (partially or fully).
     /// Returns `false` if the sphere is fully outside any plane.
+    #[must_use]
     pub fn intersects(&self, sphere: &BoundingSphere) -> bool {
         for plane in &self.planes {
             // Distance is positive inside, negative outside.

@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** Unused experimental modules (`vhs`, `svg_renderer`, `terrain`, `text`, `procedural`) and `post_process` effects only used in benchmarks.
+**Cut:** Deleted all 6 modules, tests, benchmarks, and Cargo.toml entries. Applied clippy suggestions to remaining code.
+**Saved:** ~1000 lines of dead code and reduced build complexity.

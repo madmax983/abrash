@@ -217,10 +217,6 @@ name = "transform_point_simd"
 harness = false
 
 [[bench]]
-name = "post_process"
-harness = false
-
-[[bench]]
 name = "transparency_bench"
 harness = false
 

@@ -65,6 +65,8 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
+    const NO_INDEX: usize = usize::MAX;
+
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
@@ -73,7 +75,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Deduplication structure:
     // Key: (v_idx, vt_idx, vn_idx). vt/vn use NO_INDEX for None to save space/time.
     // Value: index in final_vertices.
-    const NO_INDEX: usize = usize::MAX;
     let mut deduplicator: HashMap<(usize, usize, usize), usize> = HashMap::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);

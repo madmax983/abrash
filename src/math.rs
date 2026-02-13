@@ -654,7 +654,7 @@ impl Mat4 {
     /// Panics if index is out of bounds.
     #[must_use]
     #[inline]
-    pub fn col(&self, index: usize) -> Vec4 {
+    pub const fn col(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[0][index],
             self.m[1][index],

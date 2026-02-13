@@ -6,7 +6,6 @@
 //! *   **Vertex Processing**: Transformations, Clipping, and Projection.
 //! *   **Rasterization**: Scanline-based triangle filling with perspective-correct texture mapping.
 //! *   **Shading**: Flat, Gouraud, and Phong shading models.
-//! *   **Post-Processing**: Screen-space effects like Sepia, Grayscale, and Scanlines.
 //!
 //! ## The Graphics Pipeline
 //!
@@ -94,7 +93,6 @@ pub mod culling;
 pub mod experimental;
 pub mod hiz_buffer;
 pub mod obj_loader;
-pub mod post_process;
 pub mod texture;
 pub mod tile_renderer;
 
