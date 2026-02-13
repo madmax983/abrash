@@ -15,7 +15,7 @@
 //! mesh.indices.push([0, 1, 2]);
 //! ```
 
-use crate::math::{Vec2, Vec3};
+use crate::math::{Vec2, Vec3, Vec4};
 
 /// A 3D mesh with vertices and triangle indices
 #[derive(Debug, Clone)]
@@ -27,6 +27,13 @@ pub struct Mesh {
     /// List of texture coordinates (u, v) for each vertex.
     /// If present, must have same length as `vertices`.
     pub uvs: Vec<Vec2>,
+    /// List of normals (x, y, z) for each vertex.
+    /// If present, must have same length as `vertices`.
+    pub normals: Vec<Vec3>,
+    /// List of tangents (x, y, z, w) for each vertex.
+    /// w is used to store the handedness of the tangent basis (-1.0 or 1.0).
+    /// If present, must have same length as `vertices`.
+    pub tangents: Vec<Vec4>,
 }
 
 impl Mesh {
@@ -45,6 +52,8 @@ impl Mesh {
             vertices: Vec::new(),
             indices: Vec::new(),
             uvs: Vec::new(),
+            normals: Vec::new(),
+            tangents: Vec::new(),
         }
     }
 
@@ -100,11 +109,15 @@ impl Mesh {
 
         // Cube doesn't have UVs by default
         let uvs = Vec::new();
+        let normals = Vec::new();
+        let tangents = Vec::new();
 
         Self {
             vertices,
             indices,
             uvs,
+            normals,
+            tangents,
         }
     }
 
@@ -143,6 +156,91 @@ impl Mesh {
                 edge1.cross(edge2).normalize()
             })
             .collect()
+    }
+
+    /// Compute tangents for each vertex.
+    ///
+    /// Requires `uvs` and `normals` to be present and match `vertices` length.
+    ///
+    /// Uses the `MikkTSpace` approach (or simplified version) to generate tangent vectors
+    /// and bitangent handedness.
+    pub fn compute_tangents(&mut self) {
+        if self.uvs.len() != self.vertices.len() || self.normals.len() != self.vertices.len() {
+            // Cannot compute tangents without UVs and Normals
+            return;
+        }
+
+        let mut tan1 = vec![Vec3::default(); self.vertices.len()];
+        let mut tan2 = vec![Vec3::default(); self.vertices.len()];
+
+        for tri in &self.indices {
+            let i1 = tri[0];
+            let i2 = tri[1];
+            let i3 = tri[2];
+
+            let v1 = self.vertices[i1];
+            let v2 = self.vertices[i2];
+            let v3 = self.vertices[i3];
+
+            let w1 = self.uvs[i1];
+            let w2 = self.uvs[i2];
+            let w3 = self.uvs[i3];
+
+            let x1 = v2.x - v1.x;
+            let x2 = v3.x - v1.x;
+            let y1 = v2.y - v1.y;
+            let y2 = v3.y - v1.y;
+            let z1 = v2.z - v1.z;
+            let z2 = v3.z - v1.z;
+
+            let s1 = w2.x - w1.x;
+            let s2 = w3.x - w1.x;
+            let t1 = w2.y - w1.y;
+            let t2 = w3.y - w1.y;
+
+            let div = s1 * t2 - s2 * t1;
+            let r = if div.abs() < 1e-6 { 0.0 } else { 1.0 / div };
+
+            let sdir = Vec3::new(
+                (t2 * x1 - t1 * x2) * r,
+                (t2 * y1 - t1 * y2) * r,
+                (t2 * z1 - t1 * z2) * r,
+            );
+
+            let tdir = Vec3::new(
+                (s1 * x2 - s2 * x1) * r,
+                (s1 * y2 - s2 * y1) * r,
+                (s1 * z2 - s2 * z1) * r,
+            );
+
+            tan1[i1] = tan1[i1] + sdir;
+            tan1[i2] = tan1[i2] + sdir;
+            tan1[i3] = tan1[i3] + sdir;
+
+            tan2[i1] = tan2[i1] + tdir;
+            tan2[i2] = tan2[i2] + tdir;
+            tan2[i3] = tan2[i3] + tdir;
+        }
+
+        self.tangents = Vec::with_capacity(self.vertices.len());
+
+        for i in 0..self.vertices.len() {
+            let n = self.normals[i];
+            let t = tan1[i];
+
+            // Gram-Schmidt orthogonalize
+            // t = t - n * dot(n, t)
+            let tangent = (t - n * n.dot(t)).normalize();
+
+            // Calculate handedness
+            let w = if n.cross(t).dot(tan2[i]) < 0.0 {
+                -1.0
+            } else {
+                1.0
+            };
+
+            self.tangents.push(Vec4::new(tangent.x, tangent.y, tangent.z, w));
+        }
     }
 }
 

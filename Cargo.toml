@@ -227,3 +227,7 @@ harness = false
 [[bench]]
 name = "phong_scanline"
 harness = false
+
+[[bench]]
+name = "normal_mapping"
+harness = false
