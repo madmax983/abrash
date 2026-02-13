@@ -19,7 +19,7 @@
 
 use crate::clipping::{clip_line_to_frustum, clip_triangle_to_frustum};
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_to_screen_optimized};
+use crate::math::{Mat4, ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_to_screen_optimized};
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
@@ -383,6 +383,340 @@ pub fn fill_triangle_3d(
                 draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             } else {
                 draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_phong_shadowed(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: ShadowPhongSpanStart,
+    gradients: &ShadowPhongGradients,
+    pre_diffuse_255: Vec3,
+    neg_light_dir: Vec3,
+    ambient_255: Vec3,
+    shadow_map: &ZBuffer,
+    light_vp: Mat4,
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+
+    let mut z = start.z;
+    let mut q = start.q;
+    let mut nx = start.nx;
+    let mut ny = start.ny;
+    let mut nz = start.nz;
+    let mut wx = start.wx;
+    let mut wy = start.wy;
+    let mut wz = start.wz;
+
+    if xs < 0 {
+        let diff = -i64::from(xs);
+        let diff_f = diff as f32;
+        z += diff_f * gradients.dz_dx;
+        q += diff_f * gradients.dq_dx;
+        nx += diff_f * gradients.dnx_dx;
+        ny += diff_f * gradients.dny_dx;
+        nz += diff_f * gradients.dnz_dx;
+        wx += diff_f * gradients.dwx_dx;
+        wy += diff_f * gradients.dwy_dx;
+        wz += diff_f * gradients.dwz_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
+
+    // SAFETY: Clamped above.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    // Shadow Map dimensions
+    let sm_w = shadow_map.width() as f32;
+    let sm_h = shadow_map.height() as f32;
+    let bias = 0.005; // Bias to prevent shadow acne
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+
+            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+
+            // Recover world position
+            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+
+            // Shadow Test
+            let (light_clip, light_w) = light_vp.transform_point(world_pos);
+            let mut shadow_factor = 1.0;
+
+            if light_w > 0.0 {
+                let inv_light_w = 1.0 / light_w;
+                let ndc_x = light_clip.x * inv_light_w;
+                let ndc_y = light_clip.y * inv_light_w;
+                let ndc_z = light_clip.z * inv_light_w; // 0..1 or -1..1 depending on projection?
+                // Mat4::perspective maps z to [-1, 1] (GL style) or [0, 1]?
+                // Our Mat4::perspective: m[2][2] = (far+near)/(near-far), m[2][3] = -1.
+                // z_clip = z_view * m22 + m23. w_clip = -z_view.
+                // z_ndc = - (z_view * m22 + m23) / z_view = -m22 - m23/z_view.
+                // At near: z_view = -n. z_ndc = -m22 + m23/n = -(f+n)/(n-f) + 2fn/(n-f)/n = (f+n)/(f-n) + 2f/(n-f).
+                // = (f+n - 2f)/(f-n) = (n-f)/(f-n) = -1.
+                // At far: z_view = -f. z_ndc = -m22 + m23/f = (f+n)/(f-n) + 2fn/(n-f)/f = (f+n - 2n)/(f-n) = (f-n)/(f-n) = 1.
+                // So Z range is [-1, 1].
+                // We need to map to [0, 1] for depth comparison?
+                // Our ZBuffer stores whatever we put in it. In fill_triangle_3d, we put `v.z * inv_w`.
+                // Which is z_ndc.
+                // So ZBuffer stores values in range [-1, 1] (or whatever the projection matrix outputs).
+                // Wait, project_to_screen_optimized:
+                // let depth = v.z * inv_w;
+                // It stores `depth` directly.
+                // So if our Shadow Map was rendered using same `Mat4::perspective`, it contains values in [-1, 1].
+
+                // Check if inside light frustum
+                if ndc_x >= -1.0 && ndc_x <= 1.0 && ndc_y >= -1.0 && ndc_y <= 1.0 && ndc_z >= -1.0 && ndc_z <= 1.0 {
+                    // Map to texture coordinates [0, 1]
+                    let u = (ndc_x + 1.0) * 0.5;
+                    let v = (1.0 - ndc_y) * 0.5; // Flip Y for texture lookup
+
+                    let sm_x = (u * sm_w) as i32;
+                    let sm_y = (v * sm_h) as i32;
+
+                    // PCF (Percentage Closer Filtering) 3x3
+                    let mut shadow_sum = 0.0;
+                    let mut samples = 0.0;
+
+                    for y_off in -1..=1 {
+                        for x_off in -1..=1 {
+                            if let Some(closest_depth) = shadow_map.get_depth(sm_x + x_off, sm_y + y_off) {
+                                if ndc_z > closest_depth + bias {
+                                    // In shadow
+                                } else {
+                                    // Lit
+                                    shadow_sum += 1.0;
+                                }
+                                samples += 1.0;
+                            }
+                        }
+                    }
+
+                    if samples > 0.0 {
+                        shadow_factor = shadow_sum / samples;
+                    }
+                }
+            }
+
+            // Lighting
+            // Deferred Normalization
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
+
+            let intensity = if len_sq > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                (dot_unorm * inv_len).max(0.0)
+            } else {
+                0.0
+            };
+
+            let diffuse = pre_diffuse_255 * intensity * shadow_factor;
+            let final_color_vec = ambient_255 + diffuse;
+            *pixel = color_to_u32_scaled(final_color_vec);
+        }
+
+        z += gradients.dz_dx;
+        q += gradients.dq_dx;
+        nx += gradients.dnx_dx;
+        ny += gradients.dny_dx;
+        nz += gradients.dnz_dx;
+        wx += gradients.dwx_dx;
+        wy += gradients.dwy_dx;
+        wz += gradients.dwz_dx;
+    }
+}
+
+/// Fill a 3D triangle with Phong Shading and Shadow Mapping.
+#[allow(clippy::too_many_arguments)]
+pub fn fill_triangle_phong_shadowed(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+    v1: ((Vec3, f32), Vec3, Vec3),
+    v2: ((Vec3, f32), Vec3, Vec3),
+    color: Vec3,
+    light_dir: Vec3,
+    light_color: Vec3,
+    ambient: Vec3,
+    shadow_map: &ZBuffer,
+    light_vp: Mat4,
+) {
+    assert_same_dimensions(fb, zb);
+
+    // Note: We use clip_triangle_to_frustum which uses Lerp.
+    // Ensure ((Vec3, f32), Vec3, Vec3) implements Lerp in clipping.rs
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
+
+        // Project to screen
+        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
+        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
+        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
+
+        // Backface Culling
+        if is_backface(p0_orig, p1_orig, p2_orig) {
+            continue;
+        }
+
+        // Prepare attributes
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
+
+        // Normal * inv_w
+        let n0 = v0.1 * inv_w0;
+        let n1 = v1.1 * inv_w1;
+        let n2 = v2.1 * inv_w2;
+
+        // WorldPos * inv_w
+        let w0 = v0.2 * inv_w0;
+        let w1 = v1.2 * inv_w1;
+        let w2 = v2.2 * inv_w2;
+
+        let mut verts = [(p0_orig, n0, w0), (p1_orig, n1, w1), (p2_orig, n2, w2)];
+        sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, n0, w0), (p1, n1, w1), (p2, n2, w2)] = verts;
+
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
+
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
+
+        if y_start > y_end {
+            continue;
+        }
+
+        // Gradients and Edge Walking
+        let (gradients, long_edge_is_left) = {
+            let g = ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
+            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            let left = ux * vy - uy * vx > 0.0;
+            (g, left)
+        };
+
+        let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
+        if y_start > p0.y {
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+
+        let mut edge_b = if y_start < p1.y {
+            let mut e = ShadowPhongEdgeWalker::new(p0, p1, q0, q1, n0, n1, w0, w1);
+            if y_start > p0.y {
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
+            }
+            e
+        } else {
+            let mut e = ShadowPhongEdgeWalker::new(p1, p2, q1, q2, n1, n2, w1, w2);
+            if y_start > p1.y {
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
+            }
+            e
+        };
+
+        // Lighting constants
+        let pre_diffuse_255 = color * light_color * 255.0;
+        let neg_light_dir = light_dir * -1.0;
+        let ambient_255 = ambient * 255.0;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = ShadowPhongEdgeWalker::new(p1, p2, q1, q2, n1, n2, w1, w2);
+            }
+
+            let (x_start, x_end, z_left, nx_left, ny_left, nz_left, wx_left, wy_left, wz_left, q_left) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.nx, edge_a.ny, edge_a.nz,
+                    edge_a.wx, edge_a.wy, edge_a.wz,
+                    edge_a.q,
+                )
+            } else {
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.nx, edge_b.ny, edge_b.nz,
+                    edge_b.wx, edge_b.wy, edge_b.wz,
+                    edge_b.q,
+                )
+            };
+
+            let dx = i64::from(x_end) - i64::from(x_start);
+
+            if dx > 0 {
+                draw_scanline_phong_shadowed(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
+                    ShadowPhongSpanStart {
+                        z: z_left,
+                        q: q_left,
+                        nx: nx_left,
+                        ny: ny_left,
+                        nz: nz_left,
+                        wx: wx_left,
+                        wy: wy_left,
+                        wz: wz_left,
+                    },
+                    &gradients,
+                    pre_diffuse_255,
+                    neg_light_dir,
+                    ambient_255,
+                    shadow_map,
+                    light_vp,
+                );
             }
 
             edge_a.step();
@@ -1910,6 +2244,202 @@ impl PhongEdgeWalker {
         self.ny += self.dny_dy * n_f;
         self.nz += self.dnz_dy * n_f;
     }
+}
+
+struct ShadowPhongGradients {
+    dz_dx: f32,
+    dq_dx: f32,
+    dnx_dx: f32,
+    dny_dx: f32,
+    dnz_dx: f32,
+    dwx_dx: f32,
+    dwy_dx: f32,
+    dwz_dx: f32,
+}
+
+impl ShadowPhongGradients {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        n0: Vec3,
+        n1: Vec3,
+        n2: Vec3,
+        w0: Vec3,
+        w1: Vec3,
+        w2: Vec3,
+    ) -> Self {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let uz = p1.z - p0.z;
+        let uq = q1 - q0;
+        let unx = n1.x - n0.x;
+        let uny = n1.y - n0.y;
+        let unz = n1.z - n0.z;
+        let uwx = w1.x - w0.x;
+        let uwy = w1.y - w0.y;
+        let uwz = w1.z - w0.z;
+
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        let vz = p2.z - p0.z;
+        let vq = q2 - q0;
+        let vnx = n2.x - n0.x;
+        let vny = n2.y - n0.y;
+        let vnz = n2.z - n0.z;
+        let vwx = w2.x - w0.x;
+        let vwy = w2.y - w0.y;
+        let vwz = w2.z - w0.z;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_q = uy * vq - uq * vy;
+        let dq_dx = nx_q * inv_nz;
+
+        let nx_nx = uy * vnx - unx * vy;
+        let dnx_dx = nx_nx * inv_nz;
+
+        let nx_ny = uy * vny - uny * vy;
+        let dny_dx = nx_ny * inv_nz;
+
+        let nx_nz = uy * vnz - unz * vy;
+        let dnz_dx = nx_nz * inv_nz;
+
+        let nx_wx = uy * vwx - uwx * vy;
+        let dwx_dx = nx_wx * inv_nz;
+
+        let nx_wy = uy * vwy - uwy * vy;
+        let dwy_dx = nx_wy * inv_nz;
+
+        let nx_wz = uy * vwz - uwz * vy;
+        let dwz_dx = nx_wz * inv_nz;
+
+        Self {
+            dz_dx,
+            dq_dx,
+            dnx_dx,
+            dny_dx,
+            dnz_dx,
+            dwx_dx,
+            dwy_dx,
+            dwz_dx,
+        }
+    }
+}
+
+struct ShadowPhongEdgeWalker {
+    x: i64,
+    z: f32,
+    q: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    wx: f32,
+    wy: f32,
+    wz: f32,
+    dx_dy: i64,
+    dz_dy: f32,
+    dq_dy: f32,
+    dnx_dy: f32,
+    dny_dy: f32,
+    dnz_dy: f32,
+    dwx_dy: f32,
+    dwy_dy: f32,
+    dwz_dy: f32,
+}
+
+impl ShadowPhongEdgeWalker {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        q_start: f32,
+        q_end: f32,
+        n_start: Vec3,
+        n_end: Vec3,
+        w_start: Vec3,
+        w_end: Vec3,
+    ) -> Self {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * inv_h;
+        let dnx_dy = (n_end.x - n_start.x) * inv_h;
+        let dny_dy = (n_end.y - n_start.y) * inv_h;
+        let dnz_dy = (n_end.z - n_start.z) * inv_h;
+        let dwx_dy = (w_end.x - w_start.x) * inv_h;
+        let dwy_dy = (w_end.y - w_start.y) * inv_h;
+        let dwz_dy = (w_end.z - w_start.z) * inv_h;
+
+        Self {
+            x: i64::from(p_start.x) << 16,
+            z: p_start.z,
+            q: q_start,
+            nx: n_start.x,
+            ny: n_start.y,
+            nz: n_start.z,
+            wx: w_start.x,
+            wy: w_start.y,
+            wz: w_start.z,
+            dx_dy,
+            dz_dy,
+            dq_dy,
+            dnx_dy,
+            dny_dy,
+            dnz_dy,
+            dwx_dy,
+            dwy_dy,
+            dwz_dy,
+        }
+    }
+
+    fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.q += self.dq_dy;
+        self.nx += self.dnx_dy;
+        self.ny += self.dny_dy;
+        self.nz += self.dnz_dy;
+        self.wx += self.dwx_dy;
+        self.wy += self.dwy_dy;
+        self.wz += self.dwz_dy;
+    }
+
+    fn step_n(&mut self, n: i64) {
+        let n_f = n as f32;
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
+        self.z += self.dz_dy * n_f;
+        self.q += self.dq_dy * n_f;
+        self.nx += self.dnx_dy * n_f;
+        self.ny += self.dny_dy * n_f;
+        self.nz += self.dnz_dy * n_f;
+        self.wx += self.dwx_dy * n_f;
+        self.wy += self.dwy_dy * n_f;
+        self.wz += self.dwz_dy * n_f;
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ShadowPhongSpanStart {
+    z: f32,
+    q: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    wx: f32,
+    wy: f32,
+    wz: f32,
 }
 
 #[derive(Clone, Copy)]
