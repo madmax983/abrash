@@ -519,11 +519,39 @@ impl Mat4 {
     #[must_use]
     #[inline]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
-        let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
-        let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
-        let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z + self.m[3][2];
-        let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
-        (Vec3::new(x, y, z), w)
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        unsafe {
+            use std::arch::x86_64::{_mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps};
+
+            let row0 = _mm_loadu_ps(self.m[0].as_ptr());
+            let row1 = _mm_loadu_ps(self.m[1].as_ptr());
+            let row2 = _mm_loadu_ps(self.m[2].as_ptr());
+            let row3 = _mm_loadu_ps(self.m[3].as_ptr());
+
+            let vx = _mm_set1_ps(v.x);
+            let vy = _mm_set1_ps(v.y);
+            let vz = _mm_set1_ps(v.z);
+
+            let t0 = _mm_mul_ps(vx, row0);
+            let t1 = _mm_mul_ps(vy, row1);
+            let t2 = _mm_mul_ps(vz, row2);
+
+            let res = _mm_add_ps(_mm_add_ps(t0, t1), _mm_add_ps(t2, row3));
+
+            let mut out = [0.0; 4];
+            _mm_storeu_ps(out.as_mut_ptr(), res);
+
+            (Vec3::new(out[0], out[1], out[2]), out[3])
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+        {
+            let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z + self.m[3][0];
+            let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z + self.m[3][1];
+            let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z + self.m[3][2];
+            let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
+            (Vec3::new(x, y, z), w)
+        }
     }
 
     /// Transforms multiple points by this matrix.
@@ -751,6 +779,32 @@ mod tests {
         assert!(diff.x.abs() < 0.001);
         assert!(diff.y.abs() < 0.001);
         assert!(diff.z.abs() < 0.001);
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_transform_point_simd_vs_scalar() {
+        // Scalar implementation reference
+        fn transform_point_scalar(m: &Mat4, v: Vec3) -> (Vec3, f32) {
+            let x = m.m[0][0] * v.x + m.m[1][0] * v.y + m.m[2][0] * v.z + m.m[3][0];
+            let y = m.m[0][1] * v.x + m.m[1][1] * v.y + m.m[2][1] * v.z + m.m[3][1];
+            let z = m.m[0][2] * v.x + m.m[1][2] * v.y + m.m[2][2] * v.z + m.m[3][2];
+            let w = m.m[0][3] * v.x + m.m[1][3] * v.y + m.m[2][3] * v.z + m.m[3][3];
+            (Vec3::new(x, y, z), w)
+        }
+
+        let m = Mat4::rotation_y(0.5) * Mat4::translation(10.0, 5.0, 2.0);
+        let v = Vec3::new(1.0, 2.0, 3.0);
+
+        // This uses the SIMD implementation because we are compiling with simd feature
+        let (simd_p, simd_w) = m.transform_point(v);
+        let (scalar_p, scalar_w) = transform_point_scalar(&m, v);
+
+        let diff_p = simd_p - scalar_p;
+        assert!(diff_p.x.abs() < 0.0001, "X mismatch: {} vs {}", simd_p.x, scalar_p.x);
+        assert!(diff_p.y.abs() < 0.0001, "Y mismatch: {} vs {}", simd_p.y, scalar_p.y);
+        assert!(diff_p.z.abs() < 0.0001, "Z mismatch: {} vs {}", simd_p.z, scalar_p.z);
+        assert!((simd_w - scalar_w).abs() < 0.0001, "W mismatch: {} vs {}", simd_w, scalar_w);
     }
 }
 
