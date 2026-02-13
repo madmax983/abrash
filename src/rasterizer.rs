@@ -175,6 +175,13 @@ fn draw_scanline_flat_blended(
         let rb_src_scaled = rb_src * alpha;
         let ag_src_scaled = ag_src * alpha;
 
+        // Optimization: Hoist source color unpacking and scaling out of the loop.
+        // blend_swar(src, dest, alpha, inv_alpha) computes:
+        // (src * inv_alpha + dest * alpha) >> 8
+        // We precalculate (src * inv_alpha) here.
+        let rb_src = (color & 0x00FF_00FF) * inv_alpha;
+        let ag_src = ((color >> 8) & 0x00FF_00FF) * inv_alpha;
+
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             // Test Z but do not write Z for transparent pixels
             if z < *depth_val {
