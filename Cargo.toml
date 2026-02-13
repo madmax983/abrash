@@ -102,6 +102,10 @@ path = "examples/gpu_obj.rs"
 required-features = ["gpu-render"]
 
 [[example]]
+name = "normal_mapping_demo"
+path = "examples/normal_mapping_demo.rs"
+
+[[example]]
 name = "particles"
 path = "examples/particles.rs"
 

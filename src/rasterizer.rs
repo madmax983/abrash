@@ -2391,16 +2391,12 @@ pub fn fill_triangle_phong(
 #[derive(Clone, Copy)]
 struct NormalMapGradients {
     dz_dx: f32,
-    dq_dx: f32,  // 1/w
-    du_dx: f32,  // u/w
-    dv_dx: f32,  // v/w
-    dnx_dx: f32, // nx/w
-    dny_dx: f32,
-    dnz_dx: f32,
-    dtx_dx: f32, // tx/w
-    dty_dx: f32,
-    dtz_dx: f32,
-    dtw_dx: f32, // tw/w
+    dq_dx: f32, // 1/w
+    du_dx: f32, // u/w
+    dv_dx: f32, // v/w
+    dlx_dx: f32, // lx/w (Tangent Space Light X)
+    dly_dx: f32,
+    dlz_dx: f32,
 }
 
 impl NormalMapGradients {
@@ -2418,12 +2414,9 @@ impl NormalMapGradients {
         v0: f32,
         v1: f32,
         v2: f32,
-        n0: Vec3,
-        n1: Vec3,
-        n2: Vec3,
-        t0: Vec4,
-        t1: Vec4,
-        t2: Vec4,
+        l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
+        l1: Vec3,
+        l2: Vec3,
     ) -> Self {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
@@ -2431,13 +2424,9 @@ impl NormalMapGradients {
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
-        let unx = n1.x - n0.x;
-        let uny = n1.y - n0.y;
-        let unz = n1.z - n0.z;
-        let utx = t1.x - t0.x;
-        let uty = t1.y - t0.y;
-        let utz = t1.z - t0.z;
-        let utw = t1.w - t0.w;
+        let ulx = l1.x - l0.x;
+        let uly = l1.y - l0.y;
+        let ulz = l1.z - l0.z;
 
         let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
         let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
@@ -2445,13 +2434,9 @@ impl NormalMapGradients {
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
-        let vnx = n2.x - n0.x;
-        let vny = n2.y - n0.y;
-        let vnz = n2.z - n0.z;
-        let vtx = t2.x - t0.x;
-        let vty = t2.y - t0.y;
-        let vtz = t2.z - t0.z;
-        let vtw = t2.w - t0.w;
+        let vlx = l2.x - l0.x;
+        let vly = l2.y - l0.y;
+        let vlz = l2.z - l0.z;
 
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
@@ -2468,39 +2453,23 @@ impl NormalMapGradients {
         let nx_v = uy * vv - uv * vy;
         let dv_dx = nx_v * inv_nz;
 
-        let nx_nx = uy * vnx - unx * vy;
-        let dnx_dx = nx_nx * inv_nz;
+        let nx_lx = uy * vlx - ulx * vy;
+        let dlx_dx = nx_lx * inv_nz;
 
-        let nx_ny = uy * vny - uny * vy;
-        let dny_dx = nx_ny * inv_nz;
+        let nx_ly = uy * vly - uly * vy;
+        let dly_dx = nx_ly * inv_nz;
 
-        let nx_nz = uy * vnz - unz * vy;
-        let dnz_dx = nx_nz * inv_nz;
-
-        let nx_tx = uy * vtx - utx * vy;
-        let dtx_dx = nx_tx * inv_nz;
-
-        let nx_ty = uy * vty - uty * vy;
-        let dty_dx = nx_ty * inv_nz;
-
-        let nx_tz = uy * vtz - utz * vy;
-        let dtz_dx = nx_tz * inv_nz;
-
-        let nx_tw = uy * vtw - utw * vy;
-        let dtw_dx = nx_tw * inv_nz;
+        let nx_lz = uy * vlz - ulz * vy;
+        let dlz_dx = nx_lz * inv_nz;
 
         Self {
             dz_dx,
             dq_dx,
             du_dx,
             dv_dx,
-            dnx_dx,
-            dny_dx,
-            dnz_dx,
-            dtx_dx,
-            dty_dx,
-            dtz_dx,
-            dtw_dx,
+            dlx_dx,
+            dly_dx,
+            dlz_dx,
         }
     }
 }
@@ -2511,25 +2480,17 @@ struct NormalMapEdgeWalker {
     q: f32,
     u: f32,
     v: f32,
-    nx: f32,
-    ny: f32,
-    nz: f32,
-    tx: f32,
-    ty: f32,
-    tz: f32,
-    tw: f32,
+    lx: f32,
+    ly: f32,
+    lz: f32,
     dx_dy: i64,
     dz_dy: f32,
     dq_dy: f32,
     du_dy: f32,
     dv_dy: f32,
-    dnx_dy: f32,
-    dny_dy: f32,
-    dnz_dy: f32,
-    dtx_dy: f32,
-    dty_dy: f32,
-    dtz_dy: f32,
-    dtw_dy: f32,
+    dlx_dy: f32,
+    dly_dy: f32,
+    dlz_dy: f32,
 }
 
 impl NormalMapEdgeWalker {
@@ -2543,10 +2504,8 @@ impl NormalMapEdgeWalker {
         u_end: f32,
         v_start: f32,
         v_end: f32,
-        n_start: Vec3,
-        n_end: Vec3,
-        t_start: Vec4,
-        t_end: Vec4,
+        l_start: Vec3,
+        l_end: Vec3,
     ) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
@@ -2557,13 +2516,9 @@ impl NormalMapEdgeWalker {
         let dq_dy = (q_end - q_start) * inv_h;
         let du_dy = (u_end - u_start) * inv_h;
         let dv_dy = (v_end - v_start) * inv_h;
-        let dnx_dy = (n_end.x - n_start.x) * inv_h;
-        let dny_dy = (n_end.y - n_start.y) * inv_h;
-        let dnz_dy = (n_end.z - n_start.z) * inv_h;
-        let dtx_dy = (t_end.x - t_start.x) * inv_h;
-        let dty_dy = (t_end.y - t_start.y) * inv_h;
-        let dtz_dy = (t_end.z - t_start.z) * inv_h;
-        let dtw_dy = (t_end.w - t_start.w) * inv_h;
+        let dlx_dy = (l_end.x - l_start.x) * inv_h;
+        let dly_dy = (l_end.y - l_start.y) * inv_h;
+        let dlz_dy = (l_end.z - l_start.z) * inv_h;
 
         Self {
             x: i64::from(p_start.x) << 16,
@@ -2571,25 +2526,17 @@ impl NormalMapEdgeWalker {
             q: q_start,
             u: u_start,
             v: v_start,
-            nx: n_start.x,
-            ny: n_start.y,
-            nz: n_start.z,
-            tx: t_start.x,
-            ty: t_start.y,
-            tz: t_start.z,
-            tw: t_start.w,
+            lx: l_start.x,
+            ly: l_start.y,
+            lz: l_start.z,
             dx_dy,
             dz_dy,
             dq_dy,
             du_dy,
             dv_dy,
-            dnx_dy,
-            dny_dy,
-            dnz_dy,
-            dtx_dy,
-            dty_dy,
-            dtz_dy,
-            dtw_dy,
+            dlx_dy,
+            dly_dy,
+            dlz_dy,
         }
     }
 
@@ -2599,13 +2546,9 @@ impl NormalMapEdgeWalker {
         self.q += self.dq_dy;
         self.u += self.du_dy;
         self.v += self.dv_dy;
-        self.nx += self.dnx_dy;
-        self.ny += self.dny_dy;
-        self.nz += self.dnz_dy;
-        self.tx += self.dtx_dy;
-        self.ty += self.dty_dy;
-        self.tz += self.dtz_dy;
-        self.tw += self.dtw_dy;
+        self.lx += self.dlx_dy;
+        self.ly += self.dly_dy;
+        self.lz += self.dlz_dy;
     }
 
     fn step_n(&mut self, n: i64) {
@@ -2615,13 +2558,9 @@ impl NormalMapEdgeWalker {
         self.q += self.dq_dy * n_f;
         self.u += self.du_dy * n_f;
         self.v += self.dv_dy * n_f;
-        self.nx += self.dnx_dy * n_f;
-        self.ny += self.dny_dy * n_f;
-        self.nz += self.dnz_dy * n_f;
-        self.tx += self.dtx_dy * n_f;
-        self.ty += self.dty_dy * n_f;
-        self.tz += self.dtz_dy * n_f;
-        self.tw += self.dtw_dy * n_f;
+        self.lx += self.dlx_dy * n_f;
+        self.ly += self.dly_dy * n_f;
+        self.lz += self.dlz_dy * n_f;
     }
 }
 
@@ -2631,13 +2570,9 @@ struct NormalMapSpanStart {
     q: f32,
     u: f32,
     v: f32,
-    nx: f32,
-    ny: f32,
-    nz: f32,
-    tx: f32,
-    ty: f32,
-    tz: f32,
-    tw: f32,
+    lx: f32,
+    ly: f32,
+    lz: f32,
 }
 
 #[inline(always)]
@@ -2652,7 +2587,6 @@ fn draw_scanline_normal_mapped(
     gradients: &NormalMapGradients,
     texture: &Texture,
     normal_map: &Texture,
-    neg_light_dir: Vec3,
     pre_diffuse_color: Vec3, // base_color * light_color
     ambient: Vec3,
 ) {
@@ -2665,13 +2599,9 @@ fn draw_scanline_normal_mapped(
     let mut q = start.q;
     let mut u = start.u;
     let mut v = start.v;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut tx = start.tx;
-    let mut ty = start.ty;
-    let mut tz = start.tz;
-    let mut tw = start.tw;
+    let mut lx = start.lx;
+    let mut ly = start.ly;
+    let mut lz = start.lz;
 
     if xs < 0 {
         let diff = -i64::from(xs);
@@ -2680,13 +2610,9 @@ fn draw_scanline_normal_mapped(
         q += diff_f * gradients.dq_dx;
         u += diff_f * gradients.du_dx;
         v += diff_f * gradients.dv_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        tx += diff_f * gradients.dtx_dx;
-        ty += diff_f * gradients.dty_dx;
-        tz += diff_f * gradients.dtz_dx;
-        tw += diff_f * gradients.dtw_dx;
+        lx += diff_f * gradients.dlx_dx;
+        ly += diff_f * gradients.dly_dx;
+        lz += diff_f * gradients.dlz_dx;
         xs = 0;
     }
 
@@ -2725,41 +2651,26 @@ fn draw_scanline_normal_mapped(
             let diff_b = (diffuse_color_u32 & 0xFF) as f32 / 255.0;
             let diffuse_sample = Vec3::new(diff_r, diff_g, diff_b);
 
-            // Sample normal map
+            // Sample normal map (Tangent Space Normal)
             let nm_color_u32 = normal_map.get_pixel_texel(u_tex as i32, v_tex as i32);
             // Unpack to [-1, 1]
             let nm_r = (((nm_color_u32 >> 16) & 0xFF) as f32 / 255.0) * 2.0 - 1.0;
             let nm_g = (((nm_color_u32 >> 8) & 0xFF) as f32 / 255.0) * 2.0 - 1.0;
             let nm_b = ((nm_color_u32 & 0xFF) as f32 / 255.0) * 2.0 - 1.0;
-            let tangent_normal = Vec3::new(nm_r, nm_g, nm_b); // Usually Z is up in tangent space
+            // let tangent_normal = Vec3::new(nm_r, nm_g, nm_b);
 
-            // TBN Construction
-            // Normalize interpolated N and T (they are n/w and t/w, but direction is same)
-            // Need to recover true direction
-            let n_interp = Vec3::new(nx, ny, nz).normalize(); // Assuming non-zero
-            let t_interp = Vec3::new(tx, ty, tz).normalize();
-
-            // Gram-Schmidt re-orthogonalize T with respect to N
-            let t_ortho = (t_interp - n_interp * n_interp.dot(t_interp)).normalize();
-
-            // Calculate Bitangent
-            // tw holds handedness * w. But we want just handedness.
-            // w is 1/q. So tw/q = handedness * w / (1/w) = handedness * w^2? No.
-            // tw is (handedness * 1.0) / w.
-            // q is 1/w.
-            // tw / q = handedness.
-            let handedness = if (tw * w_recip) > 0.0 { 1.0 } else { -1.0 };
-            let b_ortho = n_interp.cross(t_ortho) * handedness;
-
-            // Transform normal from tangent space to world space
-            // N_world = T * nm.x + B * nm.y + N * nm.z
-            let final_normal = (t_ortho * tangent_normal.x
-                + b_ortho * tangent_normal.y
-                + n_interp * tangent_normal.z)
-                .normalize();
-
-            // Lighting
-            let intensity = final_normal.dot(neg_light_dir).max(0.0);
+            // Light Vector in Tangent Space
+            // Interpolated L is (L_true / w).
+            // normalize(L_true / w) points in same direction as L_true if w > 0.
+            // So we don't need explicit perspective recovery (division by q) for the direction.
+            let len_sq = lx * lx + ly * ly + lz * lz;
+            let intensity = if len_sq > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                // Dot product: normal . light
+                (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
+            } else {
+                0.0
+            }.max(0.0);
 
             // Combine
             let diffuse_total = pre_diffuse_color * diffuse_sample * intensity;
@@ -2771,13 +2682,9 @@ fn draw_scanline_normal_mapped(
         q += gradients.dq_dx;
         u += gradients.du_dx;
         v += gradients.dv_dx;
-        nx += gradients.dnx_dx;
-        ny += gradients.dny_dx;
-        nz += gradients.dnz_dx;
-        tx += gradients.dtx_dx;
-        ty += gradients.dty_dx;
-        tz += gradients.dtz_dx;
-        tw += gradients.dtw_dx;
+        lx += gradients.dlx_dx;
+        ly += gradients.dly_dx;
+        lz += gradients.dlz_dx;
     }
 }
 
@@ -2844,24 +2751,47 @@ pub fn fill_triangle_normal_mapped(
         let u2 = v2.1.x * w * inv_w2;
         let v2_val = v2.1.y * h * inv_w2;
 
-        let n0 = v0.2 * inv_w0;
-        let n1 = v1.2 * inv_w1;
-        let n2 = v2.2 * inv_w2;
+        // Compute Tangent Space Light Vectors
+        let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
+            let n_norm = n.normalize();
+            let t_norm = Vec3::new(t.x, t.y, t.z).normalize();
+            // Re-orthogonalize T with respect to N (Gram-Schmidt)
+            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).normalize();
+            let b_ortho = n_norm.cross(t_ortho) * t.w;
 
-        let t0 = v0.3 * inv_w0;
-        let t1 = v1.3 * inv_w1;
-        let t2 = v2.3 * inv_w2;
+            // Transform LightDir to Tangent Space.
+            // LightDir passed in is direction of light (sun).
+            // We want vector TO light, so -light_dir.
+            let l_world = light_dir * -1.0;
+
+            // TS_L = TBN^T * L_world
+            Vec3::new(
+                t_ortho.dot(l_world),
+                b_ortho.dot(l_world),
+                n_norm.dot(l_world),
+            )
+        };
+
+        // Use true normals/tangents (v0.2, v0.3) not scaled by inv_w
+        let l0_ts = calculate_ts_light(v0.2, v0.3);
+        let l1_ts = calculate_ts_light(v1.2, v1.3);
+        let l2_ts = calculate_ts_light(v2.2, v2.3);
+
+        // Prepare for interpolation
+        let l0 = l0_ts * inv_w0;
+        let l1 = l1_ts * inv_w1;
+        let l2 = l2_ts * inv_w2;
 
         let mut verts = [
-            (p0_orig, u0, v0_val, n0, t0),
-            (p1_orig, u1, v1_val, n1, t1),
-            (p2_orig, u2, v2_val, n2, t2),
+            (p0_orig, u0, v0_val, l0),
+            (p1_orig, u1, v1_val, l1),
+            (p2_orig, u2, v2_val, l2),
         ];
         sort_by_y(&mut verts, |(p, ..)| p.y);
         let [
-            (p0, u0, v0_v, n0, t0),
-            (p1, u1, v1_v, n1, t1),
-            (p2, u2, v2_v, n2, t2),
+            (p0, u0, v0_v, l0),
+            (p1, u1, v1_v, l1),
+            (p2, u2, v2_v, l2),
         ] = verts;
 
         let q0 = p0.inv_w;
@@ -2885,7 +2815,7 @@ pub fn fill_triangle_normal_mapped(
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) = {
             let g = NormalMapGradients::new(
-                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, n0, n1, n2, t0, t1, t2,
+                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
             );
             let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
             let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
@@ -2896,34 +2826,33 @@ pub fn fill_triangle_normal_mapped(
         };
 
         let mut edge_a =
-            NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, n0, n2, t0, t2);
+            NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, l0, l2);
         if y_start > p0.y {
             edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
             let mut e =
-                NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0_v, v1_v, n0, n1, t0, t1);
+                NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0_v, v1_v, l0, l1);
             if y_start > p0.y {
                 e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
             let mut e =
-                NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
+                NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, l1, l2);
             if y_start > p1.y {
                 e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
             e
         };
 
-        let neg_light_dir = light_dir * -1.0;
         let pre_diffuse_color = light_color; // Base color comes from texture
 
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
                 edge_b =
-                    NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
+                    NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, l1, l2);
             }
 
             // Unpack walker state
@@ -2934,13 +2863,9 @@ pub fn fill_triangle_normal_mapped(
                 q_left,
                 u_left,
                 v_left,
-                nx_left,
-                ny_left,
-                nz_left,
-                tx_left,
-                ty_left,
-                tz_left,
-                tw_left,
+                lx_left,
+                ly_left,
+                lz_left,
             ) = if long_edge_is_left {
                 (
                     (edge_a.x >> 16) as i32,
@@ -2949,13 +2874,9 @@ pub fn fill_triangle_normal_mapped(
                     edge_a.q,
                     edge_a.u,
                     edge_a.v,
-                    edge_a.nx,
-                    edge_a.ny,
-                    edge_a.nz,
-                    edge_a.tx,
-                    edge_a.ty,
-                    edge_a.tz,
-                    edge_a.tw,
+                    edge_a.lx,
+                    edge_a.ly,
+                    edge_a.lz,
                 )
             } else {
                 (
@@ -2965,13 +2886,9 @@ pub fn fill_triangle_normal_mapped(
                     edge_b.q,
                     edge_b.u,
                     edge_b.v,
-                    edge_b.nx,
-                    edge_b.ny,
-                    edge_b.nz,
-                    edge_b.tx,
-                    edge_b.ty,
-                    edge_b.tz,
-                    edge_b.tw,
+                    edge_b.lx,
+                    edge_b.ly,
+                    edge_b.lz,
                 )
             };
 
@@ -2989,18 +2906,13 @@ pub fn fill_triangle_normal_mapped(
                         q: q_left,
                         u: u_left,
                         v: v_left,
-                        nx: nx_left,
-                        ny: ny_left,
-                        nz: nz_left,
-                        tx: tx_left,
-                        ty: ty_left,
-                        tz: tz_left,
-                        tw: tw_left,
+                        lx: lx_left,
+                        ly: ly_left,
+                        lz: lz_left,
                     },
                     &gradients,
                     texture,
                     normal_map,
-                    neg_light_dir,
                     pre_diffuse_color,
                     ambient,
                 );
