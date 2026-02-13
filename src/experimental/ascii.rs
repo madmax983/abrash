@@ -45,7 +45,7 @@ pub enum AsciiCharset {
 
 impl AsciiCharset {
     /// Returns the characters in the set, ordered from darkest to brightest.
-    const fn chars(self) -> &'static [char] {
+    pub const fn chars(self) -> &'static [char] {
         match self {
             Self::Standard => &[' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'],
             Self::Blocks => &[' ', '░', '▒', '▓', '█'],
@@ -55,7 +55,7 @@ impl AsciiCharset {
     }
 
     /// Maps a luminance value (0-255) to a character in the set.
-    fn map(self, luminance: u8) -> char {
+    pub fn map(self, luminance: u8) -> char {
         let chars = self.chars();
         let len = chars.len();
         // Calculate index: (luminance * len) / 256

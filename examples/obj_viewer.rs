@@ -1,4 +1,4 @@
-use abrash::experimental::ascii::{AsciiCharset, AsciiConverter};
+use abrash::experimental::ascii::AsciiCharset;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -12,6 +12,20 @@ use comfy_table::{Cell, Color, Table, presets};
 use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
+
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use ratatui::{
+    Terminal,
+    backend::CrosstermBackend,
+    buffer::Buffer,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color as TuiColor, Style},
+    widgets::{Block, Borders, Paragraph, Widget},
+};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -125,6 +139,60 @@ fn render_mesh(
     }
 }
 
+struct AsciiWidget<'a> {
+    framebuffer: &'a Framebuffer,
+    charset: AsciiCharset,
+    colored: bool,
+}
+
+fn pixel_luminance(pixel: u32) -> u8 {
+    let r = (pixel >> 16) & 0xFF;
+    let g = (pixel >> 8) & 0xFF;
+    let b = pixel & 0xFF;
+    ((77 * r + 150 * g + 29 * b) >> 8) as u8
+}
+
+impl<'a> Widget for AsciiWidget<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+
+        let term_w = area.width as usize;
+        let term_h = area.height as usize;
+        let fb_w = self.framebuffer.width() as usize;
+        let fb_h = self.framebuffer.height() as usize;
+
+        for y in 0..term_h {
+            for x in 0..term_w {
+                // Nearest neighbor sampling
+                let fb_x = (x * fb_w) / term_w;
+                let fb_y = (y * fb_h) / term_h;
+
+                if fb_x >= fb_w || fb_y >= fb_h {
+                    continue;
+                }
+
+                if let Some(pixel) = self.framebuffer.get_pixel(fb_x as i32, fb_y as i32) {
+                    let luminance = pixel_luminance(pixel);
+                    let ch = self.charset.map(luminance);
+
+                    let cell = buf.cell_mut((area.x + x as u16, area.y + y as u16));
+                    if let Some(cell) = cell {
+                        cell.set_char(ch);
+                        if self.colored {
+                            let r = ((pixel >> 16) & 0xFF) as u8;
+                            let g = ((pixel >> 8) & 0xFF) as u8;
+                            let b = (pixel & 0xFF) as u8;
+                            cell.set_fg(TuiColor::Rgb(r, g, b));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -214,10 +282,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Vec3::new(0.0, 1.0, 0.0),
         );
 
-        // Clear screen
-        print!("\x1b[2J");
+        // TUI Setup
+        enable_raw_mode()?;
+        let mut stdout = std::io::stdout();
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut frame_count = 0;
+        let start_time = std::time::Instant::now();
 
         loop {
+            // Event Handling
+            if event::poll(std::time::Duration::from_millis(16))? {
+                if let Event::Key(key) = event::read()? {
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        _ => {}
+                    }
+                }
+            }
+
             angle_y += 0.02;
 
             framebuffer.clear(BACKGROUND);
@@ -237,16 +322,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 base_color,
             );
 
-            let converter = AsciiConverter::new(&framebuffer, AsciiCharset::Standard);
-            let output = if args.colored_ascii {
-                converter.to_colored_string()
-            } else {
-                converter.to_string()
-            };
+            frame_count += 1;
+            let elapsed = start_time.elapsed().as_secs_f32();
+            let fps = frame_count as f32 / elapsed.max(0.001);
 
-            print!("\x1b[H{}", output);
-            std::thread::sleep(std::time::Duration::from_millis(33));
+            terminal.draw(|f| {
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Min(0), Constraint::Length(1)])
+                    .split(f.area());
+
+                let ascii_widget = AsciiWidget {
+                    framebuffer: &framebuffer,
+                    charset: AsciiCharset::Standard,
+                    colored: args.colored_ascii,
+                };
+
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" Abrash OBJ Viewer: {} ", source_name))
+                    .title_style(Style::default().fg(TuiColor::Cyan));
+
+                f.render_widget(ascii_widget, block.inner(chunks[0]));
+                f.render_widget(block, chunks[0]);
+
+                let status = format!(
+                    " FPS: {:.1} | Verts: {} | Tris: {} | [Q] Quit ",
+                    fps,
+                    mesh.vertices.len(),
+                    mesh.indices.len()
+                );
+                let status_bar = Paragraph::new(status)
+                    .style(Style::default().fg(TuiColor::Black).bg(TuiColor::Cyan));
+                f.render_widget(status_bar, chunks[1]);
+            })?;
         }
+
+        // Cleanup
+        disable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+        terminal.show_cursor()?;
     } else {
         let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
         let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;

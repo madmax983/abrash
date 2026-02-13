@@ -59,6 +59,8 @@ windows = { version = "0.59", optional = true, features = [
 criterion = "0.5"
 proptest = "1.0"
 rand = "0.8"
+ratatui = "0.30.0"
+crossterm = "0.29.0"
 
 [[bench]]
 name = "math"
