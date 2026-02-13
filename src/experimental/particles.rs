@@ -26,7 +26,8 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn new(position: Vec3, velocity: Vec3, life: f32, size: f32, color: u32) -> Self {
+    #[must_use]
+    pub const fn new(position: Vec3, velocity: Vec3, life: f32, size: f32, color: u32) -> Self {
         Self {
             position,
             velocity,
@@ -135,6 +136,7 @@ impl ParticleSystem {
     /// # Arguments
     /// * `max_particles` - Initial capacity.
     /// * `texture` - The texture to use for particles.
+    #[must_use]
     pub fn new(max_particles: usize, texture: Texture) -> Self {
         Self {
             particles: Vec::with_capacity(max_particles),
@@ -151,7 +153,7 @@ impl ParticleSystem {
         }
     }
 
-    /// Simple XorShift RNG
+    /// Simple `XorShift` RNG
     fn rand_float(&mut self) -> f32 {
         let mut x = self.rng_state;
         x ^= x << 13;
@@ -172,6 +174,7 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
+        #[allow(clippy::while_float)]
         while self.emission_accumulator >= 1.0 {
             self.emit();
             self.emission_accumulator -= 1.0;
@@ -210,7 +213,7 @@ impl ParticleSystem {
             vel,
             self.start_life,
             self.start_size,
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         );
         self.particles.push(p);
     }
