@@ -70,7 +70,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             1.0, // Life 1.0
             0.1,
-            0xFFFFFFFF
+            0xFFFFFFFF,
         ));
 
         // Update 0.5s -> Life 0.5
@@ -94,7 +94,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             2.0, // Life 2.0 so it survives 1.0s update
             0.1,
-            0xFFFFFFFF
+            0xFFFFFFFF,
         ));
 
         // Update 1.0s
@@ -206,7 +206,9 @@ impl ParticleSystem {
             self.rand_signed() * self.spread,
             1.0 + self.rand_signed() * self.spread, // Generally upwards
             self.rand_signed() * self.spread,
-        ).normalize() * self.start_speed;
+        )
+        .normalize()
+            * self.start_speed;
 
         let p = Particle::new(
             self.position,
@@ -219,13 +221,7 @@ impl ParticleSystem {
     }
 
     /// Renders the particles as billboards.
-    pub fn render(
-        &self,
-        fb: &mut Framebuffer,
-        zb: &mut ZBuffer,
-        view: Mat4,
-        proj: Mat4,
-    ) {
+    pub fn render(&self, fb: &mut Framebuffer, zb: &mut ZBuffer, view: Mat4, proj: Mat4) {
         // Extract camera Right and Up vectors from View Matrix.
         // The View Matrix transforms World to Camera space.
         // Row 0 is the Right vector (Side)
@@ -264,20 +260,22 @@ impl ParticleSystem {
             // Render 2 Triangles
             // Tri 1: 0-1-2
             fill_triangle_textured(
-                fb, zb,
+                fb,
+                zb,
                 ((c0, w0), uv0),
                 ((c1, w1), uv1),
                 ((c2, w2), uv2),
-                &self.texture
+                &self.texture,
             );
 
             // Tri 2: 0-2-3
             fill_triangle_textured(
-                fb, zb,
+                fb,
+                zb,
                 ((c0, w0), uv0),
                 ((c2, w2), uv2),
                 ((c3, w3), uv3),
-                &self.texture
+                &self.texture,
             );
         }
     }
