@@ -221,6 +221,16 @@ pub fn fill_triangle_3d(
 ) {
     assert_same_dimensions(fb, zb);
 
+    // Optimization: Early exit if fully transparent (alpha == 0).
+    // In this engine, alpha=0 is typically treated as transparent by textured pipelines,
+    // so flat shading should match this behavior.
+    // Also, blend_swar treats alpha=0 as Opaque Source, which is likely unintended for "flat transparency".
+    // Culling here fixes the inconsistency and optimizes performance.
+    let alpha = (color >> 24) & 0xFF;
+    if alpha == 0 {
+        return;
+    }
+
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
     let width = fb.width();
@@ -328,7 +338,6 @@ pub fn fill_triangle_3d(
                 if x_start >= 0 && x_start < width_i32 {
                     // SAFETY: Safe due to clamps on x_start and y.
                     unsafe {
-                        let alpha = (color >> 24) & 0xFF;
                         if alpha == 0xFF {
                             if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                                 fb.set_pixel_unchecked(x_start as usize, y as usize, color);
@@ -344,13 +353,10 @@ pub fn fill_triangle_3d(
                         }
                     }
                 }
+            } else if alpha == 0xFF {
+                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             } else {
-                let alpha = (color >> 24) & 0xFF;
-                if alpha == 0xFF {
-                    draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                } else {
-                    draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                }
+                draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             }
 
             edge_a.step();
