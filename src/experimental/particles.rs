@@ -26,7 +26,8 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn new(position: Vec3, velocity: Vec3, life: f32, size: f32, color: u32) -> Self {
+    #[must_use]
+    pub const fn new(position: Vec3, velocity: Vec3, life: f32, size: f32, color: u32) -> Self {
         Self {
             position,
             velocity,
@@ -69,7 +70,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             1.0, // Life 1.0
             0.1,
-            0xFFFFFFFF
+            0xFFFFFFFF,
         ));
 
         // Update 0.5s -> Life 0.5
@@ -93,7 +94,7 @@ mod tests {
             Vec3::new(0.0, 0.0, 0.0),
             2.0, // Life 2.0 so it survives 1.0s update
             0.1,
-            0xFFFFFFFF
+            0xFFFFFFFF,
         ));
 
         // Update 1.0s
@@ -135,6 +136,7 @@ impl ParticleSystem {
     /// # Arguments
     /// * `max_particles` - Initial capacity.
     /// * `texture` - The texture to use for particles.
+    #[must_use]
     pub fn new(max_particles: usize, texture: Texture) -> Self {
         Self {
             particles: Vec::with_capacity(max_particles),
@@ -151,7 +153,7 @@ impl ParticleSystem {
         }
     }
 
-    /// Simple XorShift RNG
+    /// Simple `XorShift` RNG
     fn rand_float(&mut self) -> f32 {
         let mut x = self.rng_state;
         x ^= x << 13;
@@ -172,6 +174,7 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
+        #[allow(clippy::while_float)]
         while self.emission_accumulator >= 1.0 {
             self.emit();
             self.emission_accumulator -= 1.0;
@@ -203,26 +206,22 @@ impl ParticleSystem {
             self.rand_signed() * self.spread,
             1.0 + self.rand_signed() * self.spread, // Generally upwards
             self.rand_signed() * self.spread,
-        ).normalize() * self.start_speed;
+        )
+        .normalize()
+            * self.start_speed;
 
         let p = Particle::new(
             self.position,
             vel,
             self.start_life,
             self.start_size,
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         );
         self.particles.push(p);
     }
 
     /// Renders the particles as billboards.
-    pub fn render(
-        &self,
-        fb: &mut Framebuffer,
-        zb: &mut ZBuffer,
-        view: Mat4,
-        proj: Mat4,
-    ) {
+    pub fn render(&self, fb: &mut Framebuffer, zb: &mut ZBuffer, view: Mat4, proj: Mat4) {
         // Extract camera Right and Up vectors from View Matrix.
         // The View Matrix transforms World to Camera space.
         // Row 0 is the Right vector (Side)
@@ -261,20 +260,22 @@ impl ParticleSystem {
             // Render 2 Triangles
             // Tri 1: 0-1-2
             fill_triangle_textured(
-                fb, zb,
+                fb,
+                zb,
                 ((c0, w0), uv0),
                 ((c1, w1), uv1),
                 ((c2, w2), uv2),
-                &self.texture
+                &self.texture,
             );
 
             // Tri 2: 0-2-3
             fill_triangle_textured(
-                fb, zb,
+                fb,
+                zb,
                 ((c0, w0), uv0),
                 ((c2, w2), uv2),
                 ((c3, w3), uv3),
-                &self.texture
+                &self.texture,
             );
         }
     }
