@@ -19,9 +19,7 @@
 //!
 //! This loader implements several optimizations for high-performance parsing:
 //!
-//! *   **Vertex Deduplication**: Uses a custom "Separate Chaining" hash table backed by `Vec` indices
-//!     instead of a standard `HashMap`. This avoids hashing overhead and improves memory locality by
-//!     using the vertex index itself as the primary key.
+//! *   **Vertex Deduplication**: Uses a `HashMap` to reuse vertices with identical attributes.
 //! *   **Fast Parsing**: Uses [`split_ascii_whitespace`](str::split_ascii_whitespace) to avoid Unicode
 //!     property lookups, which provides a ~20% speedup for ASCII files.
 //! *   **Integer Parsing**: Uses a custom `fast_parse_usize` function to parse indices without
@@ -29,6 +27,7 @@
 
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
+use std::collections::HashMap;
 
 /// Optimized integer parser for OBJ indices.
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
@@ -66,34 +65,15 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
-    // Nodes in the chains.
-    struct CacheNode {
-        vt_idx: usize, // usize::MAX if None
-        vn_idx: usize, // usize::MAX if None
-        new_idx: usize,
-        next: usize, // usize::MAX if None
-    }
-
-    // DoS Defense: Limit chain length to prevent O(N^2) behavior on malicious inputs
-    const MAX_CHAIN_LENGTH: usize = 8;
-
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
     let mut raw_normals = Vec::with_capacity(1024);
 
     // Deduplication structure:
-    // We replace the standard HashMap with a custom separate-chaining lookup table
-    // indexed directly by vertex index (v_idx). This avoids hashing overhead and
-    // takes advantage of the fact that unique `(v_idx, vt_idx)` pairs are sparse
-    // but clustered by `v_idx`.
-
-    // Head of the chain for each v_idx. Stores index into `cache_nodes`.
-    // We initialize/grow this parallel to `raw_positions`.
-    // value usize::MAX indicates "None".
-    let mut cache_head: Vec<usize> = Vec::with_capacity(1024);
-
-    let mut cache_nodes: Vec<CacheNode> = Vec::with_capacity(1024);
+    // Key: (v_idx, vt_idx, vn_idx). vt/vn are Option<usize>.
+    // Value: index in final_vertices.
+    let mut deduplicator: HashMap<(usize, Option<usize>, Option<usize>), usize> = HashMap::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
@@ -136,8 +116,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     return Err(format!("Line {line_num}: Coordinates must be finite"));
                 }
                 raw_positions.push(Vec3::new(x, y, z));
-                // Grow cache_head to match raw_positions
-                cache_head.push(usize::MAX);
             }
             "vt" => {
                 let u = parts
@@ -270,30 +248,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         ));
                     }
 
-                    // Keys for lookup
-                    let vt_key = vt_idx.unwrap_or(usize::MAX);
-                    let vn_key = vn_idx.unwrap_or(usize::MAX);
+                    // Use HashMap for full deduplication
+                    let key = (v_idx, vt_idx, vn_idx);
 
-                    // Linear scan in the cache chain for this vertex
-                    let mut found_idx = None;
-                    let mut curr = cache_head[v_idx];
-                    let mut depth = 0;
-                    while curr != usize::MAX {
-                        // DoS protection: limit chain depth to prevent O(N^2) behavior
-                        if depth >= MAX_CHAIN_LENGTH {
-                            break;
-                        }
-                        let node = &cache_nodes[curr];
-                        // Match on VT and VN indices
-                        if node.vt_idx == vt_key && node.vn_idx == vn_key {
-                            found_idx = Some(node.new_idx);
-                            break;
-                        }
-                        curr = node.next;
-                        depth += 1;
-                    }
-
-                    if let Some(idx) = found_idx {
+                    if let Some(&idx) = deduplicator.get(&key) {
                         face_indices.push(idx);
                     } else {
                         let new_idx = final_vertices.len();
@@ -326,26 +284,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             }
                             final_normals.push(raw_normals[ni]);
                         } else {
-                             // If we have some normals but not for this vertex, we should align
-                             // Or just push a default?
-                             // If final_normals is not empty, we should keep it aligned with final_vertices?
-                             // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                             // But here we build incrementally.
-                             // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                             // For simplicity: If vn_idx is None, push Zero.
                              final_normals.push(Vec3::new(0.0, 0.0, 0.0));
                         }
 
-                        // Insert into cache
-                        let new_node_idx = cache_nodes.len();
-                        cache_nodes.push(CacheNode {
-                            vt_idx: vt_key,
-                            vn_idx: vn_key,
-                            new_idx,
-                            next: cache_head[v_idx],
-                        });
-                        cache_head[v_idx] = new_node_idx;
-
+                        deduplicator.insert(key, new_idx);
                         face_indices.push(new_idx);
                     }
                 }
@@ -364,14 +306,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     }
 
     // Post-processing: If no normals were parsed, clear the final_normals vector to avoid partial state
-    // (Though with our logic it will be filled with zeros if some missing)
-    // Actually, if raw_normals is empty, final_normals will contain only zeros (from default path).
-    // In that case, we should clear it so mesh.normals is empty, indicating no normals.
     if raw_normals.is_empty() {
         final_normals.clear();
-    } else {
-        // If we had some normals, but some vertices didn't use them (v//), they got (0,0,0).
-        // This is acceptable behavior for mixed meshes (rare).
     }
 
     Ok(Mesh {
