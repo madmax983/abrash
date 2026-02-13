@@ -101,6 +101,10 @@ name = "gpu_obj"
 path = "examples/gpu_obj.rs"
 required-features = ["gpu-render"]
 
+[[example]]
+name = "particles"
+path = "examples/particles.rs"
+
 [[bench]]
 name = "rasterization"
 harness = false
