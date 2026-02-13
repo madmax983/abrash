@@ -39,7 +39,7 @@ fn bench_phong_scanline_performance(c: &mut Criterion) {
                 black_box(ambient),
             );
             // Triangle 2
-             fill_triangle_phong(
+            fill_triangle_phong(
                 black_box(&mut fb),
                 black_box(&mut zb),
                 black_box(v0),
