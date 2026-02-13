@@ -516,6 +516,8 @@ impl Mat4 {
     /// assert_eq!(p_prime, Vec3::new(1.0, 2.0, 3.0));
     /// assert_eq!(w, 1.0);
     /// ```
+    ///
+    /// Marked `#[inline]` to allow cross-crate inlining and auto-vectorization by the compiler.
     #[must_use]
     #[inline]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
