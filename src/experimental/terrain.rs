@@ -58,6 +58,8 @@ pub fn generate_terrain_mesh(width: usize, depth: usize, max_height: f32, seed: 
         vertices,
         indices,
         uvs,
+        normals: Vec::new(),
+        tangents: Vec::new(),
     }
 }
 

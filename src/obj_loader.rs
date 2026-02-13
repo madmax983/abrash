@@ -6,12 +6,12 @@
 //!
 //! *   **Vertices (`v`)**: 3D positions (x, y, z).
 //! *   **Texture Coordinates (`vt`)**: 2D UVs (u, v).
+//! *   **Normals (`vn`)**: 3D normal vectors (nx, ny, nz).
 //! *   **Faces (`f`)**: Triangles and Quads (automatically triangulated).
 //!     *   Supports `v`, `v/vt`, `v//vn`, and `v/vt/vn` formats.
 //!
 //! # Limitations
 //!
-//! *   **Normals (`vn`)**: Parsed but currently ignored/discarded.
 //! *   **Materials (`usemtl`, `mtllib`)**: Ignored.
 //! *   **Groups (`g`, `o`)**: Ignored.
 //!
@@ -69,6 +69,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Nodes in the chains.
     struct CacheNode {
         vt_idx: usize, // usize::MAX if None
+        vn_idx: usize, // usize::MAX if None
         new_idx: usize,
         next: usize, // usize::MAX if None
     }
@@ -79,6 +80,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
     let mut raw_uvs = Vec::with_capacity(1024);
+    let mut raw_normals = Vec::with_capacity(1024);
 
     // Deduplication structure:
     // We replace the standard HashMap with a custom separate-chaining lookup table
@@ -95,6 +97,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
+    let mut final_normals = Vec::with_capacity(1024);
     let mut final_indices = Vec::with_capacity(1024);
 
     // Reuse vector for face indices to avoid allocation per face
@@ -153,6 +156,28 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 }
                 raw_uvs.push(Vec2::new(u, v));
             }
+            "vn" => {
+                let x = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {line_num}: Missing nx"))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {line_num}: Invalid nx"))?;
+                let y = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {line_num}: Missing ny"))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {line_num}: Invalid ny"))?;
+                let z = parts
+                    .next()
+                    .ok_or_else(|| format!("Line {line_num}: Missing nz"))?
+                    .parse::<f32>()
+                    .map_err(|_| format!("Line {line_num}: Invalid nz"))?;
+
+                if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+                    return Err(format!("Line {line_num}: Normal coordinates must be finite"));
+                }
+                raw_normals.push(Vec3::new(x, y, z).normalize());
+            }
             "f" => {
                 face_indices.clear();
                 for part in parts {
@@ -178,30 +203,58 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         .checked_sub(1)
                         .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
-                    // Parse vt_idx if present
+                    // Parse vt_idx and vn_idx if present
                     let mut vt_idx = None;
-                    if first_slash < bytes.len() {
-                        let after_slash = first_slash + 1;
-                        if after_slash < bytes.len() {
-                            // Check if next char is also '/' (case v//vn)
-                            if bytes[after_slash] != b'/' {
-                                // It's v/vt...
-                                // Find end of vt (next slash or end of string)
-                                let mut end_vt = bytes.len();
-                                for (i, &b) in bytes.iter().enumerate().skip(after_slash) {
-                                    if b == b'/' {
-                                        end_vt = i;
-                                        break;
-                                    }
-                                }
+                    let mut vn_idx = None;
 
-                                let vt_bytes = &bytes[after_slash..end_vt];
-                                if !vt_bytes.is_empty() {
-                                    let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
-                                        format!("Line {line_num}: Invalid UV index")
+                    if first_slash < bytes.len() {
+                        let after_first_slash = first_slash + 1;
+                        // Check if next char is also '/' (case v//vn)
+                        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
+                             // v//vn case
+                             let after_second_slash = after_first_slash + 1;
+                             if after_second_slash < bytes.len() {
+                                 // Parse vn
+                                 let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(|| {
+                                     format!("Line {line_num}: Invalid Normal index")
+                                 })?;
+                                 vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                     format!("Line {line_num}: Normal index 0 is invalid")
+                                 })?);
+                             }
+                        } else if after_first_slash < bytes.len() {
+                            // It's v/vt...
+                            // Find end of vt (next slash or end of string)
+                            let mut end_vt = bytes.len();
+                            let mut second_slash = None;
+
+                            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
+                                if b == b'/' {
+                                    end_vt = i;
+                                    second_slash = Some(i);
+                                    break;
+                                }
+                            }
+
+                            let vt_bytes = &bytes[after_first_slash..end_vt];
+                            if !vt_bytes.is_empty() {
+                                let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
+                                    format!("Line {line_num}: Invalid UV index")
+                                })?;
+                                vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                    format!("Line {line_num}: UV index 0 is invalid")
+                                })?);
+                            }
+
+                            // If there's a second slash, parse vn (v/vt/vn)
+                            if let Some(slash2) = second_slash {
+                                let after_second_slash = slash2 + 1;
+                                if after_second_slash < bytes.len() {
+                                    let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(|| {
+                                        format!("Line {line_num}: Invalid Normal index")
                                     })?;
-                                    vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                        format!("Line {line_num}: UV index 0 is invalid")
+                                    vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                        format!("Line {line_num}: Normal index 0 is invalid")
                                     })?);
                                 }
                             }
@@ -217,8 +270,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         ));
                     }
 
-                    // Key for lookup
+                    // Keys for lookup
                     let vt_key = vt_idx.unwrap_or(usize::MAX);
+                    let vn_key = vn_idx.unwrap_or(usize::MAX);
 
                     // Linear scan in the cache chain for this vertex
                     let mut found_idx = None;
@@ -226,12 +280,12 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     let mut depth = 0;
                     while curr != usize::MAX {
                         // DoS protection: limit chain depth to prevent O(N^2) behavior
-                        // when many vertices share the same position but differ in other attributes.
                         if depth >= MAX_CHAIN_LENGTH {
                             break;
                         }
                         let node = &cache_nodes[curr];
-                        if node.vt_idx == vt_key {
+                        // Match on VT and VN indices
+                        if node.vt_idx == vt_key && node.vn_idx == vn_key {
                             found_idx = Some(node.new_idx);
                             break;
                         }
@@ -261,10 +315,32 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             final_uvs.push(Vec2::new(0.0, 0.0));
                         }
 
+                        // Push Normal (if present)
+                        if let Some(ni) = vn_idx {
+                            if ni >= raw_normals.len() {
+                                return Err(format!(
+                                    "Line {}: Normal index {} out of bounds",
+                                    line_num,
+                                    ni + 1
+                                ));
+                            }
+                            final_normals.push(raw_normals[ni]);
+                        } else {
+                             // If we have some normals but not for this vertex, we should align
+                             // Or just push a default?
+                             // If final_normals is not empty, we should keep it aligned with final_vertices?
+                             // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
+                             // But here we build incrementally.
+                             // If we start having normals, we push. If we missed some earlier, we are in trouble?
+                             // For simplicity: If vn_idx is None, push Zero.
+                             final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+                        }
+
                         // Insert into cache
                         let new_node_idx = cache_nodes.len();
                         cache_nodes.push(CacheNode {
                             vt_idx: vt_key,
+                            vn_idx: vn_key,
                             new_idx,
                             next: cache_head[v_idx],
                         });
@@ -283,14 +359,27 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                 }
             }
-            _ => {} // Ignore normals (vn), groups (g), materials (usemtl), etc.
+            _ => {} // Ignore groups (g), materials (usemtl), etc.
         }
+    }
+
+    // Post-processing: If no normals were parsed, clear the final_normals vector to avoid partial state
+    // (Though with our logic it will be filled with zeros if some missing)
+    // Actually, if raw_normals is empty, final_normals will contain only zeros (from default path).
+    // In that case, we should clear it so mesh.normals is empty, indicating no normals.
+    if raw_normals.is_empty() {
+        final_normals.clear();
+    } else {
+        // If we had some normals, but some vertices didn't use them (v//), they got (0,0,0).
+        // This is acceptable behavior for mixed meshes (rare).
     }
 
     Ok(Mesh {
         vertices: final_vertices,
         indices: final_indices,
         uvs: final_uvs,
+        normals: final_normals,
+        tangents: Vec::new(), // Tangents must be computed explicitly
     })
 }
 
@@ -363,5 +452,37 @@ f 1/1 1/2 1/1
         // vt 1 is used twice.
         // So we expect 2 unique vertices.
         assert_eq!(mesh.vertices.len(), 2);
+    }
+
+    #[test]
+    fn test_load_normals() {
+        let obj = "
+v 0 0 0
+v 1 0 0
+v 0 1 0
+vn 0 1 0
+f 1//1 2//1 3//1
+";
+        let mesh = load_obj(obj).unwrap();
+        assert_eq!(mesh.vertices.len(), 3);
+        assert_eq!(mesh.normals.len(), 3);
+        assert_eq!(mesh.normals[0], Vec3::new(0.0, 1.0, 0.0));
+    }
+
+    #[test]
+    fn test_load_mixed_normals() {
+        let obj = "
+v 0 0 0
+v 1 0 0
+v 0 1 0
+vn 0 1 0
+f 1//1 2 3
+";
+        let mesh = load_obj(obj).unwrap();
+        assert_eq!(mesh.vertices.len(), 3);
+        assert_eq!(mesh.normals.len(), 3);
+        assert_eq!(mesh.normals[0], Vec3::new(0.0, 1.0, 0.0));
+        // Second vertex has no normal specified, should default to zero
+        assert_eq!(mesh.normals[1], Vec3::new(0.0, 0.0, 0.0));
     }
 }
