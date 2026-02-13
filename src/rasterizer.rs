@@ -161,8 +161,19 @@ fn draw_scanline_flat_blended(
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
         // Alpha blending parameters
+        // Correct weights for standard alpha blending (255=Opaque, 0=Transparent)
+        // w (dest weight) = 255 - alpha
+        // inv_w (src weight) = alpha
         let alpha = (color >> 24) & 0xFF;
-        let inv_alpha = 255 - alpha;
+        let inv_alpha = 255 - alpha; // This is dest weight
+
+        // Optimization: Hoist source color scaling out of the loop
+        // Since color is constant, we can pre-calculate (src * alpha).
+        let rb_src = color & 0x00FF_00FF;
+        let ag_src = (color >> 8) & 0x00FF_00FF;
+
+        let rb_src_scaled = rb_src * alpha;
+        let ag_src_scaled = ag_src * alpha;
 
         // Optimization: Hoist source color unpacking and scaling out of the loop.
         // blend_swar(src, dest, alpha, inv_alpha) computes:
@@ -176,12 +187,12 @@ fn draw_scanline_flat_blended(
             if z < *depth_val {
                 let dest = *pixel;
 
-                // Inline blend_swar logic with precalculated source term
                 let rb_dest = dest & 0x00FF_00FF;
                 let ag_dest = (dest >> 8) & 0x00FF_00FF;
 
-                let rb = ((rb_src + rb_dest * alpha) >> 8) & 0x00FF_00FF;
-                let ag = ((ag_src + ag_dest * alpha) >> 8) & 0x00FF_00FF;
+                // (src * alpha + dest * (255 - alpha)) >> 8
+                let rb = ((rb_src_scaled + rb_dest * inv_alpha) >> 8) & 0x00FF_00FF;
+                let ag = ((ag_src_scaled + ag_dest * inv_alpha) >> 8) & 0x00FF_00FF;
 
                 *pixel = rb | (ag << 8);
             }
@@ -235,6 +246,16 @@ pub fn fill_triangle_3d(
     color: u32,
 ) {
     assert_same_dimensions(fb, zb);
+
+    // Optimization: Early exit if fully transparent (alpha == 0).
+    // In this engine, alpha=0 is typically treated as transparent by textured pipelines,
+    // so flat shading should match this behavior.
+    // Also, blend_swar treats alpha=0 as Opaque Source, which is likely unintended for "flat transparency".
+    // Culling here fixes the inconsistency and optimizes performance.
+    let alpha = (color >> 24) & 0xFF;
+    if alpha == 0 {
+        return;
+    }
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
 
@@ -343,7 +364,6 @@ pub fn fill_triangle_3d(
                 if x_start >= 0 && x_start < width_i32 {
                     // SAFETY: Safe due to clamps on x_start and y.
                     unsafe {
-                        let alpha = (color >> 24) & 0xFF;
                         if alpha == 0xFF {
                             if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
                                 fb.set_pixel_unchecked(x_start as usize, y as usize, color);
@@ -353,19 +373,16 @@ pub fn fill_triangle_3d(
                             let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
                             if z_left < z_current {
                                 let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
+                                let blended = blend_swar(color, dest, 255 - alpha, alpha);
                                 fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
                             }
                         }
                     }
                 }
+            } else if alpha == 0xFF {
+                draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             } else {
-                let alpha = (color >> 24) & 0xFF;
-                if alpha == 0xFF {
-                    draw_scanline_flat(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                } else {
-                    draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
-                }
+                draw_scanline_flat_blended(fb, zb, y, x_start, x_end, z_left, dz_dx, color);
             }
 
             edge_a.step();
@@ -1127,7 +1144,7 @@ fn draw_span_nearest(
                     *pixel = color;
                 } else if alpha > 0 {
                     let dest = *pixel;
-                    *pixel = blend_swar(color, dest, alpha, 255 - alpha);
+                    *pixel = blend_swar(color, dest, 255 - alpha, alpha);
                 }
             }
             z += dz_dx;
@@ -1277,7 +1294,7 @@ fn draw_span_bilinear(
                         *pixel = final_color;
                     } else if alpha > 0 {
                         let dest = *pixel;
-                        *pixel = blend_swar(final_color, dest, alpha, 255 - alpha);
+                        *pixel = blend_swar(final_color, dest, 255 - alpha, alpha);
                     }
                 }
                 z += dz_dx;
@@ -1318,7 +1335,7 @@ fn draw_span_trilinear(
                 *pixel = color;
             } else if alpha > 0 {
                 let dest = *pixel;
-                *pixel = blend_swar(color, dest, alpha, 255 - alpha);
+                *pixel = blend_swar(color, dest, 255 - alpha, alpha);
             }
         }
         z += dz_dx;
@@ -1751,7 +1768,7 @@ pub fn fill_triangle_textured(
                                 fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                             } else if alpha > 0 {
                                 let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                                let blended = blend_swar(color, dest, alpha, 255 - alpha);
+                                let blended = blend_swar(color, dest, 255 - alpha, alpha);
                                 fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
                             }
                         }
