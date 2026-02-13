@@ -371,7 +371,7 @@ pub fn color_to_u32(color: Vec3) -> u32 {
 /// Helper to convert pre-scaled (0.0-255.0) Vec3 color to u32 ARGB
 #[must_use]
 #[inline(always)]
-fn color_to_u32_scaled(color: Vec3) -> u32 {
+const fn color_to_u32_scaled(color: Vec3) -> u32 {
     let r = color.x.clamp(0.0, 255.0) as u32;
     let g = color.y.clamp(0.0, 255.0) as u32;
     let b = color.z.clamp(0.0, 255.0) as u32;

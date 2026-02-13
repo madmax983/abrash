@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** `src/experimental` directory containing mixed usage code. Some modules were unused (`svg_renderer`, `vhs`, `terrain`, `text`, `procedural`), others were only used in specific examples (`particles`, `ascii`).
+**Cut:** Deleted unused modules. Moved `ParticleSystem` into `examples/particles.rs` and `AsciiConverter` into `examples/obj_viewer.rs`. Deleted `src/experimental`.
+**Saved:** ~400 lines of dead code, removed a top-level module, and enforced "Code needed by an example belongs in the example".

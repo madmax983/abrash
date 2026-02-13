@@ -1,4 +1,3 @@
-use abrash::experimental::ascii::{AsciiCharset, AsciiConverter};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -8,8 +7,9 @@ use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use clap::Parser;
-use comfy_table::{Cell, Color, Table, presets};
+use comfy_table::{Cell, Color as TableColor, Table, presets};
 use std::f32::consts::PI;
+use std::fmt::{self, Write};
 use std::fs;
 use std::path::PathBuf;
 
@@ -67,16 +67,130 @@ struct Args {
     height: u32,
 }
 
-fn render_mesh(
+// --- ASCII Converter (Moved from experimental) ---
+
+/// Character set used for luminance mapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AsciiCharset {
+    /// Standard ASCII gradient: ` .:-=+*#%@`
+    Standard,
+    /// Block characters: ` ░▒▓█`
+    Blocks,
+    /// Minimal set: ` .:`
+    Minimal,
+    /// Binary set: ` 1`
+    Binary,
+}
+
+impl AsciiCharset {
+    /// Returns the characters in the set, ordered from darkest to brightest.
+    const fn chars(self) -> &'static [char] {
+        match self {
+            Self::Standard => &[' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'],
+            Self::Blocks => &[' ', '░', '▒', '▓', '█'],
+            Self::Minimal => &[' ', '.', ':'],
+            Self::Binary => &[' ', '1'],
+        }
+    }
+
+    /// Maps a luminance value (0-255) to a character in the set.
+    fn map(self, luminance: u8) -> char {
+        let chars = self.chars();
+        let len = chars.len();
+        // Calculate index: (luminance * len) / 256
+        // Use u16 to prevent overflow before division
+        let index = (u16::from(luminance) * len as u16) >> 8;
+        chars[index.min((len - 1) as u16) as usize]
+    }
+}
+
+/// Converter for rendering a [`Framebuffer`] as ASCII art.
+pub struct AsciiConverter<'a> {
+    framebuffer: &'a Framebuffer,
+    charset: AsciiCharset,
+}
+
+impl<'a> AsciiConverter<'a> {
+    /// Creates a new ASCII converter for the given framebuffer.
+    #[must_use]
+    pub const fn new(framebuffer: &'a Framebuffer, charset: AsciiCharset) -> Self {
+        Self {
+            framebuffer,
+            charset,
+        }
+    }
+
+    /// Calculates luminance using standard weights (Rec. 601).
+    /// Y = 0.299*R + 0.587*G + 0.114*B
+    const fn pixel_luminance(pixel: u32) -> u8 {
+        let r = (pixel >> 16) & 0xFF;
+        let g = (pixel >> 8) & 0xFF;
+        let b = pixel & 0xFF;
+
+        // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
+        ((77 * r + 150 * g + 29 * b) >> 8) as u8
+    }
+
+    /// Converts the framebuffer to a string with ANSI color codes.
+    #[must_use]
+    pub fn to_colored_string(&self) -> String {
+        let width = self.framebuffer.width();
+        let height = self.framebuffer.height();
+        let mut result = String::with_capacity(((width * 20) * height) as usize);
+
+        for y in 0..height {
+            for x in 0..width {
+                if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
+                    let luminance = Self::pixel_luminance(pixel);
+                    let ch = self.charset.map(luminance);
+
+                    let r = (pixel >> 16) & 0xFF;
+                    let g = (pixel >> 8) & 0xFF;
+                    let b = pixel & 0xFF;
+
+                    let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
+                } else {
+                    result.push(' ');
+                }
+            }
+            result.push_str("\x1b[0m\n");
+        }
+        result
+    }
+}
+
+impl fmt::Display for AsciiConverter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let width = self.framebuffer.width();
+        let height = self.framebuffer.height();
+        let mut result = String::with_capacity(((width + 1) * height) as usize);
+
+        for y in 0..height {
+            for x in 0..width {
+                if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
+                    let luminance = Self::pixel_luminance(pixel);
+                    result.push(self.charset.map(luminance));
+                }
+            }
+            result.push('\n');
+        }
+        write!(f, "{result}")
+    }
+}
+
+// --- Main ---
+
+fn render_mesh_to_framebuffer(
     framebuffer: &mut Framebuffer,
     zbuffer: &mut ZBuffer,
     mesh: &Mesh,
+    // Normals are computed per face in main
     normals: &[Vec3],
     mvp: &Mat4,
     normal_mat: &Mat4,
     base_color: Vec3,
 ) {
-    for (i, tri_indices) in mesh.indices.iter().enumerate() {
+     for (i, tri_indices) in mesh.indices.iter().enumerate() {
         let v0 = mesh.vertices[tri_indices[0]];
         let v1 = mesh.vertices[tri_indices[1]];
         let v2 = mesh.vertices[tri_indices[2]];
@@ -87,6 +201,8 @@ fn render_mesh(
         let (clip2, w2) = mvp.transform_point(v2);
 
         // Simple backface culling
+        // Note: this is clip space w, which is basically -z in view space.
+        // If w < 0, it's behind camera. Simple cull.
         if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
             continue;
         }
@@ -151,16 +267,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             table
                 .load_preset(presets::UTF8_FULL)
                 .set_header(vec![
-                    Cell::new("Property").fg(Color::Cyan),
-                    Cell::new("Value").fg(Color::Cyan),
+                    Cell::new("Property").fg(TableColor::Cyan),
+                    Cell::new("Value").fg(TableColor::Cyan),
                 ])
                 .add_row(vec![
                     Cell::new("Source"),
-                    Cell::new(&source_name).fg(Color::Yellow),
+                    Cell::new(&source_name).fg(TableColor::Yellow),
                 ])
                 .add_row(vec![
                     Cell::new("Status"),
-                    Cell::new("✅ Loaded Successfully").fg(Color::Green),
+                    Cell::new("✅ Loaded Successfully").fg(TableColor::Green),
                 ])
                 .add_row(vec![
                     Cell::new("Vertices"),
@@ -184,12 +300,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     controls
         .load_preset(presets::UTF8_FULL)
         .set_header(vec![
-            Cell::new("Input").fg(Color::Cyan),
-            Cell::new("Action").fg(Color::Cyan),
+            Cell::new("Input").fg(TableColor::Cyan),
+            Cell::new("Action").fg(TableColor::Cyan),
         ])
         .add_row(vec![
             Cell::new("Mouse"),
-            Cell::new("(Coming Soon)").fg(Color::DarkGrey),
+            Cell::new("(Coming Soon)").fg(TableColor::DarkGrey),
         ])
         .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
 
@@ -217,6 +333,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Clear screen
         print!("\x1b[2J");
 
+        // Simple loop for ASCII animation (runs for a few seconds then exits or loops forever? Example code looped forever)
         loop {
             angle_y += 0.02;
 
@@ -227,7 +344,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mvp = projection * (view * model);
             let normal_mat = model;
 
-            render_mesh(
+            render_mesh_to_framebuffer(
                 &mut framebuffer,
                 &mut zbuffer,
                 &mesh,
@@ -276,7 +393,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mvp = projection * (view * model);
             let normal_mat = model;
 
-            render_mesh(
+            render_mesh_to_framebuffer(
                 &mut framebuffer,
                 &mut zbuffer,
                 &mesh,
