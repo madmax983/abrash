@@ -247,5 +247,9 @@ name = "normal_mapping"
 harness = false
 
 [[bench]]
+name = "object_culling"
+harness = false
+
+[[bench]]
 name = "shadow_mapping"
 harness = false

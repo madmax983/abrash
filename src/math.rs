@@ -646,6 +646,22 @@ impl Mat4 {
         let z = self.m[0][2] * n.x + self.m[1][2] * n.y + self.m[2][2] * n.z;
         Vec3::new(x, y, z).normalize()
     }
+
+    /// Retrieve a column by index (0-3).
+    ///
+    /// # Panics
+    ///
+    /// Panics if index is out of bounds.
+    #[must_use]
+    #[inline]
+    pub fn col(&self, index: usize) -> Vec4 {
+        Vec4::new(
+            self.m[0][index],
+            self.m[1][index],
+            self.m[2][index],
+            self.m[3][index],
+        )
+    }
 }
 
 impl Default for Mat4 {
