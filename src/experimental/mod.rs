@@ -1,3 +1,4 @@
+pub mod skybox;
 pub mod ascii;
 pub mod particles;
 pub mod procedural;
