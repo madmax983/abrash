@@ -19,3 +19,8 @@
 **Bloat:** `src/light.rs` containing only one helper function and one unused function. `dummy` naming for TUI backend.
 **Cut:** Moved `color_to_u32` to `src/rasterizer.rs`, deleted `src/light.rs`, and renamed `src/platform/dummy.rs` to `src/platform/tui.rs`.
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
+
+## [Reduction]
+**Bloat:** Speculative generality (`TileRenderer`, `HiZBuffer`, `gpu-binning`) and unused experimental code (`procedural`, `svg_renderer`, `terrain`, `vhs`).
+**Cut:** Deleted `src/tile_renderer.rs`, `src/hiz_buffer.rs`, `src/gpu/` module, `gpu-binning` feature, `abrash-gpu` dependency, and unused experimental modules. Removed associated benchmarks and tests.
+**Saved:** ~3000 lines of code (estimated), removed over-engineered optimizations, and deleted unused/experimental features.
