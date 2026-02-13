@@ -20,9 +20,9 @@
 //!
 //! ## Getting Started
 //!
-//! Here is a conceptual example of a render loop:
+//! Here is a minimal working example of a render loop:
 //!
-//! ```no_run
+//! ```
 //! use abrash::framebuffer::Framebuffer;
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::{Mat4, Vec3};
@@ -40,29 +40,36 @@
 //! let up = Vec3::new(0.0, 1.0, 0.0);
 //! let view = Mat4::look_at(eye, target, up);
 //! let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
-//! let view_proj = proj * view;
 //!
-//! // 3. Render Loop (Simulated)
+//! // Combine matrices: V * P (Row-Major: Vertex * View * Projection)
+//! // Note: This library uses row vectors, so transformations are applied left-to-right.
+//! let view_proj = view * proj;
+//!
+//! // 3. Render Loop (Minimal)
 //! fb.clear(0xFF000000);
 //! zb.clear();
 //!
 //! // Define a triangle
-//! let v0 = (Vec3::new(0.0, 0.5, 0.0), 1.0);
-//! let v1 = (Vec3::new(-0.5, -0.5, 0.0), 1.0);
-//! let v2 = (Vec3::new(0.5, -0.5, 0.0), 1.0);
+//! // Note: Vertices are defined in Local Space.
+//! let v0_local = Vec3::new(0.0, 0.5, 0.0);
+//! let v1_local = Vec3::new(-0.5, -0.5, 0.0);
+//! let v2_local = Vec3::new(0.5, -0.5, 0.0);
 //!
-//! // Transform vertices (Simplified)
-//! // In a real engine, you would transform all vertices in a mesh.
-//! // Here we just pass them to the rasterizer which expects Clip Space coordinates if they are already transformed.
-//! // Note: fill_triangle_3d expects (Vec3, w).
-//!
-//! // ... (Transformation logic would go here) ...
+//! // Transform vertices to Clip Space
+//! // The rasterizer expects (Vec3, w) tuples.
+//! // transform_point returns this format automatically.
+//! let v0_clip = view_proj.transform_point(v0_local);
+//! let v1_clip = view_proj.transform_point(v1_local);
+//! let v2_clip = view_proj.transform_point(v2_local);
 //!
 //! // Rasterize
-//! fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, 0xFFFF0000);
+//! fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, 0xFFFF0000);
 //!
 //! // 4. Display Framebuffer
 //! // (Platform-specific windowing code goes here)
+//! // For now, we verify the pixel was drawn:
+//! let center_pixel = fb.get_pixel(400, 300);
+//! assert_eq!(center_pixel, Some(0xFFFF0000));
 //! ```
 //!
 //! ## Key Modules
@@ -70,6 +77,8 @@
 //! *   [`rasterizer`]: The core drawing algorithms.
 //! *   [`math`]: Matrix and Vector math libraries.
 //! *   [`framebuffer`]: Pixel storage and manipulation.
+//! *   [`zbuffer`]: Depth buffering for correct occlusion.
+//! *   [`texture`]: Texture loading and sampling.
 //! *   [`obj_loader`]: Wavefront OBJ parser.
 
 pub mod framebuffer;

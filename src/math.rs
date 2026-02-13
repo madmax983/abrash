@@ -523,7 +523,9 @@ impl Mat4 {
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         unsafe {
-            use std::arch::x86_64::{_mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps};
+            use std::arch::x86_64::{
+                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
+            };
 
             let row0 = _mm_loadu_ps(self.m[0].as_ptr());
             let row1 = _mm_loadu_ps(self.m[1].as_ptr());
@@ -803,14 +805,38 @@ mod tests {
         let (scalar_p, scalar_w) = transform_point_scalar(&m, v);
 
         let diff_p = simd_p - scalar_p;
-        assert!(diff_p.x.abs() < 0.0001, "X mismatch: {} vs {}", simd_p.x, scalar_p.x);
-        assert!(diff_p.y.abs() < 0.0001, "Y mismatch: {} vs {}", simd_p.y, scalar_p.y);
-        assert!(diff_p.z.abs() < 0.0001, "Z mismatch: {} vs {}", simd_p.z, scalar_p.z);
-        assert!((simd_w - scalar_w).abs() < 0.0001, "W mismatch: {} vs {}", simd_w, scalar_w);
+        assert!(
+            diff_p.x.abs() < 0.0001,
+            "X mismatch: {} vs {}",
+            simd_p.x,
+            scalar_p.x
+        );
+        assert!(
+            diff_p.y.abs() < 0.0001,
+            "Y mismatch: {} vs {}",
+            simd_p.y,
+            scalar_p.y
+        );
+        assert!(
+            diff_p.z.abs() < 0.0001,
+            "Z mismatch: {} vs {}",
+            simd_p.z,
+            scalar_p.z
+        );
+        assert!(
+            (simd_w - scalar_w).abs() < 0.0001,
+            "W mismatch: {} vs {}",
+            simd_w,
+            scalar_w
+        );
     }
 }
 
 /// A 4-component vector, often used for homogeneous coordinates or tangents.
+///
+/// In the rasterization pipeline, `Vec4` is used for:
+/// *   Homogeneous coordinates (x, y, z, w) where w is the perspective term.
+/// *   Tangent vectors in Normal Mapping, where w stores the handedness of the tangent basis.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {
     pub x: f32,
@@ -820,13 +846,23 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
-    /// Creates a new vector.
+    /// Creates a new 4D vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec4;
+    ///
+    /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
+    /// assert_eq!(v.w, 1.0);
+    /// ```
     #[must_use]
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
 }
 
+/// Multiply vector by scalar.
 impl std::ops::Mul<f32> for Vec4 {
     type Output = Self;
     fn mul(self, scalar: f32) -> Self {
@@ -839,6 +875,7 @@ impl std::ops::Mul<f32> for Vec4 {
     }
 }
 
+/// Component-wise addition.
 impl std::ops::Add for Vec4 {
     type Output = Self;
     fn add(self, other: Self) -> Self {
@@ -851,6 +888,7 @@ impl std::ops::Add for Vec4 {
     }
 }
 
+/// Component-wise subtraction.
 impl std::ops::Sub for Vec4 {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
