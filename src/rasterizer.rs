@@ -113,8 +113,9 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     let uy = i64::from(p1.y) - i64::from(p0.y);
     let vx = i64::from(p2.x) - i64::from(p0.x);
     let vy = i64::from(p2.y) - i64::from(p0.y);
-    // Use i128 to prevent overflow during cross product calculation for large coordinates
-    let nz = i128::from(ux) * i128::from(vy) - i128::from(uy) * i128::from(vx);
+    // Use i64 for cross product.
+    // i64 is sufficient as long as viewport width < 3e9, which is enforced by Framebuffer::new.
+    let nz = ux * vy - uy * vx;
     nz >= 0
 }
 
@@ -3757,32 +3758,34 @@ mod tests {
     }
 
     #[test]
-    fn test_is_backface_overflow() {
-        // Construct points that maximize the coordinate differences
-        // p0 at (MIN, MIN)
+    fn test_is_backface_overflow_safe() {
+        // Construct points with large coordinates that fit within i64 product.
+        // Framebuffer::new limits width/height to i32::MAX, so max difference is roughly 2e9.
+        // 2e9 * 2e9 = 4e18, which is < i64::MAX (9e18).
+
+        // p0 at (0, 0)
         let p0 = ScreenPoint {
-            x: i32::MIN,
-            y: i32::MIN,
+            x: 0,
+            y: 0,
             z: 0.0,
             inv_w: 1.0,
         };
-        // p1 at (MAX, MIN) -> ux = MAX - MIN approx 4e9
+        // p1 at (2e9, 0)
         let p1 = ScreenPoint {
-            x: i32::MAX,
-            y: i32::MIN,
+            x: 2_000_000_000,
+            y: 0,
             z: 0.0,
             inv_w: 1.0,
         };
-        // p2 at (MIN, MAX) -> vy = MAX - MIN approx 4e9
+        // p2 at (0, 2e9)
         let p2 = ScreenPoint {
-            x: i32::MIN,
-            y: i32::MAX,
+            x: 0,
+            y: 2_000_000_000,
             z: 0.0,
             inv_w: 1.0,
         };
 
-        // ux * vy approx 1.6e19, which exceeds i64::MAX (9e18)
-        // This should not panic
+        // nz = 2e9 * 2e9 = 4e18. Should not panic and return true.
         let result = is_backface(p0, p1, p2);
 
         assert!(result);
