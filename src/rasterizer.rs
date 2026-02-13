@@ -368,6 +368,16 @@ pub fn color_to_u32(color: Vec3) -> u32 {
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
+/// Helper to convert pre-scaled (0.0-255.0) Vec3 color to u32 ARGB
+#[must_use]
+#[inline(always)]
+fn color_to_u32_scaled(color: Vec3) -> u32 {
+    let r = color.x.clamp(0.0, 255.0) as u32;
+    let g = color.y.clamp(0.0, 255.0) as u32;
+    let b = color.z.clamp(0.0, 255.0) as u32;
+    0xFF00_0000 | (r << 16) | (g << 8) | b
+}
+
 /// Helper to pack 8-bit color channels into u32 ARGB
 #[inline(always)]
 const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
@@ -1851,9 +1861,9 @@ unsafe fn draw_scanline_phong_simd(
     mut ny: f32,
     mut nz: f32,
     gradients: &PhongGradients,
-    pre_diffuse: Vec3,
+    pre_diffuse_255: Vec3, // Pre-scaled by 255.0
     neg_light_dir: Vec3,
-    ambient: Vec3,
+    ambient_255: Vec3,     // Pre-scaled by 255.0
 ) {
     use std::arch::x86_64::*;
 
@@ -1870,13 +1880,13 @@ unsafe fn draw_scanline_phong_simd(
     let ly = _mm256_set1_ps(neg_light_dir.y);
     let lz = _mm256_set1_ps(neg_light_dir.z);
 
-    let diff_r = _mm256_set1_ps(pre_diffuse.x);
-    let diff_g = _mm256_set1_ps(pre_diffuse.y);
-    let diff_b = _mm256_set1_ps(pre_diffuse.z);
+    let diff_r = _mm256_set1_ps(pre_diffuse_255.x);
+    let diff_g = _mm256_set1_ps(pre_diffuse_255.y);
+    let diff_b = _mm256_set1_ps(pre_diffuse_255.z);
 
-    let amb_r = _mm256_set1_ps(ambient.x);
-    let amb_g = _mm256_set1_ps(ambient.y);
-    let amb_b = _mm256_set1_ps(ambient.z);
+    let amb_r = _mm256_set1_ps(ambient_255.x);
+    let amb_g = _mm256_set1_ps(ambient_255.y);
+    let amb_b = _mm256_set1_ps(ambient_255.z);
 
     let epsilon = _mm256_set1_ps(0.0001);
     let zero = _mm256_setzero_ps();
@@ -1947,21 +1957,21 @@ unsafe fn draw_scanline_phong_simd(
             // Apply mask for valid length
             let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
 
-            // Calculate Color
+            // Calculate Color (Pre-scaled)
             let r = _mm256_add_ps(amb_r, _mm256_mul_ps(diff_r, intensity));
             let g = _mm256_add_ps(amb_g, _mm256_mul_ps(diff_g, intensity));
             let b = _mm256_add_ps(amb_b, _mm256_mul_ps(diff_b, intensity));
 
             // Clamp and convert to u32
-            // Clamp 0.0-1.0
-            let r_clamp = _mm256_min_ps(_mm256_max_ps(r, zero), one);
-            let g_clamp = _mm256_min_ps(_mm256_max_ps(g, zero), one);
-            let b_clamp = _mm256_min_ps(_mm256_max_ps(b, zero), one);
+            // Clamp 0.0-255.0
+            let r_clamp = _mm256_min_ps(_mm256_max_ps(r, zero), scale_255);
+            let g_clamp = _mm256_min_ps(_mm256_max_ps(g, zero), scale_255);
+            let b_clamp = _mm256_min_ps(_mm256_max_ps(b, zero), scale_255);
 
-            // Scale to 255.0
-            let r_255 = _mm256_mul_ps(r_clamp, scale_255);
-            let g_255 = _mm256_mul_ps(g_clamp, scale_255);
-            let b_255 = _mm256_mul_ps(b_clamp, scale_255);
+            // Already scaled
+            let r_255 = r_clamp;
+            let g_255 = g_clamp;
+            let b_255 = b_clamp;
 
             // Convert to i32 (truncation match scalar?) Scalar uses `as u32` which is truncation.
             // cvttps truncates.
@@ -2029,9 +2039,9 @@ unsafe fn draw_scanline_phong_simd(
                 0.0
             };
 
-            let diffuse = pre_diffuse * intensity;
-            let final_color_vec = ambient + diffuse;
-            *pixel = color_to_u32(final_color_vec);
+            let diffuse = pre_diffuse_255 * intensity;
+            let final_color_vec = ambient_255 + diffuse;
+            *pixel = color_to_u32_scaled(final_color_vec);
         }
 
         i += 1;
@@ -2048,9 +2058,9 @@ fn draw_scanline_phong(
     x_end: i32,
     start: PhongSpanStart,
     gradients: &PhongGradients,
-    pre_diffuse: Vec3,
+    pre_diffuse_255: Vec3, // Pre-scaled
     neg_light_dir: Vec3,
-    ambient: Vec3,
+    ambient_255: Vec3,     // Pre-scaled
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
@@ -2102,9 +2112,9 @@ fn draw_scanline_phong(
                 ny,
                 nz,
                 gradients,
-                pre_diffuse,
+                pre_diffuse_255,
                 neg_light_dir,
-                ambient,
+                ambient_255,
             );
         }
         return;
@@ -2129,9 +2139,9 @@ fn draw_scanline_phong(
                 0.0
             };
 
-            let diffuse = pre_diffuse * intensity;
-            let final_color_vec = ambient + diffuse;
-            *pixel = color_to_u32(final_color_vec);
+            let diffuse = pre_diffuse_255 * intensity;
+            let final_color_vec = ambient_255 + diffuse;
+            *pixel = color_to_u32_scaled(final_color_vec);
         }
 
         z += gradients.dz_dx;
@@ -2244,8 +2254,10 @@ pub fn fill_triangle_phong(
         };
 
         // Precalculate lighting constants
-        let pre_diffuse = color * light_color;
+        // Optimization: Pre-scale by 255.0 to avoid per-pixel multiplication
+        let pre_diffuse_255 = color * light_color * 255.0;
         let neg_light_dir = light_dir * -1.0;
+        let ambient_255 = ambient * 255.0;
 
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
@@ -2288,9 +2300,9 @@ pub fn fill_triangle_phong(
                         nz: nz_left,
                     },
                     &gradients,
-                    pre_diffuse,
+                    pre_diffuse_255,
                     neg_light_dir,
-                    ambient,
+                    ambient_255,
                 );
             }
 
