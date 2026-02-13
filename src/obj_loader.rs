@@ -71,9 +71,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     let mut raw_normals = Vec::with_capacity(1024);
 
     // Deduplication structure:
-    // Key: (v_idx, vt_idx, vn_idx). vt/vn are Option<usize>.
+    // Key: (v_idx, vt_idx, vn_idx). vt/vn use NO_INDEX for None to save space/time.
     // Value: index in final_vertices.
-    let mut deduplicator: HashMap<(usize, Option<usize>, Option<usize>), usize> = HashMap::with_capacity(1024);
+    const NO_INDEX: usize = usize::MAX;
+    let mut deduplicator: HashMap<(usize, usize, usize), usize> = HashMap::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
@@ -252,7 +253,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     }
 
                     // Use HashMap for full deduplication
-                    let key = (v_idx, vt_idx, vn_idx);
+                    // Use NO_INDEX (usize::MAX) instead of Option to reduce key size from 40 to 24 bytes
+                    let key = (v_idx, vt_idx.unwrap_or(NO_INDEX), vn_idx.unwrap_or(NO_INDEX));
 
                     if let Some(&idx) = deduplicator.get(&key) {
                         face_indices.push(idx);
