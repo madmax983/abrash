@@ -110,6 +110,34 @@ fn bench_fill_triangle_3d_small(c: &mut Criterion) {
     });
 }
 
+fn bench_fill_triangle_3d_transparent(c: &mut Criterion) {
+    c.bench_function("fill_triangle_3d_transparent", |b| {
+        let mut fb = Framebuffer::new(800, 600).unwrap();
+        let mut zb = ZBuffer::new(800, 600).unwrap();
+
+        // Large triangle covering significant portion of screen
+        let v0 = (Vec3::new(0.0, 0.9, 0.5), 1.0);
+        let v1 = (Vec3::new(-0.9, -0.9, 0.5), 1.0);
+        let v2 = (Vec3::new(0.9, -0.9, 0.5), 1.0);
+
+        // 50% Alpha (0x80)
+        let color = 0x80FF_0000;
+
+        b.iter(|| {
+            // Clear buffer so we always write (depth test passes)
+            zb.clear();
+            fill_triangle_3d(
+                &mut fb,
+                &mut zb,
+                black_box(v0),
+                black_box(v1),
+                black_box(v2),
+                black_box(color),
+            );
+        });
+    });
+}
+
 fn bench_fill_triangle_textured(c: &mut Criterion) {
     c.bench_function("fill_triangle_textured", |b| {
         let mut fb = Framebuffer::new(800, 600).unwrap();
@@ -252,6 +280,7 @@ criterion_group!(
     benches,
     bench_fill_triangle_3d_large,
     bench_fill_triangle_3d_small,
+    bench_fill_triangle_3d_transparent,
     bench_fill_triangle_gouraud,
     bench_fill_triangle_textured,
     bench_fill_triangle_textured_perspective_stress,
