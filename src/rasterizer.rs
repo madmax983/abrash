@@ -371,7 +371,7 @@ pub fn color_to_u32(color: Vec3) -> u32 {
 /// Helper to convert pre-scaled (0.0-255.0) Vec3 color to u32 ARGB
 #[must_use]
 #[inline(always)]
-fn color_to_u32_scaled(color: Vec3) -> u32 {
+const fn color_to_u32_scaled(color: Vec3) -> u32 {
     let r = color.x.clamp(0.0, 255.0) as u32;
     let g = color.y.clamp(0.0, 255.0) as u32;
     let b = color.z.clamp(0.0, 255.0) as u32;
@@ -1863,7 +1863,7 @@ unsafe fn draw_scanline_phong_simd(
     gradients: &PhongGradients,
     pre_diffuse_255: Vec3, // Pre-scaled by 255.0
     neg_light_dir: Vec3,
-    ambient_255: Vec3,     // Pre-scaled by 255.0
+    ambient_255: Vec3, // Pre-scaled by 255.0
 ) {
     use std::arch::x86_64::*;
 
@@ -2060,7 +2060,7 @@ fn draw_scanline_phong(
     gradients: &PhongGradients,
     pre_diffuse_255: Vec3, // Pre-scaled
     neg_light_dir: Vec3,
-    ambient_255: Vec3,     // Pre-scaled
+    ambient_255: Vec3, // Pre-scaled
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
@@ -2315,9 +2315,9 @@ pub fn fill_triangle_phong(
 #[derive(Clone, Copy)]
 struct NormalMapGradients {
     dz_dx: f32,
-    dq_dx: f32, // 1/w
-    du_dx: f32, // u/w
-    dv_dx: f32, // v/w
+    dq_dx: f32,  // 1/w
+    du_dx: f32,  // u/w
+    dv_dx: f32,  // v/w
     dnx_dx: f32, // nx/w
     dny_dx: f32,
     dnz_dx: f32,
@@ -2333,11 +2333,21 @@ impl NormalMapGradients {
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
-        q0: f32, q1: f32, q2: f32,
-        u0: f32, u1: f32, u2: f32,
-        v0: f32, v1: f32, v2: f32,
-        n0: Vec3, n1: Vec3, n2: Vec3,
-        t0: Vec4, t1: Vec4, t2: Vec4,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
+        n0: Vec3,
+        n1: Vec3,
+        n2: Vec3,
+        t0: Vec4,
+        t1: Vec4,
+        t2: Vec4,
     ) -> Self {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
@@ -2404,36 +2414,69 @@ impl NormalMapGradients {
         let dtw_dx = nx_tw * inv_nz;
 
         Self {
-            dz_dx, dq_dx, du_dx, dv_dx,
-            dnx_dx, dny_dx, dnz_dx,
-            dtx_dx, dty_dx, dtz_dx, dtw_dx,
+            dz_dx,
+            dq_dx,
+            du_dx,
+            dv_dx,
+            dnx_dx,
+            dny_dx,
+            dnz_dx,
+            dtx_dx,
+            dty_dx,
+            dtz_dx,
+            dtw_dx,
         }
     }
 }
 
 struct NormalMapEdgeWalker {
-    x: i64, z: f32, q: f32, u: f32, v: f32,
-    nx: f32, ny: f32, nz: f32,
-    tx: f32, ty: f32, tz: f32, tw: f32,
-    dx_dy: i64, dz_dy: f32, dq_dy: f32, du_dy: f32, dv_dy: f32,
-    dnx_dy: f32, dny_dy: f32, dnz_dy: f32,
-    dtx_dy: f32, dty_dy: f32, dtz_dy: f32, dtw_dy: f32,
+    x: i64,
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    tx: f32,
+    ty: f32,
+    tz: f32,
+    tw: f32,
+    dx_dy: i64,
+    dz_dy: f32,
+    dq_dy: f32,
+    du_dy: f32,
+    dv_dy: f32,
+    dnx_dy: f32,
+    dny_dy: f32,
+    dnz_dy: f32,
+    dtx_dy: f32,
+    dty_dy: f32,
+    dtz_dy: f32,
+    dtw_dy: f32,
 }
 
 impl NormalMapEdgeWalker {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        p_start: ScreenPoint, p_end: ScreenPoint,
-        q_start: f32, q_end: f32,
-        u_start: f32, u_end: f32,
-        v_start: f32, v_end: f32,
-        n_start: Vec3, n_end: Vec3,
-        t_start: Vec4, t_end: Vec4,
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        q_start: f32,
+        q_end: f32,
+        u_start: f32,
+        u_end: f32,
+        v_start: f32,
+        v_end: f32,
+        n_start: Vec3,
+        n_end: Vec3,
+        t_start: Vec4,
+        t_end: Vec4,
     ) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
-        let dx_dy = ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
         let dz_dy = (p_end.z - p_start.z) * inv_h;
         let dq_dy = (q_end - q_start) * inv_h;
         let du_dy = (u_end - u_start) * inv_h;
@@ -2448,12 +2491,29 @@ impl NormalMapEdgeWalker {
 
         Self {
             x: i64::from(p_start.x) << 16,
-            z: p_start.z, q: q_start, u: u_start, v: v_start,
-            nx: n_start.x, ny: n_start.y, nz: n_start.z,
-            tx: t_start.x, ty: t_start.y, tz: t_start.z, tw: t_start.w,
-            dx_dy, dz_dy, dq_dy, du_dy, dv_dy,
-            dnx_dy, dny_dy, dnz_dy,
-            dtx_dy, dty_dy, dtz_dy, dtw_dy,
+            z: p_start.z,
+            q: q_start,
+            u: u_start,
+            v: v_start,
+            nx: n_start.x,
+            ny: n_start.y,
+            nz: n_start.z,
+            tx: t_start.x,
+            ty: t_start.y,
+            tz: t_start.z,
+            tw: t_start.w,
+            dx_dy,
+            dz_dy,
+            dq_dy,
+            du_dy,
+            dv_dy,
+            dnx_dy,
+            dny_dy,
+            dnz_dy,
+            dtx_dy,
+            dty_dy,
+            dtz_dy,
+            dtw_dy,
         }
     }
 
@@ -2491,9 +2551,17 @@ impl NormalMapEdgeWalker {
 
 #[derive(Clone, Copy)]
 struct NormalMapSpanStart {
-    z: f32, q: f32, u: f32, v: f32,
-    nx: f32, ny: f32, nz: f32,
-    tx: f32, ty: f32, tz: f32, tw: f32,
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    tx: f32,
+    ty: f32,
+    tz: f32,
+    tw: f32,
 }
 
 #[inline(always)]
@@ -2609,7 +2677,10 @@ fn draw_scanline_normal_mapped(
 
             // Transform normal from tangent space to world space
             // N_world = T * nm.x + B * nm.y + N * nm.z
-            let final_normal = (t_ortho * tangent_normal.x + b_ortho * tangent_normal.y + n_interp * tangent_normal.z).normalize();
+            let final_normal = (t_ortho * tangent_normal.x
+                + b_ortho * tangent_normal.y
+                + n_interp * tangent_normal.z)
+                .normalize();
 
             // Lighting
             let intensity = final_normal.dot(neg_light_dir).max(0.0);
@@ -2711,7 +2782,11 @@ pub fn fill_triangle_normal_mapped(
             (p2_orig, u2, v2_val, n2, t2),
         ];
         sort_by_y(&mut verts, |(p, ..)| p.y);
-        let [(p0, u0, v0_v, n0, t0), (p1, u1, v1_v, n1, t1), (p2, u2, v2_v, n2, t2)] = verts;
+        let [
+            (p0, u0, v0_v, n0, t0),
+            (p1, u1, v1_v, n1, t1),
+            (p2, u2, v2_v, n2, t2),
+        ] = verts;
 
         let q0 = p0.inv_w;
         let q1 = p1.inv_w;
@@ -2734,7 +2809,7 @@ pub fn fill_triangle_normal_mapped(
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) = {
             let g = NormalMapGradients::new(
-                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, n0, n1, n2, t0, t1, t2
+                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, n0, n1, n2, t0, t1, t2,
             );
             let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
             let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
@@ -2744,19 +2819,22 @@ pub fn fill_triangle_normal_mapped(
             (g, left)
         };
 
-        let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, n0, n2, t0, t2);
+        let mut edge_a =
+            NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, n0, n2, t0, t2);
         if y_start > p0.y {
             edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
-            let mut e = NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0_v, v1_v, n0, n1, t0, t1);
+            let mut e =
+                NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0_v, v1_v, n0, n1, t0, t1);
             if y_start > p0.y {
                 e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
-            let mut e = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
+            let mut e =
+                NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
             if y_start > p1.y {
                 e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
@@ -2768,30 +2846,87 @@ pub fn fill_triangle_normal_mapped(
 
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
-                edge_b = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
+                edge_b =
+                    NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1_v, v2_v, n1, n2, t1, t2);
             }
 
             // Unpack walker state
-            let (x_start, x_end, z_left, q_left, u_left, v_left, nx_left, ny_left, nz_left, tx_left, ty_left, tz_left, tw_left) =
-            if long_edge_is_left {
-                ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z, edge_a.q, edge_a.u, edge_a.v, edge_a.nx, edge_a.ny, edge_a.nz, edge_a.tx, edge_a.ty, edge_a.tz, edge_a.tw)
+            let (
+                x_start,
+                x_end,
+                z_left,
+                q_left,
+                u_left,
+                v_left,
+                nx_left,
+                ny_left,
+                nz_left,
+                tx_left,
+                ty_left,
+                tz_left,
+                tw_left,
+            ) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.q,
+                    edge_a.u,
+                    edge_a.v,
+                    edge_a.nx,
+                    edge_a.ny,
+                    edge_a.nz,
+                    edge_a.tx,
+                    edge_a.ty,
+                    edge_a.tz,
+                    edge_a.tw,
+                )
             } else {
-                ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z, edge_b.q, edge_b.u, edge_b.v, edge_b.nx, edge_b.ny, edge_b.nz, edge_b.tx, edge_b.ty, edge_b.tz, edge_b.tw)
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.q,
+                    edge_b.u,
+                    edge_b.v,
+                    edge_b.nx,
+                    edge_b.ny,
+                    edge_b.nz,
+                    edge_b.tx,
+                    edge_b.ty,
+                    edge_b.tz,
+                    edge_b.tw,
+                )
             };
 
             let dx = i64::from(x_end) - i64::from(x_start);
 
             if dx > 0 {
                 draw_scanline_normal_mapped(
-                    fb, zb, y, x_start, x_end,
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
                     NormalMapSpanStart {
-                        z: z_left, q: q_left, u: u_left, v: v_left,
-                        nx: nx_left, ny: ny_left, nz: nz_left,
-                        tx: tx_left, ty: ty_left, tz: tz_left, tw: tw_left,
+                        z: z_left,
+                        q: q_left,
+                        u: u_left,
+                        v: v_left,
+                        nx: nx_left,
+                        ny: ny_left,
+                        nz: nz_left,
+                        tx: tx_left,
+                        ty: ty_left,
+                        tz: tz_left,
+                        tw: tw_left,
                     },
                     &gradients,
-                    texture, normal_map,
-                    neg_light_dir, pre_diffuse_color, ambient,
+                    texture,
+                    normal_map,
+                    neg_light_dir,
+                    pre_diffuse_color,
+                    ambient,
                 );
             }
 

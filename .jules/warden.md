@@ -17,3 +17,7 @@
 **2024-05-28 - [Harden OBJ Loader and Window Creation]**
 **Threat:** Potential Undefined Behavior in `obj_loader.rs` due to unnecessary `unsafe` indexing, and Integer Overflow in `Win32Window::new` / `TuiWindow::new` causing invalid window dimensions.
 **Defense:** Replaced `unsafe` blocks with safe indexing in `obj_loader.rs`. Added bounds checks (`width > i32::MAX`, `height > i32::MAX`, zero checks) in `Win32Window::new` and `TuiWindow::new`. Added regression test `tests/security_obj_loader.rs`.
+
+**2025-05-29 - [Fix DoS via Unbounded Allocation]**
+**Threat:** Denial of Service via memory exhaustion/panic. `Framebuffer::new`, `ZBuffer::new`, and `Texture::new` allowed allocating buffers up to 16GB (u32::MAX pixels), causing panic or OOM kill.
+**Defense:** Enforced a maximum dimension of 16,384 pixels (268 MP) in constructors. Added `tests/security_limits.rs` to verify safe failure.

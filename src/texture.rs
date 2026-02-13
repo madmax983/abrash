@@ -102,12 +102,15 @@ pub struct Texture {
     pub filter_mode: FilterMode,
 }
 
+/// Maximum supported dimension for a texture (16K resolution).
+pub const MAX_DIMENSION: u32 = 16384;
+
 impl Texture {
     /// Creates a new texture with the given dimensions.
     ///
     /// # Errors
     ///
-    /// Returns an error if dimensions are zero or the total pixel count overflows `u32`.
+    /// Returns an error if dimensions are zero or exceed `MAX_DIMENSION`.
     ///
     /// # Examples
     ///
@@ -121,8 +124,8 @@ impl Texture {
         if width == 0 || height == 0 {
             return Err("Texture dimensions must be positive");
         }
-        if width > i32::MAX as u32 || height > i32::MAX as u32 {
-            return Err("Texture dimensions too large (max i32::MAX)");
+        if width > MAX_DIMENSION || height > MAX_DIMENSION {
+            return Err("Texture dimensions too large (max 16384)");
         }
 
         let size = u64::from(width)

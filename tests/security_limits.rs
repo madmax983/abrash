@@ -1,44 +1,38 @@
-#[cfg(test)]
-mod tests {
-    use abrash::framebuffer::Framebuffer;
-    use abrash::zbuffer::ZBuffer;
+use abrash::framebuffer::Framebuffer;
+use abrash::texture::Texture;
+use abrash::zbuffer::ZBuffer;
 
-    #[test]
-    fn test_framebuffer_rejects_huge_dimensions() {
-        // Attempt to create a framebuffer with width > i32::MAX
-        // height = 1 so total size < u32::MAX (allocation would succeed if not for the new check)
-        let width = u32::MAX;
-        let height = 1;
+const MAX_DIM: u32 = 16384;
 
-        let fb_result = Framebuffer::new(width, height);
-        assert!(
-            fb_result.is_err(),
-            "Framebuffer should reject width > i32::MAX"
-        );
-        assert_eq!(
-            fb_result.err(),
-            Some("Buffer dimensions too large (max i32::MAX)")
-        );
+#[test]
+fn test_framebuffer_oom_prevention() {
+    let result = Framebuffer::new(MAX_DIM + 1, 100);
+    assert!(result.is_err(), "Allocation should fail for huge width");
 
-        let height_huge = u32::MAX;
-        let width_small = 1;
-        let fb_result_h = Framebuffer::new(width_small, height_huge);
-        assert!(
-            fb_result_h.is_err(),
-            "Framebuffer should reject height > i32::MAX"
-        );
-    }
+    let result = Framebuffer::new(100, MAX_DIM + 1);
+    assert!(result.is_err(), "Allocation should fail for huge height");
 
-    #[test]
-    fn test_zbuffer_rejects_huge_dimensions() {
-        let width = u32::MAX;
-        let height = 1;
+    let result = Framebuffer::new(MAX_DIM, MAX_DIM);
+    assert!(
+        result.is_ok(),
+        "Allocation should succeed for max allowed size"
+    );
+}
 
-        let zb_result = ZBuffer::new(width, height);
-        assert!(zb_result.is_err(), "ZBuffer should reject width > i32::MAX");
-        assert_eq!(
-            zb_result.err(),
-            Some("Buffer dimensions too large (max i32::MAX)")
-        );
-    }
+#[test]
+fn test_zbuffer_oom_prevention() {
+    let result = ZBuffer::new(MAX_DIM + 1, 100);
+    assert!(result.is_err());
+
+    let result = ZBuffer::new(MAX_DIM, MAX_DIM);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_texture_oom_prevention() {
+    let result = Texture::new(MAX_DIM + 1, 100);
+    assert!(result.is_err());
+
+    let result = Texture::new(MAX_DIM, MAX_DIM);
+    assert!(result.is_ok());
 }

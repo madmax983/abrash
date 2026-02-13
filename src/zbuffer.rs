@@ -15,15 +15,18 @@ pub struct ZBuffer {
     height: u32,
 }
 
+/// Maximum supported dimension for a z-buffer (16K resolution).
+pub const MAX_DIMENSION: u32 = 16384;
+
 impl ZBuffer {
     /// Create a new z-buffer initialized to maximum depth.
     ///
     /// # Errors
     ///
-    /// Returns an error if dimensions exceed `i32::MAX` or the total pixel count overflows `u32`.
+    /// Returns an error if dimensions exceed `MAX_DIMENSION` or the total pixel count overflows `u32`.
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
-        if width > i32::MAX as u32 || height > i32::MAX as u32 {
-            return Err("Buffer dimensions too large (max i32::MAX)");
+        if width > MAX_DIMENSION || height > MAX_DIMENSION {
+            return Err("Buffer dimensions too large (max 16384)");
         }
 
         let size = u64::from(width)

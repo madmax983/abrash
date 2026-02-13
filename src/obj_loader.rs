@@ -174,7 +174,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     .map_err(|_| format!("Line {line_num}: Invalid nz"))?;
 
                 if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-                    return Err(format!("Line {line_num}: Normal coordinates must be finite"));
+                    return Err(format!(
+                        "Line {line_num}: Normal coordinates must be finite"
+                    ));
                 }
                 raw_normals.push(Vec3::new(x, y, z).normalize());
             }
@@ -211,17 +213,18 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         let after_first_slash = first_slash + 1;
                         // Check if next char is also '/' (case v//vn)
                         if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
-                             // v//vn case
-                             let after_second_slash = after_first_slash + 1;
-                             if after_second_slash < bytes.len() {
-                                 // Parse vn
-                                 let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(|| {
-                                     format!("Line {line_num}: Invalid Normal index")
-                                 })?;
-                                 vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                     format!("Line {line_num}: Normal index 0 is invalid")
-                                 })?);
-                             }
+                            // v//vn case
+                            let after_second_slash = after_first_slash + 1;
+                            if after_second_slash < bytes.len() {
+                                // Parse vn
+                                let idx = fast_parse_usize(&bytes[after_second_slash..])
+                                    .ok_or_else(|| {
+                                        format!("Line {line_num}: Invalid Normal index")
+                                    })?;
+                                vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                    format!("Line {line_num}: Normal index 0 is invalid")
+                                })?);
+                            }
                         } else if after_first_slash < bytes.len() {
                             // It's v/vt...
                             // Find end of vt (next slash or end of string)
@@ -238,9 +241,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                             let vt_bytes = &bytes[after_first_slash..end_vt];
                             if !vt_bytes.is_empty() {
-                                let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
-                                    format!("Line {line_num}: Invalid UV index")
-                                })?;
+                                let idx = fast_parse_usize(vt_bytes)
+                                    .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
                                 vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
                                     format!("Line {line_num}: UV index 0 is invalid")
                                 })?);
@@ -250,9 +252,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             if let Some(slash2) = second_slash {
                                 let after_second_slash = slash2 + 1;
                                 if after_second_slash < bytes.len() {
-                                    let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(|| {
-                                        format!("Line {line_num}: Invalid Normal index")
-                                    })?;
+                                    let idx = fast_parse_usize(&bytes[after_second_slash..])
+                                        .ok_or_else(|| {
+                                            format!("Line {line_num}: Invalid Normal index")
+                                        })?;
                                     vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
                                         format!("Line {line_num}: Normal index 0 is invalid")
                                     })?);
@@ -326,14 +329,14 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                             }
                             final_normals.push(raw_normals[ni]);
                         } else {
-                             // If we have some normals but not for this vertex, we should align
-                             // Or just push a default?
-                             // If final_normals is not empty, we should keep it aligned with final_vertices?
-                             // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                             // But here we build incrementally.
-                             // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                             // For simplicity: If vn_idx is None, push Zero.
-                             final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+                            // If we have some normals but not for this vertex, we should align
+                            // Or just push a default?
+                            // If final_normals is not empty, we should keep it aligned with final_vertices?
+                            // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
+                            // But here we build incrementally.
+                            // If we start having normals, we push. If we missed some earlier, we are in trouble?
+                            // For simplicity: If vn_idx is None, push Zero.
+                            final_normals.push(Vec3::new(0.0, 0.0, 0.0));
                         }
 
                         // Insert into cache

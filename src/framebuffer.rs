@@ -23,13 +23,16 @@ pub struct Framebuffer {
     height: u32,
 }
 
+/// Maximum supported dimension for a framebuffer (16K resolution).
+pub const MAX_DIMENSION: u32 = 16384;
+
 impl Framebuffer {
     /// Creates a new framebuffer with the given dimensions.
     ///
     /// # Errors
     ///
     /// Returns an error if:
-    /// *   Dimensions exceed `i32::MAX` (for signed coordinate compatibility).
+    /// *   Dimensions exceed `MAX_DIMENSION` (16384).
     /// *   The total pixel count overflows `u32` (preventing huge allocations).
     ///
     /// # Examples
@@ -39,8 +42,8 @@ impl Framebuffer {
     /// let fb = Framebuffer::new(800, 600).unwrap();
     /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
-        if width > i32::MAX as u32 || height > i32::MAX as u32 {
-            return Err("Buffer dimensions too large (max i32::MAX)");
+        if width > MAX_DIMENSION || height > MAX_DIMENSION {
+            return Err("Buffer dimensions too large (max 16384)");
         }
 
         let size = u64::from(width)
