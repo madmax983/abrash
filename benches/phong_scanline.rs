@@ -21,6 +21,10 @@ fn bench_phong_scanline_performance(c: &mut Criterion) {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
     let ambient = Vec3::new(0.1, 0.1, 0.1);
     let color = Vec3::new(1.0, 1.0, 1.0);
+    // New parameters for backward compatibility (disable specular)
+    let view_dir = Vec3::new(0.0, 0.0, 1.0);
+    let specular_strength = 0.0;
+    let shininess = 1.0;
 
     c.bench_function("phong_scanline_heavy", |b| {
         b.iter(|| {
@@ -37,6 +41,9 @@ fn bench_phong_scanline_performance(c: &mut Criterion) {
                 black_box(light_dir),
                 black_box(light_color),
                 black_box(ambient),
+                black_box(view_dir),
+                black_box(specular_strength),
+                black_box(shininess),
             );
             // Triangle 2
              fill_triangle_phong(
@@ -49,6 +56,9 @@ fn bench_phong_scanline_performance(c: &mut Criterion) {
                 black_box(light_dir),
                 black_box(light_color),
                 black_box(ambient),
+                black_box(view_dir),
+                black_box(specular_strength),
+                black_box(shininess),
             );
         })
     });

@@ -1837,13 +1837,25 @@ struct PhongSpanStart {
     nz: f32,
 }
 
+#[derive(Clone, Copy)]
+struct PhongLighting {
+    pre_diffuse: Vec3,   // Material Color * Light Color
+    neg_light_dir: Vec3, // -Light Dir
+    ambient: Vec3,       // Ambient Color
+    half_vector: Vec3,   // (L + V).normalize()
+    specular_strength: f32,
+    shininess: f32,
+    light_color: Vec3,
+}
+
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "x86"),
     target_feature = "avx2"
 ))]
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
-unsafe fn draw_scanline_phong_simd(
+#[inline(always)]
+unsafe fn draw_scanline_phong_simd<const SPECULAR: bool>(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     mut z: f32,
@@ -1851,9 +1863,7 @@ unsafe fn draw_scanline_phong_simd(
     mut ny: f32,
     mut nz: f32,
     gradients: &PhongGradients,
-    pre_diffuse: Vec3,
-    neg_light_dir: Vec3,
-    ambient: Vec3,
+    lighting: &PhongLighting,
 ) {
     use std::arch::x86_64::*;
 
@@ -1866,17 +1876,42 @@ unsafe fn draw_scanline_phong_simd(
     let dny_dx_vec = _mm256_set1_ps(gradients.dny_dx);
     let dnz_dx_vec = _mm256_set1_ps(gradients.dnz_dx);
 
-    let lx = _mm256_set1_ps(neg_light_dir.x);
-    let ly = _mm256_set1_ps(neg_light_dir.y);
-    let lz = _mm256_set1_ps(neg_light_dir.z);
+    let lx = _mm256_set1_ps(lighting.neg_light_dir.x);
+    let ly = _mm256_set1_ps(lighting.neg_light_dir.y);
+    let lz = _mm256_set1_ps(lighting.neg_light_dir.z);
 
-    let diff_r = _mm256_set1_ps(pre_diffuse.x);
-    let diff_g = _mm256_set1_ps(pre_diffuse.y);
-    let diff_b = _mm256_set1_ps(pre_diffuse.z);
+    let diff_r = _mm256_set1_ps(lighting.pre_diffuse.x);
+    let diff_g = _mm256_set1_ps(lighting.pre_diffuse.y);
+    let diff_b = _mm256_set1_ps(lighting.pre_diffuse.z);
 
-    let amb_r = _mm256_set1_ps(ambient.x);
-    let amb_g = _mm256_set1_ps(ambient.y);
-    let amb_b = _mm256_set1_ps(ambient.z);
+    let amb_r = _mm256_set1_ps(lighting.ambient.x);
+    let amb_g = _mm256_set1_ps(lighting.ambient.y);
+    let amb_b = _mm256_set1_ps(lighting.ambient.z);
+
+    // Specular constants (only loaded if SPECULAR is true)
+    let (hx, hy, hz, spec_str, light_r, light_g, light_b, shininess_f) = if SPECULAR {
+        (
+            _mm256_set1_ps(lighting.half_vector.x),
+            _mm256_set1_ps(lighting.half_vector.y),
+            _mm256_set1_ps(lighting.half_vector.z),
+            _mm256_set1_ps(lighting.specular_strength),
+            _mm256_set1_ps(lighting.light_color.x),
+            _mm256_set1_ps(lighting.light_color.y),
+            _mm256_set1_ps(lighting.light_color.z),
+            lighting.shininess,
+        )
+    } else {
+        (
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            _mm256_undefined_ps(),
+            0.0,
+        )
+    };
 
     let epsilon = _mm256_set1_ps(0.0001);
     let zero = _mm256_setzero_ps();
@@ -1947,10 +1982,52 @@ unsafe fn draw_scanline_phong_simd(
             // Apply mask for valid length
             let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
 
-            // Calculate Color
-            let r = _mm256_add_ps(amb_r, _mm256_mul_ps(diff_r, intensity));
-            let g = _mm256_add_ps(amb_g, _mm256_mul_ps(diff_g, intensity));
-            let b = _mm256_add_ps(amb_b, _mm256_mul_ps(diff_b, intensity));
+            // Specular
+            let spec_part_r;
+            let spec_part_g;
+            let spec_part_b;
+
+            if SPECULAR {
+                // dot(N, H) = (Nx*Hx + Ny*Hy + Nz*Hz) * inv_len
+                let dot_hx = _mm256_mul_ps(nx_vec, hx);
+                let dot_hy = _mm256_mul_ps(ny_vec, hy);
+                let dot_hz = _mm256_mul_ps(nz_vec, hz);
+                let dot_h_unorm = _mm256_add_ps(dot_hx, _mm256_add_ps(dot_hy, dot_hz));
+                let spec_angle = _mm256_mul_ps(dot_h_unorm, inv_len);
+                let spec_angle = _mm256_max_ps(zero, spec_angle);
+
+                // Apply pow(spec_angle, shininess)
+                // Fallback to scalar extraction
+                let mut spec_vals = [0.0f32; 8];
+                _mm256_storeu_ps(spec_vals.as_mut_ptr(), spec_angle);
+
+                for val in spec_vals.iter_mut() {
+                    *val = val.powf(shininess_f);
+                }
+
+                let spec_pow = _mm256_loadu_ps(spec_vals.as_ptr());
+                let specular = _mm256_mul_ps(spec_str, spec_pow);
+
+                // Mask out invalid length pixels (prevent artifacts at N=0)
+                let specular = _mm256_blendv_ps(zero, specular, len_valid);
+
+                spec_part_r = _mm256_mul_ps(light_r, specular);
+                spec_part_g = _mm256_mul_ps(light_g, specular);
+                spec_part_b = _mm256_mul_ps(light_b, specular);
+            } else {
+                spec_part_r = zero;
+                spec_part_g = zero;
+                spec_part_b = zero;
+            }
+
+            // Calculate Color: Ambient + Diffuse + Specular
+            let diffuse_r = _mm256_mul_ps(diff_r, intensity);
+            let diffuse_g = _mm256_mul_ps(diff_g, intensity);
+            let diffuse_b = _mm256_mul_ps(diff_b, intensity);
+
+            let r = _mm256_add_ps(amb_r, _mm256_add_ps(diffuse_r, spec_part_r));
+            let g = _mm256_add_ps(amb_g, _mm256_add_ps(diffuse_g, spec_part_g));
+            let b = _mm256_add_ps(amb_b, _mm256_add_ps(diffuse_b, spec_part_b));
 
             // Clamp and convert to u32
             // Clamp 0.0-1.0
@@ -2048,9 +2125,7 @@ fn draw_scanline_phong(
     x_end: i32,
     start: PhongSpanStart,
     gradients: &PhongGradients,
-    pre_diffuse: Vec3,
-    neg_light_dir: Vec3,
-    ambient: Vec3,
+    lighting: &PhongLighting,
 ) {
     let width = fb.width() as i32;
     let mut xs = x_start;
@@ -2094,21 +2169,27 @@ fn draw_scanline_phong(
     ))]
     if is_x86_feature_detected!("avx2") {
         unsafe {
-            draw_scanline_phong_simd(
-                fb_slice,
-                zb_slice,
-                z,
-                nx,
-                ny,
-                nz,
-                gradients,
-                pre_diffuse,
-                neg_light_dir,
-                ambient,
-            );
+            if lighting.specular_strength > 0.0 {
+                draw_scanline_phong_simd::<true>(
+                    fb_slice, zb_slice, z, nx, ny, nz, gradients, lighting,
+                );
+            } else {
+                draw_scanline_phong_simd::<false>(
+                    fb_slice, zb_slice, z, nx, ny, nz, gradients, lighting,
+                );
+            }
         }
         return;
     }
+
+    // Hoist values from lighting struct
+    let pre_diffuse = lighting.pre_diffuse;
+    let neg_light_dir = lighting.neg_light_dir;
+    let ambient = lighting.ambient;
+    let half_vector = lighting.half_vector;
+    let specular_strength = lighting.specular_strength;
+    let shininess = lighting.shininess;
+    let light_color = lighting.light_color;
 
     for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
         if z < *depth_val {
@@ -2130,7 +2211,22 @@ fn draw_scanline_phong(
             };
 
             let diffuse = pre_diffuse * intensity;
-            let final_color_vec = ambient + diffuse;
+
+            let mut final_color_vec = ambient + diffuse;
+
+            if specular_strength > 0.0 {
+                let spec_angle = if len_sq > 0.0001 {
+                    let inv_len = fast_inv_sqrt(len_sq);
+                    let dot_h = (nx * half_vector.x + ny * half_vector.y + nz * half_vector.z)
+                        * inv_len;
+                    dot_h.max(0.0)
+                } else {
+                    0.0
+                };
+                let specular = specular_strength * spec_angle.powf(shininess);
+                final_color_vec = final_color_vec + light_color * specular;
+            }
+
             *pixel = color_to_u32(final_color_vec);
         }
 
@@ -2160,6 +2256,9 @@ pub fn fill_triangle_phong(
     light_dir: Vec3,
     light_color: Vec3,
     ambient: Vec3,
+    view_dir: Vec3,
+    specular_strength: f32,
+    shininess: f32,
 ) {
     assert_same_dimensions(fb, zb);
 
@@ -2244,8 +2343,16 @@ pub fn fill_triangle_phong(
         };
 
         // Precalculate lighting constants
-        let pre_diffuse = color * light_color;
         let neg_light_dir = light_dir * -1.0;
+        let lighting = PhongLighting {
+            pre_diffuse: color * light_color,
+            neg_light_dir,
+            ambient,
+            half_vector: (neg_light_dir + view_dir).normalize(),
+            specular_strength,
+            shininess,
+            light_color,
+        };
 
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
@@ -2288,9 +2395,7 @@ pub fn fill_triangle_phong(
                         nz: nz_left,
                     },
                     &gradients,
-                    pre_diffuse,
-                    neg_light_dir,
-                    ambient,
+                    &lighting,
                 );
             }
 

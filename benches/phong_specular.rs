@@ -4,26 +4,25 @@ use abrash::rasterizer::fill_triangle_phong;
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-fn bench_fill_triangle_phong(c: &mut Criterion) {
-    let width = 1920;
-    let height = 1080;
+fn bench_phong_specular(c: &mut Criterion) {
+    let width = 100;
+    let height = 100;
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
 
-    // Use w=1.0 for large on-screen triangle to stress pixel filling
     let v0 = ((Vec3::new(0.0, 0.9, 1.0), 1.0), Vec3::new(0.0, 0.0, 1.0));
-    let v1 = ((Vec3::new(-0.9, -0.9, 1.0), 1.0), Vec3::new(-1.0, 0.0, 0.0));
-    let v2 = ((Vec3::new(0.9, -0.9, 1.0), 1.0), Vec3::new(1.0, 0.0, 0.0));
+    let v1 = ((Vec3::new(-0.9, -0.9, 1.0), 1.0), Vec3::new(0.0, 0.0, 1.0));
+    let v2 = ((Vec3::new(0.9, -0.9, 1.0), 1.0), Vec3::new(0.0, 0.0, 1.0));
 
     let light_dir = Vec3::new(0.0, 0.0, -1.0);
     let light_color = Vec3::new(1.0, 1.0, 1.0);
     let ambient = Vec3::new(0.1, 0.1, 0.1);
     let color = Vec3::new(1.0, 1.0, 1.0);
     let view_dir = Vec3::new(0.0, 0.0, 1.0);
-    let specular_strength = 0.0;
-    let shininess = 1.0;
+    let specular_strength = 0.5;
+    let shininess = 32.0;
 
-    c.bench_function("fill_triangle_phong", |b| {
+    c.bench_function("phong_specular", |b| {
         b.iter(|| {
             fb.clear(0);
             zb.clear();
@@ -45,5 +44,5 @@ fn bench_fill_triangle_phong(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_fill_triangle_phong);
+criterion_group!(benches, bench_phong_specular);
 criterion_main!(benches);

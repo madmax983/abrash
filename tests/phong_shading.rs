@@ -26,6 +26,9 @@ fn test_phong_shading_compiles_and_runs() {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
     let ambient = Vec3::new(0.1, 0.1, 0.1);
     let color = Vec3::new(1.0, 0.0, 0.0); // Red material
+    let view_dir = Vec3::new(0.0, 0.0, 1.0);
+    let specular_strength = 0.0;
+    let shininess = 1.0;
 
     fill_triangle_phong(
         &mut fb,
@@ -37,6 +40,9 @@ fn test_phong_shading_compiles_and_runs() {
         light_dir,
         light_color,
         ambient,
+        view_dir,
+        specular_strength,
+        shininess,
     );
 
     // Check center pixel
@@ -79,6 +85,9 @@ fn test_phong_shading_gradient() {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
     let ambient = Vec3::new(0.0, 0.0, 0.0); // No ambient to ensure contrast
     let color = Vec3::new(1.0, 1.0, 1.0); // White material
+    let view_dir = Vec3::new(0.0, 0.0, 1.0);
+    let specular_strength = 0.0;
+    let shininess = 1.0;
 
     fill_triangle_phong(
         &mut fb,
@@ -90,6 +99,9 @@ fn test_phong_shading_gradient() {
         light_dir,
         light_color,
         ambient,
+        view_dir,
+        specular_strength,
+        shininess,
     );
 
     // Top pixel (near v0) should be bright
