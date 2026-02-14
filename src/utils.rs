@@ -25,7 +25,7 @@ impl XorShift32 {
     }
 
     /// Generates the next random `u32`.
-    pub fn next_u32(&mut self) -> u32 {
+    pub const fn next_u32(&mut self) -> u32 {
         let mut x = self.state;
         x ^= x << 13;
         x ^= x >> 17;

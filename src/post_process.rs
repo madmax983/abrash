@@ -190,12 +190,12 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
             b_acc += p & 0xFF;
         }
 
-        for x in 0..width {
+        for (x, dst_pixel) in dst_row.iter_mut().enumerate().take(width) {
             // Write current blurred pixel
             let r_avg = (r_acc as f32 * scale) as u32;
             let g_avg = (g_acc as f32 * scale) as u32;
             let b_avg = (b_acc as f32 * scale) as u32;
-            dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+            *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
             // Shift window
             // Remove outgoing pixel (x - radius)
@@ -513,7 +513,7 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
         let p = *pixel;
 
         // Fixed-point luminance calculation
-        let luminance = pixel_luminance(p) as u32;
+        let luminance = u32::from(pixel_luminance(p));
 
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;

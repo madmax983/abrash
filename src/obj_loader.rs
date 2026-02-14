@@ -29,6 +29,9 @@ use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
 
+/// Sentinel value for deduplication (`NO_INDEX`)
+const SENTINEL: u64 = 0xF_FFFF;
+
 /// Optimized integer parser for OBJ indices.
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
@@ -286,12 +289,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Use HashMap for full deduplication
                     // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
                     // Max index is 1,000,000, which fits in 20 bits (1,048,576).
-                    // 0xFFFFF is used as a sentinel for NO_INDEX.
-                    const SENTINEL: u64 = 0xF_FFFF;
 
                     let k_v = v_idx as u64;
-                    let k_vt = vt_idx.map(|i| i as u64).unwrap_or(SENTINEL);
-                    let k_vn = vn_idx.map(|i| i as u64).unwrap_or(SENTINEL);
+                    let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
+                    let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
 
                     let key = k_v | (k_vt << 20) | (k_vn << 40);
 

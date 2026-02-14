@@ -1,6 +1,12 @@
 //! 2D Rasterization primitives.
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
+
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::cast_ptr_alignment)]
+#![allow(clippy::ptr_as_ptr)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::tuple_array_conversions)]
 //!
 //! # Rasterization Rules
 //!

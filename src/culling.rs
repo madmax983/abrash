@@ -48,6 +48,7 @@ impl Frustum {
     /// Assumes Row-Major matrix where `v_clip = v_world * M`.
     ///
     /// The planes are extracted such that the normal points **inside** the frustum.
+    #[must_use]
     pub fn from_matrix(m: Mat4) -> Self {
         // In Row-Vector convention v' = v * M,
         // x' = v . Col0
@@ -110,6 +111,7 @@ impl Frustum {
     /// Check if a sphere intersects or is inside the frustum.
     /// Returns `true` if the sphere is visible (partially or fully).
     /// Returns `false` if the sphere is fully outside any plane.
+    #[must_use]
     pub fn intersects(&self, sphere: &BoundingSphere) -> bool {
         for plane in &self.planes {
             // Distance is positive inside, negative outside.
@@ -123,6 +125,7 @@ impl Frustum {
 
     /// Check multiple spheres against the frustum using SIMD optimizations.
     /// Returns a `Vec<bool>` where `true` means the sphere is visible.
+    #[must_use]
     pub fn cull_spheres(&self, spheres: &[BoundingSphere]) -> Vec<bool> {
         let mut results = vec![true; spheres.len()]; // Assume all visible initially
 
@@ -166,7 +169,7 @@ impl Frustum {
             }
 
             while i + 8 <= len {
-                let ptr = spheres.as_ptr().add(i) as *const f32;
+                let ptr = spheres.as_ptr().add(i).cast::<f32>();
 
                 // Load 8 spheres (4 registers of 2 spheres each)
                 // Each BoundingSphere is 4 floats: x, y, z, r

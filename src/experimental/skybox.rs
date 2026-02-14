@@ -21,11 +21,13 @@ pub struct Cubemap {
 
 impl Cubemap {
     /// Create a new Cubemap from 6 textures.
-    pub fn new(faces: [Texture; 6]) -> Self {
+    #[must_use]
+    pub const fn new(faces: [Texture; 6]) -> Self {
         Self { faces }
     }
 
     /// Sample the cubemap using a direction vector.
+    #[must_use]
     pub fn sample(&self, dir: Vec3) -> u32 {
         let abs_x = dir.x.abs();
         let abs_y = dir.y.abs();
@@ -56,7 +58,7 @@ impl Cubemap {
 
         // Avoid division by zero
         if ma == 0.0 {
-            return 0xFF000000;
+            return 0xFF00_0000;
         }
 
         // Map to [0, 1]
@@ -80,6 +82,7 @@ struct SkyboxGradients {
 }
 
 impl SkyboxGradients {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -201,13 +204,14 @@ struct SkyboxSpanStart {
 }
 
 #[inline(always)]
+#[allow(clippy::too_many_arguments)]
 fn draw_scanline_skybox(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
     x_start: i32,
     x_end: i32,
-    start: SkyboxSpanStart,
+    start: &SkyboxSpanStart,
     gradients: &SkyboxGradients,
     cubemap: &Cubemap,
 ) {
@@ -277,6 +281,9 @@ fn draw_scanline_skybox(
 ///
 /// This interpolates the vertex position (as a direction vector) and samples the cubemap.
 /// It writes depth = 1.0 (Far Plane).
+///
+/// # Panics
+/// Panics if framebuffer and zbuffer dimensions do not match.
 pub fn fill_triangle_skybox(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -285,9 +292,10 @@ pub fn fill_triangle_skybox(
     v2: ((Vec3, f32), Vec3),
     cubemap: &Cubemap,
 ) {
-    if fb.width() != zb.width() || fb.height() != zb.height() {
-        panic!("Framebuffer and ZBuffer dimensions mismatch");
-    }
+    assert!(
+        !(fb.width() != zb.width() || fb.height() != zb.height()),
+        "Framebuffer and ZBuffer dimensions mismatch"
+    );
 
     // Clip
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
@@ -416,7 +424,7 @@ pub fn fill_triangle_skybox(
                     y,
                     x_start,
                     x_end,
-                    SkyboxSpanStart {
+                    &SkyboxSpanStart {
                         q: q_left,
                         vx: vx_left,
                         vy: vy_left,
