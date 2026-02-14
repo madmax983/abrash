@@ -68,12 +68,31 @@ fn benchmark_chromatic_aberration(c: &mut Criterion) {
     });
 }
 
+fn benchmark_bloom(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    fb.clear(0xFFFFFFFF); // White
+
+    c.bench_function("apply_bloom 1080p (r=10)", |b| {
+        b.iter(|| {
+            post_process::apply_bloom(
+                black_box(&mut fb),
+                black_box(200),
+                black_box(10),
+                black_box(0.8),
+            );
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
     benchmark_scanlines,
     benchmark_invert,
     benchmark_sepia,
-    benchmark_chromatic_aberration
+    benchmark_chromatic_aberration,
+    benchmark_bloom,
 );
 criterion_main!(benches);
