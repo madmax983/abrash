@@ -16,6 +16,48 @@
 //! *   **Fixed-Point Math**: Internal interpolation often uses 16.16 fixed-point arithmetic for speed.
 //! *   **Z-Buffering**: Depth testing is performed per-pixel.
 //! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
+//!
+//! # Shading Modes
+//!
+//! The rasterizer supports multiple shading techniques, each offering a trade-off between visual fidelity and performance:
+//!
+//! *   **Flat Shading** (`fill_triangle_3d`):
+//!     *   **Concept**: Uses a single color for the entire triangle.
+//!     *   **Use Case**: Low-poly aesthetics, debugging, or distant objects.
+//!     *   **Cost**: Lowest. 1 color per triangle.
+//!
+//! *   **Gouraud Shading** (`fill_triangle_gouraud`):
+//!     *   **Concept**: Calculates lighting at vertices and interpolates *colors* across the triangle face.
+//!     *   **Pros**: Smooth gradients, cheap to compute.
+//!     *   **Cons**: Highlights are tied to vertex density; specular highlights can look blocky or disappear.
+//!     *   **Cost**: Low. Per-vertex lighting + color interpolation.
+//!
+//! *   **Phong Shading** (`fill_triangle_phong`):
+//!     *   **Concept**: Interpolates *normal vectors* across the triangle face and calculates lighting *per-pixel*.
+//!     *   **Pros**: Perfect, smooth specular highlights regardless of mesh density.
+//!     *   **Cons**: Expensive. Per-pixel normalization and dot products.
+//!     *   **Cost**: High. Per-pixel lighting.
+//!
+//! *   **Normal Mapping** (`fill_triangle_normal_mapped`):
+//!     *   **Concept**: Uses a texture to perturb the surface normal per-pixel, simulating high-frequency geometry.
+//!     *   **Use Case**: Adding detail (bumps, scratches) without adding polygons.
+//!     *   **Cost**: Very High. Tangent-space calculations + extra texture lookups.
+//!
+//! # Coordinate Spaces
+//!
+//! Understanding the coordinate pipeline is crucial for correct rendering:
+//!
+//! 1.  **Model Space**: Vertices as defined in the mesh (local origin).
+//! 2.  **World Space**: Vertices transformed into the scene (`Model Matrix`).
+//! 3.  **View Space**: Vertices relative to the camera (`View Matrix`).
+//! 4.  **Clip Space**: Vertices projected for perspective (`Projection Matrix`).
+//!     *   This is where **Clipping** happens.
+//!     *   Output is Homogeneous coordinates `(x, y, z, w)`.
+//! 5.  **Screen Space**: Coordinates mapped to pixel positions `(x, y)` and depth `z`.
+//!     *   This is where **Rasterization** happens.
+//!
+//! Most `fill_triangle_*` functions expect vertices in **Clip Space** (after Model-View-Projection),
+//! usually passed as `(Vec3, f32)` tuple representing `(Position.xyz, Position.w)`.
 
 use crate::clipping::{clip_line_to_frustum, clip_triangle_to_frustum};
 use crate::framebuffer::Framebuffer;
@@ -737,6 +779,64 @@ fn draw_scanline_phong_shadowed(
 }
 
 /// Fill a 3D triangle with Phong Shading and Shadow Mapping.
+///
+/// This function adds shadow mapping support to standard Phong shading.
+/// It uses Percentage Closer Filtering (PCF) with a 3x3 kernel to soften shadow edges.
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices defined as `((ClipPos, W), Normal, WorldPos)`.
+///   - `ClipPos`: Position in Clip Space.
+///   - `W`: Perspective term.
+///   - `Normal`: Surface normal.
+///   - `WorldPos`: Position in World Space (used to project into light space for shadow test).
+/// * `shadow_map`: A `ZBuffer` containing depth values rendered from the light's perspective.
+/// * `light_vp`: The View-Projection matrix of the light source.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_phong_shadowed;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::{Vec3, Mat4};
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // 1. Create a Shadow Map (simulated)
+/// let mut shadow_map = ZBuffer::new(256, 256).unwrap();
+/// // In a real engine, you would render the scene into this ZBuffer from the light's POV.
+///
+/// // 2. Define Light View-Projection Matrix
+/// // Light at (0, 10, 0) looking at (0, 0, 0)
+/// let light_pos = Vec3::new(0.0, 10.0, 0.0);
+/// let light_view = Mat4::look_at(light_pos, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, -1.0));
+/// let light_proj = Mat4::perspective(1.57, 1.0, 1.0, 20.0);
+/// let light_vp = light_view * light_proj; // Row-major: View * Proj
+///
+/// // 3. Define Triangle Vertices
+/// // We need Clip Space (for screen), Normal (for lighting), and World Space (for shadows)
+/// let p0_world = Vec3::new(0.0, 0.0, 0.0);
+/// let p0_clip = (Vec3::new(0.0, 0.0, 5.0), 5.0); // Simulated projection
+/// let n = Vec3::new(0.0, 1.0, 0.0);
+///
+/// let v0 = (p0_clip, n, p0_world);
+/// let v1 = (p0_clip, n, p0_world); // Degenerate for example brevity
+/// let v2 = (p0_clip, n, p0_world);
+///
+/// // 4. Render
+/// fill_triangle_phong_shadowed(
+///     &mut fb, &mut zb,
+///     v0, v1, v2,
+///     Vec3::new(1.0, 0.0, 0.0), // Red material
+///     Vec3::new(0.0, -1.0, 0.0), // Light direction (down)
+///     Vec3::new(1.0, 1.0, 1.0), // White light
+///     Vec3::new(0.2, 0.2, 0.2), // Ambient
+///     &shadow_map,
+///     light_vp
+/// );
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_phong_shadowed(
     fb: &mut Framebuffer,
@@ -3784,11 +3884,74 @@ fn draw_scanline_normal_mapped(
 /// Fill a 3D triangle with Normal Mapping.
 ///
 /// This function performs per-pixel tangent-space normal mapping.
+/// It uses a tangent vector (T) and normal vector (N) to construct a
+/// TBN basis matrix, which transforms lighting calculations into Tangent Space.
+/// This allows the normal map to perturb the surface normal without changing geometry.
 ///
 /// # Arguments
 ///
 /// * `v0`, `v1`, `v2` - Vertices defined as `((Position, W), UV, Normal, Tangent)`.
-///   - `Tangent`: `Vec4` where xyz is the tangent vector and w is the handedness (+1/-1).
+///   - `Position`: Clip Space position (x, y, z).
+///   - `W`: Homogeneous component (used for perspective divide).
+///   - `UV`: Texture coordinates (0.0 - 1.0).
+///   - `Normal`: World Space normal vector.
+///   - `Tangent`: `Vec4` where `xyz` is the World Space tangent vector and `w` is the handedness (+1.0 or -1.0)
+///     of the tangent basis (needed to compute the Bitangent).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_normal_mapped;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::texture::Texture;
+/// use abrash::math::{Vec2, Vec3, Vec4};
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+///
+/// // Create simple 1x1 textures
+/// let mut tex = Texture::new(1, 1).unwrap();
+/// tex.set_pixel(0, 0, 0xFFFFFFFF); // White base color
+///
+/// let mut normal_map = Texture::new(1, 1).unwrap();
+/// normal_map.set_pixel(0, 0, 0xFF8080FF); // Flat normal (0.5, 0.5, 1.0) -> (0, 0, 1)
+///
+/// // Define a triangle in Clip Space (already projected)
+/// // Positions are (x, y, z), W is 1.0 for simplicity
+/// let p0 = (Vec3::new(0.0, 0.5, 0.0), 1.0);
+/// let p1 = (Vec3::new(-0.5, -0.5, 0.0), 1.0);
+/// let p2 = (Vec3::new(0.5, -0.5, 0.0), 1.0);
+///
+/// // UVs
+/// let uv0 = Vec2::new(0.5, 0.0);
+/// let uv1 = Vec2::new(0.0, 1.0);
+/// let uv2 = Vec2::new(1.0, 1.0);
+///
+/// // Normals (World Space, pointing towards camera/screen)
+/// let n = Vec3::new(0.0, 0.0, 1.0);
+///
+/// // Tangents (World Space, pointing Right along X)
+/// // Handedness w = 1.0
+/// let t = Vec4::new(1.0, 0.0, 0.0, 1.0);
+///
+/// // Construct vertices: ((Pos, W), UV, Normal, Tangent)
+/// let v0 = (p0, uv0, n, t);
+/// let v1 = (p1, uv1, n, t);
+/// let v2 = (p2, uv2, n, t);
+///
+/// // Light setup (Direction the light travels: FROM source)
+/// let light_dir = Vec3::new(0.0, 0.0, -1.0);
+/// let light_color = Vec3::new(1.0, 1.0, 1.0);
+/// let ambient = Vec3::new(0.1, 0.1, 0.1);
+///
+/// fill_triangle_normal_mapped(
+///     &mut fb, &mut zb,
+///     v0, v1, v2,
+///     &tex, &normal_map,
+///     light_dir, light_color, ambient
+/// );
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
