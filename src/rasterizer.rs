@@ -94,6 +94,10 @@ fn prepare_scanline<'a>(
     mut z: f32,
     dz_dx: f32,
 ) -> Option<(&'a mut [u32], &'a mut [f32], f32)> {
+    if y < 0 || y >= fb.height() as i32 {
+        return None;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
