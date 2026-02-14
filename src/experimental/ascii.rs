@@ -45,6 +45,7 @@ pub enum AsciiCharset {
 
 impl AsciiCharset {
     /// Returns the characters in the set, ordered from darkest to brightest.
+    #[must_use]
     pub const fn chars(self) -> &'static [char] {
         match self {
             Self::Standard => &[' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'],

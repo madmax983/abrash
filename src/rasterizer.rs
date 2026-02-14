@@ -685,7 +685,7 @@ fn draw_scanline_phong_shadowed(
                 // So if our Shadow Map was rendered using same `Mat4::perspective`, it contains values in [-1, 1].
 
                 // Check if inside light frustum
-                if ndc_x >= -1.0 && ndc_x <= 1.0 && ndc_y >= -1.0 && ndc_y <= 1.0 && ndc_z >= -1.0 && ndc_z <= 1.0 {
+                if (-1.0..=1.0).contains(&ndc_x) && (-1.0..=1.0).contains(&ndc_y) && (-1.0..=1.0).contains(&ndc_z) {
                     // Map to texture coordinates [0, 1]
                     let u = (ndc_x + 1.0) * 0.5;
                     let v = (1.0 - ndc_y) * 0.5; // Flip Y for texture lookup
