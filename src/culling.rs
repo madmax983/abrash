@@ -24,6 +24,7 @@ impl Plane {
 
     /// Signed distance from a point to the plane.
     /// Positive if on the side of the normal.
+    #[must_use]
     pub fn distance_to_point(&self, point: Vec3) -> f32 {
         self.normal.dot(point) + self.distance
     }
