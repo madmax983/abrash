@@ -3,28 +3,7 @@
 //! Provides functions to generate textures algorithmically.
 
 use crate::texture::Texture;
-
-/// A simple Xorshift random number generator for deterministic noise.
-struct XorShift32 {
-    state: u32,
-}
-
-impl XorShift32 {
-    const fn new(seed: u32) -> Self {
-        Self {
-            state: if seed == 0 { 0xDEAD_BEEF } else { seed },
-        }
-    }
-
-    const fn next(&mut self) -> u32 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.state = x;
-        x
-    }
-}
+use crate::utils::XorShift32;
 
 /// Generates a classic XOR texture.
 ///
@@ -76,7 +55,7 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 
     for y in 0..height {
         for x in 0..width {
-            let v = (rng.next() & 0xFF) as u8;
+            let v = (rng.next_u32() & 0xFF) as u8;
             let color = 0xFF00_0000 | (u32::from(v) << 16) | (u32::from(v) << 8) | u32::from(v);
             tex.set_pixel(x, y, color);
         }

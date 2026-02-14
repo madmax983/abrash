@@ -12,6 +12,7 @@ use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
 use crate::rasterizer::fill_triangle_textured;
 use crate::texture::Texture;
+use crate::utils::XorShift32;
 use crate::zbuffer::ZBuffer;
 
 /// A single particle in the system.
@@ -127,7 +128,7 @@ pub struct ParticleSystem {
 
     // Internal state
     emission_accumulator: f32,
-    rng_state: u32,
+    rng: XorShift32,
 }
 
 impl ParticleSystem {
@@ -149,23 +150,8 @@ impl ParticleSystem {
             start_size: 0.1,
             spread: 0.5,
             emission_accumulator: 0.0,
-            rng_state: 12345,
+            rng: XorShift32::new(12345),
         }
-    }
-
-    /// Simple `XorShift` RNG
-    fn rand_float(&mut self) -> f32 {
-        let mut x = self.rng_state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.rng_state = x;
-        (x as f32) / (u32::MAX as f32)
-    }
-
-    /// Returns a random float between -1.0 and 1.0
-    fn rand_signed(&mut self) -> f32 {
-        self.rand_float() * 2.0 - 1.0
     }
 
     /// Updates the particle system.
@@ -203,9 +189,9 @@ impl ParticleSystem {
 
     fn emit(&mut self) {
         let vel = Vec3::new(
-            self.rand_signed() * self.spread,
-            1.0 + self.rand_signed() * self.spread, // Generally upwards
-            self.rand_signed() * self.spread,
+            self.rng.next_f32_signed() * self.spread,
+            1.0 + self.rng.next_f32_signed() * self.spread, // Generally upwards
+            self.rng.next_f32_signed() * self.spread,
         )
         .normalize()
             * self.start_speed;

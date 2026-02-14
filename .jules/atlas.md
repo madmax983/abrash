@@ -17,3 +17,11 @@
 1.  **Introduce Bridge:** Added `mesh_to_gpu` in `src/gpu_render.rs` to standardise the conversion from `Mesh` to `GpuVertex` + indices.
 2.  **Verify with Example:** Created `examples/gpu_obj.rs` to demonstrate loading an OBJ (CPU) and rendering it via the GPU backend using the new bridge.
 3.  **Result:** High cohesion in the `gpu_render` compatibility layer; Low coupling between core mesh logic and GPU implementation.
+
+## [Centralized Utilities]
+**Tangle:** The `XorShift32` RNG and luminance calculation logic were duplicated across `particles.rs`, `vhs.rs`, `procedural.rs`, `ascii.rs`, and `post_process.rs`. This violated DRY and created maintenance burden where fixes to one implementation wouldn't propagate to others.
+
+**Blueprint:**
+1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
+2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
+3.  **Result:** High cohesion for utility logic; Reduced code duplication.
