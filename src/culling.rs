@@ -201,7 +201,7 @@ impl Frustum {
 
                     let dot = _mm256_add_ps(
                         term_x,
-                        _mm256_add_ps(term_y, _mm256_add_ps(term_z, plane_d[k]))
+                        _mm256_add_ps(term_y, _mm256_add_ps(term_z, plane_d[k])),
                     );
 
                     let val = _mm256_add_ps(dot, r_vec);
@@ -245,6 +245,8 @@ impl Frustum {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::math::{Mat4, Vec3};
+    use crate::mesh::BoundingSphere;
 
     #[test]
     fn test_cull_spheres_matches_scalar() {
@@ -262,19 +264,19 @@ mod tests {
         // We use deterministic loop to avoid randomness dependency in test
         let mut spheres = Vec::new();
         for i in 0..100 {
-             let x = ((i % 20) as f32) - 10.0;
-             let y = ((i / 20) as f32) - 2.0;
-             let z = 0.0;
-             spheres.push(BoundingSphere {
-                 center: Vec3::new(x, y, z),
-                 radius: 0.5,
-             });
+            let x = ((i % 20) as f32) - 10.0;
+            let y = ((i / 20) as f32) - 2.0;
+            let z = 0.0;
+            spheres.push(BoundingSphere {
+                center: Vec3::new(x, y, z),
+                radius: 0.5,
+            });
         }
 
         // Add some definitely outside
         spheres.push(BoundingSphere {
-             center: Vec3::new(1000.0, 0.0, 0.0),
-             radius: 1.0,
+            center: Vec3::new(1000.0, 0.0, 0.0),
+            radius: 1.0,
         });
 
         // Run SIMD culling
@@ -288,16 +290,13 @@ mod tests {
 
         assert_eq!(simd_results.len(), scalar_results.len());
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
-            assert_eq!(*simd, *scalar, "Mismatch at index {}: simd={}, scalar={}", i, simd, scalar);
+            assert_eq!(
+                *simd, *scalar,
+                "Mismatch at index {}: simd={}, scalar={}",
+                i, simd, scalar
+            );
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::math::{Mat4, Vec3};
-    use crate::mesh::BoundingSphere;
 
     #[test]
     fn test_plane_normalize() {
@@ -353,7 +352,10 @@ mod tests {
             center: Vec3::new(0.0, 0.0, 0.0),
             radius: 0.5,
         };
-        assert!(frustum.intersects(&s_inside), "Sphere inside should be visible");
+        assert!(
+            frustum.intersects(&s_inside),
+            "Sphere inside should be visible"
+        );
 
         // 2. Sphere intersecting boundary
         // Right plane is at x=1, normal pointing left (-1, 0, 0).
@@ -367,7 +369,10 @@ mod tests {
             center: Vec3::new(1.2, 0.0, 0.0),
             radius: 0.5,
         };
-        assert!(frustum.intersects(&s_intersect), "Intersecting sphere should be visible");
+        assert!(
+            frustum.intersects(&s_intersect),
+            "Intersecting sphere should be visible"
+        );
 
         // 3. Sphere strictly outside
         // Center at (2.0, 0, 0), radius 0.5.
@@ -380,6 +385,9 @@ mod tests {
             center: Vec3::new(2.0, 0.0, 0.0),
             radius: 0.5,
         };
-        assert!(!frustum.intersects(&s_outside), "Outside sphere should be culled");
+        assert!(
+            !frustum.intersects(&s_outside),
+            "Outside sphere should be culled"
+        );
     }
 }

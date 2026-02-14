@@ -257,3 +257,6 @@ harness = false
 [[bench]]
 name = "scanline"
 harness = false
+[[bench]]
+name = "project_points"
+harness = false
