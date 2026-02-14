@@ -920,15 +920,8 @@ pub fn fill_triangle_phong_shadowed(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) =
+            ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
 
         let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
         if y_start > p0.y {
@@ -1263,7 +1256,7 @@ impl GouraudGradients {
         c0: Vec3,
         c1: Vec3,
         c2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -1292,18 +1285,13 @@ impl GouraudGradients {
         let dg_i = (dg * FIXED_SCALE) as i32;
         let db_i = (db * FIXED_SCALE) as i32;
 
-        Self {
-            dz_dx,
-            dc_dx: (dr_i, dg_i, db_i),
-        }
-    }
-
-    fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        ux * vy - uy * vx > 0.0
+        (
+            Self {
+                dz_dx,
+                dc_dx: (dr_i, dg_i, db_i),
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -1458,11 +1446,7 @@ pub fn fill_triangle_gouraud(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
-            let left = GouraudGradients::is_long_edge_left(p0, p1, p2);
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
 
         let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
         if y_start > p0.y {
@@ -1597,6 +1581,25 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> Self {
+        Self::new_with_winding(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2).0
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub fn new_with_winding(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -1636,15 +1639,18 @@ impl PerspectiveTextureGradients {
         let ny_v = uv * vx - ux * vv;
         let dv_dy = ny_v * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            du_dx,
-            dv_dx,
-            dq_dy,
-            du_dy,
-            dv_dy,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                dq_dy,
+                du_dy,
+                dv_dy,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -2293,18 +2299,9 @@ pub fn fill_triangle_textured(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g =
-                PerspectiveTextureGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2);
-
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+        );
 
         let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
         if y_start > p0.y {
@@ -2456,7 +2453,7 @@ impl PhongGradients {
         n0: Vec3,
         n1: Vec3,
         n2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -2486,12 +2483,15 @@ impl PhongGradients {
         let nx_nz = uy * vnz - unz * vy;
         let dnz_dx = nx_nz * inv_nz;
 
-        Self {
-            dz_dx,
-            dnx_dx,
-            dny_dx,
-            dnz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dnx_dx,
+                dny_dx,
+                dnz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -2579,7 +2579,7 @@ impl ShadowPhongGradients {
         w0: Vec3,
         w1: Vec3,
         w2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -2629,16 +2629,19 @@ impl ShadowPhongGradients {
         let nx_wz = uy * vwz - uwz * vy;
         let dwz_dx = nx_wz * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            dnx_dx,
-            dny_dx,
-            dnz_dx,
-            dwx_dx,
-            dwy_dx,
-            dwz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                dnx_dx,
+                dny_dx,
+                dnz_dx,
+                dwx_dx,
+                dwy_dx,
+                dwz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -3165,15 +3168,7 @@ pub fn fill_triangle_phong(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = PhongGradients::new(p0, p1, p2, n0, n1, n2);
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = PhongGradients::new(p0, p1, p2, n0, n1, n2);
 
         let mut edge_a = PhongEdgeWalker::new(p0, p2, n0, n2);
         if y_start > p0.y {
@@ -3282,7 +3277,7 @@ impl NormalMapGradients {
         l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
         l1: Vec3,
         l2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -3327,15 +3322,18 @@ impl NormalMapGradients {
         let nx_lz = uy * vlz - ulz * vy;
         let dlz_dx = nx_lz * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            du_dx,
-            dv_dx,
-            dlx_dx,
-            dly_dx,
-            dlz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                dlx_dx,
+                dly_dx,
+                dlz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -4069,17 +4067,9 @@ pub fn fill_triangle_normal_mapped(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = NormalMapGradients::new(
-                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
-            );
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = NormalMapGradients::new(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
+        );
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, l0, l2);
         if y_start > p0.y {
