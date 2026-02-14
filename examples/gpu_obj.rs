@@ -1,5 +1,7 @@
-use abrash::gpu_render::{GpuDemoConfig, mesh_to_gpu, run_mesh_demo};
+use abrash::gpu_render::{GpuDemoConfig, GpuVertex, mesh_to_gpu, run_mesh_demo};
 use abrash::obj_loader::load_obj;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 
 const SPACESHIP_OBJ: &str = r#"
 # Simple Spacerocket
@@ -21,24 +23,76 @@ f 6 5 4
 f 6 2 5
 "#;
 
+fn print_banner() {
+    println!("\n{}", "🎨 Abrash GPU Loader".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+}
+
 fn main() -> Result<(), String> {
+    print_banner();
+
     // 1. Load Mesh (CPU)
-    println!("Loading OBJ...");
-    let mesh = load_obj(SPACESHIP_OBJ).map_err(|e| e.to_string())?;
-    println!(
-        "Mesh loaded: {} vertices, {} triangles",
-        mesh.vertices.len(),
-        mesh.indices.len()
-    );
+    let mesh = match load_obj(SPACESHIP_OBJ) {
+        Ok(m) => m,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let mut mesh_table = Table::new();
+    mesh_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Source"),
+            Cell::new("Built-in Spacerocket").fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Vertices"),
+            Cell::new(mesh.vertices.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Triangles"),
+            Cell::new(mesh.indices.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Status"),
+            Cell::new("✅ Loaded (CPU)").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "📦 Mesh Information".bold());
+    println!("{mesh_table}");
 
     // 2. Convert to GPU Format (Bridge)
-    println!("Converting to GPU format...");
     let (vertices, indices) = mesh_to_gpu(&mesh)?;
-    println!(
-        "Conversion successful: {} GPU vertices, {} indices",
-        vertices.len(),
-        indices.len()
-    );
+
+    let mut gpu_table = Table::new();
+    gpu_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Buffer").fg(Color::Cyan),
+            Cell::new("Count").fg(Color::Cyan),
+            Cell::new("Size (Bytes)").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Vertex Buffer"),
+            Cell::new(vertices.len().to_string()),
+            Cell::new((vertices.len() * std::mem::size_of::<GpuVertex>()).to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Index Buffer"),
+            Cell::new(indices.len().to_string()),
+            Cell::new((indices.len() * std::mem::size_of::<u16>()).to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Status"),
+            Cell::new("✅ Ready").fg(Color::Green),
+            Cell::new("-"),
+        ]);
+
+    println!("\n{}", "💾 GPU Upload".bold());
+    println!("{gpu_table}");
 
     // 3. Configure and Run (GPU)
     let config = GpuDemoConfig {
@@ -47,6 +101,6 @@ fn main() -> Result<(), String> {
         ..GpuDemoConfig::default()
     };
 
-    println!("Starting GPU demo...");
+    println!("\n{}", "🚀 Launching GPU Demo...".bold().green());
     run_mesh_demo(vertices, indices, config)
 }
