@@ -48,20 +48,40 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 
 /// Load a Mesh from a Wavefront OBJ string source.
 ///
+/// This function parses vertices, UVs, normals, and faces.
+/// It automatically triangulates quads and deduplicates vertices.
+///
+/// # Supported Tags
+/// * `v` - Vertex position (x, y, z)
+/// * `vt` - Texture coordinate (u, v)
+/// * `vn` - Vertex normal (x, y, z)
+/// * `f` - Face indices (v/vt/vn)
+///
 /// # Examples
 ///
 /// ```
 /// use abrash::obj_loader::load_obj;
 ///
 /// let obj_source = "
-/// v 0.0 0.0 0.0
-/// v 1.0 0.0 0.0
-/// v 0.0 1.0 0.0
+/// v -1.0 -1.0 0.0
+/// v  1.0 -1.0 0.0
+/// v  0.0  1.0 0.0
 /// f 1 2 3
 /// ";
 ///
-/// let mesh = load_obj(obj_source).unwrap();
+/// let mesh = load_obj(obj_source).expect("Failed to parse OBJ");
+///
+/// // Iterate over triangles
+/// for (i, triangle_indices) in mesh.indices.iter().enumerate() {
+///     let v0 = mesh.vertices[triangle_indices[0]];
+///     let v1 = mesh.vertices[triangle_indices[1]];
+///     let v2 = mesh.vertices[triangle_indices[2]];
+///
+///     println!("Triangle {}: {:?}, {:?}, {:?}", i, v0, v1, v2);
+/// }
+///
 /// assert_eq!(mesh.vertices.len(), 3);
+/// assert_eq!(mesh.indices.len(), 1);
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
