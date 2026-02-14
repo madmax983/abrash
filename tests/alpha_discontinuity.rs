@@ -1,8 +1,7 @@
-
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::rasterizer::fill_triangle_3d;
 use abrash::math::Vec3;
+use abrash::rasterizer::fill_triangle_3d;
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_alpha_discontinuity() {
@@ -39,7 +38,11 @@ fn test_alpha_discontinuity() {
     let pixel_255 = fb.get_pixel(5, 5).unwrap();
 
     // Should be Blue
-    assert_eq!(pixel_255, 0xFF0000FF, "Alpha 255 should be opaque Blue. Got {:08X}", pixel_255);
+    assert_eq!(
+        pixel_255, 0xFF0000FF,
+        "Alpha 255 should be opaque Blue. Got {:08X}",
+        pixel_255
+    );
 
     // Case 2: Alpha 254 (Almost Opaque Blue)
     fb.clear(0xFFFF0000); // Red
@@ -58,6 +61,9 @@ fn test_alpha_discontinuity() {
     // If bug exists, R will be high (close to 255).
 
     if r > 200 {
-        panic!("BUG CONFIRMED: Alpha 254 resulted in R={}, expected < 50 (Mostly Blue)", r);
+        panic!(
+            "BUG CONFIRMED: Alpha 254 resulted in R={}, expected < 50 (Mostly Blue)",
+            r
+        );
     }
 }

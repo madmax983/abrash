@@ -4,12 +4,12 @@
 //! The skybox is rendered as a unit cube centered on the camera,
 //! with "infinite" depth (z=1.0) to serve as a background.
 
+use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, project_to_screen_optimized};
 use crate::rasterizer::sort_by_y;
 use crate::texture::Texture;
 use crate::zbuffer::ZBuffer;
-use crate::clipping::clip_triangle_to_frustum;
 
 /// A Cubemap texture consisting of 6 faces.
 ///
@@ -154,7 +154,8 @@ impl SkyboxEdgeWalker {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
-        let dx_dy = ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
         let dq_dy = (q_end - q_start) * inv_h;
         let dvx_dy = (v_end.x - v_start.x) * inv_h;
         let dvy_dy = (v_end.y - v_start.y) * inv_h;
@@ -380,9 +381,23 @@ pub fn fill_triangle_skybox(
             }
 
             let (x_start, x_end, q_left, vx_left, vy_left, vz_left) = if long_edge_is_left {
-                ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.q, edge_a.vx, edge_a.vy, edge_a.vz)
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.q,
+                    edge_a.vx,
+                    edge_a.vy,
+                    edge_a.vz,
+                )
             } else {
-                ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.q, edge_b.vx, edge_b.vy, edge_b.vz)
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.q,
+                    edge_b.vx,
+                    edge_b.vy,
+                    edge_b.vz,
+                )
             };
 
             let dx = i64::from(x_end) - i64::from(x_start);
@@ -434,13 +449,13 @@ pub fn draw_skybox(
     // 8 vertices
     let verts = [
         Vec3::new(-1.0, -1.0, -1.0),
-        Vec3::new( 1.0, -1.0, -1.0),
-        Vec3::new( 1.0,  1.0, -1.0),
-        Vec3::new(-1.0,  1.0, -1.0),
-        Vec3::new(-1.0, -1.0,  1.0),
-        Vec3::new( 1.0, -1.0,  1.0),
-        Vec3::new( 1.0,  1.0,  1.0),
-        Vec3::new(-1.0,  1.0,  1.0),
+        Vec3::new(1.0, -1.0, -1.0),
+        Vec3::new(1.0, 1.0, -1.0),
+        Vec3::new(-1.0, 1.0, -1.0),
+        Vec3::new(-1.0, -1.0, 1.0),
+        Vec3::new(1.0, -1.0, 1.0),
+        Vec3::new(1.0, 1.0, 1.0),
+        Vec3::new(-1.0, 1.0, 1.0),
     ];
 
     // 3. Define Indices for 12 triangles (CW winding to be visible from inside?)
@@ -448,16 +463,11 @@ pub fn draw_skybox(
     // Let's use standard cube indices.
     let indices = [
         // Front
-        0, 1, 2, 0, 2, 3,
-        // Back
-        5, 4, 7, 5, 7, 6,
-        // Left
-        4, 0, 3, 4, 3, 7,
-        // Right
-        1, 5, 6, 1, 6, 2,
-        // Top
-        3, 2, 6, 3, 6, 7,
-        // Bottom
+        0, 1, 2, 0, 2, 3, // Back
+        5, 4, 7, 5, 7, 6, // Left
+        4, 0, 3, 4, 3, 7, // Right
+        1, 5, 6, 1, 6, 2, // Top
+        3, 2, 6, 3, 6, 7, // Bottom
         4, 5, 1, 4, 1, 0,
     ];
 
@@ -479,11 +489,12 @@ pub fn draw_skybox(
         let (p2_clip, w2) = view_proj.transform_point(v2_local);
 
         fill_triangle_skybox(
-            fb, zb,
+            fb,
+            zb,
             ((p0_clip, w0), v0_local),
             ((p1_clip, w1), v1_local),
             ((p2_clip, w2), v2_local),
-            cubemap
+            cubemap,
         );
     }
 }

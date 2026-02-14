@@ -1,7 +1,7 @@
 use abrash::culling::Frustum;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::BoundingSphere;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_frustum_intersection(c: &mut Criterion) {
     // Setup Frustum

@@ -255,7 +255,11 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                     // Use HashMap for full deduplication
                     // Use NO_INDEX (usize::MAX) instead of Option to reduce key size from 40 to 24 bytes
-                    let key = (v_idx, vt_idx.unwrap_or(NO_INDEX), vn_idx.unwrap_or(NO_INDEX));
+                    let key = (
+                        v_idx,
+                        vt_idx.unwrap_or(NO_INDEX),
+                        vn_idx.unwrap_or(NO_INDEX),
+                    );
 
                     if let Some(&idx) = deduplicator.get(&key) {
                         face_indices.push(idx);
