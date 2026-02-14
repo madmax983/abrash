@@ -87,6 +87,7 @@ pub mod mesh;
 pub mod platform;
 pub mod rasterizer;
 pub mod time;
+pub mod utils;
 pub mod zbuffer;
 
 pub mod clipping;

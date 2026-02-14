@@ -25,6 +25,7 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+use crate::utils::pixel_luminance;
 use std::fmt::{self, Write};
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
@@ -82,17 +83,6 @@ impl<'a> AsciiConverter<'a> {
         }
     }
 
-    /// Calculates luminance using standard weights (Rec. 601).
-    /// Y = 0.299*R + 0.587*G + 0.114*B
-    const fn pixel_luminance(pixel: u32) -> u8 {
-        let r = (pixel >> 16) & 0xFF;
-        let g = (pixel >> 8) & 0xFF;
-        let b = pixel & 0xFF;
-
-        // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
-        ((77 * r + 150 * g + 29 * b) >> 8) as u8
-    }
-
     /// Converts the framebuffer to a string with ANSI color codes.
     ///
     /// This method generates a string where each character is prefixed with an ANSI
@@ -108,7 +98,7 @@ impl<'a> AsciiConverter<'a> {
         for y in 0..height {
             for x in 0..width {
                 if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
-                    let luminance = Self::pixel_luminance(pixel);
+                    let luminance = pixel_luminance(pixel);
                     let ch = self.charset.map(luminance);
 
                     let r = (pixel >> 16) & 0xFF;
@@ -140,7 +130,7 @@ impl fmt::Display for AsciiConverter<'_> {
         for y in 0..height {
             for x in 0..width {
                 if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
-                    let luminance = Self::pixel_luminance(pixel);
+                    let luminance = pixel_luminance(pixel);
                     result.push(self.charset.map(luminance));
                 }
             }
@@ -173,7 +163,7 @@ impl Widget for AsciiConverter<'_> {
                 }
 
                 if let Some(pixel) = self.framebuffer.get_pixel(fb_x as i32, fb_y as i32) {
-                    let luminance = Self::pixel_luminance(pixel);
+                    let luminance = pixel_luminance(pixel);
                     let ch = self.charset.map(luminance);
 
                     // Extract color for FG
@@ -197,13 +187,13 @@ mod tests {
     #[test]
     fn test_luminance_calculation() {
         // White
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF_FFFF), 255);
+        assert_eq!(pixel_luminance(0xFFFF_FFFF), 255);
         // Black
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF00_0000), 0);
+        assert_eq!(pixel_luminance(0xFF00_0000), 0);
         // Red (pure) -> ~76
-        assert_eq!(AsciiConverter::pixel_luminance(0xFFFF_0000), 76);
+        assert_eq!(pixel_luminance(0xFFFF_0000), 76);
         // Green (pure) -> ~149
-        assert_eq!(AsciiConverter::pixel_luminance(0xFF00_FF00), 149);
+        assert_eq!(pixel_luminance(0xFF00_FF00), 149);
     }
 
     #[test]

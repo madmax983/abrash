@@ -18,6 +18,7 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+use crate::utils::pixel_luminance;
 
 /// Applies a grayscale filter to the framebuffer in-place.
 ///
@@ -54,12 +55,9 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
     for pixel in pixels.iter_mut() {
         // Format: 0xAARRGGBB
         let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
 
         // Fixed-point luminance calculation
-        let luminance = (77 * r + 150 * g + 29 * b) >> 8;
+        let luminance = pixel_luminance(p) as u32;
 
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
