@@ -127,11 +127,17 @@ mod tests {
         println!("Center Screen: {:?}", center_screen);
         println!("Far Screen: {:?}", far_screen);
 
-        let center_pixel = main_fb.get_pixel(center_screen.x, center_screen.y).expect("Center pixel out of bounds");
-        let far_pixel = main_fb.get_pixel(far_screen.x, far_screen.y).expect("Far pixel out of bounds");
+        let center_pixel = main_fb
+            .get_pixel(center_screen.x, center_screen.y)
+            .expect("Center pixel out of bounds");
+        let far_pixel = main_fb
+            .get_pixel(far_screen.x, far_screen.y)
+            .expect("Far pixel out of bounds");
 
-        let center_brightness = (center_pixel & 0xFF) + ((center_pixel >> 8) & 0xFF) + ((center_pixel >> 16) & 0xFF);
-        let far_brightness = (far_pixel & 0xFF) + ((far_pixel >> 8) & 0xFF) + ((far_pixel >> 16) & 0xFF);
+        let center_brightness =
+            (center_pixel & 0xFF) + ((center_pixel >> 8) & 0xFF) + ((center_pixel >> 16) & 0xFF);
+        let far_brightness =
+            (far_pixel & 0xFF) + ((far_pixel >> 8) & 0xFF) + ((far_pixel >> 16) & 0xFF);
 
         println!("Center Brightness: {}", center_brightness);
         println!("Far Brightness: {}", far_brightness);
@@ -148,6 +154,9 @@ mod tests {
         // If we want to strictly follow "Red" as "Test Fails", we should assert that
         // center is significantly darker than far, which will FAIL now.
 
-        assert!(center_brightness < far_brightness / 2, "Center should be in shadow (darker than far)");
+        assert!(
+            center_brightness < far_brightness / 2,
+            "Center should be in shadow (darker than far)"
+        );
     }
 }

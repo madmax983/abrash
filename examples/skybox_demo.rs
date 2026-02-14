@@ -1,9 +1,9 @@
+use abrash::experimental::skybox::{Cubemap, draw_skybox};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{Window, WindowBackend};
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
-use abrash::experimental::skybox::{Cubemap, draw_skybox};
 use std::time::Instant;
 
 const WIDTH: u32 = 800;
