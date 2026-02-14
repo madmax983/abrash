@@ -1070,10 +1070,127 @@ fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 // Fixed point scale factor (16.16)
 pub(crate) const FIXED_SCALE: f32 = 65536.0;
 
-/// Draw a single scanline for Gouraud shading
-#[inline(always)]
+/// Draw a single scanline for Gouraud shading (Scalar implementation)
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_gouraud(
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_gouraud_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z_start: f32,
+    c_start: (i64, i64, i64),
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Constants
+    let inv_fixed = 1.0 / FIXED_SCALE;
+    let dr_f = (dc_dx.0 as f32) * inv_fixed;
+    let dg_f = (dc_dx.1 as f32) * inv_fixed;
+    let db_f = (dc_dx.2 as f32) * inv_fixed;
+
+    unsafe {
+        let dz_vec = _mm256_set1_ps(dz_dx);
+        let dr_vec = _mm256_set1_ps(dr_f);
+        let dg_vec = _mm256_set1_ps(dg_f);
+        let db_vec = _mm256_set1_ps(db_f);
+
+        // Initial values (converted to float 0..255)
+        let z = z_start;
+        let r = (c_start.0 as f32) * inv_fixed;
+        let g = (c_start.1 as f32) * inv_fixed;
+        let b = (c_start.2 as f32) * inv_fixed;
+
+        // Offsets
+        let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z), _mm256_mul_ps(dz_vec, offsets));
+        let mut r_vec = _mm256_add_ps(_mm256_set1_ps(r), _mm256_mul_ps(dr_vec, offsets));
+        let mut g_vec = _mm256_add_ps(_mm256_set1_ps(g), _mm256_mul_ps(dg_vec, offsets));
+        let mut b_vec = _mm256_add_ps(_mm256_set1_ps(b), _mm256_mul_ps(db_vec, offsets));
+
+        let step_8 = _mm256_set1_ps(8.0);
+        let dz_step = _mm256_mul_ps(dz_vec, step_8);
+        let dr_step = _mm256_mul_ps(dr_vec, step_8);
+        let dg_step = _mm256_mul_ps(dg_vec, step_8);
+        let db_step = _mm256_mul_ps(db_vec, step_8);
+
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let scale_255 = _mm256_set1_ps(255.0);
+        let zero = _mm256_setzero_ps();
+
+        while i + 8 <= len {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                // Convert Color
+                // Clamp 0..255
+                let r_c = _mm256_min_ps(_mm256_max_ps(r_vec, zero), scale_255);
+                let g_c = _mm256_min_ps(_mm256_max_ps(g_vec, zero), scale_255);
+                let b_c = _mm256_min_ps(_mm256_max_ps(b_vec, zero), scale_255);
+
+                let r_i = _mm256_cvttps_epi32(r_c);
+                let g_i = _mm256_cvttps_epi32(g_c);
+                let b_i = _mm256_cvttps_epi32(b_c);
+
+                // Pack
+                let pixel_val = _mm256_or_si256(
+                    alpha_mask,
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(r_i, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(g_i, 8), b_i),
+                    ),
+                );
+
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let mask_int = _mm256_castps_si256(mask);
+                let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            r_vec = _mm256_add_ps(r_vec, dr_step);
+            g_vec = _mm256_add_ps(g_vec, dg_step);
+            b_vec = _mm256_add_ps(b_vec, db_step);
+            i += 8;
+        }
+    }
+
+    // Tail
+    while i < len {
+        let i_f = i as f32;
+        let z = z_start + i_f * dz_dx;
+        // Start values were already normalized to 0..255 range by inv_fixed
+        let r = ((c_start.0 as f32) * inv_fixed) + i_f * dr_f;
+        let g = ((c_start.1 as f32) * inv_fixed) + i_f * dg_f;
+        let b = ((c_start.2 as f32) * inv_fixed) + i_f * db_f;
+
+        let depth_val = &mut zb_slice[i];
+        if z < *depth_val {
+            *depth_val = z;
+            let r_u = r.clamp(0.0, 255.0) as u32;
+            let g_u = g.clamp(0.0, 255.0) as u32;
+            let b_u = b.clamp(0.0, 255.0) as u32;
+
+            fb_slice[i] = 0xFF00_0000 | (r_u << 16) | (g_u << 8) | b_u;
+        }
+        i += 1;
+    }
+}
+
+pub fn draw_scanline_gouraud_scalar(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
@@ -1196,6 +1313,52 @@ fn draw_scanline_gouraud(
             }
         }
     }
+}
+
+/// Draw a single scanline for Gouraud shading (Wrapper)
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+pub fn draw_scanline_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    c_start: (i64, i64, i64),
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if is_x86_feature_detected!("avx2") {
+        if let Some((fb_slice, zb_slice, z)) =
+            prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
+        {
+            // Adjust color start to x_start if it was negative (prepare_scanline clamps to 0)
+            let mut r = c_start.0;
+            let mut g = c_start.1;
+            let mut b = c_start.2;
+
+            if x_start < 0 {
+                let diff = -i64::from(x_start);
+                let dr = i64::from(dc_dx.0);
+                let dg = i64::from(dc_dx.1);
+                let db = i64::from(dc_dx.2);
+                r += diff * dr;
+                g += diff * dg;
+                b += diff * db;
+            }
+
+            unsafe {
+                draw_scanline_gouraud_simd(fb_slice, zb_slice, z, (r, g, b), dz_dx, dc_dx);
+            }
+        }
+        return;
+    }
+
+    draw_scanline_gouraud_scalar(
+        fb, zb, y, x_start, x_end, z_start, c_start, dz_dx, dc_dx,
+    );
 }
 
 /// Helper to iterate along the edge of a triangle in screen space.
@@ -4476,5 +4639,103 @@ mod tests {
         let result = is_backface(p0, p1, p2);
 
         assert!(result);
+    }
+
+    #[test]
+    fn test_draw_scanline_gouraud_simd() {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        if !is_x86_feature_detected!("avx2") {
+            println!("Skipping SIMD test: AVX2 not detected");
+            return;
+        }
+
+        let width = 32;
+        let height = 1;
+        let mut fb_scalar = Framebuffer::new(width, height).unwrap();
+        let mut zb_scalar = ZBuffer::new(width, height).unwrap();
+        let mut fb_simd = Framebuffer::new(width, height).unwrap();
+        let mut zb_simd = ZBuffer::new(width, height).unwrap();
+
+        let y = 0;
+        let x_start = 0;
+        let x_end = 31;
+        let z_start = 0.5;
+        let dz_dx = 0.001;
+
+        // Start color: Red (255, 0, 0)
+        // 16.16 fixed point: 255 << 16
+        let c_start = (255i64 << 16, 0, 0);
+        // Fade to Blue: (-8 per pixel, 0, +8 per pixel)
+        let dc_dx = (-(8 << 16), 0, 8 << 16);
+
+        // Run Scalar
+        draw_scanline_gouraud_scalar(
+            &mut fb_scalar,
+            &mut zb_scalar,
+            y,
+            x_start,
+            x_end,
+            z_start,
+            c_start,
+            dz_dx,
+            dc_dx,
+        );
+
+        // Run SIMD (via wrapper, assuming AVX2 is detected)
+        draw_scanline_gouraud(
+            &mut fb_simd,
+            &mut zb_simd,
+            y,
+            x_start,
+            x_end,
+            z_start,
+            c_start,
+            dz_dx,
+            dc_dx,
+        );
+
+        // Compare
+        let pixels_scalar = fb_scalar.as_slice();
+        let pixels_simd = fb_simd.as_slice();
+        let depth_scalar = zb_scalar.as_slice();
+        let depth_simd = zb_simd.as_slice();
+
+        for i in 0..width as usize {
+            // Check depth
+            assert!(
+                (depth_scalar[i] - depth_simd[i]).abs() < 0.0001,
+                "Depth mismatch at index {}: scalar={}, simd={}",
+                i,
+                depth_scalar[i],
+                depth_simd[i]
+            );
+
+            // Check color (allow small tolerance due to float vs fixed point)
+            let c_scalar = pixels_scalar[i];
+            let c_simd = pixels_simd[i];
+
+            if c_scalar != c_simd {
+                // Extract channels
+                let rs = (c_scalar >> 16) & 0xFF;
+                let gs = (c_scalar >> 8) & 0xFF;
+                let bs = c_scalar & 0xFF;
+
+                let rsimd = (c_simd >> 16) & 0xFF;
+                let gsimd = (c_simd >> 8) & 0xFF;
+                let bsimd = c_simd & 0xFF;
+
+                // Allow off-by-one difference
+                let r_diff = (rs as i32 - rsimd as i32).abs();
+                let g_diff = (gs as i32 - gsimd as i32).abs();
+                let b_diff = (bs as i32 - bsimd as i32).abs();
+
+                if r_diff > 1 || g_diff > 1 || b_diff > 1 {
+                    panic!(
+                        "Pixel mismatch at index {}: scalar={:08X} (r{}, g{}, b{}), simd={:08X} (r{}, g{}, b{})",
+                        i, c_scalar, rs, gs, bs, c_simd, rsimd, gsimd, bsimd
+                    );
+                }
+            }
+        }
     }
 }

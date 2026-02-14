@@ -1,0 +1,7 @@
+draw_scanline_gouraud_1000px
+                        time:   [774.13 ns 779.33 ns 785.77 ns]
+                        change: [-0.6553% -0.2044% +0.3612%] (p = 0.48 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) high mild
+  2 (2.00%) high severe

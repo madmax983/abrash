@@ -1,14 +1,8 @@
-   Compiling abrash v0.1.0 (/app)
-    Finished `bench` profile [optimized] target(s) in 4.16s
-     Running benches/rasterization.rs (target/release/deps/rasterization-2f3b0f5724dc6187)
-Gnuplot not found, using plotters backend
-Benchmarking fill_triangle_gouraud
-Benchmarking fill_triangle_gouraud: Warming up for 3.0000 s
-Benchmarking fill_triangle_gouraud: Collecting 100 samples in estimated 6.3303 s (10k iterations)
-Benchmarking fill_triangle_gouraud: Analyzing
-fill_triangle_gouraud   time:   [617.26 µs 621.85 µs 627.96 µs]
-                        change: [-39.556% -39.232% -38.858%] (p = 0.00 < 0.05)
+draw_scanline_gouraud_1000px
+                        time:   [774.39 ns 775.37 ns 776.35 ns]
+                        change: [-67.674% -67.174% -66.779%] (p = 0.00 < 0.05)
                         Performance has improved.
-Found 5 outliers among 100 measurements (5.00%)
-  1 (1.00%) high mild
-  4 (4.00%) high severe
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
