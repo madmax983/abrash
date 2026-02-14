@@ -257,3 +257,7 @@ harness = false
 [[bench]]
 name = "scanline"
 harness = false
+
+[[bench]]
+name = "gouraud_scanline_new"
+harness = false
