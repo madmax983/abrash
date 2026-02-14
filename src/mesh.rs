@@ -34,6 +34,7 @@ pub struct Mesh {
 }
 
 /// A Bounding Sphere for object-level culling.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingSphere {
     pub center: Vec3,
