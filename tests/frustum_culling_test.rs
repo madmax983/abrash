@@ -26,7 +26,10 @@ fn test_frustum_culling_inside() {
     let frustum = Frustum::from_matrix(vp);
 
     // Check visibility
-    assert!(frustum.intersects(&sphere), "Mesh at origin should be visible");
+    assert!(
+        frustum.intersects(&sphere),
+        "Mesh at origin should be visible"
+    );
 }
 
 #[test]
@@ -50,5 +53,8 @@ fn test_frustum_culling_outside() {
 
     let frustum = Frustum::from_matrix(vp);
 
-    assert!(!frustum.intersects(&sphere), "Mesh at (100,0,0) should be culled");
+    assert!(
+        !frustum.intersects(&sphere),
+        "Mesh at (100,0,0) should be culled"
+    );
 }

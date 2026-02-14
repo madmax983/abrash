@@ -79,7 +79,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
-    let mut final_normals = Vec::with_capacity(1024);
+    // Optimization: Initialize with empty vector to avoid allocation for no-normal meshes
+    let mut final_normals = Vec::new();
     let mut final_indices = Vec::with_capacity(1024);
 
     // Reuse vector for face indices to avoid allocation per face
@@ -158,6 +159,12 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                         "Line {line_num}: Normal coordinates must be finite"
                     ));
                 }
+
+                // Optimization: Backfill normals if we encounter them after processing faces
+                if raw_normals.is_empty() && !final_vertices.is_empty() {
+                    final_normals.resize(final_vertices.len(), Vec3::new(0.0, 0.0, 0.0));
+                }
+
                 raw_normals.push(Vec3::new(x, y, z).normalize());
             }
             "f" => {
@@ -289,14 +296,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                                 ));
                             }
                             final_normals.push(raw_normals[ni]);
-                        } else {
-                            // If we have some normals but not for this vertex, we should align
-                            // Or just push a default?
-                            // If final_normals is not empty, we should keep it aligned with final_vertices?
-                            // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                            // But here we build incrementally.
-                            // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                            // For simplicity: If vn_idx is None, push Zero.
+                        } else if !raw_normals.is_empty() {
+                            // We have seen normals, but this vertex doesn't have one. Align with zero.
                             final_normals.push(Vec3::new(0.0, 0.0, 0.0));
                         }
 
@@ -316,11 +317,6 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
             }
             _ => {} // Ignore groups (g), materials (usemtl), etc.
         }
-    }
-
-    // Post-processing: If no normals were parsed, clear the final_normals vector to avoid partial state
-    if raw_normals.is_empty() {
-        final_normals.clear();
     }
 
     Ok(Mesh {

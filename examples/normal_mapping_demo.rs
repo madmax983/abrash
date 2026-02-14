@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 normal_map_pixels[y * 256 + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
             } else {
-                 normal_map_pixels[y * 256 + x] = 0xFF8080FF;
+                normal_map_pixels[y * 256 + x] = 0xFF8080FF;
             }
         }
     }
@@ -132,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &normal_map,
             light_dir,
             light_color,
-            ambient
+            ambient,
         );
 
         // Tri 2: 0, 2, 3
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &normal_map,
             light_dir,
             light_color,
-            ambient
+            ambient,
         );
 
         window.blit_framebuffer(&framebuffer);

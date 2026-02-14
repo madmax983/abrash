@@ -26,5 +26,9 @@ fn test_obj_deduplication_memory_explosion() {
 
     // With HashMap deduplication, this should be exactly 9.
     // With the old buggy implementation, it was 9000.
-    assert_eq!(mesh.vertices.len(), 9, "Memory explosion or duplicate vertices detected");
+    assert_eq!(
+        mesh.vertices.len(),
+        9,
+        "Memory explosion or duplicate vertices detected"
+    );
 }
