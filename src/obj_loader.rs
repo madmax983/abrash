@@ -66,6 +66,8 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     const NO_INDEX: usize = usize::MAX;
+    const MAX_VERTICES: usize = 1_000_000;
+    const MAX_FACES: usize = 1_000_000;
 
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
@@ -260,6 +262,13 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     if let Some(&idx) = deduplicator.get(&key) {
                         face_indices.push(idx);
                     } else {
+                        if final_vertices.len() >= MAX_VERTICES {
+                            return Err(format!(
+                                "OBJ file exceeds maximum vertex count ({})",
+                                MAX_VERTICES
+                            ));
+                        }
+
                         let new_idx = final_vertices.len();
 
                         // Push vertex
@@ -311,6 +320,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 }
 
                 for i in 1..face_indices.len() - 1 {
+                    if final_indices.len() >= MAX_FACES {
+                        return Err(format!("OBJ file exceeds maximum face count ({})", MAX_FACES));
+                    }
                     final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                 }
             }

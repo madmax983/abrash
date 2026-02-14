@@ -68,6 +68,12 @@ fn prepare_scanline<'a>(
         return None;
     }
 
+    // Safety Check: Bounds check y to prevent UB in unsafe block below.
+    // fb.width() and fb.height() are guaranteed <= i32::MAX.
+    if y < 0 || y >= fb.height() as i32 {
+        return None;
+    }
+
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -75,8 +81,9 @@ fn prepare_scanline<'a>(
 
     // SAFETY:
     // 1. xs and xe are clamped to [0, width-1].
-    // 2. y is assumed to be within bounds by caller (clamped in fill_triangle).
+    // 2. y is checked above to be [0, height-1].
     // 3. start_idx <= end_idx because xs <= xe.
+    // 4. (y * width + xe) fits in buffer size because of checks.
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
@@ -635,6 +642,10 @@ fn draw_scanline_phong_shadowed(
         return;
     }
 
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -978,6 +989,10 @@ fn draw_scanline_gouraud(
 
     if xe >= width {
         xe = width - 1;
+    }
+
+    if y < 0 || y >= fb.height() as i32 {
+        return;
     }
 
     // Optimization: Demote to i32 for the hot loop to reduce register pressure.
@@ -1892,6 +1907,10 @@ fn draw_scanline_textured_perspective(
     }
 
     if xs > xe {
+        return;
+    }
+
+    if y < 0 || y >= fb.height() as i32 {
         return;
     }
 
@@ -2869,6 +2888,10 @@ fn draw_scanline_phong(
         return;
     }
 
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
     let start_idx = y_offset + (xs as usize);
@@ -3653,6 +3676,10 @@ fn draw_scanline_normal_mapped(
     }
 
     if xs > xe {
+        return;
+    }
+
+    if y < 0 || y >= fb.height() as i32 {
         return;
     }
 
