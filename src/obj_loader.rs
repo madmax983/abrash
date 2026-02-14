@@ -257,51 +257,54 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Use NO_INDEX (usize::MAX) instead of Option to reduce key size from 40 to 24 bytes
                     let key = (v_idx, vt_idx.unwrap_or(NO_INDEX), vn_idx.unwrap_or(NO_INDEX));
 
-                    if let Some(&idx) = deduplicator.get(&key) {
-                        face_indices.push(idx);
-                    } else {
-                        let new_idx = final_vertices.len();
-
-                        // Push vertex
-                        final_vertices.push(raw_positions[v_idx]);
-
-                        // Push UV (or default 0,0)
-                        if let Some(ti) = vt_idx {
-                            if ti >= raw_uvs.len() {
-                                return Err(format!(
-                                    "Line {}: UV index {} out of bounds",
-                                    line_num,
-                                    ti + 1
-                                ));
-                            }
-                            final_uvs.push(raw_uvs[ti]);
-                        } else {
-                            final_uvs.push(Vec2::new(0.0, 0.0));
+                    match deduplicator.entry(key) {
+                        std::collections::hash_map::Entry::Occupied(entry) => {
+                            face_indices.push(*entry.get());
                         }
+                        std::collections::hash_map::Entry::Vacant(entry) => {
+                            let new_idx = final_vertices.len();
 
-                        // Push Normal (if present)
-                        if let Some(ni) = vn_idx {
-                            if ni >= raw_normals.len() {
-                                return Err(format!(
-                                    "Line {}: Normal index {} out of bounds",
-                                    line_num,
-                                    ni + 1
-                                ));
+                            // Push vertex
+                            final_vertices.push(raw_positions[v_idx]);
+
+                            // Push UV (or default 0,0)
+                            if let Some(ti) = vt_idx {
+                                if ti >= raw_uvs.len() {
+                                    return Err(format!(
+                                        "Line {}: UV index {} out of bounds",
+                                        line_num,
+                                        ti + 1
+                                    ));
+                                }
+                                final_uvs.push(raw_uvs[ti]);
+                            } else {
+                                final_uvs.push(Vec2::new(0.0, 0.0));
                             }
-                            final_normals.push(raw_normals[ni]);
-                        } else {
-                            // If we have some normals but not for this vertex, we should align
-                            // Or just push a default?
-                            // If final_normals is not empty, we should keep it aligned with final_vertices?
-                            // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                            // But here we build incrementally.
-                            // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                            // For simplicity: If vn_idx is None, push Zero.
-                            final_normals.push(Vec3::new(0.0, 0.0, 0.0));
-                        }
 
-                        deduplicator.insert(key, new_idx);
-                        face_indices.push(new_idx);
+                            // Push Normal (if present)
+                            if let Some(ni) = vn_idx {
+                                if ni >= raw_normals.len() {
+                                    return Err(format!(
+                                        "Line {}: Normal index {} out of bounds",
+                                        line_num,
+                                        ni + 1
+                                    ));
+                                }
+                                final_normals.push(raw_normals[ni]);
+                            } else {
+                                // If we have some normals but not for this vertex, we should align
+                                // Or just push a default?
+                                // If final_normals is not empty, we should keep it aligned with final_vertices?
+                                // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
+                                // But here we build incrementally.
+                                // If we start having normals, we push. If we missed some earlier, we are in trouble?
+                                // For simplicity: If vn_idx is None, push Zero.
+                                final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+                            }
+
+                            entry.insert(new_idx);
+                            face_indices.push(new_idx);
+                        }
                     }
                 }
 
