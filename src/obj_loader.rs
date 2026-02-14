@@ -85,7 +85,6 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
-    const NO_INDEX: usize = usize::MAX;
     const MAX_VERTICES: usize = 1_000_000;
     const MAX_FACES: usize = 1_000_000;
 
@@ -95,9 +94,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     let mut raw_normals = Vec::with_capacity(1024);
 
     // Deduplication structure:
-    // Key: (v_idx, vt_idx, vn_idx). vt/vn use NO_INDEX for None to save space/time.
+    // Key: Packed u64 (v_idx | vt_idx << 20 | vn_idx << 40)
     // Value: index in final_vertices.
-    let mut deduplicator: HashMap<(usize, usize, usize), usize> = HashMap::with_capacity(1024);
+    let mut deduplicator: HashMap<u64, usize> = HashMap::with_capacity(1024);
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);
@@ -159,6 +158,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 if !u.is_finite() || !v.is_finite() {
                     return Err(format!("Line {line_num}: UV coordinates must be finite"));
                 }
+                if raw_uvs.len() >= MAX_VERTICES {
+                    return Err(format!("Line {line_num}: Maximum UVs exceeded"));
+                }
                 raw_uvs.push(Vec2::new(u, v));
             }
             "vn" => {
@@ -182,6 +184,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     return Err(format!(
                         "Line {line_num}: Normal coordinates must be finite"
                     ));
+                }
+                if raw_normals.len() >= MAX_VERTICES {
+                    return Err(format!("Line {line_num}: Maximum Normals exceeded"));
                 }
                 raw_normals.push(Vec3::new(x, y, z).normalize());
             }
@@ -279,12 +284,16 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     }
 
                     // Use HashMap for full deduplication
-                    // Use NO_INDEX (usize::MAX) instead of Option to reduce key size from 40 to 24 bytes
-                    let key = (
-                        v_idx,
-                        vt_idx.unwrap_or(NO_INDEX),
-                        vn_idx.unwrap_or(NO_INDEX),
-                    );
+                    // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
+                    // Max index is 1,000,000, which fits in 20 bits (1,048,576).
+                    // 0xFFFFF is used as a sentinel for NO_INDEX.
+                    const SENTINEL: u64 = 0xF_FFFF;
+
+                    let k_v = v_idx as u64;
+                    let k_vt = vt_idx.map(|i| i as u64).unwrap_or(SENTINEL);
+                    let k_vn = vn_idx.map(|i| i as u64).unwrap_or(SENTINEL);
+
+                    let key = k_v | (k_vt << 20) | (k_vn << 40);
 
                     match deduplicator.entry(key) {
                         std::collections::hash_map::Entry::Occupied(entry) => {

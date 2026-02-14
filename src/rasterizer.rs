@@ -927,15 +927,8 @@ pub fn fill_triangle_phong_shadowed(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) =
+            ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
 
         let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
         if y_start > p0.y {
@@ -1077,10 +1070,135 @@ fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 // Fixed point scale factor (16.16)
 pub(crate) const FIXED_SCALE: f32 = 65536.0;
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_gouraud_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z_start: f32,
+    c_start: (i32, i32, i32),
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Load constants
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
+
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+    // Initialize colors: Start + (dc * i)
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
+
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
+
+    // Steps for 8 pixels
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+    // dc * 8
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
+
+    // Masks
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    while i + 8 <= len {
+        unsafe {
+            // Load Z
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+
+            // Compare Z
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+            let mask_int = _mm256_castps_si256(mask);
+
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                // Pack Colors: (val >> 16) & 0xFF
+                let r_val = _mm256_and_si256(_mm256_srli_epi32(r_vec, 16), mask_ff);
+                let g_val = _mm256_and_si256(_mm256_srli_epi32(g_vec, 16), mask_ff);
+                let b_val = _mm256_and_si256(_mm256_srli_epi32(b_vec, 16), mask_ff);
+
+                // Pack: alpha | (r << 16) | (g << 8) | b
+                let pixel_val = _mm256_or_si256(
+                    alpha_mask,
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(r_val, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(g_val, 8), b_val),
+                    ),
+                );
+
+                // Store with mask
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+        }
+
+        // Advance
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
+
+        i += 8;
+    }
+
+    // Scalar tail
+    let mut z = z_start + (i as f32) * dz_dx;
+    let mut r_i = c_start.0.wrapping_add(dc_dx.0.wrapping_mul(i as i32));
+    let mut g_i = c_start.1.wrapping_add(dc_dx.1.wrapping_mul(i as i32));
+    let mut b_i = c_start.2.wrapping_add(dc_dx.2.wrapping_mul(i as i32));
+
+    let dr = dc_dx.0;
+    let dg = dc_dx.1;
+    let db = dc_dx.2;
+
+    while i < len {
+        // SAFETY: Loop bounds checked
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z < *depth_val {
+                *depth_val = z;
+                let pixel = fb_slice.get_unchecked_mut(i);
+                // Fast path: direct shift, no clamp/mask (assuming valid input range)
+                let r = (r_i as u32) >> 16;
+                let g = (g_i as u32) >> 16;
+                let b = (b_i as u32) >> 16;
+                *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            }
+        }
+        z += dz_dx;
+        r_i = r_i.wrapping_add(dr);
+        g_i = g_i.wrapping_add(dg);
+        b_i = b_i.wrapping_add(db);
+        i += 1;
+    }
+}
+
 /// Draw a single scanline for Gouraud shading
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_gouraud(
+pub fn draw_scanline_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
@@ -1163,6 +1281,21 @@ fn draw_scanline_gouraud(
             && (b_end as u32) < safe_limit;
 
         if safe {
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_scanline_gouraud_simd(
+                        fb_slice,
+                        zb_slice,
+                        z,
+                        (r_i, g_i, b_i),
+                        dz_dx,
+                        (dr, dg, db),
+                    );
+                }
+                return;
+            }
+
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 if z < *depth_val {
                     *depth_val = z;
@@ -1270,7 +1403,7 @@ impl GouraudGradients {
         c0: Vec3,
         c1: Vec3,
         c2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -1299,18 +1432,13 @@ impl GouraudGradients {
         let dg_i = (dg * FIXED_SCALE) as i32;
         let db_i = (db * FIXED_SCALE) as i32;
 
-        Self {
-            dz_dx,
-            dc_dx: (dr_i, dg_i, db_i),
-        }
-    }
-
-    fn is_long_edge_left(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        ux * vy - uy * vx > 0.0
+        (
+            Self {
+                dz_dx,
+                dc_dx: (dr_i, dg_i, db_i),
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -1472,11 +1600,7 @@ pub fn fill_triangle_gouraud(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
-            let left = GouraudGradients::is_long_edge_left(p0, p1, p2);
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
 
         let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
         if y_start > p0.y {
@@ -1611,6 +1735,25 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> Self {
+        Self::new_with_winding(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2).0
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub fn new_with_winding(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -1650,15 +1793,18 @@ impl PerspectiveTextureGradients {
         let ny_v = uv * vx - ux * vv;
         let dv_dy = ny_v * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            du_dx,
-            dv_dx,
-            dq_dy,
-            du_dy,
-            dv_dy,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                dq_dy,
+                du_dy,
+                dv_dy,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -2314,18 +2460,9 @@ pub fn fill_triangle_textured(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g =
-                PerspectiveTextureGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2);
-
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+        );
 
         let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
         if y_start > p0.y {
@@ -2477,7 +2614,7 @@ impl PhongGradients {
         n0: Vec3,
         n1: Vec3,
         n2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -2507,12 +2644,15 @@ impl PhongGradients {
         let nx_nz = uy * vnz - unz * vy;
         let dnz_dx = nx_nz * inv_nz;
 
-        Self {
-            dz_dx,
-            dnx_dx,
-            dny_dx,
-            dnz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dnx_dx,
+                dny_dx,
+                dnz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -2600,7 +2740,7 @@ impl ShadowPhongGradients {
         w0: Vec3,
         w1: Vec3,
         w2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -2650,16 +2790,19 @@ impl ShadowPhongGradients {
         let nx_wz = uy * vwz - uwz * vy;
         let dwz_dx = nx_wz * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            dnx_dx,
-            dny_dx,
-            dnz_dx,
-            dwx_dx,
-            dwy_dx,
-            dwz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                dnx_dx,
+                dny_dx,
+                dnz_dx,
+                dwx_dx,
+                dwy_dx,
+                dwz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -3193,15 +3336,7 @@ pub fn fill_triangle_phong(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = PhongGradients::new(p0, p1, p2, n0, n1, n2);
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = PhongGradients::new(p0, p1, p2, n0, n1, n2);
 
         let mut edge_a = PhongEdgeWalker::new(p0, p2, n0, n2);
         if y_start > p0.y {
@@ -3310,7 +3445,7 @@ impl NormalMapGradients {
         l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
         l1: Vec3,
         l2: Vec3,
-    ) -> Self {
+    ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -3355,15 +3490,18 @@ impl NormalMapGradients {
         let nx_lz = uy * vlz - ulz * vy;
         let dlz_dx = nx_lz * inv_nz;
 
-        Self {
-            dz_dx,
-            dq_dx,
-            du_dx,
-            dv_dx,
-            dlx_dx,
-            dly_dx,
-            dlz_dx,
-        }
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                dlx_dx,
+                dly_dx,
+                dlz_dx,
+            },
+            nz > 0.0,
+        )
     }
 }
 
@@ -4104,17 +4242,9 @@ pub fn fill_triangle_normal_mapped(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = {
-            let g = NormalMapGradients::new(
-                p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
-            );
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let left = ux * vy - uy * vx > 0.0;
-            (g, left)
-        };
+        let (gradients, long_edge_is_left) = NormalMapGradients::new(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
+        );
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, l0, l2);
         if y_start > p0.y {
@@ -4511,5 +4641,55 @@ mod tests {
         let result = is_backface(p0, p1, p2);
 
         assert!(result);
+    }
+
+    #[test]
+    fn draw_scanline_gouraud_interpolation() {
+        // Test that draw_scanline_gouraud correctly interpolates z and color
+        let width = 100;
+        let height = 1;
+
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+
+        // Draw a scanline with float z and color gradient
+        let z_start = 5.0;
+        let dz_dx = 0.01;
+
+        // R: 200 -> 101. delta = -1 per pixel.
+        // G: 0 -> 99. delta = 1 per pixel.
+        // B: 50 -> 50. delta = 0.
+
+        let c_start = (200i64 << 16, 0, 50i64 << 16);
+        let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
+
+        draw_scanline_gouraud(
+            &mut fb,
+            &mut zb,
+            0,
+            0,
+            99,
+            z_start,
+            c_start,
+            dz_dx,
+            dc_dx,
+        );
+
+        // Verify start pixel
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50, "Pixel 0 mismatch");
+
+        // Verify middle pixel (x=50)
+        let p50 = fb.get_pixel(50, 0).unwrap();
+        assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50, "Pixel 50 mismatch");
+
+        // Verify end pixel (x=99)
+        let p99 = fb.get_pixel(99, 0).unwrap();
+        assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 50, "Pixel 99 mismatch");
+
+        // Verify Z-buffer
+        let zb_slice = zb.as_slice();
+        assert!((zb_slice[0] - 5.0).abs() < 0.0001);
+        assert!((zb_slice[50] - 5.5).abs() < 0.0001);
     }
 }
