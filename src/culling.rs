@@ -291,13 +291,6 @@ mod tests {
             assert_eq!(*simd, *scalar, "Mismatch at index {}: simd={}, scalar={}", i, simd, scalar);
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::math::{Mat4, Vec3};
-    use crate::mesh::BoundingSphere;
 
     #[test]
     fn test_plane_normalize() {
