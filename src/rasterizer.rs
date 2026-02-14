@@ -119,10 +119,76 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     nz >= 0
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_flat_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z_start: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let color_vec = _mm256_set1_epi32(color as i32);
+
+    // Initial offsets for 8 pixels
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets));
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+
+    while i + 8 <= len {
+        // SAFETY: i + 8 <= len ensures bounds.
+        unsafe {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+            let mask_int = _mm256_castps_si256(mask);
+
+            // If any pixel passes Z-test
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z-buffer
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                // Update Framebuffer
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let new_color = _mm256_blendv_epi8(old_color, color_vec, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        i += 8;
+    }
+
+    // Scalar tail
+    let mut z = z_start + (i as f32) * dz_dx;
+    while i < len {
+        // SAFETY: Bounds checked by slice length
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z < *depth_val {
+                *depth_val = z;
+                *fb_slice.get_unchecked_mut(i) = color;
+            }
+        }
+        z += dz_dx;
+        i += 1;
+    }
+}
+
 /// Draw a single scanline for flat shading with Z-buffering
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_flat(
+pub fn draw_scanline_flat(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
@@ -135,6 +201,14 @@ fn draw_scanline_flat(
     if let Some((fb_slice, zb_slice, mut z)) =
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_scanline_flat_simd(fb_slice, zb_slice, z, dz_dx, color);
+            }
+            return;
+        }
+
         for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
             if z < *depth_val {
                 *depth_val = z;
@@ -145,10 +219,127 @@ fn draw_scanline_flat(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_flat_blended_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z_start: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Alpha blend constants
+    let alpha = (color >> 24) & 0xFF;
+    let inv_alpha = 255 - alpha;
+
+    // SIMD constants
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    // Pre-scaled source color components
+    let rb_src = color & 0x00FF_00FF;
+    let ag_src = (color >> 8) & 0x00FF_00FF;
+    let rb_src_scaled = rb_src * alpha;
+    let ag_src_scaled = ag_src * alpha;
+
+    // Vectorize constants
+    let rb_src_vec = _mm256_set1_epi32(rb_src_scaled as i32); // 32-bit broadcast
+    let ag_src_vec = _mm256_set1_epi32(ag_src_scaled as i32);
+    let inv_alpha_vec = _mm256_set1_epi16(inv_alpha as i16);
+    let mask_rb_ag = _mm256_set1_epi32(0x00FF_00FF);
+
+    // Initial offsets for 8 pixels
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets));
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+
+    while i + 8 <= len {
+        // SAFETY: i + 8 <= len
+        unsafe {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+            let mask_int = _mm256_castps_si256(mask);
+
+            if _mm256_movemask_ps(mask) != 0 {
+                // Load Framebuffer
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let dest_pixels = _mm256_loadu_si256(fb_ptr);
+
+                // Separate Dest channels
+                // 00RR00BB
+                let dest_rb = _mm256_and_si256(dest_pixels, mask_rb_ag);
+                // 00AA00GG
+                let dest_ag = _mm256_and_si256(_mm256_srli_epi32(dest_pixels, 8), mask_rb_ag);
+
+                // Scale Dest (dest * inv_alpha)
+                // mullo_epi16 treats inputs as 16x 16-bit integers.
+                // Our layout is 00RR 00BB. Both 16-bit parts are <= 255.
+                // Multiplying by inv_alpha (<256) yields <65536, fitting in u16.
+                let dest_rb_scaled = _mm256_mullo_epi16(dest_rb, inv_alpha_vec);
+                let dest_ag_scaled = _mm256_mullo_epi16(dest_ag, inv_alpha_vec);
+
+                // Add scaled Source
+                let rb_sum = _mm256_add_epi32(rb_src_vec, dest_rb_scaled);
+                let ag_sum = _mm256_add_epi32(ag_src_vec, dest_ag_scaled);
+
+                // Shift right by 8 (divide by 256)
+                let rb_res = _mm256_srli_epi32(rb_sum, 8);
+                let ag_res = _mm256_srli_epi32(ag_sum, 8);
+
+                // Mask and Combine
+                let rb_final = _mm256_and_si256(rb_res, mask_rb_ag);
+                let ag_final = _mm256_and_si256(ag_res, mask_rb_ag);
+
+                // Result = rb | (ag << 8)
+                let blended = _mm256_or_si256(rb_final, _mm256_slli_epi32(ag_final, 8));
+
+                // Store (masked)
+                let new_color = _mm256_blendv_epi8(dest_pixels, blended, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        i += 8;
+    }
+
+    // Scalar tail
+    let mut z = z_start + (i as f32) * dz_dx;
+    let inv_alpha_u32 = inv_alpha;
+    let rb_src_scaled_u32 = rb_src_scaled;
+    let ag_src_scaled_u32 = ag_src_scaled;
+
+    while i < len {
+        // SAFETY: Bounds checked
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z < *depth_val {
+                let pixel = fb_slice.get_unchecked_mut(i);
+                let dest = *pixel;
+
+                let rb_dest = dest & 0x00FF_00FF;
+                let ag_dest = (dest >> 8) & 0x00FF_00FF;
+
+                let rb = ((rb_src_scaled_u32 + rb_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
+                let ag = ((ag_src_scaled_u32 + ag_dest * inv_alpha_u32) >> 8) & 0x00FF_00FF;
+
+                *pixel = rb | (ag << 8);
+            }
+        }
+        z += dz_dx;
+        i += 1;
+    }
+}
+
 /// Draw a single scanline for flat shading with Z-buffering and Alpha Blending
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_flat_blended(
+pub fn draw_scanline_flat_blended(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
@@ -161,6 +352,14 @@ fn draw_scanline_flat_blended(
     if let Some((fb_slice, zb_slice, mut z)) =
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_scanline_flat_blended_simd(fb_slice, zb_slice, z, dz_dx, color);
+            }
+            return;
+        }
+
         // Alpha blending parameters
         // Correct weights for standard alpha blending (255=Opaque, 0=Transparent)
         // w (dest weight) = 255 - alpha
