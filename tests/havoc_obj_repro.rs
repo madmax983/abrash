@@ -1,4 +1,3 @@
-
 #[test]
 fn test_havoc_obj_huge_input() {
     // Generate a string with length 0xFFFFFF (16MB)

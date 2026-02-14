@@ -1,7 +1,6 @@
-
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
 use abrash::rasterizer::draw_scanline_flat;
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_havoc_scanline_oob() {
@@ -18,14 +17,5 @@ fn test_havoc_scanline_oob() {
     let y_oob = 200;
 
     // This call is "safe" Rust code but might cause UB internally
-    draw_scanline_flat(
-        &mut fb,
-        &mut zb,
-        y_oob,
-        0,
-        50,
-        0.5,
-        0.0,
-        0xFFFF0000
-    );
+    draw_scanline_flat(&mut fb, &mut zb, y_oob, 0, 50, 0.5, 0.0, 0xFFFF0000);
 }
