@@ -7,36 +7,7 @@
 //! - **Grain/Noise**: Random intensity variations per pixel.
 
 use crate::framebuffer::Framebuffer;
-
-/// A simple Xorshift random number generator for deterministic noise.
-///
-/// Copied here to keep the module self-contained and dependency-free.
-struct XorShift32 {
-    state: u32,
-}
-
-impl XorShift32 {
-    const fn new(seed: u32) -> Self {
-        // Ensure non-zero seed
-        Self {
-            state: if seed == 0 { 0xDEAD_BEEF } else { seed },
-        }
-    }
-
-    const fn next(&mut self) -> u32 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.state = x;
-        x
-    }
-
-    /// Returns a float in [0.0, 1.0)
-    fn next_f32(&mut self) -> f32 {
-        (self.next() as f32) / (u32::MAX as f32)
-    }
-}
+use crate::utils::XorShift32;
 
 /// Applies a VHS glitch effect to the framebuffer in-place.
 ///
@@ -159,7 +130,7 @@ mod tests {
         let mut rng1 = XorShift32::new(123);
         let mut rng2 = XorShift32::new(123);
 
-        assert_eq!(rng1.next(), rng2.next());
-        assert_eq!(rng1.next(), rng2.next());
+        assert_eq!(rng1.next_u32(), rng2.next_u32());
+        assert_eq!(rng1.next_u32(), rng2.next_u32());
     }
 }
