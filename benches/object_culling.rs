@@ -27,7 +27,9 @@ fn bench_frustum_intersection(c: &mut Criterion) {
         });
     }
 
-    c.bench_function("frustum_cull_10k_spheres", |b| {
+    let mut group = c.benchmark_group("culling");
+
+    group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
         b.iter(|| {
             let mut visible_count = 0;
             for sphere in &spheres {
@@ -38,6 +40,16 @@ fn bench_frustum_intersection(c: &mut Criterion) {
             black_box(visible_count);
         });
     });
+
+    group.bench_function("frustum_cull_10k_spheres_simd", |b| {
+        b.iter(|| {
+            let results = frustum.cull_spheres(black_box(&spheres));
+            let visible_count = results.iter().filter(|&&v| v).count();
+            black_box(visible_count);
+        });
+    });
+
+    group.finish();
 }
 
 criterion_group!(benches, bench_frustum_intersection);
