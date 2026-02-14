@@ -164,85 +164,22 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 face_indices.clear();
                 for part in parts {
                     // format: v, v/vt, v//vn, v/vt/vn
-                    // Manual parsing to avoid split() iterator overhead
-                    let bytes = part.as_bytes();
+                    let (v_idx_raw, vt_idx_raw, vn_idx_raw) =
+                        parse_face_vertex(part).map_err(|e| format!("Line {line_num}: {e}"))?;
 
-                    // Find first '/' to separate v from vt/vn
-                    // This is faster than split('/').next()
-                    let mut first_slash = bytes.len();
-                    for (i, &b) in bytes.iter().enumerate() {
-                        if b == b'/' {
-                            first_slash = i;
-                            break;
-                        }
-                    }
-
-                    // Parse v_idx (0..first_slash)
-                    let v_idx = fast_parse_usize(&bytes[0..first_slash])
-                        .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
-
-                    let v_idx = v_idx
+                    let v_idx = v_idx_raw
                         .checked_sub(1)
                         .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
-                    // Parse vt_idx and vn_idx if present
-                    let mut vt_idx = None;
-                    let mut vn_idx = None;
+                    let vt_idx = vt_idx_raw
+                        .map(|i| i.checked_sub(1).ok_or(()))
+                        .transpose()
+                        .map_err(|()| format!("Line {line_num}: UV index 0 is invalid"))?;
 
-                    if first_slash < bytes.len() {
-                        let after_first_slash = first_slash + 1;
-                        // Check if next char is also '/' (case v//vn)
-                        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
-                            // v//vn case
-                            let after_second_slash = after_first_slash + 1;
-                            if after_second_slash < bytes.len() {
-                                // Parse vn
-                                let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                    .ok_or_else(|| {
-                                        format!("Line {line_num}: Invalid Normal index")
-                                    })?;
-                                vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                    format!("Line {line_num}: Normal index 0 is invalid")
-                                })?);
-                            }
-                        } else if after_first_slash < bytes.len() {
-                            // It's v/vt...
-                            // Find end of vt (next slash or end of string)
-                            let mut end_vt = bytes.len();
-                            let mut second_slash = None;
-
-                            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
-                                if b == b'/' {
-                                    end_vt = i;
-                                    second_slash = Some(i);
-                                    break;
-                                }
-                            }
-
-                            let vt_bytes = &bytes[after_first_slash..end_vt];
-                            if !vt_bytes.is_empty() {
-                                let idx = fast_parse_usize(vt_bytes)
-                                    .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
-                                vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                    format!("Line {line_num}: UV index 0 is invalid")
-                                })?);
-                            }
-
-                            // If there's a second slash, parse vn (v/vt/vn)
-                            if let Some(slash2) = second_slash {
-                                let after_second_slash = slash2 + 1;
-                                if after_second_slash < bytes.len() {
-                                    let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                        .ok_or_else(|| {
-                                            format!("Line {line_num}: Invalid Normal index")
-                                        })?;
-                                    vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                        format!("Line {line_num}: Normal index 0 is invalid")
-                                    })?);
-                                }
-                            }
-                        }
-                    }
+                    let vn_idx = vn_idx_raw
+                        .map(|i| i.checked_sub(1).ok_or(()))
+                        .transpose()
+                        .map_err(|()| format!("Line {line_num}: Normal index 0 is invalid"))?;
 
                     // Look up or insert
                     if v_idx >= raw_positions.len() {
@@ -255,7 +192,11 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                     // Use HashMap for full deduplication
                     // Use NO_INDEX (usize::MAX) instead of Option to reduce key size from 40 to 24 bytes
-                    let key = (v_idx, vt_idx.unwrap_or(NO_INDEX), vn_idx.unwrap_or(NO_INDEX));
+                    let key = (
+                        v_idx,
+                        vt_idx.unwrap_or(NO_INDEX),
+                        vn_idx.unwrap_or(NO_INDEX),
+                    );
 
                     if let Some(&idx) = deduplicator.get(&key) {
                         face_indices.push(idx);
@@ -330,6 +271,76 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         normals: final_normals,
         tangents: Vec::new(), // Tangents must be computed explicitly
     })
+}
+
+/// Helper to parse "v", "v/vt", "v//vn", or "v/vt/vn" string.
+/// Returns (`v_idx`, `vt_idx`, `vn_idx`) or error string.
+/// Indices are 1-based (as in OBJ).
+fn parse_face_vertex(token: &str) -> Result<(usize, Option<usize>, Option<usize>), &'static str> {
+    let bytes = token.as_bytes();
+
+    // Find first '/' to separate v from vt/vn
+    // This is faster than split('/').next()
+    let mut first_slash = bytes.len();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'/' {
+            first_slash = i;
+            break;
+        }
+    }
+
+    // Parse v_idx (0..first_slash)
+    let v_idx = fast_parse_usize(&bytes[0..first_slash]).ok_or("Invalid vertex index")?;
+
+    // Parse vt_idx and vn_idx if present
+    let mut vt_idx = None;
+    let mut vn_idx = None;
+
+    if first_slash < bytes.len() {
+        let after_first_slash = first_slash + 1;
+        // Check if next char is also '/' (case v//vn)
+        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
+            // v//vn case
+            let after_second_slash = after_first_slash + 1;
+            if after_second_slash < bytes.len() {
+                // Parse vn
+                let idx =
+                    fast_parse_usize(&bytes[after_second_slash..]).ok_or("Invalid Normal index")?;
+                vn_idx = Some(idx);
+            }
+        } else if after_first_slash < bytes.len() {
+            // It's v/vt...
+            // Find end of vt (next slash or end of string)
+            let mut end_vt = bytes.len();
+            let mut second_slash = None;
+
+            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
+                if b == b'/' {
+                    end_vt = i;
+                    second_slash = Some(i);
+                    break;
+                }
+            }
+
+            let vt_bytes = &bytes[after_first_slash..end_vt];
+            if !vt_bytes.is_empty() {
+                let idx = fast_parse_usize(vt_bytes).ok_or("Invalid UV index")?;
+                vt_idx = Some(idx);
+            }
+
+            // If there's a second slash, parse vn (v/vt/vn)
+            if let Some(slash2) = second_slash {
+                let after_second_slash = slash2 + 1;
+                if after_second_slash < bytes.len() {
+                    let idx = fast_parse_usize(&bytes[after_second_slash..])
+                        .ok_or("Invalid Normal index")?;
+                    vn_idx = Some(idx);
+                }
+            }
+        }
+    }
+
+    Ok((v_idx, vt_idx, vn_idx))
 }
 
 #[cfg(test)]

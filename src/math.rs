@@ -876,17 +876,28 @@ mod tests {
         let p_near = Vec3::new(0.0, 0.0, -near);
         let (p_near_prime, w_near) = proj.transform_point(p_near);
 
-        assert!((w_near - near).abs() < 1e-5, "w at near plane should be near");
+        assert!(
+            (w_near - near).abs() < 1e-5,
+            "w at near plane should be near"
+        );
         // In standard GL, z_ndc at near is -1.0
         let z_ndc_near = p_near_prime.z / w_near;
-        assert!((z_ndc_near - (-1.0)).abs() < 1e-5, "NDZ z at near should be -1.0, got {}", z_ndc_near);
+        assert!(
+            (z_ndc_near - (-1.0)).abs() < 1e-5,
+            "NDZ z at near should be -1.0, got {}",
+            z_ndc_near
+        );
 
         let p_far = Vec3::new(0.0, 0.0, -far);
         let (p_far_prime, w_far) = proj.transform_point(p_far);
         assert!((w_far - far).abs() < 1e-5, "w at far plane should be far");
         // In standard GL, z_ndc at far is 1.0
         let z_ndc_far = p_far_prime.z / w_far;
-        assert!((z_ndc_far - 1.0).abs() < 1e-5, "NDC z at far should be 1.0, got {}", z_ndc_far);
+        assert!(
+            (z_ndc_far - 1.0).abs() < 1e-5,
+            "NDC z at far should be 1.0, got {}",
+            z_ndc_far
+        );
     }
 
     #[test]
