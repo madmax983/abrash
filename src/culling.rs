@@ -292,3 +292,94 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::{Mat4, Vec3};
+    use crate::mesh::BoundingSphere;
+
+    #[test]
+    fn test_plane_normalize() {
+        // Create a plane with a non-normalized normal (length 3)
+        // Normal: (3, 0, 0), Distance: 3.0
+        // Normalized should be: (1, 0, 0), Distance: 1.0
+        let mut plane = Plane {
+            normal: Vec3::new(3.0, 0.0, 0.0),
+            distance: 3.0,
+        };
+
+        plane.normalize();
+
+        assert!((plane.normal.x - 1.0).abs() < 1e-5);
+        assert!(plane.normal.y.abs() < 1e-5);
+        assert!(plane.normal.z.abs() < 1e-5);
+        assert!((plane.distance - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_plane_distance() {
+        // Plane with normal (0, 1, 0) and distance -2.0
+        // Equation: y - 2 = 0 -> y = 2
+        // Normal points UP (positive Y).
+        // Distance is d = n . p + D
+        // d = y - 2
+        let plane = Plane {
+            normal: Vec3::new(0.0, 1.0, 0.0),
+            distance: -2.0,
+        };
+
+        // Point at (0, 3, 0): d = 3 - 2 = 1 (Inside/Positive)
+        let p_inside = Vec3::new(0.0, 3.0, 0.0);
+        assert!((plane.distance_to_point(p_inside) - 1.0).abs() < 1e-5);
+
+        // Point at (0, 1, 0): d = 1 - 2 = -1 (Outside/Negative)
+        let p_outside = Vec3::new(0.0, 1.0, 0.0);
+        assert!((plane.distance_to_point(p_outside) - (-1.0)).abs() < 1e-5);
+
+        // Point at (0, 2, 0): d = 2 - 2 = 0 (On plane)
+        let p_on = Vec3::new(0.0, 2.0, 0.0);
+        assert!(plane.distance_to_point(p_on).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_frustum_intersection() {
+        // Identity matrix corresponds to canonical view volume [-1, 1]
+        let m = Mat4::identity();
+        let frustum = Frustum::from_matrix(m);
+
+        // 1. Sphere strictly inside
+        let s_inside = BoundingSphere {
+            center: Vec3::new(0.0, 0.0, 0.0),
+            radius: 0.5,
+        };
+        assert!(frustum.intersects(&s_inside), "Sphere inside should be visible");
+
+        // 2. Sphere intersecting boundary
+        // Right plane is at x=1, normal pointing left (-1, 0, 0).
+        // Center at (1.2, 0, 0), radius 0.5.
+        // Closest point on sphere is at x = 1.2 - 0.5 = 0.7 (inside volume)
+        // Or checking distance:
+        // Plane: -x + 1 = 0
+        // Dist = -1.2 + 1 = -0.2
+        // -0.2 >= -0.5 is TRUE, so it intersects.
+        let s_intersect = BoundingSphere {
+            center: Vec3::new(1.2, 0.0, 0.0),
+            radius: 0.5,
+        };
+        assert!(frustum.intersects(&s_intersect), "Intersecting sphere should be visible");
+
+        // 3. Sphere strictly outside
+        // Center at (2.0, 0, 0), radius 0.5.
+        // Closest point x = 1.5 (still outside)
+        // Dist = -2.0 + 1 = -1.0
+        // -1.0 < -0.5 is TRUE (it is strictly outside the negative-radius threshold)
+        // wait, `intersects` returns FALSE if `dist < -radius`.
+        // -1.0 < -0.5 is true, so it returns false.
+        let s_outside = BoundingSphere {
+            center: Vec3::new(2.0, 0.0, 0.0),
+            radius: 0.5,
+        };
+        assert!(!frustum.intersects(&s_outside), "Outside sphere should be culled");
+    }
+}
