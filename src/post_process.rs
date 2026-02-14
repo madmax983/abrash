@@ -168,8 +168,101 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// apply_sepia(&mut fb);
 /// // Result is tinted yellowish-brown.
 /// ```
-pub fn apply_sepia(fb: &mut Framebuffer) {
-    let pixels = fb.as_mut_slice();
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
+        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_min_epi32,
+        _mm256_or_si256, _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_epi64x,
+        _mm256_slli_epi32, _mm256_srai_epi32, _mm256_storeu_si256,
+    };
+
+    // Weights for Sepia
+    // NewR = (402 * R + 787 * G + 194 * B) >> 10
+    // NewG = (357 * R + 702 * G + 172 * B) >> 10
+    // NewB = (279 * R + 547 * G + 134 * B) >> 10
+
+    // Memory layout: B G R A (little endian)
+    // Madd takes pairs: (B, G) and (R, A)
+    // Weights are stored as i16 in 64-bit blocks: W3 W2 W1 W0
+
+    // Weights for Red
+    // B*194 + G*787 -> W0=194(0xC2), W1=787(0x313)
+    // R*402 + A*0   -> W2=402(0x192), W3=0
+    let w_r = unsafe { _mm256_set1_epi64x(0x0000_0192_0313_00C2) };
+
+    // Weights for Green
+    // B*172 + G*702 -> W0=172(0xAC), W1=702(0x2BE)
+    // R*357 + A*0   -> W2=357(0x165), W3=0
+    let w_g = unsafe { _mm256_set1_epi64x(0x0000_0165_02BE_00AC) };
+
+    // Weights for Blue
+    // B*134 + G*547 -> W0=134(0x86), W1=547(0x223)
+    // R*279 + A*0   -> W2=279(0x117), W3=0
+    let w_b = unsafe { _mm256_set1_epi64x(0x0000_0117_0223_0086) };
+
+    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+    let max_val = unsafe { _mm256_set1_epi32(255) };
+
+    let len = pixels.len();
+    let simd_len = len & !7;
+    let mut ptr = pixels.as_mut_ptr();
+    let end_ptr = unsafe { ptr.add(simd_len) };
+
+    while ptr < end_ptr {
+        unsafe {
+            let chunk = _mm256_loadu_si256(ptr.cast());
+
+            // Extract Alpha
+            let alphas = _mm256_and_si256(chunk, alpha_mask);
+
+            // Unpack to i16 (0..255)
+            let lo_128 = _mm256_castsi256_si128(chunk);
+            let hi_128 = _mm256_extracti128_si256(chunk, 1);
+            let v_lo = _mm256_cvtepu8_epi16(lo_128);
+            let v_hi = _mm256_cvtepu8_epi16(hi_128);
+
+            // Compute Red
+            let r_lo = _mm256_madd_epi16(v_lo, w_r);
+            let r_hi = _mm256_madd_epi16(v_hi, w_r);
+            let r_sum = _mm256_hadd_epi32(r_lo, r_hi);
+            let r_ord = _mm256_permute4x64_epi64(r_sum, 0xD8);
+            let r_val = _mm256_srai_epi32(r_ord, 10);
+            let r_clamped = _mm256_min_epi32(r_val, max_val);
+
+            // Compute Green
+            let g_lo = _mm256_madd_epi16(v_lo, w_g);
+            let g_hi = _mm256_madd_epi16(v_hi, w_g);
+            let g_sum = _mm256_hadd_epi32(g_lo, g_hi);
+            let g_ord = _mm256_permute4x64_epi64(g_sum, 0xD8);
+            let g_val = _mm256_srai_epi32(g_ord, 10);
+            let g_clamped = _mm256_min_epi32(g_val, max_val);
+
+            // Compute Blue
+            let b_lo = _mm256_madd_epi16(v_lo, w_b);
+            let b_hi = _mm256_madd_epi16(v_hi, w_b);
+            let b_sum = _mm256_hadd_epi32(b_lo, b_hi);
+            let b_ord = _mm256_permute4x64_epi64(b_sum, 0xD8);
+            let b_val = _mm256_srai_epi32(b_ord, 10);
+            let b_clamped = _mm256_min_epi32(b_val, max_val);
+
+            // Pack: B | G<<8 | R<<16 | A
+            let g_shift = _mm256_slli_epi32(g_clamped, 8);
+            let r_shift = _mm256_slli_epi32(r_clamped, 16);
+
+            let result = _mm256_or_si256(
+                b_clamped,
+                _mm256_or_si256(g_shift, _mm256_or_si256(r_shift, alphas)),
+            );
+
+            _mm256_storeu_si256(ptr.cast(), result);
+            ptr = ptr.add(8);
+        }
+    }
+}
+
+fn apply_sepia_scalar(pixels: &mut [u32]) {
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let r = (p >> 16) & 0xFF;
@@ -187,6 +280,29 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
     }
+}
+
+pub fn apply_sepia(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            let len = pixels.len();
+            let simd_len = len & !7;
+
+            // Process multiple of 8 with AVX2
+            // SAFETY: We checked feature detection and pass a valid mutable slice.
+            unsafe { apply_sepia_avx2(&mut pixels[..simd_len]) };
+
+            // Process the tail with scalar
+            apply_sepia_scalar(&mut pixels[simd_len..]);
+            return;
+        }
+    }
+
+    // Scalar fallback
+    apply_sepia_scalar(pixels);
 }
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
