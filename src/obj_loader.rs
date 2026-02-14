@@ -33,7 +33,7 @@ use std::collections::HashMap;
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
 fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
-    if bytes.is_empty() {
+    if bytes.is_empty() || bytes.len() > 20 {
         return None;
     }
     let mut n: usize = 0;
@@ -66,6 +66,8 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     const NO_INDEX: usize = usize::MAX;
+    const MAX_VERTICES: usize = 1_000_000;
+    const MAX_FACES: usize = 1_000_000;
 
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
@@ -116,6 +118,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
 
                 if !x.is_finite() || !y.is_finite() || !z.is_finite() {
                     return Err(format!("Line {line_num}: Coordinates must be finite"));
+                }
+                if raw_positions.len() >= MAX_VERTICES {
+                    return Err(format!("Line {line_num}: Maximum vertices exceeded"));
                 }
                 raw_positions.push(Vec3::new(x, y, z));
             }
@@ -311,6 +316,9 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                 }
 
                 for i in 1..face_indices.len() - 1 {
+                    if final_indices.len() >= MAX_FACES {
+                        return Err(format!("Line {line_num}: Maximum faces exceeded"));
+                    }
                     final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
                 }
             }
