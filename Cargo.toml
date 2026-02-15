@@ -255,7 +255,7 @@ name = "shadow_mapping"
 harness = false
 
 [[bench]]
-name = "scanline"=
+name = "scanline"
 harness = false
 
 [[bench]]

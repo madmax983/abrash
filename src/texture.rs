@@ -58,22 +58,90 @@ pub const fn blend_four_way(c00: u32, c10: u32, c01: u32, c11: u32, wx: u32, wy:
 
     // Unpack and accumulate
     // Use u64 to prevent overflow when multiplying 8-bit components by 16-bit weights
-    // (max result ~16.7 million, which fits in 24 bits, but packed channels overlap in u32)
-    let mut acc_rb = (c00 as u64 & 0x00FF_00FF) * w00;
-    acc_rb += (c10 as u64 & 0x00FF_00FF) * w10;
-    acc_rb += (c01 as u64 & 0x00FF_00FF) * w01;
-    acc_rb += (c11 as u64 & 0x00FF_00FF) * w11;
+    // We expand channels to wider spacing (32 bits) to avoid overlap during accumulation.
+    // Pattern: Low channel at 0, High channel at 32.
+    // For RB: B at 0, R at 32.
+    // For AG: G at 0, A at 32.
 
-    let mut acc_ag = ((c00 as u64 >> 8) & 0x00FF_00FF) * w00;
-    acc_ag += ((c10 as u64 >> 8) & 0x00FF_00FF) * w10;
-    acc_ag += ((c01 as u64 >> 8) & 0x00FF_00FF) * w01;
-    acc_ag += ((c11 as u64 >> 8) & 0x00FF_00FF) * w11;
+    #[inline(always)]
+    const fn expand(c: u32) -> u64 {
+        (c as u64 & 0xFF) | ((c as u64 & 0xFF0000) << 16)
+    }
+
+    let mut acc_rb = expand(c00) * w00;
+    acc_rb += expand(c10) * w10;
+    acc_rb += expand(c01) * w01;
+    acc_rb += expand(c11) * w11;
+
+    // Shift c right by 8 to align G and A to 0 and 16 (then expanded to 0 and 32)
+    let mut acc_ag = expand(c00 >> 8) * w00;
+    acc_ag += expand(c10 >> 8) * w10;
+    acc_ag += expand(c01 >> 8) * w01;
+    acc_ag += expand(c11 >> 8) * w11;
 
     // Pack
-    let rb = (acc_rb >> 16) as u32 & 0x00FF_00FF;
-    let ag = (acc_ag >> 16) as u32 & 0x00FF_00FF;
+    // Accumulators are (Channel * WeightSum). WeightSum is 65536 (2^16).
+    // So we shift by 16 to divide.
+    // Low channel (B/G) ends up at 0.
+    // High channel (R/A) was at 32. After shift 16, it's at 16?
+    // Wait: Input was (Channel << 32). Multiplied by W (<< 0). Result << 32.
+    // Shift right by 16 -> Result << 16.
+    // Wait, High channel starts at 32. Input R is `(c & 0xFF0000) << 16`.
+    // 0xFF0000 is bits 16-23. `<< 16` moves it to 32-39.
+    // So High channel is at 32.
+    // After mul by W (up to 16 bits), it grows but stays anchored at 32.
+    // To normalize, we divide by 65536 (>> 16).
+    // So normalized High channel starts at 32 - 16 = 16.
+    // Normalized Low channel starts at 0 - 16 = -16? No.
+    // Low channel is at 0. Mul by W. Ends at 24.
+    // Divide by 65536 (>> 16).
+    // Low channel starts at 0.
+    // So `acc >> 16` has Low at 0, High at 16.
+    // That means `acc_rb >> 16` is `0x...RR...BB`.
+    // 0x00FF00FF mask should work if High is at 16.
+    // R is at 16-23.
+    // Let's re-verify `expand`.
+    // `(c & 0xFF0000) << 16`.
+    // 0xFF0000 is 16-23.
+    // << 16 moves it to 32-39.
+    // Correct.
+    // acc = R * W (at 32) + B * W (at 0).
+    // acc >> 16.
+    // R term: (R * W) >> 16.
+    // If W = 65536 ($2^{16}$), then (R * 2^16) >> 16 = R.
+    // But R was shifted to 32!
+    // So (R * 2^16 * 2^32) >> 16? No.
+    // R_val * 2^32.
+    // R_val * W * 2^32.
+    // >> 16 -> R_val * W * 2^16.
+    // If W=2^16, -> R_val * 2^32.
+    // So R is still at 32!
+    // My manual trace earlier:
+    // "High channel (R/A) was at 32. After shift 16, it's at 16."
+    // 32 - 16 = 16.
+    // BUT R_val is the byte value.
+    // `expand` puts `R_val` at bit 32?
+    // `(c & 0xFF0000)` has value `R * 2^16`.
+    // `<< 16` makes it `R * 2^32`.
+    // So `expand` puts R at 32.
+    // `expand(c) = B + R * 2^32`.
+    // `acc = sum(B*W) + sum(R*W)*2^32`.
+    // `acc >> 16 = (sum(B*W) >> 16) + sum(R*W)*2^16`.
+    // `sum(B*W) >> 16` is `B_avg`.
+    // `sum(R*W)*2^16` is `(R_avg * 65536) * 2^16` = `R_avg * 2^32`.
+    // So R stays at bit 32!
+    // It does NOT move to bit 16.
+    // So `acc >> 16` has `B` at 0, `R` at 32.
+    // Mask `0x00FF00FF` gets B (at 0) but MISSES R (at 32).
+    // R needs to be shifted down by another 16 bits to land at 16.
+    // Or we extract R from 32 and B from 0.
 
-    rb | (ag << 8)
+    let b = (acc_rb >> 16) as u32 & 0xFF;
+    let r = (acc_rb >> 48) as u32 & 0xFF;
+    let g = (acc_ag >> 16) as u32 & 0xFF;
+    let a = (acc_ag >> 48) as u32 & 0xFF;
+
+    (a << 24) | (r << 16) | (g << 8) | b
 }
 
 /// Helper to average 4 colors (simple box filter)

@@ -1072,7 +1072,7 @@ pub const FIXED_SCALE: f32 = 65536.0;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
-unsafe fn draw_scanline_gouraud_simd(
+unsafe fn draw_scanline_gouraud_simd_clamped(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     z_start: f32,
@@ -1198,7 +1198,7 @@ unsafe fn draw_scanline_gouraud_simd(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
-unsafe fn draw_scanline_gouraud_simd(
+unsafe fn draw_scanline_gouraud_simd_fast(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     z_start: f32,
@@ -1387,21 +1387,6 @@ pub fn draw_scanline_gouraud(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
-            unsafe {
-                draw_scanline_gouraud_simd(
-                    fb_slice,
-                    zb_slice,
-                    z,
-                    (r_i, g_i, b_i),
-                    dz_dx,
-                    (dr, dg, db),
-                );
-            }
-            return;
-        }
-
         // Optimization: Check for fast path (no clamping needed)
         // If all color channels are within [0, 255] for the entire span, we can skip clamping.
         // r_i is 16.16 fixed point. Max value is 255.0 = 0x00FF_0000.
@@ -1425,7 +1410,7 @@ pub fn draw_scanline_gouraud(
             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
             if is_x86_feature_detected!("avx2") {
                 unsafe {
-                    draw_scanline_gouraud_simd(
+                    draw_scanline_gouraud_simd_fast(
                         fb_slice,
                         zb_slice,
                         z,
@@ -1454,6 +1439,21 @@ pub fn draw_scanline_gouraud(
                 b_i += db;
             }
         } else {
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_scanline_gouraud_simd_clamped(
+                        fb_slice,
+                        zb_slice,
+                        z,
+                        (r_i, g_i, b_i),
+                        dz_dx,
+                        (dr, dg, db),
+                    );
+                }
+                return;
+            }
+
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 // Check depth buffer
                 if z < *depth_val {
