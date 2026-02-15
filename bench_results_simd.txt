@@ -1,0 +1,471 @@
+   Compiling abrash v0.1.0 (/app)
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:375:26
+    |
+375 |             let b_vals = _mm256_and_si256(pixels, mask_ff);
+    |                          ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+375 -             let b_vals = _mm256_and_si256(pixels, mask_ff);
+375 +             let b_vals = _mm256_or_si256(pixels, mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:376:26
+    |
+376 |             let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+    |                          ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+376 -             let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+376 +             let g_vals = _mm256_or_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:377:26
+    |
+377 |             let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+    |                          ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+377 -             let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+377 +             let r_vals = _mm256_or_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_mullo_epi32` in this scope
+   --> src/post_process.rs:381:27
+    |
+381 |             let b_added = _mm256_mullo_epi32(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
+    |                           ^^^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2147:1
+    |
+    = note: similarly named function `_mm256_mullo_epi16` defined here
+help: a function with a similar name exists
+    |
+381 -             let b_added = _mm256_mullo_epi32(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
+381 +             let b_added = _mm256_mullo_epi16(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_mullo_epi32;
+    |
+
+error[E0425]: cannot find function `_mm256_mullo_epi32` in this scope
+   --> src/post_process.rs:384:27
+    |
+384 |             let g_added = _mm256_mullo_epi32(g_vals, count_vec);
+    |                           ^^^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2147:1
+    |
+    = note: similarly named function `_mm256_mullo_epi16` defined here
+help: a function with a similar name exists
+    |
+384 -             let g_added = _mm256_mullo_epi32(g_vals, count_vec);
+384 +             let g_added = _mm256_mullo_epi16(g_vals, count_vec);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_mullo_epi32;
+    |
+
+error[E0425]: cannot find function `_mm256_mullo_epi32` in this scope
+   --> src/post_process.rs:385:27
+    |
+385 |             let r_added = _mm256_mullo_epi32(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
+    |                           ^^^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2147:1
+    |
+    = note: similarly named function `_mm256_mullo_epi16` defined here
+help: a function with a similar name exists
+    |
+385 -             let r_added = _mm256_mullo_epi32(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
+385 +             let r_added = _mm256_mullo_epi16(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_mullo_epi32;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:413:31
+    |
+413 |                  let b_vals = _mm256_and_si256(pixels, mask_ff);
+    |                               ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+413 -                  let b_vals = _mm256_and_si256(pixels, mask_ff);
+413 +                  let b_vals = _mm256_or_si256(pixels, mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:414:31
+    |
+414 |                  let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+    |                               ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+414 -                  let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+414 +                  let g_vals = _mm256_or_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:415:31
+    |
+415 |                  let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+    |                               ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+415 -                  let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+415 +                  let r_vals = _mm256_or_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:484:25
+    |
+484 |             let out_b = _mm256_and_si256(out_pixels, mask_ff);
+    |                         ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+484 -             let out_b = _mm256_and_si256(out_pixels, mask_ff);
+484 +             let out_b = _mm256_or_si256(out_pixels, mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:485:25
+    |
+485 |             let out_g = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
+    |                         ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+485 -             let out_g = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
+485 +             let out_g = _mm256_or_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:486:25
+    |
+486 |             let out_r = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
+    |                         ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+486 -             let out_r = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
+486 +             let out_r = _mm256_or_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:490:24
+    |
+490 |             let in_b = _mm256_and_si256(in_pixels, mask_ff);
+    |                        ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+490 -             let in_b = _mm256_and_si256(in_pixels, mask_ff);
+490 +             let in_b = _mm256_or_si256(in_pixels, mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:491:24
+    |
+491 |             let in_g = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
+    |                        ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+491 -             let in_g = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
+491 +             let in_g = _mm256_or_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+error[E0425]: cannot find function `_mm256_and_si256` in this scope
+   --> src/post_process.rs:492:24
+    |
+492 |             let in_r = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
+    |                        ^^^^^^^^^^^^^^^^
+    |
+   --> /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:2186:1
+    |
+    = note: similarly named function `_mm256_or_si256` defined here
+help: a function with a similar name exists
+    |
+492 -             let in_r = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
+492 +             let in_r = _mm256_or_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
+    |
+help: consider importing this function
+    |
+ 20 + use std::arch::x86_64::_mm256_and_si256;
+    |
+
+warning: unused imports: `_mm256_castsi256_si128`, `_mm256_cvtepu8_epi32`, `_mm256_mullo_epi16`, `_mm256_packus_epi16`, `_mm256_packus_epi32`, `_mm256_permute4x64_epi64`, and `_mm256_srai_epi32`
+   --> src/post_process.rs:304:45
+    |
+304 |         _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi16, _mm256_cvtepu8_epi32,
+    |                                             ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+305 |         _mm256_castsi256_si128, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_set1_epi32,
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+306 |         _mm256_srai_epi32, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
+    |         ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary parentheses around assigned value
+   --> src/post_process.rs:335:21
+    |
+335 |         let count = (radius as i32 + 1);
+    |                     ^                 ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+335 -         let count = (radius as i32 + 1);
+335 +         let count = radius as i32 + 1;
+    |
+
+warning: unused import: `_mm256_inserti128_si256`
+   --> src/post_process.rs:588:9
+    |
+588 |         _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:117:19
+    |
+117 |     let end_ptr = s_ptr.add(len);
+    |                   ^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+   --> src/post_process.rs:99:1
+    |
+ 99 | unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u8) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(unsafe_op_in_unsafe_fn)]` (part of `#[warn(rust_2024_compatibility)]`) on by default
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_si256` is unsafe and requires unsafe block
+   --> src/post_process.rs:120:21
+    |
+120 |         let chunk = _mm256_loadu_si256(s_ptr.cast());
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+   --> src/post_process.rs:147:9
+    |
+147 |         _mm256_storeu_si256(d_ptr.cast(), result);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:148:17
+    |
+148 |         s_ptr = s_ptr.add(8);
+    |                 ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:149:17
+    |
+149 |         d_ptr = d_ptr.add(8);
+    |                 ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning: unused variable: `alphas`
+   --> src/post_process.rs:123:13
+    |
+123 |         let alphas = _mm256_and_si256(chunk, alpha_mask);
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_alphas`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:600:19
+    |
+600 |     let end_ptr = d_ptr.add(len);
+    |                   ^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+   --> src/post_process.rs:585:1
+    |
+585 | unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_si256` is unsafe and requires unsafe block
+   --> src/post_process.rs:603:23
+    |
+603 |         let s_chunk = _mm256_loadu_si256(s_ptr.cast());
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_si256` is unsafe and requires unsafe block
+   --> src/post_process.rs:604:23
+    |
+604 |         let d_chunk = _mm256_loadu_si256(d_ptr.cast());
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+   --> src/post_process.rs:731:9
+    |
+731 |         _mm256_storeu_si256(d_ptr.cast(), final_result);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:733:17
+    |
+733 |         d_ptr = d_ptr.add(8);
+    |                 ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/post_process.rs:734:17
+    |
+734 |         s_ptr = s_ptr.add(8);
+    |                 ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning: unnecessary `unsafe` block
+   --> src/post_process.rs:906:15
+    |
+906 |     let w_r = unsafe { _mm256_set1_epi64x(0x0000_0192_0313_00C2) };
+    |               ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> src/post_process.rs:911:15
+    |
+911 |     let w_g = unsafe { _mm256_set1_epi64x(0x0000_0165_02BE_00AC) };
+    |               ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/post_process.rs:916:15
+    |
+916 |     let w_b = unsafe { _mm256_set1_epi64x(0x0000_0117_0223_0086) };
+    |               ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/post_process.rs:918:22
+    |
+918 |     let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+    |                      ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/post_process.rs:919:19
+    |
+919 |     let max_val = unsafe { _mm256_set1_epi32(255) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+Some errors have detailed explanations: E0133, E0425.
+For more information about an error, try `rustc --explain E0133`.
+warning: `abrash` (lib) generated 20 warnings
+error: could not compile `abrash` (lib) due to 15 previous errors; 20 warnings emitted

@@ -600,8 +600,114 @@ impl Mat4 {
     /// ```
     pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
         assert_eq!(points.len(), output.len());
+
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                self.transform_points_avx2(points, output);
+                return;
+            }
+        }
+
         for (p, out) in points.iter().zip(output.iter_mut()) {
             *out = self.transform_point(*p);
+        }
+    }
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    #[target_feature(enable = "avx2,fma")]
+    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+        use std::arch::x86_64::*;
+
+        let len = points.len();
+        let mut i = 0;
+
+        unsafe {
+            // Load Matrix Columns (broadcast)
+            let m00 = _mm256_set1_ps(self.m[0][0]);
+            let m01 = _mm256_set1_ps(self.m[0][1]);
+            let m02 = _mm256_set1_ps(self.m[0][2]);
+            let m03 = _mm256_set1_ps(self.m[0][3]);
+
+            let m10 = _mm256_set1_ps(self.m[1][0]);
+            let m11 = _mm256_set1_ps(self.m[1][1]);
+            let m12 = _mm256_set1_ps(self.m[1][2]);
+            let m13 = _mm256_set1_ps(self.m[1][3]);
+
+            let m20 = _mm256_set1_ps(self.m[2][0]);
+            let m21 = _mm256_set1_ps(self.m[2][1]);
+            let m22 = _mm256_set1_ps(self.m[2][2]);
+            let m23 = _mm256_set1_ps(self.m[2][3]);
+
+            let m30 = _mm256_set1_ps(self.m[3][0]);
+            let m31 = _mm256_set1_ps(self.m[3][1]);
+            let m32 = _mm256_set1_ps(self.m[3][2]);
+            let m33 = _mm256_set1_ps(self.m[3][3]);
+
+            while i + 8 <= len {
+                let ptr = points.as_ptr().add(i) as *const f32;
+
+                // Use _mm256_set_ps to load components
+                // This avoids gather and relies on the compiler to emit optimal shuffles/inserts
+                // Note: arguments are in reverse order (e7, e6, ... e0)
+
+                let xs = _mm256_set_ps(
+                    *ptr.add(21), *ptr.add(18), *ptr.add(15), *ptr.add(12),
+                    *ptr.add(9), *ptr.add(6), *ptr.add(3), *ptr.add(0)
+                );
+
+                let ys = _mm256_set_ps(
+                    *ptr.add(22), *ptr.add(19), *ptr.add(16), *ptr.add(13),
+                    *ptr.add(10), *ptr.add(7), *ptr.add(4), *ptr.add(1)
+                );
+
+                let zs = _mm256_set_ps(
+                    *ptr.add(23), *ptr.add(20), *ptr.add(17), *ptr.add(14),
+                    *ptr.add(11), *ptr.add(8), *ptr.add(5), *ptr.add(2)
+                );
+
+                // Matrix Multiply
+                // x' = x*m00 + y*m10 + z*m20 + m30
+                let xp = _mm256_fmadd_ps(zs, m20, _mm256_fmadd_ps(ys, m10, _mm256_fmadd_ps(xs, m00, m30)));
+                // y' = x*m01 + y*m11 + z*m21 + m31
+                let yp = _mm256_fmadd_ps(zs, m21, _mm256_fmadd_ps(ys, m11, _mm256_fmadd_ps(xs, m01, m31)));
+                // z' = x*m02 + y*m12 + z*m22 + m32
+                let zp = _mm256_fmadd_ps(zs, m22, _mm256_fmadd_ps(ys, m12, _mm256_fmadd_ps(xs, m02, m32)));
+                // w' = x*m03 + y*m13 + z*m23 + m33
+                let wp = _mm256_fmadd_ps(zs, m23, _mm256_fmadd_ps(ys, m13, _mm256_fmadd_ps(xs, m03, m33)));
+
+                // Transpose back to AoS and Store
+                // We reuse the shuffle logic which is fine (pure register ops)
+                let t0 = _mm256_unpacklo_ps(xp, yp); // x0 y0 x1 y1 ...
+                let t1 = _mm256_unpackhi_ps(xp, yp); // x2 y2 x3 y3 ...
+                let t2 = _mm256_unpacklo_ps(zp, wp); // z0 w0 z1 w1 ...
+                let t3 = _mm256_unpackhi_ps(zp, wp); // z2 w2 z3 w3 ...
+
+                let row0 = _mm256_shuffle_ps(t0, t2, 0x44); // P0 P4 (low parts)
+                let row1 = _mm256_shuffle_ps(t0, t2, 0xEE); // P1 P5
+                let row2 = _mm256_shuffle_ps(t1, t3, 0x44); // P2 P6
+                let row3 = _mm256_shuffle_ps(t1, t3, 0xEE); // P3 P7
+
+                let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+
+                _mm_storeu_ps(out_ptr, _mm256_castps256_ps128(row0)); // P0
+                _mm_storeu_ps(out_ptr.add(4), _mm256_castps256_ps128(row1)); // P1
+                _mm_storeu_ps(out_ptr.add(8), _mm256_castps256_ps128(row2)); // P2
+                _mm_storeu_ps(out_ptr.add(12), _mm256_castps256_ps128(row3)); // P3
+
+                _mm_storeu_ps(out_ptr.add(16), _mm256_extractf128_ps(row0, 1)); // P4
+                _mm_storeu_ps(out_ptr.add(20), _mm256_extractf128_ps(row1, 1)); // P5
+                _mm_storeu_ps(out_ptr.add(24), _mm256_extractf128_ps(row2, 1)); // P6
+                _mm_storeu_ps(out_ptr.add(28), _mm256_extractf128_ps(row3, 1)); // P7
+
+                i += 8;
+            }
+        }
+
+        // Tail
+        while i < len {
+            output[i] = self.transform_point(points[i]);
+            i += 1;
         }
     }
 

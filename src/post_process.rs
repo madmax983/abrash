@@ -301,11 +301,12 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
 #[target_feature(enable = "avx2")]
 unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     use std::arch::x86_64::{
-        _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi16, _mm256_cvtepu8_epi32,
-        _mm256_castsi256_si128, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_set1_epi32,
-        _mm256_srai_epi32, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
-        _mm256_or_si256, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_cvttps_epi32,
-        _mm256_cvtepi32_ps, _mm256_set1_ps, _mm256_mul_ps,
+        _mm256_add_epi32, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepi32_ps,
+        _mm256_cvtepu8_epi32, _mm256_cvttps_epi32, _mm256_loadu_si256, _mm256_mul_ps,
+        _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_packus_epi16,
+        _mm256_packus_epi32, _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_slli_epi32, _mm256_srai_epi32, _mm256_srli_epi32, _mm256_storeu_si256,
+        _mm256_sub_epi32,
     };
 
     let radius = radius as usize;
@@ -584,10 +585,10 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
 #[target_feature(enable = "avx2")]
 unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
     use std::arch::x86_64::{
-        _mm256_add_epi16, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
-        _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
+        _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
+        _mm256_extracti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
         _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
-        _mm256_srai_epi16, _mm256_storeu_si256, _mm256_and_si256,
+        _mm256_srai_epi16, _mm256_storeu_si256,
     };
 
     let scale = (intensity * 256.0) as i16;
