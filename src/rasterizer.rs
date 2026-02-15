@@ -692,6 +692,33 @@ fn draw_scanline_phong_shadowed(
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        unsafe {
+            draw_scanline_phong_shadowed_simd(
+                fb_slice,
+                zb_slice,
+                ShadowPhongSpanStart {
+                    z,
+                    q,
+                    nx,
+                    ny,
+                    nz,
+                    wx,
+                    wy,
+                    wz,
+                },
+                gradients,
+                pre_diffuse_255,
+                neg_light_dir,
+                ambient_255,
+                shadow_map,
+                light_vp,
+            );
+        }
+        return;
+    }
+
     // Shadow Map dimensions
     let sm_w = shadow_map.width() as f32;
     let sm_h = shadow_map.height() as f32;
@@ -3624,6 +3651,354 @@ struct ShadowPhongSpanStart {
     wx: f32,
     wy: f32,
     wz: f32,
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2", enable = "fma")]
+#[allow(clippy::too_many_arguments)]
+unsafe fn draw_scanline_phong_shadowed_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    start: ShadowPhongSpanStart,
+    gradients: &ShadowPhongGradients,
+    pre_diffuse_255: Vec3,
+    neg_light_dir: Vec3,
+    ambient_255: Vec3,
+    shadow_map: &ZBuffer,
+    light_vp: Mat4,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Load gradients
+    let dz_dx = _mm256_set1_ps(gradients.dz_dx);
+    let dq_dx = _mm256_set1_ps(gradients.dq_dx);
+    let dnx_dx = _mm256_set1_ps(gradients.dnx_dx);
+    let dny_dx = _mm256_set1_ps(gradients.dny_dx);
+    let dnz_dx = _mm256_set1_ps(gradients.dnz_dx);
+    let dwx_dx = _mm256_set1_ps(gradients.dwx_dx);
+    let dwy_dx = _mm256_set1_ps(gradients.dwy_dx);
+    let dwz_dx = _mm256_set1_ps(gradients.dwz_dx);
+
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(start.z), _mm256_mul_ps(dz_dx, offsets));
+    let mut q_vec = _mm256_add_ps(_mm256_set1_ps(start.q), _mm256_mul_ps(dq_dx, offsets));
+    let mut nx_vec = _mm256_add_ps(_mm256_set1_ps(start.nx), _mm256_mul_ps(dnx_dx, offsets));
+    let mut ny_vec = _mm256_add_ps(_mm256_set1_ps(start.ny), _mm256_mul_ps(dny_dx, offsets));
+    let mut nz_vec = _mm256_add_ps(_mm256_set1_ps(start.nz), _mm256_mul_ps(dnz_dx, offsets));
+    let mut wx_vec = _mm256_add_ps(_mm256_set1_ps(start.wx), _mm256_mul_ps(dwx_dx, offsets));
+    let mut wy_vec = _mm256_add_ps(_mm256_set1_ps(start.wy), _mm256_mul_ps(dwy_dx, offsets));
+    let mut wz_vec = _mm256_add_ps(_mm256_set1_ps(start.wz), _mm256_mul_ps(dwz_dx, offsets));
+
+    let step_8 = _mm256_set1_ps(8.0);
+    let dz_step = _mm256_mul_ps(dz_dx, step_8);
+    let dq_step = _mm256_mul_ps(dq_dx, step_8);
+    let dnx_step = _mm256_mul_ps(dnx_dx, step_8);
+    let dny_step = _mm256_mul_ps(dny_dx, step_8);
+    let dnz_step = _mm256_mul_ps(dnz_dx, step_8);
+    let dwx_step = _mm256_mul_ps(dwx_dx, step_8);
+    let dwy_step = _mm256_mul_ps(dwy_dx, step_8);
+    let dwz_step = _mm256_mul_ps(dwz_dx, step_8);
+
+    // Light VP Columns
+    // Col 0: m00, m10, m20, m30
+    let m00 = _mm256_set1_ps(light_vp.m[0][0]);
+    let m10 = _mm256_set1_ps(light_vp.m[1][0]);
+    let m20 = _mm256_set1_ps(light_vp.m[2][0]);
+    let m30 = _mm256_set1_ps(light_vp.m[3][0]);
+
+    // Col 1: m01, m11, m21, m31
+    let m01 = _mm256_set1_ps(light_vp.m[0][1]);
+    let m11 = _mm256_set1_ps(light_vp.m[1][1]);
+    let m21 = _mm256_set1_ps(light_vp.m[2][1]);
+    let m31 = _mm256_set1_ps(light_vp.m[3][1]);
+
+    // Col 2: m02, m12, m22, m32
+    let m02 = _mm256_set1_ps(light_vp.m[0][2]);
+    let m12 = _mm256_set1_ps(light_vp.m[1][2]);
+    let m22 = _mm256_set1_ps(light_vp.m[2][2]);
+    let m32 = _mm256_set1_ps(light_vp.m[3][2]);
+
+    // Col 3: m03, m13, m23, m33
+    let m03 = _mm256_set1_ps(light_vp.m[0][3]);
+    let m13 = _mm256_set1_ps(light_vp.m[1][3]);
+    let m23 = _mm256_set1_ps(light_vp.m[2][3]);
+    let m33 = _mm256_set1_ps(light_vp.m[3][3]);
+
+    // Constants
+    let one = _mm256_set1_ps(1.0);
+    let zero = _mm256_setzero_ps();
+    let point_five = _mm256_set1_ps(0.5);
+    let bias = _mm256_set1_ps(0.005);
+    let sm_w = _mm256_set1_ps(shadow_map.width() as f32);
+    let sm_h = _mm256_set1_ps(shadow_map.height() as f32);
+    let sm_w_i32 = _mm256_set1_epi32(shadow_map.width() as i32);
+    let sm_h_i32 = _mm256_set1_epi32(shadow_map.height() as i32);
+    let sm_width_stride = _mm256_set1_epi32(shadow_map.width() as i32);
+
+    let lx = _mm256_set1_ps(neg_light_dir.x);
+    let ly = _mm256_set1_ps(neg_light_dir.y);
+    let lz = _mm256_set1_ps(neg_light_dir.z);
+    let diff_r = _mm256_set1_ps(pre_diffuse_255.x);
+    let diff_g = _mm256_set1_ps(pre_diffuse_255.y);
+    let diff_b = _mm256_set1_ps(pre_diffuse_255.z);
+    let amb_r = _mm256_set1_ps(ambient_255.x);
+    let amb_g = _mm256_set1_ps(ambient_255.y);
+    let amb_b = _mm256_set1_ps(ambient_255.z);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let scale_255 = _mm256_set1_ps(255.0);
+    let one_ninth = _mm256_set1_ps(1.0 / 9.0);
+
+    let sm_ptr = shadow_map.as_slice().as_ptr();
+
+    while i + 8 <= len {
+        let depth_ptr = zb_slice.as_mut_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+        let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+        if _mm256_movemask_ps(mask) != 0 {
+            // Update Z
+            let old_z = _mm256_loadu_ps(depth_ptr);
+            let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+            _mm256_storeu_ps(depth_ptr, new_z);
+
+            // Perspective recover
+            let q_valid = _mm256_cmp_ps(_mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec), _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+            let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
+            let w_recip = _mm256_div_ps(one, safe_q);
+
+            let world_x = _mm256_mul_ps(wx_vec, w_recip);
+            let world_y = _mm256_mul_ps(wy_vec, w_recip);
+            let world_z = _mm256_mul_ps(wz_vec, w_recip);
+
+            // Transform to Light Clip Space
+            let lc_x = _mm256_add_ps(_mm256_mul_ps(world_x, m00), _mm256_add_ps(_mm256_mul_ps(world_y, m10), _mm256_add_ps(_mm256_mul_ps(world_z, m20), m30)));
+            let lc_y = _mm256_add_ps(_mm256_mul_ps(world_x, m01), _mm256_add_ps(_mm256_mul_ps(world_y, m11), _mm256_add_ps(_mm256_mul_ps(world_z, m21), m31)));
+            let lc_z = _mm256_add_ps(_mm256_mul_ps(world_x, m02), _mm256_add_ps(_mm256_mul_ps(world_y, m12), _mm256_add_ps(_mm256_mul_ps(world_z, m22), m32)));
+            let lc_w = _mm256_add_ps(_mm256_mul_ps(world_x, m03), _mm256_add_ps(_mm256_mul_ps(world_y, m13), _mm256_add_ps(_mm256_mul_ps(world_z, m23), m33)));
+
+            // Perspective Divide (NDC)
+            let lc_valid = _mm256_cmp_ps(lc_w, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+            let safe_lc_w = _mm256_blendv_ps(one, lc_w, lc_valid);
+            let inv_lc_w = _mm256_div_ps(one, safe_lc_w);
+
+            let ndc_x = _mm256_mul_ps(lc_x, inv_lc_w);
+            let ndc_y = _mm256_mul_ps(lc_y, inv_lc_w);
+            let ndc_z = _mm256_mul_ps(lc_z, inv_lc_w);
+
+            // Check frustum [-1, 1]
+            let in_frustum = _mm256_and_ps(
+                _mm256_and_ps(
+                    _mm256_and_ps(_mm256_cmp_ps(ndc_x, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_x, _mm256_set1_ps(-1.0), _CMP_GE_OQ)),
+                    _mm256_and_ps(_mm256_cmp_ps(ndc_y, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_y, _mm256_set1_ps(-1.0), _CMP_GE_OQ))
+                ),
+                _mm256_and_ps(
+                    _mm256_cmp_ps(ndc_z, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_z, _mm256_set1_ps(-1.0), _CMP_GE_OQ)
+                )
+            );
+            // Also check lc_w > 0
+            let shadow_test_mask = _mm256_and_ps(in_frustum, lc_valid);
+
+            // Map to [0, 1] texture coords
+            let u = _mm256_mul_ps(_mm256_add_ps(ndc_x, one), point_five);
+            let v = _mm256_mul_ps(_mm256_sub_ps(one, ndc_y), point_five);
+
+            let sm_x = _mm256_cvttps_epi32(_mm256_mul_ps(u, sm_w));
+            let sm_y = _mm256_cvttps_epi32(_mm256_mul_ps(v, sm_h));
+
+            // PCF 3x3
+            let mut shadow_val = _mm256_setzero_ps();
+            let mut sample_count = _mm256_setzero_ps();
+
+            // Loop -1 to 1 for y and x
+            for y_off in -1..=1 {
+                for x_off in -1..=1 {
+                    let off_x = _mm256_set1_epi32(x_off);
+                    let off_y = _mm256_set1_epi32(y_off);
+
+                    let coord_x = _mm256_add_epi32(sm_x, off_x);
+                    let coord_y = _mm256_add_epi32(sm_y, off_y);
+
+                    // Check bounds
+                    let in_bounds = _mm256_and_si256(
+                        _mm256_and_si256(
+                            _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
+                            _mm256_cmpgt_epi32(sm_w_i32, coord_x)
+                        ),
+                        _mm256_and_si256(
+                            _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
+                            _mm256_cmpgt_epi32(sm_h_i32, coord_y)
+                        )
+                    );
+
+                    // Clamping for safe gather (even if we mask out result later)
+                    // We must clamp to [0, max] to prevent segfault during gather.
+                    let safe_x = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_x, _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1))));
+                    let safe_y = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_y, _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1))));
+
+                    let idx = _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
+
+                    let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
+
+                    // If in shadow: ndc_z > depth_sample + bias
+                    let is_shadow = _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
+
+                    // Valid sample? (in bounds)
+                    let valid = _mm256_castsi256_ps(in_bounds);
+
+                    // Accumulate samples count
+                    sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
+
+                    // Accumulate lit
+                    // Lit if: valid AND NOT(is_shadow)
+                    let lit = _mm256_andnot_ps(is_shadow, valid); // valid & !is_shadow
+
+                    shadow_val = _mm256_add_ps(shadow_val, _mm256_and_ps(one, lit));
+                }
+            }
+
+            // Normalize shadow factor
+            let samples_valid = _mm256_cmp_ps(sample_count, _mm256_set1_ps(0.001), _CMP_GT_OQ);
+            // safe div
+            let safe_samples = _mm256_blendv_ps(one, sample_count, samples_valid);
+            let shadow_factor = _mm256_div_ps(shadow_val, safe_samples);
+
+            // Mask out pixels not in light frustum (they are fully lit = 1.0)
+            let final_shadow = _mm256_blendv_ps(one, shadow_factor, shadow_test_mask);
+
+            // Lighting (Phong)
+            let nx_sq = _mm256_mul_ps(nx_vec, nx_vec);
+            let ny_sq = _mm256_mul_ps(ny_vec, ny_vec);
+            let nz_sq = _mm256_mul_ps(nz_vec, nz_vec);
+            let len_sq = _mm256_add_ps(nx_sq, _mm256_add_ps(ny_sq, nz_sq));
+
+            let len_valid = _mm256_cmp_ps(len_sq, _mm256_set1_ps(1e-4), _CMP_GT_OQ);
+            let safe_len_sq = _mm256_blendv_ps(one, len_sq, len_valid);
+            let rsqrt = _mm256_rsqrt_ps(safe_len_sq);
+            // Newton-Raphson
+            let iter1 = _mm256_mul_ps(safe_len_sq, _mm256_mul_ps(rsqrt, rsqrt));
+            let iter2 = _mm256_sub_ps(_mm256_set1_ps(1.5), _mm256_mul_ps(point_five, iter1));
+            let inv_len = _mm256_mul_ps(rsqrt, iter2);
+
+            let dot = _mm256_add_ps(_mm256_mul_ps(nx_vec, lx), _mm256_add_ps(_mm256_mul_ps(ny_vec, ly), _mm256_mul_ps(nz_vec, lz)));
+            let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
+            let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
+
+            // Apply Shadow
+            let effective_intensity = _mm256_mul_ps(intensity, final_shadow);
+
+            let r = _mm256_fmadd_ps(diff_r, effective_intensity, amb_r);
+            let g = _mm256_fmadd_ps(diff_g, effective_intensity, amb_g);
+            let b = _mm256_fmadd_ps(diff_b, effective_intensity, amb_b);
+
+            let r_clamp = _mm256_min_ps(_mm256_max_ps(r, zero), scale_255);
+            let g_clamp = _mm256_min_ps(_mm256_max_ps(g, zero), scale_255);
+            let b_clamp = _mm256_min_ps(_mm256_max_ps(b, zero), scale_255);
+
+            let r_i = _mm256_cvttps_epi32(r_clamp);
+            let g_i = _mm256_cvttps_epi32(g_clamp);
+            let b_i = _mm256_cvttps_epi32(b_clamp);
+
+            let pixel_val = _mm256_or_si256(
+                alpha_mask,
+                _mm256_or_si256(
+                    _mm256_slli_epi32(r_i, 16),
+                    _mm256_or_si256(_mm256_slli_epi32(g_i, 8), b_i),
+                ),
+            );
+
+            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+            let old_color = _mm256_loadu_si256(fb_ptr);
+            let new_color = _mm256_blendv_epi8(old_color, pixel_val, _mm256_castps_si256(mask));
+            _mm256_storeu_si256(fb_ptr, new_color);
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        q_vec = _mm256_add_ps(q_vec, dq_step);
+        nx_vec = _mm256_add_ps(nx_vec, dnx_step);
+        ny_vec = _mm256_add_ps(ny_vec, dny_step);
+        nz_vec = _mm256_add_ps(nz_vec, dnz_step);
+        wx_vec = _mm256_add_ps(wx_vec, dwx_step);
+        wy_vec = _mm256_add_ps(wy_vec, dwy_step);
+        wz_vec = _mm256_add_ps(wz_vec, dwz_step);
+
+        i += 8;
+    }
+
+    // Scalar Tail
+    while i < len {
+        let i_f = i as f32;
+        let z = start.z + i_f * gradients.dz_dx;
+        let q = start.q + i_f * gradients.dq_dx;
+        let nx = start.nx + i_f * gradients.dnx_dx;
+        let ny = start.ny + i_f * gradients.dny_dx;
+        let nz = start.nz + i_f * gradients.dnz_dx;
+        let wx = start.wx + i_f * gradients.dwx_dx;
+        let wy = start.wy + i_f * gradients.dwy_dx;
+        let wz = start.wz + i_f * gradients.dwz_dx;
+
+        // Use standard logic for tail
+        let depth_val = &mut zb_slice[i];
+        if z < *depth_val {
+            *depth_val = z;
+
+            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+
+            let (light_clip, light_w) = light_vp.transform_point(world_pos);
+            let mut shadow_factor = 1.0;
+
+            if light_w > 0.0 {
+                let inv_light_w = 1.0 / light_w;
+                let ndc_x = light_clip.x * inv_light_w;
+                let ndc_y = light_clip.y * inv_light_w;
+                let ndc_z = light_clip.z * inv_light_w;
+
+                if (-1.0..=1.0).contains(&ndc_x)
+                    && (-1.0..=1.0).contains(&ndc_y)
+                    && (-1.0..=1.0).contains(&ndc_z)
+                {
+                    let u = (ndc_x + 1.0) * 0.5;
+                    let v = (1.0 - ndc_y) * 0.5;
+                    let sm_x = (u * _mm256_cvtss_f32(sm_w)) as i32;
+                    let sm_y = (v * _mm256_cvtss_f32(sm_h)) as i32;
+
+                    let mut shadow_sum = 0.0;
+                    let mut samples = 0.0;
+                    let bias_s = _mm256_cvtss_f32(bias);
+
+                    for y_off in -1..=1 {
+                        for x_off in -1..=1 {
+                            if let Some(closest_depth) = shadow_map.get_depth(sm_x + x_off, sm_y + y_off) {
+                                if ndc_z <= closest_depth + bias_s {
+                                    shadow_sum += 1.0;
+                                }
+                                samples += 1.0;
+                            }
+                        }
+                    }
+                    if samples > 0.0 {
+                         shadow_factor = shadow_sum / samples;
+                    }
+                }
+            }
+
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
+            let intensity = if len_sq > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                (dot_unorm * inv_len).max(0.0)
+            } else { 0.0 };
+
+            let diffuse = pre_diffuse_255 * intensity * shadow_factor;
+            let final_color_vec = ambient_255 + diffuse;
+            fb_slice[i] = color_to_u32_scaled(final_color_vec);
+        }
+        i += 1;
+    }
 }
 
 #[derive(Clone, Copy)]
