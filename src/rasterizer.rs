@@ -1922,6 +1922,10 @@ fn draw_span_nearest(
     let tex_h = texture.height;
     let tex_w_usize = tex_w as usize;
 
+    // Hint to optimizer: Ensure pixel buffer is large enough for dimensions.
+    // This may help eliminate bounds checks inside the loop since indices are bounded by width/height.
+    assert!(tex_pixels.len() >= (tex_w as usize) * (tex_h as usize));
+
     let shift = texture.width_shift;
     // Optimization: Loop versioning.
     // Duplicate the loop to specialize for power-of-two textures.
