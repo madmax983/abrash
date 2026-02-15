@@ -155,9 +155,6 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
     // Window size (kernel width)
     let kernel_size = 2 * radius + 1;
     let scale = 1.0 / (kernel_size as f32);
-    // Use fixed point for accumulation? No, f32 is fine for simplicity in green phase.
-    // Optimization: Precompute integer scale? (x * mult) >> shift
-    // For now, float is safe.
 
     for y in 0..height {
         let row_offset = y * width;
@@ -216,53 +213,315 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
 }
 
 fn box_blur_vertical(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                box_blur_vertical_avx2(src, dest, width, height, radius);
+            }
+            return;
+        }
+    }
+
+    box_blur_vertical_scalar(src, dest, width, height, radius);
+}
+
+fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     let radius = radius as usize;
     let kernel_size = 2 * radius + 1;
     let scale = 1.0 / (kernel_size as f32);
 
+    // Optimized vertical blur: Iterate over Y, update all X.
+    // Improves cache locality.
+
+    // Accumulators for each column
+    let mut r_acc = vec![0u32; width];
+    let mut g_acc = vec![0u32; width];
+    let mut b_acc = vec![0u32; width];
+
+    // Pre-fill accumulators
+    // For y=0 window is [-r, r]
+    // Add src[0] (r+1) times (clamped top)
+    // Add src[1..=r] (1 time each)
+    let row0 = &src[0..width];
     for x in 0..width {
-        // Initialize accumulator
-        let mut r_acc = 0;
-        let mut g_acc = 0;
-        let mut b_acc = 0;
+        let p = row0[x];
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+        // (radius + 1) copies of row 0
+        r_acc[x] += r * (radius as u32 + 1);
+        g_acc[x] += g * (radius as u32 + 1);
+        b_acc[x] += b * (radius as u32 + 1);
+    }
 
-        let first_pixel = src[x]; // (0, x)
-        let r_first = (first_pixel >> 16) & 0xFF;
-        let g_first = (first_pixel >> 8) & 0xFF;
-        let b_first = first_pixel & 0xFF;
+    for y in 1..=radius {
+        let row_idx = y.min(height - 1);
+        let row = &src[row_idx * width .. (row_idx + 1) * width];
+        for x in 0..width {
+            let p = row[x];
+            r_acc[x] += (p >> 16) & 0xFF;
+            g_acc[x] += (p >> 8) & 0xFF;
+            b_acc[x] += p & 0xFF;
+        }
+    }
 
-        for _ in 0..=radius {
-            r_acc += r_first;
-            g_acc += g_first;
-            b_acc += b_first;
+    for y in 0..height {
+        let dst_row_start = y * width;
+        let dst_row = &mut dest[dst_row_start .. dst_row_start + width];
+
+        for x in 0..width {
+            let r = (r_acc[x] as f32 * scale) as u32;
+            let g = (g_acc[x] as f32 * scale) as u32;
+            let b = (b_acc[x] as f32 * scale) as u32;
+            dst_row[x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
 
+        // Update accumulators for next row
+        // Outgoing: y - radius
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let out_row = &src[out_y * width .. (out_y + 1) * width];
+
+        // Incoming: y + radius + 1
+        let in_y = (y + radius + 1).min(height - 1);
+        let in_row = &src[in_y * width .. (in_y + 1) * width];
+
+        for x in 0..width {
+            let p_out = out_row[x];
+            let p_in = in_row[x];
+
+            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) - ((p_out >> 16) & 0xFF);
+            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) - ((p_out >> 8) & 0xFF);
+            b_acc[x] = b_acc[x] + (p_in & 0xFF) - (p_out & 0xFF);
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+    use std::arch::x86_64::{
+        _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi16, _mm256_cvtepu8_epi32,
+        _mm256_castsi256_si128, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_set1_epi32,
+        _mm256_srai_epi32, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
+        _mm256_or_si256, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_cvttps_epi32,
+        _mm256_cvtepi32_ps, _mm256_set1_ps, _mm256_mul_ps,
+    };
+
+    let radius = radius as usize;
+    let kernel_size = 2 * radius + 1;
+    let scale = 1.0 / (kernel_size as f32);
+    let scale_vec = _mm256_set1_ps(scale);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    // Accumulators
+    let mut r_acc = vec![0i32; width];
+    let mut g_acc = vec![0i32; width];
+    let mut b_acc = vec![0i32; width];
+
+    // Helper to add a row to accumulators (SIMD)
+    // Note: We use i32 for accumulators to prevent overflow.
+    // Max sum = 255 * (2*radius + 1). If radius=10, max=5355. Fits in i16 too, but i32 is safer and easier.
+    // AVX2 doesn't have unpack u8 to i32 directly.
+    // We can use `_mm256_cvtepu8_epi32` which takes __m128i (16 bytes, 4 pixels? No, 128 bits = 16 bytes).
+    // `cvtepu8_epi32` converts low 8 bytes (8 ints) to 8 i32s (256 bits).
+    // So we can process 8 pixels at a time. Perfect.
+
+    // 1. Pre-fill accumulators
+    {
+        // Add row 0 (radius+1 times)
+        let row0_ptr = src.as_ptr();
+        let mut x = 0;
+        let count = (radius as i32 + 1);
+        let count_vec = _mm256_set1_epi32(count);
+
+        while x + 8 <= width {
+            // Load 8 pixels (32 bytes)
+            // We need to extract R, G, B separately.
+            // Pixel: A R G B
+            // _mm256_loadu_si256 loads 8 pixels.
+            let pixels = _mm256_loadu_si256(row0_ptr.add(x).cast());
+
+            // Mask and shift to get channels as i32
+            // B: pixels & 0xFF
+            // G: (pixels >> 8) & 0xFF
+            // R: (pixels >> 16) & 0xFF
+            // Since we need them as i32, we can't just mask.
+            // Actually, we can use shift + mask.
+            // But doing this for 8 pixels in parallel is tricky because channels are interleaved.
+            // Alternative:
+            // Load 8 pixels.
+            // Use `vpand` to get B (if aligned). No.
+            //
+            // Better: use `_mm256_cvtepu8_epi32`?
+            // That takes packed u8s. Our u8s are interleaved.
+            //
+            // We can use `vpshufb` (shuffle bytes) to deinterleave?
+            //
+            // Or just use shifts and masks.
+            // B = pixels & 0xFF.
+            // G = (pixels >> 8) & 0xFF.
+            // R = (pixels >> 16) & 0xFF.
+            //
+            // `_mm256_and_si256` works on whole vector.
+            // `_mm256_srli_epi32` works on each 32-bit element (pixel).
+            // So:
+            // b_vals = _mm256_and_si256(pixels, 0xFF);
+            // g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), 0xFF);
+            // r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), 0xFF);
+            // This works perfectly!
+
+            let mask_ff = _mm256_set1_epi32(0xFF);
+            let b_vals = _mm256_and_si256(pixels, mask_ff);
+            let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+            let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+
+            // Multiply by count
+            // Since max val is 255*count, it fits in i32. `mullo_epi32` (AVX2).
+            let b_added = _mm256_mullo_epi32(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
+            // AVX2 has `_mm256_mullo_epi32` (VPMULLD). Yes it does.
+
+            let g_added = _mm256_mullo_epi32(g_vals, count_vec);
+            let r_added = _mm256_mullo_epi32(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
+            // No, we are adding to accumulators.
+            // Here we are initializing.
+
+            _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_added);
+            _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_added);
+            _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_added);
+
+            x += 8;
+        }
+
+        // Tail
+        for i in x..width {
+             let p = *row0_ptr.add(i);
+             r_acc[i] = ((p >> 16) & 0xFF) as i32 * count;
+             g_acc[i] = ((p >> 8) & 0xFF) as i32 * count;
+             b_acc[i] = (p & 0xFF) as i32 * count;
+        }
+
+        // Add remaining rows [1..=radius]
         for y in 1..=radius {
-            let p = src[y.min(height - 1) * width + x];
-            r_acc += (p >> 16) & 0xFF;
-            g_acc += (p >> 8) & 0xFF;
-            b_acc += p & 0xFF;
+             let row_idx = y.min(height - 1);
+             let row_ptr = src.as_ptr().add(row_idx * width);
+             let mut x = 0;
+             let mask_ff = _mm256_set1_epi32(0xFF);
+
+             while x + 8 <= width {
+                 let pixels = _mm256_loadu_si256(row_ptr.add(x).cast());
+                 let b_vals = _mm256_and_si256(pixels, mask_ff);
+                 let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+                 let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+
+                 let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
+                 let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
+                 let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
+
+                 _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(r_curr, r_vals));
+                 _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(g_curr, g_vals));
+                 _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(b_curr, b_vals));
+
+                 x += 8;
+             }
+
+             for i in x..width {
+                 let p = *row_ptr.add(i);
+                 r_acc[i] += ((p >> 16) & 0xFF) as i32;
+                 g_acc[i] += ((p >> 8) & 0xFF) as i32;
+                 b_acc[i] += (p & 0xFF) as i32;
+             }
+        }
+    }
+
+    // 2. Main loop
+    for y in 0..height {
+        let dst_ptr = dest.as_mut_ptr().add(y * width);
+
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let in_y = (y + radius + 1).min(height - 1);
+
+        let out_ptr = src.as_ptr().add(out_y * width);
+        let in_ptr = src.as_ptr().add(in_y * width);
+
+        let mut x = 0;
+        let mask_ff = _mm256_set1_epi32(0xFF);
+
+        while x + 8 <= width {
+            // 1. Write current accumulator to dest
+            let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
+            let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
+            let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
+
+            // Convert to float, scale, convert back
+            let r_f = _mm256_cvtepi32_ps(r_curr);
+            let g_f = _mm256_cvtepi32_ps(g_curr);
+            let b_f = _mm256_cvtepi32_ps(b_curr);
+
+            let r_scaled = _mm256_mul_ps(r_f, scale_vec);
+            let g_scaled = _mm256_mul_ps(g_f, scale_vec);
+            let b_scaled = _mm256_mul_ps(b_f, scale_vec);
+
+            // Convert to i32 (truncating is fine, or round?)
+            // cvttps_epi32 truncates.
+            let r_out = _mm256_cvttps_epi32(r_scaled);
+            let g_out = _mm256_cvttps_epi32(g_scaled);
+            let b_out = _mm256_cvttps_epi32(b_scaled);
+
+            // Pack back to u32 pixel: 0xFFRRGGBB
+            // r << 16 | g << 8 | b | 0xFF000000
+            let r_shifted = _mm256_slli_epi32(r_out, 16);
+            let g_shifted = _mm256_slli_epi32(g_out, 8);
+            let pixel = _mm256_or_si256(
+                r_shifted,
+                _mm256_or_si256(g_shifted, _mm256_or_si256(b_out, alpha_mask))
+            );
+            _mm256_storeu_si256(dst_ptr.add(x).cast(), pixel);
+
+            // 2. Update accumulators
+            // Load outgoing
+            let out_pixels = _mm256_loadu_si256(out_ptr.add(x).cast());
+            let out_b = _mm256_and_si256(out_pixels, mask_ff);
+            let out_g = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
+            let out_r = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
+
+            // Load incoming
+            let in_pixels = _mm256_loadu_si256(in_ptr.add(x).cast());
+            let in_b = _mm256_and_si256(in_pixels, mask_ff);
+            let in_g = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
+            let in_r = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
+
+            // Update: acc = acc + in - out
+            // Combine: diff = in - out
+            let diff_r = _mm256_sub_epi32(in_r, out_r);
+            let diff_g = _mm256_sub_epi32(in_g, out_g);
+            let diff_b = _mm256_sub_epi32(in_b, out_b);
+
+            let r_new = _mm256_add_epi32(r_curr, diff_r);
+            let g_new = _mm256_add_epi32(g_curr, diff_g);
+            let b_new = _mm256_add_epi32(b_curr, diff_b);
+
+            _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_new);
+            _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_new);
+            _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_new);
+
+            x += 8;
         }
 
-        for y in 0..height {
-            let r_avg = (r_acc as f32 * scale) as u32;
-            let g_avg = (g_acc as f32 * scale) as u32;
-            let b_avg = (b_acc as f32 * scale) as u32;
+        // Tail
+        for i in x..width {
+            // Write
+            let r = (r_acc[i] as f32 * scale) as u32;
+            let g = (g_acc[i] as f32 * scale) as u32;
+            let b = (b_acc[i] as f32 * scale) as u32;
+            *dst_ptr.add(i) = 0xFF00_0000 | (r << 16) | (g << 8) | b;
 
-            dest[y * width + x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
-
-            // Shift window
-            let outgoing_y = (y as isize - radius as isize).max(0) as usize;
-            let p_out = src[outgoing_y * width + x];
-            r_acc -= (p_out >> 16) & 0xFF;
-            g_acc -= (p_out >> 8) & 0xFF;
-            b_acc -= p_out & 0xFF;
-
-            let incoming_y = (y + radius + 1).min(height - 1);
-            let p_in = src[incoming_y * width + x];
-            r_acc += (p_in >> 16) & 0xFF;
-            g_acc += (p_in >> 8) & 0xFF;
-            b_acc += p_in & 0xFF;
+            // Update
+            let p_out = *out_ptr.add(i);
+            let p_in = *in_ptr.add(i);
+            r_acc[i] = r_acc[i] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+            g_acc[i] = g_acc[i] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+            b_acc[i] = b_acc[i] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
         }
     }
 }
