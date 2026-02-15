@@ -320,18 +320,29 @@ impl Mul for Vec3 {
 ///
 /// ```
 /// use abrash::math::{Mat4, Vec3};
+/// use std::f32::consts::PI;
 ///
-/// // Create individual transformations
+/// // 1. Scale by 2
 /// let scale = Mat4::scale(2.0, 2.0, 2.0);
-/// let rotation = Mat4::rotation_y(1.57); // 90 degrees
+/// // 2. Rotate 90 degrees around Y
+/// let rotation = Mat4::rotation_y(PI / 2.0);
+/// // 3. Translate by (10, 5, 0)
 /// let translation = Mat4::translation(10.0, 5.0, 0.0);
 ///
-/// // Combine them: S -> R -> T
+/// // Combine: Scale -> Rotate -> Translate
 /// let model_matrix = scale * rotation * translation;
 ///
-/// // Apply to a point
+/// // Apply to point (1, 0, 0)
 /// let p = Vec3::new(1.0, 0.0, 0.0);
-/// let (p_transformed, _) = model_matrix.transform_point(p);
+/// let (p_prime, _) = model_matrix.transform_point(p);
+///
+/// // Expected:
+/// // (1,0,0) * 2 = (2,0,0)
+/// // (2,0,0) rot Y 90 = (0,0,-2) (Right-Hand Rule)
+/// // (0,0,-2) + (10,5,0) = (10, 5, -2)
+/// assert!((p_prime.x - 10.0).abs() < 0.001);
+/// assert!((p_prime.y - 5.0).abs() < 0.001);
+/// assert!((p_prime.z - -2.0).abs() < 0.001);
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -501,7 +512,9 @@ impl Mat4 {
     /// Transforms a point by this matrix.
     ///
     /// Returns a tuple `(transformed_point, w_component)`.
-    /// The `w` component is used for perspective division.
+    /// The `w` component is the Homogeneous W coordinate, used for perspective division.
+    /// In the rasterization pipeline, vertices are kept in this `(Vec3, w)` format
+    /// until the very last moment (viewport mapping) to preserve perspective correctness.
     ///
     /// # Performance
     ///
