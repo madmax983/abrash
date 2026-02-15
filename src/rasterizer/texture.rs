@@ -177,11 +177,11 @@ impl PerspectiveTextureEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct PerspectiveSpanStart {
-    pub(crate) z: f32,
-    pub(crate) q: f32,
-    pub(crate) u: f32,
-    pub(crate) v: f32,
+pub struct PerspectiveSpanStart {
+    pub z: f32,
+    pub q: f32,
+    pub u: f32,
+    pub v: f32,
 }
 
 pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
@@ -436,11 +436,188 @@ fn draw_span_trilinear(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::ptr_as_ptr)]
+unsafe fn draw_span_nearest_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    z_start: f32,
+    dz_dx: f32,
+    u_fix_start: i32,
+    v_fix_start: i32,
+    du_fix: i32,
+    dv_fix: i32,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    unsafe {
+        let dz_dx_vec = _mm256_set1_ps(dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+
+        let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+        let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+        let mut z_vec =
+            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+        let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+        let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+
+        let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+        let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+        let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
+
+        let ff_mask_shifted = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+        let w_vec = _mm256_set1_epi32(texture.width as i32);
+        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let zero_i = _mm256_setzero_si256();
+        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+
+        let is_pot = texture.width_shift < 32;
+
+        while i + 8 <= len {
+            // Z-Test
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+            let mask_z_int = _mm256_castps_si256(mask_z);
+
+            if _mm256_movemask_ps(mask_z) != 0 {
+                // Calculate Indices
+                let u_i = _mm256_srai_epi32(u_fix_vec, 16);
+                let v_i = _mm256_srai_epi32(v_fix_vec, 16);
+
+                let idx = if is_pot {
+                // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
+                // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
+                // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
+                // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
+                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                    _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
+                } else {
+                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                    _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
+                };
+
+                // Gather
+                let pixel_vals =
+                    _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+
+                // Check Alpha
+                let alphas_shifted = _mm256_and_si256(pixel_vals, ff_mask_shifted);
+                let opaque_mask = _mm256_cmpeq_epi32(alphas_shifted, ff_mask_shifted);
+                let zero_mask = _mm256_cmpeq_epi32(alphas_shifted, zero_i);
+
+                // Write Opaque: (mask_z & opaque)
+                let write_opaque_mask = _mm256_and_si256(mask_z_int, opaque_mask);
+                let write_opaque_mask_ps = _mm256_castsi256_ps(write_opaque_mask);
+
+                if _mm256_movemask_ps(write_opaque_mask_ps) != 0 {
+                    let old_z = _mm256_loadu_ps(depth_ptr);
+                    let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
+                    _mm256_storeu_ps(depth_ptr, new_z);
+
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let new_color = _mm256_blendv_epi8(old_color, pixel_vals, write_opaque_mask);
+                    _mm256_storeu_si256(fb_ptr, new_color);
+                }
+
+                // Translucent: (mask_z & !opaque & !zero)
+                let trans_mask =
+                    _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+                let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
+
+                if trans_bits != 0 {
+                    let mut temp_pixels = [0u32; 8];
+                    _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, pixel_vals);
+
+                    let mut bit = 1;
+                    for k in 0..8 {
+                        if (trans_bits & bit) != 0 {
+                            let idx_scalar = i + k;
+                            let color = temp_pixels[k];
+                            let alpha = (color >> 24) & 0xFF;
+                            let dest = *fb_slice.get_unchecked(idx_scalar);
+                            *fb_slice.get_unchecked_mut(idx_scalar) =
+                                blend_swar(color, dest, 255 - alpha, alpha);
+                        }
+                        bit <<= 1;
+                    }
+                }
+            }
+
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+            v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+            i += 8;
+        }
+    }
+
+    // Scalar Tail
+    let mut z_curr = z_start + (i as f32) * dz_dx;
+    let mut u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
+    let mut v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+
+    while i < len {
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z_curr < *depth_val {
+                let u = u_curr >> 16;
+                let v = v_curr >> 16;
+
+                let tex_w = texture.width;
+                let tex_h = texture.height;
+
+                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                    let shift = texture.width_shift;
+                    let idx = if shift < 32 {
+                        ((v as usize) << shift) + (u as usize)
+                    } else {
+                        (v as usize) * (tex_w as usize) + (u as usize)
+                    };
+                    *texture.pixels.get_unchecked(idx)
+                } else {
+                    texture.get_pixel_texel(u, v)
+                };
+
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z_curr;
+                    *fb_slice.get_unchecked_mut(i) = color;
+                } else if alpha > 0 {
+                    let dest = *fb_slice.get_unchecked(i);
+                    *fb_slice.get_unchecked_mut(i) = blend_swar(color, dest, 255 - alpha, alpha);
+                }
+            }
+        }
+        z_curr += dz_dx;
+        u_curr = u_curr.wrapping_add(du_fix);
+        v_curr = v_curr.wrapping_add(dv_fix);
+        i += 1;
+    }
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_scanline_textured_perspective(
+pub fn draw_scanline_textured_perspective(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     texture: &Texture,
@@ -524,6 +701,36 @@ fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_nearest_simd(
+                            fb_slice,
+                            zb_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                        );
+                    }
+                } else {
+                    draw_span_nearest(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
                 draw_span_nearest(
                     fb_slice,
                     zb_slice,
@@ -1013,6 +1220,8 @@ struct NormalMapSpanStart {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::ptr_as_ptr)]
 unsafe fn draw_scanline_normal_mapped_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
