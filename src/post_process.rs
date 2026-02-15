@@ -17,8 +17,16 @@
 //! apply_invert(&mut fb);
 //! ```
 
+use std::cell::RefCell;
+
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
+
+thread_local! {
+    static POST_PROCESS_BUFFERS: RefCell<(Vec<u32>, Vec<u32>, Vec<u32>)> = const {
+        RefCell::new((Vec::new(), Vec::new(), Vec::new()))
+    };
+}
 
 /// Applies a bloom effect to the framebuffer in-place.
 ///
@@ -43,19 +51,32 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
     // We reuse a scratch buffer for this to avoid allocating multiple full-frame buffers.
     // We need at least one full-frame buffer for the extracted/blurred result.
     // We'll use two buffers for the separable blur (ping-pong).
-    let mut bright_pixels = vec![0u32; width * height];
-    let mut scratch_buffer = vec![0u32; width * height];
+    POST_PROCESS_BUFFERS.with(|buffers| {
+        let mut buffers = buffers.borrow_mut();
+        let (bright_pixels_vec, scratch_buffer_vec, _) = &mut *buffers;
 
-    extract_bright_pixels(pixels, &mut bright_pixels, threshold);
+        let required_len = width * height;
+        if bright_pixels_vec.len() < required_len {
+            bright_pixels_vec.resize(required_len, 0);
+        }
+        if scratch_buffer_vec.len() < required_len {
+            scratch_buffer_vec.resize(required_len, 0);
+        }
 
-    // 2. Blur the bright pixels
-    // Horizontal pass: bright_pixels -> scratch_buffer
-    box_blur_horizontal(&bright_pixels, &mut scratch_buffer, width, height, blur_radius);
-    // Vertical pass: scratch_buffer -> bright_pixels
-    box_blur_vertical(&scratch_buffer, &mut bright_pixels, width, height, blur_radius);
+        let bright_pixels = &mut bright_pixels_vec[..required_len];
+        let scratch_buffer = &mut scratch_buffer_vec[..required_len];
 
-    // 3. Composite back
-    blend_additive(pixels, &bright_pixels, intensity);
+        extract_bright_pixels(pixels, bright_pixels, threshold);
+
+        // 2. Blur the bright pixels
+        // Horizontal pass: bright_pixels -> scratch_buffer
+        box_blur_horizontal(bright_pixels, scratch_buffer, width, height, blur_radius);
+        // Vertical pass: scratch_buffer -> bright_pixels
+        box_blur_vertical(scratch_buffer, bright_pixels, width, height, blur_radius);
+
+        // 3. Composite back
+        blend_additive(pixels, bright_pixels, intensity);
+    });
 }
 
 fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
@@ -1042,40 +1063,48 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     let height = fb.height() as usize;
     let offset = offset as usize;
 
-    let mut row_buffer = vec![0u32; width];
-    let pixels = fb.as_mut_slice();
+    POST_PROCESS_BUFFERS.with(|buffers| {
+        let mut buffers = buffers.borrow_mut();
+        let (_, _, row_buffer_vec) = &mut *buffers;
 
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
-
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        if row_buffer_vec.len() < width {
+            row_buffer_vec.resize(width, 0);
         }
-    }
+        let row_buffer = &mut row_buffer_vec[..width];
+        let pixels = fb.as_mut_slice();
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy current row to scratch buffer
+            row_buffer.copy_from_slice(row_pixels);
+
+            for x in 0..width {
+                // Green (G) from current pixel
+                let g = (row_buffer[x] >> 8) & 0xFF;
+                // Alpha (A) from current pixel
+                let a = (row_buffer[x] >> 24) & 0xFF;
+
+                // Red (R) from left (x - offset)
+                let r = if x >= offset {
+                    (row_buffer[x - offset] >> 16) & 0xFF
+                } else {
+                    0
+                };
+
+                // Blue (B) from right (x + offset)
+                let b = if x + offset < width {
+                    row_buffer[x + offset] & 0xFF
+                } else {
+                    0
+                };
+
+                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
