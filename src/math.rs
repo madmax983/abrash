@@ -1054,6 +1054,65 @@ mod tests {
         let (p_eye, _) = view.transform_point(eye);
         assert!(p_eye.length() < 1e-5);
     }
+
+    #[test]
+    fn test_project_to_screen_optimized_edge_cases() {
+        let half_width = 400.0;
+        let half_height = 300.0;
+
+        // Test w = 0 (singular)
+        // Code falls back to 1.0 if w.abs() <= 0.0001
+        let p = Vec3::new(100.0, 100.0, 10.0);
+        let sp = project_to_screen_optimized(p, 0.0, half_width, half_height);
+
+        // Expected behavior: inv_w = 1.0, so x = 100.0, y = 100.0
+        // ndc_x = 100.0. screen_x = (100+1)*400 = 40400.
+        assert_eq!(sp.inv_w, 1.0);
+        assert_eq!(sp.x, 40400);
+
+        // Test very small w (but > epsilon)
+        // w = 0.0002. inv_w = 5000.
+        // x = 1.0. ndc_x = 5000.
+        // screen_x = (5000+1)*400 = 2000400.
+        let sp_small = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
+        assert!((sp_small.inv_w - 5000.0).abs() < 1e-1);
+        assert_eq!(sp_small.x, 2000400);
+
+        // Test negative w (behind camera)
+        // w = -1.0. inv_w = -1.0.
+        // x = 1.0. ndc_x = -1.0.
+        // screen_x = (-1+1)*400 = 0.
+        let sp_neg = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
+        assert_eq!(sp_neg.inv_w, -1.0);
+        assert_eq!(sp_neg.x, 0);
+    }
+
+    #[test]
+    fn test_vec3_normalize_zero() {
+        let v = Vec3::new(0.0, 0.0, 0.0);
+        let n = v.normalize();
+        assert_eq!(n.x, 0.0);
+        assert_eq!(n.y, 0.0);
+        assert_eq!(n.z, 0.0);
+
+        let v_small = Vec3::new(1e-5, 0.0, 0.0);
+        let n_small = v_small.normalize();
+        // Should return original if length < 0.0001
+        assert_eq!(n_small.x, 1e-5);
+    }
+
+    #[test]
+    fn test_fast_inv_sqrt_sanity() {
+        let x = 4.0;
+        let y = fast_inv_sqrt(x);
+        // 1/sqrt(4) = 0.5
+        assert!((y - 0.5).abs() < 0.01);
+
+        let x = 16.0;
+        let y = fast_inv_sqrt(x);
+        // 1/sqrt(16) = 0.25
+        assert!((y - 0.25).abs() < 0.01);
+    }
 }
 
 /// A 4-component vector, often used for homogeneous coordinates or tangents.

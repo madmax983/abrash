@@ -87,6 +87,8 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
     const MAX_VERTICES: usize = 1_000_000;
     const MAX_FACES: usize = 1_000_000;
+    // 0xFFFFF is used as a sentinel for NO_INDEX.
+    const SENTINEL: u64 = 0xF_FFFF;
 
     // Reserve reasonable initial capacity to avoid frequent reallocations
     let mut raw_positions = Vec::with_capacity(1024);
@@ -286,12 +288,10 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
                     // Use HashMap for full deduplication
                     // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
                     // Max index is 1,000,000, which fits in 20 bits (1,048,576).
-                    // 0xFFFFF is used as a sentinel for NO_INDEX.
-                    const SENTINEL: u64 = 0xF_FFFF;
 
                     let k_v = v_idx as u64;
-                    let k_vt = vt_idx.map(|i| i as u64).unwrap_or(SENTINEL);
-                    let k_vn = vn_idx.map(|i| i as u64).unwrap_or(SENTINEL);
+                    let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
+                    let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
 
                     let key = k_v | (k_vt << 20) | (k_vn << 40);
 
@@ -477,5 +477,89 @@ f 1//1 2 3
         assert_eq!(mesh.normals[0], Vec3::new(0.0, 1.0, 0.0));
         // Second vertex has no normal specified, should default to zero
         assert_eq!(mesh.normals[1], Vec3::new(0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn test_empty_input() {
+        let mesh = load_obj("").unwrap();
+        assert!(mesh.vertices.is_empty());
+        assert!(mesh.indices.is_empty());
+    }
+
+    #[test]
+    fn test_comments_only() {
+        let obj = "
+# This is a comment
+# Another comment
+";
+        let mesh = load_obj(obj).unwrap();
+        assert!(mesh.vertices.is_empty());
+    }
+
+    #[test]
+    fn test_malformed_lines() {
+        // Missing coordinates
+        assert!(load_obj("v").is_err());
+        assert!(load_obj("v 1.0").is_err());
+
+        // Invalid numbers
+        assert!(load_obj("v a b c").is_err());
+        assert!(load_obj("v 1.0 2.0 c").is_err());
+
+        // Malformed face
+        assert!(load_obj("f").is_err());
+        assert!(load_obj("f 1 2").is_err()); // Not a triangle
+    }
+
+    #[test]
+    fn test_invalid_indices() {
+        let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\n";
+
+        // Index 0 (OBJ is 1-based)
+        let obj_zero = format!("{}f 0 1 2", obj_ok);
+        assert!(load_obj(&obj_zero).is_err());
+
+        // Index out of bounds
+        let obj_oob = format!("{}f 1 2 4", obj_ok); // 4 doesn't exist
+        assert!(load_obj(&obj_oob).is_err());
+    }
+
+    #[test]
+    fn test_finite_checks() {
+        // Infinity
+        assert!(load_obj("v inf 0 0").is_err());
+        // NaN
+        assert!(load_obj("v NaN 0 0").is_err());
+
+        // UVs
+        assert!(load_obj("vt inf 0").is_err());
+    }
+
+    #[test]
+    fn test_face_format_parsing() {
+        // v//vn format checks
+        // 3 vertices, 1 normal
+        let obj = "
+v 0 0 0
+v 1 0 0
+v 0 1 0
+vn 0 1 0
+f 1//1 2//1 3//1
+";
+        let mesh = load_obj(obj).unwrap();
+        assert_eq!(mesh.indices.len(), 1);
+
+        // v/vt/vn format checks
+        // 3 vertices, 1 uv, 1 normal
+        let obj2 = "
+v 0 0 0
+v 1 0 0
+v 0 1 0
+vt 0 0
+vn 0 1 0
+f 1/1/1 2/1/1 3/1/1
+";
+        let mesh2 = load_obj(obj2).unwrap();
+        assert_eq!(mesh2.indices.len(), 1);
     }
 }
