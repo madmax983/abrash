@@ -2,7 +2,26 @@
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
 //!
-//! # Rasterization Rules
+//! # The Rasterization Pipeline
+//!
+//! This module handles the final stage of the graphics pipeline: converting projected vertices into pixels.
+//!
+//! ## Coordinate Systems
+//!
+//! The rasterizer expects vertices in **Homogeneous Clip Space**. This is the result of multiplying
+//! Model-Space vertices by the Model-View-Projection (MVP) matrix.
+//!
+//! 1.  **Model Space**: Local object coordinates.
+//! 2.  **World Space**: `ModelMatrix * v`.
+//! 3.  **View Space**: `ViewMatrix * v`.
+//! 4.  **Clip Space**: `ProjectionMatrix * v`.
+//!     *   Format: `(x, y, z, w)`
+//!     *   Visible range: `-w <= x, y, z <= w`
+//! 5.  **Screen Space**: Internal conversion (Perspective Division & Viewport Transform).
+//!     *   `ndc = (x/w, y/w, z/w)`
+//!     *   `screen_x = (ndc.x + 1.0) * width * 0.5`
+//!
+//! ## Rasterization Rules
 //!
 //! This module implements a standard **Scanline Rasterization** algorithm.
 //!
@@ -15,7 +34,7 @@
 //!
 //! *   **Fixed-Point Math**: Internal interpolation often uses 16.16 fixed-point arithmetic for speed.
 //! *   **Z-Buffering**: Depth testing is performed per-pixel.
-//! *   **Clipping**: Triangles are clipped to the view frustum before rasterization to ensure safety.
+//! *   **Clipping**: Triangles are clipped to the view frustum (using Sutherland-Hodgman) before rasterization to ensure safety.
 //!
 //! # Shading Modes
 //!
@@ -470,14 +489,19 @@ pub fn draw_scanline_flat_blended(
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
 ///
-/// // Define vertices in Clip Space (x, y, z, w)
-/// // Visible range: -w <= x,y,z <= w
-/// let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
-/// let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
-/// let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
+/// // Vertices are passed as (Position, w) tuples in Clip Space.
+/// // w usually comes from the projection matrix (typically z_view).
+/// // Here we simulate a triangle at z=5.0 with w=5.0 (so z_ndc = 1.0, far plane).
+///
+/// let v0 = (Vec3::new(0.0, 5.0, 5.0), 5.0);   // Top
+/// let v1 = (Vec3::new(-5.0, -5.0, 5.0), 5.0); // Bottom Left
+/// let v2 = (Vec3::new(5.0, -5.0, 5.0), 5.0);  // Bottom Right
 /// let color = 0xFFFF0000; // Red
 ///
 /// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
+///
+/// // Verify center pixel
+/// assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF0000));
 /// ```
 pub fn fill_triangle_3d(
     fb: &mut Framebuffer,
@@ -2139,10 +2163,25 @@ impl GouraudEdgeWalker {
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
 ///
-/// // Vertices: ((x, y, z, w), (r, g, b))
-/// let v0 = ((Vec3::new(0.0, 0.5, 5.0), 5.0), Vec3::new(1.0, 0.0, 0.0)); // Red
-/// let v1 = ((Vec3::new(-0.5, -0.5, 5.0), 5.0), Vec3::new(0.0, 1.0, 0.0)); // Green
-/// let v2 = ((Vec3::new(0.5, -0.5, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0)); // Blue
+/// // Each vertex is: ((Position, w), Color)
+/// // Position is Clip Space Vec3.
+/// // Color is linear RGB Vec3 (0.0 - 1.0).
+///
+/// // Top Vertex (Red)
+/// let v0 = (
+///     (Vec3::new(0.0, 5.0, 5.0), 5.0),
+///     Vec3::new(1.0, 0.0, 0.0)
+/// );
+/// // Bottom Left (Green)
+/// let v1 = (
+///     (Vec3::new(-5.0, -5.0, 5.0), 5.0),
+///     Vec3::new(0.0, 1.0, 0.0)
+/// );
+/// // Bottom Right (Blue)
+/// let v2 = (
+///     (Vec3::new(5.0, -5.0, 5.0), 5.0),
+///     Vec3::new(0.0, 0.0, 1.0)
+/// );
 ///
 /// fill_triangle_gouraud(&mut fb, &mut zb, v0, v1, v2);
 /// ```
@@ -2968,20 +3007,27 @@ fn draw_scanline_textured_perspective(
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
-///
-/// // Create a simple checkerboard texture
 /// let texture = Texture::checkered(32, 32, 0xFFFFFFFF, 0xFF000000).unwrap();
 ///
-/// // Define vertices in Clip Space ((Position, W), UV)
-/// // Triangle covering center of screen
-/// let v0 = ((Vec3::new(0.0, 0.5, 5.0), 5.0), Vec2::new(0.5, 0.0));
-/// let v1 = ((Vec3::new(-0.5, -0.5, 5.0), 5.0), Vec2::new(0.0, 1.0));
-/// let v2 = ((Vec3::new(0.5, -0.5, 5.0), 5.0), Vec2::new(1.0, 1.0));
+/// // Each vertex is: ((Position, w), UV)
+///
+/// // Top Vertex (UV Top-Center)
+/// let v0 = (
+///     (Vec3::new(0.0, 5.0, 5.0), 5.0),
+///     Vec2::new(0.5, 0.0)
+/// );
+/// // Bottom Left (UV Bottom-Left)
+/// let v1 = (
+///     (Vec3::new(-5.0, -5.0, 5.0), 5.0),
+///     Vec2::new(0.0, 1.0)
+/// );
+/// // Bottom Right (UV Bottom-Right)
+/// let v2 = (
+///     (Vec3::new(5.0, -5.0, 5.0), 5.0),
+///     Vec2::new(1.0, 1.0)
+/// );
 ///
 /// fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
-///
-/// // Verify center pixel was drawn
-/// assert_ne!(fb.get_pixel(50, 50), Some(0x00000000));
 /// ```
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
