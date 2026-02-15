@@ -1,48 +1,71 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process;
+use abrash::post_process::apply_bloom;
 
 #[test]
-fn test_apply_grayscale() {
-    let mut fb = Framebuffer::new(2, 2).unwrap();
-    // Fill with red
-    fb.clear(0xFFFF_0000);
+fn test_apply_bloom_simple() {
+    let width = 10;
+    let height = 10;
+    let mut fb = Framebuffer::new(width, height).unwrap();
 
-    // Apply grayscale
-    post_process::apply_grayscale(&mut fb);
+    // Set a single bright pixel in the center
+    // Format: 0xAARRGGBB
+    // White pixel with full alpha
+    fb.set_pixel(5, 5, 0xFFFFFFFF);
 
-    // Check pixel at (0, 0).
-    // Red (255, 0, 0) -> (77*255 + 150*0 + 29*0) >> 8 = 19635 >> 8 = 76
-    // Expected result: 0xFF4C4C4C (4C = 76)
-    let pixel = fb.get_pixel(0, 0).unwrap();
-    let r = (pixel >> 16) & 0xFF;
-    let g = (pixel >> 8) & 0xFF;
-    let b = pixel & 0xFF;
+    // Apply bloom
+    // Threshold = 200 (white passes)
+    // Blur radius = 2 (should spread to 5 +/- 2 = 3..7)
+    // Intensity = 1.0
+    apply_bloom(&mut fb, 200, 2, 1.0);
 
-    assert_eq!(r, g);
-    assert_eq!(g, b);
-    assert_eq!(r, 76, "Expected grayscale value 76 for pure red, got {r}");
+    // Check center pixel (should be bright + bloom)
+    let center = fb.get_pixel(5, 5).unwrap();
+    // It should be white (clamped to 255)
+    assert_eq!(center, 0xFFFFFFFF, "Center pixel should remain white");
+
+    // Check neighbors
+    // At (3, 5), it should have received some bloom
+    // Original was black (0).
+    // Bloom adds light.
+    let neighbor = fb.get_pixel(3, 5).unwrap();
+    let r = (neighbor >> 16) & 0xFF;
+    let g = (neighbor >> 8) & 0xFF;
+    let b = neighbor & 0xFF;
+
+    // Radius 2 box blur: kernel size 5x5 = 25 pixels.
+    // Center pixel contributes 255 to the blur sum.
+    // Average over kernel size?
+    // Box blur is separable.
+    // Horizontal pass: 1 pixel out of 5 is 255. Avg = 255/5 = 51.
+    // Vertical pass: 1 pixel (the row with 51) out of 5 is 51. Avg = 51/5 = 10.
+    // So bloom value added should be around 10.
+    // Intensity is 1.0. So added value is 10.
+    // Pixel was 0. So result should be around 10.
+    // (10, 10, 10).
+
+    assert!(r > 0, "Neighbor R should have some bloom");
+    assert!(g > 0, "Neighbor G should have some bloom");
+    assert!(b > 0, "Neighbor B should have some bloom");
+
+    // Check outside bloom radius
+    // At (0, 0), it should be black (too far)
+    let far = fb.get_pixel(0, 0).unwrap();
+    assert_eq!(far & 0x00FFFFFF, 0, "Far pixel should be black");
 }
 
 #[test]
-fn test_apply_scanlines() {
-    let mut fb = Framebuffer::new(2, 2).unwrap();
-    // Fill with white
-    fb.clear(0xFFFF_FFFF);
+fn test_apply_bloom_no_change() {
+    let width = 10;
+    let height = 10;
+    let mut fb = Framebuffer::new(width, height).unwrap();
 
-    // Apply scanlines (darken odd rows)
-    post_process::apply_scanlines(&mut fb);
+    // Set a dim pixel
+    fb.set_pixel(5, 5, 0xFF404040); // Dark gray (64, 64, 64)
 
-    // Row 0 should be unchanged (white)
-    let p0 = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(p0, 0xFFFF_FFFF, "Row 0 should be unchanged");
+    // Apply bloom with high threshold
+    apply_bloom(&mut fb, 200, 2, 1.0);
 
-    // Row 1 should be darkened.
-    // Assuming implementation halves the brightness:
-    // 0xFF -> 0x7F
-    // Result: 0xFF7F_7F7F
-    let p1 = fb.get_pixel(0, 1).unwrap();
-    assert_eq!(
-        p1, 0xFF7F_7F7F,
-        "Row 1 should be darkened to half brightness"
-    );
+    // Should not have bloomed
+    let neighbor = fb.get_pixel(3, 5).unwrap();
+    assert_eq!(neighbor & 0x00FFFFFF, 0, "No bloom expected for dim pixel");
 }
