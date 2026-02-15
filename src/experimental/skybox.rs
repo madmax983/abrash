@@ -6,7 +6,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, ScreenPoint, Vec3, project_to_screen_optimized};
+use crate::math::{Mat4, ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::rasterizer::sort_by_y;
 use crate::texture::Texture;
 use crate::zbuffer::ZBuffer;
@@ -304,9 +304,16 @@ pub fn fill_triangle_skybox(
         let v2 = clipped.tris[base + 2];
 
         // Project
-        let p0_orig = project_to_screen_optimized(v0.0.0, v0.0.1, half_width, half_height);
-        let p1_orig = project_to_screen_optimized(v1.0.0, v1.0.1, half_width, half_height);
-        let p2_orig = project_to_screen_optimized(v2.0.0, v2.0.1, half_width, half_height);
+        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+            v0.0.0,
+            v0.0.1,
+            v1.0.0,
+            v1.0.1,
+            v2.0.0,
+            v2.0.1,
+            half_width,
+            half_height,
+        );
 
         // Note: For Skybox (viewed from inside), we typically want to see "Backfaces".
         // Standard culling removes backfaces (nz >= 0).

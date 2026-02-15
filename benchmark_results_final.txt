@@ -1,3 +1,0 @@
-apply_grayscale 1080p: ~787 µs (was ~1.83 ms) -> 2.3x speedup. Includes correctness fix (permute).
-apply_invert 1080p: ~424 µs (new feature) -> Optimal (memory bound)
-apply_scanlines 1080p: ~409 µs (variable)

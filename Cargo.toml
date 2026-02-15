@@ -255,9 +255,17 @@ name = "shadow_mapping"
 harness = false
 
 [[bench]]
-name = "scanline"
+name = "scanline"=
 harness = false
 
 [[bench]]
 name = "gouraud_scanline_new"
+harness = false
+
+[[bench]]
+name = "project_points"
+harness = false
+
+[[bench]]
+name = "gouraud_scanline"
 harness = false

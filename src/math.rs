@@ -776,6 +776,123 @@ pub fn project_to_screen_optimized(
     }
 }
 
+/// Project 3 vertices to screen coordinates in parallel.
+#[cfg(target_arch = "x86_64")]
+#[must_use]
+#[inline]
+pub fn project_triangle_to_screen(
+    v0: Vec3,
+    w0: f32,
+    v1: Vec3,
+    w1: f32,
+    v2: Vec3,
+    w2: f32,
+    half_width: f32,
+    half_height: f32,
+) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
+    unsafe {
+        use std::arch::x86_64::*;
+
+        // Load data into SIMD registers
+        // Layout: [v2, v1, v0, pad]
+        // Note: _mm_set_ps(d, c, b, a) -> [a, b, c, d]
+        let x_vec = _mm_set_ps(0.0, v2.x, v1.x, v0.x);
+        let y_vec = _mm_set_ps(0.0, v2.y, v1.y, v0.y);
+        let z_vec = _mm_set_ps(0.0, v2.z, v1.z, v0.z);
+        // Pad w with 1.0 to avoid division by zero in the unused lane
+        let w_vec = _mm_set_ps(1.0, w2, w1, w0);
+
+        let one = _mm_set1_ps(1.0);
+        let min_val = _mm_set1_ps(0.0001);
+
+        // Check w > epsilon (vectorized)
+        // If w.abs() > 0.0001, use w. Otherwise use 1.0.
+        // abs_w = w & !(-0.0)
+        let abs_w = _mm_andnot_ps(_mm_set1_ps(-0.0), w_vec);
+        // _mm_cmpgt_ps is standard SSE
+        let mask = _mm_cmpgt_ps(abs_w, min_val);
+
+        // safe_w = blend(1.0, w, mask)
+        // Use logical ops for SSE2 compatibility: (w & mask) | (1.0 & ~mask)
+        let safe_w = _mm_or_ps(_mm_and_ps(w_vec, mask), _mm_andnot_ps(mask, one));
+
+        let inv_w = _mm_div_ps(one, safe_w);
+
+        let ndc_x = _mm_mul_ps(x_vec, inv_w);
+        let ndc_y = _mm_mul_ps(y_vec, inv_w);
+        let depth = _mm_mul_ps(z_vec, inv_w);
+
+        let hw = _mm_set1_ps(half_width);
+        let hh = _mm_set1_ps(half_height);
+
+        // screen_x = (ndc_x + 1.0) * half_width
+        let sx = _mm_mul_ps(_mm_add_ps(ndc_x, one), hw);
+        // screen_y = (1.0 - ndc_y) * half_height
+        let sy = _mm_mul_ps(_mm_sub_ps(one, ndc_y), hh);
+
+        // Convert to int (truncation)
+        let sx_i = _mm_cvttps_epi32(sx);
+        let sy_i = _mm_cvttps_epi32(sy);
+
+        // Store results to stack array
+        let mut x_arr = [0i32; 4];
+        let mut y_arr = [0i32; 4];
+        let mut z_arr = [0f32; 4];
+        let mut iw_arr = [0f32; 4];
+
+        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
+        _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
+
+        // Clamp logic: max(i32::MIN + 1)
+        // Note: cvttps returns 0x80000000 (i32::MIN) for overflow/NaN
+        let fix = |val: i32| val.max(i32::MIN + 1);
+
+        (
+            ScreenPoint {
+                x: fix(x_arr[0]),
+                y: fix(y_arr[0]),
+                z: z_arr[0],
+                inv_w: iw_arr[0],
+            },
+            ScreenPoint {
+                x: fix(x_arr[1]),
+                y: fix(y_arr[1]),
+                z: z_arr[1],
+                inv_w: iw_arr[1],
+            },
+            ScreenPoint {
+                x: fix(x_arr[2]),
+                y: fix(y_arr[2]),
+                z: z_arr[2],
+                inv_w: iw_arr[2],
+            },
+        )
+    }
+}
+
+/// Project 3 vertices to screen coordinates (Scalar Fallback).
+#[cfg(not(target_arch = "x86_64"))]
+#[must_use]
+#[inline]
+pub fn project_triangle_to_screen(
+    v0: Vec3,
+    w0: f32,
+    v1: Vec3,
+    w1: f32,
+    v2: Vec3,
+    w2: f32,
+    half_width: f32,
+    half_height: f32,
+) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
+    (
+        project_to_screen_optimized(v0, w0, half_width, half_height),
+        project_to_screen_optimized(v1, w1, half_width, half_height),
+        project_to_screen_optimized(v2, w2, half_width, half_height),
+    )
+}
+
 /// Project a 3D point to screen coordinates
 #[must_use]
 #[inline]
