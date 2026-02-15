@@ -782,6 +782,574 @@ fn draw_scanline_phong_shadowed(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_point_lit_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z: f32,
+    q: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    wx: f32,
+    wy: f32,
+    wz: f32,
+    gradients: &ShadowPhongGradients,
+    base_color_255: Vec3,
+    light_pos: Vec3,
+    light_color: Vec3,
+    attenuation: Vec3,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Load gradients
+    let dz_dx = _mm256_set1_ps(gradients.dz_dx);
+    let dq_dx = _mm256_set1_ps(gradients.dq_dx);
+    let dnx_dx = _mm256_set1_ps(gradients.dnx_dx);
+    let dny_dx = _mm256_set1_ps(gradients.dny_dx);
+    let dnz_dx = _mm256_set1_ps(gradients.dnz_dx);
+    let dwx_dx = _mm256_set1_ps(gradients.dwx_dx);
+    let dwy_dx = _mm256_set1_ps(gradients.dwy_dx);
+    let dwz_dx = _mm256_set1_ps(gradients.dwz_dx);
+
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z), _mm256_mul_ps(dz_dx, offsets));
+    let mut q_vec = _mm256_add_ps(_mm256_set1_ps(q), _mm256_mul_ps(dq_dx, offsets));
+    let mut nx_vec = _mm256_add_ps(_mm256_set1_ps(nx), _mm256_mul_ps(dnx_dx, offsets));
+    let mut ny_vec = _mm256_add_ps(_mm256_set1_ps(ny), _mm256_mul_ps(dny_dx, offsets));
+    let mut nz_vec = _mm256_add_ps(_mm256_set1_ps(nz), _mm256_mul_ps(dnz_dx, offsets));
+    let mut wx_vec = _mm256_add_ps(_mm256_set1_ps(wx), _mm256_mul_ps(dwx_dx, offsets));
+    let mut wy_vec = _mm256_add_ps(_mm256_set1_ps(wy), _mm256_mul_ps(dwy_dx, offsets));
+    let mut wz_vec = _mm256_add_ps(_mm256_set1_ps(wz), _mm256_mul_ps(dwz_dx, offsets));
+
+    let step_8 = _mm256_set1_ps(8.0);
+    let dz_step = _mm256_mul_ps(dz_dx, step_8);
+    let dq_step = _mm256_mul_ps(dq_dx, step_8);
+    let dnx_step = _mm256_mul_ps(dnx_dx, step_8);
+    let dny_step = _mm256_mul_ps(dny_dx, step_8);
+    let dnz_step = _mm256_mul_ps(dnz_dx, step_8);
+    let dwx_step = _mm256_mul_ps(dwx_dx, step_8);
+    let dwy_step = _mm256_mul_ps(dwy_dx, step_8);
+    let dwz_step = _mm256_mul_ps(dwz_dx, step_8);
+
+    let one = _mm256_set1_ps(1.0);
+    let zero = _mm256_setzero_ps();
+    let epsilon = _mm256_set1_ps(0.0001);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let scale_255 = _mm256_set1_ps(255.0);
+
+    let lx = _mm256_set1_ps(light_pos.x);
+    let ly = _mm256_set1_ps(light_pos.y);
+    let lz = _mm256_set1_ps(light_pos.z);
+
+    let att_c = _mm256_set1_ps(attenuation.x);
+    let att_l = _mm256_set1_ps(attenuation.y);
+    let att_q = _mm256_set1_ps(attenuation.z);
+
+    let base_r = _mm256_set1_ps(base_color_255.x);
+    let base_g = _mm256_set1_ps(base_color_255.y);
+    let base_b = _mm256_set1_ps(base_color_255.z);
+
+    let light_r = _mm256_set1_ps(light_color.x);
+    let light_g = _mm256_set1_ps(light_color.y);
+    let light_b = _mm256_set1_ps(light_color.z);
+
+    while i + 8 <= len {
+        // SAFETY: i + 8 <= len, so bounds are checked.
+        unsafe {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
+                // Perspective recover
+                let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec);
+                let q_valid = _mm256_cmp_ps(q_abs, epsilon, _CMP_GT_OQ);
+                let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
+                let w_recip = _mm256_div_ps(one, safe_q);
+
+                let wx_real = _mm256_mul_ps(wx_vec, w_recip);
+                let wy_real = _mm256_mul_ps(wy_vec, w_recip);
+                let wz_real = _mm256_mul_ps(wz_vec, w_recip);
+
+                // Light vector
+                let lv_x = _mm256_sub_ps(lx, wx_real);
+                let lv_y = _mm256_sub_ps(ly, wy_real);
+                let lv_z = _mm256_sub_ps(lz, wz_real);
+
+                let dist_sq = _mm256_add_ps(
+                    _mm256_mul_ps(lv_x, lv_x),
+                    _mm256_add_ps(_mm256_mul_ps(lv_y, lv_y), _mm256_mul_ps(lv_z, lv_z)),
+                );
+                let dist = _mm256_sqrt_ps(dist_sq);
+
+                // Attenuation: 1 / (c + l*d + q*d^2)
+                let denom = _mm256_add_ps(
+                    att_c,
+                    _mm256_add_ps(
+                        _mm256_mul_ps(att_l, dist),
+                        _mm256_mul_ps(att_q, dist_sq),
+                    ),
+                );
+                // safe_denom = max(epsilon, denom)
+                let safe_denom = _mm256_max_ps(epsilon, denom);
+                let att_factor = _mm256_div_ps(one, safe_denom);
+
+                // Normal length
+                let len_sq = _mm256_add_ps(
+                    _mm256_mul_ps(nx_vec, nx_vec),
+                    _mm256_add_ps(_mm256_mul_ps(ny_vec, ny_vec), _mm256_mul_ps(nz_vec, nz_vec)),
+                );
+                let inv_len = _mm256_rsqrt_ps(len_sq); // approximate is fine
+
+                // inv_dist = 1 / dist
+                let dist_valid = _mm256_cmp_ps(dist, epsilon, _CMP_GT_OQ);
+                let safe_dist = _mm256_blendv_ps(one, dist, dist_valid);
+                let inv_dist = _mm256_div_ps(one, safe_dist);
+
+                // Dot product (unnormalized)
+                let dot_unorm = _mm256_add_ps(
+                    _mm256_mul_ps(nx_vec, lv_x),
+                    _mm256_add_ps(_mm256_mul_ps(ny_vec, lv_y), _mm256_mul_ps(nz_vec, lv_z)),
+                );
+
+                // intensity = dot_unorm * inv_len * inv_dist
+                let intensity_raw = _mm256_mul_ps(
+                    dot_unorm,
+                    _mm256_mul_ps(inv_len, inv_dist),
+                );
+                let intensity = _mm256_max_ps(zero, intensity_raw);
+
+                // Combine factors
+                let combined = _mm256_mul_ps(intensity, att_factor);
+
+                // Color
+                let r = _mm256_mul_ps(base_r, _mm256_mul_ps(light_r, combined));
+                let g = _mm256_mul_ps(base_g, _mm256_mul_ps(light_g, combined));
+                let b = _mm256_mul_ps(base_b, _mm256_mul_ps(light_b, combined));
+
+                // Clamp and Pack
+                let r_clamp = _mm256_min_ps(_mm256_max_ps(r, zero), scale_255);
+                let g_clamp = _mm256_min_ps(_mm256_max_ps(g, zero), scale_255);
+                let b_clamp = _mm256_min_ps(_mm256_max_ps(b, zero), scale_255);
+
+                let r_i = _mm256_cvttps_epi32(r_clamp);
+                let g_i = _mm256_cvttps_epi32(g_clamp);
+                let b_i = _mm256_cvttps_epi32(b_clamp);
+
+                let pixel_val = _mm256_or_si256(
+                    alpha_mask,
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(r_i, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(g_i, 8), b_i),
+                    ),
+                );
+
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let mask_int = _mm256_castps_si256(mask);
+                let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        q_vec = _mm256_add_ps(q_vec, dq_step);
+        nx_vec = _mm256_add_ps(nx_vec, dnx_step);
+        ny_vec = _mm256_add_ps(ny_vec, dny_step);
+        nz_vec = _mm256_add_ps(nz_vec, dnz_step);
+        wx_vec = _mm256_add_ps(wx_vec, dwx_step);
+        wy_vec = _mm256_add_ps(wy_vec, dwy_step);
+        wz_vec = _mm256_add_ps(wz_vec, dwz_step);
+
+        i += 8;
+    }
+
+    // Scalar tail
+    while i < len {
+        let i_f = i as f32;
+        let z = z + i_f * gradients.dz_dx;
+        let q = q + i_f * gradients.dq_dx;
+        let nx = nx + i_f * gradients.dnx_dx;
+        let ny = ny + i_f * gradients.dny_dx;
+        let nz = nz + i_f * gradients.dnz_dx;
+        let wx = wx + i_f * gradients.dwx_dx;
+        let wy = wy + i_f * gradients.dwy_dx;
+        let wz = wz + i_f * gradients.dwz_dx;
+
+        let pixel = &mut fb_slice[i];
+        let depth_val = &mut zb_slice[i];
+
+        if z < *depth_val {
+            *depth_val = z;
+            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+
+            let lv_x = light_pos.x - world_pos.x;
+            let lv_y = light_pos.y - world_pos.y;
+            let lv_z = light_pos.z - world_pos.z;
+
+            let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let dist = dist_sq.sqrt();
+
+            let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
+
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
+
+            let intensity = if len_sq > 0.0001 && dist > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_dist = 1.0 / dist;
+                (dot_unorm * inv_len * inv_dist).max(0.0)
+            } else {
+                0.0
+            };
+
+            let diffuse = base_color_255 * light_color * intensity * att_factor;
+            *pixel = color_to_u32_scaled(diffuse);
+        }
+        i += 1;
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_point_lit(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: ShadowPhongSpanStart,
+    gradients: &ShadowPhongGradients,
+    base_color_255: Vec3,
+    light_pos: Vec3,
+    light_color: Vec3,
+    attenuation: Vec3,
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+
+    let mut z = start.z;
+    let mut q = start.q;
+    let mut nx = start.nx;
+    let mut ny = start.ny;
+    let mut nz = start.nz;
+    let mut wx = start.wx;
+    let mut wy = start.wy;
+    let mut wz = start.wz;
+
+    if xs < 0 {
+        let diff = -i64::from(xs);
+        let diff_f = diff as f32;
+        z += diff_f * gradients.dz_dx;
+        q += diff_f * gradients.dq_dx;
+        nx += diff_f * gradients.dnx_dx;
+        ny += diff_f * gradients.dny_dx;
+        nz += diff_f * gradients.dnz_dx;
+        wx += diff_f * gradients.dwx_dx;
+        wy += diff_f * gradients.dwy_dx;
+        wz += diff_f * gradients.dwz_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
+
+    // SAFETY: Clamped above.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if is_x86_feature_detected!("avx2") {
+        unsafe {
+            draw_scanline_point_lit_simd(
+                fb_slice,
+                zb_slice,
+                z,
+                q,
+                nx,
+                ny,
+                nz,
+                wx,
+                wy,
+                wz,
+                gradients,
+                base_color_255,
+                light_pos,
+                light_color,
+                attenuation,
+            );
+        }
+        return;
+    }
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+
+            let w_recip = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+
+            // Recover world position
+            let world_pos = Vec3::new(wx * w_recip, wy * w_recip, wz * w_recip);
+
+            // Light vector
+            let lv_x = light_pos.x - world_pos.x;
+            let lv_y = light_pos.y - world_pos.y;
+            let lv_z = light_pos.z - world_pos.z;
+
+            let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let dist = dist_sq.sqrt();
+
+            // Attenuation
+            let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
+
+            // Lighting
+            // Deferred Normalization
+            let len_sq = nx * nx + ny * ny + nz * nz;
+            let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
+
+            let intensity = if len_sq > 0.0001 && dist > 0.0001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_dist = 1.0 / dist;
+                (dot_unorm * inv_len * inv_dist).max(0.0)
+            } else {
+                0.0
+            };
+
+            let diffuse = base_color_255 * light_color * intensity * att_factor;
+            *pixel = color_to_u32_scaled(diffuse);
+        }
+
+        z += gradients.dz_dx;
+        q += gradients.dq_dx;
+        nx += gradients.dnx_dx;
+        ny += gradients.dny_dx;
+        nz += gradients.dnz_dx;
+        wx += gradients.dwx_dx;
+        wy += gradients.dwy_dx;
+        wz += gradients.dwz_dx;
+    }
+}
+
+/// Fill a 3D triangle with Point Lighting.
+///
+/// This function calculates per-pixel lighting from a point source, including distance attenuation.
+/// It interpolates World Position across the triangle to calculate the light vector at every pixel.
+///
+/// # Arguments
+///
+/// * `v0`, `v1`, `v2` - Vertices defined as `((ClipPos, W), Normal, WorldPos)`.
+/// * `color` - Base material color.
+/// * `light_pos` - World Space position of the point light.
+/// * `light_color` - Color/Intensity of the light.
+/// * `attenuation` - Coefficients `(constant, linear, quadratic)` for attenuation formula:
+///   `1.0 / (Kc + Kl*d + Kq*d^2)`
+#[allow(clippy::too_many_arguments)]
+pub fn fill_triangle_point_lit(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec3, Vec3), // ((ClipPos, W), Normal, WorldPos)
+    v1: ((Vec3, f32), Vec3, Vec3),
+    v2: ((Vec3, f32), Vec3, Vec3),
+    color: Vec3,
+    light_pos: Vec3,
+    light_color: Vec3,
+    attenuation: Vec3,
+) {
+    assert_same_dimensions(fb, zb);
+
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
+
+        // Project to screen
+        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+            v0.0.0,
+            v0.0.1,
+            v1.0.0,
+            v1.0.1,
+            v2.0.0,
+            v2.0.1,
+            half_width,
+            half_height,
+        );
+
+        // Backface Culling
+        if is_backface(p0_orig, p1_orig, p2_orig) {
+            continue;
+        }
+
+        // Prepare attributes
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
+
+        // Normal * inv_w
+        let n0 = v0.1 * inv_w0;
+        let n1 = v1.1 * inv_w1;
+        let n2 = v2.1 * inv_w2;
+
+        // WorldPos * inv_w
+        let w0 = v0.2 * inv_w0;
+        let w1 = v1.2 * inv_w1;
+        let w2 = v2.2 * inv_w2;
+
+        let mut verts = [(p0_orig, n0, w0), (p1_orig, n1, w1), (p2_orig, n2, w2)];
+        sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, n0, w0), (p1, n1, w1), (p2, n2, w2)] = verts;
+
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
+
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
+
+        if y_start > y_end {
+            continue;
+        }
+
+        // Gradients and Edge Walking
+        // Reuse ShadowPhongGradients/Walker as they match the ((Clip,W), N, World) layout
+        let (gradients, long_edge_is_left) =
+            ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
+
+        let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
+        if y_start > p0.y {
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+
+        let mut edge_b = if y_start < p1.y {
+            let mut e = ShadowPhongEdgeWalker::new(p0, p1, q0, q1, n0, n1, w0, w1);
+            if y_start > p0.y {
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
+            }
+            e
+        } else {
+            let mut e = ShadowPhongEdgeWalker::new(p1, p2, q1, q2, n1, n2, w1, w2);
+            if y_start > p1.y {
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
+            }
+            e
+        };
+
+        // Lighting constants (pre-scaled)
+        let base_color_255 = color * 255.0;
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = ShadowPhongEdgeWalker::new(p1, p2, q1, q2, n1, n2, w1, w2);
+            }
+
+            let (
+                x_start,
+                x_end,
+                z_left,
+                nx_left,
+                ny_left,
+                nz_left,
+                wx_left,
+                wy_left,
+                wz_left,
+                q_left,
+            ) = if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.nx,
+                    edge_a.ny,
+                    edge_a.nz,
+                    edge_a.wx,
+                    edge_a.wy,
+                    edge_a.wz,
+                    edge_a.q,
+                )
+            } else {
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.nx,
+                    edge_b.ny,
+                    edge_b.nz,
+                    edge_b.wx,
+                    edge_b.wy,
+                    edge_b.wz,
+                    edge_b.q,
+                )
+            };
+
+            let dx = i64::from(x_end) - i64::from(x_start);
+
+            if dx > 0 {
+                draw_scanline_point_lit(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
+                    ShadowPhongSpanStart {
+                        z: z_left,
+                        q: q_left,
+                        nx: nx_left,
+                        ny: ny_left,
+                        nz: nz_left,
+                        wx: wx_left,
+                        wy: wy_left,
+                        wz: wz_left,
+                    },
+                    &gradients,
+                    base_color_255,
+                    light_pos,
+                    light_color,
+                    attenuation,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
+    }
+}
+
 /// Fill a 3D triangle with Phong Shading and Shadow Mapping.
 ///
 /// This function adds shadow mapping support to standard Phong shading.
