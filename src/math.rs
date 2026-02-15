@@ -46,6 +46,7 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
     y * (1.5 - xhalf * y * y)
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
@@ -92,6 +93,7 @@ impl Mul<f32> for Vec2 {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
@@ -147,6 +149,7 @@ impl Mat2 {
 /// let v = Vec3::new(1.0, 2.0, 3.0);
 /// assert_eq!(v.x, 1.0);
 /// ```
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
     pub x: f32,
@@ -330,6 +333,7 @@ impl Mul for Vec3 {
 /// let p = Vec3::new(1.0, 0.0, 0.0);
 /// let (p_transformed, _) = model_matrix.transform_point(p);
 /// ```
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
@@ -1044,6 +1048,7 @@ mod tests {
 /// In the rasterization pipeline, `Vec4` is used for:
 /// *   Homogeneous coordinates (x, y, z, w) where w is the perspective term.
 /// *   Tangent vectors in Normal Mapping, where w stores the handedness of the tangent basis.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {
     pub x: f32,
