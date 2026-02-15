@@ -14,7 +14,7 @@
 //!
 //! ```
 //! use abrash::framebuffer::Framebuffer;
-//! use abrash::experimental::ascii::{AsciiConverter, AsciiCharset};
+//! use abrash::ascii::{AsciiConverter, AsciiCharset};
 //!
 //! let mut fb = Framebuffer::new(10, 5).unwrap();
 //! fb.clear(0xFFFFFFFF); // White

@@ -1,4 +1,4 @@
-use abrash::experimental::procedural::*;
+use abrash::procedural::*;
 
 #[test]
 fn test_xor_pattern() {

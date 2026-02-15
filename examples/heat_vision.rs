@@ -1,4 +1,4 @@
-use abrash::experimental::heat_vision::apply_heat_vision;
+use abrash::heat_vision::apply_heat_vision;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
