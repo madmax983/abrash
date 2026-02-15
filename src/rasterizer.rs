@@ -123,7 +123,7 @@ fn prepare_scanline<'a>(
     let mut xe = x_end;
 
     if xs < 0 {
-        let diff = -xs as f32;
+        let diff = -(xs as f32);
         z += diff * dz_dx;
         xs = 0;
     }
