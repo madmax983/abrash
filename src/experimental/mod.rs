@@ -1,6 +1,7 @@
 pub mod ascii;
 pub mod heat_vision;
 pub mod particles;
+pub mod pixel_sort;
 pub mod procedural;
 pub mod skybox;
 pub mod svg_renderer;
