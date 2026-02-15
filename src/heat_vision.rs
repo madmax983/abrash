@@ -17,7 +17,7 @@ use crate::zbuffer::ZBuffer;
 /// ```
 /// use abrash::framebuffer::Framebuffer;
 /// use abrash::zbuffer::ZBuffer;
-/// use abrash::experimental::heat_vision::apply_heat_vision;
+/// use abrash::heat_vision::apply_heat_vision;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();

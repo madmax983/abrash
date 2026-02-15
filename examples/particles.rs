@@ -1,4 +1,4 @@
-use abrash::experimental::particles::ParticleSystem;
+use abrash::particles::ParticleSystem;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{Window, WindowBackend};
