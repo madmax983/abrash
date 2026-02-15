@@ -83,6 +83,30 @@ fn assert_same_dimensions(fb: &Framebuffer, zb: &ZBuffer) {
     );
 }
 
+/// Helper to clip a horizontal span to the screen width.
+/// Returns (clamped_start, clamped_end, diff_from_original_start) or None if fully clipped.
+#[inline(always)]
+fn clip_span(x_start: i32, x_end: i32, width: i32) -> Option<(i32, i32, f32)> {
+    let mut xs = x_start;
+    let mut xe = x_end;
+    let mut diff = 0.0;
+
+    if xs < 0 {
+        diff = -xs as f32;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return None;
+    }
+
+    Some((xs, xe, diff))
+}
+
 /// Helper to prepare scanline slices.
 /// Returns (`fb_slice`, `zb_slice`, `adjusted_z_start`) or `None` if off-screen.
 #[inline(always)]
@@ -100,22 +124,8 @@ fn prepare_scanline<'a>(
     }
 
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-
-    if xs < 0 {
-        let diff = -xs as f32;
-        z += diff * dz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
-        return None;
-    }
+    let (xs, xe, diff) = clip_span(x_start, x_end, width)?;
+    z += diff * dz_dx;
 
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
@@ -594,9 +604,17 @@ pub fn fill_triangle_3d(
             }
 
             let (x_start, x_end, z_left) = if long_edge_is_left {
-                ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z)
+                (
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                )
             } else {
-                ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
+                (
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                )
             };
 
             let dx = i64::from(x_end) - i64::from(x_start);
@@ -649,39 +667,18 @@ fn draw_scanline_phong_shadowed(
     light_vp: Mat4,
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
-
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
         return;
-    }
+    };
+
+    let mut z = start.z + diff_f * gradients.dz_dx;
+    let mut q = start.q + diff_f * gradients.dq_dx;
+    let mut nx = start.nx + diff_f * gradients.dnx_dx;
+    let mut ny = start.ny + diff_f * gradients.dny_dx;
+    let mut nz = start.nz + diff_f * gradients.dnz_dx;
+    let mut wx = start.wx + diff_f * gradients.dwx_dx;
+    let mut wy = start.wy + diff_f * gradients.dwy_dx;
+    let mut wz = start.wz + diff_f * gradients.dwz_dx;
 
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
@@ -922,10 +919,7 @@ unsafe fn draw_scanline_point_lit_simd(
                 // Attenuation: 1 / (c + l*d + q*d^2)
                 let denom = _mm256_add_ps(
                     att_c,
-                    _mm256_add_ps(
-                        _mm256_mul_ps(att_l, dist),
-                        _mm256_mul_ps(att_q, dist_sq),
-                    ),
+                    _mm256_add_ps(_mm256_mul_ps(att_l, dist), _mm256_mul_ps(att_q, dist_sq)),
                 );
                 // safe_denom = max(epsilon, denom)
                 let safe_denom = _mm256_max_ps(epsilon, denom);
@@ -950,10 +944,7 @@ unsafe fn draw_scanline_point_lit_simd(
                 );
 
                 // intensity = dot_unorm * inv_len * inv_dist
-                let intensity_raw = _mm256_mul_ps(
-                    dot_unorm,
-                    _mm256_mul_ps(inv_len, inv_dist),
-                );
+                let intensity_raw = _mm256_mul_ps(dot_unorm, _mm256_mul_ps(inv_len, inv_dist));
                 let intensity = _mm256_max_ps(zero, intensity_raw);
 
                 // Combine factors
@@ -1064,39 +1055,18 @@ fn draw_scanline_point_lit(
     attenuation: Vec3,
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
-
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
         return;
-    }
+    };
+
+    let mut z = start.z + diff_f * gradients.dz_dx;
+    let mut q = start.q + diff_f * gradients.dq_dx;
+    let mut nx = start.nx + diff_f * gradients.dnx_dx;
+    let mut ny = start.ny + diff_f * gradients.dny_dx;
+    let mut nz = start.nz + diff_f * gradients.dnz_dx;
+    let mut wx = start.wx + diff_f * gradients.dwx_dx;
+    let mut wy = start.wy + diff_f * gradients.dwy_dx;
+    let mut wz = start.wz + diff_f * gradients.dwz_dx;
 
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
@@ -1318,29 +1288,29 @@ pub fn fill_triangle_point_lit(
                 q_left,
             ) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.nx,
-                    edge_a.ny,
-                    edge_a.nz,
-                    edge_a.wx,
-                    edge_a.wy,
-                    edge_a.wz,
-                    edge_a.q,
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                    edge_a.nx.current,
+                    edge_a.ny.current,
+                    edge_a.nz.current,
+                    edge_a.wx.current,
+                    edge_a.wy.current,
+                    edge_a.wz.current,
+                    edge_a.q.current,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.nx,
-                    edge_b.ny,
-                    edge_b.nz,
-                    edge_b.wx,
-                    edge_b.wy,
-                    edge_b.wz,
-                    edge_b.q,
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                    edge_b.nx.current,
+                    edge_b.ny.current,
+                    edge_b.nz.current,
+                    edge_b.wx.current,
+                    edge_b.wy.current,
+                    edge_b.wz.current,
+                    edge_b.q.current,
                 )
             };
 
@@ -1567,29 +1537,29 @@ pub fn fill_triangle_phong_shadowed(
                 q_left,
             ) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.nx,
-                    edge_a.ny,
-                    edge_a.nz,
-                    edge_a.wx,
-                    edge_a.wy,
-                    edge_a.wz,
-                    edge_a.q,
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                    edge_a.nx.current,
+                    edge_a.ny.current,
+                    edge_a.nz.current,
+                    edge_a.wx.current,
+                    edge_a.wy.current,
+                    edge_a.wz.current,
+                    edge_a.q.current,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.nx,
-                    edge_b.ny,
-                    edge_b.nz,
-                    edge_b.wx,
-                    edge_b.wy,
-                    edge_b.wz,
-                    edge_b.q,
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                    edge_b.nx.current,
+                    edge_b.ny.current,
+                    edge_b.nz.current,
+                    edge_b.wx.current,
+                    edge_b.wy.current,
+                    edge_b.wz.current,
+                    edge_b.q.current,
                 )
             };
 
@@ -1664,7 +1634,6 @@ fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 
 // Fixed point scale factor (16.16)
 pub const FIXED_SCALE: f32 = 65536.0;
-
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
@@ -1806,57 +1775,72 @@ pub fn draw_scanline_gouraud(
     dc_dx: (i32, i32, i32),
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-    let mut z = z_start;
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
+        return;
+    };
+
+    let diff_i64 = diff_f as i64;
+    let mut z = z_start + diff_f * dz_dx;
 
     // Use i64 for accumulators to prevent overflow when x_start is far off-screen
-    let mut r_i = c_start.0;
-    let mut g_i = c_start.1;
-    let mut b_i = c_start.2;
     let (dr, dg, db) = (i64::from(dc_dx.0), i64::from(dc_dx.1), i64::from(dc_dx.2));
-
-    // Clamp to screen bounds
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        z += (diff as f32) * dz_dx;
-        let diff_i64 = diff;
-        r_i += diff_i64 * dr;
-        g_i += diff_i64 * dg;
-        b_i += diff_i64 * db;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
+    let r_i_64 = c_start.0 + diff_i64 * dr;
+    let g_i_64 = c_start.1 + diff_i64 * dg;
+    let b_i_64 = c_start.2 + diff_i64 * db;
 
     // Optimization: Demote to i32 for the hot loop to reduce register pressure.
     // We used i64 above to handle large off-screen jumps safely without overflow.
     // Once on-screen, 16.16 fixed point color fits comfortably in i32.
     // (Max value ~255 * 65536 = 1.6e7 << i32::MAX)
-    let mut r_i = r_i as i32;
-    let mut g_i = g_i as i32;
-    let mut b_i = b_i as i32;
+    let mut r_i = r_i_64 as i32;
+    let mut g_i = g_i_64 as i32;
+    let mut b_i = b_i_64 as i32;
     let dr = dr as i32;
     let dg = dg as i32;
     let db = db as i32;
 
-    if xs <= xe {
-        // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
-        let width_usize = fb.width() as usize;
-        let y_offset = (y as usize) * width_usize;
-        let start_idx = y_offset + (xs as usize);
-        let end_idx = y_offset + (xe as usize);
+    // Optimization: Use slice iterators to avoid index recalculation and bounds checks in the loop
+    let width_usize = fb.width() as usize;
+    let y_offset = (y as usize) * width_usize;
+    let start_idx = y_offset + (xs as usize);
+    let end_idx = y_offset + (xe as usize);
 
-        // SAFETY:
-        // 1. xs and xe are clamped to [0, width-1] by the logic above.
-        // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
-        // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
-        // Therefore, the range is valid and within bounds.
-        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    // SAFETY:
+    // 1. xs and xe are clamped to [0, width-1] by the logic above.
+    // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
+    // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
+    // Therefore, the range is valid and within bounds.
+    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if is_x86_feature_detected!("avx2") {
+        unsafe {
+            draw_scanline_gouraud_simd(fb_slice, zb_slice, z, (r_i, g_i, b_i), dz_dx, (dr, dg, db));
+        }
+        return;
+    }
+
+    // Optimization: Check for fast path (no clamping needed)
+    // If all color channels are within [0, 255] for the entire span, we can skip clamping.
+    // r_i is 16.16 fixed point. Max value is 255.0 = 0x00FF_0000.
+    // We calculate end values based on start + delta * count.
+    let count = xe - xs;
+    let r_end = r_i.wrapping_add(dr.wrapping_mul(count));
+    let g_end = g_i.wrapping_add(dg.wrapping_mul(count));
+    let b_end = b_i.wrapping_add(db.wrapping_mul(count));
+
+    // Use strict upper bound 0x0100_0000 (256.0) to ensure integer part fits in u8.
+    // Cast to u32 handles negative check (becomes large u32).
+    let safe_limit: u32 = 0x0100_0000;
+    let safe = (r_i as u32) < safe_limit
+        && (r_end as u32) < safe_limit
+        && (g_i as u32) < safe_limit
+        && (g_end as u32) < safe_limit
+        && (b_i as u32) < safe_limit
+        && (b_end as u32) < safe_limit;
+
+    if safe {
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         if is_x86_feature_detected!("avx2") {
             unsafe {
@@ -1872,80 +1856,105 @@ pub fn draw_scanline_gouraud(
             return;
         }
 
-        // Optimization: Check for fast path (no clamping needed)
-        // If all color channels are within [0, 255] for the entire span, we can skip clamping.
-        // r_i is 16.16 fixed point. Max value is 255.0 = 0x00FF_0000.
-        // We calculate end values based on start + delta * count.
-        let count = xe - xs;
-        let r_end = r_i.wrapping_add(dr.wrapping_mul(count));
-        let g_end = g_i.wrapping_add(dg.wrapping_mul(count));
-        let b_end = b_i.wrapping_add(db.wrapping_mul(count));
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            if z < *depth_val {
+                *depth_val = z;
+                // Fast path: direct shift, no clamp/mask
+                // r_i as u32 >> 16 extracts the integer part (0..255)
+                let r = (r_i as u32) >> 16;
+                let g = (g_i as u32) >> 16;
+                let b = (b_i as u32) >> 16;
 
-        // Use strict upper bound 0x0100_0000 (256.0) to ensure integer part fits in u8.
-        // Cast to u32 handles negative check (becomes large u32).
-        let safe_limit: u32 = 0x0100_0000;
-        let safe = (r_i as u32) < safe_limit
-            && (r_end as u32) < safe_limit
-            && (g_i as u32) < safe_limit
-            && (g_end as u32) < safe_limit
-            && (b_i as u32) < safe_limit
-            && (b_end as u32) < safe_limit;
-
-        if safe {
-            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-            if is_x86_feature_detected!("avx2") {
-                unsafe {
-                    draw_scanline_gouraud_simd(
-                        fb_slice,
-                        zb_slice,
-                        z,
-                        (r_i, g_i, b_i),
-                        dz_dx,
-                        (dr, dg, db),
-                    );
-                }
-                return;
+                *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
-
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Fast path: direct shift, no clamp/mask
-                    // r_i as u32 >> 16 extracts the integer part (0..255)
-                    let r = (r_i as u32) >> 16;
-                    let g = (g_i as u32) >> 16;
-                    let b = (b_i as u32) >> 16;
-
-                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-                }
-                z += dz_dx;
-                r_i += dr;
-                g_i += dg;
-                b_i += db;
-            }
-        } else {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                // Check depth buffer
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Unpack fixed point color
-                    // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                    // 16.16 fixed point means 255.0 is 0x00FF0000
-                    let r = r_i.clamp(0, 0x00FF_0000);
-                    let g = g_i.clamp(0, 0x00FF_0000);
-                    let b = b_i.clamp(0, 0x00FF_0000);
-
-                    *pixel = 0xFF00_0000
-                        | ((r as u32) & 0x00FF_0000)
-                        | (((g as u32) & 0x00FF_0000) >> 8)
-                        | (((b as u32) & 0x00FF_0000) >> 16);
-                }
-                z += dz_dx;
-                r_i += dr;
-                g_i += dg;
-                b_i += db;
-            }
+            z += dz_dx;
+            r_i += dr;
+            g_i += dg;
+            b_i += db;
         }
+    } else {
+        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+            // Check depth buffer
+            if z < *depth_val {
+                *depth_val = z;
+                // Unpack fixed point color
+                // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
+                // 16.16 fixed point means 255.0 is 0x00FF0000
+                let r = r_i.clamp(0, 0x00FF_0000);
+                let g = g_i.clamp(0, 0x00FF_0000);
+                let b = b_i.clamp(0, 0x00FF_0000);
+
+                *pixel = 0xFF00_0000
+                    | ((r as u32) & 0x00FF_0000)
+                    | (((g as u32) & 0x00FF_0000) >> 8)
+                    | (((b as u32) & 0x00FF_0000) >> 16);
+            }
+            z += dz_dx;
+            r_i += dr;
+            g_i += dg;
+            b_i += db;
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Interpolator<T> {
+    pub(crate) current: T,
+    pub(crate) step: T,
+}
+
+impl<T> Interpolator<T> {
+    pub(crate) const fn new(current: T, step: T) -> Self {
+        Self { current, step }
+    }
+}
+
+pub(crate) trait Interpolate {
+    fn step(&mut self);
+    fn step_n(&mut self, n: i64);
+}
+
+impl Interpolate for Interpolator<f32> {
+    fn step(&mut self) {
+        self.current += self.step;
+    }
+
+    fn step_n(&mut self, n: i64) {
+        self.current += self.step * (n as f32);
+    }
+}
+
+impl Interpolate for Interpolator<i64> {
+    fn step(&mut self) {
+        self.current = self.current.wrapping_add(self.step);
+    }
+
+    fn step_n(&mut self, n: i64) {
+        self.current = self.current.wrapping_add(self.step.wrapping_mul(n));
+    }
+}
+
+impl Interpolate for Interpolator<(i64, i64, i64)> {
+    fn step(&mut self) {
+        self.current.0 = self.current.0.wrapping_add(self.step.0);
+        self.current.1 = self.current.1.wrapping_add(self.step.1);
+        self.current.2 = self.current.2.wrapping_add(self.step.2);
+    }
+
+    fn step_n(&mut self, n: i64) {
+        self.current.0 = self.current.0.wrapping_add(self.step.0.wrapping_mul(n));
+        self.current.1 = self.current.1.wrapping_add(self.step.1.wrapping_mul(n));
+        self.current.2 = self.current.2.wrapping_add(self.step.2.wrapping_mul(n));
+    }
+}
+
+impl Interpolate for Interpolator<Vec3> {
+    fn step(&mut self) {
+        self.current = self.current + self.step;
+    }
+
+    fn step_n(&mut self, n: i64) {
+        self.current = self.current + self.step * (n as f32);
     }
 }
 
@@ -1955,17 +1964,8 @@ pub fn draw_scanline_gouraud(
 /// X and Z coordinates. It uses fixed-point arithmetic for X to ensure
 /// pixel-perfect rasterization consistency.
 pub(crate) struct EdgeWalker {
-    /// Current X coordinate in 16.16 fixed-point format.
-    ///
-    /// The upper 16 bits represent the integer pixel coordinate.
-    /// The lower 16 bits represent sub-pixel precision.
-    pub(crate) x: i64,
-    /// Change in X per scanline (dx/dy) in 16.16 fixed-point format.
-    dx_dy: i64,
-    /// Current Z depth.
-    pub(crate) z: f32,
-    /// Change in Z per scanline (dz/dy).
-    dz_dy: f32,
+    pub(crate) x: Interpolator<i64>,
+    pub(crate) z: Interpolator<f32>,
 }
 
 impl EdgeWalker {
@@ -1983,21 +1983,19 @@ impl EdgeWalker {
         };
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            dx_dy,
-            dz_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
         }
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.x.step();
+        self.z.step();
     }
 
     pub(crate) fn step_n(&mut self, n: i64) {
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * (n as f32);
+        self.x.step_n(n);
+        self.z.step_n(n);
     }
 }
 
@@ -2054,12 +2052,9 @@ impl GouraudGradients {
 }
 
 struct GouraudEdgeWalker {
-    x: i64,
-    z: f32,
-    c: (i64, i64, i64),
-    dx_dy: i64,
-    dz_dy: f32,
-    dc_dy: (i64, i64, i64),
+    x: Interpolator<i64>,
+    z: Interpolator<f32>,
+    c: Interpolator<(i64, i64, i64)>,
 }
 
 impl GouraudEdgeWalker {
@@ -2088,30 +2083,22 @@ impl GouraudEdgeWalker {
         );
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            c: c_fixed,
-            dx_dy,
-            dz_dy,
-            dc_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
+            c: Interpolator::new(c_fixed, dc_dy),
         }
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
-        self.c.0 += self.dc_dy.0;
-        self.c.1 += self.dc_dy.1;
-        self.c.2 += self.dc_dy.2;
+        self.x.step();
+        self.z.step();
+        self.c.step();
     }
 
     fn step_n(&mut self, n: i64) {
-        let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
-        self.c.0 = self.c.0.wrapping_add(self.dc_dy.0.wrapping_mul(n));
-        self.c.1 = self.c.1.wrapping_add(self.dc_dy.1.wrapping_mul(n));
-        self.c.2 = self.c.2.wrapping_add(self.dc_dy.2.wrapping_mul(n));
+        self.x.step_n(n);
+        self.z.step_n(n);
+        self.c.step_n(n);
     }
 }
 
@@ -2241,17 +2228,17 @@ pub fn fill_triangle_gouraud(
 
             let (x_start, x_end, z_left, c_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.c,
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                    edge_a.c.current,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.c,
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                    edge_b.c.current,
                 )
             };
 
@@ -2420,16 +2407,11 @@ impl PerspectiveTextureGradients {
 }
 
 pub(crate) struct PerspectiveTextureEdgeWalker {
-    pub(crate) x: i64,
-    pub(crate) z: f32,
-    pub(crate) q: f32, // 1/w
-    pub(crate) u: f32, // u/w
-    pub(crate) v: f32, // v/w
-    dx_dy: i64,
-    dz_dy: f32,
-    dq_dy: f32,
-    du_dy: f32,
-    dv_dy: f32,
+    pub(crate) x: Interpolator<i64>,
+    pub(crate) z: Interpolator<f32>,
+    pub(crate) q: Interpolator<f32>, // 1/w
+    pub(crate) u: Interpolator<f32>, // u/w
+    pub(crate) v: Interpolator<f32>, // v/w
 }
 
 impl PerspectiveTextureEdgeWalker {
@@ -2455,34 +2437,28 @@ impl PerspectiveTextureEdgeWalker {
         let dv_dy = (v_end - v_start) * inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            q: q_start,
-            u: u_start,
-            v: v_start,
-            dx_dy,
-            dz_dy,
-            dq_dy,
-            du_dy,
-            dv_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
+            q: Interpolator::new(q_start, dq_dy),
+            u: Interpolator::new(u_start, du_dy),
+            v: Interpolator::new(v_start, dv_dy),
         }
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
-        self.q += self.dq_dy;
-        self.u += self.du_dy;
-        self.v += self.dv_dy;
+        self.x.step();
+        self.z.step();
+        self.q.step();
+        self.u.step();
+        self.v.step();
     }
 
     pub(crate) fn step_n(&mut self, n: i64) {
-        let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
-        self.q += self.dq_dy * n_f;
-        self.u += self.du_dy * n_f;
-        self.v += self.dv_dy * n_f;
+        self.x.step_n(n);
+        self.z.step_n(n);
+        self.q.step_n(n);
+        self.u.step_n(n);
+        self.v.step_n(n);
     }
 }
 
@@ -2775,30 +2751,14 @@ fn draw_scanline_textured_perspective(
     gradients: &PerspectiveTextureGradients,
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut u = start.u;
-    let mut v = start.v;
-
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        u += diff_f * gradients.du_dx;
-        v += diff_f * gradients.dv_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
         return;
-    }
+    };
+
+    let mut z = start.z + diff_f * gradients.dz_dx;
+    let mut q = start.q + diff_f * gradients.dq_dx;
+    let mut u = start.u + diff_f * gradients.du_dx;
+    let mut v = start.v + diff_f * gradients.dv_dx;
 
     let span_size = 16;
     let mut x = xs;
@@ -3019,13 +2979,7 @@ pub fn fill_triangle_textured(
         );
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -3107,21 +3061,21 @@ pub fn fill_triangle_textured(
 
             let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.q,
-                    edge_a.u,
-                    edge_a.v,
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                    edge_a.q.current,
+                    edge_a.u.current,
+                    edge_a.v.current,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.q,
-                    edge_b.u,
-                    edge_b.v,
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                    edge_b.q.current,
+                    edge_b.u.current,
+                    edge_b.v.current,
                 )
             };
 
@@ -3272,16 +3226,11 @@ impl PhongGradients {
 }
 
 struct PhongEdgeWalker {
-    x: i64,
-    z: f32,
-    nx: f32,
-    ny: f32,
-    nz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
-    dnx_dy: f32,
-    dny_dy: f32,
-    dnz_dy: f32,
+    x: Interpolator<i64>,
+    z: Interpolator<f32>,
+    nx: Interpolator<f32>,
+    ny: Interpolator<f32>,
+    nz: Interpolator<f32>,
 }
 
 impl PhongEdgeWalker {
@@ -3298,34 +3247,28 @@ impl PhongEdgeWalker {
         let dnz_dy = (n_end.z - n_start.z) * inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            nx: n_start.x,
-            ny: n_start.y,
-            nz: n_start.z,
-            dx_dy,
-            dz_dy,
-            dnx_dy,
-            dny_dy,
-            dnz_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
+            nx: Interpolator::new(n_start.x, dnx_dy),
+            ny: Interpolator::new(n_start.y, dny_dy),
+            nz: Interpolator::new(n_start.z, dnz_dy),
         }
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
-        self.nx += self.dnx_dy;
-        self.ny += self.dny_dy;
-        self.nz += self.dnz_dy;
+        self.x.step();
+        self.z.step();
+        self.nx.step();
+        self.ny.step();
+        self.nz.step();
     }
 
     fn step_n(&mut self, n: i64) {
-        let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
-        self.nx += self.dnx_dy * n_f;
-        self.ny += self.dny_dy * n_f;
-        self.nz += self.dnz_dy * n_f;
+        self.x.step_n(n);
+        self.z.step_n(n);
+        self.nx.step_n(n);
+        self.ny.step_n(n);
+        self.nz.step_n(n);
     }
 }
 
@@ -3422,24 +3365,15 @@ impl ShadowPhongGradients {
 }
 
 struct ShadowPhongEdgeWalker {
-    x: i64,
-    z: f32,
-    q: f32,
-    nx: f32,
-    ny: f32,
-    nz: f32,
-    wx: f32,
-    wy: f32,
-    wz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
-    dq_dy: f32,
-    dnx_dy: f32,
-    dny_dy: f32,
-    dnz_dy: f32,
-    dwx_dy: f32,
-    dwy_dy: f32,
-    dwz_dy: f32,
+    x: Interpolator<i64>,
+    z: Interpolator<f32>,
+    q: Interpolator<f32>,
+    nx: Interpolator<f32>,
+    ny: Interpolator<f32>,
+    nz: Interpolator<f32>,
+    wx: Interpolator<f32>,
+    wy: Interpolator<f32>,
+    wz: Interpolator<f32>,
 }
 
 impl ShadowPhongEdgeWalker {
@@ -3469,50 +3403,40 @@ impl ShadowPhongEdgeWalker {
         let dwz_dy = (w_end.z - w_start.z) * inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            q: q_start,
-            nx: n_start.x,
-            ny: n_start.y,
-            nz: n_start.z,
-            wx: w_start.x,
-            wy: w_start.y,
-            wz: w_start.z,
-            dx_dy,
-            dz_dy,
-            dq_dy,
-            dnx_dy,
-            dny_dy,
-            dnz_dy,
-            dwx_dy,
-            dwy_dy,
-            dwz_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
+            q: Interpolator::new(q_start, dq_dy),
+            nx: Interpolator::new(n_start.x, dnx_dy),
+            ny: Interpolator::new(n_start.y, dny_dy),
+            nz: Interpolator::new(n_start.z, dnz_dy),
+            wx: Interpolator::new(w_start.x, dwx_dy),
+            wy: Interpolator::new(w_start.y, dwy_dy),
+            wz: Interpolator::new(w_start.z, dwz_dy),
         }
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
-        self.q += self.dq_dy;
-        self.nx += self.dnx_dy;
-        self.ny += self.dny_dy;
-        self.nz += self.dnz_dy;
-        self.wx += self.dwx_dy;
-        self.wy += self.dwy_dy;
-        self.wz += self.dwz_dy;
+        self.x.step();
+        self.z.step();
+        self.q.step();
+        self.nx.step();
+        self.ny.step();
+        self.nz.step();
+        self.wx.step();
+        self.wy.step();
+        self.wz.step();
     }
 
     fn step_n(&mut self, n: i64) {
-        let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
-        self.q += self.dq_dy * n_f;
-        self.nx += self.dnx_dy * n_f;
-        self.ny += self.dny_dy * n_f;
-        self.nz += self.dnz_dy * n_f;
-        self.wx += self.dwx_dy * n_f;
-        self.wy += self.dwy_dy * n_f;
-        self.wz += self.dwz_dy * n_f;
+        self.x.step_n(n);
+        self.z.step_n(n);
+        self.q.step_n(n);
+        self.nx.step_n(n);
+        self.ny.step_n(n);
+        self.nz.step_n(n);
+        self.wx.step_n(n);
+        self.wy.step_n(n);
+        self.wz.step_n(n);
     }
 }
 
@@ -3641,7 +3565,11 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             _mm256_storeu_ps(depth_ptr, new_z);
 
             // Perspective recover
-            let q_valid = _mm256_cmp_ps(_mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec), _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+            let q_valid = _mm256_cmp_ps(
+                _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec),
+                _mm256_set1_ps(1e-6),
+                _CMP_GT_OQ,
+            );
             let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
             let w_recip = _mm256_div_ps(one, safe_q);
 
@@ -3650,10 +3578,34 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let world_z = _mm256_mul_ps(wz_vec, w_recip);
 
             // Transform to Light Clip Space
-            let lc_x = _mm256_add_ps(_mm256_mul_ps(world_x, m00), _mm256_add_ps(_mm256_mul_ps(world_y, m10), _mm256_add_ps(_mm256_mul_ps(world_z, m20), m30)));
-            let lc_y = _mm256_add_ps(_mm256_mul_ps(world_x, m01), _mm256_add_ps(_mm256_mul_ps(world_y, m11), _mm256_add_ps(_mm256_mul_ps(world_z, m21), m31)));
-            let lc_z = _mm256_add_ps(_mm256_mul_ps(world_x, m02), _mm256_add_ps(_mm256_mul_ps(world_y, m12), _mm256_add_ps(_mm256_mul_ps(world_z, m22), m32)));
-            let lc_w = _mm256_add_ps(_mm256_mul_ps(world_x, m03), _mm256_add_ps(_mm256_mul_ps(world_y, m13), _mm256_add_ps(_mm256_mul_ps(world_z, m23), m33)));
+            let lc_x = _mm256_add_ps(
+                _mm256_mul_ps(world_x, m00),
+                _mm256_add_ps(
+                    _mm256_mul_ps(world_y, m10),
+                    _mm256_add_ps(_mm256_mul_ps(world_z, m20), m30),
+                ),
+            );
+            let lc_y = _mm256_add_ps(
+                _mm256_mul_ps(world_x, m01),
+                _mm256_add_ps(
+                    _mm256_mul_ps(world_y, m11),
+                    _mm256_add_ps(_mm256_mul_ps(world_z, m21), m31),
+                ),
+            );
+            let lc_z = _mm256_add_ps(
+                _mm256_mul_ps(world_x, m02),
+                _mm256_add_ps(
+                    _mm256_mul_ps(world_y, m12),
+                    _mm256_add_ps(_mm256_mul_ps(world_z, m22), m32),
+                ),
+            );
+            let lc_w = _mm256_add_ps(
+                _mm256_mul_ps(world_x, m03),
+                _mm256_add_ps(
+                    _mm256_mul_ps(world_y, m13),
+                    _mm256_add_ps(_mm256_mul_ps(world_z, m23), m33),
+                ),
+            );
 
             // Perspective Divide (NDC)
             let lc_valid = _mm256_cmp_ps(lc_w, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
@@ -3667,12 +3619,19 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             // Check frustum [-1, 1]
             let in_frustum = _mm256_and_ps(
                 _mm256_and_ps(
-                    _mm256_and_ps(_mm256_cmp_ps(ndc_x, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_x, _mm256_set1_ps(-1.0), _CMP_GE_OQ)),
-                    _mm256_and_ps(_mm256_cmp_ps(ndc_y, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_y, _mm256_set1_ps(-1.0), _CMP_GE_OQ))
+                    _mm256_and_ps(
+                        _mm256_cmp_ps(ndc_x, one, _CMP_LE_OQ),
+                        _mm256_cmp_ps(ndc_x, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                    ),
+                    _mm256_and_ps(
+                        _mm256_cmp_ps(ndc_y, one, _CMP_LE_OQ),
+                        _mm256_cmp_ps(ndc_y, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                    ),
                 ),
                 _mm256_and_ps(
-                    _mm256_cmp_ps(ndc_z, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_z, _mm256_set1_ps(-1.0), _CMP_GE_OQ)
-                )
+                    _mm256_cmp_ps(ndc_z, one, _CMP_LE_OQ),
+                    _mm256_cmp_ps(ndc_z, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                ),
             );
             // Also check lc_w > 0
             let shadow_test_mask = _mm256_and_ps(in_frustum, lc_valid);
@@ -3701,25 +3660,32 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                     let in_bounds = _mm256_and_si256(
                         _mm256_and_si256(
                             _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
-                            _mm256_cmpgt_epi32(sm_w_i32, coord_x)
+                            _mm256_cmpgt_epi32(sm_w_i32, coord_x),
                         ),
                         _mm256_and_si256(
                             _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
-                            _mm256_cmpgt_epi32(sm_h_i32, coord_y)
-                        )
+                            _mm256_cmpgt_epi32(sm_h_i32, coord_y),
+                        ),
                     );
 
                     // Clamping for safe gather (even if we mask out result later)
                     // We must clamp to [0, max] to prevent segfault during gather.
-                    let safe_x = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_x, _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1))));
-                    let safe_y = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_y, _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1))));
+                    let safe_x = _mm256_max_epi32(
+                        _mm256_setzero_si256(),
+                        _mm256_min_epi32(coord_x, _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1))),
+                    );
+                    let safe_y = _mm256_max_epi32(
+                        _mm256_setzero_si256(),
+                        _mm256_min_epi32(coord_y, _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1))),
+                    );
 
                     let idx = _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
 
                     let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
 
                     // If in shadow: ndc_z > depth_sample + bias
-                    let is_shadow = _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
+                    let is_shadow =
+                        _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
 
                     // Valid sample? (in bounds)
                     let valid = _mm256_castsi256_ps(in_bounds);
@@ -3758,7 +3724,10 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let iter2 = _mm256_sub_ps(_mm256_set1_ps(1.5), _mm256_mul_ps(point_five, iter1));
             let inv_len = _mm256_mul_ps(rsqrt, iter2);
 
-            let dot = _mm256_add_ps(_mm256_mul_ps(nx_vec, lx), _mm256_add_ps(_mm256_mul_ps(ny_vec, ly), _mm256_mul_ps(nz_vec, lz)));
+            let dot = _mm256_add_ps(
+                _mm256_mul_ps(nx_vec, lx),
+                _mm256_add_ps(_mm256_mul_ps(ny_vec, ly), _mm256_mul_ps(nz_vec, lz)),
+            );
             let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
             let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
 
@@ -3847,7 +3816,9 @@ unsafe fn draw_scanline_phong_shadowed_simd(
 
                     for y_off in -1..=1 {
                         for x_off in -1..=1 {
-                            if let Some(closest_depth) = shadow_map.get_depth(sm_x + x_off, sm_y + y_off) {
+                            if let Some(closest_depth) =
+                                shadow_map.get_depth(sm_x + x_off, sm_y + y_off)
+                            {
                                 if ndc_z <= closest_depth + bias_s {
                                     shadow_sum += 1.0;
                                 }
@@ -3856,7 +3827,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                         }
                     }
                     if samples > 0.0 {
-                         shadow_factor = shadow_sum / samples;
+                        shadow_factor = shadow_sum / samples;
                     }
                 }
             }
@@ -3866,7 +3837,9 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let intensity = if len_sq > 0.0001 {
                 let inv_len = fast_inv_sqrt(len_sq);
                 (dot_unorm * inv_len).max(0.0)
-            } else { 0.0 };
+            } else {
+                0.0
+            };
 
             let diffuse = pre_diffuse_255 * intensity * shadow_factor;
             let final_color_vec = ambient_255 + diffuse;
@@ -4100,31 +4073,14 @@ fn draw_scanline_phong(
     ambient_255: Vec3, // Pre-scaled
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
-
-    let mut z = start.z;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
         return;
-    }
+    };
+
+    let mut z = start.z + diff_f * gradients.dz_dx;
+    let mut nx = start.nx + diff_f * gradients.dnx_dx;
+    let mut ny = start.ny + diff_f * gradients.dny_dx;
+    let mut nz = start.nz + diff_f * gradients.dnz_dx;
 
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
@@ -4333,21 +4289,21 @@ pub fn fill_triangle_phong(
 
             let (x_start, x_end, z_left, nx_left, ny_left, nz_left) = if long_edge_is_left {
                 (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.nx,
-                    edge_a.ny,
-                    edge_a.nz,
+                    (edge_a.x.current >> 16) as i32,
+                    (edge_b.x.current >> 16) as i32,
+                    edge_a.z.current,
+                    edge_a.nx.current,
+                    edge_a.ny.current,
+                    edge_a.nz.current,
                 )
             } else {
                 (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.nx,
-                    edge_b.ny,
-                    edge_b.nz,
+                    (edge_b.x.current >> 16) as i32,
+                    (edge_a.x.current >> 16) as i32,
+                    edge_b.z.current,
+                    edge_b.nx.current,
+                    edge_b.ny.current,
+                    edge_b.nz.current,
                 )
             };
 
@@ -4469,22 +4425,14 @@ impl NormalMapGradients {
 }
 
 struct NormalMapEdgeWalker {
-    x: i64,
-    z: f32,
-    q: f32,
-    u: f32,
-    v: f32,
-    lx: f32,
-    ly: f32,
-    lz: f32,
-    dx_dy: i64,
-    dz_dy: f32,
-    dq_dy: f32,
-    du_dy: f32,
-    dv_dy: f32,
-    dlx_dy: f32,
-    dly_dy: f32,
-    dlz_dy: f32,
+    x: Interpolator<i64>,
+    z: Interpolator<f32>,
+    q: Interpolator<f32>,
+    u: Interpolator<f32>,
+    v: Interpolator<f32>,
+    lx: Interpolator<f32>,
+    ly: Interpolator<f32>,
+    lz: Interpolator<f32>,
 }
 
 impl NormalMapEdgeWalker {
@@ -4515,46 +4463,37 @@ impl NormalMapEdgeWalker {
         let dlz_dy = (l_end.z - l_start.z) * inv_h;
 
         Self {
-            x: i64::from(p_start.x) << 16,
-            z: p_start.z,
-            q: q_start,
-            u: u_start,
-            v: v_start,
-            lx: l_start.x,
-            ly: l_start.y,
-            lz: l_start.z,
-            dx_dy,
-            dz_dy,
-            dq_dy,
-            du_dy,
-            dv_dy,
-            dlx_dy,
-            dly_dy,
-            dlz_dy,
+            x: Interpolator::new(i64::from(p_start.x) << 16, dx_dy),
+            z: Interpolator::new(p_start.z, dz_dy),
+            q: Interpolator::new(q_start, dq_dy),
+            u: Interpolator::new(u_start, du_dy),
+            v: Interpolator::new(v_start, dv_dy),
+            lx: Interpolator::new(l_start.x, dlx_dy),
+            ly: Interpolator::new(l_start.y, dly_dy),
+            lz: Interpolator::new(l_start.z, dlz_dy),
         }
     }
 
     fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
-        self.q += self.dq_dy;
-        self.u += self.du_dy;
-        self.v += self.dv_dy;
-        self.lx += self.dlx_dy;
-        self.ly += self.dly_dy;
-        self.lz += self.dlz_dy;
+        self.x.step();
+        self.z.step();
+        self.q.step();
+        self.u.step();
+        self.v.step();
+        self.lx.step();
+        self.ly.step();
+        self.lz.step();
     }
 
     fn step_n(&mut self, n: i64) {
-        let n_f = n as f32;
-        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
-        self.z += self.dz_dy * n_f;
-        self.q += self.dq_dy * n_f;
-        self.u += self.du_dy * n_f;
-        self.v += self.dv_dy * n_f;
-        self.lx += self.dlx_dy * n_f;
-        self.ly += self.dly_dy * n_f;
-        self.lz += self.dlz_dy * n_f;
+        self.x.step_n(n);
+        self.z.step_n(n);
+        self.q.step_n(n);
+        self.u.step_n(n);
+        self.v.step_n(n);
+        self.lx.step_n(n);
+        self.ly.step_n(n);
+        self.lz.step_n(n);
     }
 }
 
@@ -4893,38 +4832,18 @@ fn draw_scanline_normal_mapped(
     ambient: Vec3,
 ) {
     let width = fb.width() as i32;
-    let mut xs = x_start;
-    let mut xe = x_end;
+    let Some((xs, xe, diff_f)) = clip_span(x_start, x_end, width) else {
+        return;
+    };
 
     // Local accumulators
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut u = start.u;
-    let mut v = start.v;
-    let mut lx = start.lx;
-    let mut ly = start.ly;
-    let mut lz = start.lz;
-
-    if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        u += diff_f * gradients.du_dx;
-        v += diff_f * gradients.dv_dx;
-        lx += diff_f * gradients.dlx_dx;
-        ly += diff_f * gradients.dly_dx;
-        lz += diff_f * gradients.dlz_dx;
-        xs = 0;
-    }
-
-    if xe >= width {
-        xe = width - 1;
-    }
-
-    if xs > xe {
-        return;
-    }
+    let mut z = start.z + diff_f * gradients.dz_dx;
+    let mut q = start.q + diff_f * gradients.dq_dx;
+    let mut u = start.u + diff_f * gradients.du_dx;
+    let mut v = start.v + diff_f * gradients.dv_dx;
+    let mut lx = start.lx + diff_f * gradients.dlx_dx;
+    let mut ly = start.ly + diff_f * gradients.dly_dx;
+    let mut lz = start.lz + diff_f * gradients.dlz_dx;
 
     let width_usize = fb.width() as usize;
     let y_offset = (y as usize) * width_usize;
@@ -5239,27 +5158,27 @@ pub fn fill_triangle_normal_mapped(
             let (x_start, x_end, z_left, q_left, u_left, v_left, lx_left, ly_left, lz_left) =
                 if long_edge_is_left {
                     (
-                        (edge_a.x >> 16) as i32,
-                        (edge_b.x >> 16) as i32,
-                        edge_a.z,
-                        edge_a.q,
-                        edge_a.u,
-                        edge_a.v,
-                        edge_a.lx,
-                        edge_a.ly,
-                        edge_a.lz,
+                        (edge_a.x.current >> 16) as i32,
+                        (edge_b.x.current >> 16) as i32,
+                        edge_a.z.current,
+                        edge_a.q.current,
+                        edge_a.u.current,
+                        edge_a.v.current,
+                        edge_a.lx.current,
+                        edge_a.ly.current,
+                        edge_a.lz.current,
                     )
                 } else {
                     (
-                        (edge_b.x >> 16) as i32,
-                        (edge_a.x >> 16) as i32,
-                        edge_b.z,
-                        edge_b.q,
-                        edge_b.u,
-                        edge_b.v,
-                        edge_b.lx,
-                        edge_b.ly,
-                        edge_b.lz,
+                        (edge_b.x.current >> 16) as i32,
+                        (edge_a.x.current >> 16) as i32,
+                        edge_b.z.current,
+                        edge_b.q.current,
+                        edge_b.u.current,
+                        edge_b.v.current,
+                        edge_b.lx.current,
+                        edge_b.ly.current,
+                        edge_b.lz.current,
                     )
                 };
 
@@ -5426,11 +5345,11 @@ mod tests {
         let walker = EdgeWalker::new(p0, p1);
 
         // z should be 1.0
-        assert!((walker.z - 1.0).abs() < 0.0001);
+        assert!((walker.z.current - 1.0).abs() < 0.0001);
 
         // dz_dy should be (2.0 - 1.0) / 100.0 = 0.01
         let expected_dz_dy = (2.0_f32 - 1.0_f32) / 100.0_f32;
-        assert!((walker.dz_dy - expected_dz_dy).abs() < 0.0001);
+        assert!((walker.z.step - expected_dz_dy).abs() < 0.0001);
     }
 
     #[test]
@@ -5451,20 +5370,20 @@ mod tests {
 
         let mut walker = EdgeWalker::new(p0, p1);
 
-        let initial_z = walker.z;
-        let dz = walker.dz_dy;
+        let initial_z = walker.z.current;
+        let dz = walker.z.step;
 
         // Step 50 times
         walker.step_n(50);
 
         // After 50 steps, z should be initial + 50*dz
         let expected_z = initial_z + dz * 50.0;
-        assert!((walker.z - expected_z).abs() < 0.0001);
+        assert!((walker.z.current - expected_z).abs() < 0.0001);
 
         assert!(
-            walker.z > 1.0 && walker.z < 2.0,
+            walker.z.current > 1.0 && walker.z.current < 2.0,
             "z should be interpolated between 1.0 and 2.0, got {}",
-            walker.z,
+            walker.z.current,
         );
     }
 
@@ -5487,11 +5406,11 @@ mod tests {
         let walker = EdgeWalker::new(p0, p1);
 
         // Should have zero gradients
-        assert_eq!(walker.dx_dy, 0);
-        assert!((walker.dz_dy - 0.0).abs() < f32::EPSILON);
+        assert_eq!(walker.x.step, 0);
+        assert!((walker.z.step - 0.0).abs() < f32::EPSILON);
 
         // z should still be correct
-        assert!((walker.z - 1.0).abs() < 0.0001);
+        assert!((walker.z.current - 1.0).abs() < 0.0001);
     }
 
     #[test]
@@ -5626,29 +5545,31 @@ mod tests {
         let c_start = (200i64 << 16, 0, 50i64 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
-        draw_scanline_gouraud(
-            &mut fb,
-            &mut zb,
-            0,
-            0,
-            99,
-            z_start,
-            c_start,
-            dz_dx,
-            dc_dx,
-        );
+        draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         // Verify start pixel
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50, "Pixel 0 mismatch");
+        assert_eq!(
+            p0,
+            0xFF00_0000 | (200 << 16) | (0 << 8) | 50,
+            "Pixel 0 mismatch"
+        );
 
         // Verify middle pixel (x=50)
         let p50 = fb.get_pixel(50, 0).unwrap();
-        assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50, "Pixel 50 mismatch");
+        assert_eq!(
+            p50,
+            0xFF00_0000 | (150 << 16) | (50 << 8) | 50,
+            "Pixel 50 mismatch"
+        );
 
         // Verify end pixel (x=99)
         let p99 = fb.get_pixel(99, 0).unwrap();
-        assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 50, "Pixel 99 mismatch");
+        assert_eq!(
+            p99,
+            0xFF00_0000 | (101 << 16) | (99 << 8) | 50,
+            "Pixel 99 mismatch"
+        );
 
         // Verify Z-buffer
         let zb_slice = zb.as_slice();

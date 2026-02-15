@@ -50,9 +50,21 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
 
     // 2. Blur the bright pixels
     // Horizontal pass: bright_pixels -> scratch_buffer
-    box_blur_horizontal(&bright_pixels, &mut scratch_buffer, width, height, blur_radius);
+    box_blur_horizontal(
+        &bright_pixels,
+        &mut scratch_buffer,
+        width,
+        height,
+        blur_radius,
+    );
     // Vertical pass: scratch_buffer -> bright_pixels
-    box_blur_vertical(&scratch_buffer, &mut bright_pixels, width, height, blur_radius);
+    box_blur_vertical(
+        &scratch_buffer,
+        &mut bright_pixels,
+        width,
+        height,
+        blur_radius,
+    );
 
     // 3. Composite back
     blend_additive(pixels, &bright_pixels, intensity);
@@ -65,11 +77,7 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
             let len = src.len();
             let simd_len = len & !7;
             unsafe {
-                extract_bright_pixels_avx2(
-                    &src[..simd_len],
-                    &mut dest[..simd_len],
-                    threshold,
-                );
+                extract_bright_pixels_avx2(&src[..simd_len], &mut dest[..simd_len], threshold);
             }
             // Tail
             for (s, d) in src[simd_len..].iter().zip(dest[simd_len..].iter_mut()) {
@@ -325,10 +333,10 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
 #[target_feature(enable = "avx2")]
 unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
     use std::arch::x86_64::{
-        _mm256_add_epi16, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
-        _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
-        _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
-        _mm256_srai_epi16, _mm256_storeu_si256, _mm256_and_si256,
+        _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
+        _mm256_extracti128_si256, _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16,
+        _mm256_or_si256, _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16,
+        _mm256_set1_epi32, _mm256_srai_epi16, _mm256_storeu_si256,
     };
 
     let scale = (intensity * 256.0) as i16;

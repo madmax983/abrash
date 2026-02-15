@@ -366,9 +366,17 @@ fn render_triangle_in_tile(
         }
 
         let (x_start, x_end, z_left) = if tri.long_edge_is_left {
-            ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z)
+            (
+                (edge_a.x.current >> 16) as i32,
+                (edge_b.x.current >> 16) as i32,
+                edge_a.z.current,
+            )
         } else {
-            ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
+            (
+                (edge_b.x.current >> 16) as i32,
+                (edge_a.x.current >> 16) as i32,
+                edge_b.z.current,
+            )
         };
 
         let dx = i64::from(x_end) - i64::from(x_start);
@@ -566,21 +574,21 @@ fn render_triangle_in_tile_textured(
 
         let (x_start, x_end, z_left, q_left, u_left, v_left) = if tri.long_edge_is_left {
             (
-                (edge_a.x >> 16) as i32,
-                (edge_b.x >> 16) as i32,
-                edge_a.z,
-                edge_a.q,
-                edge_a.u,
-                edge_a.v,
+                (edge_a.x.current >> 16) as i32,
+                (edge_b.x.current >> 16) as i32,
+                edge_a.z.current,
+                edge_a.q.current,
+                edge_a.u.current,
+                edge_a.v.current,
             )
         } else {
             (
-                (edge_b.x >> 16) as i32,
-                (edge_a.x >> 16) as i32,
-                edge_b.z,
-                edge_b.q,
-                edge_b.u,
-                edge_b.v,
+                (edge_b.x.current >> 16) as i32,
+                (edge_a.x.current >> 16) as i32,
+                edge_b.z.current,
+                edge_b.q.current,
+                edge_b.u.current,
+                edge_b.v.current,
             )
         };
 

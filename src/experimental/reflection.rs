@@ -5,10 +5,10 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::experimental::skybox::Cubemap;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
-use crate::rasterizer::{FIXED_SCALE, is_backface, sort_by_y};
 #[cfg(test)]
 use crate::math::Mat4;
+use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
+use crate::rasterizer::{FIXED_SCALE, is_backface, sort_by_y};
 use crate::zbuffer::ZBuffer;
 
 /// Helper to prepare scanline slices.
@@ -597,13 +597,7 @@ mod tests {
         // R = V - 2(V.N)N = (0,0,-1) - 2(-1)(0,0,1) = (0,0,-1) + 2(0,0,1) = (0,0,1)
         // Reflect Dir = +Z. Should see Front Face (Cyan).
 
-        fill_triangle_reflection(
-            &mut fb,
-            &mut zb,
-            v0, v1, v2,
-            &cubemap,
-            cam_pos
-        );
+        fill_triangle_reflection(&mut fb, &mut zb, v0, v1, v2, &cubemap, cam_pos);
 
         // Check center pixel
         let center = fb.get_pixel(50, 50).unwrap();

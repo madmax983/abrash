@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::rasterizer::{draw_scanline_gouraud, FIXED_SCALE};
+use abrash::rasterizer::{FIXED_SCALE, draw_scanline_gouraud};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
@@ -15,11 +15,7 @@ fn bench_draw_scanline_gouraud_100px(c: &mut Criterion) {
     let dz_dx = 0.001;
 
     // Red (255, 0, 0) to Green (0, 255, 0)
-    let c_start = (
-        (255.0 * FIXED_SCALE) as i64,
-        0,
-        0,
-    );
+    let c_start = ((255.0 * FIXED_SCALE) as i64, 0, 0);
 
     let dc_dx = (
         ((-255.0 * FIXED_SCALE) / 100.0) as i32,
@@ -51,8 +47,5 @@ fn bench_draw_scanline_gouraud_100px(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_draw_scanline_gouraud_100px,
-);
+criterion_group!(benches, bench_draw_scanline_gouraud_100px,);
 criterion_main!(benches);

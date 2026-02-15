@@ -105,7 +105,11 @@ mod tests {
         apply_pixel_sort(&mut fb, 50);
 
         // Expected: [Dark, Bright1, Bright2, Dark, Bright3]
-        assert_eq!(fb.get_pixel(0, 0).unwrap(), c_dark, "Index 0 should be Dark");
+        assert_eq!(
+            fb.get_pixel(0, 0).unwrap(),
+            c_dark,
+            "Index 0 should be Dark"
+        );
         assert_eq!(
             fb.get_pixel(1, 0).unwrap(),
             c_bright1,
@@ -116,7 +120,11 @@ mod tests {
             c_bright2,
             "Index 2 should be Bright2 (200)"
         );
-        assert_eq!(fb.get_pixel(3, 0).unwrap(), c_dark, "Index 3 should be Dark");
+        assert_eq!(
+            fb.get_pixel(3, 0).unwrap(),
+            c_dark,
+            "Index 3 should be Dark"
+        );
         assert_eq!(
             fb.get_pixel(4, 0).unwrap(),
             c_bright3,
