@@ -5,11 +5,43 @@ use abrash::platform::{Window, WindowBackend};
 use abrash::texture::Texture;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
+use clap::Parser;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 use std::f32::consts::PI;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF10_1010;
+
+#[derive(Parser, Debug)]
+#[command(
+    author,
+    version,
+    about = "Nova Particle System Demo",
+    long_about = None
+)]
+struct Args {
+    /// Number of particles
+    #[arg(short, long, default_value_t = 1000)]
+    count: usize,
+
+    /// Emission rate (particles per second)
+    #[arg(short, long, default_value_t = 50.0)]
+    rate: f32,
+
+    /// Spread factor
+    #[arg(short, long, default_value_t = 0.8)]
+    spread: f32,
+
+    /// Start life duration (seconds)
+    #[arg(long, default_value_t = 2.0)]
+    start_life: f32,
+
+    /// Start size
+    #[arg(long, default_value_t = 0.5)]
+    start_size: f32,
+}
 
 fn create_particle_texture() -> Texture {
     let size = 32;
@@ -56,18 +88,61 @@ fn create_particle_texture() -> Texture {
     tex
 }
 
+fn print_banner(args: &Args) {
+    println!("\n{}", "✨ Nova Particle System".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Parameter").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Particle Count"),
+            Cell::new(args.count.to_string()).fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Emission Rate"),
+            Cell::new(args.rate.to_string()).fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Spread"),
+            Cell::new(args.spread.to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Start Life"),
+            Cell::new(format!("{:.1}s", args.start_life)),
+        ])
+        .add_row(vec![
+            Cell::new("Start Size"),
+            Cell::new(args.start_size.to_string()),
+        ]);
+
+    println!("\n{}", "⚙️  Configuration".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!(" • Close window to exit");
+    println!(" • (Interactive controls coming soon)\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    print_banner(&args);
+
     let mut window = Window::new("Nova - Particle System", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
     let mut timestep = FixedTimestep::new(60);
 
     let texture = create_particle_texture();
-    let mut particles = ParticleSystem::new(1000, texture);
-    particles.emission_rate = 50.0;
-    particles.start_life = 2.0;
-    particles.spread = 0.8;
-    particles.start_size = 0.5;
+    let mut particles = ParticleSystem::new(args.count, texture);
+    particles.emission_rate = args.rate;
+    particles.start_life = args.start_life;
+    particles.spread = args.spread;
+    particles.start_size = args.start_size;
 
     // Camera setup
     let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
