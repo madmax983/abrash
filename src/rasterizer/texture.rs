@@ -1308,7 +1308,11 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec); // abs
                 let q_valid = _mm256_cmp_ps(q_abs, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
                 let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
-                let w_recip = _mm256_div_ps(one, safe_q);
+
+                // Newton-Raphson reciprocal approximation: x_1 = x_0 * (2 - d * x_0)
+                // Much faster than _mm256_div_ps
+                let rcp = _mm256_rcp_ps(safe_q);
+                let w_recip = _mm256_mul_ps(rcp, _mm256_sub_ps(two, _mm256_mul_ps(safe_q, rcp)));
 
                 let u_tex_f = _mm256_mul_ps(u_vec, w_recip);
                 let v_tex_f = _mm256_mul_ps(v_vec, w_recip);
