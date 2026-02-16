@@ -1,4 +1,3 @@
-#![allow(unsafe_op_in_unsafe_fn)]
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_to_screen_optimized};

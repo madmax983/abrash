@@ -1,4 +1,3 @@
-#![allow(unsafe_op_in_unsafe_fn)]
 //! Perspective-correct texture mapping rasterizer.
 //!
 //! This module implements scanline rasterization for textured triangles with perspective correction.
@@ -2126,8 +2125,8 @@ unsafe fn draw_span_trilinear_simd(
                         let idx = i + k;
                         let src = temp_pixels[k];
                         let alpha = (src >> 24) as u8;
-                        let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) =
+                        let dest = unsafe { *fb_slice.get_unchecked(idx) };
+                        unsafe { *fb_slice.get_unchecked_mut(idx) } =
                             blend_swar(src, dest, (255 - alpha).into(), alpha.into());
                     }
                     bit <<= 1;
@@ -2892,7 +2891,7 @@ unsafe fn draw_span_textured_gouraud_simd(
 
             if trans_bits != 0 {
                 let mut temp_colors = [0u32; 8];
-                _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color);
+                unsafe { _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color); }
 
                 let mut bit = 1;
                 for k in 0..8 {
@@ -2900,8 +2899,8 @@ unsafe fn draw_span_textured_gouraud_simd(
                         let idx = i + k;
                         let src = temp_colors[k];
                         let alpha = (src >> 24) as u8;
-                        let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) =
+                        let dest = unsafe { *fb_slice.get_unchecked(idx) };
+                        unsafe { *fb_slice.get_unchecked_mut(idx) } =
                             blend_swar(src, dest, (255 - alpha).into(), alpha.into());
                     }
                     bit <<= 1;

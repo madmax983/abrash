@@ -196,7 +196,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
 
     // Initialize result buffer uninitialized to avoid copies
     // SAFETY: Array of MaybeUninit is valid uninitialized.
-    let result_tris: [MaybeUninit<V>; 24] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut result_tris: [MaybeUninit<V>; 24] = unsafe { MaybeUninit::uninit().assume_init() };
 
     let all_in = m0 & m1 & m2;
     if all_in == 0x3F {
