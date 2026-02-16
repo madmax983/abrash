@@ -20,9 +20,21 @@ fn bench_fill_triangle_point_lit(c: &mut Criterion) {
 
     // Clip Positions (same as World for identity transform test)
     // We put them at z=5.0 so they are visible
-    let v0 = ((Vec3::new(0.0, 0.9, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0), w0);
-    let v1 = ((Vec3::new(-0.9, -0.9, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0), w1);
-    let v2 = ((Vec3::new(0.9, -0.9, 5.0), 5.0), Vec3::new(0.0, 0.0, 1.0), w2);
+    let v0 = (
+        (Vec3::new(0.0, 0.9, 5.0), 5.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        w0,
+    );
+    let v1 = (
+        (Vec3::new(-0.9, -0.9, 5.0), 5.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        w1,
+    );
+    let v2 = (
+        (Vec3::new(0.9, -0.9, 5.0), 5.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        w2,
+    );
 
     // Light at center, slightly in front
     let light_pos = Vec3::new(0.0, 0.0, 5.0);

@@ -1,10 +1,10 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_triangle_to_screen, Vec3};
+use crate::math::{Vec3, project_triangle_to_screen};
 use crate::texture::blend_swar;
 use crate::zbuffer::ZBuffer;
 
-use super::core::{assert_same_dimensions, is_backface, prepare_scanline, sort_by_y, EdgeWalker};
+use super::core::{EdgeWalker, assert_same_dimensions, is_backface, prepare_scanline, sort_by_y};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]

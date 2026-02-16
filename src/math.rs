@@ -1234,7 +1234,8 @@ mod tests {
         // w = 0.0002. inv_w = 5000.
         // x = 1.0. ndc_x = 5000.
         // screen_x = (5000+1)*400 = 2000400.
-        let sp_small = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
+        let sp_small =
+            project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
         assert!((sp_small.inv_w - 5000.0).abs() < 1e-1);
         assert_eq!(sp_small.x, 2000400);
 
@@ -1242,7 +1243,8 @@ mod tests {
         // w = -1.0. inv_w = -1.0.
         // x = 1.0. ndc_x = -1.0.
         // screen_x = (-1+1)*400 = 0.
-        let sp_neg = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
+        let sp_neg =
+            project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
         assert_eq!(sp_neg.inv_w, -1.0);
         assert_eq!(sp_neg.x, 0);
     }

@@ -1,10 +1,10 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_triangle_to_screen, ScreenPoint, Vec3};
+use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{
-    assert_same_dimensions, is_backface, pack_color_fixed, sort_by_y, FIXED_SCALE,
+    FIXED_SCALE, assert_same_dimensions, is_backface, pack_color_fixed_i32, sort_by_y,
 };
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -272,7 +272,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     }
 }
 
-/// Draw a single scanline for Gouraud shading
+/// Draw a single scanline for Gouraud shading (Wrapper for API compatibility)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_gouraud(
@@ -286,15 +286,42 @@ pub fn draw_scanline_gouraud(
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
+    draw_scanline_gouraud_i32(
+        fb,
+        zb,
+        y,
+        x_start,
+        x_end,
+        z_start,
+        (c_start.0 as i32, c_start.1 as i32, c_start.2 as i32),
+        dz_dx,
+        dc_dx,
+    );
+}
+
+/// Draw a single scanline for Gouraud shading (Optimized i32 version)
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+pub fn draw_scanline_gouraud_i32(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_start: f32,
+    c_start: (i32, i32, i32), // Fixed point color
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
     let mut z = z_start;
 
     // Use i64 for accumulators to prevent overflow when x_start is far off-screen
-    let mut r_i = c_start.0;
-    let mut g_i = c_start.1;
-    let mut b_i = c_start.2;
+    let mut r_i = i64::from(c_start.0);
+    let mut g_i = i64::from(c_start.1);
+    let mut b_i = i64::from(c_start.2);
     let (dr, dg, db) = (i64::from(dc_dx.0), i64::from(dc_dx.1), i64::from(dc_dx.2));
 
     // Clamp to screen bounds
@@ -485,10 +512,10 @@ impl GouraudGradients {
 struct GouraudEdgeWalker {
     x: i64,
     z: f32,
-    c: (i64, i64, i64),
+    c: (i32, i32, i32),
     dx_dy: i64,
     dz_dy: f32,
-    dc_dy: (i64, i64, i64),
+    dc_dy: (i32, i32, i32),
 }
 
 impl GouraudEdgeWalker {
@@ -503,17 +530,17 @@ impl GouraudEdgeWalker {
                 ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64,
                 (p_end.z - p_start.z) * inv_h,
                 (
-                    (dc.x * FIXED_SCALE) as i64,
-                    (dc.y * FIXED_SCALE) as i64,
-                    (dc.z * FIXED_SCALE) as i64,
+                    (dc.x * FIXED_SCALE) as i32,
+                    (dc.y * FIXED_SCALE) as i32,
+                    (dc.z * FIXED_SCALE) as i32,
                 ),
             )
         };
 
         let c_fixed = (
-            (c_start.x * FIXED_SCALE) as i64,
-            (c_start.y * FIXED_SCALE) as i64,
-            (c_start.z * FIXED_SCALE) as i64,
+            (c_start.x * FIXED_SCALE) as i32,
+            (c_start.y * FIXED_SCALE) as i32,
+            (c_start.z * FIXED_SCALE) as i32,
         );
 
         Self {
@@ -538,9 +565,10 @@ impl GouraudEdgeWalker {
         let n_f = n as f32;
         self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
         self.z += self.dz_dy * n_f;
-        self.c.0 = self.c.0.wrapping_add(self.dc_dy.0.wrapping_mul(n));
-        self.c.1 = self.c.1.wrapping_add(self.dc_dy.1.wrapping_mul(n));
-        self.c.2 = self.c.2.wrapping_add(self.dc_dy.2.wrapping_mul(n));
+        let n_i32 = n as i32;
+        self.c.0 = self.c.0.wrapping_add(self.dc_dy.0.wrapping_mul(n_i32));
+        self.c.1 = self.c.1.wrapping_add(self.dc_dy.1.wrapping_mul(n_i32));
+        self.c.2 = self.c.2.wrapping_add(self.dc_dy.2.wrapping_mul(n_i32));
     }
 }
 
@@ -709,13 +737,13 @@ pub fn fill_triangle_gouraud(
                             fb.set_pixel_unchecked(
                                 x_start as usize,
                                 y as usize,
-                                pack_color_fixed(c_left),
+                                pack_color_fixed_i32(c_left),
                             );
                         }
                     }
                 }
             } else {
-                draw_scanline_gouraud(
+                draw_scanline_gouraud_i32(
                     fb,
                     zb,
                     y,
@@ -747,20 +775,10 @@ mod tests {
 
         let z_start = 5.0;
         let dz_dx = 0.01;
-        let c_start = (200i64 << 16, 0, 50i64 << 16);
+        let c_start = (200i32 << 16, 0, 50i32 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
-        draw_scanline_gouraud(
-            &mut fb,
-            &mut zb,
-            0,
-            0,
-            99,
-            z_start,
-            c_start,
-            dz_dx,
-            dc_dx,
-        );
+        draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
         assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50);
