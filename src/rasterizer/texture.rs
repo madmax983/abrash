@@ -833,6 +833,13 @@ pub fn draw_scanline_textured_perspective(
     start: PerspectiveSpanStart,
     gradients: &PerspectiveTextureGradients,
 ) {
+    assert!(
+        texture.pixels.len()
+            >= (texture.width as usize)
+                .checked_mul(texture.height as usize)
+                .expect("Texture dimensions overflow usize"),
+        "Texture buffer too small"
+    );
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -1054,6 +1061,10 @@ pub fn fill_triangle_textured(
     texture: &Texture,
 ) {
     assert_same_dimensions(fb, zb);
+    assert!(
+        texture.pixels.len() >= (texture.width as usize) * (texture.height as usize),
+        "Texture buffer too small"
+    );
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
@@ -1769,6 +1780,20 @@ fn draw_scanline_normal_mapped(
     pre_diffuse_color: Vec3, // base_color * light_color
     ambient: Vec3,
 ) {
+    assert!(
+        texture.pixels.len()
+            >= (texture.width as usize)
+                .checked_mul(texture.height as usize)
+                .expect("Texture dimensions overflow usize"),
+        "Texture buffer too small"
+    );
+    assert!(
+        normal_map.pixels.len()
+            >= (normal_map.width as usize)
+                .checked_mul(normal_map.height as usize)
+                .expect("Normal map dimensions overflow usize"),
+        "Normal map buffer too small"
+    );
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -1902,6 +1927,17 @@ pub fn fill_triangle_normal_mapped(
     ambient: Vec3,
 ) {
     assert_same_dimensions(fb, zb);
+    assert!(
+        texture.pixels.len()
+            >= (texture.width as usize)
+                .checked_mul(texture.height as usize)
+                .expect("Texture dimensions overflow usize"),
+        "Texture buffer too small"
+    );
+    assert!(
+        normal_map.pixels.len() >= (normal_map.width as usize) * (normal_map.height as usize),
+        "Normal map buffer too small"
+    );
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 
@@ -2339,7 +2375,7 @@ unsafe fn draw_span_textured_gouraud_simd(
     dr_dx: f32,
     dg_dx: f32,
     db_dx: f32,
-) {
+) { unsafe {
     use std::arch::x86_64::*;
 
     let len = fb_slice.len();
@@ -2498,7 +2534,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         dg_dx,
         db_dx,
     );
-}
+}}
 
 #[allow(clippy::too_many_arguments)]
 fn draw_span_textured_gouraud_scalar(
@@ -2579,6 +2615,10 @@ fn draw_scanline_textured_gouraud(
     gradients: &TexturedGouraudGradients,
     texture: &Texture,
 ) {
+    assert!(
+        texture.pixels.len() >= (texture.width as usize) * (texture.height as usize),
+        "Texture buffer too small"
+    );
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -2758,6 +2798,10 @@ pub fn fill_triangle_textured_gouraud(
     texture: &Texture,
 ) {
     assert_same_dimensions(fb, zb);
+    assert!(
+        texture.pixels.len() >= (texture.width as usize) * (texture.height as usize),
+        "Texture buffer too small"
+    );
 
     let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
 

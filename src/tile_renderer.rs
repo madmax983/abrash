@@ -191,10 +191,10 @@ impl<T> SendPtr<T> {
 }
 
 #[cfg(feature = "parallel")]
-unsafe impl<T> Send for SendPtr<T> {}
+unsafe impl<T: Send> Send for SendPtr<T> {}
 
 #[cfg(feature = "parallel")]
-unsafe impl<T> Sync for SendPtr<T> {}
+unsafe impl<T: Send + Sync> Sync for SendPtr<T> {}
 
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
 pub const TILE_SIZE: u32 = 32;

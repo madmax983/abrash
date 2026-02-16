@@ -17,3 +17,15 @@
 **2024-05-28 - [Harden OBJ Loader and Window Creation]**
 **Threat:** Potential Undefined Behavior in `obj_loader.rs` due to unnecessary `unsafe` indexing, and Integer Overflow in `Win32Window::new` / `TuiWindow::new` causing invalid window dimensions.
 **Defense:** Replaced `unsafe` blocks with safe indexing in `obj_loader.rs`. Added bounds checks (`width > i32::MAX`, `height > i32::MAX`, zero checks) in `Win32Window::new` and `TuiWindow::new`. Added regression test `tests/security_obj_loader.rs`.
+
+**2026-02-07 - [Harden Texture Access and Parallel Rendering]**
+**Threat:**
+1. Out-of-bounds memory access (UB) in SIMD rasterizers when `Texture` dimensions do not match pixel buffer size (e.g. manually constructed malicious texture).
+2. Unsound `Send`/`Sync` implementation for `SendPtr<T>` allowing non-thread-safe types to be shared/sent across threads in parallel renderer.
+**Defense:**
+1. Added runtime assertions `assert!(pixels.len() >= width * height)` in all texture-based rasterization paths (`draw_scanline_*`, `fill_triangle_*`).
+2. Constrained `SendPtr<T>` to require `T: Send` for both `Send` and `Sync` implementations.
+
+**2026-02-07 - [Fix 32-bit Integer Overflow in Security Checks]**
+**Threat:** `width * height` calculation in security assertions could wrap on 32-bit systems, bypassing the buffer size check.
+**Defense:** Replaced multiplication with `.checked_mul().expect(...)`.
