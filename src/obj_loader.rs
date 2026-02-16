@@ -91,33 +91,36 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     const SENTINEL: u64 = 0xF_FFFF;
 
     // Reserve reasonable initial capacity to avoid frequent reallocations
-    let mut raw_positions = Vec::with_capacity(1024);
-    let mut raw_uvs = Vec::with_capacity(1024);
-    let mut raw_normals = Vec::with_capacity(1024);
+    // Heuristic: Estimate count based on file size.
+    // Average line length ~40 bytes. Conservative estimate.
+    let estimated_capacity = std::cmp::max(1024, source.len() / 40);
+
+    let mut raw_positions = Vec::with_capacity(estimated_capacity);
+    let mut raw_uvs = Vec::with_capacity(estimated_capacity);
+    let mut raw_normals = Vec::with_capacity(estimated_capacity);
 
     // Deduplication structure:
     // Key: Packed u64 (v_idx | vt_idx << 20 | vn_idx << 40)
     // Value: index in final_vertices.
-    let mut deduplicator: HashMap<u64, usize> = HashMap::with_capacity(1024);
+    let mut deduplicator: HashMap<u64, usize> = HashMap::with_capacity(estimated_capacity);
 
-    let mut final_vertices = Vec::with_capacity(1024);
-    let mut final_uvs = Vec::with_capacity(1024);
-    let mut final_normals = Vec::with_capacity(1024);
-    let mut final_indices = Vec::with_capacity(1024);
+    let mut final_vertices = Vec::with_capacity(estimated_capacity);
+    let mut final_uvs = Vec::with_capacity(estimated_capacity);
+    let mut final_normals = Vec::with_capacity(estimated_capacity);
+    let mut final_indices = Vec::with_capacity(estimated_capacity);
 
     // Reuse vector for face indices to avoid allocation per face
     let mut face_indices = Vec::with_capacity(4);
 
     for (line_num, line) in source.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        // Optimization: Use split_ascii_whitespace to avoid Unicode property lookups.
-        // OBJ files are ASCII-based, so this is safe and significantly faster (~20%).
+        // Optimization: Use split_ascii_whitespace directly to avoid redundant trim().
+        // It handles leading/trailing whitespace automatically.
         let mut parts = line.split_ascii_whitespace();
-        let cmd = parts.next().unwrap_or("");
+        let cmd = match parts.next() {
+            Some(s) if s.starts_with('#') => continue,
+            Some(s) => s,
+            None => continue,
+        };
 
         match cmd {
             "v" => {
