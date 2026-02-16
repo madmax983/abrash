@@ -283,5 +283,9 @@ name = "bilinear"
 harness = false
 
 [[bench]]
+name = "trilinear_scanline"
+harness = false
+
+[[bench]]
 name = "culling_optimization"
 harness = false
