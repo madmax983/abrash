@@ -7,7 +7,7 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, project_triangle_to_screen};
-use crate::rasterizer::sort_by_y;
+use crate::rasterizer::core::sort_by_y;
 use crate::texture::Texture;
 use crate::zbuffer::ZBuffer;
 

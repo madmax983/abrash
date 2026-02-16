@@ -24,6 +24,3 @@ pub use self::texture::{
 pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::core::{color_to_u32, FIXED_SCALE};
 
-// Re-export internal helpers for experimental modules
-pub(crate) use self::core::{is_backface, sort_by_y, EdgeWalker};
-pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
