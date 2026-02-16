@@ -127,11 +127,24 @@ impl Frustum {
         for plane in &self.planes {
             // Find the p-vertex (the vertex furthest along the normal direction)
             // If this vertex is behind the plane (negative distance), the whole box is outside.
-            let px = if plane.normal.x >= 0.0 { aabb.max.x } else { aabb.min.x };
-            let py = if plane.normal.y >= 0.0 { aabb.max.y } else { aabb.min.y };
-            let pz = if plane.normal.z >= 0.0 { aabb.max.z } else { aabb.min.z };
+            let px = if plane.normal.x >= 0.0 {
+                aabb.max.x
+            } else {
+                aabb.min.x
+            };
+            let py = if plane.normal.y >= 0.0 {
+                aabb.max.y
+            } else {
+                aabb.min.y
+            };
+            let pz = if plane.normal.z >= 0.0 {
+                aabb.max.z
+            } else {
+                aabb.min.z
+            };
 
-            let dist = plane.normal.x * px + plane.normal.y * py + plane.normal.z * pz + plane.distance;
+            let dist =
+                plane.normal.x * px + plane.normal.y * py + plane.normal.z * pz + plane.distance;
 
             if dist < 0.0 {
                 return false;
@@ -313,26 +326,17 @@ mod tests {
         let frustum = Frustum::from_matrix(m);
 
         // 1. AABB Inside [-1, 1]x[-1, 1]x[-1, 1]
-        let aabb_inside = AABB::new(
-            Vec3::new(-0.5, -0.5, -0.5),
-            Vec3::new(0.5, 0.5, 0.5),
-        );
+        let aabb_inside = AABB::new(Vec3::new(-0.5, -0.5, -0.5), Vec3::new(0.5, 0.5, 0.5));
         assert!(frustum.intersects_aabb(&aabb_inside));
 
         // 2. AABB Intersecting boundary (x=1)
         // Min at 0.8, Max at 1.2
-        let aabb_intersect = AABB::new(
-            Vec3::new(0.8, -0.5, -0.5),
-            Vec3::new(1.2, 0.5, 0.5),
-        );
+        let aabb_intersect = AABB::new(Vec3::new(0.8, -0.5, -0.5), Vec3::new(1.2, 0.5, 0.5));
         assert!(frustum.intersects_aabb(&aabb_intersect));
 
         // 3. AABB Outside
         // Min at 1.1, Max at 1.5
-        let aabb_outside = AABB::new(
-            Vec3::new(1.1, -0.5, -0.5),
-            Vec3::new(1.5, 0.5, 0.5),
-        );
+        let aabb_outside = AABB::new(Vec3::new(1.1, -0.5, -0.5), Vec3::new(1.5, 0.5, 0.5));
         assert!(!frustum.intersects_aabb(&aabb_outside));
     }
 

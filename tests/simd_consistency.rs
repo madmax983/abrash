@@ -1,5 +1,5 @@
 #[cfg(all(target_arch = "x86_64"))]
-use abrash::math::{project_to_screen_optimized, project_triangle_to_screen, Vec3};
+use abrash::math::{Vec3, project_to_screen_optimized, project_triangle_to_screen};
 
 #[cfg(all(target_arch = "x86_64"))]
 #[test]
@@ -21,12 +21,7 @@ fn test_simd_vs_scalar_overflow() {
 
     // SIMD
     // We pass 3 identical vertices to make it simple
-    let (simd_res, _, _) = project_triangle_to_screen(
-        v, w,
-        v, w,
-        v, w,
-        half_width, half_height
-    );
+    let (simd_res, _, _) = project_triangle_to_screen(v, w, v, w, v, w, half_width, half_height);
 
     println!("Scalar result: {:?}", scalar_res);
     println!("SIMD result:   {:?}", simd_res);
@@ -37,7 +32,11 @@ fn test_simd_vs_scalar_overflow() {
     // Both should be positive and very large.
     assert!(scalar_res.x > 2_000_000_000, "Scalar should saturate high");
     assert!(simd_res.x > 2_000_000_000, "SIMD should saturate high");
-    assert_eq!(scalar_res.x.signum(), simd_res.x.signum(), "Signs should match");
+    assert_eq!(
+        scalar_res.x.signum(),
+        simd_res.x.signum(),
+        "Signs should match"
+    );
 
     // Y should be consistent too (it might not overflow here since y is 0.0 -> screen_y = 300)
     assert_eq!(scalar_res.y, simd_res.y, "Y coordinates should match");
@@ -60,12 +59,7 @@ fn test_simd_vs_scalar_underflow() {
     let scalar_res = project_to_screen_optimized(v, w, half_width, half_height);
 
     // SIMD
-    let (simd_res, _, _) = project_triangle_to_screen(
-        v, w,
-        v, w,
-        v, w,
-        half_width, half_height
-    );
+    let (simd_res, _, _) = project_triangle_to_screen(v, w, v, w, v, w, half_width, half_height);
 
     println!("Scalar result: {:?}", scalar_res);
     println!("SIMD result:   {:?}", simd_res);
@@ -74,5 +68,8 @@ fn test_simd_vs_scalar_underflow() {
     // Scalar: i32::MIN + 1.
     // SIMD: i32::MIN + 1.
 
-    assert_eq!(scalar_res.x, simd_res.x, "Scalar and SIMD x coordinates mismatch on negative overflow!");
+    assert_eq!(
+        scalar_res.x, simd_res.x,
+        "Scalar and SIMD x coordinates mismatch on negative overflow!"
+    );
 }

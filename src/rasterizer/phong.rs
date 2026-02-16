@@ -1,3 +1,4 @@
+#![allow(unsafe_op_in_unsafe_fn)]
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
@@ -755,9 +756,9 @@ pub fn fill_triangle_point_lit(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -1122,9 +1123,9 @@ pub fn fill_triangle_phong_shadowed(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -1792,9 +1793,9 @@ pub fn fill_triangle_phong(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(

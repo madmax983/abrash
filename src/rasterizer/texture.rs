@@ -1,3 +1,4 @@
+#![allow(unsafe_op_in_unsafe_fn)]
 //! Perspective-correct texture mapping rasterizer.
 //!
 //! This module implements scanline rasterization for textured triangles with perspective correction.
@@ -1155,7 +1156,7 @@ pub fn draw_scanline_textured_perspective(
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
-/// let texture = Texture::new(32, 32); // Assume empty texture
+/// let texture = Texture::new(32, 32).unwrap(); // Assume empty texture
 ///
 /// // Vertices: ((Pos, W), UV)
 /// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec2::new(0.5, 0.0));
@@ -1183,9 +1184,9 @@ pub fn fill_triangle_textured(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -1898,15 +1899,7 @@ unsafe fn draw_span_trilinear_simd(
         let u_fix = u_fix_start.wrapping_sub(32768);
         let v_fix = v_fix_start.wrapping_sub(32768);
         draw_span_bilinear_simd(
-            fb_slice,
-            zb_slice,
-            texture,
-            z_start,
-            dz_dx,
-            u_fix,
-            v_fix,
-            du_fix,
-            dv_fix,
+            fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
         );
         return;
     }
@@ -1937,9 +1930,9 @@ unsafe fn draw_span_trilinear_simd(
             texture.pixels.as_slice(),
             texture.width,
             texture.height,
-            0 // base shift is 0 relative to u_fix >> 8 (bilinear)
-              // But u_fix passed in is 16.16. Bilinear expects 24.8.
-              // So effectively shift is 8.
+            0, // base shift is 0 relative to u_fix >> 8 (bilinear)
+               // But u_fix passed in is 16.16. Bilinear expects 24.8.
+               // So effectively shift is 8.
         )
     } else {
         let idx = level - 1;
@@ -2018,8 +2011,14 @@ unsafe fn draw_span_trilinear_simd(
         let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
         let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
 
-        let rb_sum = _mm256_add_epi16(_mm256_mullo_epi16(rb0, inv_w_16), _mm256_mullo_epi16(rb1, w_16));
-        let ag_sum = _mm256_add_epi16(_mm256_mullo_epi16(ag0, inv_w_16), _mm256_mullo_epi16(ag1, w_16));
+        let rb_sum = _mm256_add_epi16(
+            _mm256_mullo_epi16(rb0, inv_w_16),
+            _mm256_mullo_epi16(rb1, w_16),
+        );
+        let ag_sum = _mm256_add_epi16(
+            _mm256_mullo_epi16(ag0, inv_w_16),
+            _mm256_mullo_epi16(ag1, w_16),
+        );
 
         let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
         let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
@@ -2041,8 +2040,14 @@ unsafe fn draw_span_trilinear_simd(
 
             let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), $max_x);
             let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), $max_y);
-            let x1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i), $max_x);
-            let y1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i), $max_y);
+            let x1 = _mm256_min_epi32(
+                _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
+                $max_x,
+            );
+            let y1 = _mm256_min_epi32(
+                _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
+                $max_y,
+            );
 
             let y0_w = _mm256_mullo_epi32(y0, $w_vec);
             let y1_w = _mm256_mullo_epi32(y1, $w_vec);
@@ -2108,7 +2113,8 @@ unsafe fn draw_span_trilinear_simd(
             }
 
             let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
-            let trans_mask = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let trans_mask =
+                _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
             if trans_bits != 0 {
@@ -2121,7 +2127,8 @@ unsafe fn draw_span_trilinear_simd(
                         let src = temp_pixels[k];
                         let alpha = (src >> 24) as u8;
                         let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+                        *fb_slice.get_unchecked_mut(idx) =
+                            blend_swar(src, dest, (255 - alpha).into(), alpha.into());
                     }
                     bit <<= 1;
                 }
@@ -2338,9 +2345,9 @@ pub fn fill_triangle_normal_mapped(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -3263,9 +3270,9 @@ pub fn fill_triangle_textured_gouraud(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,

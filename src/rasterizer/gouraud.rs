@@ -1,3 +1,4 @@
+#![allow(unsafe_op_in_unsafe_fn)]
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
@@ -31,7 +32,8 @@ unsafe fn draw_scanline_gouraud_simd_fast(
     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
 
-    let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec =
+        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
 
     // Initialize colors: Start + (dc * i)
     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
@@ -163,7 +165,8 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
 
-    let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec =
+        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
 
     // Initialize colors: Start + (dc * i)
     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
@@ -648,9 +651,9 @@ pub fn fill_triangle_gouraud(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -787,7 +790,7 @@ mod tests {
 
         let z_start = 5.0;
         let dz_dx = 0.01;
-        let c_start = (200i32 << 16, 0, 50i32 << 16);
+        let c_start = (200i64 << 16, 0, 50i64 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);

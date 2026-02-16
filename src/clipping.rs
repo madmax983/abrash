@@ -1,4 +1,6 @@
 use crate::math::{Vec2, Vec3, Vec4};
+use std::mem::MaybeUninit;
+use std::ops::Index;
 
 pub trait Lerp: Copy + Clone {
     #[must_use]
@@ -99,8 +101,19 @@ impl Lerp for ((Vec3, f32), Vec3, Vec2) {
 }
 
 pub struct ClippedTriangles<V> {
-    pub tris: [V; 24], // Max 8 triangles = 24 vertices
-    pub count: usize,  // Number of triangles
+    tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
+    pub count: usize,           // Number of triangles
+}
+
+impl<V> Index<usize> for ClippedTriangles<V> {
+    type Output = V;
+
+    #[inline(always)]
+    fn index(&self, index: usize) -> &Self::Output {
+        // In debug builds, verify we are accessing initialized memory
+        debug_assert!(index < self.count * 3, "Index out of bounds");
+        unsafe { self.tris[index].assume_init_ref() }
+    }
 }
 
 const NEAR: f32 = 0.001;
@@ -181,21 +194,27 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         m2 |= 32;
     }
 
+    // Initialize result buffer uninitialized to avoid copies
+    // SAFETY: Array of MaybeUninit is valid uninitialized.
+    let result_tris: [MaybeUninit<V>; 24] = unsafe { MaybeUninit::uninit().assume_init() };
+
     let all_in = m0 & m1 & m2;
     if all_in == 0x3F {
         // Trivial Accept: All inside
-        let mut tris = [v0; 24]; // Init with v0
-        tris[0] = v0;
-        tris[1] = v1;
-        tris[2] = v2;
-        return ClippedTriangles { tris, count: 1 };
+        result_tris[0].write(v0);
+        result_tris[1].write(v1);
+        result_tris[2].write(v2);
+        return ClippedTriangles {
+            tris: result_tris,
+            count: 1,
+        };
     }
 
     let any_in = m0 | m1 | m2;
     if any_in != 0x3F {
         // Trivial Reject: All outside at least one plane
         return ClippedTriangles {
-            tris: [v0; 24],
+            tris: result_tris,
             count: 0,
         };
     }
@@ -286,7 +305,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
 
     // Triangulate (Fan)
     let mut result = ClippedTriangles {
-        tris: [v0; 24],
+        tris: result_tris,
         count: 0,
     };
 
@@ -299,9 +318,9 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         for i in 1..count - 1 {
             if result.count < 8 {
                 let idx = result.count * 3;
-                result.tris[idx] = pivot;
-                result.tris[idx + 1] = buf1[i];
-                result.tris[idx + 2] = buf1[i + 1];
+                result.tris[idx].write(pivot);
+                result.tris[idx + 1].write(buf1[i]);
+                result.tris[idx + 2].write(buf1[i + 1]);
                 result.count += 1;
             }
         }
@@ -386,18 +405,19 @@ pub fn clip_triangle_against_near_plane<V: Lerp>(
 
     let inside_count = usize::from(inside0) + usize::from(inside1) + usize::from(inside2);
 
-    // We initialize the array with v0 copies just to satisfy initialization.
-    // They will be overwritten if used.
+    // SAFETY: Array of MaybeUninit is valid uninitialized.
+    let result_tris: [MaybeUninit<V>; 24] = unsafe { MaybeUninit::uninit().assume_init() };
+
     let mut result = ClippedTriangles {
-        tris: [v0; 24],
+        tris: result_tris,
         count: 0,
     };
 
     if inside_count == 3 {
         // All inside - return original
-        result.tris[0] = v0;
-        result.tris[1] = v1;
-        result.tris[2] = v2;
+        result.tris[0].write(v0);
+        result.tris[1].write(v1);
+        result.tris[2].write(v2);
         result.count = 1;
         return result;
     }
@@ -442,19 +462,19 @@ pub fn clip_triangle_against_near_plane<V: Lerp>(
 
     // Now assemble triangles
     if out_count == 3 {
-        result.tris[0] = out_verts[0];
-        result.tris[1] = out_verts[1];
-        result.tris[2] = out_verts[2];
+        result.tris[0].write(out_verts[0]);
+        result.tris[1].write(out_verts[1]);
+        result.tris[2].write(out_verts[2]);
         result.count = 1;
     } else if out_count == 4 {
         // Quad (0,1,2,3) -> Tri1(0,1,2), Tri2(0,2,3)
-        result.tris[0] = out_verts[0];
-        result.tris[1] = out_verts[1];
-        result.tris[2] = out_verts[2];
+        result.tris[0].write(out_verts[0]);
+        result.tris[1].write(out_verts[1]);
+        result.tris[2].write(out_verts[2]);
 
-        result.tris[3] = out_verts[0];
-        result.tris[4] = out_verts[2];
-        result.tris[5] = out_verts[3];
+        result.tris[3].write(out_verts[0]);
+        result.tris[4].write(out_verts[2]);
+        result.tris[5].write(out_verts[3]);
         result.count = 2;
     }
 
@@ -496,7 +516,7 @@ mod tests {
         for i in 0..result.count {
             let base = i * 3;
             for k in 0..3 {
-                let v = result.tris[base + k];
+                let v = result[base + k]; // Use Index access
                 let (pos, w) = v;
                 // Check Right Plane: x <= w
                 assert!(
@@ -525,9 +545,9 @@ mod tests {
         let result = clip_triangle_to_frustum(v0, v1, v2, get_pos);
 
         assert_eq!(result.count, 1);
-        assert_eq!(result.tris[0], v0);
-        assert_eq!(result.tris[1], v1);
-        assert_eq!(result.tris[2], v2);
+        assert_eq!(result[0], v0);
+        assert_eq!(result[1], v1);
+        assert_eq!(result[2], v2);
     }
 
     #[test]
@@ -551,9 +571,9 @@ mod tests {
         let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
 
         assert_eq!(result.count, 1);
-        assert_eq!(result.tris[0], v0);
-        assert_eq!(result.tris[1], v1);
-        assert_eq!(result.tris[2], v2);
+        assert_eq!(result[0], v0);
+        assert_eq!(result[1], v1);
+        assert_eq!(result[2], v2);
     }
 
     #[test]
@@ -581,11 +601,11 @@ mod tests {
 
         // Check vertices
         // The first vertex should be v0
-        assert_eq!(result.tris[0], v0);
+        assert_eq!(result[0], v0);
 
         // The other two should have w = NEAR (0.001)
-        assert!((result.tris[1].1 - NEAR).abs() < 1e-6);
-        assert!((result.tris[2].1 - NEAR).abs() < 1e-6);
+        assert!((result[1].1 - NEAR).abs() < 1e-6);
+        assert!((result[2].1 - NEAR).abs() < 1e-6);
     }
 
     #[test]
@@ -600,27 +620,14 @@ mod tests {
         // Should return 2 triangles (quad)
         assert_eq!(result.count, 2);
 
-        // Verify structure of returned triangles
-        // First triangle: v0, v1, intersect(v1, v2)
-        // Second triangle: v0, intersect(v1, v2), intersect(v2, v0)
-
-        // Check that we have vertices with w=NEAR
-        // Count how many have w=NEAR
-        // Total vertices in result = 3 * count = 6
-
-        // Tri1: v0, v1, intersect(v1, v2) -> w: 1.0, 1.0, NEAR
-        // Tri2: v0, intersect(v1, v2), intersect(v2, v0) -> w: 1.0, NEAR, NEAR
-
-        // Total w values: 1.0, 1.0, NEAR, 1.0, NEAR, NEAR.
-        // So 3 vertices with w=1.0, 3 vertices with w=NEAR.
-
         let mut near_count = 0;
         let mut inner_count = 0;
 
         for i in 0..6 {
-            if (result.tris[i].1 - NEAR).abs() < 1e-6 {
+            let v = result[i];
+            if (v.1 - NEAR).abs() < 1e-6 {
                 near_count += 1;
-            } else if (result.tris[i].1 - 1.0).abs() < 1e-6 {
+            } else if (v.1 - 1.0).abs() < 1e-6 {
                 inner_count += 1;
             }
         }
