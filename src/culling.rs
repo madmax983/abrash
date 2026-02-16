@@ -1,7 +1,7 @@
 //! Frustum Culling primitives.
 
 use crate::math::{Mat4, Vec3};
-use crate::mesh::BoundingSphere;
+use crate::mesh::{AABB, BoundingSphere};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use std::arch::x86_64::{
@@ -121,26 +121,62 @@ impl Frustum {
         true
     }
 
+    /// Check if an AABB intersects or is inside the frustum.
+    /// uses the p-vertex optimization.
+    pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
+        for plane in &self.planes {
+            // Find the p-vertex (the vertex furthest along the normal direction)
+            // If this vertex is behind the plane (negative distance), the whole box is outside.
+            let px = if plane.normal.x >= 0.0 { aabb.max.x } else { aabb.min.x };
+            let py = if plane.normal.y >= 0.0 { aabb.max.y } else { aabb.min.y };
+            let pz = if plane.normal.z >= 0.0 { aabb.max.z } else { aabb.min.z };
+
+            let dist = plane.normal.x * px + plane.normal.y * py + plane.normal.z * pz + plane.distance;
+
+            if dist < 0.0 {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Check multiple spheres against the frustum using SIMD optimizations.
     /// Returns a `Vec<bool>` where `true` means the sphere is visible.
     pub fn cull_spheres(&self, spheres: &[BoundingSphere]) -> Vec<bool> {
-        let mut results = vec![true; spheres.len()]; // Assume all visible initially
+        let mut results = vec![true; spheres.len()];
+        self.cull_spheres_prealloc(spheres, &mut results);
+        results
+    }
+
+    /// Check multiple spheres against the frustum using SIMD optimizations.
+    /// Writes results into the provided slice.
+    ///
+    /// The `results` slice must be the same length as `spheres`.
+    pub fn cull_spheres_prealloc(&self, spheres: &[BoundingSphere], results: &mut [bool]) {
+        assert_eq!(spheres.len(), results.len());
 
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         if is_x86_feature_detected!("avx2") {
             unsafe {
-                self.cull_spheres_avx2(spheres, &mut results);
+                self.cull_spheres_avx2(spheres, results);
             }
-            return results;
+            return;
         }
 
         // Scalar fallback
         for (i, sphere) in spheres.iter().enumerate() {
-            if !self.intersects(sphere) {
-                results[i] = false;
-            }
+            results[i] = self.intersects(sphere);
         }
-        results
+    }
+
+    /// Check multiple AABBs against the frustum.
+    /// Writes results into the provided slice.
+    pub fn cull_aabbs_prealloc(&self, aabbs: &[AABB], results: &mut [bool]) {
+        assert_eq!(aabbs.len(), results.len());
+
+        for (i, aabb) in aabbs.iter().enumerate() {
+            results[i] = self.intersects_aabb(aabb);
+        }
     }
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -238,9 +274,7 @@ impl Frustum {
 
         // Tail
         while i < len {
-            if !self.intersects(&spheres[i]) {
-                results[i] = false;
-            }
+            results[i] = self.intersects(&spheres[i]);
             i += 1;
         }
     }
@@ -251,6 +285,56 @@ mod tests {
     use super::*;
     use crate::math::{Mat4, Vec3};
     use crate::mesh::BoundingSphere;
+
+    #[test]
+    fn test_cull_spheres_prealloc() {
+        let m = Mat4::identity();
+        let frustum = Frustum::from_matrix(m);
+        let spheres = vec![
+            BoundingSphere {
+                center: Vec3::new(0.0, 0.0, 0.0),
+                radius: 0.5,
+            },
+            BoundingSphere {
+                center: Vec3::new(2.0, 0.0, 0.0),
+                radius: 0.5,
+            },
+        ];
+        let mut results = vec![false; 2]; // Initialize with false to ensure it writes true
+        frustum.cull_spheres_prealloc(&spheres, &mut results);
+
+        assert_eq!(results[0], true);
+        assert_eq!(results[1], false);
+    }
+
+    #[test]
+    fn test_aabb_intersection() {
+        let m = Mat4::identity();
+        let frustum = Frustum::from_matrix(m);
+
+        // 1. AABB Inside [-1, 1]x[-1, 1]x[-1, 1]
+        let aabb_inside = AABB::new(
+            Vec3::new(-0.5, -0.5, -0.5),
+            Vec3::new(0.5, 0.5, 0.5),
+        );
+        assert!(frustum.intersects_aabb(&aabb_inside));
+
+        // 2. AABB Intersecting boundary (x=1)
+        // Min at 0.8, Max at 1.2
+        let aabb_intersect = AABB::new(
+            Vec3::new(0.8, -0.5, -0.5),
+            Vec3::new(1.2, 0.5, 0.5),
+        );
+        assert!(frustum.intersects_aabb(&aabb_intersect));
+
+        // 3. AABB Outside
+        // Min at 1.1, Max at 1.5
+        let aabb_outside = AABB::new(
+            Vec3::new(1.1, -0.5, -0.5),
+            Vec3::new(1.5, 0.5, 0.5),
+        );
+        assert!(!frustum.intersects_aabb(&aabb_outside));
+    }
 
     #[test]
     fn test_cull_spheres_matches_scalar() {

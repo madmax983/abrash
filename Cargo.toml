@@ -280,3 +280,7 @@ harness = false
 [[bench]]
 name = "bilinear"
 harness = false
+
+[[bench]]
+name = "culling_optimization"
+harness = false
