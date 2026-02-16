@@ -1,11 +1,9 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_triangle_to_screen, ScreenPoint, Vec3};
+use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
-use super::core::{
-    assert_same_dimensions, is_backface, pack_color_fixed, sort_by_y, FIXED_SCALE,
-};
+use super::core::{FIXED_SCALE, assert_same_dimensions, is_backface, pack_color_fixed, sort_by_y};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
@@ -750,17 +748,7 @@ mod tests {
         let c_start = (200i64 << 16, 0, 50i64 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
-        draw_scanline_gouraud(
-            &mut fb,
-            &mut zb,
-            0,
-            0,
-            99,
-            z_start,
-            c_start,
-            dz_dx,
-            dc_dx,
-        );
+        draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
         assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50);

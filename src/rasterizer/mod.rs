@@ -7,23 +7,23 @@
 pub mod core;
 pub mod flat;
 pub mod gouraud;
+pub mod line;
 pub mod phong;
 pub mod texture;
-pub mod line;
 
 // Re-export public API
-pub use self::flat::{fill_triangle_3d, draw_scanline_flat, draw_scanline_flat_blended};
-pub use self::gouraud::{fill_triangle_gouraud, draw_scanline_gouraud};
+pub use self::core::{FIXED_SCALE, color_to_u32};
+pub use self::flat::{draw_scanline_flat, draw_scanline_flat_blended, fill_triangle_3d};
+pub use self::gouraud::{draw_scanline_gouraud, fill_triangle_gouraud};
+pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::phong::{
-    fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit, fill_triangle_lit,
+    fill_triangle_lit, fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit,
 };
 pub use self::texture::{
-    draw_scanline_textured_perspective, fill_triangle_normal_mapped, fill_triangle_textured,
-    fill_triangle_textured_gouraud, PerspectiveSpanStart, PerspectiveTextureGradients,
+    PerspectiveSpanStart, PerspectiveTextureGradients, draw_scanline_textured_perspective,
+    fill_triangle_normal_mapped, fill_triangle_textured, fill_triangle_textured_gouraud,
 };
-pub use self::line::{draw_line_3d, fill_triangle_wireframe};
-pub use self::core::{color_to_u32, FIXED_SCALE};
 
 // Re-export internal helpers for experimental modules
-pub(crate) use self::core::{is_backface, sort_by_y, EdgeWalker};
+pub(crate) use self::core::{EdgeWalker, is_backface, sort_by_y};
 pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};

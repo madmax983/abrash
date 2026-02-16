@@ -1,10 +1,10 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{fast_inv_sqrt, project_triangle_to_screen, Mat4, ScreenPoint, Vec3};
+use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{
-    assert_same_dimensions, color_to_u32, color_to_u32_scaled, is_backface, sort_by_y, FIXED_SCALE,
+    FIXED_SCALE, assert_same_dimensions, color_to_u32, color_to_u32_scaled, is_backface, sort_by_y,
 };
 
 #[derive(Clone, Copy)]
@@ -120,7 +120,11 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                 let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
                 _mm256_storeu_ps(depth_ptr, new_z);
 
-                let q_valid = _mm256_cmp_ps(_mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec), _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+                let q_valid = _mm256_cmp_ps(
+                    _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec),
+                    _mm256_set1_ps(1e-6),
+                    _CMP_GT_OQ,
+                );
                 let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
                 let w_recip = _mm256_div_ps(one, safe_q);
 
@@ -128,10 +132,34 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                 let world_y = _mm256_mul_ps(wy_vec, w_recip);
                 let world_z = _mm256_mul_ps(wz_vec, w_recip);
 
-                let lc_x = _mm256_add_ps(_mm256_mul_ps(world_x, m00), _mm256_add_ps(_mm256_mul_ps(world_y, m10), _mm256_add_ps(_mm256_mul_ps(world_z, m20), m30)));
-                let lc_y = _mm256_add_ps(_mm256_mul_ps(world_x, m01), _mm256_add_ps(_mm256_mul_ps(world_y, m11), _mm256_add_ps(_mm256_mul_ps(world_z, m21), m31)));
-                let lc_z = _mm256_add_ps(_mm256_mul_ps(world_x, m02), _mm256_add_ps(_mm256_mul_ps(world_y, m12), _mm256_add_ps(_mm256_mul_ps(world_z, m22), m32)));
-                let lc_w = _mm256_add_ps(_mm256_mul_ps(world_x, m03), _mm256_add_ps(_mm256_mul_ps(world_y, m13), _mm256_add_ps(_mm256_mul_ps(world_z, m23), m33)));
+                let lc_x = _mm256_add_ps(
+                    _mm256_mul_ps(world_x, m00),
+                    _mm256_add_ps(
+                        _mm256_mul_ps(world_y, m10),
+                        _mm256_add_ps(_mm256_mul_ps(world_z, m20), m30),
+                    ),
+                );
+                let lc_y = _mm256_add_ps(
+                    _mm256_mul_ps(world_x, m01),
+                    _mm256_add_ps(
+                        _mm256_mul_ps(world_y, m11),
+                        _mm256_add_ps(_mm256_mul_ps(world_z, m21), m31),
+                    ),
+                );
+                let lc_z = _mm256_add_ps(
+                    _mm256_mul_ps(world_x, m02),
+                    _mm256_add_ps(
+                        _mm256_mul_ps(world_y, m12),
+                        _mm256_add_ps(_mm256_mul_ps(world_z, m22), m32),
+                    ),
+                );
+                let lc_w = _mm256_add_ps(
+                    _mm256_mul_ps(world_x, m03),
+                    _mm256_add_ps(
+                        _mm256_mul_ps(world_y, m13),
+                        _mm256_add_ps(_mm256_mul_ps(world_z, m23), m33),
+                    ),
+                );
 
                 let lc_valid = _mm256_cmp_ps(lc_w, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
                 let safe_lc_w = _mm256_blendv_ps(one, lc_w, lc_valid);
@@ -143,12 +171,19 @@ unsafe fn draw_scanline_phong_shadowed_simd(
 
                 let in_frustum = _mm256_and_ps(
                     _mm256_and_ps(
-                        _mm256_and_ps(_mm256_cmp_ps(ndc_x, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_x, _mm256_set1_ps(-1.0), _CMP_GE_OQ)),
-                        _mm256_and_ps(_mm256_cmp_ps(ndc_y, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_y, _mm256_set1_ps(-1.0), _CMP_GE_OQ))
+                        _mm256_and_ps(
+                            _mm256_cmp_ps(ndc_x, one, _CMP_LE_OQ),
+                            _mm256_cmp_ps(ndc_x, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                        ),
+                        _mm256_and_ps(
+                            _mm256_cmp_ps(ndc_y, one, _CMP_LE_OQ),
+                            _mm256_cmp_ps(ndc_y, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                        ),
                     ),
                     _mm256_and_ps(
-                        _mm256_cmp_ps(ndc_z, one, _CMP_LE_OQ), _mm256_cmp_ps(ndc_z, _mm256_set1_ps(-1.0), _CMP_GE_OQ)
-                    )
+                        _mm256_cmp_ps(ndc_z, one, _CMP_LE_OQ),
+                        _mm256_cmp_ps(ndc_z, _mm256_set1_ps(-1.0), _CMP_GE_OQ),
+                    ),
                 );
                 let shadow_test_mask = _mm256_and_ps(in_frustum, lc_valid);
 
@@ -171,20 +206,34 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                         let in_bounds = _mm256_and_si256(
                             _mm256_and_si256(
                                 _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_w_i32, coord_x)
+                                _mm256_cmpgt_epi32(sm_w_i32, coord_x),
                             ),
                             _mm256_and_si256(
                                 _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_h_i32, coord_y)
-                            )
+                                _mm256_cmpgt_epi32(sm_h_i32, coord_y),
+                            ),
                         );
 
-                        let safe_x = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_x, _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1))));
-                        let safe_y = _mm256_max_epi32(_mm256_setzero_si256(), _mm256_min_epi32(coord_y, _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1))));
-                        let idx = _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
+                        let safe_x = _mm256_max_epi32(
+                            _mm256_setzero_si256(),
+                            _mm256_min_epi32(
+                                coord_x,
+                                _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1)),
+                            ),
+                        );
+                        let safe_y = _mm256_max_epi32(
+                            _mm256_setzero_si256(),
+                            _mm256_min_epi32(
+                                coord_y,
+                                _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1)),
+                            ),
+                        );
+                        let idx =
+                            _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
                         let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
 
-                        let is_shadow = _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
+                        let is_shadow =
+                            _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
                         let valid = _mm256_castsi256_ps(in_bounds);
 
                         sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
@@ -209,7 +258,10 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                 let iter2 = _mm256_sub_ps(_mm256_set1_ps(1.5), _mm256_mul_ps(point_five, iter1));
                 let inv_len = _mm256_mul_ps(rsqrt, iter2);
 
-                let dot = _mm256_add_ps(_mm256_mul_ps(nx_vec, lx), _mm256_add_ps(_mm256_mul_ps(ny_vec, ly), _mm256_mul_ps(nz_vec, lz)));
+                let dot = _mm256_add_ps(
+                    _mm256_mul_ps(nx_vec, lx),
+                    _mm256_add_ps(_mm256_mul_ps(ny_vec, ly), _mm256_mul_ps(nz_vec, lz)),
+                );
                 let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
                 let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
                 let effective_intensity = _mm256_mul_ps(intensity, final_shadow);
@@ -296,7 +348,9 @@ unsafe fn draw_scanline_phong_shadowed_simd(
 
                     for y_off in -1..=1 {
                         for x_off in -1..=1 {
-                            if let Some(closest_depth) = shadow_map.get_depth(sm_x + x_off, sm_y + y_off) {
+                            if let Some(closest_depth) =
+                                shadow_map.get_depth(sm_x + x_off, sm_y + y_off)
+                            {
                                 if ndc_z <= closest_depth + bias_s {
                                     shadow_sum += 1.0;
                                 }
@@ -305,7 +359,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                         }
                     }
                     if samples > 0.0 {
-                         shadow_factor = shadow_sum / samples;
+                        shadow_factor = shadow_sum / samples;
                     }
                 }
             }
@@ -315,7 +369,9 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let intensity = if len_sq > 0.0001 {
                 let inv_len = fast_inv_sqrt(len_sq);
                 (dot_unorm * inv_len).max(0.0)
-            } else { 0.0 };
+            } else {
+                0.0
+            };
 
             let diffuse = pre_diffuse_255 * intensity * shadow_factor;
             let final_color_vec = ambient_255 + diffuse;
@@ -433,10 +489,7 @@ unsafe fn draw_scanline_point_lit_simd(
 
                 let denom = _mm256_add_ps(
                     att_c,
-                    _mm256_add_ps(
-                        _mm256_mul_ps(att_l, dist),
-                        _mm256_mul_ps(att_q, dist_sq),
-                    ),
+                    _mm256_add_ps(_mm256_mul_ps(att_l, dist), _mm256_mul_ps(att_q, dist_sq)),
                 );
                 let safe_denom = _mm256_max_ps(epsilon, denom);
                 let att_factor = _mm256_div_ps(one, safe_denom);
@@ -456,10 +509,7 @@ unsafe fn draw_scanline_point_lit_simd(
                     _mm256_add_ps(_mm256_mul_ps(ny_vec, lv_y), _mm256_mul_ps(nz_vec, lv_z)),
                 );
 
-                let intensity_raw = _mm256_mul_ps(
-                    dot_unorm,
-                    _mm256_mul_ps(inv_len, inv_dist),
-                );
+                let intensity_raw = _mm256_mul_ps(dot_unorm, _mm256_mul_ps(inv_len, inv_dist));
                 let intensity = _mm256_max_ps(zero, intensity_raw);
 
                 let combined = _mm256_mul_ps(intensity, att_factor);

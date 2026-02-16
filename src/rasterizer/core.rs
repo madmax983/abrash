@@ -192,6 +192,65 @@ impl EdgeWalker {
     }
 }
 
+/// Helper to calculate gradients for triangle rasterization.
+///
+/// This struct pre-calculates the screen-space derivatives (d/dx, d/dy)
+/// for barycentric coordinates, which are then used to interpolate vertex attributes.
+pub struct GradientContext {
+    inv_nz: f32,
+    ux: f32,
+    uy: f32,
+    vx: f32,
+    vy: f32,
+}
+
+impl GradientContext {
+    /// Creates a new GradientContext from three screen-space points.
+    ///
+    /// Returns the context and a boolean indicating if the winding order is front-facing (positive area).
+    pub fn new(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> (Self, bool) {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        (
+            Self {
+                inv_nz,
+                ux,
+                uy,
+                vx,
+                vy,
+            },
+            nz > 0.0,
+        )
+    }
+
+    /// Calculate the X derivative (d/dx) for an attribute.
+    ///
+    /// `val0`, `val1`, `val2` are the attribute values at p0, p1, p2 respectively.
+    #[inline(always)]
+    pub fn calculate_dx(&self, val0: f32, val1: f32, val2: f32) -> f32 {
+        let u_val = val1 - val0;
+        let v_val = val2 - val0;
+        let nx_val = self.uy * v_val - u_val * self.vy;
+        nx_val * self.inv_nz
+    }
+
+    /// Calculate the Y derivative (d/dy) for an attribute.
+    #[inline(always)]
+    pub fn calculate_dy(&self, val0: f32, val1: f32, val2: f32) -> f32 {
+        let u_val = val1 - val0;
+        let v_val = val2 - val0;
+        let ny_val = u_val * self.vx - self.ux * v_val;
+        ny_val * self.inv_nz
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +351,55 @@ mod tests {
 
         let result = is_backface(p0, p1, p2);
         assert!(result);
+    }
+
+    #[test]
+    fn test_gradient_context() {
+        // Simple right triangle: (0,0), (10,0), (0,10)
+        // Z values: 0, 10, 10
+        // Expected dz/dx = 1.0, dz/dy = 1.0
+        let p0 = ScreenPoint {
+            x: 0,
+            y: 0,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        let p1 = ScreenPoint {
+            x: 10,
+            y: 0,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        let p2 = ScreenPoint {
+            x: 0,
+            y: 10,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+
+        let (ctx, _) = GradientContext::new(p0, p1, p2);
+
+        // Test dz/dx
+        // z0=0, z1=10, z2=10
+        let dz_dx = ctx.calculate_dx(0.0, 10.0, 10.0);
+        let dz_dy = ctx.calculate_dy(0.0, 10.0, 10.0);
+
+        // ux = 10, uy = 0
+        // vx = 0, vy = 10
+        // nz = 10*10 - 0*0 = 100
+        // inv_nz = -0.01
+
+        // dz_dx calculation:
+        // u_val = 10, v_val = 10
+        // nx = uy * v_val - u_val * vy = 0*10 - 10*10 = -100
+        // dx = -100 * -0.01 = 1.0. Correct.
+
+        assert!((dz_dx - 1.0).abs() < 0.0001, "dz_dx was {}", dz_dx);
+
+        // dz_dy calculation:
+        // ny = u_val * vx - ux * v_val = 10*0 - 10*10 = -100
+        // dy = -100 * -0.01 = 1.0. Correct.
+
+        assert!((dz_dy - 1.0).abs() < 0.0001, "dz_dy was {}", dz_dy);
     }
 }

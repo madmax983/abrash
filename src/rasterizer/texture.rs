@@ -1,11 +1,11 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{fast_inv_sqrt, project_triangle_to_screen, ScreenPoint, Vec2, Vec3, Vec4};
-use crate::texture::{blend_four_way, blend_swar, FilterMode, Texture};
+use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_triangle_to_screen};
+use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{
-    assert_same_dimensions, color_to_u32, is_backface, sort_by_y, FIXED_SCALE,
+    FIXED_SCALE, GradientContext, assert_same_dimensions, color_to_u32, is_backface, sort_by_y,
 };
 
 #[derive(Clone, Copy)]
@@ -55,44 +55,17 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
+        let (ctx, is_front) = GradientContext::new(p0, p1, p2);
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
+        let dz_dx = ctx.calculate_dx(p0.z, p1.z, p2.z);
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let dq_dx = ctx.calculate_dx(q0, q1, q2);
+        let du_dx = ctx.calculate_dx(u0, u1, u2);
+        let dv_dx = ctx.calculate_dx(v0, v1, v2);
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        // Calculate Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
-
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
-
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
+        let dq_dy = ctx.calculate_dy(q0, q1, q2);
+        let du_dy = ctx.calculate_dy(u0, u1, u2);
+        let dv_dy = ctx.calculate_dy(v0, v1, v2);
 
         (
             Self {
@@ -104,7 +77,7 @@ impl PerspectiveTextureGradients {
                 du_dy,
                 dv_dy,
             },
-            nz > 0.0,
+            is_front,
         )
     }
 }
@@ -406,6 +379,209 @@ fn draw_span_bilinear(
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
+unsafe fn process_normal_mapped_simd_span(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    i: usize,
+    mask: std::arch::x86_64::__m256,
+    z_vec: std::arch::x86_64::__m256,
+    q_vec: std::arch::x86_64::__m256,
+    u_vec: std::arch::x86_64::__m256,
+    v_vec: std::arch::x86_64::__m256,
+    lx_vec: std::arch::x86_64::__m256,
+    ly_vec: std::arch::x86_64::__m256,
+    lz_vec: std::arch::x86_64::__m256,
+    texture: &Texture,
+    normal_map: &Texture,
+    diffuse_const: (
+        std::arch::x86_64::__m256,
+        std::arch::x86_64::__m256,
+        std::arch::x86_64::__m256,
+    ),
+    ambient_const: (
+        std::arch::x86_64::__m256,
+        std::arch::x86_64::__m256,
+        std::arch::x86_64::__m256,
+    ),
+) {
+    use std::arch::x86_64::*;
+
+    let one = _mm256_set1_ps(1.0);
+    let epsilon = _mm256_set1_ps(0.0001);
+    let scale_255 = _mm256_set1_ps(255.0);
+    let inv_255 = _mm256_set1_ps(1.0 / 255.0);
+    let two = _mm256_set1_ps(2.0);
+    let zero = _mm256_setzero_ps();
+    let one_point_five = _mm256_set1_ps(1.5);
+    let zero_point_five = _mm256_set1_ps(0.5);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let scale_nm = _mm256_mul_ps(two, inv_255);
+
+    let (diff_r_const, diff_g_const, diff_b_const) = diffuse_const;
+    let (amb_r, amb_g, amb_b) = ambient_const;
+
+    // Update Z
+    let depth_ptr = zb_slice.as_mut_ptr().add(i);
+    let old_z = _mm256_loadu_ps(depth_ptr);
+    let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+    _mm256_storeu_ps(depth_ptr, new_z);
+
+    // Perspective recover
+    let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec); // abs
+    let q_valid = _mm256_cmp_ps(q_abs, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+    let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
+
+    // Fast reciprocal with Newton-Raphson iteration
+    let rcp = _mm256_rcp_ps(safe_q);
+    let w_recip = _mm256_mul_ps(rcp, _mm256_sub_ps(two, _mm256_mul_ps(safe_q, rcp)));
+
+    let u_tex_f = _mm256_mul_ps(u_vec, w_recip);
+    let v_tex_f = _mm256_mul_ps(v_vec, w_recip);
+
+    // Convert to i32 for gathering
+    let u_i = _mm256_cvttps_epi32(u_tex_f);
+    let v_i = _mm256_cvttps_epi32(v_tex_f);
+
+    // Calculate texture indices (Vectorized)
+    // Optimization: Specialized path for Power-of-Two textures using bitwise masking
+    let idx = if texture.width_shift < 32 {
+        let mask_x = _mm256_set1_epi32((texture.width - 1) as i32);
+        let mask_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+
+        // wrap: u & (w-1)
+        let u_masked = _mm256_and_si256(u_i, mask_x);
+        let v_masked = _mm256_and_si256(v_i, mask_y);
+
+        // idx = (v << shift) | u
+        _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
+    } else {
+        // Generic path with clamping
+        let w_vec = _mm256_set1_epi32(texture.width as i32);
+        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let zero_i = _mm256_setzero_si256();
+
+        // clamp(val, 0, max)
+        let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+        let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+
+        // idx = v * w + u
+        _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
+    };
+
+    // Gather Diffuse
+    let diff_base = texture.pixels.as_ptr() as *const i32;
+    let diff_packed = _mm256_i32gather_epi32(diff_base, idx, 4);
+
+    // Gather Normal Map
+    let nm_packed = if normal_map.width == texture.width && normal_map.height == texture.height {
+        let nm_base = normal_map.pixels.as_ptr() as *const i32;
+        _mm256_i32gather_epi32(nm_base, idx, 4)
+    } else {
+        let idx_nm = if normal_map.width_shift < 32 {
+            let mask_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
+            let mask_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
+            let shift_vec = _mm256_set1_epi32(normal_map.width_shift as i32);
+            let u_masked = _mm256_and_si256(u_i, mask_x);
+            let v_masked = _mm256_and_si256(v_i, mask_y);
+            _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
+        } else {
+            let w_vec = _mm256_set1_epi32(normal_map.width as i32);
+            let max_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
+            let max_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
+            let zero_i = _mm256_setzero_si256();
+            let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+            let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+            _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
+        };
+        let nm_base = normal_map.pixels.as_ptr() as *const i32;
+        _mm256_i32gather_epi32(nm_base, idx_nm, 4)
+    };
+
+    // Unpack Diffuse (0..255 -> 0.0..1.0)
+    let r_mask_i32 = _mm256_set1_epi32(0xFF);
+
+    let diff_r_i = _mm256_and_si256(_mm256_srli_epi32(diff_packed, 16), r_mask_i32);
+    let diff_g_i = _mm256_and_si256(_mm256_srli_epi32(diff_packed, 8), r_mask_i32);
+    let diff_b_i = _mm256_and_si256(diff_packed, r_mask_i32);
+
+    let diff_r_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_r_i), inv_255);
+    let diff_g_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_g_i), inv_255);
+    let diff_b_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_b_i), inv_255);
+
+    // Unpack Normal Map (0..255 -> -1.0..1.0)
+    let nm_r_i = _mm256_and_si256(_mm256_srli_epi32(nm_packed, 16), r_mask_i32);
+    let nm_g_i = _mm256_and_si256(_mm256_srli_epi32(nm_packed, 8), r_mask_i32);
+    let nm_b_i = _mm256_and_si256(nm_packed, r_mask_i32);
+
+    let nm_x = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_r_i), scale_nm, one);
+    let nm_y = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_g_i), scale_nm, one);
+    let nm_z = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_b_i), scale_nm, one);
+
+    let len_sq = _mm256_add_ps(
+        _mm256_mul_ps(lx_vec, lx_vec),
+        _mm256_add_ps(_mm256_mul_ps(ly_vec, ly_vec), _mm256_mul_ps(lz_vec, lz_vec)),
+    );
+
+    let len_valid = _mm256_cmp_ps(len_sq, epsilon, _CMP_GT_OQ);
+    let safe_len_sq = _mm256_blendv_ps(one, len_sq, len_valid);
+    let rsqrt = _mm256_rsqrt_ps(safe_len_sq);
+    let iter1 = _mm256_mul_ps(safe_len_sq, _mm256_mul_ps(rsqrt, rsqrt));
+    let iter2 = _mm256_sub_ps(one_point_five, _mm256_mul_ps(zero_point_five, iter1));
+    let inv_len = _mm256_mul_ps(rsqrt, iter2);
+
+    let dot = _mm256_add_ps(
+        _mm256_mul_ps(nm_x, lx_vec),
+        _mm256_add_ps(_mm256_mul_ps(nm_y, ly_vec), _mm256_mul_ps(nm_z, lz_vec)),
+    );
+
+    let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
+    let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
+
+    let diffuse_term_r = _mm256_mul_ps(diff_r_const, diff_r_tex);
+    let diffuse_term_g = _mm256_mul_ps(diff_g_const, diff_g_tex);
+    let diffuse_term_b = _mm256_mul_ps(diff_b_const, diff_b_tex);
+
+    let r_final = _mm256_fmadd_ps(diffuse_term_r, intensity, amb_r);
+    let g_final = _mm256_fmadd_ps(diffuse_term_g, intensity, amb_g);
+    let b_final = _mm256_fmadd_ps(diffuse_term_b, intensity, amb_b);
+
+    let r_clamp = _mm256_min_ps(
+        _mm256_max_ps(_mm256_mul_ps(r_final, scale_255), zero),
+        scale_255,
+    );
+    let g_clamp = _mm256_min_ps(
+        _mm256_max_ps(_mm256_mul_ps(g_final, scale_255), zero),
+        scale_255,
+    );
+    let b_clamp = _mm256_min_ps(
+        _mm256_max_ps(_mm256_mul_ps(b_final, scale_255), zero),
+        scale_255,
+    );
+
+    let r_out = _mm256_cvttps_epi32(r_clamp);
+    let g_out = _mm256_cvttps_epi32(g_clamp);
+    let b_out = _mm256_cvttps_epi32(b_clamp);
+
+    let pixel_val = _mm256_or_si256(
+        alpha_mask,
+        _mm256_or_si256(
+            _mm256_slli_epi32(r_out, 16),
+            _mm256_or_si256(_mm256_slli_epi32(g_out, 8), b_out),
+        ),
+    );
+
+    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    let old_color = _mm256_loadu_si256(fb_ptr);
+    let mask_int = _mm256_castps_si256(mask);
+    let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+    _mm256_storeu_si256(fb_ptr, new_color);
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
 unsafe fn draw_span_bilinear_simd(
@@ -432,8 +608,7 @@ unsafe fn draw_span_bilinear_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec =
-            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -506,33 +681,34 @@ unsafe fn draw_span_bilinear_simd(
                 let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
                 let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
 
-                let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-                    let mask = _mm256_set1_epi32(0x00FF00FF);
+                let blend_swar_avx2 =
+                    |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
+                        let mask = _mm256_set1_epi32(0x00FF00FF);
 
-                    let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
-                    let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+                        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+                        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
 
-                    let rb0 = _mm256_and_si256(c0, mask);
-                    let rb1 = _mm256_and_si256(c1, mask);
+                        let rb0 = _mm256_and_si256(c0, mask);
+                        let rb1 = _mm256_and_si256(c1, mask);
 
-                    let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
-                    let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+                        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+                        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
 
-                    let rb_sum = _mm256_add_epi16(
-                        _mm256_mullo_epi16(rb0, inv_w_16),
-                        _mm256_mullo_epi16(rb1, w_16),
-                    );
+                        let rb_sum = _mm256_add_epi16(
+                            _mm256_mullo_epi16(rb0, inv_w_16),
+                            _mm256_mullo_epi16(rb1, w_16),
+                        );
 
-                    let ag_sum = _mm256_add_epi16(
-                        _mm256_mullo_epi16(ag0, inv_w_16),
-                        _mm256_mullo_epi16(ag1, w_16),
-                    );
+                        let ag_sum = _mm256_add_epi16(
+                            _mm256_mullo_epi16(ag0, inv_w_16),
+                            _mm256_mullo_epi16(ag1, w_16),
+                        );
 
-                    let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
-                    let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+                        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+                        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
 
-                    _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
-                };
+                        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+                    };
 
                 let top = blend_swar_avx2(c00, c10, wx, inv_wx);
                 let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
@@ -671,8 +847,7 @@ unsafe fn draw_span_nearest_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec =
-            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -707,10 +882,10 @@ unsafe fn draw_span_nearest_simd(
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
                 let idx = if is_pot {
-                // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
-                // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
-                // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
-                // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
+                    // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
+                    // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
+                    // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
+                    // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
@@ -1293,49 +1468,16 @@ impl NormalMapGradients {
         l1: Vec3,
         l2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
-        let ulx = l1.x - l0.x;
-        let uly = l1.y - l0.y;
-        let ulz = l1.z - l0.z;
+        let (ctx, is_front) = GradientContext::new(p0, p1, p2);
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
-        let vlx = l2.x - l0.x;
-        let vly = l2.y - l0.y;
-        let vlz = l2.z - l0.z;
+        let dz_dx = ctx.calculate_dx(p0.z, p1.z, p2.z);
+        let dq_dx = ctx.calculate_dx(q0, q1, q2);
+        let du_dx = ctx.calculate_dx(u0, u1, u2);
+        let dv_dx = ctx.calculate_dx(v0, v1, v2);
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
-
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_lx = uy * vlx - ulx * vy;
-        let dlx_dx = nx_lx * inv_nz;
-
-        let nx_ly = uy * vly - uly * vy;
-        let dly_dx = nx_ly * inv_nz;
-
-        let nx_lz = uy * vlz - ulz * vy;
-        let dlz_dx = nx_lz * inv_nz;
+        let dlx_dx = ctx.calculate_dx(l0.x, l1.x, l2.x);
+        let dly_dx = ctx.calculate_dx(l0.y, l1.y, l2.y);
+        let dlz_dx = ctx.calculate_dx(l0.z, l1.z, l2.z);
 
         (
             Self {
@@ -1347,7 +1489,7 @@ impl NormalMapGradients {
                 dly_dx,
                 dlz_dx,
             },
-            nz > 0.0,
+            is_front,
         )
     }
 }
@@ -1508,17 +1650,6 @@ unsafe fn draw_scanline_normal_mapped_simd(
         let dly_step = _mm256_mul_ps(dly_dx, step_8);
         let dlz_step = _mm256_mul_ps(dlz_dx, step_8);
 
-        let one = _mm256_set1_ps(1.0);
-        let epsilon = _mm256_set1_ps(0.0001);
-        let scale_255 = _mm256_set1_ps(255.0);
-        let inv_255 = _mm256_set1_ps(1.0 / 255.0);
-        let two = _mm256_set1_ps(2.0);
-        let zero = _mm256_setzero_ps();
-        let one_point_five = _mm256_set1_ps(1.5);
-        let zero_point_five = _mm256_set1_ps(0.5);
-        let _neg_one = _mm256_set1_ps(-1.0);
-        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
         let diff_r_const = _mm256_set1_ps(pre_diffuse_color.x);
         let diff_g_const = _mm256_set1_ps(pre_diffuse_color.y);
         let diff_b_const = _mm256_set1_ps(pre_diffuse_color.z);
@@ -1527,171 +1658,29 @@ unsafe fn draw_scanline_normal_mapped_simd(
         let amb_g = _mm256_set1_ps(ambient.y);
         let amb_b = _mm256_set1_ps(ambient.z);
 
-        let scale_nm = _mm256_mul_ps(two, inv_255);
-
         while i + 8 <= len {
             let depth_ptr = zb_slice.as_mut_ptr().add(i);
             let depth_val = _mm256_loadu_ps(depth_ptr);
             let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
 
             if _mm256_movemask_ps(mask) != 0 {
-                // Update Z
-                let old_z = _mm256_loadu_ps(depth_ptr);
-                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
-                _mm256_storeu_ps(depth_ptr, new_z);
-
-                // Perspective recover
-                let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec); // abs
-                let q_valid = _mm256_cmp_ps(q_abs, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
-                let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
-
-                // Fast reciprocal with Newton-Raphson iteration
-                let rcp = _mm256_rcp_ps(safe_q);
-                let w_recip = _mm256_mul_ps(rcp, _mm256_sub_ps(two, _mm256_mul_ps(safe_q, rcp)));
-
-                let u_tex_f = _mm256_mul_ps(u_vec, w_recip);
-                let v_tex_f = _mm256_mul_ps(v_vec, w_recip);
-
-                // Convert to i32 for gathering
-                let u_i = _mm256_cvttps_epi32(u_tex_f);
-                let v_i = _mm256_cvttps_epi32(v_tex_f);
-
-                // Calculate texture indices (Vectorized)
-                // Optimization: Specialized path for Power-of-Two textures using bitwise masking
-                let idx = if texture.width_shift < 32 {
-                    let mask_x = _mm256_set1_epi32((texture.width - 1) as i32);
-                    let mask_y = _mm256_set1_epi32((texture.height - 1) as i32);
-                    let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
-
-                    // wrap: u & (w-1)
-                    let u_masked = _mm256_and_si256(u_i, mask_x);
-                    let v_masked = _mm256_and_si256(v_i, mask_y);
-
-                    // idx = (v << shift) | u
-                    _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
-                } else {
-                    // Generic path with clamping
-                    let w_vec = _mm256_set1_epi32(texture.width as i32);
-                    let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
-                    let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
-                    let zero_i = _mm256_setzero_si256();
-
-                    // clamp(val, 0, max)
-                    let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
-
-                    // idx = v * w + u
-                    _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
-                };
-
-                // Gather Diffuse
-                let diff_base = texture.pixels.as_ptr() as *const i32;
-                let diff_packed = _mm256_i32gather_epi32(diff_base, idx, 4);
-
-                // Gather Normal Map
-                let nm_packed =
-                    if normal_map.width == texture.width && normal_map.height == texture.height {
-                        let nm_base = normal_map.pixels.as_ptr() as *const i32;
-                        _mm256_i32gather_epi32(nm_base, idx, 4)
-                    } else {
-                        let idx_nm = if normal_map.width_shift < 32 {
-                            let mask_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
-                            let mask_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
-                            let shift_vec = _mm256_set1_epi32(normal_map.width_shift as i32);
-                            let u_masked = _mm256_and_si256(u_i, mask_x);
-                            let v_masked = _mm256_and_si256(v_i, mask_y);
-                            _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
-                        } else {
-                            let w_vec = _mm256_set1_epi32(normal_map.width as i32);
-                            let max_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
-                            let max_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
-                            let zero_i = _mm256_setzero_si256();
-                            let u_clamped = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                            let v_clamped = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
-                            _mm256_add_epi32(_mm256_mullo_epi32(v_clamped, w_vec), u_clamped)
-                        };
-                        let nm_base = normal_map.pixels.as_ptr() as *const i32;
-                        _mm256_i32gather_epi32(nm_base, idx_nm, 4)
-                    };
-
-                // Unpack Diffuse (0..255 -> 0.0..1.0)
-                let r_mask_i32 = _mm256_set1_epi32(0xFF);
-
-                let diff_r_i = _mm256_and_si256(_mm256_srli_epi32(diff_packed, 16), r_mask_i32);
-                let diff_g_i = _mm256_and_si256(_mm256_srli_epi32(diff_packed, 8), r_mask_i32);
-                let diff_b_i = _mm256_and_si256(diff_packed, r_mask_i32);
-
-                let diff_r_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_r_i), inv_255);
-                let diff_g_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_g_i), inv_255);
-                let diff_b_tex = _mm256_mul_ps(_mm256_cvtepi32_ps(diff_b_i), inv_255);
-
-                // Unpack Normal Map (0..255 -> -1.0..1.0)
-                let nm_r_i = _mm256_and_si256(_mm256_srli_epi32(nm_packed, 16), r_mask_i32);
-                let nm_g_i = _mm256_and_si256(_mm256_srli_epi32(nm_packed, 8), r_mask_i32);
-                let nm_b_i = _mm256_and_si256(nm_packed, r_mask_i32);
-
-                let nm_x = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_r_i), scale_nm, one);
-                let nm_y = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_g_i), scale_nm, one);
-                let nm_z = _mm256_fmsub_ps(_mm256_cvtepi32_ps(nm_b_i), scale_nm, one);
-
-                let len_sq = _mm256_add_ps(
-                    _mm256_mul_ps(lx_vec, lx_vec),
-                    _mm256_add_ps(_mm256_mul_ps(ly_vec, ly_vec), _mm256_mul_ps(lz_vec, lz_vec)),
+                process_normal_mapped_simd_span(
+                    fb_slice,
+                    zb_slice,
+                    i,
+                    mask,
+                    z_vec,
+                    q_vec,
+                    u_vec,
+                    v_vec,
+                    lx_vec,
+                    ly_vec,
+                    lz_vec,
+                    texture,
+                    normal_map,
+                    (diff_r_const, diff_g_const, diff_b_const),
+                    (amb_r, amb_g, amb_b),
                 );
-
-                let len_valid = _mm256_cmp_ps(len_sq, epsilon, _CMP_GT_OQ);
-                let safe_len_sq = _mm256_blendv_ps(one, len_sq, len_valid);
-                let rsqrt = _mm256_rsqrt_ps(safe_len_sq);
-                let iter1 = _mm256_mul_ps(safe_len_sq, _mm256_mul_ps(rsqrt, rsqrt));
-                let iter2 = _mm256_sub_ps(one_point_five, _mm256_mul_ps(zero_point_five, iter1));
-                let inv_len = _mm256_mul_ps(rsqrt, iter2);
-
-                let dot = _mm256_add_ps(
-                    _mm256_mul_ps(nm_x, lx_vec),
-                    _mm256_add_ps(_mm256_mul_ps(nm_y, ly_vec), _mm256_mul_ps(nm_z, lz_vec)),
-                );
-
-                let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
-                let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
-
-                let diffuse_term_r = _mm256_mul_ps(diff_r_const, diff_r_tex);
-                let diffuse_term_g = _mm256_mul_ps(diff_g_const, diff_g_tex);
-                let diffuse_term_b = _mm256_mul_ps(diff_b_const, diff_b_tex);
-
-                let r_final = _mm256_fmadd_ps(diffuse_term_r, intensity, amb_r);
-                let g_final = _mm256_fmadd_ps(diffuse_term_g, intensity, amb_g);
-                let b_final = _mm256_fmadd_ps(diffuse_term_b, intensity, amb_b);
-
-                let r_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(r_final, scale_255), zero),
-                    scale_255,
-                );
-                let g_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(g_final, scale_255), zero),
-                    scale_255,
-                );
-                let b_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(b_final, scale_255), zero),
-                    scale_255,
-                );
-
-                let r_out = _mm256_cvttps_epi32(r_clamp);
-                let g_out = _mm256_cvttps_epi32(g_clamp);
-                let b_out = _mm256_cvttps_epi32(b_clamp);
-
-                let pixel_val = _mm256_or_si256(
-                    alpha_mask,
-                    _mm256_or_si256(
-                        _mm256_slli_epi32(r_out, 16),
-                        _mm256_or_si256(_mm256_slli_epi32(g_out, 8), b_out),
-                    ),
-                );
-
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                let old_color = _mm256_loadu_si256(fb_ptr);
-                let mask_int = _mm256_castps_si256(mask);
-                let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
-                _mm256_storeu_si256(fb_ptr, new_color);
             }
 
             z_vec = _mm256_add_ps(z_vec, dz_step);
@@ -2008,9 +1997,8 @@ pub fn fill_triangle_normal_mapped(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = NormalMapGradients::new(
-            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2,
-        );
+        let (gradients, long_edge_is_left) =
+            NormalMapGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2);
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, l0, l2);
         if y_start > p0.y {
@@ -2108,12 +2096,12 @@ pub struct TexturedGouraudGradients {
     pub dg_dx: f32,
     pub db_dx: f32,
     // Y gradients for steps
-    dq_dy: f32,
-    du_dy: f32,
-    dv_dy: f32,
-    dr_dy: f32,
-    dg_dy: f32,
-    db_dy: f32,
+    _dq_dy: f32,
+    _du_dy: f32,
+    _dv_dy: f32,
+    _dr_dy: f32,
+    _dg_dy: f32,
+    _db_dy: f32,
 }
 
 impl TexturedGouraudGradients {
@@ -2135,68 +2123,25 @@ impl TexturedGouraudGradients {
         c1: Vec3,
         c2: Vec3,
     ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
-        let uq = q1 - q0;
-        let uu = u1 - u0;
-        let uv = v1 - v0;
-        let ur = c1.x - c0.x;
-        let ug = c1.y - c0.y;
-        let ub = c1.z - c0.z;
+        let (ctx, is_front) = GradientContext::new(p0, p1, p2);
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-        let vq = q2 - q0;
-        let vu = u2 - u0;
-        let vv = v2 - v0;
-        let vr = c2.x - c0.x;
-        let vg = c2.y - c0.y;
-        let vb = c2.z - c0.z;
+        let dz_dx = ctx.calculate_dx(p0.z, p1.z, p2.z);
+        let dq_dx = ctx.calculate_dx(q0, q1, q2);
+        let du_dx = ctx.calculate_dx(u0, u1, u2);
+        let dv_dx = ctx.calculate_dx(v0, v1, v2);
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
-
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_r = uy * vr - ur * vy;
-        let dr_dx = nx_r * inv_nz;
-
-        let nx_g = uy * vg - ug * vy;
-        let dg_dx = nx_g * inv_nz;
-
-        let nx_b = uy * vb - ub * vy;
-        let db_dx = nx_b * inv_nz;
+        let dr_dx = ctx.calculate_dx(c0.x, c1.x, c2.x);
+        let dg_dx = ctx.calculate_dx(c0.y, c1.y, c2.y);
+        let db_dx = ctx.calculate_dx(c0.z, c1.z, c2.z);
 
         // Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
+        let dq_dy = ctx.calculate_dy(q0, q1, q2);
+        let du_dy = ctx.calculate_dy(u0, u1, u2);
+        let dv_dy = ctx.calculate_dy(v0, v1, v2);
 
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
-
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
-
-        let ny_r = ur * vx - ux * vr;
-        let dr_dy = ny_r * inv_nz;
-
-        let ny_g = ug * vx - ux * vg;
-        let dg_dy = ny_g * inv_nz;
-
-        let ny_b = ub * vx - ux * vb;
-        let db_dy = ny_b * inv_nz;
+        let dr_dy = ctx.calculate_dy(c0.x, c1.x, c2.x);
+        let dg_dy = ctx.calculate_dy(c0.y, c1.y, c2.y);
+        let db_dy = ctx.calculate_dy(c0.z, c1.z, c2.z);
 
         (
             Self {
@@ -2207,14 +2152,14 @@ impl TexturedGouraudGradients {
                 dr_dx,
                 dg_dx,
                 db_dx,
-                dq_dy,
-                du_dy,
-                dv_dy,
-                dr_dy,
-                dg_dy,
-                db_dy,
+                _dq_dy: dq_dy,
+                _du_dy: du_dy,
+                _dv_dy: dv_dy,
+                _dr_dy: dr_dy,
+                _dg_dy: dg_dy,
+                _db_dy: db_dy,
             },
-            nz > 0.0,
+            is_front,
         )
     }
 }
@@ -2418,16 +2363,19 @@ unsafe fn draw_span_textured_gouraud_simd(
             let mod_g = _mm256_mul_ps(tex_g, g_vec);
             let mod_b = _mm256_mul_ps(tex_b, b_vec);
 
-            let out_r = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
-            let out_g = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
-            let out_b = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
+            let out_r =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
+            let out_g =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
+            let out_b =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
 
             let out_color = _mm256_or_si256(
                 _mm256_slli_epi32(tex_a_i, 24),
                 _mm256_or_si256(
                     _mm256_slli_epi32(out_r, 16),
-                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b)
-                )
+                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b),
+                ),
             );
 
             // Alpha Masks
@@ -2451,7 +2399,8 @@ unsafe fn draw_span_textured_gouraud_simd(
             }
 
             // Translucent Write
-            let write_trans = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let write_trans =
+                _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
             if trans_bits != 0 {
@@ -2465,7 +2414,8 @@ unsafe fn draw_span_textured_gouraud_simd(
                         let src = temp_colors[k];
                         let alpha = (src >> 24) as u8;
                         let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+                        *fb_slice.get_unchecked_mut(idx) =
+                            blend_swar(src, dest, (255 - alpha).into(), alpha.into());
                     }
                     bit <<= 1;
                 }
@@ -2530,11 +2480,13 @@ fn draw_span_textured_gouraud_scalar(
             let v = v_fix >> 16;
 
             let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                 if is_pot {
+                if is_pot {
                     unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
-                 } else {
-                    unsafe { *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize)) }
-                 }
+                } else {
+                    unsafe {
+                        *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize))
+                    }
+                }
             } else {
                 texture.get_pixel_texel(u, v)
             };
@@ -2555,7 +2507,12 @@ fn draw_span_textured_gouraud_scalar(
                 *pixel = final_color;
             } else if tex_a > 0 {
                 let dest = *pixel;
-                *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+                *pixel = blend_swar(
+                    final_color,
+                    dest,
+                    (255 - (tex_a as u8)).into(),
+                    (tex_a as u8).into(),
+                );
             }
         }
         z += dz_dx;
@@ -2629,7 +2586,11 @@ fn draw_scanline_textured_gouraud(
         let u_end = u + gradients.du_dx * count as f32;
         let v_end = v + gradients.dv_dx * count as f32;
 
-        let w_end = if q_end.abs() > 0.000_001 { 1.0 / q_end } else { 1.0 };
+        let w_end = if q_end.abs() > 0.000_001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
         let u_tex_end = u_end * w_end;
         let v_tex_end = v_end * w_end;
 
@@ -2651,59 +2612,97 @@ fn draw_scanline_textured_gouraud(
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
         if matches!(texture.filter_mode, FilterMode::Nearest) {
-             let u_fix = (u_tex_start * 65536.0) as i32;
-             let v_fix = (v_tex_start * 65536.0) as i32;
-             let du_fix = (du_tex_step * 65536.0) as i32;
-             let dv_fix = (dv_tex_step * 65536.0) as i32;
+            let u_fix = (u_tex_start * 65536.0) as i32;
+            let v_fix = (v_tex_start * 65536.0) as i32;
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-             if is_x86_feature_detected!("avx2") {
-                 unsafe {
-                     draw_span_textured_gouraud_simd(
-                         fb_slice, zb_slice, texture,
-                         z, gradients.dz_dx,
-                         u_fix, v_fix, du_fix, dv_fix,
-                         r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-                     );
-                 }
-             } else {
-                 draw_span_textured_gouraud_scalar(
-                     fb_slice, zb_slice, texture,
-                     z, gradients.dz_dx,
-                     u_fix, v_fix, du_fix, dv_fix,
-                     r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-                 );
-             }
-             #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-             draw_span_textured_gouraud_scalar(
-                 fb_slice, zb_slice, texture,
-                 z, gradients.dz_dx,
-                 u_fix, v_fix, du_fix, dv_fix,
-                 r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-             );
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_textured_gouraud_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        r,
+                        g,
+                        b,
+                        gradients.dr_dx,
+                        gradients.dg_dx,
+                        gradients.db_dx,
+                    );
+                }
+            } else {
+                draw_span_textured_gouraud_scalar(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    r,
+                    g,
+                    b,
+                    gradients.dr_dx,
+                    gradients.dg_dx,
+                    gradients.db_dx,
+                );
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_textured_gouraud_scalar(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                r,
+                g,
+                b,
+                gradients.dr_dx,
+                gradients.dg_dx,
+                gradients.db_dx,
+            );
         } else {
-             let mut z_curr = z;
-             let mut r_curr = r;
-             let mut g_curr = g;
-             let mut b_curr = b;
+            let mut z_curr = z;
+            let mut r_curr = r;
+            let mut g_curr = g;
+            let mut b_curr = b;
 
-             for i in 0..count {
-                 let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
-                 let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+            for i in 0..count {
+                let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
+                let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
 
-                 if z_curr < *depth_val {
+                if z_curr < *depth_val {
                     let q_curr = q + (i as f32) * gradients.dq_dx;
                     let u_curr_p = u + (i as f32) * gradients.du_dx;
                     let v_curr_p = v + (i as f32) * gradients.dv_dx;
 
-                    let w_recip = if q_curr.abs() > 0.000_001 { 1.0 / q_curr } else { 1.0 };
+                    let w_recip = if q_curr.abs() > 0.000_001 {
+                        1.0 / q_curr
+                    } else {
+                        1.0
+                    };
                     let u_tex = u_curr_p * w_recip;
                     let v_tex = v_curr_p * w_recip;
 
                     let color = match texture.filter_mode {
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        FilterMode::Trilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        _ => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                        FilterMode::Bilinear | FilterMode::Trilinear => {
+                            texture.get_pixel_bilinear_texel(u_tex, v_tex)
+                        }
+                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                     };
 
                     let tex_r = ((color >> 16) & 0xFF) as f32;
@@ -2715,21 +2714,27 @@ fn draw_scanline_textured_gouraud(
                     let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
                     let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
 
-                    let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                    let final_color =
+                        ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                     if tex_a == 255 {
                         *depth_val = z_curr;
                         *pixel = final_color;
                     } else if tex_a > 0 {
                         let dest = *pixel;
-                        *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+                        *pixel = blend_swar(
+                            final_color,
+                            dest,
+                            (255 - (tex_a as u8)).into(),
+                            (tex_a as u8).into(),
+                        );
                     }
-                 }
-                 z_curr += gradients.dz_dx;
-                 r_curr += gradients.dr_dx;
-                 g_curr += gradients.dg_dx;
-                 b_curr += gradients.db_dx;
-             }
+                }
+                z_curr += gradients.dz_dx;
+                r_curr += gradients.dr_dx;
+                g_curr += gradients.dg_dx;
+                b_curr += gradients.db_dx;
+            }
         }
 
         z += gradients.dz_dx * count as f32;
