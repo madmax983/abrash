@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::rasterizer::{
-    draw_scanline_textured_perspective, PerspectiveSpanStart, PerspectiveTextureGradients,
+    PerspectiveSpanStart, PerspectiveTextureGradients, draw_scanline_textured_perspective,
 };
-use abrash::texture::{Texture, FilterMode};
+use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
 
 #[test]
@@ -47,14 +47,7 @@ fn test_bilinear_scanline_output() {
     };
 
     draw_scanline_textured_perspective(
-        &mut fb,
-        &mut zb,
-        &tex,
-        y,
-        x_start,
-        x_end,
-        start,
-        &gradients,
+        &mut fb, &mut zb, &tex, y, x_start, x_end, start, &gradients,
     );
 
     // Verify output

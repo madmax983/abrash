@@ -1002,10 +1002,19 @@ pub fn project_triangle_to_screen(
         let hw = _mm_set1_ps(half_width);
         let hh = _mm_set1_ps(half_height);
 
+        // Clamp values to valid i32 range to avoid undefined behavior/overflow in cvttps
+        // 2147483520.0 is the largest float strictly less than i32::MAX + 1 that is representable and fits in i32
+        let max_val_i32 = _mm_set1_ps(2147483520.0);
+        let min_val_i32 = _mm_set1_ps(-2147483648.0);
+
         // screen_x = (ndc_x + 1.0) * half_width
         let sx = _mm_mul_ps(_mm_add_ps(ndc_x, one), hw);
         // screen_y = (1.0 - ndc_y) * half_height
         let sy = _mm_mul_ps(_mm_sub_ps(one, ndc_y), hh);
+
+        // Clamp before conversion
+        let sx = _mm_min_ps(_mm_max_ps(sx, min_val_i32), max_val_i32);
+        let sy = _mm_min_ps(_mm_max_ps(sy, min_val_i32), max_val_i32);
 
         // Convert to int (truncation)
         let sx_i = _mm_cvttps_epi32(sx);
@@ -1234,7 +1243,8 @@ mod tests {
         // w = 0.0002. inv_w = 5000.
         // x = 1.0. ndc_x = 5000.
         // screen_x = (5000+1)*400 = 2000400.
-        let sp_small = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
+        let sp_small =
+            project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
         assert!((sp_small.inv_w - 5000.0).abs() < 1e-1);
         assert_eq!(sp_small.x, 2000400);
 
@@ -1242,7 +1252,8 @@ mod tests {
         // w = -1.0. inv_w = -1.0.
         // x = 1.0. ndc_x = -1.0.
         // screen_x = (-1+1)*400 = 0.
-        let sp_neg = project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
+        let sp_neg =
+            project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
         assert_eq!(sp_neg.inv_w, -1.0);
         assert_eq!(sp_neg.x, 0);
     }

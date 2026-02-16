@@ -34,5 +34,10 @@ fn bench_vec3_fast_normalize(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_vec3_cross, bench_vec3_dot, bench_vec3_fast_normalize);
+criterion_group!(
+    benches,
+    bench_vec3_cross,
+    bench_vec3_dot,
+    bench_vec3_fast_normalize
+);
 criterion_main!(benches);

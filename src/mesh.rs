@@ -41,6 +41,56 @@ pub struct BoundingSphere {
     pub radius: f32,
 }
 
+/// Axis-Aligned Bounding Box (AABB) for object-level culling.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AABB {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl AABB {
+    /// Create a new AABB from min and max points.
+    pub fn new(min: Vec3, max: Vec3) -> Self {
+        Self { min, max }
+    }
+
+    /// Calculate AABB from a list of points.
+    pub fn from_points(points: &[Vec3]) -> Self {
+        if points.is_empty() {
+            return Self {
+                min: Vec3::default(),
+                max: Vec3::default(),
+            };
+        }
+
+        let mut min = points[0];
+        let mut max = points[0];
+
+        for &p in points.iter().skip(1) {
+            if p.x < min.x { min.x = p.x; }
+            if p.y < min.y { min.y = p.y; }
+            if p.z < min.z { min.z = p.z; }
+
+            if p.x > max.x { max.x = p.x; }
+            if p.y > max.y { max.y = p.y; }
+            if p.z > max.z { max.z = p.z; }
+        }
+
+        Self { min, max }
+    }
+
+    /// Get the center of the AABB.
+    pub fn center(&self) -> Vec3 {
+        (self.min + self.max) * 0.5
+    }
+
+    /// Get the extents (half-size) of the AABB.
+    pub fn extents(&self) -> Vec3 {
+        (self.max - self.min) * 0.5
+    }
+}
+
 impl Mesh {
     /// Creates a new empty mesh.
     ///

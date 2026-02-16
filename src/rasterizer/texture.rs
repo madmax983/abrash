@@ -1,21 +1,67 @@
+//! Perspective-correct texture mapping rasterizer.
+//!
+//! This module implements scanline rasterization for textured triangles with perspective correction.
+//!
+//! # The Problem with Linear Interpolation
+//!
+//! In 3D graphics, simply interpolating texture coordinates $(u, v)$ linearly across the screen
+//! results in "affine texture mapping," which looks distorted because it doesn't account for depth.
+//! As a polygon recedes into the distance, the texture should appear compressed.
+//!
+//! # The Solution: Perspective Correction
+//!
+//! To achieve correct perspective, we must interpolate attributes in a way that respects the
+//! projective divide. The standard technique is to interpolate:
+//!
+//! *   $1/w$: The reciprocal of the homogeneous W coordinate.
+//! *   $u/w$: The texture U coordinate divided by W.
+//! *   $v/w$: The texture V coordinate divided by W.
+//!
+//! For each pixel, we recover the true texture coordinates by dividing by the interpolated $1/w$:
+//!
+//! $$ u_{pixel} = \frac{(u/w)_{interpolated}}{(1/w)_{interpolated}} $$
+//! $$ v_{pixel} = \frac{(v/w)_{interpolated}}{(1/w)_{interpolated}} $$
+//!
+//! # Features
+//!
+//! *   **Perspective Correction**: Accurate texture mapping at any angle.
+//! *   **Sub-pixel Precision**: Uses 16.16 fixed-point arithmetic for edge walking.
+//! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
+//! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{fast_inv_sqrt, project_triangle_to_screen, ScreenPoint, Vec2, Vec3, Vec4};
-use crate::texture::{blend_four_way, blend_swar, FilterMode, Texture};
+use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_triangle_to_screen};
+use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;
 
-use super::core::{
-    assert_same_dimensions, color_to_u32, is_backface, sort_by_y, FIXED_SCALE,
-};
+use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface, sort_by_y};
 
+/// Gradients for perspective-correct texture mapping.
+///
+/// This struct holds the per-pixel (dX) and per-scanline (dY) changes for:
+/// *   `z`: Depth (linear in screen space).
+/// *   `q`: Inverse W ($1/w$).
+/// *   `u`: Texture U over W ($u/w$).
+/// *   `v`: Texture V over W ($v/w$).
+///
+/// These gradients are calculated once per triangle and used to step the
+/// edge walkers and scanline interpolators.
 #[derive(Clone, Copy)]
 pub struct PerspectiveTextureGradients {
+    /// Change in depth (Z) per X pixel.
     pub dz_dx: f32,
+    /// Change in $1/w$ per X pixel.
     pub dq_dx: f32,
+    /// Change in $u/w$ per X pixel.
     pub du_dx: f32,
+    /// Change in $v/w$ per X pixel.
     pub dv_dx: f32,
+    /// Change in $1/w$ per Y scanline.
     pub dq_dy: f32,
+    /// Change in $u/w$ per Y scanline.
     pub du_dy: f32,
+    /// Change in $v/w$ per Y scanline.
     pub dv_dy: f32,
 }
 
@@ -432,8 +478,7 @@ unsafe fn draw_span_bilinear_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec =
-            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -506,33 +551,34 @@ unsafe fn draw_span_bilinear_simd(
                 let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
                 let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
 
-                let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-                    let mask = _mm256_set1_epi32(0x00FF00FF);
+                let blend_swar_avx2 =
+                    |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
+                        let mask = _mm256_set1_epi32(0x00FF00FF);
 
-                    let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
-                    let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+                        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+                        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
 
-                    let rb0 = _mm256_and_si256(c0, mask);
-                    let rb1 = _mm256_and_si256(c1, mask);
+                        let rb0 = _mm256_and_si256(c0, mask);
+                        let rb1 = _mm256_and_si256(c1, mask);
 
-                    let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
-                    let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+                        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+                        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
 
-                    let rb_sum = _mm256_add_epi16(
-                        _mm256_mullo_epi16(rb0, inv_w_16),
-                        _mm256_mullo_epi16(rb1, w_16),
-                    );
+                        let rb_sum = _mm256_add_epi16(
+                            _mm256_mullo_epi16(rb0, inv_w_16),
+                            _mm256_mullo_epi16(rb1, w_16),
+                        );
 
-                    let ag_sum = _mm256_add_epi16(
-                        _mm256_mullo_epi16(ag0, inv_w_16),
-                        _mm256_mullo_epi16(ag1, w_16),
-                    );
+                        let ag_sum = _mm256_add_epi16(
+                            _mm256_mullo_epi16(ag0, inv_w_16),
+                            _mm256_mullo_epi16(ag1, w_16),
+                        );
 
-                    let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
-                    let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+                        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+                        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
 
-                    _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
-                };
+                        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+                    };
 
                 let top = blend_swar_avx2(c00, c10, wx, inv_wx);
                 let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
@@ -671,8 +717,7 @@ unsafe fn draw_span_nearest_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec =
-            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
@@ -707,10 +752,10 @@ unsafe fn draw_span_nearest_simd(
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
                 let idx = if is_pot {
-                // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
-                // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
-                // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
-                // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
+                    // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
+                    // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
+                    // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
+                    // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
@@ -1077,6 +1122,48 @@ pub fn draw_scanline_textured_perspective(
     }
 }
 
+/// Fill a textured 3D triangle with perspective correction.
+///
+/// This function renders a triangle using the specified texture and perspective-correct interpolation.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), UV)`.
+///     *   `Position`: Clip Space position (before perspective divide).
+///     *   `W`: Homogeneous W coordinate (usually from projection matrix).
+///     *   `UV`: Texture coordinates (0.0 - 1.0).
+/// *   `texture` - Source texture to sample from.
+///
+/// # Implementation Details
+///
+/// 1.  **Clipping**: The triangle is clipped against the view frustum.
+/// 2.  **Projection**: Vertices are projected to screen space.
+/// 3.  **Backface Culling**: Back-facing triangles are discarded.
+/// 4.  **Gradient Calculation**: Screen-space derivatives ($1/w$, $u/w$, $v/w$) are computed.
+/// 5.  **Rasterization**: The triangle is filled scanline by scanline, interpolating attributes.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_textured;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::{Vec2, Vec3};
+/// use abrash::texture::Texture;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let texture = Texture::new(32, 32); // Assume empty texture
+///
+/// // Vertices: ((Pos, W), UV)
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec2::new(0.5, 0.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), Vec2::new(1.0, 1.0));
+///
+/// fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+/// ```
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -2201,8 +2288,33 @@ fn draw_scanline_normal_mapped(
     }
 }
 
-/// Fill a 3D triangle with Normal Mapping.
 #[allow(clippy::too_many_arguments)]
+/// Fill a triangle with Normal Mapping (Bump Mapping).
+///
+/// Renders a triangle using a diffuse texture and a normal map for detailed surface lighting.
+/// The lighting calculation is performed in Tangent Space.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), UV, Normal, Tangent)`.
+///     *   `Position`: Clip Space position.
+///     *   `W`: Homogeneous W.
+///     *   `UV`: Texture coordinates.
+///     *   `Normal`: Model space normal vector.
+///     *   `Tangent`: Model space tangent vector (w component stores bitangent handedness).
+/// *   `texture`: Diffuse color map (Albedo).
+/// *   `normal_map`: Tangent-space normal map (RGB encoded as XYZ).
+/// *   `light_dir`: Direction of the light rays (e.g., from light source to scene).
+/// *   `light_color`: Color and intensity of the directional light.
+/// *   `ambient`: Ambient light color added to the result.
+///
+/// # Lighting Model
+///
+/// Uses the Lambertian diffuse model:
+/// $$ I = Ambient + (Diffuse \cdot \max(N \cdot L, 0)) $$
+/// where $N$ is sampled from the normal map and $L$ is the light vector transformed into Tangent Space.
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -2322,9 +2434,8 @@ pub fn fill_triangle_normal_mapped(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = NormalMapGradients::new(
-            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2,
-        );
+        let (gradients, long_edge_is_left) =
+            NormalMapGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2);
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, l0, l2);
         if y_start > p0.y {
@@ -2732,16 +2843,19 @@ unsafe fn draw_span_textured_gouraud_simd(
             let mod_g = _mm256_mul_ps(tex_g, g_vec);
             let mod_b = _mm256_mul_ps(tex_b, b_vec);
 
-            let out_r = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
-            let out_g = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
-            let out_b = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
+            let out_r =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
+            let out_g =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
+            let out_b =
+                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
 
             let out_color = _mm256_or_si256(
                 _mm256_slli_epi32(tex_a_i, 24),
                 _mm256_or_si256(
                     _mm256_slli_epi32(out_r, 16),
-                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b)
-                )
+                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b),
+                ),
             );
 
             // Alpha Masks
@@ -2765,7 +2879,8 @@ unsafe fn draw_span_textured_gouraud_simd(
             }
 
             // Translucent Write
-            let write_trans = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let write_trans =
+                _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
             if trans_bits != 0 {
@@ -2779,7 +2894,8 @@ unsafe fn draw_span_textured_gouraud_simd(
                         let src = temp_colors[k];
                         let alpha = (src >> 24) as u8;
                         let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+                        *fb_slice.get_unchecked_mut(idx) =
+                            blend_swar(src, dest, (255 - alpha).into(), alpha.into());
                     }
                     bit <<= 1;
                 }
@@ -2844,11 +2960,13 @@ fn draw_span_textured_gouraud_scalar(
             let v = v_fix >> 16;
 
             let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                 if is_pot {
+                if is_pot {
                     unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
-                 } else {
-                    unsafe { *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize)) }
-                 }
+                } else {
+                    unsafe {
+                        *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize))
+                    }
+                }
             } else {
                 texture.get_pixel_texel(u, v)
             };
@@ -2869,7 +2987,12 @@ fn draw_span_textured_gouraud_scalar(
                 *pixel = final_color;
             } else if tex_a > 0 {
                 let dest = *pixel;
-                *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+                *pixel = blend_swar(
+                    final_color,
+                    dest,
+                    (255 - (tex_a as u8)).into(),
+                    (tex_a as u8).into(),
+                );
             }
         }
         z += dz_dx;
@@ -2943,7 +3066,11 @@ fn draw_scanline_textured_gouraud(
         let u_end = u + gradients.du_dx * count as f32;
         let v_end = v + gradients.dv_dx * count as f32;
 
-        let w_end = if q_end.abs() > 0.000_001 { 1.0 / q_end } else { 1.0 };
+        let w_end = if q_end.abs() > 0.000_001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
         let u_tex_end = u_end * w_end;
         let v_tex_end = v_end * w_end;
 
@@ -2965,52 +3092,89 @@ fn draw_scanline_textured_gouraud(
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
         if matches!(texture.filter_mode, FilterMode::Nearest) {
-             let u_fix = (u_tex_start * 65536.0) as i32;
-             let v_fix = (v_tex_start * 65536.0) as i32;
-             let du_fix = (du_tex_step * 65536.0) as i32;
-             let dv_fix = (dv_tex_step * 65536.0) as i32;
+            let u_fix = (u_tex_start * 65536.0) as i32;
+            let v_fix = (v_tex_start * 65536.0) as i32;
+            let du_fix = (du_tex_step * 65536.0) as i32;
+            let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-             if is_x86_feature_detected!("avx2") {
-                 unsafe {
-                     draw_span_textured_gouraud_simd(
-                         fb_slice, zb_slice, texture,
-                         z, gradients.dz_dx,
-                         u_fix, v_fix, du_fix, dv_fix,
-                         r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-                     );
-                 }
-             } else {
-                 draw_span_textured_gouraud_scalar(
-                     fb_slice, zb_slice, texture,
-                     z, gradients.dz_dx,
-                     u_fix, v_fix, du_fix, dv_fix,
-                     r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-                 );
-             }
-             #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-             draw_span_textured_gouraud_scalar(
-                 fb_slice, zb_slice, texture,
-                 z, gradients.dz_dx,
-                 u_fix, v_fix, du_fix, dv_fix,
-                 r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
-             );
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_span_textured_gouraud_simd(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        r,
+                        g,
+                        b,
+                        gradients.dr_dx,
+                        gradients.dg_dx,
+                        gradients.db_dx,
+                    );
+                }
+            } else {
+                draw_span_textured_gouraud_scalar(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    r,
+                    g,
+                    b,
+                    gradients.dr_dx,
+                    gradients.dg_dx,
+                    gradients.db_dx,
+                );
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+            draw_span_textured_gouraud_scalar(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                r,
+                g,
+                b,
+                gradients.dr_dx,
+                gradients.dg_dx,
+                gradients.db_dx,
+            );
         } else {
-             let mut z_curr = z;
-             let mut r_curr = r;
-             let mut g_curr = g;
-             let mut b_curr = b;
+            let mut z_curr = z;
+            let mut r_curr = r;
+            let mut g_curr = g;
+            let mut b_curr = b;
 
-             for i in 0..count {
-                 let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
-                 let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+            for i in 0..count {
+                let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
+                let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
 
-                 if z_curr < *depth_val {
+                if z_curr < *depth_val {
                     let q_curr = q + (i as f32) * gradients.dq_dx;
                     let u_curr_p = u + (i as f32) * gradients.du_dx;
                     let v_curr_p = v + (i as f32) * gradients.dv_dx;
 
-                    let w_recip = if q_curr.abs() > 0.000_001 { 1.0 / q_curr } else { 1.0 };
+                    let w_recip = if q_curr.abs() > 0.000_001 {
+                        1.0 / q_curr
+                    } else {
+                        1.0
+                    };
                     let u_tex = u_curr_p * w_recip;
                     let v_tex = v_curr_p * w_recip;
 
@@ -3029,21 +3193,27 @@ fn draw_scanline_textured_gouraud(
                     let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
                     let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
 
-                    let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                    let final_color =
+                        ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                     if tex_a == 255 {
                         *depth_val = z_curr;
                         *pixel = final_color;
                     } else if tex_a > 0 {
                         let dest = *pixel;
-                        *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+                        *pixel = blend_swar(
+                            final_color,
+                            dest,
+                            (255 - (tex_a as u8)).into(),
+                            (tex_a as u8).into(),
+                        );
                     }
-                 }
-                 z_curr += gradients.dz_dx;
-                 r_curr += gradients.dr_dx;
-                 g_curr += gradients.dg_dx;
-                 b_curr += gradients.db_dx;
-             }
+                }
+                z_curr += gradients.dz_dx;
+                r_curr += gradients.dr_dx;
+                g_curr += gradients.dg_dx;
+                b_curr += gradients.db_dx;
+            }
         }
 
         z += gradients.dz_dx * count as f32;
@@ -3059,14 +3229,25 @@ fn draw_scanline_textured_gouraud(
     }
 }
 
-/// Fill a 3D triangle with Textured Gouraud shading.
+/// Fill a textured triangle with Gouraud shading (Vertex Color Modulation).
 ///
-/// Combines perspective-correct texture mapping with linear vertex color interpolation.
+/// This function combines a texture lookup with linearly interpolated vertex colors.
+/// The texture color is multiplied by the interpolated vertex color.
+///
+/// $$ Pixel = Texture(u, v) \cdot Interpolated(VertexColor) $$
+///
+/// # Arguments
+///
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), Color, UV)`.
+///     *   `Position`: Clip Space position.
+///     *   `W`: Homogeneous W.
+///     *   `Color`: RGB color (0.0 - 1.0).
+///     *   `UV`: Texture coordinates.
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_textured_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec3, Vec2), // ((Pos, W), Color, UV)
+    v0: ((Vec3, f32), Vec3, Vec2),
     v1: ((Vec3, f32), Vec3, Vec2),
     v2: ((Vec3, f32), Vec3, Vec2),
     texture: &Texture,

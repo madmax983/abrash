@@ -1,6 +1,6 @@
-use abrash::particles::ParticleSystem;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
+use abrash::particles::ParticleSystem;
 use abrash::platform::{Window, WindowBackend};
 use abrash::texture::Texture;
 use abrash::time::FixedTimestep;

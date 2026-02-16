@@ -6,6 +6,7 @@ autobenches = false
 
 [features]
 default = ["backend-win32"]
+nova = []
 simd = []
 parallel = ["dep:rayon"]
 gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
@@ -283,4 +284,8 @@ harness = false
 
 [[bench]]
 name = "trilinear_scanline"
+harness = false
+
+[[bench]]
+name = "culling_optimization"
 harness = false

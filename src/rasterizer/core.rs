@@ -140,6 +140,15 @@ pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
     pack_color_channels(r, g, b)
 }
 
+/// Helper for fast color packing from fixed point (i32 version).
+#[inline(always)]
+pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
+    let r = (c.0 >> 16).clamp(0, 255) as u32;
+    let g = (c.1 >> 16).clamp(0, 255) as u32;
+    let b = (c.2 >> 16).clamp(0, 255) as u32;
+    pack_color_channels(r, g, b)
+}
+
 /// Helper to iterate along the edge of a triangle in screen space.
 ///
 /// This struct manages the state for walking down a triangle edge, interpolating

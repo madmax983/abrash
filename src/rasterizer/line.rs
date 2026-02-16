@@ -1,6 +1,6 @@
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{project_to_screen_optimized, Vec3};
+use crate::math::{Vec3, project_to_screen_optimized};
 use crate::zbuffer::ZBuffer;
 
 /// Draw a 3D line with Z-buffering.

@@ -196,14 +196,24 @@ impl HiZBuffer {
         if self.level_count > 1 {
             // Build level 1 directly from zbuffer
             let level0 = zbuffer.as_slice();
-            self.build_level(1, level0, self.width);
+            let dest_width = self.levels[1].width;
+            let dest_height = self.levels[1].height;
+            let dest = &mut self.levels[1].depths;
+            Self::min_reduce_2x2(dest, dest_width, dest_height, level0, self.width);
 
             // Build subsequent levels from previous levels
-            for level_idx in 2..self.level_count {
-                // Clone the previous level's depths to avoid borrowing issues
-                let prev_width = self.levels[(level_idx - 1) as usize].width;
-                let prev_depths = self.levels[(level_idx - 1) as usize].depths.clone();
-                self.build_level(level_idx, &prev_depths, prev_width);
+            for level_idx in 2..self.level_count as usize {
+                let (lower_levels, higher_levels) = self.levels.split_at_mut(level_idx);
+                let prev_level = &lower_levels[level_idx - 1];
+                let curr_level = &mut higher_levels[0];
+
+                Self::min_reduce_2x2(
+                    &mut curr_level.depths,
+                    curr_level.width,
+                    curr_level.height,
+                    &prev_level.depths,
+                    prev_level.width,
+                );
             }
         }
 
@@ -220,47 +230,19 @@ impl HiZBuffer {
         Ok(())
     }
 
-    /// Build a single pyramid level via 2×2 min-reduction
-    fn build_level(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        // SIMD disabled after extensive profiling and optimization (2026-02-06)
-        //
-        // **History:**
-        // - Initial AVX2 SIMD: 2.7× slower than scalar (6 shuffles per 4 pixels)
-        // - Optimized version: 1.9× slower (5 shuffles per 8 pixels, 58% reduction)
-        // - Added adaptive threshold: Still 1.9× slower at 1080p and 4K
-        //
-        // **Root causes:**
-        // 1. Memory bandwidth saturation: 4× unaligned loads per 2×2 reduction
-        //    - Scalar: 2.16 cycles/pixel
-        //    - SIMD: 4.12 cycles/pixel (1.9× overhead)
-        // 2. Excessive shuffle operations: Even optimized 5-shuffle pattern too slow
-        //    - Horizontal min-reduction requires complex shuffle patterns
-        //    - Each shuffle: 1-3 cycles latency, overhead exceeds benefit
-        // 3. Small pyramid levels: Upper levels (<64 pixels) too small to amortize setup cost
-        // 4. Unaligned loads: _mm256_loadu_ps is 2-3× slower than aligned loads
-        //
-        // **Attempts:**
-        // - ✅ Reduced shuffles from 6→5 per 8 pixels (58% reduction)
-        // - ✅ Added width threshold (skip SIMD for levels <16 pixels)
-        // - ❌ Still 1.9× slower than scalar baseline
-        //
-        // **Conclusion:**
-        // Hi-Z pyramid is fundamentally unsuited for SIMD due to:
-        // - Small working set (most levels <128 pixels wide)
-        // - Memory-bound (4× loads per output pixel)
-        // - Complex shuffle patterns (horizontal reductions are expensive)
-        //
-        // Scalar implementation is optimal for this workload.
-        // See: SIMD_PROFILING_ANALYSIS.md for full profiling data
-        self.build_level_scalar(level_idx, source, source_width);
-    }
-
-    /// Scalar 2×2 min-reduction implementation
-    fn build_level_scalar(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        let level_width = self.levels[level_idx as usize].width;
-        let level_height = self.levels[level_idx as usize].height;
-        let dest = &mut self.levels[level_idx as usize].depths;
-
+    /// Optimized scalar 2×2 min-reduction implementation
+    ///
+    /// # SIMD Note
+    /// SIMD was attempted but found to be slower due to memory bandwidth saturation,
+    /// excessive shuffle operations for horizontal reduction, and small working sets.
+    /// See SIMD_PROFILING_ANALYSIS.md for details.
+    fn min_reduce_2x2(
+        dest: &mut [f32],
+        dest_width: u32,
+        dest_height: u32,
+        source: &[f32],
+        source_width: u32,
+    ) {
         let sw = source_width as usize;
         let sh = source.len() / sw;
 
@@ -268,14 +250,14 @@ impl HiZBuffer {
         let odd_height = !sh.is_multiple_of(2);
 
         let safe_width = if odd_width {
-            level_width - 1
+            dest_width - 1
         } else {
-            level_width
+            dest_width
         };
         let safe_height = if odd_height {
-            level_height - 1
+            dest_height - 1
         } else {
-            level_height
+            dest_height
         };
 
         for y in 0..safe_height {
@@ -286,7 +268,7 @@ impl HiZBuffer {
             // Slice rows to avoid bounds checks in inner loop
             let row0 = &source[row0_start..];
             let row1 = &source[row1_start..];
-            let dst_row = &mut dest[(y * level_width) as usize..];
+            let dst_row = &mut dest[(y * dest_width) as usize..];
 
             for x in 0..safe_width {
                 let sx = (x * 2) as usize;
@@ -317,7 +299,7 @@ impl HiZBuffer {
             let src_y = (y * 2) as usize;
             let row0_start = src_y * sw;
             let row0 = &source[row0_start..];
-            let dst_row = &mut dest[(y * level_width) as usize..];
+            let dst_row = &mut dest[(y * dest_width) as usize..];
 
             for x in 0..safe_width {
                 let sx = (x * 2) as usize;
