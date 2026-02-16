@@ -87,6 +87,17 @@ impl Lerp for ((Vec3, f32), Vec3, Vec3) {
     }
 }
 
+// For ((Vec3, f32), Vec3, Vec2) - Pos+W, Color, UV
+impl Lerp for ((Vec3, f32), Vec3, Vec2) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (
+            self.0.lerp(other.0, t),
+            self.1.lerp(other.1, t),
+            self.2.lerp(other.2, t),
+        )
+    }
+}
+
 pub struct ClippedTriangles<V> {
     pub tris: [V; 24], // Max 8 triangles = 24 vertices
     pub count: usize,  // Number of triangles

@@ -403,6 +403,212 @@ fn draw_span_bilinear(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::ptr_as_ptr)]
+unsafe fn draw_span_bilinear_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    z_start: f32,
+    dz_dx: f32,
+    u_fix_start: i32,
+    v_fix_start: i32,
+    du_fix: i32,
+    dv_fix: i32,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    unsafe {
+        let dz_dx_vec = _mm256_set1_ps(dz_dx);
+        let du_fix_vec = _mm256_set1_epi32(du_fix);
+        let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+
+        let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+        let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+        let mut z_vec =
+            _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+        let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+        let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+
+        let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+        let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+        let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
+
+        let w_vec = _mm256_set1_epi32(texture.width as i32);
+        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let zero_i = _mm256_setzero_si256();
+        let one_i = _mm256_set1_epi32(1);
+
+        let mask_ff = _mm256_set1_epi32(0xFF);
+
+        while i + 8 <= len {
+            // Z-Test
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+            if _mm256_movemask_ps(mask_z) != 0 {
+                // Bilinear Logic
+                // u_fix is 16.16 offset by -0.5 (32768). Shift right 8 to get 24.8
+                let u_img = _mm256_srai_epi32(u_fix_vec, 8);
+                let v_img = _mm256_srai_epi32(v_fix_vec, 8);
+
+                // Weights (fractional part 0..255)
+                let wx = _mm256_and_si256(u_img, mask_ff);
+                let wy = _mm256_and_si256(v_img, mask_ff);
+
+                let const_256 = _mm256_set1_epi32(256);
+                let inv_wx = _mm256_sub_epi32(const_256, wx);
+                let inv_wy = _mm256_sub_epi32(const_256, wy);
+
+                // Integer coords (floor)
+                let x0_raw = _mm256_srai_epi32(u_img, 8);
+                let y0_raw = _mm256_srai_epi32(v_img, 8);
+
+                // Clamp
+                let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), max_x);
+                let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), max_y);
+
+                let x1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
+                    max_x,
+                );
+                let y1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
+                    max_y,
+                );
+
+                // Indices: idx = y * w + x
+                let y0_w = _mm256_mullo_epi32(y0, w_vec);
+                let y1_w = _mm256_mullo_epi32(y1, w_vec);
+
+                let idx00 = _mm256_add_epi32(y0_w, x0);
+                let idx10 = _mm256_add_epi32(y0_w, x1);
+                let idx01 = _mm256_add_epi32(y1_w, x0);
+                let idx11 = _mm256_add_epi32(y1_w, x1);
+
+                // Gather
+                let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
+                let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
+                let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
+                let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
+
+                let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
+                    let mask = _mm256_set1_epi32(0x00FF00FF);
+
+                    let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+                    let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+
+                    let rb0 = _mm256_and_si256(c0, mask);
+                    let rb1 = _mm256_and_si256(c1, mask);
+
+                    let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+                    let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+
+                    let rb_sum = _mm256_add_epi16(
+                        _mm256_mullo_epi16(rb0, inv_w_16),
+                        _mm256_mullo_epi16(rb1, w_16),
+                    );
+
+                    let ag_sum = _mm256_add_epi16(
+                        _mm256_mullo_epi16(ag0, inv_w_16),
+                        _mm256_mullo_epi16(ag1, w_16),
+                    );
+
+                    let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+                    let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+
+                    _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+                };
+
+                let top = blend_swar_avx2(c00, c10, wx, inv_wx);
+                let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
+                let final_color = blend_swar_avx2(top, bot, wy, inv_wy);
+
+                // Write Opaque: (mask_z & opaque)
+                // Need to extract alpha from final_color
+                let a = _mm256_and_si256(_mm256_srli_epi32(final_color, 24), mask_ff);
+                let opaque_mask = _mm256_cmpeq_epi32(a, mask_ff); // Alpha == 255
+                let mask_z_int = _mm256_castps_si256(mask_z);
+                let write_opaque_mask = _mm256_and_si256(mask_z_int, opaque_mask);
+                let write_opaque_mask_ps = _mm256_castsi256_ps(write_opaque_mask);
+
+                if _mm256_movemask_ps(write_opaque_mask_ps) != 0 {
+                    let old_z = _mm256_loadu_ps(depth_ptr);
+                    let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
+                    _mm256_storeu_ps(depth_ptr, new_z);
+
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let new_color = _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
+                    _mm256_storeu_si256(fb_ptr, new_color);
+                }
+
+                // Translucent
+                let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
+                let trans_mask =
+                    _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+                let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
+
+                if trans_bits != 0 {
+                    let mut temp_pixels = [0u32; 8];
+                    _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, final_color);
+
+                    let mut bit = 1;
+                    for k in 0..8 {
+                        if (trans_bits & bit) != 0 {
+                            let idx_scalar = i + k;
+                            let color = temp_pixels[k];
+                            let alpha = (color >> 24) & 0xFF;
+                            let dest = *fb_slice.get_unchecked(idx_scalar);
+                            *fb_slice.get_unchecked_mut(idx_scalar) =
+                                blend_swar(color, dest, 255 - alpha, alpha);
+                        }
+                        bit <<= 1;
+                    }
+                }
+            }
+
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+            v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+            i += 8;
+        }
+    }
+
+    // Scalar Tail
+    if i < len {
+        let z_curr = z_start + (i as f32) * dz_dx;
+        let u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
+        let v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+
+        draw_span_bilinear(
+            &mut fb_slice[i..],
+            &mut zb_slice[i..],
+            texture,
+            z_curr,
+            dz_dx,
+            u_curr,
+            v_curr,
+            du_fix,
+            dv_fix,
+        );
+    }
+}
+
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 fn draw_span_trilinear(
@@ -749,6 +955,36 @@ pub fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_bilinear_simd(
+                            fb_slice,
+                            zb_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                        );
+                    }
+                } else {
+                    draw_span_bilinear(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
                 draw_span_bilinear(
                     fb_slice,
                     zb_slice,
@@ -1308,7 +1544,10 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec); // abs
                 let q_valid = _mm256_cmp_ps(q_abs, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
                 let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
-                let w_recip = _mm256_div_ps(one, safe_q);
+
+                // Fast reciprocal with Newton-Raphson iteration
+                let rcp = _mm256_rcp_ps(safe_q);
+                let w_recip = _mm256_mul_ps(rcp, _mm256_sub_ps(two, _mm256_mul_ps(safe_q, rcp)));
 
                 let u_tex_f = _mm256_mul_ps(u_vec, w_recip);
                 let v_tex_f = _mm256_mul_ps(v_vec, w_recip);
@@ -1850,6 +2089,823 @@ pub fn fill_triangle_normal_mapped(
                     normal_map,
                     pre_diffuse_color,
                     ambient,
+                );
+            }
+
+            edge_a.step();
+            edge_b.step();
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct TexturedGouraudGradients {
+    pub dz_dx: f32,
+    pub dq_dx: f32,
+    pub du_dx: f32,
+    pub dv_dx: f32,
+    pub dr_dx: f32,
+    pub dg_dx: f32,
+    pub db_dx: f32,
+    // Y gradients for steps
+    dq_dy: f32,
+    du_dy: f32,
+    dv_dy: f32,
+    dr_dy: f32,
+    dg_dy: f32,
+    db_dy: f32,
+}
+
+impl TexturedGouraudGradients {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        p0: ScreenPoint,
+        p1: ScreenPoint,
+        p2: ScreenPoint,
+        q0: f32,
+        q1: f32,
+        q2: f32,
+        u0: f32,
+        u1: f32,
+        u2: f32,
+        v0: f32,
+        v1: f32,
+        v2: f32,
+        c0: Vec3,
+        c1: Vec3,
+        c2: Vec3,
+    ) -> (Self, bool) {
+        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+        let uz = p1.z - p0.z;
+        let uq = q1 - q0;
+        let uu = u1 - u0;
+        let uv = v1 - v0;
+        let ur = c1.x - c0.x;
+        let ug = c1.y - c0.y;
+        let ub = c1.z - c0.z;
+
+        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        let vz = p2.z - p0.z;
+        let vq = q2 - q0;
+        let vu = u2 - u0;
+        let vv = v2 - v0;
+        let vr = c2.x - c0.x;
+        let vg = c2.y - c0.y;
+        let vb = c2.z - c0.z;
+
+        let nz = ux * vy - uy * vx;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        let nx_z = uy * vz - uz * vy;
+        let dz_dx = nx_z * inv_nz;
+
+        let nx_q = uy * vq - uq * vy;
+        let dq_dx = nx_q * inv_nz;
+
+        let nx_u = uy * vu - uu * vy;
+        let du_dx = nx_u * inv_nz;
+
+        let nx_v = uy * vv - uv * vy;
+        let dv_dx = nx_v * inv_nz;
+
+        let nx_r = uy * vr - ur * vy;
+        let dr_dx = nx_r * inv_nz;
+
+        let nx_g = uy * vg - ug * vy;
+        let dg_dx = nx_g * inv_nz;
+
+        let nx_b = uy * vb - ub * vy;
+        let db_dx = nx_b * inv_nz;
+
+        // Y gradients
+        let ny_q = uq * vx - ux * vq;
+        let dq_dy = ny_q * inv_nz;
+
+        let ny_u = uu * vx - ux * vu;
+        let du_dy = ny_u * inv_nz;
+
+        let ny_v = uv * vx - ux * vv;
+        let dv_dy = ny_v * inv_nz;
+
+        let ny_r = ur * vx - ux * vr;
+        let dr_dy = ny_r * inv_nz;
+
+        let ny_g = ug * vx - ux * vg;
+        let dg_dy = ny_g * inv_nz;
+
+        let ny_b = ub * vx - ux * vb;
+        let db_dy = ny_b * inv_nz;
+
+        (
+            Self {
+                dz_dx,
+                dq_dx,
+                du_dx,
+                dv_dx,
+                dr_dx,
+                dg_dx,
+                db_dx,
+                dq_dy,
+                du_dy,
+                dv_dy,
+                dr_dy,
+                dg_dy,
+                db_dy,
+            },
+            nz > 0.0,
+        )
+    }
+}
+
+pub(crate) struct TexturedGouraudEdgeWalker {
+    pub(crate) x: i64,
+    pub(crate) z: f32,
+    pub(crate) q: f32, // 1/w
+    pub(crate) u: f32, // u/w
+    pub(crate) v: f32, // v/w
+    pub(crate) r: f32, // r
+    pub(crate) g: f32, // g
+    pub(crate) b: f32, // b
+    dx_dy: i64,
+    dz_dy: f32,
+    dq_dy: f32,
+    du_dy: f32,
+    dv_dy: f32,
+    dr_dy: f32,
+    dg_dy: f32,
+    db_dy: f32,
+}
+
+impl TexturedGouraudEdgeWalker {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        q_start: f32,
+        q_end: f32,
+        u_start: f32,
+        u_end: f32,
+        v_start: f32,
+        v_end: f32,
+        c_start: Vec3,
+        c_end: Vec3,
+    ) -> Self {
+        let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
+        let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
+
+        let dx_dy =
+            ((i64::from(p_end.x) - i64::from(p_start.x)) as f32 * inv_h * FIXED_SCALE) as i64;
+        let dz_dy = (p_end.z - p_start.z) * inv_h;
+        let dq_dy = (q_end - q_start) * inv_h;
+        let du_dy = (u_end - u_start) * inv_h;
+        let dv_dy = (v_end - v_start) * inv_h;
+        let dr_dy = (c_end.x - c_start.x) * inv_h;
+        let dg_dy = (c_end.y - c_start.y) * inv_h;
+        let db_dy = (c_end.z - c_start.z) * inv_h;
+
+        Self {
+            x: i64::from(p_start.x) << 16,
+            z: p_start.z,
+            q: q_start,
+            u: u_start,
+            v: v_start,
+            r: c_start.x,
+            g: c_start.y,
+            b: c_start.z,
+            dx_dy,
+            dz_dy,
+            dq_dy,
+            du_dy,
+            dv_dy,
+            dr_dy,
+            dg_dy,
+            db_dy,
+        }
+    }
+
+    pub(crate) fn step(&mut self) {
+        self.x += self.dx_dy;
+        self.z += self.dz_dy;
+        self.q += self.dq_dy;
+        self.u += self.du_dy;
+        self.v += self.dv_dy;
+        self.r += self.dr_dy;
+        self.g += self.dg_dy;
+        self.b += self.db_dy;
+    }
+
+    pub(crate) fn step_n(&mut self, n: i64) {
+        let n_f = n as f32;
+        self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
+        self.z += self.dz_dy * n_f;
+        self.q += self.dq_dy * n_f;
+        self.u += self.du_dy * n_f;
+        self.v += self.dv_dy * n_f;
+        self.r += self.dr_dy * n_f;
+        self.g += self.dg_dy * n_f;
+        self.b += self.db_dy * n_f;
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct TexturedGouraudSpanStart {
+    pub z: f32,
+    pub q: f32,
+    pub u: f32,
+    pub v: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+unsafe fn draw_span_textured_gouraud_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    z_start: f32,
+    dz_dx: f32,
+    u_fix_start: i32,
+    v_fix_start: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    r_start: f32,
+    g_start: f32,
+    b_start: f32,
+    dr_dx: f32,
+    dg_dx: f32,
+    db_dx: f32,
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let du_fix_vec = _mm256_set1_epi32(du_fix);
+    let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+    let dr_dx_vec = _mm256_set1_ps(dr_dx);
+    let dg_dx_vec = _mm256_set1_ps(dg_dx);
+    let db_dx_vec = _mm256_set1_ps(db_dx);
+
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+    let mut r_vec = _mm256_add_ps(_mm256_set1_ps(r_start), _mm256_mul_ps(dr_dx_vec, offsets_f));
+    let mut g_vec = _mm256_add_ps(_mm256_set1_ps(g_start), _mm256_mul_ps(dg_dx_vec, offsets_f));
+    let mut b_vec = _mm256_add_ps(_mm256_set1_ps(b_start), _mm256_mul_ps(db_dx_vec, offsets_f));
+
+    let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+    let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+
+    let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+    let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+    let dr_step = _mm256_mul_ps(dr_dx_vec, _mm256_set1_ps(8.0));
+    let dg_step = _mm256_mul_ps(dg_dx_vec, _mm256_set1_ps(8.0));
+    let db_step = _mm256_mul_ps(db_dx_vec, _mm256_set1_ps(8.0));
+    let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+    let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
+
+    let w_vec = _mm256_set1_epi32(texture.width as i32);
+    let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
+    let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+    let zero_i = _mm256_setzero_si256();
+    let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+    let is_pot = texture.width_shift < 32;
+
+    let ff_mask = _mm256_set1_epi32(0xFF);
+    let scale_255 = _mm256_set1_ps(255.0);
+    let zero_ps = _mm256_setzero_ps();
+
+    while i + 8 <= len {
+        let depth_ptr = zb_slice.as_mut_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+        let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+        if _mm256_movemask_ps(mask_z) != 0 {
+            let u_i = _mm256_srai_epi32(u_fix_vec, 16);
+            let v_i = _mm256_srai_epi32(v_fix_vec, 16);
+
+            let idx = if is_pot {
+                let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
+            } else {
+                let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
+            };
+
+            let pixel_vals = _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+
+            let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
+            let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
+            let tex_b_i = _mm256_and_si256(pixel_vals, ff_mask);
+            let tex_a_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 24), ff_mask);
+
+            let tex_r = _mm256_cvtepi32_ps(tex_r_i);
+            let tex_g = _mm256_cvtepi32_ps(tex_g_i);
+            let tex_b = _mm256_cvtepi32_ps(tex_b_i);
+
+            let mod_r = _mm256_mul_ps(tex_r, r_vec);
+            let mod_g = _mm256_mul_ps(tex_g, g_vec);
+            let mod_b = _mm256_mul_ps(tex_b, b_vec);
+
+            let out_r = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
+            let out_g = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
+            let out_b = _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
+
+            let out_color = _mm256_or_si256(
+                _mm256_slli_epi32(tex_a_i, 24),
+                _mm256_or_si256(
+                    _mm256_slli_epi32(out_r, 16),
+                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b)
+                )
+            );
+
+            // Alpha Masks
+            let opaque_mask = _mm256_cmpeq_epi32(tex_a_i, ff_mask);
+            let zero_mask = _mm256_cmpeq_epi32(tex_a_i, zero_i);
+            let mask_z_int = _mm256_castps_si256(mask_z);
+
+            // Opaque Write
+            let write_opaque = _mm256_and_si256(mask_z_int, opaque_mask);
+            let write_opaque_ps = _mm256_castsi256_ps(write_opaque);
+
+            if _mm256_movemask_ps(write_opaque_ps) != 0 {
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+
+            // Translucent Write
+            let write_trans = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
+
+            if trans_bits != 0 {
+                let mut temp_colors = [0u32; 8];
+                _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color);
+
+                let mut bit = 1;
+                for k in 0..8 {
+                    if (trans_bits & bit) != 0 {
+                        let idx = i + k;
+                        let src = temp_colors[k];
+                        let alpha = (src >> 24) as u8;
+                        let dest = *fb_slice.get_unchecked(idx);
+                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+                    }
+                    bit <<= 1;
+                }
+            }
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_ps(r_vec, dr_step);
+        g_vec = _mm256_add_ps(g_vec, dg_step);
+        b_vec = _mm256_add_ps(b_vec, db_step);
+        u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+        v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+        i += 8;
+    }
+
+    draw_span_textured_gouraud_scalar(
+        &mut fb_slice[i..],
+        &mut zb_slice[i..],
+        texture,
+        z_start + (i as f32) * dz_dx,
+        dz_dx,
+        u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32)),
+        v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32)),
+        du_fix,
+        dv_fix,
+        r_start + (i as f32) * dr_dx,
+        g_start + (i as f32) * dg_dx,
+        b_start + (i as f32) * db_dx,
+        dr_dx,
+        dg_dx,
+        db_dx,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_span_textured_gouraud_scalar(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    mut z: f32,
+    dz_dx: f32,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    mut r: f32,
+    mut g: f32,
+    mut b: f32,
+    dr_dx: f32,
+    dg_dx: f32,
+    db_dx: f32,
+) {
+    let tex_pixels = &texture.pixels;
+    let tex_w = texture.width;
+    let tex_h = texture.height;
+    let shift = texture.width_shift;
+    let is_pot = shift < 32;
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            let u = u_fix >> 16;
+            let v = v_fix >> 16;
+
+            let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                 if is_pot {
+                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                 } else {
+                    unsafe { *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize)) }
+                 }
+            } else {
+                texture.get_pixel_texel(u, v)
+            };
+
+            let tex_r = ((color >> 16) & 0xFF) as f32;
+            let tex_g = ((color >> 8) & 0xFF) as f32;
+            let tex_b = (color & 0xFF) as f32;
+            let tex_a = (color >> 24) & 0xFF;
+
+            let final_r = (tex_r * r).clamp(0.0, 255.0) as u32;
+            let final_g = (tex_g * g).clamp(0.0, 255.0) as u32;
+            let final_b = (tex_b * b).clamp(0.0, 255.0) as u32;
+
+            let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+
+            if tex_a == 255 {
+                *depth_val = z;
+                *pixel = final_color;
+            } else if tex_a > 0 {
+                let dest = *pixel;
+                *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+            }
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
+        r += dr_dx;
+        g += dg_dx;
+        b += db_dx;
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_textured_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: TexturedGouraudSpanStart,
+    gradients: &TexturedGouraudGradients,
+    texture: &Texture,
+) {
+    let width = fb.width() as i32;
+    let mut xs = x_start;
+    let mut xe = x_end;
+
+    let mut z = start.z;
+    let mut q = start.q;
+    let mut u = start.u;
+    let mut v = start.v;
+    let mut r = start.r;
+    let mut g = start.g;
+    let mut b = start.b;
+
+    if xs < 0 {
+        let diff = -i64::from(xs);
+        let diff_f = diff as f32;
+        z += diff_f * gradients.dz_dx;
+        q += diff_f * gradients.dq_dx;
+        u += diff_f * gradients.du_dx;
+        v += diff_f * gradients.dv_dx;
+        r += diff_f * gradients.dr_dx;
+        g += diff_f * gradients.dg_dx;
+        b += diff_f * gradients.db_dx;
+        xs = 0;
+    }
+
+    if xe >= width {
+        xe = width - 1;
+    }
+
+    if xs > xe {
+        return;
+    }
+
+    // Span-based optimization
+    let span_size = 16;
+    let mut x = xs;
+
+    // Calculate initial start values for perspective correction
+    let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+    let mut u_tex_start = u * w_start;
+    let mut v_tex_start = v * w_start;
+
+    while x <= xe {
+        let remaining = xe - x + 1;
+        let count = remaining.min(span_size);
+
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
+
+        let w_end = if q_end.abs() > 0.000_001 { 1.0 / q_end } else { 1.0 };
+        let u_tex_end = u_end * w_end;
+        let v_tex_end = v_end * w_end;
+
+        let inv_count = RECIPROCAL_TABLE[count as usize];
+        let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
+        let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
+
+        // Color interpolation (Linear)
+        let r_end = r + gradients.dr_dx * count as f32;
+        let g_end = g + gradients.dg_dx * count as f32;
+        let b_end = b + gradients.db_dx * count as f32;
+
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (x as usize);
+        let end_idx = y_offset + ((x + count - 1) as usize);
+
+        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+        if matches!(texture.filter_mode, FilterMode::Nearest) {
+             let u_fix = (u_tex_start * 65536.0) as i32;
+             let v_fix = (v_tex_start * 65536.0) as i32;
+             let du_fix = (du_tex_step * 65536.0) as i32;
+             let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+             if is_x86_feature_detected!("avx2") {
+                 unsafe {
+                     draw_span_textured_gouraud_simd(
+                         fb_slice, zb_slice, texture,
+                         z, gradients.dz_dx,
+                         u_fix, v_fix, du_fix, dv_fix,
+                         r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
+                     );
+                 }
+             } else {
+                 draw_span_textured_gouraud_scalar(
+                     fb_slice, zb_slice, texture,
+                     z, gradients.dz_dx,
+                     u_fix, v_fix, du_fix, dv_fix,
+                     r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
+                 );
+             }
+             #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+             draw_span_textured_gouraud_scalar(
+                 fb_slice, zb_slice, texture,
+                 z, gradients.dz_dx,
+                 u_fix, v_fix, du_fix, dv_fix,
+                 r, g, b, gradients.dr_dx, gradients.dg_dx, gradients.db_dx
+             );
+        } else {
+             let mut z_curr = z;
+             let mut r_curr = r;
+             let mut g_curr = g;
+             let mut b_curr = b;
+
+             for i in 0..count {
+                 let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
+                 let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+
+                 if z_curr < *depth_val {
+                    let q_curr = q + (i as f32) * gradients.dq_dx;
+                    let u_curr_p = u + (i as f32) * gradients.du_dx;
+                    let v_curr_p = v + (i as f32) * gradients.dv_dx;
+
+                    let w_recip = if q_curr.abs() > 0.000_001 { 1.0 / q_curr } else { 1.0 };
+                    let u_tex = u_curr_p * w_recip;
+                    let v_tex = v_curr_p * w_recip;
+
+                    let color = match texture.filter_mode {
+                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        _ => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                    };
+
+                    let tex_r = ((color >> 16) & 0xFF) as f32;
+                    let tex_g = ((color >> 8) & 0xFF) as f32;
+                    let tex_b = (color & 0xFF) as f32;
+                    let tex_a = (color >> 24) & 0xFF;
+
+                    let final_r = (tex_r * r_curr).clamp(0.0, 255.0) as u32;
+                    let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
+                    let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
+
+                    let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+
+                    if tex_a == 255 {
+                        *depth_val = z_curr;
+                        *pixel = final_color;
+                    } else if tex_a > 0 {
+                        let dest = *pixel;
+                        *pixel = blend_swar(final_color, dest, (255 - (tex_a as u8)).into(), (tex_a as u8).into());
+                    }
+                 }
+                 z_curr += gradients.dz_dx;
+                 r_curr += gradients.dr_dx;
+                 g_curr += gradients.dg_dx;
+                 b_curr += gradients.db_dx;
+             }
+        }
+
+        z += gradients.dz_dx * count as f32;
+        q = q_end;
+        u = u_end;
+        v = v_end;
+        r = r_end;
+        g = g_end;
+        b = b_end;
+        u_tex_start = u_tex_end;
+        v_tex_start = v_tex_end;
+        x += count;
+    }
+}
+
+/// Fill a 3D triangle with Textured Gouraud shading.
+///
+/// Combines perspective-correct texture mapping with linear vertex color interpolation.
+#[allow(clippy::too_many_arguments)]
+pub fn fill_triangle_textured_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec3, Vec2), // ((Pos, W), Color, UV)
+    v1: ((Vec3, f32), Vec3, Vec2),
+    v2: ((Vec3, f32), Vec3, Vec2),
+    texture: &Texture,
+) {
+    assert_same_dimensions(fb, zb);
+
+    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+
+    let width = fb.width();
+    let height = fb.height();
+    let half_width = width as f32 * 0.5;
+    let half_height = height as f32 * 0.5;
+
+    for i in 0..clipped.count {
+        let base = i * 3;
+        let v0 = clipped.tris[base];
+        let v1 = clipped.tris[base + 1];
+        let v2 = clipped.tris[base + 2];
+
+        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+            v0.0.0,
+            v0.0.1,
+            v1.0.0,
+            v1.0.1,
+            v2.0.0,
+            v2.0.1,
+            half_width,
+            half_height,
+        );
+
+        if is_backface(p0_orig, p1_orig, p2_orig) {
+            continue;
+        }
+
+        let inv_w0 = p0_orig.inv_w;
+        let inv_w1 = p1_orig.inv_w;
+        let inv_w2 = p2_orig.inv_w;
+
+        let w = texture.width as f32;
+        let h = texture.height as f32;
+
+        let u0 = v0.2.x * w * inv_w0;
+        let v0_val = v0.2.y * h * inv_w0;
+        let u1 = v1.2.x * w * inv_w1;
+        let v1_val = v1.2.y * h * inv_w1;
+        let u2 = v2.2.x * w * inv_w2;
+        let v2_val = v2.2.y * h * inv_w2;
+
+        let c0 = v0.1;
+        let c1 = v1.1;
+        let c2 = v2.1;
+
+        let mut verts = [
+            (p0_orig, u0, v0_val, c0),
+            (p1_orig, u1, v1_val, c1),
+            (p2_orig, u2, v2_val, c2),
+        ];
+        sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, u0, v0, c0), (p1, u1, v1, c1), (p2, u2, v2, c2)] = verts;
+
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+        if total_height == 0.0 {
+            continue;
+        }
+
+        let y_min = 0;
+        let y_max = height as i32 - 1;
+        let y_start = p0.y.max(y_min);
+        let y_end = p2.y.min(y_max);
+
+        if y_start > y_end {
+            continue;
+        }
+
+        let (gradients, long_edge_is_left) = TexturedGouraudGradients::new(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2,
+        );
+
+        let mut edge_a = TexturedGouraudEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, c0, c2);
+        if y_start > p0.y {
+            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+
+        let mut edge_b = if y_start < p1.y {
+            let mut e = TexturedGouraudEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1, c0, c1);
+            if y_start > p0.y {
+                e.step_n(i64::from(y_start) - i64::from(p0.y));
+            }
+            e
+        } else {
+            let mut e = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
+            if y_start > p1.y {
+                e.step_n(i64::from(y_start) - i64::from(p1.y));
+            }
+            e
+        };
+
+        for y in y_start..=y_end {
+            if y == p1.y && y != p0.y {
+                edge_b = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
+            }
+
+            let (x_start, x_end, z_left, q_left, u_left, v_left, r_left, g_left, b_left) =
+                if long_edge_is_left {
+                    (
+                        (edge_a.x >> 16) as i32,
+                        (edge_b.x >> 16) as i32,
+                        edge_a.z,
+                        edge_a.q,
+                        edge_a.u,
+                        edge_a.v,
+                        edge_a.r,
+                        edge_a.g,
+                        edge_a.b,
+                    )
+                } else {
+                    (
+                        (edge_b.x >> 16) as i32,
+                        (edge_a.x >> 16) as i32,
+                        edge_b.z,
+                        edge_b.q,
+                        edge_b.u,
+                        edge_b.v,
+                        edge_b.r,
+                        edge_b.g,
+                        edge_b.b,
+                    )
+                };
+
+            let dx = i64::from(x_end) - i64::from(x_start);
+
+            if dx > 0 {
+                draw_scanline_textured_gouraud(
+                    fb,
+                    zb,
+                    y,
+                    x_start,
+                    x_end,
+                    TexturedGouraudSpanStart {
+                        z: z_left,
+                        q: q_left,
+                        u: u_left,
+                        v: v_left,
+                        r: r_left,
+                        g: g_left,
+                        b: b_left,
+                    },
+                    &gradients,
+                    texture,
                 );
             }
 

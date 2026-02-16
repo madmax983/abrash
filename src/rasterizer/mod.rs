@@ -19,7 +19,7 @@ pub use self::phong::{
 };
 pub use self::texture::{
     draw_scanline_textured_perspective, fill_triangle_normal_mapped, fill_triangle_textured,
-    PerspectiveSpanStart, PerspectiveTextureGradients,
+    fill_triangle_textured_gouraud, PerspectiveSpanStart, PerspectiveTextureGradients,
 };
 pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::core::{color_to_u32, FIXED_SCALE};

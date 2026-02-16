@@ -19,6 +19,11 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
+use std::cell::RefCell;
+
+thread_local! {
+    static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
+}
 
 /// Applies a bloom effect to the framebuffer in-place.
 ///
@@ -38,24 +43,35 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
     let width = fb.width() as usize;
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
+    let needed_size = width * height;
 
-    // 1. Extract bright pixels
-    // We reuse a scratch buffer for this to avoid allocating multiple full-frame buffers.
-    // We need at least one full-frame buffer for the extracted/blurred result.
-    // We'll use two buffers for the separable blur (ping-pong).
-    let mut bright_pixels = vec![0u32; width * height];
-    let mut scratch_buffer = vec![0u32; width * height];
+    BLOOM_BUFFERS.with(|buffers| {
+        let mut borrowed = buffers.borrow_mut();
+        let (bright_pixels, scratch_buffer) = &mut *borrowed;
 
-    extract_bright_pixels(pixels, &mut bright_pixels, threshold);
+        // Ensure buffers are large enough
+        if bright_pixels.len() < needed_size {
+            bright_pixels.resize(needed_size, 0);
+        }
+        if scratch_buffer.len() < needed_size {
+            scratch_buffer.resize(needed_size, 0);
+        }
 
-    // 2. Blur the bright pixels
-    // Horizontal pass: bright_pixels -> scratch_buffer
-    box_blur_horizontal(&bright_pixels, &mut scratch_buffer, width, height, blur_radius);
-    // Vertical pass: scratch_buffer -> bright_pixels
-    box_blur_vertical(&scratch_buffer, &mut bright_pixels, width, height, blur_radius);
+        let bright_slice = &mut bright_pixels[..needed_size];
+        let scratch_slice = &mut scratch_buffer[..needed_size];
 
-    // 3. Composite back
-    blend_additive(pixels, &bright_pixels, intensity);
+        // 1. Extract bright pixels
+        extract_bright_pixels(pixels, bright_slice, threshold);
+
+        // 2. Blur the bright pixels
+        // Horizontal pass: bright_pixels -> scratch_buffer
+        box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
+        // Vertical pass: scratch_buffer -> bright_pixels
+        box_blur_vertical(scratch_slice, bright_slice, width, height, blur_radius);
+
+        // 3. Composite back
+        blend_additive(pixels, bright_slice, intensity);
+    });
 }
 
 fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
@@ -104,51 +120,54 @@ unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u
         _mm256_srai_epi32, _mm256_storeu_si256,
     };
 
-    // Reuse luminance weights from grayscale
-    // W0=29(B), W1=150(G), W2=77(R), W3=0(A)
-    let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
-    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-    let black_pixel = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-    let threshold_vec = _mm256_set1_epi32(threshold as i32);
+    unsafe {
+        // Reuse luminance weights from grayscale
+        // W0=29(B), W1=150(G), W2=77(R), W3=0(A)
+        let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let black_pixel = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let threshold_vec = _mm256_set1_epi32(i32::from(threshold));
 
-    let len = src.len();
-    let mut s_ptr = src.as_ptr();
-    let mut d_ptr = dest.as_mut_ptr();
-    let end_ptr = s_ptr.add(len);
+        let len = src.len();
+        let mut s_ptr = src.as_ptr();
+        let mut d_ptr = dest.as_mut_ptr();
+        let end_ptr = s_ptr.add(len);
 
-    while s_ptr < end_ptr {
-        let chunk = _mm256_loadu_si256(s_ptr.cast());
+        while s_ptr < end_ptr {
+            let chunk = _mm256_loadu_si256(s_ptr.cast());
 
-        // 1. Calculate Luminance (same as grayscale)
-        let alphas = _mm256_and_si256(chunk, alpha_mask);
-        let lo_128 = _mm256_castsi256_si128(chunk);
-        let hi_128 = _mm256_extracti128_si256(chunk, 1);
-        let v_lo = _mm256_cvtepu8_epi16(lo_128);
-        let v_hi = _mm256_cvtepu8_epi16(hi_128);
+            // 1. Calculate Luminance (same as grayscale)
+            let _alphas = _mm256_and_si256(chunk, alpha_mask);
+            let lo_128 = _mm256_castsi256_si128(chunk);
+            let hi_128 = _mm256_extracti128_si256(chunk, 1);
+            let v_lo = _mm256_cvtepu8_epi16(lo_128);
+            let v_hi = _mm256_cvtepu8_epi16(hi_128);
 
-        let prod_lo = _mm256_madd_epi16(v_lo, weights);
-        let prod_hi = _mm256_madd_epi16(v_hi, weights);
+            let prod_lo = _mm256_madd_epi16(v_lo, weights);
+            let prod_hi = _mm256_madd_epi16(v_hi, weights);
 
-        let sums_scrambled = _mm256_hadd_epi32(prod_lo, prod_hi);
-        let sums = _mm256_permute4x64_epi64(sums_scrambled, 0xD8);
-        let luma = _mm256_srai_epi32(sums, 8); // Luminance 0..255
+            let sums_scrambled = _mm256_hadd_epi32(prod_lo, prod_hi);
+            let sums = _mm256_permute4x64_epi64(sums_scrambled, 0xD8);
+            let luma = _mm256_srai_epi32(sums, 8); // Luminance 0..255
 
-        // 2. Threshold
-        // Compare > threshold. _mm256_cmpgt_epi32 returns 0xFFFFFFFF if true, 0 if false.
-        let mask = _mm256_cmpgt_epi32(luma, threshold_vec);
+            // 2. Threshold
+            // Compare > threshold. _mm256_cmpgt_epi32 returns 0xFFFFFFFF if true, 0 if false.
+            let mask = _mm256_cmpgt_epi32(luma, threshold_vec);
 
-        // 3. Select
-        // If > threshold, keep original chunk. Else black.
-        // blendv_epi8 selects second arg (chunk) if mask MSB is 1.
-        // Wait, mask is 32-bit. blendv_epi8 works on bytes.
-        // Since mask is all 1s or all 0s per 32-bit lane, it works for blendv_epi8 too.
-        let result = _mm256_blendv_epi8(black_pixel, chunk, mask);
+            // 3. Select
+            // If > threshold, keep original chunk. Else black.
+            // blendv_epi8 selects second arg (chunk) if mask MSB is 1.
+            // Wait, mask is 32-bit. blendv_epi8 works on bytes.
+            // Since mask is all 1s or all 0s per 32-bit lane, it works for blendv_epi8 too.
+            let result = _mm256_blendv_epi8(black_pixel, chunk, mask);
 
-        _mm256_storeu_si256(d_ptr.cast(), result);
-        s_ptr = s_ptr.add(8);
-        d_ptr = d_ptr.add(8);
+            _mm256_storeu_si256(d_ptr.cast(), result);
+            s_ptr = s_ptr.add(8);
+            d_ptr = d_ptr.add(8);
+        }
     }
 }
+
 
 fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     let radius = radius as usize;
@@ -187,12 +206,12 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
             b_acc += p & 0xFF;
         }
 
-        for x in 0..width {
+        for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
             // Write current blurred pixel
             let r_avg = (r_acc as f32 * scale) as u32;
             let g_avg = (g_acc as f32 * scale) as u32;
             let b_avg = (b_acc as f32 * scale) as u32;
-            dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+            *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
             // Shift window
             // Remove outgoing pixel (x - radius)
@@ -270,11 +289,11 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
         let dst_row_start = y * width;
         let dst_row = &mut dest[dst_row_start .. dst_row_start + width];
 
-        for x in 0..width {
+        for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
             let r = (r_acc[x] as f32 * scale) as u32;
             let g = (g_acc[x] as f32 * scale) as u32;
             let b = (b_acc[x] as f32 * scale) as u32;
-            dst_row[x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            *dst_pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
 
         // Update accumulators for next row
@@ -301,227 +320,229 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
 #[target_feature(enable = "avx2")]
 unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     use std::arch::x86_64::{
-        _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi16, _mm256_cvtepu8_epi32,
+        _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi32, _mm256_cvtepu8_epi32,
         _mm256_castsi256_si128, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_set1_epi32,
         _mm256_srai_epi32, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
         _mm256_or_si256, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_cvttps_epi32,
-        _mm256_cvtepi32_ps, _mm256_set1_ps, _mm256_mul_ps,
+        _mm256_cvtepi32_ps, _mm256_set1_ps, _mm256_mul_ps, _mm256_and_si256
     };
 
-    let radius = radius as usize;
-    let kernel_size = 2 * radius + 1;
-    let scale = 1.0 / (kernel_size as f32);
-    let scale_vec = _mm256_set1_ps(scale);
-    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    unsafe {
+        let radius = radius as usize;
+        let count = radius as i32 + 1;
+        let kernel_size = 2 * radius + 1;
+        let scale = 1.0 / (kernel_size as f32);
+        let scale_vec = _mm256_set1_ps(scale);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
-    // Accumulators
-    let mut r_acc = vec![0i32; width];
-    let mut g_acc = vec![0i32; width];
-    let mut b_acc = vec![0i32; width];
+        // Accumulators
+        let mut r_acc = vec![0i32; width];
+        let mut g_acc = vec![0i32; width];
+        let mut b_acc = vec![0i32; width];
 
-    // Helper to add a row to accumulators (SIMD)
-    // Note: We use i32 for accumulators to prevent overflow.
-    // Max sum = 255 * (2*radius + 1). If radius=10, max=5355. Fits in i16 too, but i32 is safer and easier.
-    // AVX2 doesn't have unpack u8 to i32 directly.
-    // We can use `_mm256_cvtepu8_epi32` which takes __m128i (16 bytes, 4 pixels? No, 128 bits = 16 bytes).
-    // `cvtepu8_epi32` converts low 8 bytes (8 ints) to 8 i32s (256 bits).
-    // So we can process 8 pixels at a time. Perfect.
+        // Helper to add a row to accumulators (SIMD)
+        // Note: We use i32 for accumulators to prevent overflow.
+        // Max sum = 255 * (2*radius + 1). If radius=10, max=5355. Fits in i16 too, but i32 is safer and easier.
+        // AVX2 doesn't have unpack u8 to i32 directly.
+        // We can use `_mm256_cvtepu8_epi32` which takes __m128i (16 bytes, 4 pixels? No, 128 bits = 16 bytes).
+        // `cvtepu8_epi32` converts low 8 bytes (8 ints) to 8 i32s (256 bits).
+        // So we can process 8 pixels at a time. Perfect.
 
-    // 1. Pre-fill accumulators
-    {
-        // Add row 0 (radius+1 times)
-        let row0_ptr = src.as_ptr();
-        let mut x = 0;
-        let count = (radius as i32 + 1);
-        let count_vec = _mm256_set1_epi32(count);
+        // 1. Pre-fill accumulators
+        {
+            // Add row 0 (radius+1 times)
+            let row0_ptr = src.as_ptr();
+            let mut x = 0;
+            let count_vec = _mm256_set1_epi32(count);
 
-        while x + 8 <= width {
-            // Load 8 pixels (32 bytes)
-            // We need to extract R, G, B separately.
-            // Pixel: A R G B
-            // _mm256_loadu_si256 loads 8 pixels.
-            let pixels = _mm256_loadu_si256(row0_ptr.add(x).cast());
+            while x + 8 <= width {
+                // Load 8 pixels (32 bytes)
+                // We need to extract R, G, B separately.
+                // Pixel: A R G B
+                // _mm256_loadu_si256 loads 8 pixels.
+                let pixels = _mm256_loadu_si256(row0_ptr.add(x).cast());
 
-            // Mask and shift to get channels as i32
-            // B: pixels & 0xFF
-            // G: (pixels >> 8) & 0xFF
-            // R: (pixels >> 16) & 0xFF
-            // Since we need them as i32, we can't just mask.
-            // Actually, we can use shift + mask.
-            // But doing this for 8 pixels in parallel is tricky because channels are interleaved.
-            // Alternative:
-            // Load 8 pixels.
-            // Use `vpand` to get B (if aligned). No.
-            //
-            // Better: use `_mm256_cvtepu8_epi32`?
-            // That takes packed u8s. Our u8s are interleaved.
-            //
-            // We can use `vpshufb` (shuffle bytes) to deinterleave?
-            //
-            // Or just use shifts and masks.
-            // B = pixels & 0xFF.
-            // G = (pixels >> 8) & 0xFF.
-            // R = (pixels >> 16) & 0xFF.
-            //
-            // `_mm256_and_si256` works on whole vector.
-            // `_mm256_srli_epi32` works on each 32-bit element (pixel).
-            // So:
-            // b_vals = _mm256_and_si256(pixels, 0xFF);
-            // g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), 0xFF);
-            // r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), 0xFF);
-            // This works perfectly!
+                // Mask and shift to get channels as i32
+                // B: pixels & 0xFF
+                // G: (pixels >> 8) & 0xFF
+                // R: (pixels >> 16) & 0xFF
+                // Since we need them as i32, we can't just mask.
+                // Actually, we can use shift + mask.
+                // But doing this for 8 pixels in parallel is tricky because channels are interleaved.
+                // Alternative:
+                // Load 8 pixels.
+                // Use `vpand` to get B (if aligned). No.
+                //
+                // Better: use `_mm256_cvtepu8_epi32`?
+                // That takes packed u8s. Our u8s are interleaved.
+                //
+                // We can use `vpshufb` (shuffle bytes) to deinterleave?
+                //
+                // Or just use shifts and masks.
+                // B = pixels & 0xFF.
+                // G = (pixels >> 8) & 0xFF.
+                // R = (pixels >> 16) & 0xFF.
+                //
+                // `_mm256_and_si256` works on whole vector.
+                // `_mm256_srli_epi32` works on each 32-bit element (pixel).
+                // So:
+                // b_vals = _mm256_and_si256(pixels, 0xFF);
+                // g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), 0xFF);
+                // r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), 0xFF);
+                // This works perfectly!
 
+                let mask_ff = _mm256_set1_epi32(0xFF);
+                let b_vals = _mm256_and_si256(pixels, mask_ff);
+                let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+                let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+
+                // Multiply by count
+                // Since max val is 255*count, it fits in i32. `mullo_epi32` (AVX2).
+                let b_added = _mm256_mullo_epi32(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
+                // AVX2 has `_mm256_mullo_epi32` (VPMULLD). Yes it does.
+
+                let g_added = _mm256_mullo_epi32(g_vals, count_vec);
+                let r_added = _mm256_mullo_epi32(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
+                // No, we are adding to accumulators.
+                // Here we are initializing.
+
+                _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_added);
+                _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_added);
+                _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_added);
+
+                x += 8;
+            }
+
+            // Tail
+            for i in x..width {
+                let p = *row0_ptr.add(i);
+                r_acc[i] = ((p >> 16) & 0xFF) as i32 * count;
+                g_acc[i] = ((p >> 8) & 0xFF) as i32 * count;
+                b_acc[i] = (p & 0xFF) as i32 * count;
+            }
+
+            // Add remaining rows [1..=radius]
+            for y in 1..=radius {
+                let row_idx = y.min(height - 1);
+                let row_ptr = src.as_ptr().add(row_idx * width);
+                let mut x = 0;
+                let mask_ff = _mm256_set1_epi32(0xFF);
+
+                while x + 8 <= width {
+                    let pixels = _mm256_loadu_si256(row_ptr.add(x).cast());
+                    let b_vals = _mm256_and_si256(pixels, mask_ff);
+                    let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+                    let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+
+                    let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
+                    let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
+                    let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
+
+                    _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(r_curr, r_vals));
+                    _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(g_curr, g_vals));
+                    _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(b_curr, b_vals));
+
+                    x += 8;
+                }
+
+                for i in x..width {
+                    let p = *row_ptr.add(i);
+                    r_acc[i] += ((p >> 16) & 0xFF) as i32;
+                    g_acc[i] += ((p >> 8) & 0xFF) as i32;
+                    b_acc[i] += (p & 0xFF) as i32;
+                }
+            }
+        }
+
+        // 2. Main loop
+        for y in 0..height {
+            let dst_ptr = dest.as_mut_ptr().add(y * width);
+
+            let out_y = (y as isize - radius as isize).max(0) as usize;
+            let in_y = (y + radius + 1).min(height - 1);
+
+            let out_ptr = src.as_ptr().add(out_y * width);
+            let in_ptr = src.as_ptr().add(in_y * width);
+
+            let mut x = 0;
             let mask_ff = _mm256_set1_epi32(0xFF);
-            let b_vals = _mm256_and_si256(pixels, mask_ff);
-            let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
-            let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
 
-            // Multiply by count
-            // Since max val is 255*count, it fits in i32. `mullo_epi32` (AVX2).
-            let b_added = _mm256_mullo_epi32(b_vals, count_vec); // Wait, AVX2 doesn't have mullo_epi32?
-            // AVX2 has `_mm256_mullo_epi32` (VPMULLD). Yes it does.
+            while x + 8 <= width {
+                // 1. Write current accumulator to dest
+                let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
+                let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
+                let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
 
-            let g_added = _mm256_mullo_epi32(g_vals, count_vec);
-            let r_added = _mm256_mullo_epi32(r_vals, count_vec); // Actually we can just multiply accumulators once at start?
-            // No, we are adding to accumulators.
-            // Here we are initializing.
+                // Convert to float, scale, convert back
+                let r_f = _mm256_cvtepi32_ps(r_curr);
+                let g_f = _mm256_cvtepi32_ps(g_curr);
+                let b_f = _mm256_cvtepi32_ps(b_curr);
 
-            _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_added);
-            _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_added);
-            _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_added);
+                let r_scaled = _mm256_mul_ps(r_f, scale_vec);
+                let g_scaled = _mm256_mul_ps(g_f, scale_vec);
+                let b_scaled = _mm256_mul_ps(b_f, scale_vec);
 
-            x += 8;
-        }
+                // Convert to i32 (truncating is fine, or round?)
+                // cvttps_epi32 truncates.
+                let r_out = _mm256_cvttps_epi32(r_scaled);
+                let g_out = _mm256_cvttps_epi32(g_scaled);
+                let b_out = _mm256_cvttps_epi32(b_scaled);
 
-        // Tail
-        for i in x..width {
-             let p = *row0_ptr.add(i);
-             r_acc[i] = ((p >> 16) & 0xFF) as i32 * count;
-             g_acc[i] = ((p >> 8) & 0xFF) as i32 * count;
-             b_acc[i] = (p & 0xFF) as i32 * count;
-        }
+                // Pack back to u32 pixel: 0xFFRRGGBB
+                // r << 16 | g << 8 | b | 0xFF000000
+                let r_shifted = _mm256_slli_epi32(r_out, 16);
+                let g_shifted = _mm256_slli_epi32(g_out, 8);
+                let pixel = _mm256_or_si256(
+                    r_shifted,
+                    _mm256_or_si256(g_shifted, _mm256_or_si256(b_out, alpha_mask))
+                );
+                _mm256_storeu_si256(dst_ptr.add(x).cast(), pixel);
 
-        // Add remaining rows [1..=radius]
-        for y in 1..=radius {
-             let row_idx = y.min(height - 1);
-             let row_ptr = src.as_ptr().add(row_idx * width);
-             let mut x = 0;
-             let mask_ff = _mm256_set1_epi32(0xFF);
+                // 2. Update accumulators
+                // Load outgoing
+                let out_pixels = _mm256_loadu_si256(out_ptr.add(x).cast());
+                let out_b = _mm256_and_si256(out_pixels, mask_ff);
+                let out_g = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
+                let out_r = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
 
-             while x + 8 <= width {
-                 let pixels = _mm256_loadu_si256(row_ptr.add(x).cast());
-                 let b_vals = _mm256_and_si256(pixels, mask_ff);
-                 let g_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
-                 let r_vals = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+                // Load incoming
+                let in_pixels = _mm256_loadu_si256(in_ptr.add(x).cast());
+                let in_b = _mm256_and_si256(in_pixels, mask_ff);
+                let in_g = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
+                let in_r = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
 
-                 let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
-                 let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
-                 let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
+                // Update: acc = acc + in - out
+                // Combine: diff = in - out
+                let diff_r = _mm256_sub_epi32(in_r, out_r);
+                let diff_g = _mm256_sub_epi32(in_g, out_g);
+                let diff_b = _mm256_sub_epi32(in_b, out_b);
 
-                 _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(r_curr, r_vals));
-                 _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(g_curr, g_vals));
-                 _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(b_curr, b_vals));
+                let r_new = _mm256_add_epi32(r_curr, diff_r);
+                let g_new = _mm256_add_epi32(g_curr, diff_g);
+                let b_new = _mm256_add_epi32(b_curr, diff_b);
 
-                 x += 8;
-             }
+                _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_new);
+                _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_new);
+                _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_new);
 
-             for i in x..width {
-                 let p = *row_ptr.add(i);
-                 r_acc[i] += ((p >> 16) & 0xFF) as i32;
-                 g_acc[i] += ((p >> 8) & 0xFF) as i32;
-                 b_acc[i] += (p & 0xFF) as i32;
-             }
-        }
-    }
+                x += 8;
+            }
 
-    // 2. Main loop
-    for y in 0..height {
-        let dst_ptr = dest.as_mut_ptr().add(y * width);
+            // Tail
+            for i in x..width {
+                // Write
+                let r = (r_acc[i] as f32 * scale) as u32;
+                let g = (g_acc[i] as f32 * scale) as u32;
+                let b = (b_acc[i] as f32 * scale) as u32;
+                *dst_ptr.add(i) = 0xFF00_0000 | (r << 16) | (g << 8) | b;
 
-        let out_y = (y as isize - radius as isize).max(0) as usize;
-        let in_y = (y + radius + 1).min(height - 1);
-
-        let out_ptr = src.as_ptr().add(out_y * width);
-        let in_ptr = src.as_ptr().add(in_y * width);
-
-        let mut x = 0;
-        let mask_ff = _mm256_set1_epi32(0xFF);
-
-        while x + 8 <= width {
-            // 1. Write current accumulator to dest
-            let r_curr = _mm256_loadu_si256(r_acc.as_ptr().add(x).cast());
-            let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
-            let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
-
-            // Convert to float, scale, convert back
-            let r_f = _mm256_cvtepi32_ps(r_curr);
-            let g_f = _mm256_cvtepi32_ps(g_curr);
-            let b_f = _mm256_cvtepi32_ps(b_curr);
-
-            let r_scaled = _mm256_mul_ps(r_f, scale_vec);
-            let g_scaled = _mm256_mul_ps(g_f, scale_vec);
-            let b_scaled = _mm256_mul_ps(b_f, scale_vec);
-
-            // Convert to i32 (truncating is fine, or round?)
-            // cvttps_epi32 truncates.
-            let r_out = _mm256_cvttps_epi32(r_scaled);
-            let g_out = _mm256_cvttps_epi32(g_scaled);
-            let b_out = _mm256_cvttps_epi32(b_scaled);
-
-            // Pack back to u32 pixel: 0xFFRRGGBB
-            // r << 16 | g << 8 | b | 0xFF000000
-            let r_shifted = _mm256_slli_epi32(r_out, 16);
-            let g_shifted = _mm256_slli_epi32(g_out, 8);
-            let pixel = _mm256_or_si256(
-                r_shifted,
-                _mm256_or_si256(g_shifted, _mm256_or_si256(b_out, alpha_mask))
-            );
-            _mm256_storeu_si256(dst_ptr.add(x).cast(), pixel);
-
-            // 2. Update accumulators
-            // Load outgoing
-            let out_pixels = _mm256_loadu_si256(out_ptr.add(x).cast());
-            let out_b = _mm256_and_si256(out_pixels, mask_ff);
-            let out_g = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 8), mask_ff);
-            let out_r = _mm256_and_si256(_mm256_srli_epi32(out_pixels, 16), mask_ff);
-
-            // Load incoming
-            let in_pixels = _mm256_loadu_si256(in_ptr.add(x).cast());
-            let in_b = _mm256_and_si256(in_pixels, mask_ff);
-            let in_g = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 8), mask_ff);
-            let in_r = _mm256_and_si256(_mm256_srli_epi32(in_pixels, 16), mask_ff);
-
-            // Update: acc = acc + in - out
-            // Combine: diff = in - out
-            let diff_r = _mm256_sub_epi32(in_r, out_r);
-            let diff_g = _mm256_sub_epi32(in_g, out_g);
-            let diff_b = _mm256_sub_epi32(in_b, out_b);
-
-            let r_new = _mm256_add_epi32(r_curr, diff_r);
-            let g_new = _mm256_add_epi32(g_curr, diff_g);
-            let b_new = _mm256_add_epi32(b_curr, diff_b);
-
-            _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), r_new);
-            _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), g_new);
-            _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), b_new);
-
-            x += 8;
-        }
-
-        // Tail
-        for i in x..width {
-            // Write
-            let r = (r_acc[i] as f32 * scale) as u32;
-            let g = (g_acc[i] as f32 * scale) as u32;
-            let b = (b_acc[i] as f32 * scale) as u32;
-            *dst_ptr.add(i) = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-
-            // Update
-            let p_out = *out_ptr.add(i);
-            let p_in = *in_ptr.add(i);
-            r_acc[i] = r_acc[i] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
-            g_acc[i] = g_acc[i] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
-            b_acc[i] = b_acc[i] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
+                // Update
+                let p_out = *out_ptr.add(i);
+                let p_in = *in_ptr.add(i);
+                r_acc[i] = r_acc[i] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+                g_acc[i] = g_acc[i] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+                b_acc[i] = b_acc[i] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
+            }
         }
     }
 }
@@ -590,148 +611,150 @@ unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
         _mm256_srai_epi16, _mm256_storeu_si256, _mm256_and_si256,
     };
 
-    let scale = (intensity * 256.0) as i16;
-    let scale_vec = _mm256_set1_epi16(scale);
-    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    unsafe {
+        let scale = (intensity * 256.0) as i16;
+        let scale_vec = _mm256_set1_epi16(scale);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
-    let len = dest.len();
-    let mut d_ptr = dest.as_mut_ptr();
-    let mut s_ptr = src.as_ptr();
-    let end_ptr = d_ptr.add(len);
+        let len = dest.len();
+        let mut d_ptr = dest.as_mut_ptr();
+        let mut s_ptr = src.as_ptr();
+        let end_ptr = d_ptr.add(len);
 
-    while d_ptr < end_ptr {
-        let s_chunk = _mm256_loadu_si256(s_ptr.cast());
-        let d_chunk = _mm256_loadu_si256(d_ptr.cast());
+        while d_ptr < end_ptr {
+            let s_chunk = _mm256_loadu_si256(s_ptr.cast());
+            let d_chunk = _mm256_loadu_si256(d_ptr.cast());
 
-        // Preserve dest alpha
-        let d_alpha = _mm256_and_si256(d_chunk, alpha_mask);
+            // Preserve dest alpha
+            let d_alpha = _mm256_and_si256(d_chunk, alpha_mask);
 
-        // Unpack to 16-bit
-        let s_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(s_chunk));
-        let s_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(s_chunk, 1));
+            // Unpack to 16-bit
+            let s_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(s_chunk));
+            let s_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(s_chunk, 1));
 
-        let d_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(d_chunk));
-        let d_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(d_chunk, 1));
+            let d_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(d_chunk));
+            let d_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(d_chunk, 1));
 
-        // Multiply src * scale
-        let s_lo_scaled = _mm256_mullo_epi16(s_lo, scale_vec);
-        let s_hi_scaled = _mm256_mullo_epi16(s_hi, scale_vec);
+            // Multiply src * scale
+            let s_lo_scaled = _mm256_mullo_epi16(s_lo, scale_vec);
+            let s_hi_scaled = _mm256_mullo_epi16(s_hi, scale_vec);
 
-        // Divide by 256
-        let s_lo_final = _mm256_srai_epi16(s_lo_scaled, 8);
-        let s_hi_final = _mm256_srai_epi16(s_hi_scaled, 8);
+            // Divide by 256
+            let s_lo_final = _mm256_srai_epi16(s_lo_scaled, 8);
+            let s_hi_final = _mm256_srai_epi16(s_hi_scaled, 8);
 
-        // Add dest
-        let res_lo = _mm256_add_epi16(d_lo, s_lo_final);
-        let res_hi = _mm256_add_epi16(d_hi, s_hi_final);
+            // Add dest
+            let res_lo = _mm256_add_epi16(d_lo, s_lo_final);
+            let res_hi = _mm256_add_epi16(d_hi, s_hi_final);
 
-        // Pack back to u8 (saturates)
-        // packus_epi16 packs 16-bit signed integers to 8-bit unsigned integers with saturation.
-        // It packs [a_lo, a_hi] -> [a_packed]
-        // result layout: [a_lo_packed, b_lo_packed, a_hi_packed, b_hi_packed]
-        // So we need to be careful with lane ordering.
-        // _mm256_packus_epi16(a, b) packs a and b.
-        // We have res_lo (first 4 pixels expanded) and res_hi (next 4 pixels expanded).
-        let packed = _mm256_packus_epi16(res_lo, res_hi);
+            // Pack back to u8 (saturates)
+            // packus_epi16 packs 16-bit signed integers to 8-bit unsigned integers with saturation.
+            // It packs [a_lo, a_hi] -> [a_packed]
+            // result layout: [a_lo_packed, b_lo_packed, a_hi_packed, b_hi_packed]
+            // So we need to be careful with lane ordering.
+            // _mm256_packus_epi16(a, b) packs a and b.
+            // We have res_lo (first 4 pixels expanded) and res_hi (next 4 pixels expanded).
+            let packed = _mm256_packus_epi16(res_lo, res_hi);
 
-        // Fix lane ordering:
-        // packus output: [res_lo_0..7, res_hi_0..7, res_lo_8..15, res_hi_8..15]
-        // But res_lo is 256-bit containing 8 pixels worth of u16 data? No.
-        // res_lo was derived from cvtepu8_epi16(lo_128). So it contains 8 pixels expanded to 16-bit.
-        // Wait, 128 bits of u8 = 16 pixels.
-        // cvtepu8_epi16 takes __m128i. It unpacks low 8 bytes (64 bits) to 8 words (128 bits)?
-        // No, it converts 8 packed 8-bit integers to 8 packed 16-bit integers.
-        // _mm256_cvtepu8_epi16 takes __m128i (16 bytes). It converts lower 8 bytes? Or all 16?
-        // Documentation: "Zero extend packed unsigned 8-bit integers in a to packed 16-bit integers".
-        // Output is __m256i (16 words = 32 bytes). Input is __m128i (16 bytes).
-        // It converts ALL 16 bytes of input to 16 words?
-        // Yes: 16 * 8 bits = 128 bits input. 16 * 16 bits = 256 bits output.
-        // So `_mm256_cvtepu8_epi16` converts 16 pixels at once?
-        // Let's re-read carefully.
-        // "Zero extend the lower 8 packed 8-bit integers in a to packed 16-bit integers..." NO.
-        // `_mm256_cvtepu8_epi16` (AVX2): "Zero extend packed unsigned 8-bit integers in a to packed 16-bit integers... and store in dst".
-        // Input `__m128i` has 16 bytes. Output `__m256i` has 16 words.
-        // So it converts 16 pixels at once!
-        //
-        // My previous code:
-        // `let lo_128 = _mm256_castsi256_si128(chunk);` (Low 16 bytes = 4 pixels of u32 (RGBA))
-        // `let v_lo = _mm256_cvtepu8_epi16(lo_128);`
-        // This converts 16 bytes (4 pixels * 4 components) to 16 words.
-        // So `v_lo` contains 4 pixels worth of data expanded to u16.
-        // `hi_128` contains the next 4 pixels.
-        // So `v_hi` contains next 4 pixels.
-        // Total 8 pixels processed.
-        //
-        // Back to `packus`:
-        // `packed = _mm256_packus_epi16(res_lo, res_hi)`
-        // `res_lo` has 4 pixels (16 words). `res_hi` has 4 pixels (16 words).
-        // `packus` saturates 16-bit -> 8-bit.
-        // It takes 2 256-bit vectors.
-        // Result is 256-bit vector (32 bytes).
-        // The instruction packs lanes independently?
-        // AVX2 `vpackuswb`:
-        // Dst[0..63] = Saturate(a[0..3], a[4..7]...) - Low 64 bits of `a` packed.
-        // Dst[64..127] = Saturate(b[0..3]...) - Low 64 bits of `b` packed.
-        // Dst[128..191] = Saturate(a[high]...) - High 64 bits of `a`.
-        // Dst[192..255] = Saturate(b[high]...) - High 64 bits of `b`.
-        //
-        // `res_lo` corresponds to first 4 pixels (Bytes 0..15).
-        // `res_hi` corresponds to next 4 pixels (Bytes 16..31).
-        // We want output: [P0..P3, P4..P7].
-        //
-        // `res_lo` (256 bits):
-        // Lane 0 (Low 128): Words for P0, P1.
-        // Lane 1 (High 128): Words for P2, P3.
-        //
-        // `res_hi` (256 bits):
-        // Lane 0: Words for P4, P5.
-        // Lane 1: Words for P6, P7.
-        //
-        // `packus(res_lo, res_hi)`:
-        // Output Low 128 (Lane 0): Pack(res_lo.Lane0, res_hi.Lane0).
-        // -> P0, P1 followed by P4, P5.
-        // Output High 128 (Lane 1): Pack(res_lo.Lane1, res_hi.Lane1).
-        // -> P2, P3 followed by P6, P7.
-        //
-        // So we get: [P0, P1, P4, P5, P2, P3, P6, P7].
-        // We want: [P0, P1, P2, P3, P4, P5, P6, P7].
-        //
-        // We need to permute.
-        // Current: 0, 1, 4, 5, 2, 3, 6, 7 (in terms of 64-bit blocks? No, 32-bit pixels).
-        // Blocks of 64 bits (2 pixels):
-        // Lane 0: [P0 P1] [P4 P5]
-        // Lane 1: [P2 P3] [P6 P7]
-        //
-        // Permute over 64-bit blocks `_mm256_permute4x64_epi64`.
-        // Indices: 0, 2, 1, 3.
-        // 0 -> [P0 P1]
-        // 2 -> [P2 P3] (From Lane 1 low)
-        // 1 -> [P4 P5] (From Lane 0 high)
-        // 3 -> [P6 P7]
-        //
-        // So `_mm256_permute4x64_epi64(packed, 0xD8)` (11 01 10 00 -> 3, 1, 2, 0)
-        // Wait: `PERM` control is `q3 q2 q1 q0` (bits 7:6, 5:4, 3:2, 1:0) selecting source qwords.
-        // We want dest q0 to be source q0 (0).
-        // Dest q1 to be source q2 (2).
-        // Dest q2 to be source q1 (1).
-        // Dest q3 to be source q3 (3).
-        // Order: 3 1 2 0 -> 11 01 10 00 = 0xD8.
-        let permuted = _mm256_permute4x64_epi64(packed, 0xD8);
+            // Fix lane ordering:
+            // packus output: [res_lo_0..7, res_hi_0..7, res_lo_8..15, res_hi_8..15]
+            // But res_lo is 256-bit containing 8 pixels worth of u16 data? No.
+            // res_lo was derived from cvtepu8_epi16(lo_128). So it contains 8 pixels expanded to 16-bit.
+            // Wait, 128 bits of u8 = 16 pixels.
+            // cvtepu8_epi16 takes __m128i. It unpacks low 8 bytes (64 bits) to 8 words (128 bits)?
+            // No, it converts 8 packed 8-bit integers to 8 packed 16-bit integers.
+            // _mm256_cvtepu8_epi16 takes __m128i (16 bytes). It converts lower 8 bytes? Or all 16?
+            // Documentation: "Zero extend packed unsigned 8-bit integers in a to packed 16-bit integers".
+            // Output is __m256i (16 words = 32 bytes). Input is __m128i (16 bytes).
+            // It converts ALL 16 bytes of input to 16 words?
+            // Yes: 16 * 8 bits = 128 bits input. 16 * 16 bits = 256 bits output.
+            // So `_mm256_cvtepu8_epi16` converts 16 pixels at once?
+            // Let's re-read carefully.
+            // "Zero extend the lower 8 packed 8-bit integers in a to packed 16-bit integers..." NO.
+            // `_mm256_cvtepu8_epi16` (AVX2): "Zero extend packed unsigned 8-bit integers in a to packed 16-bit integers... and store in dst".
+            // Input `__m128i` has 16 bytes. Output `__m256i` has 16 words.
+            // So it converts 16 pixels at once!
+            //
+            // My previous code:
+            // `let lo_128 = _mm256_castsi256_si128(chunk);` (Low 16 bytes = 4 pixels of u32 (RGBA))
+            // `let v_lo = _mm256_cvtepu8_epi16(lo_128);`
+            // This converts 16 bytes (4 pixels * 4 components) to 16 words.
+            // So `v_lo` contains 4 pixels worth of data expanded to u16.
+            // `hi_128` contains the next 4 pixels.
+            // So `v_hi` contains next 4 pixels.
+            // Total 8 pixels processed.
+            //
+            // Back to `packus`:
+            // `packed = _mm256_packus_epi16(res_lo, res_hi)`
+            // `res_lo` has 4 pixels (16 words). `res_hi` has 4 pixels (16 words).
+            // `packus` saturates 16-bit -> 8-bit.
+            // It takes 2 256-bit vectors.
+            // Result is 256-bit vector (32 bytes).
+            // The instruction packs lanes independently?
+            // AVX2 `vpackuswb`:
+            // Dst[0..63] = Saturate(a[0..3], a[4..7]...) - Low 64 bits of `a` packed.
+            // Dst[64..127] = Saturate(b[0..3]...) - Low 64 bits of `b` packed.
+            // Dst[128..191] = Saturate(a[high]...) - High 64 bits of `a`.
+            // Dst[192..255] = Saturate(b[high]...) - High 64 bits of `b`.
+            //
+            // `res_lo` corresponds to first 4 pixels (Bytes 0..15).
+            // `res_hi` corresponds to next 4 pixels (Bytes 16..31).
+            // We want output: [P0..P3, P4..P7].
+            //
+            // `res_lo` (256 bits):
+            // Lane 0 (Low 128): Words for P0, P1.
+            // Lane 1 (High 128): Words for P2, P3.
+            //
+            // `res_hi` (256 bits):
+            // Lane 0: Words for P4, P5.
+            // Lane 1: Words for P6, P7.
+            //
+            // `packus(res_lo, res_hi)`:
+            // Output Low 128 (Lane 0): Pack(res_lo.Lane0, res_hi.Lane0).
+            // -> P0, P1 followed by P4, P5.
+            // Output High 128 (Lane 1): Pack(res_lo.Lane1, res_hi.Lane1).
+            // -> P2, P3 followed by P6, P7.
+            //
+            // So we get: [P0, P1, P4, P5, P2, P3, P6, P7].
+            // We want: [P0, P1, P2, P3, P4, P5, P6, P7].
+            //
+            // We need to permute.
+            // Current: 0, 1, 4, 5, 2, 3, 6, 7 (in terms of 64-bit blocks? No, 32-bit pixels).
+            // Blocks of 64 bits (2 pixels):
+            // Lane 0: [P0 P1] [P4 P5]
+            // Lane 1: [P2 P3] [P6 P7]
+            //
+            // Permute over 64-bit blocks `_mm256_permute4x64_epi64`.
+            // Indices: 0, 2, 1, 3.
+            // 0 -> [P0 P1]
+            // 2 -> [P2 P3] (From Lane 1 low)
+            // 1 -> [P4 P5] (From Lane 0 high)
+            // 3 -> [P6 P7]
+            //
+            // So `_mm256_permute4x64_epi64(packed, 0xD8)` (11 01 10 00 -> 3, 1, 2, 0)
+            // Wait: `PERM` control is `q3 q2 q1 q0` (bits 7:6, 5:4, 3:2, 1:0) selecting source qwords.
+            // We want dest q0 to be source q0 (0).
+            // Dest q1 to be source q2 (2).
+            // Dest q2 to be source q1 (1).
+            // Dest q3 to be source q3 (3).
+            // Order: 3 1 2 0 -> 11 01 10 00 = 0xD8.
+            let permuted = _mm256_permute4x64_epi64(packed, 0xD8);
 
-        // Restore Alpha (since additive blend usually shouldn't mess up alpha, or should it?)
-        // The implementation does: `*d = (d_val & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;`
-        // So it preserves Dest Alpha.
-        // Our SIMD calculation saturated dest + src*intensity.
-        // If src alpha is 0, we added 0. If dest alpha is 255, we might have added something and saturated.
-        // But we want to strictly preserve dest alpha bitwise.
-        let rgb_mask = _mm256_set1_epi32(0x00FFFFFF);
-        let rgb_result = _mm256_and_si256(permuted, rgb_mask);
-        let final_result = _mm256_or_si256(rgb_result, d_alpha);
+            // Restore Alpha (since additive blend usually shouldn't mess up alpha, or should it?)
+            // The implementation does: `*d = (d_val & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;`
+            // So it preserves Dest Alpha.
+            // Our SIMD calculation saturated dest + src*intensity.
+            // If src alpha is 0, we added 0. If dest alpha is 255, we might have added something and saturated.
+            // But we want to strictly preserve dest alpha bitwise.
+            let rgb_mask = _mm256_set1_epi32(0x00FF_FFFFu32 as i32);
+            let rgb_result = _mm256_and_si256(permuted, rgb_mask);
+            let final_result = _mm256_or_si256(rgb_result, d_alpha);
 
-        _mm256_storeu_si256(d_ptr.cast(), final_result);
+            _mm256_storeu_si256(d_ptr.cast(), final_result);
 
-        d_ptr = d_ptr.add(8);
-        s_ptr = s_ptr.add(8);
+            d_ptr = d_ptr.add(8);
+            s_ptr = s_ptr.add(8);
+        }
     }
 }
 
@@ -772,7 +795,7 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
         let p = *pixel;
 
         // Fixed-point luminance calculation
-        let luminance = pixel_luminance(p) as u32;
+        let luminance = u32::from(pixel_luminance(p));
 
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
@@ -838,7 +861,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 #[target_feature(enable = "avx2")]
 unsafe fn apply_invert_avx2(pixels: &mut [u32]) {
     for pixel in pixels.iter_mut() {
-        *pixel = *pixel ^ 0x00FF_FFFF;
+        *pixel ^= 0x00FF_FFFF;
     }
 }
 
@@ -854,8 +877,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
     }
 
     for pixel in pixels.iter_mut() {
-        let p = *pixel;
-        *pixel = p ^ 0x00FF_FFFF;
+        *pixel ^= 0x00FF_FFFF;
     }
 }
 
@@ -891,40 +913,40 @@ unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
         _mm256_slli_epi32, _mm256_srai_epi32, _mm256_storeu_si256,
     };
 
-    // Weights for Sepia
-    // NewR = (402 * R + 787 * G + 194 * B) >> 10
-    // NewG = (357 * R + 702 * G + 172 * B) >> 10
-    // NewB = (279 * R + 547 * G + 134 * B) >> 10
+    unsafe {
+        // Weights for Sepia
+        // NewR = (402 * R + 787 * G + 194 * B) >> 10
+        // NewG = (357 * R + 702 * G + 172 * B) >> 10
+        // NewB = (279 * R + 547 * G + 134 * B) >> 10
 
-    // Memory layout: B G R A (little endian)
-    // Madd takes pairs: (B, G) and (R, A)
-    // Weights are stored as i16 in 64-bit blocks: W3 W2 W1 W0
+        // Memory layout: B G R A (little endian)
+        // Madd takes pairs: (B, G) and (R, A)
+        // Weights are stored as i16 in 64-bit blocks: W3 W2 W1 W0
 
-    // Weights for Red
-    // B*194 + G*787 -> W0=194(0xC2), W1=787(0x313)
-    // R*402 + A*0   -> W2=402(0x192), W3=0
-    let w_r = unsafe { _mm256_set1_epi64x(0x0000_0192_0313_00C2) };
+        // Weights for Red
+        // B*194 + G*787 -> W0=194(0xC2), W1=787(0x313)
+        // R*402 + A*0   -> W2=402(0x192), W3=0
+        let w_r = _mm256_set1_epi64x(0x0000_0192_0313_00C2);
 
-    // Weights for Green
-    // B*172 + G*702 -> W0=172(0xAC), W1=702(0x2BE)
-    // R*357 + A*0   -> W2=357(0x165), W3=0
-    let w_g = unsafe { _mm256_set1_epi64x(0x0000_0165_02BE_00AC) };
+        // Weights for Green
+        // B*172 + G*702 -> W0=172(0xAC), W1=702(0x2BE)
+        // R*357 + A*0   -> W2=357(0x165), W3=0
+        let w_g = _mm256_set1_epi64x(0x0000_0165_02BE_00AC);
 
-    // Weights for Blue
-    // B*134 + G*547 -> W0=134(0x86), W1=547(0x223)
-    // R*279 + A*0   -> W2=279(0x117), W3=0
-    let w_b = unsafe { _mm256_set1_epi64x(0x0000_0117_0223_0086) };
+        // Weights for Blue
+        // B*134 + G*547 -> W0=134(0x86), W1=547(0x223)
+        // R*279 + A*0   -> W2=279(0x117), W3=0
+        let w_b = _mm256_set1_epi64x(0x0000_0117_0223_0086);
 
-    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
-    let max_val = unsafe { _mm256_set1_epi32(255) };
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let max_val = _mm256_set1_epi32(255);
 
-    let len = pixels.len();
-    let simd_len = len & !7;
-    let mut ptr = pixels.as_mut_ptr();
-    let end_ptr = unsafe { ptr.add(simd_len) };
+        let len = pixels.len();
+        let simd_len = len & !7;
+        let mut ptr = pixels.as_mut_ptr();
+        let end_ptr = ptr.add(simd_len);
 
-    while ptr < end_ptr {
-        unsafe {
+        while ptr < end_ptr {
             let chunk = _mm256_loadu_si256(ptr.cast());
 
             // Extract Alpha
@@ -933,6 +955,7 @@ unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
             // Unpack to i16 (0..255)
             let lo_128 = _mm256_castsi256_si128(chunk);
             let hi_128 = _mm256_extracti128_si256(chunk, 1);
+
             let v_lo = _mm256_cvtepu8_epi16(lo_128);
             let v_hi = _mm256_cvtepu8_epi16(hi_128);
 
@@ -1088,24 +1111,24 @@ unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
         _mm256_srai_epi32, _mm256_storeu_si256,
     };
 
-    // Weights: B=29, G=150, R=77, A=0
-    // Memory layout: B G R A
-    // Pair 1: B, G -> Weights 29, 150
-    // Pair 2: R, A -> Weights 77, 0
-    // _mm256_set1_epi64x replicates 64-bit value to all 4 positions.
-    // 64 bits = 4 * 16 bits: W3 W2 W1 W0
-    // W0=29, W1=150, W2=77, W3=0
-    // 0x0000_004D_0096_001D (hex)
-    // 77=0x4D, 150=0x96, 29=0x1D
-    let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
-    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
-    let len = pixels.len();
-    let simd_len = len & !7;
-    let mut ptr = pixels.as_mut_ptr();
-
-    // SAFETY: We perform pointer arithmetic within bounds of the slice.
     unsafe {
+        // Weights: B=29, G=150, R=77, A=0
+        // Memory layout: B G R A
+        // Pair 1: B, G -> Weights 29, 150
+        // Pair 2: R, A -> Weights 77, 0
+        // _mm256_set1_epi64x replicates 64-bit value to all 4 positions.
+        // 64 bits = 4 * 16 bits: W3 W2 W1 W0
+        // W0=29, W1=150, W2=77, W3=0
+        // 0x0000_004D_0096_001D (hex)
+        // 77=0x4D, 150=0x96, 29=0x1D
+        let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+        let len = pixels.len();
+        let simd_len = len & !7;
+        let mut ptr = pixels.as_mut_ptr();
+
+        // SAFETY: We perform pointer arithmetic within bounds of the slice.
         let end_ptr = ptr.add(simd_len);
 
         while ptr < end_ptr {
@@ -1154,16 +1177,6 @@ unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
             _mm256_storeu_si256(ptr.cast(), result);
             ptr = ptr.add(8);
         }
-    }
-
-    // Handle remaining pixels scalar
-    for pixel in pixels[simd_len..].iter_mut() {
-        let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
-        let luminance = (77 * r + 150 * g + 29 * b) >> 8;
-        *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
     }
 }
 

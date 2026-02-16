@@ -9,7 +9,7 @@ use super::core::{
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
-unsafe fn draw_scanline_gouraud_simd(
+unsafe fn draw_scanline_gouraud_simd_fast(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     z_start: f32,
@@ -132,6 +132,146 @@ unsafe fn draw_scanline_gouraud_simd(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn draw_scanline_gouraud_simd_clamped(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z_start: f32,
+    c_start: (i32, i32, i32),
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
+    use std::arch::x86_64::*;
+
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    // Load constants
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
+
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+    // Initialize colors: Start + (dc * i)
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
+
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
+
+    // Steps for 8 pixels
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+    // dc * 8
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
+
+    // Masks
+    // 0x00FF0000 is 255.0 in 16.16 fixed point
+    let min_val = _mm256_setzero_si256();
+    let max_val = _mm256_set1_epi32(0x00FF_0000);
+    let _mask_ff = _mm256_set1_epi32(0xFF);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    while i + 8 <= len {
+        unsafe {
+            // Load Z
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+
+            // Compare Z
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+            let mask_int = _mm256_castps_si256(mask);
+
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                // Clamp: min(max(val, 0), 255.0)
+                let r_clamped = _mm256_min_epi32(_mm256_max_epi32(r_vec, min_val), max_val);
+                let g_clamped = _mm256_min_epi32(_mm256_max_epi32(g_vec, min_val), max_val);
+                let b_clamped = _mm256_min_epi32(_mm256_max_epi32(b_vec, min_val), max_val);
+
+                // Pack Colors: (val >> 16) & 0xFF
+                // Note: mask_ff is redundant if we clamped correctly to 0x00FF0000,
+                // but keeping it for safety/consistency with scalar.
+                let r_val = _mm256_srli_epi32(r_clamped, 16);
+                let g_val = _mm256_srli_epi32(g_clamped, 16);
+                let b_val = _mm256_srli_epi32(b_clamped, 16);
+
+                // Pack: alpha | (r << 16) | (g << 8) | b
+                let pixel_val = _mm256_or_si256(
+                    alpha_mask,
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(r_val, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(g_val, 8), b_val),
+                    ),
+                );
+
+                // Store with mask
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+        }
+
+        // Advance
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
+
+        i += 8;
+    }
+
+    // Scalar tail
+    let mut z = z_start + (i as f32) * dz_dx;
+    let mut r_i = c_start.0.wrapping_add(dc_dx.0.wrapping_mul(i as i32));
+    let mut g_i = c_start.1.wrapping_add(dc_dx.1.wrapping_mul(i as i32));
+    let mut b_i = c_start.2.wrapping_add(dc_dx.2.wrapping_mul(i as i32));
+
+    let dr = dc_dx.0;
+    let dg = dc_dx.1;
+    let db = dc_dx.2;
+
+    while i < len {
+        // SAFETY: Loop bounds checked
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z < *depth_val {
+                *depth_val = z;
+                let pixel = fb_slice.get_unchecked_mut(i);
+
+                // Clamped path
+                let r = r_i.clamp(0, 0x00FF_0000);
+                let g = g_i.clamp(0, 0x00FF_0000);
+                let b = b_i.clamp(0, 0x00FF_0000);
+
+                *pixel = 0xFF00_0000
+                    | ((r as u32) & 0x00FF_0000)
+                    | (((g as u32) & 0x00FF_0000) >> 8)
+                    | (((b as u32) & 0x00FF_0000) >> 16);
+            }
+        }
+        z += dz_dx;
+        r_i = r_i.wrapping_add(dr);
+        g_i = g_i.wrapping_add(dg);
+        b_i = b_i.wrapping_add(db);
+        i += 1;
+    }
+}
+
 /// Draw a single scanline for Gouraud shading
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
@@ -198,21 +338,6 @@ pub fn draw_scanline_gouraud(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
-            unsafe {
-                draw_scanline_gouraud_simd(
-                    fb_slice,
-                    zb_slice,
-                    z,
-                    (r_i, g_i, b_i),
-                    dz_dx,
-                    (dr, dg, db),
-                );
-            }
-            return;
-        }
-
         // Optimization: Check for fast path (no clamping needed)
         // If all color channels are within [0, 255] for the entire span, we can skip clamping.
         // r_i is 16.16 fixed point. Max value is 255.0 = 0x00FF_0000.
@@ -236,7 +361,7 @@ pub fn draw_scanline_gouraud(
             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
             if is_x86_feature_detected!("avx2") {
                 unsafe {
-                    draw_scanline_gouraud_simd(
+                    draw_scanline_gouraud_simd_fast(
                         fb_slice,
                         zb_slice,
                         z,
@@ -265,6 +390,21 @@ pub fn draw_scanline_gouraud(
                 b_i += db;
             }
         } else {
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            if is_x86_feature_detected!("avx2") {
+                unsafe {
+                    draw_scanline_gouraud_simd_clamped(
+                        fb_slice,
+                        zb_slice,
+                        z,
+                        (r_i, g_i, b_i),
+                        dz_dx,
+                        (dr, dg, db),
+                    );
+                }
+                return;
+            }
+
             for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
                 // Check depth buffer
                 if z < *depth_val {
