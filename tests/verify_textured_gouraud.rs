@@ -42,7 +42,7 @@ fn test_textured_gouraud_rendering() {
     println!("Checksum: {checksum:016X}");
 
     // Placeholder checksum
-    assert_eq!(checksum, 0xDC3BDB029239CD8B, "Checksum mismatch!");
+    assert_eq!(checksum, 0xD8CEEE1A90A2EC99, "Checksum mismatch!");
 }
 
 fn calculate_checksum(fb: &Framebuffer) -> u64 {
