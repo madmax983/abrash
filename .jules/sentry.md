@@ -11,3 +11,7 @@
 **[Integer Overflow in Backface Culling]**
 **Learning:** `ScreenPoint` coordinates use `i32` but differences can be `~4e9`. Cross product `ux * vy` can exceed `i64::MAX`, causing panic in debug builds.
 **Action:** Use `i128` for intermediate cross product calculations when working with full-range `i32` screen coordinates.
+
+**[SIMD vs Scalar Inconsistency]**
+**Learning:** `_mm_cvttps_epi32` behaves differently than scalar `as i32` for out-of-range floats (wraps to `i32::MIN` vs saturates to `i32::MAX`). This caused massive visual glitches for large coordinates.
+**Action:** Always clamp float inputs to `[i32::MIN as f32, i32::MAX as f32]` before converting to integer in SIMD paths.
