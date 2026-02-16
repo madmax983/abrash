@@ -280,3 +280,7 @@ harness = false
 [[bench]]
 name = "bilinear"
 harness = false
+
+[[bench]]
+name = "trilinear_scanline"
+harness = false

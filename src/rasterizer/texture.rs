@@ -1016,6 +1016,38 @@ pub fn draw_scanline_textured_perspective(
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
+                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_trilinear_simd(
+                            fb_slice,
+                            zb_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                            lod,
+                        );
+                    }
+                } else {
+                    draw_span_trilinear(
+                        fb_slice,
+                        zb_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        lod,
+                    );
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
                 draw_span_trilinear(
                     fb_slice,
                     zb_slice,
@@ -1751,6 +1783,288 @@ unsafe fn draw_scanline_normal_mapped_simd(
             }
             i += 1;
         }
+    }
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::ptr_as_ptr)]
+unsafe fn draw_span_trilinear_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    texture: &Texture,
+    z_start: f32,
+    dz_dx: f32,
+    u_fix_start: i32,
+    v_fix_start: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    lod: f32,
+) {
+    use std::arch::x86_64::*;
+
+    if lod <= 0.0 || texture.mips.is_empty() {
+        // Fallback to bilinear if LOD is 0 or no mips
+        // u_fix_start is 16.16 (center). Bilinear simd expects 16.16 (offset -0.5).
+        let u_fix = u_fix_start.wrapping_sub(32768);
+        let v_fix = v_fix_start.wrapping_sub(32768);
+        draw_span_bilinear_simd(
+            fb_slice,
+            zb_slice,
+            texture,
+            z_start,
+            dz_dx,
+            u_fix,
+            v_fix,
+            du_fix,
+            dv_fix,
+        );
+        return;
+    }
+
+    let max_level = texture.mips.len() as f32;
+    // We can't easily fallback to "just sample max mip" with bilinear SIMD because the
+    // texture pointer changes.
+    // So we handle all cases here or dispatch carefully.
+
+    // Clamp LOD
+    let lod_clamped = lod.max(0.0).min(max_level);
+    let level_f = lod_clamped.floor();
+    let frac = lod_clamped - level_f;
+    let level = level_f as usize;
+
+    // Calculate weight for blending (0..256)
+    let weight_int = (frac * 256.0) as i32;
+    let inv_weight_int = 256 - weight_int;
+    let weight_vec = _mm256_set1_epi32(weight_int);
+    let inv_weight_vec = _mm256_set1_epi32(inv_weight_int);
+
+    // Identify the two levels
+    // Level 0 is texture.pixels
+    // Level K > 0 is texture.mips[K-1]
+
+    let (pixels0, w0, h0, shift0) = if level == 0 {
+        (
+            texture.pixels.as_slice(),
+            texture.width,
+            texture.height,
+            0 // base shift is 0 relative to u_fix >> 8 (bilinear)
+              // But u_fix passed in is 16.16. Bilinear expects 24.8.
+              // So effectively shift is 8.
+        )
+    } else {
+        let idx = level - 1;
+        let w = (texture.width >> level).max(1);
+        let h = (texture.height >> level).max(1);
+        (texture.mips[idx].as_slice(), w, h, level)
+    };
+
+    let (pixels1, w1, h1, shift1) = if level >= texture.mips.len() {
+        // If we are at max level, we blend with itself (or clamped)
+        // This happens if lod == max_level.
+        let idx = texture.mips.len() - 1;
+        let w = (texture.width >> (idx + 1)).max(1);
+        let h = (texture.height >> (idx + 1)).max(1);
+        (texture.mips[idx].as_slice(), w, h, idx + 1)
+    } else {
+        // Next level is level + 1 (mips[level])
+        let idx = level;
+        let w = (texture.width >> (level + 1)).max(1);
+        let h = (texture.height >> (level + 1)).max(1);
+        (texture.mips[idx].as_slice(), w, h, level + 1)
+    };
+
+    // Prepare SIMD constants
+    let len = fb_slice.len();
+    let mut i = 0;
+
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let du_fix_vec = _mm256_set1_epi32(du_fix);
+    let dv_fix_vec = _mm256_set1_epi32(dv_fix);
+
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+
+    let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
+    let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+
+    let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
+    let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+    let du_step = _mm256_slli_epi32(du_fix_vec, 3);
+    let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
+
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let zero_i = _mm256_setzero_si256();
+    let one_i = _mm256_set1_epi32(1);
+    let const_256 = _mm256_set1_epi32(256);
+
+    // Level 0 constants
+    let w0_vec = _mm256_set1_epi32(w0 as i32);
+    let max_x0 = _mm256_set1_epi32((w0 as i32).wrapping_sub(1));
+    let max_y0 = _mm256_set1_epi32((h0 as i32).wrapping_sub(1));
+
+    // Level 1 constants
+    let w1_vec = _mm256_set1_epi32(w1 as i32);
+    let max_x1 = _mm256_set1_epi32((w1 as i32).wrapping_sub(1));
+    let max_y1 = _mm256_set1_epi32((h1 as i32).wrapping_sub(1));
+
+    // Shift amounts. u_fix is 16.16.
+    // For Level 0 (base): shift right 8 to get 24.8.
+    // For Level L: shift right 8 + L.
+    let shift_amt0 = _mm_cvtsi32_si128(8 + shift0 as i32);
+    let shift_amt1 = _mm_cvtsi32_si128(8 + shift1 as i32);
+
+    // Helpers
+    let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
+        let mask = _mm256_set1_epi32(0x00FF00FF);
+        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+
+        let rb0 = _mm256_and_si256(c0, mask);
+        let rb1 = _mm256_and_si256(c1, mask);
+        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+
+        let rb_sum = _mm256_add_epi16(_mm256_mullo_epi16(rb0, inv_w_16), _mm256_mullo_epi16(rb1, w_16));
+        let ag_sum = _mm256_add_epi16(_mm256_mullo_epi16(ag0, inv_w_16), _mm256_mullo_epi16(ag1, w_16));
+
+        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+    };
+
+    // Generic Bilinear Gather Macro
+    // It takes u_img, v_img (24.8 format), width constants, and pixel pointer
+    // Returns packed colors
+    macro_rules! sample_level {
+        ($u_img:expr, $v_img:expr, $w_vec:expr, $max_x:expr, $max_y:expr, $pixels_ptr:expr) => {{
+            let wx = _mm256_and_si256($u_img, mask_ff);
+            let wy = _mm256_and_si256($v_img, mask_ff);
+            let inv_wx = _mm256_sub_epi32(const_256, wx);
+            let inv_wy = _mm256_sub_epi32(const_256, wy);
+
+            let x0_raw = _mm256_srai_epi32($u_img, 8);
+            let y0_raw = _mm256_srai_epi32($v_img, 8);
+
+            let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), $max_x);
+            let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), $max_y);
+            let x1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i), $max_x);
+            let y1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i), $max_y);
+
+            let y0_w = _mm256_mullo_epi32(y0, $w_vec);
+            let y1_w = _mm256_mullo_epi32(y1, $w_vec);
+
+            let idx00 = _mm256_add_epi32(y0_w, x0);
+            let idx10 = _mm256_add_epi32(y0_w, x1);
+            let idx01 = _mm256_add_epi32(y1_w, x0);
+            let idx11 = _mm256_add_epi32(y1_w, x1);
+
+            let ptr = $pixels_ptr as *const i32;
+            let c00 = _mm256_i32gather_epi32(ptr, idx00, 4);
+            let c10 = _mm256_i32gather_epi32(ptr, idx10, 4);
+            let c01 = _mm256_i32gather_epi32(ptr, idx01, 4);
+            let c11 = _mm256_i32gather_epi32(ptr, idx11, 4);
+
+            let top = blend_swar_avx2(c00, c10, wx, inv_wx);
+            let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
+            blend_swar_avx2(top, bot, wy, inv_wy)
+        }};
+    }
+
+    while i + 8 <= len {
+        // Z-Test
+        let depth_ptr = zb_slice.as_mut_ptr().add(i);
+        let depth_val = _mm256_loadu_ps(depth_ptr);
+        let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+        if _mm256_movemask_ps(mask_z) != 0 {
+            // Apply half-pixel offset (-0.5 in 16.16 is 32768)
+            let offset = _mm256_set1_epi32(32768);
+            let u_shifted = _mm256_sub_epi32(u_fix_vec, offset);
+            let v_shifted = _mm256_sub_epi32(v_fix_vec, offset);
+
+            // Level 0 Sampling
+            let u_img0 = _mm256_sra_epi32(u_shifted, shift_amt0);
+            let v_img0 = _mm256_sra_epi32(v_shifted, shift_amt0);
+            let color0 = sample_level!(u_img0, v_img0, w0_vec, max_x0, max_y0, pixels0.as_ptr());
+
+            // Level 1 Sampling
+            let u_img1 = _mm256_sra_epi32(u_shifted, shift_amt1);
+            let v_img1 = _mm256_sra_epi32(v_shifted, shift_amt1);
+            let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
+
+            // Trilinear Blend
+            let final_color = blend_swar_avx2(color0, color1, weight_vec, inv_weight_vec);
+
+            // Write Opaque/Translucent (Same as bilinear)
+            let a = _mm256_and_si256(_mm256_srli_epi32(final_color, 24), mask_ff);
+            let opaque_mask = _mm256_cmpeq_epi32(a, mask_ff);
+            let mask_z_int = _mm256_castps_si256(mask_z);
+            let write_opaque_mask = _mm256_and_si256(mask_z_int, opaque_mask);
+            let write_opaque_mask_ps = _mm256_castsi256_ps(write_opaque_mask);
+
+            if _mm256_movemask_ps(write_opaque_mask_ps) != 0 {
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
+                _mm256_storeu_ps(depth_ptr, new_z);
+
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let old_color = _mm256_loadu_si256(fb_ptr);
+                let new_color = _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
+                _mm256_storeu_si256(fb_ptr, new_color);
+            }
+
+            let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
+            let trans_mask = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
+
+            if trans_bits != 0 {
+                let mut temp_pixels = [0u32; 8];
+                _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, final_color);
+                let mut bit = 1;
+                for k in 0..8 {
+                    if (trans_bits & bit) != 0 {
+                        let idx = i + k;
+                        let src = temp_pixels[k];
+                        let alpha = (src >> 24) as u8;
+                        let dest = *fb_slice.get_unchecked(idx);
+                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+                    }
+                    bit <<= 1;
+                }
+            }
+        }
+
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+        v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+        i += 8;
+    }
+
+    // Scalar Tail
+    if i < len {
+        let z_curr = z_start + (i as f32) * dz_dx;
+        let u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
+        let v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+
+        draw_span_trilinear(
+            &mut fb_slice[i..],
+            &mut zb_slice[i..],
+            texture,
+            z_curr,
+            dz_dx,
+            u_curr,
+            v_curr,
+            du_fix,
+            dv_fix,
+            lod,
+        );
     }
 }
 
