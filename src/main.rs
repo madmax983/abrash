@@ -70,6 +70,30 @@ const DEMOS: &[Demo] = &[
         instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_obj",
     },
+    Demo {
+        name: "Particles",
+        description: "Interactive particle system simulation",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "particles",
+    },
+    Demo {
+        name: "Heat Vision",
+        description: "Simulates thermal imaging effect",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "heat_vision",
+    },
+    Demo {
+        name: "Normal Mapping",
+        description: "Per-pixel lighting with normal maps",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating light",
+        example_name: "normal_mapping_demo",
+    },
+    Demo {
+        name: "Skybox",
+        description: "Renders a cubemap skybox",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating camera",
+        example_name: "skybox_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {

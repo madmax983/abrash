@@ -6,10 +6,42 @@ use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
+fn print_banner() {
+    println!("\n{}", "🌌 Skybox Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Renders a cubemap skybox").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Texture"),
+            Cell::new("6x Checkerboard faces").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!(" • Mouse: None");
+    println!(" • Keyboard: Auto-rotating camera\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
     let mut window = Window::new("Abrash - Skybox Demo", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
