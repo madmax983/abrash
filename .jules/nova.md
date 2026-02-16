@@ -27,3 +27,8 @@
 **Concept:** A procedural terrain generator using Value Noise to create Meshes.
 **Fate:** Merged
 **Lesson:** Isolating experimental features in `src/experimental` allows for rapid prototyping without affecting core logic.
+
+## [Screen-Space Ambient Occlusion (SSAO)]
+**Concept:** Simulates global illumination by darkening crevices based on the depth buffer.
+**Fate:** Merged
+**Lesson:** Reconstructing view-space position from the depth buffer allows for advanced lighting effects without heavy ray tracing, though software implementation requires careful optimization.
