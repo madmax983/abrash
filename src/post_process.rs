@@ -81,11 +81,7 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
             let len = src.len();
             let simd_len = len & !7;
             unsafe {
-                extract_bright_pixels_avx2(
-                    &src[..simd_len],
-                    &mut dest[..simd_len],
-                    threshold,
-                );
+                extract_bright_pixels_avx2(&src[..simd_len], &mut dest[..simd_len], threshold);
             }
             // Tail
             for (s, d) in src[simd_len..].iter().zip(dest[simd_len..].iter_mut()) {
@@ -168,7 +164,6 @@ unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u
     }
 }
 
-
 fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     let radius = radius as usize;
     // Window size (kernel width)
@@ -245,7 +240,13 @@ fn box_blur_vertical(src: &[u32], dest: &mut [u32], width: usize, height: usize,
     box_blur_vertical_scalar(src, dest, width, height, radius);
 }
 
-fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+fn box_blur_vertical_scalar(
+    src: &[u32],
+    dest: &mut [u32],
+    width: usize,
+    height: usize,
+    radius: u32,
+) {
     let radius = radius as usize;
     let kernel_size = 2 * radius + 1;
     let scale = 1.0 / (kernel_size as f32);
@@ -276,7 +277,7 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
 
     for y in 1..=radius {
         let row_idx = y.min(height - 1);
-        let row = &src[row_idx * width .. (row_idx + 1) * width];
+        let row = &src[row_idx * width..(row_idx + 1) * width];
         for x in 0..width {
             let p = row[x];
             r_acc[x] += (p >> 16) & 0xFF;
@@ -287,7 +288,7 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
 
     for y in 0..height {
         let dst_row_start = y * width;
-        let dst_row = &mut dest[dst_row_start .. dst_row_start + width];
+        let dst_row = &mut dest[dst_row_start..dst_row_start + width];
 
         for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
             let r = (r_acc[x] as f32 * scale) as u32;
@@ -299,11 +300,11 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
         // Update accumulators for next row
         // Outgoing: y - radius
         let out_y = (y as isize - radius as isize).max(0) as usize;
-        let out_row = &src[out_y * width .. (out_y + 1) * width];
+        let out_row = &src[out_y * width..(out_y + 1) * width];
 
         // Incoming: y + radius + 1
         let in_y = (y + radius + 1).min(height - 1);
-        let in_row = &src[in_y * width .. (in_y + 1) * width];
+        let in_row = &src[in_y * width..(in_y + 1) * width];
 
         for x in 0..width {
             let p_out = out_row[x];
@@ -318,13 +319,19 @@ fn box_blur_vertical_scalar(src: &[u32], dest: &mut [u32], width: usize, height:
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
-unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+unsafe fn box_blur_vertical_avx2(
+    src: &[u32],
+    dest: &mut [u32],
+    width: usize,
+    height: usize,
+    radius: u32,
+) {
     use std::arch::x86_64::{
-        _mm256_add_epi32, _mm256_sub_epi32, _mm256_mullo_epi32, _mm256_cvtepu8_epi32,
-        _mm256_castsi256_si128, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_set1_epi32,
-        _mm256_srai_epi32, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
-        _mm256_or_si256, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_cvttps_epi32,
-        _mm256_cvtepi32_ps, _mm256_set1_ps, _mm256_mul_ps, _mm256_and_si256
+        _mm256_add_epi32, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepi32_ps,
+        _mm256_cvtepu8_epi32, _mm256_cvttps_epi32, _mm256_loadu_si256, _mm256_mul_ps,
+        _mm256_mullo_epi32, _mm256_or_si256, _mm256_packus_epi16, _mm256_packus_epi32,
+        _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_ps, _mm256_slli_epi32,
+        _mm256_srai_epi32, _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_epi32,
     };
 
     unsafe {
@@ -438,9 +445,18 @@ unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, he
                     let g_curr = _mm256_loadu_si256(g_acc.as_ptr().add(x).cast());
                     let b_curr = _mm256_loadu_si256(b_acc.as_ptr().add(x).cast());
 
-                    _mm256_storeu_si256(r_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(r_curr, r_vals));
-                    _mm256_storeu_si256(g_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(g_curr, g_vals));
-                    _mm256_storeu_si256(b_acc.as_mut_ptr().add(x).cast(), _mm256_add_epi32(b_curr, b_vals));
+                    _mm256_storeu_si256(
+                        r_acc.as_mut_ptr().add(x).cast(),
+                        _mm256_add_epi32(r_curr, r_vals),
+                    );
+                    _mm256_storeu_si256(
+                        g_acc.as_mut_ptr().add(x).cast(),
+                        _mm256_add_epi32(g_curr, g_vals),
+                    );
+                    _mm256_storeu_si256(
+                        b_acc.as_mut_ptr().add(x).cast(),
+                        _mm256_add_epi32(b_curr, b_vals),
+                    );
 
                     x += 8;
                 }
@@ -494,7 +510,7 @@ unsafe fn box_blur_vertical_avx2(src: &[u32], dest: &mut [u32], width: usize, he
                 let g_shifted = _mm256_slli_epi32(g_out, 8);
                 let pixel = _mm256_or_si256(
                     r_shifted,
-                    _mm256_or_si256(g_shifted, _mm256_or_si256(b_out, alpha_mask))
+                    _mm256_or_si256(g_shifted, _mm256_or_si256(b_out, alpha_mask)),
                 );
                 _mm256_storeu_si256(dst_ptr.add(x).cast(), pixel);
 
@@ -605,10 +621,10 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
 #[target_feature(enable = "avx2")]
 unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
     use std::arch::x86_64::{
-        _mm256_add_epi16, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
-        _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
-        _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
-        _mm256_srai_epi16, _mm256_storeu_si256, _mm256_and_si256,
+        _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
+        _mm256_extracti128_si256, _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16,
+        _mm256_or_si256, _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16,
+        _mm256_set1_epi32, _mm256_srai_epi16, _mm256_storeu_si256,
     };
 
     unsafe {

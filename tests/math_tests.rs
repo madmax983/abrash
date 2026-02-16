@@ -224,7 +224,7 @@ fn test_mat4_perspective_edge() {
 
 #[test]
 fn test_project_triangle_simd_precision() {
-    use abrash::math::{project_triangle_to_screen, project_to_screen_optimized, Vec3};
+    use abrash::math::{Vec3, project_to_screen_optimized, project_triangle_to_screen};
 
     let half_width = 1000.0;
     let half_height = 500.0;
@@ -249,19 +249,64 @@ fn test_project_triangle_simd_precision() {
     // Inv_w is float.
 
     // Allow 1e-5 error for inv_w (rcp approximation)
-    assert!((s0.inv_w - r0.inv_w).abs() < 1e-5, "v0 inv_w mismatch: {} vs {}", s0.inv_w, r0.inv_w);
-    assert!((s1.inv_w - r1.inv_w).abs() < 1e-5, "v1 inv_w mismatch: {} vs {}", s1.inv_w, r1.inv_w);
-    assert!((s2.inv_w - r2.inv_w).abs() < 1e-5, "v2 inv_w mismatch: {} vs {}", s2.inv_w, r2.inv_w);
+    assert!(
+        (s0.inv_w - r0.inv_w).abs() < 1e-5,
+        "v0 inv_w mismatch: {} vs {}",
+        s0.inv_w,
+        r0.inv_w
+    );
+    assert!(
+        (s1.inv_w - r1.inv_w).abs() < 1e-5,
+        "v1 inv_w mismatch: {} vs {}",
+        s1.inv_w,
+        r1.inv_w
+    );
+    assert!(
+        (s2.inv_w - r2.inv_w).abs() < 1e-5,
+        "v2 inv_w mismatch: {} vs {}",
+        s2.inv_w,
+        r2.inv_w
+    );
 
     // Coordinates
     // Since coordinates are large integers, 1e-5 difference in float might flip the integer.
     // e.g. 100.499999 vs 100.500001 -> 100 vs 101?
     // Truncation happens.
     // We allow +/- 1 pixel diff.
-    assert!((s0.x - r0.x).abs() <= 1, "v0 x mismatch: {} vs {}", s0.x, r0.x);
-    assert!((s0.y - r0.y).abs() <= 1, "v0 y mismatch: {} vs {}", s0.y, r0.y);
-    assert!((s1.x - r1.x).abs() <= 1, "v1 x mismatch: {} vs {}", s1.x, r1.x);
-    assert!((s1.y - r1.y).abs() <= 1, "v1 y mismatch: {} vs {}", s1.y, r1.y);
-    assert!((s2.x - r2.x).abs() <= 1, "v2 x mismatch: {} vs {}", s2.x, r2.x);
-    assert!((s2.y - r2.y).abs() <= 1, "v2 y mismatch: {} vs {}", s2.y, r2.y);
+    assert!(
+        (s0.x - r0.x).abs() <= 1,
+        "v0 x mismatch: {} vs {}",
+        s0.x,
+        r0.x
+    );
+    assert!(
+        (s0.y - r0.y).abs() <= 1,
+        "v0 y mismatch: {} vs {}",
+        s0.y,
+        r0.y
+    );
+    assert!(
+        (s1.x - r1.x).abs() <= 1,
+        "v1 x mismatch: {} vs {}",
+        s1.x,
+        r1.x
+    );
+    assert!(
+        (s1.y - r1.y).abs() <= 1,
+        "v1 y mismatch: {} vs {}",
+        s1.y,
+        r1.y
+    );
+    assert!(
+        (s2.x - r2.x).abs() <= 1,
+        "v2 x mismatch: {} vs {}",
+        s2.x,
+        r2.x
+    );
+    assert!(
+        (s2.y - r2.y).abs() <= 1,
+        "v2 y mismatch: {} vs {}",
+        s2.y,
+        r2.y
+    );
 }

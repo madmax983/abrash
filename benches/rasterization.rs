@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::rasterizer::{
-    fill_triangle_3d, fill_triangle_gouraud, fill_triangle_textured, fill_triangle_wireframe,
-    fill_triangle_textured_gouraud,
+    fill_triangle_3d, fill_triangle_gouraud, fill_triangle_textured,
+    fill_triangle_textured_gouraud, fill_triangle_wireframe,
 };
 use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
@@ -172,17 +172,17 @@ fn bench_fill_triangle_textured_gouraud(c: &mut Criterion) {
         let v0 = (
             (Vec3::new(0.0, 0.9, 0.5), 1.0),
             Vec3::new(1.0, 0.0, 0.0),
-            Vec2::new(0.5, 0.0)
+            Vec2::new(0.5, 0.0),
         );
         let v1 = (
             (Vec3::new(-0.9, -0.9, 0.5), 1.0),
             Vec3::new(0.0, 1.0, 0.0),
-            Vec2::new(0.0, 1.0)
+            Vec2::new(0.0, 1.0),
         );
         let v2 = (
             (Vec3::new(0.9, -0.9, 0.5), 1.0),
             Vec3::new(0.0, 0.0, 1.0),
-            Vec2::new(1.0, 1.0)
+            Vec2::new(1.0, 1.0),
         );
 
         b.iter(|| {

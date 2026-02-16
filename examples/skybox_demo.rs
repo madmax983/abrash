@@ -1,7 +1,7 @@
-use abrash::skybox::{Cubemap, draw_skybox};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{Window, WindowBackend};
+use abrash::skybox::{Cubemap, draw_skybox};
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
