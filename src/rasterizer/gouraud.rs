@@ -284,37 +284,10 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     }
 }
 
-/// Draw a single scanline for Gouraud shading (Wrapper for API compatibility)
-#[inline(always)]
-#[allow(clippy::too_many_arguments)]
-pub fn draw_scanline_gouraud(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
-    y: i32,
-    x_start: i32,
-    x_end: i32,
-    z_start: f32,
-    c_start: (i64, i64, i64), // Fixed point color
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
-) {
-    draw_scanline_gouraud_i32(
-        fb,
-        zb,
-        y,
-        x_start,
-        x_end,
-        z_start,
-        (c_start.0 as i32, c_start.1 as i32, c_start.2 as i32),
-        dz_dx,
-        dc_dx,
-    );
-}
-
 /// Draw a single scanline for Gouraud shading (Optimized i32 version)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-pub fn draw_scanline_gouraud_i32(
+pub fn draw_scanline_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
     y: i32,
@@ -755,7 +728,7 @@ pub fn fill_triangle_gouraud(
                     }
                 }
             } else {
-                draw_scanline_gouraud_i32(
+                draw_scanline_gouraud(
                     fb,
                     zb,
                     y,
@@ -787,7 +760,7 @@ mod tests {
 
         let z_start = 5.0;
         let dz_dx = 0.01;
-        let c_start = (200i64 << 16, 0, 50i64 << 16);
+        let c_start = (200i32 << 16, 0, 50i32 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);

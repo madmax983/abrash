@@ -97,18 +97,12 @@ pub mod heat_vision;
 pub mod hiz_buffer;
 pub mod obj_loader;
 pub mod particles;
-pub mod post_process;
-pub mod procedural;
 pub mod skybox;
 pub mod texture;
 pub mod tile_renderer;
-pub mod experimental;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
-
-#[cfg(feature = "nova")]
-pub mod experimental;
