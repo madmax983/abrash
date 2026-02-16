@@ -25,3 +25,11 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Refactor rasterizer primitives to core]
+**Tangle:** `src/tile_renderer.rs` was depending on `src/rasterizer/texture.rs` for shared primitives (`PerspectiveTextureGradients`, `EdgeWalker`), but re-implementing the rasterization logic. This created a coupling where `tile_renderer` depended on a specific rasterizer implementation module instead of a shared core.
+
+**Blueprint:**
+1.  **Relocate Primitives:** Moved `*Gradients`, `*EdgeWalker`, and `*SpanStart` structs from `src/rasterizer/texture.rs` to `src/rasterizer/core.rs`.
+2.  **Update Exports:** Updated `src/rasterizer/mod.rs` to re-export them from `core`.
+3.  **Result:** `core.rs` is now the single source of truth for rasterization primitives. Both `texture.rs` and `tile_renderer.rs` depend on `core.rs` as a sibling/child dependency, decoupling `tile_renderer` from `texture.rs` implementation details.

@@ -19,11 +19,15 @@ pub use self::phong::{
 };
 pub use self::texture::{
     draw_scanline_textured_perspective, fill_triangle_normal_mapped, fill_triangle_textured,
-    fill_triangle_textured_gouraud, PerspectiveSpanStart, PerspectiveTextureGradients,
+    fill_triangle_textured_gouraud,
 };
+// Moved to core
+pub use self::core::{PerspectiveSpanStart, PerspectiveTextureGradients};
+
 pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::core::{color_to_u32, FIXED_SCALE};
 
 // Re-export internal helpers for experimental modules
-pub(crate) use self::core::{is_backface, sort_by_y, EdgeWalker};
-pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
+pub(crate) use self::core::{
+    is_backface, sort_by_y, EdgeWalker, PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE,
+};
