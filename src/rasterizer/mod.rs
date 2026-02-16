@@ -9,7 +9,6 @@ pub mod flat;
 pub mod gouraud;
 pub mod phong;
 pub mod texture;
-pub mod line;
 
 // Re-export public API
 pub use self::flat::{fill_triangle_3d, draw_scanline_flat, draw_scanline_flat_blended};
@@ -21,9 +20,7 @@ pub use self::texture::{
     draw_scanline_textured_perspective, fill_triangle_normal_mapped, fill_triangle_textured,
     PerspectiveSpanStart, PerspectiveTextureGradients,
 };
-pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::core::{color_to_u32, FIXED_SCALE};
 
 // Re-export internal helpers for experimental modules
-pub(crate) use self::core::{is_backface, sort_by_y, EdgeWalker};
-pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
+pub(crate) use self::core::sort_by_y;

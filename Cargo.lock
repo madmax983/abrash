@@ -22,7 +22,6 @@ checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 name = "abrash"
 version = "0.1.0"
 dependencies = [
- "abrash-gpu",
  "abrash-gpu-render",
  "bevy",
  "clap",
@@ -38,13 +37,6 @@ dependencies = [
  "web-time 1.1.0",
  "windows 0.59.0",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "abrash-gpu"
-version = "0.1.0"
-dependencies = [
- "windows 0.59.0",
 ]
 
 [[package]]

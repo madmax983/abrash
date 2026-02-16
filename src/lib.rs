@@ -90,21 +90,12 @@ pub mod time;
 pub mod utils;
 pub mod zbuffer;
 
-pub mod ascii;
 pub mod clipping;
-pub mod culling;
 pub mod heat_vision;
-pub mod hiz_buffer;
 pub mod obj_loader;
 pub mod particles;
-pub mod post_process;
-pub mod procedural;
 pub mod skybox;
 pub mod texture;
-pub mod tile_renderer;
-
-#[cfg(feature = "gpu-binning")]
-pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;

@@ -45,23 +45,6 @@ impl XorShift32 {
     }
 }
 
-/// Calculates the luminance of a 32-bit ARGB pixel.
-///
-/// Uses the Rec. 601 luma coefficients:
-/// `Y = 0.299*R + 0.587*G + 0.114*B`
-///
-/// Approximated as: `Y = (77*R + 150*G + 29*B) >> 8`
-#[inline(always)]
-#[must_use]
-pub const fn pixel_luminance(pixel: u32) -> u8 {
-    let r = (pixel >> 16) & 0xFF;
-    let g = (pixel >> 8) & 0xFF;
-    let b = pixel & 0xFF;
-
-    // Fixed-point calculation: (77*R + 150*G + 29*B) >> 8
-    ((77 * r + 150 * g + 29 * b) >> 8) as u8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,31 +65,5 @@ mod tests {
         let mut rng = XorShift32::new(0);
         // Should not be 0, otherwise it stays 0
         assert_ne!(rng.next_u32(), 0);
-    }
-
-    #[test]
-    fn test_pixel_luminance() {
-        // Black
-        assert_eq!(pixel_luminance(0xFF000000), 0);
-        // White
-        assert_eq!(pixel_luminance(0xFFFFFFFF), 255); // (77*255 + 150*255 + 29*255) >> 8 = (256*255) >> 8 = 255
-
-        // Red
-        let r = pixel_luminance(0xFFFF0000);
-        // 77*255 >> 8 = 19635 >> 8 = 76.69 -> 76
-        assert_eq!(r, 76);
-
-        // Green
-        let g = pixel_luminance(0xFF00FF00);
-        // 150*255 >> 8 = 38250 >> 8 = 149.4 -> 149
-        assert_eq!(g, 149);
-
-        // Blue
-        let b = pixel_luminance(0xFF0000FF);
-        // 29*255 >> 8 = 7395 >> 8 = 28.88 -> 28
-        assert_eq!(b, 28);
-
-        // Sum roughly 253 (76+149+28 = 253), slight precision loss due to integer math is expected vs 255
-        // But white test passed because (256*255) >> 8 is exactly 255.
     }
 }

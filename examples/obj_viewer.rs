@@ -1,4 +1,3 @@
-use abrash::ascii::AsciiCharset;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -30,6 +29,42 @@ use ratatui::{
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF101010;
+
+/// Character set used for luminance mapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AsciiCharset {
+    /// Standard ASCII gradient: ` .:-=+*#%@`
+    Standard,
+    /// Block characters: ` ░▒▓█`
+    Blocks,
+    /// Minimal set: ` .:`
+    Minimal,
+    /// Binary set: ` 1`
+    Binary,
+}
+
+impl AsciiCharset {
+    /// Returns the characters in the set, ordered from darkest to brightest.
+    #[must_use]
+    pub const fn chars(self) -> &'static [char] {
+        match self {
+            Self::Standard => &[' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'],
+            Self::Blocks => &[' ', '░', '▒', '▓', '█'],
+            Self::Minimal => &[' ', '.', ':'],
+            Self::Binary => &[' ', '1'],
+        }
+    }
+
+    /// Maps a luminance value (0-255) to a character in the set.
+    pub fn map(self, luminance: u8) -> char {
+        let chars = self.chars();
+        let len = chars.len();
+        // Calculate index: (luminance * len) / 256
+        // Use u16 to prevent overflow before division
+        let index = (u16::from(luminance) * len as u16) >> 8;
+        chars[index.min((len - 1) as u16) as usize]
+    }
+}
 
 // Embed a simple spaceship-like OBJ
 const SPACESHIP_OBJ: &str = r#"
