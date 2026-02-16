@@ -787,7 +787,7 @@ mod tests {
 
         let z_start = 5.0;
         let dz_dx = 0.01;
-        let c_start = (200i32 << 16, 0, 50i32 << 16);
+        let c_start = (200i64 << 16, 0, 50i64 << 16);
         let dc_dx = ((-1i32) << 16, 1i32 << 16, 0);
 
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);

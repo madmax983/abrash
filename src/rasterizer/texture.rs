@@ -1155,7 +1155,7 @@ pub fn draw_scanline_textured_perspective(
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();
-/// let texture = Texture::new(32, 32); // Assume empty texture
+/// let texture = Texture::new(32, 32).unwrap(); // Assume empty texture
 ///
 /// // Vertices: ((Pos, W), UV)
 /// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec2::new(0.5, 0.0));
