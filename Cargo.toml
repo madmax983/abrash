@@ -277,3 +277,6 @@ harness = false
 [[bench]]
 name = "texture_scanline"
 harness = false
+[[bench]]
+name = "bilinear"
+harness = false
