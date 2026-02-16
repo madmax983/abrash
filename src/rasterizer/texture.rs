@@ -1,3 +1,34 @@
+//! Perspective-correct texture mapping rasterizer.
+//!
+//! This module implements scanline rasterization for textured triangles with perspective correction.
+//!
+//! # The Problem with Linear Interpolation
+//!
+//! In 3D graphics, simply interpolating texture coordinates $(u, v)$ linearly across the screen
+//! results in "affine texture mapping," which looks distorted because it doesn't account for depth.
+//! As a polygon recedes into the distance, the texture should appear compressed.
+//!
+//! # The Solution: Perspective Correction
+//!
+//! To achieve correct perspective, we must interpolate attributes in a way that respects the
+//! projective divide. The standard technique is to interpolate:
+//!
+//! *   $1/w$: The reciprocal of the homogeneous W coordinate.
+//! *   $u/w$: The texture U coordinate divided by W.
+//! *   $v/w$: The texture V coordinate divided by W.
+//!
+//! For each pixel, we recover the true texture coordinates by dividing by the interpolated $1/w$:
+//!
+//! $$ u_{pixel} = \frac{(u/w)_{interpolated}}{(1/w)_{interpolated}} $$
+//! $$ v_{pixel} = \frac{(v/w)_{interpolated}}{(1/w)_{interpolated}} $$
+//!
+//! # Features
+//!
+//! *   **Perspective Correction**: Accurate texture mapping at any angle.
+//! *   **Sub-pixel Precision**: Uses 16.16 fixed-point arithmetic for edge walking.
+//! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
+//! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{fast_inv_sqrt, project_triangle_to_screen, ScreenPoint, Vec2, Vec3, Vec4};
@@ -8,14 +39,31 @@ use super::core::{
     assert_same_dimensions, color_to_u32, is_backface, sort_by_y, FIXED_SCALE,
 };
 
+/// Gradients for perspective-correct texture mapping.
+///
+/// This struct holds the per-pixel (dX) and per-scanline (dY) changes for:
+/// *   `z`: Depth (linear in screen space).
+/// *   `q`: Inverse W ($1/w$).
+/// *   `u`: Texture U over W ($u/w$).
+/// *   `v`: Texture V over W ($v/w$).
+///
+/// These gradients are calculated once per triangle and used to step the
+/// edge walkers and scanline interpolators.
 #[derive(Clone, Copy)]
 pub struct PerspectiveTextureGradients {
+    /// Change in depth (Z) per X pixel.
     pub dz_dx: f32,
+    /// Change in $1/w$ per X pixel.
     pub dq_dx: f32,
+    /// Change in $u/w$ per X pixel.
     pub du_dx: f32,
+    /// Change in $v/w$ per X pixel.
     pub dv_dx: f32,
+    /// Change in $1/w$ per Y scanline.
     pub dq_dy: f32,
+    /// Change in $u/w$ per Y scanline.
     pub du_dy: f32,
+    /// Change in $v/w$ per Y scanline.
     pub dv_dy: f32,
 }
 
@@ -1045,6 +1093,48 @@ pub fn draw_scanline_textured_perspective(
     }
 }
 
+/// Fill a textured 3D triangle with perspective correction.
+///
+/// This function renders a triangle using the specified texture and perspective-correct interpolation.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), UV)`.
+///     *   `Position`: Clip Space position (before perspective divide).
+///     *   `W`: Homogeneous W coordinate (usually from projection matrix).
+///     *   `UV`: Texture coordinates (0.0 - 1.0).
+/// *   `texture` - Source texture to sample from.
+///
+/// # Implementation Details
+///
+/// 1.  **Clipping**: The triangle is clipped against the view frustum.
+/// 2.  **Projection**: Vertices are projected to screen space.
+/// 3.  **Backface Culling**: Back-facing triangles are discarded.
+/// 4.  **Gradient Calculation**: Screen-space derivatives ($1/w$, $u/w$, $v/w$) are computed.
+/// 5.  **Rasterization**: The triangle is filled scanline by scanline, interpolating attributes.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_textured;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::{Vec2, Vec3};
+/// use abrash::texture::Texture;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let texture = Texture::new(32, 32); // Assume empty texture
+///
+/// // Vertices: ((Pos, W), UV)
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec2::new(0.5, 0.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), Vec2::new(0.0, 1.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), Vec2::new(1.0, 1.0));
+///
+/// fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &texture);
+/// ```
 pub fn fill_triangle_textured(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -1887,8 +1977,33 @@ fn draw_scanline_normal_mapped(
     }
 }
 
-/// Fill a 3D triangle with Normal Mapping.
 #[allow(clippy::too_many_arguments)]
+/// Fill a triangle with Normal Mapping (Bump Mapping).
+///
+/// Renders a triangle using a diffuse texture and a normal map for detailed surface lighting.
+/// The lighting calculation is performed in Tangent Space.
+///
+/// # Arguments
+///
+/// *   `fb` - Target framebuffer.
+/// *   `zb` - Target z-buffer.
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), UV, Normal, Tangent)`.
+///     *   `Position`: Clip Space position.
+///     *   `W`: Homogeneous W.
+///     *   `UV`: Texture coordinates.
+///     *   `Normal`: Model space normal vector.
+///     *   `Tangent`: Model space tangent vector (w component stores bitangent handedness).
+/// *   `texture`: Diffuse color map (Albedo).
+/// *   `normal_map`: Tangent-space normal map (RGB encoded as XYZ).
+/// *   `light_dir`: Direction of the light rays (e.g., from light source to scene).
+/// *   `light_color`: Color and intensity of the directional light.
+/// *   `ambient`: Ambient light color added to the result.
+///
+/// # Lighting Model
+///
+/// Uses the Lambertian diffuse model:
+/// $$ I = Ambient + (Diffuse \cdot \max(N \cdot L, 0)) $$
+/// where $N$ is sampled from the normal map and $L$ is the light vector transformed into Tangent Space.
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -2745,14 +2860,25 @@ fn draw_scanline_textured_gouraud(
     }
 }
 
-/// Fill a 3D triangle with Textured Gouraud shading.
+/// Fill a textured triangle with Gouraud shading (Vertex Color Modulation).
 ///
-/// Combines perspective-correct texture mapping with linear vertex color interpolation.
+/// This function combines a texture lookup with linearly interpolated vertex colors.
+/// The texture color is multiplied by the interpolated vertex color.
+///
+/// $$ Pixel = Texture(u, v) \cdot Interpolated(VertexColor) $$
+///
+/// # Arguments
+///
+/// *   `v0`, `v1`, `v2` - Vertices defined as `((Position, W), Color, UV)`.
+///     *   `Position`: Clip Space position.
+///     *   `W`: Homogeneous W.
+///     *   `Color`: RGB color (0.0 - 1.0).
+///     *   `UV`: Texture coordinates.
 #[allow(clippy::too_many_arguments)]
 pub fn fill_triangle_textured_gouraud(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec3, Vec2), // ((Pos, W), Color, UV)
+    v0: ((Vec3, f32), Vec3, Vec2),
     v1: ((Vec3, f32), Vec3, Vec2),
     v2: ((Vec3, f32), Vec3, Vec2),
     texture: &Texture,
