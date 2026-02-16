@@ -986,7 +986,14 @@ pub fn project_triangle_to_screen(
         // Use logical ops for SSE2 compatibility: (w & mask) | (1.0 & ~mask)
         let safe_w = _mm_or_ps(_mm_and_ps(w_vec, mask), _mm_andnot_ps(mask, one));
 
-        let inv_w = _mm_div_ps(one, safe_w);
+        // Use fast approximate reciprocal with one Newton-Raphson iteration
+        // This avoids the high-latency, unpipelined division instruction,
+        // freeing up the divider unit for subsequent gradient setup.
+        // y0 = rcp(x)
+        let rcp = _mm_rcp_ps(safe_w);
+        // y1 = y0 * (2 - x * y0)
+        let two = _mm_set1_ps(2.0);
+        let inv_w = _mm_mul_ps(rcp, _mm_sub_ps(two, _mm_mul_ps(safe_w, rcp)));
 
         let ndc_x = _mm_mul_ps(x_vec, inv_w);
         let ndc_y = _mm_mul_ps(y_vec, inv_w);
