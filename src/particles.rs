@@ -218,30 +218,57 @@ impl ParticleSystem {
 
         let mvp = proj * view;
 
+        // Optimization: Pre-transform camera basis vectors to Clip Space.
+        // This allows us to calculate billboard corners directly in Clip Space,
+        // reducing per-particle matrix multiplications from 4 to 1.
+        //
+        // NOTE: Since these are direction vectors, w=0. We perform manual transform
+        // because Mat4::transform_point assumes w=1.
+        let transform_vector = |v: Vec3, m: &Mat4| -> (Vec3, f32) {
+            let x = m.m[0][0] * v.x + m.m[1][0] * v.y + m.m[2][0] * v.z;
+            let y = m.m[0][1] * v.x + m.m[1][1] * v.y + m.m[2][1] * v.z;
+            let z = m.m[0][2] * v.x + m.m[1][2] * v.y + m.m[2][2] * v.z;
+            let w = m.m[0][3] * v.x + m.m[1][3] * v.y + m.m[2][3] * v.z;
+            (Vec3::new(x, y, z), w)
+        };
+
+        let (right_clip, right_w) = transform_vector(right, &mvp);
+        let (up_clip, up_w) = transform_vector(up, &mvp);
+
+        // UVs are constant for all particles
+        let uv0 = Vec2::new(0.0, 1.0); // BL
+        let uv1 = Vec2::new(0.0, 0.0); // TL
+        let uv2 = Vec2::new(1.0, 0.0); // TR
+        let uv3 = Vec2::new(1.0, 1.0); // BR
+
         for p in &self.particles {
             let half_size = p.size * 0.5;
 
-            // Billboard corners in World Space
-            // v0: Bottom-Left
-            let v0_pos = p.position + (right * -half_size) + (up * -half_size);
-            // v1: Top-Left
-            let v1_pos = p.position + (right * -half_size) + (up * half_size);
-            // v2: Top-Right
-            let v2_pos = p.position + (right * half_size) + (up * half_size);
-            // v3: Bottom-Right
-            let v3_pos = p.position + (right * half_size) + (up * -half_size);
+            // Transform center to Clip Space
+            let (center_clip, center_w) = mvp.transform_point(p.position);
 
-            // Transform to Clip Space
-            let (c0, w0) = mvp.transform_point(v0_pos);
-            let (c1, w1) = mvp.transform_point(v1_pos);
-            let (c2, w2) = mvp.transform_point(v2_pos);
-            let (c3, w3) = mvp.transform_point(v3_pos);
+            // Scale offsets
+            let r_vec = right_clip * half_size;
+            let r_w = right_w * half_size;
+            let u_vec = up_clip * half_size;
+            let u_w = up_w * half_size;
 
-            // UVs
-            let uv0 = Vec2::new(0.0, 1.0); // BL
-            let uv1 = Vec2::new(0.0, 0.0); // TL
-            let uv2 = Vec2::new(1.0, 0.0); // TR
-            let uv3 = Vec2::new(1.0, 1.0); // BR
+            // Calculate corners in Clip Space
+            // v0: Bottom-Left (center - right - up)
+            let c0 = center_clip - r_vec - u_vec;
+            let w0 = center_w - r_w - u_w;
+
+            // v1: Top-Left (center - right + up)
+            let c1 = center_clip - r_vec + u_vec;
+            let w1 = center_w - r_w + u_w;
+
+            // v2: Top-Right (center + right + up)
+            let c2 = center_clip + r_vec + u_vec;
+            let w2 = center_w + r_w + u_w;
+
+            // v3: Bottom-Right (center + right - up)
+            let c3 = center_clip + r_vec - u_vec;
+            let w3 = center_w + r_w - u_w;
 
             // Render 2 Triangles
             // Tri 1: 0-1-2
