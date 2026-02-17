@@ -1200,13 +1200,7 @@ pub fn fill_triangle_textured(
         );
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
@@ -2132,11 +2126,8 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
-    }
 
     // Scalar Tail
-    if i < len {
         let z_curr = z_start + (i as f32) * dz_dx;
         let u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
         let v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
@@ -3156,6 +3147,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
+        }
     }
 
     // Scalar Tail
