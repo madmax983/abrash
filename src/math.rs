@@ -786,11 +786,14 @@ impl Mat4 {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
+            // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
+            // implementation fed with enough data to be efficient.
+            const CHUNK_SIZE: usize = 4096;
             points
-                .par_iter()
-                .zip(output.par_iter_mut())
-                .for_each(|(p, out)| {
-                    *out = self.transform_point(*p);
+                .par_chunks(CHUNK_SIZE)
+                .zip(output.par_chunks_mut(CHUNK_SIZE))
+                .for_each(|(p_chunk, out_chunk)| {
+                    self.transform_points(p_chunk, out_chunk);
                 });
         }
 
