@@ -3,6 +3,7 @@
 //! Provides a TUI interface to explore and launch demos.
 
 use clap::Parser;
+use comfy_table::{Attribute as TableAttribute, Cell, Color as TableColor, Table, presets};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -12,7 +13,7 @@ use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Color as TuiColor, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
@@ -217,7 +218,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
             let title = Paragraph::new("Abrash Engine Dashboard")
                 .style(
                     Style::default()
-                        .fg(Color::Cyan)
+                        .fg(TuiColor::Cyan)
                         .add_modifier(Modifier::BOLD),
                 )
                 .block(Block::default().borders(Borders::ALL))
@@ -242,7 +243,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .map(|demo| {
                     ListItem::new(Span::styled(
                         format!(" {} ", demo.name),
-                        Style::default().fg(Color::White),
+                        Style::default().fg(TuiColor::White),
                     ))
                 })
                 .collect();
@@ -251,7 +252,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .block(Block::default().borders(Borders::ALL).title(" Demos "))
                 .highlight_style(
                     Style::default()
-                        .bg(Color::Blue)
+                        .bg(TuiColor::Cyan)
+                        .fg(TuiColor::Black)
                         .add_modifier(Modifier::BOLD),
                 )
                 .highlight_symbol(">> ");
@@ -267,25 +269,25 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                         "Description:",
                         Style::default()
                             .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
+                            .fg(TuiColor::Cyan),
                     )),
                     Line::from(format!("  {}\n", demo.description)),
                     Line::from(Span::styled(
                         "Instructions:",
                         Style::default()
                             .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
+                            .fg(TuiColor::Cyan),
                     )),
                     Line::from(format!("{}\n", demo.instructions)),
                     Line::from(Span::styled(
                         "Command:",
                         Style::default()
                             .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
+                            .fg(TuiColor::Cyan),
                     )),
                     Line::from(Span::styled(
                         format!("  {}", demo_command(demo.example_name)),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(TuiColor::DarkGray),
                     )),
                 ];
 
@@ -296,13 +298,13 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
             } else {
                 let placeholder = Paragraph::new("Select a demo to view details")
                     .block(Block::default().borders(Borders::ALL))
-                    .style(Style::default().fg(Color::DarkGray));
+                    .style(Style::default().fg(TuiColor::DarkGray));
                 f.render_widget(placeholder, content_chunks[1]);
             }
 
             // Help Bar
             let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
-                .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+                .style(Style::default().fg(TuiColor::White).bg(TuiColor::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center)
                 .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
             f.render_widget(help, main_chunks[2]);
@@ -346,34 +348,60 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("Preparing to launch {name}...");
-
     let mut cmd = Command::new("cargo");
     cmd.arg("run").arg("--release").arg("--example").arg(name);
 
-    if is_gpu_render_example(name) {
+    let mut backend_msg = "Native (Win32)".to_string();
+    let is_gpu = is_gpu_render_example(name);
+
+    if is_gpu {
         cmd.arg("--features").arg("gpu-render");
+        backend_msg = "GPU Render (WGPU)".to_string();
     }
 
-    // Smart Launch: On non-Windows systems, default to TUI backend to ensure
-    // the example runs (as Win32 API is not available).
-    if std::env::consts::OS != "windows" && !is_gpu_render_example(name) {
-        println!(
-            "ℹ️  Non-Windows OS detected ({}). Enabling TUI backend...",
-            std::env::consts::OS
-        );
+    if std::env::consts::OS != "windows" && !is_gpu {
+        backend_msg = format!("TUI ({} Detected)", std::env::consts::OS);
         cmd.arg("--no-default-features")
             .arg("--features")
             .arg("backend-tui");
     }
+
+    // Launch Banner
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("🚀 Launching Demo").fg(TableColor::Cyan).add_attribute(TableAttribute::Bold),
+            Cell::new(name).fg(TableColor::Green).add_attribute(TableAttribute::Bold),
+        ])
+        .add_row(vec![
+            Cell::new("Backend"),
+            Cell::new(backend_msg),
+        ])
+        .add_row(vec![
+            Cell::new("Mode"),
+            Cell::new("Release"),
+        ]);
+
+    println!("\n{}", table);
+    println!("Press Ctrl+C to abort...\n");
 
     let mut child = cmd.spawn()?;
 
     let status = child.wait()?;
 
     if !status.success() {
-        eprintln!("❌ Demo exited with error: {status}");
-        // Give user a chance to read the error
+        let mut err_table = Table::new();
+        err_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("❌ Demo Failed").fg(TableColor::Red).add_attribute(TableAttribute::Bold),
+            ])
+            .add_row(vec![
+                Cell::new(format!("Exit Status: {}", status)),
+            ]);
+        eprintln!("\n{}", err_table);
+
         println!("Press Enter to return to dashboard...");
         let _ = std::io::stdin().read_line(&mut String::new());
     }

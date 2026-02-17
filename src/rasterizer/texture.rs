@@ -2132,7 +2132,6 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
     }
 
     // Scalar Tail
@@ -3156,6 +3155,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
+        }
     }
 
     // Scalar Tail
