@@ -1280,7 +1280,7 @@ pub fn fill_triangle_textured(
                 edge_b = PerspectiveTextureEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2);
             }
 
-            let (x_start, x_end, z_left, q_left, u_left, v_left) = if long_edge_is_left {
+            let (mut x_start, mut x_end, mut z_left, mut q_left, mut u_left, mut v_left) = if long_edge_is_left {
                 (
                     (edge_a.x >> 16) as i32,
                     (edge_b.x >> 16) as i32,
@@ -1300,10 +1300,40 @@ pub fn fill_triangle_textured(
                 )
             };
 
-            let dx = i64::from(x_end) - i64::from(x_start);
+            // Optimization: Trivial reject if off-screen
+            if x_start >= width_i32 || x_end < 0 {
+                edge_a.step();
+                edge_b.step();
+                continue;
+            }
 
-            if dx <= 0 {
-                if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
+            // Optimization: Clamp left
+            if x_start < 0 {
+                let diff = -x_start;
+                let diff_f = diff as f32;
+                z_left += diff_f * gradients.dz_dx;
+                q_left += diff_f * gradients.dq_dx;
+                u_left += diff_f * gradients.du_dx;
+                v_left += diff_f * gradients.dv_dx;
+                x_start = 0;
+            }
+
+            // Optimization: Clamp right
+            if x_end >= width_i32 {
+                x_end = width_i32 - 1;
+            }
+
+            let dx = x_end - x_start;
+
+            if dx < 0 {
+                // Should not happen after clamping unless span is invalid
+                edge_a.step();
+                edge_b.step();
+                continue;
+            }
+
+            if dx == 0 {
+                if q_left.abs() > 0.000_001 {
                     // SAFETY: Safe due to clamps on x_start and y
                     unsafe {
                         let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
@@ -2132,7 +2162,6 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
     }
 
     // Scalar Tail
@@ -3202,6 +3231,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         g_curr += dg_dx;
         b_curr += db_dx;
         i += 1;
+    }
     }
 }
 
