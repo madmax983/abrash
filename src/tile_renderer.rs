@@ -72,9 +72,10 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
-use crate::rasterizer::{
-    EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
-    RECIPROCAL_TABLE, is_backface, sort_by_y,
+use crate::rasterizer::core::{EdgeWalker, is_backface, sort_by_y};
+use crate::rasterizer::texture::{
+    PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
+    RECIPROCAL_TABLE,
 };
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;

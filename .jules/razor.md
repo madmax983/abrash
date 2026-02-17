@@ -21,6 +21,6 @@
 **Saved:** 1 file, ~15 lines, and reduced cognitive load by using explicit names.
 
 ## [Reduction]
-**Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
-**Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
-**Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+**Bloat:** `src/experimental` directory containing duplicate `ssao.rs` and unorganized procedural generators. Leaky abstractions in `rasterizer/mod.rs`.
+**Cut:** Deleted `src/experimental`. Consolidated SSAO into `src/post_process.rs`. Moved procedural generators to `src/procedural/`. Cleaned up `rasterizer` exports.
+**Saved:** 1 directory, 1 duplicate file (~200 lines), and fixed broken imports/exports.
