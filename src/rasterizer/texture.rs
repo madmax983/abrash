@@ -2132,7 +2132,6 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
     }
 
     // Scalar Tail
@@ -2902,8 +2901,6 @@ unsafe fn draw_span_textured_gouraud_simd(
                 }
             }
         }
-
-        z_vec = _mm256_add_ps(z_vec, dz_step);
         r_vec = _mm256_add_ps(r_vec, dr_step);
         g_vec = _mm256_add_ps(g_vec, dg_step);
         b_vec = _mm256_add_ps(b_vec, db_step);
@@ -3148,6 +3145,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 }
             }
         }
+    }
 
         z_vec = _mm256_add_ps(z_vec, dz_step);
         r_vec = _mm256_add_ps(r_vec, dr_step);

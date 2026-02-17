@@ -1,0 +1,885 @@
+   Compiling abrash v0.1.0 (/app)
+warning: unused import: `Vec4`
+ --> src/experimental/jelly.rs:6:25
+  |
+6 | use crate::math::{Vec3, Vec4};
+  |                         ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Vec3`
+  --> src/experimental/hologram.rs:13:32
+   |
+13 | use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
+   |                                ^^^^
+
+warning: unused import: `EdgeWalker`
+  --> src/experimental/hologram.rs:14:25
+   |
+14 | use crate::rasterizer::{EdgeWalker, FIXED_SCALE, is_backface, sort_by_y};
+   |                         ^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> src/experimental/hologram.rs:94:17
+   |
+94 |             |v| v, // Interpolator (just the vertex itself)
+   |                 ^ expected `(Vec3, f32)`, found `&(Vec3, f32)`
+   |
+   = note:  expected tuple `(Vec3, _)`
+           found reference `&(Vec3, _)`
+help: consider dereferencing the borrow
+   |
+94 |             |v| *v, // Interpolator (just the vertex itself)
+   |                 +
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:646:25
+    |
+646 |             let p_ptr = points.as_ptr().add(i) as *const f32;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+   --> src/math.rs:619:5
+    |
+619 |     unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(unsafe_op_in_unsafe_fn)]` (part of `#[warn(rust_2024_compatibility)]`) on by default
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:651:22
+    |
+651 |             let r0 = _mm_loadu_ps(p_ptr); // x0 y0 z0 x1
+    |                      ^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:652:22
+    |
+652 |             let r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:652:35
+    |
+652 |             let r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
+    |                                   ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:653:22
+    |
+653 |             let r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:653:35
+    |
+653 |             let r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
+    |                                   ^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:673:22
+    |
+673 |             let r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:673:35
+    |
+673 |             let r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
+    |                                   ^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:674:22
+    |
+674 |             let r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:674:35
+    |
+674 |             let r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
+    |                                   ^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm_loadu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:675:22
+    |
+675 |             let r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::const_ptr::<impl *const T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:675:35
+    |
+675 |             let r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
+    |                                   ^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:746:27
+    |
+746 |             let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:747:13
+    |
+747 |             _mm256_storeu_ps(out_ptr, final0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:748:13
+    |
+748 |             _mm256_storeu_ps(out_ptr.add(8), final1);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:748:30
+    |
+748 |             _mm256_storeu_ps(out_ptr.add(8), final1);
+    |                              ^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:749:13
+    |
+749 |             _mm256_storeu_ps(out_ptr.add(16), final2);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:749:30
+    |
+749 |             _mm256_storeu_ps(out_ptr.add(16), final2);
+    |                              ^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+   --> src/math.rs:750:13
+    |
+750 |             _mm256_storeu_ps(out_ptr.add(24), final3);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+   --> src/math.rs:750:30
+    |
+750 |             _mm256_storeu_ps(out_ptr.add(24), final3);
+    |                              ^^^^^^^^^^^^^^^ call to unsafe function
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+    = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:27:21
+   |
+27 |     let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:28:21
+   |
+28 |     let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:29:21
+   |
+29 |     let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:31:21
+   |
+31 |     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:32:21
+   |
+32 |     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:34:21
+   |
+34 |     let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:37:18
+   |
+37 |     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
+   |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:38:18
+   |
+38 |     let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
+   |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:39:18
+   |
+39 |     let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+   |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:41:21
+   |
+41 |     let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:42:21
+   |
+42 |     let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:43:21
+   |
+43 |     let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+   |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:46:19
+   |
+46 |     let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+   |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:48:19
+   |
+48 |     let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
+   |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:49:19
+   |
+49 |     let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
+   |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:50:19
+   |
+50 |     let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+   |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:53:22
+   |
+53 |     let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+   |                      ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> src/rasterizer/gouraud.rs:54:18
+   |
+54 |     let mask_r = unsafe { _mm256_set1_epi32(0x00FF_0000) };
+   |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:100:9
+    |
+100 |         unsafe {
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:158:21
+    |
+158 |     let dz_dx_vec = unsafe { _mm256_set1_ps(dz_dx) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:159:21
+    |
+159 |     let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:160:21
+    |
+160 |     let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:161:21
+    |
+161 |     let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:163:21
+    |
+163 |     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:164:21
+    |
+164 |     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:166:21
+    |
+166 |     let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:169:18
+    |
+169 |     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
+    |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:170:18
+    |
+170 |     let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
+    |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:171:18
+    |
+171 |     let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+    |                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:173:21
+    |
+173 |     let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:174:21
+    |
+174 |     let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:175:21
+    |
+175 |     let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:178:19
+    |
+178 |     let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:180:19
+    |
+180 |     let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:181:19
+    |
+181 |     let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:182:19
+    |
+182 |     let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:186:19
+    |
+186 |     let min_val = unsafe { _mm256_setzero_si256() };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:187:19
+    |
+187 |     let max_val = unsafe { _mm256_set1_epi32(0x00FF_0000) };
+    |                   ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:188:22
+    |
+188 |     let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+    |                      ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> src/rasterizer/gouraud.rs:240:9
+    |
+240 |         unsafe {
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning[E0133]: call to unsafe function `rasterizer::texture::draw_span_bilinear_simd` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:1900:9
+     |
+1900 | /         draw_span_bilinear_simd(
+1901 | |             fb_slice,
+1902 | |             zb_slice,
+1903 | |             texture,
+...    |
+1909 | |             dv_fix,
+1910 | |         );
+     | |_________^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+    --> src/rasterizer/texture.rs:1881:1
+     |
+1881 | / unsafe fn draw_span_trilinear_simd(
+1882 | |     fb_slice: &mut [u32],
+1883 | |     zb_slice: &mut [f32],
+1884 | |     texture: &Texture,
+...    |
+1891 | |     lod: f32,
+1892 | | ) {
+     | |_^
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2069:25
+     |
+2069 |         let depth_ptr = zb_slice.as_mut_ptr().add(i);
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2070:25
+     |
+2070 |         let depth_val = _mm256_loadu_ps(depth_ptr);
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2056:23
+     |
+2056 |             let c00 = _mm256_i32gather_epi32(ptr, idx00, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2082 |             let color0 = sample_level!(u_img0, v_img0, w0_vec, max_x0, max_y0, pixels0.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2057:23
+     |
+2057 |             let c10 = _mm256_i32gather_epi32(ptr, idx10, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2082 |             let color0 = sample_level!(u_img0, v_img0, w0_vec, max_x0, max_y0, pixels0.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2058:23
+     |
+2058 |             let c01 = _mm256_i32gather_epi32(ptr, idx01, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2082 |             let color0 = sample_level!(u_img0, v_img0, w0_vec, max_x0, max_y0, pixels0.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2059:23
+     |
+2059 |             let c11 = _mm256_i32gather_epi32(ptr, idx11, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2082 |             let color0 = sample_level!(u_img0, v_img0, w0_vec, max_x0, max_y0, pixels0.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2056:23
+     |
+2056 |             let c00 = _mm256_i32gather_epi32(ptr, idx00, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2087 |             let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2057:23
+     |
+2057 |             let c10 = _mm256_i32gather_epi32(ptr, idx10, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2087 |             let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2058:23
+     |
+2058 |             let c01 = _mm256_i32gather_epi32(ptr, idx01, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2087 |             let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2059:23
+     |
+2059 |             let c11 = _mm256_i32gather_epi32(ptr, idx11, 4);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+...
+2087 |             let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
+     |                          ----------------------------------------------------------------------- in this macro invocation
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+     = note: this warning originates in the macro `sample_level` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2100:29
+     |
+2100 |                 let old_z = _mm256_loadu_ps(depth_ptr);
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2102:17
+     |
+2102 |                 _mm256_storeu_ps(depth_ptr, new_z);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2104:30
+     |
+2104 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2105:33
+     |
+2105 |                 let old_color = _mm256_loadu_si256(fb_ptr);
+     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2107:17
+     |
+2107 |                 _mm256_storeu_si256(fb_ptr, new_color);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2116:17
+     |
+2116 |                 _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, final_color);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2123:37
+     |
+2123 |                         let dest = *fb_slice.get_unchecked(idx);
+     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked_mut` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2124:26
+     |
+2124 |                         *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2813:25
+     |
+2813 |         let depth_ptr = zb_slice.as_mut_ptr().add(i);
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+    --> src/rasterizer/texture.rs:2751:1
+     |
+2751 | / unsafe fn draw_span_textured_gouraud_simd(
+2752 | |     fb_slice: &mut [u32],
+2753 | |     zb_slice: &mut [f32],
+2754 | |     texture: &Texture,
+...    |
+2766 | |     db_dx: f32,
+2767 | | ) {
+     | |_^
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2814:25
+     |
+2814 |         let depth_val = _mm256_loadu_ps(depth_ptr);
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_i32gather_epi32` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2831:30
+     |
+2831 |             let pixel_vals = _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2871:29
+     |
+2871 |                 let old_z = _mm256_loadu_ps(depth_ptr);
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_ps` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2873:17
+     |
+2873 |                 _mm256_storeu_ps(depth_ptr, new_z);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::ptr::mut_ptr::<impl *mut T>::add` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2875:30
+     |
+2875 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_loadu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2876:33
+     |
+2876 |                 let old_color = _mm256_loadu_si256(fb_ptr);
+     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2878:17
+     |
+2878 |                 _mm256_storeu_si256(fb_ptr, new_color);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `std::arch::x86_64::_mm256_storeu_si256` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2888:17
+     |
+2888 |                 _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2896:37
+     |
+2896 |                         let dest = *fb_slice.get_unchecked(idx);
+     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked_mut` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:2897:26
+     |
+2897 |                         *fb_slice.get_unchecked_mut(idx) =
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning: variable does not need to be mutable
+    --> src/rasterizer/texture.rs:2783:9
+     |
+2783 |     let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+     |         ----^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `dz_step`
+    --> src/rasterizer/texture.rs:2794:9
+     |
+2794 |     let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
+     |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dz_step`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked_mut` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:3168:25
+     |
+3168 |         let depth_val = zb_slice.get_unchecked_mut(i);
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+    --> src/rasterizer/texture.rs:2936:1
+     |
+2936 | / unsafe fn draw_span_textured_gouraud_bilinear_simd(
+2937 | |     fb_slice: &mut [u32],
+2938 | |     zb_slice: &mut [f32],
+2939 | |     texture: &Texture,
+...    |
+2951 | |     db_dx: f32,
+2952 | | ) {
+     | |_^
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked_mut` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:3185:18
+     |
+3185 |                 *fb_slice.get_unchecked_mut(i) = final_color;
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:3187:29
+     |
+3187 |                 let dest = *fb_slice.get_unchecked(i);
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning[E0133]: call to unsafe function `core::slice::<impl [T]>::get_unchecked_mut` is unsafe and requires unsafe block
+    --> src/rasterizer/texture.rs:3188:18
+     |
+3188 |                 *fb_slice.get_unchecked_mut(i) = blend_swar(
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+     |
+     = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+     = note: consult the function's documentation for information on how to avoid undefined behavior
+
+warning: unused variable: `half_width`
+    --> src/post_process.rs:1580:13
+     |
+1580 |         let half_width = width as f32 * 0.5;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_half_width`
+
+warning: unused variable: `half_height`
+    --> src/post_process.rs:1581:13
+     |
+1581 |         let half_height = height as f32 * 0.5;
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_half_height`
+
+warning: unused variable: `dx_total`
+   --> src/experimental/hologram.rs:204:9
+    |
+204 |     let dx_total = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dx_total`
+
+warning: unused variable: `dy_total`
+   --> src/experimental/hologram.rs:205:9
+    |
+205 |     let dy_total = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dy_total`
+
+Some errors have detailed explanations: E0133, E0308.
+For more information about an error, try `rustc --explain E0133`.
+warning: `abrash` (lib) generated 103 warnings
+error: could not compile `abrash` (lib) due to 1 previous error; 103 warnings emitted

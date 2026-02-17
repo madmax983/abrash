@@ -94,6 +94,12 @@ const DEMOS: &[Demo] = &[
         instructions: "Mouse: None\nKeyboard: Auto-rotating camera",
         example_name: "skybox_demo",
     },
+    Demo {
+        name: "Hologram",
+        description: "Experimental holographic projection effect",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "hologram_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
