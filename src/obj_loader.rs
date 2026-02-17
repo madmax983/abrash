@@ -33,15 +33,27 @@ use std::collections::HashMap;
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
 fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
-    if bytes.is_empty() || bytes.len() > 20 {
+    if bytes.is_empty() {
         return None;
     }
+
+    // On 64-bit, usize is u64 (max ~1.8e19, 19 full digits).
+    // On 32-bit, usize is u32 (max ~4e9, 9 full digits).
+    // We strictly reject numbers longer than this to guarantee no overflow without checking.
+    const MAX_DIGITS: usize = if std::mem::size_of::<usize>() >= 8 { 19 } else { 9 };
+
+    if bytes.len() > MAX_DIGITS {
+        return None;
+    }
+
     let mut n: usize = 0;
     for &b in bytes {
-        if !b.is_ascii_digit() {
+        let d = b.wrapping_sub(b'0');
+        if d > 9 {
             return None;
         }
-        n = n.checked_mul(10)?.checked_add((b - b'0') as usize)?;
+        // No checked_mul/add needed because of MAX_DIGITS check
+        n = n * 10 + (d as usize);
     }
     Some(n)
 }
