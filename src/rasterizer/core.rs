@@ -1,3 +1,17 @@
+//! # Internal Rasterization Toolkit 🧰
+//!
+//! This module contains low-level primitives used by the various rasterization backends.
+//!
+//! **⚠️ Internal Use Only:** These types are not intended for public consumption unless you are
+//! extending the engine with a custom rasterizer.
+//!
+//! ## Core Components
+//!
+//! *   **`EdgeWalker`**: Interpolates values (X, Z, Color) along the edge of a triangle.
+//! *   **`prepare_scanline`**: Validates bounds and returns mutable slices for the framebuffer and Z-buffer.
+//! *   **`is_backface`**: Performs back-face culling using the 2D cross product.
+//! *   **`sort_by_y`**: A specialized sorting network for 3 vertices.
+
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3};
 use crate::zbuffer::ZBuffer;
