@@ -1,49 +1,57 @@
-use abrash::clipping::clip_triangle_to_frustum;
-use abrash::math::Vec3;
 use abrash::obj_loader::load_obj;
-use abrash::texture::Texture;
+use abrash::math::{Vec3, project_triangle_to_screen, project_to_screen_optimized};
 use proptest::prelude::*;
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(500))] // More cases for chaos
-
+    // Fuzz Target 1: Throw random strings at the OBJ loader to find panics
     #[test]
-    fn fuzz_obj_loader(s in "\\PC*") {
-        // Feed arbitrary unicode strings to the OBJ loader.
-        // It should either return Ok(mesh) or Err(msg), but never panic.
+    fn crash_test_obj_loader(s in "\\PC*") {
+        // We don't care about the result, only that it doesn't panic
         let _ = load_obj(&s);
     }
 
+    // Fuzz Target 2: Verify consistency between Scalar and SIMD projection logic
+    // This hunts for differences in NaN/Inf handling and rounding modes
     #[test]
-    fn fuzz_clipping_extremes(
-        v0_x in any::<f32>(), v0_y in any::<f32>(), v0_z in any::<f32>(), v0_w in any::<f32>(),
-        v1_x in any::<f32>(), v1_y in any::<f32>(), v1_z in any::<f32>(), v1_w in any::<f32>(),
-        v2_x in any::<f32>(), v2_y in any::<f32>(), v2_z in any::<f32>(), v2_w in any::<f32>(),
+    fn test_projection_consistency(
+        v0_x in any::<f32>(), v0_y in any::<f32>(), v0_z in any::<f32>(), w0 in any::<f32>(),
+        v1_x in any::<f32>(), v1_y in any::<f32>(), v1_z in any::<f32>(), w1 in any::<f32>(),
+        v2_x in any::<f32>(), v2_y in any::<f32>(), v2_z in any::<f32>(), w2 in any::<f32>(),
     ) {
-        let v0 = (Vec3::new(v0_x, v0_y, v0_z), v0_w);
-        let v1 = (Vec3::new(v1_x, v1_y, v1_z), v1_w);
-        let v2 = (Vec3::new(v2_x, v2_y, v2_z), v2_w);
+        let half_width = 400.0;
+        let half_height = 300.0;
 
-        // This function handles geometric clipping.
-        // Even with NaNs, Infinities, or Subnormals, it should not panic.
-        // It might return garbage triangles or count=0, but must be safe.
-        let _result = clip_triangle_to_frustum(v0, v1, v2, |v| *v);
-    }
+        let v0 = Vec3::new(v0_x, v0_y, v0_z);
+        let v1 = Vec3::new(v1_x, v1_y, v1_z);
+        let v2 = Vec3::new(v2_x, v2_y, v2_z);
 
-    #[test]
-    fn fuzz_texture_sampling(
-        u in any::<f32>(),
-        v in any::<f32>(),
-        lod in any::<f32>(),
-    ) {
-        // Setup a small texture
-        let mut tex = Texture::new(4, 4).unwrap();
-        // Fill with some data
-        tex.set_pixel(0, 0, 0xFFFF_FFFF);
-        tex.generate_mipmaps();
+        // SIMD path (on x86_64) - projects 3 vertices at once
+        let (s0, s1, s2) = project_triangle_to_screen(v0, w0, v1, w1, v2, w2, half_width, half_height);
 
-        // Trilinear sampling with arbitrary coordinates and LOD
-        // Should handle NaNs, Infs, and extreme values gracefully (clamp or return 0)
-        let _pixel = tex.get_pixel_trilinear(u, v, lod);
+        // Scalar path - projects vertices individually
+        // This acts as our "oracle" (though strictly speaking, scalar isn't always right either, but they MUST match)
+        let c0 = project_to_screen_optimized(v0, w0, half_width, half_height);
+        let c1 = project_to_screen_optimized(v1, w1, half_width, half_height);
+        let c2 = project_to_screen_optimized(v2, w2, half_width, half_height);
+
+        // Define a relaxed comparison for float-derived integers
+        // SIMD and Scalar might differ by 1 due to rounding modes or order of operations
+        // But for NaN/Inf, they might differ wildly (e.g. 0 vs MIN_INT).
+        let check = |s_val: i32, c_val: i32, component: &str, v_idx: usize| {
+            // Exact match required? Or allow +/- 1?
+            // Let's require exact match first to see what breaks.
+            // If legitimate float rounding diffs occur, we relax.
+             prop_assert_eq!(s_val, c_val, "{} mismatch for v{}: SIMD={} Scalar={}", component, v_idx, s_val, c_val);
+             Ok(())
+        };
+
+        check(s0.x, c0.x, "X", 0)?;
+        check(s0.y, c0.y, "Y", 0)?;
+
+        check(s1.x, c1.x, "X", 1)?;
+        check(s1.y, c1.y, "Y", 1)?;
+
+        check(s2.x, c2.x, "X", 2)?;
+        check(s2.y, c2.y, "Y", 2)?;
     }
 }

@@ -938,8 +938,16 @@ pub fn project_to_screen_optimized(
 
     // NDC to screen coordinates
     // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN
-    let screen_x = (((ndc_x + 1.0) * half_width) as i32).max(i32::MIN + 1);
-    let screen_y = (((1.0 - ndc_y) * half_height) as i32).max(i32::MIN + 1); // Flip Y
+    // We clamp the float first to match SIMD behavior (cvttps) and avoid saturation inconsistencies
+    // 2147483520.0 is the largest f32 < i32::MAX
+    let max_val = 2147483520.0;
+    let min_val = -2147483648.0;
+
+    let sx = (ndc_x + 1.0) * half_width;
+    let sy = (1.0 - ndc_y) * half_height;
+
+    let screen_x = (sx.max(min_val).min(max_val) as i32).max(i32::MIN + 1);
+    let screen_y = (sy.max(min_val).min(max_val) as i32).max(i32::MIN + 1);
 
     ScreenPoint {
         x: screen_x,
@@ -989,14 +997,10 @@ pub fn project_triangle_to_screen(
         // Use logical ops for SSE2 compatibility: (w & mask) | (1.0 & ~mask)
         let safe_w = _mm_or_ps(_mm_and_ps(w_vec, mask), _mm_andnot_ps(mask, one));
 
-        // Use fast approximate reciprocal with one Newton-Raphson iteration
-        // This avoids the high-latency, unpipelined division instruction,
-        // freeing up the divider unit for subsequent gradient setup.
-        // y0 = rcp(x)
-        let rcp = _mm_rcp_ps(safe_w);
-        // y1 = y0 * (2 - x * y0)
-        let two = _mm_set1_ps(2.0);
-        let inv_w = _mm_mul_ps(rcp, _mm_sub_ps(two, _mm_mul_ps(safe_w, rcp)));
+        // Use exact division to match scalar implementation behavior.
+        // While rcp is faster, it introduces precision differences that cause
+        // consistency failures between SIMD and Scalar paths (verified by fuzzing).
+        let inv_w = _mm_div_ps(one, safe_w);
 
         let ndc_x = _mm_mul_ps(x_vec, inv_w);
         let ndc_y = _mm_mul_ps(y_vec, inv_w);

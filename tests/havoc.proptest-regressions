@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 87d2822b3e2d2d0310124d78a042a6851256f0fe90f20e7929cb4ffefd46601f # shrinks to u = 0.0, v = -1.3733353e17, lod = -0.0
+cc 3c38d535646dac90c70638514f692a95b338330573ebf2aff54884dbd3ee5f9b # shrinks to v0_x = 0.0, v0_y = 0.0, v0_z = 0.0, w0 = 0.0, v1_x = 0.0, v1_y = 0.0, v1_z = 0.0, w1 = 0.0, v2_x = 0.0, v2_y = -556423400000.0, v2_z = 0.0, w2 = -183932.9
