@@ -289,3 +289,7 @@ harness = false
 [[bench]]
 name = "culling_optimization"
 harness = false
+
+[[bench]]
+name = "textured_gouraud_scanline"
+harness = false
