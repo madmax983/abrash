@@ -24,6 +24,12 @@ fn bench_fill_triangle_normal_mapped(c: &mut Criterion) {
         let p1 = (Vec3::new(-0.9, -0.9, 0.5), 1.0);
         let p2 = (Vec3::new(0.9, -0.9, 0.5), 1.0);
 
+        // World Positions (assuming model matrix is identity for bench)
+        // Clip space matches world space somewhat for bench
+        let p0_world = p0.0;
+        let p1_world = p1.0;
+        let p2_world = p2.0;
+
         // UVs
         let uv0 = Vec2::new(0.5, 0.0);
         let uv1 = Vec2::new(0.0, 1.0);
@@ -44,19 +50,32 @@ fn bench_fill_triangle_normal_mapped(c: &mut Criterion) {
         let light_color = Vec3::new(1.0, 1.0, 1.0);
         let ambient = Vec3::new(0.1, 0.1, 0.1);
 
+        // View Dir (Camera at origin looking at triangle at Z=0.5?)
+        // If triangle is at 0.5, camera at 0.
+        // ViewDir = Camera - WorldPos.
+        let camera_pos = Vec3::new(0.0, 0.0, -5.0);
+        let v0_dir = (camera_pos - p0_world).normalize();
+        let v1_dir = (camera_pos - p1_world).normalize();
+        let v2_dir = (camera_pos - p2_world).normalize();
+
+        let specular = Vec3::new(1.0, 1.0, 1.0);
+        let shininess = 32.0;
+
         b.iter(|| {
             zb.clear();
             fill_triangle_normal_mapped(
                 &mut fb,
                 &mut zb,
-                black_box((p0, uv0, n0, t0)),
-                black_box((p1, uv1, n1, t1)),
-                black_box((p2, uv2, n2, t2)),
+                black_box((p0, uv0, n0, t0, v0_dir)),
+                black_box((p1, uv1, n1, t1, v1_dir)),
+                black_box((p2, uv2, n2, t2, v2_dir)),
                 &diffuse_map,
                 &normal_map,
                 black_box(light_dir),
                 black_box(light_color),
                 black_box(ambient),
+                black_box(specular),
+                black_box(shininess),
             );
         });
     });

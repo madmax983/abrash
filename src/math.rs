@@ -616,7 +616,7 @@ impl Mat4 {
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[target_feature(enable = "avx2")]
-    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) { unsafe {
         use std::arch::x86_64::*;
 
         let len = points.len();
@@ -756,7 +756,7 @@ impl Mat4 {
             output[i] = self.transform_point(points[i]);
             i += 1;
         }
-    }
+    }}
 
     /// Transforms multiple points by this matrix in parallel (if `parallel` feature is enabled).
     ///

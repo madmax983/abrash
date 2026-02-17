@@ -749,3 +749,16 @@ mod tests {
         assert_eq!(r1, v1);
     }
 }
+
+// For ((Vec3, f32), Vec2, Vec3, Vec4, Vec3) - Pos+W, UV, Normal, Tangent, ViewDir
+impl Lerp for ((Vec3, f32), Vec2, Vec3, Vec4, Vec3) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        (
+            self.0.lerp(other.0, t),
+            self.1.lerp(other.1, t),
+            self.2.lerp(other.2, t),
+            self.3.lerp(other.3, t),
+            self.4.lerp(other.4, t),
+        )
+    }
+}
