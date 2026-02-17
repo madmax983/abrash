@@ -478,4 +478,54 @@ mod tests {
             "Outside sphere should be culled"
         );
     }
+
+    #[test]
+    fn test_cull_aabbs_matches_scalar() {
+        // Setup Frustum
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 50.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let vp = view * proj;
+        let frustum = Frustum::from_matrix(vp);
+
+        // Create random AABBs
+        let mut aabbs = Vec::new();
+        for i in 0..100 {
+            let x = ((i % 20) as f32) - 10.0;
+            let y = ((i / 20) as f32) - 2.0;
+            let z = 0.0;
+            aabbs.push(AABB::new(
+                Vec3::new(x - 0.5, y - 0.5, z - 0.5),
+                Vec3::new(x + 0.5, y + 0.5, z + 0.5),
+            ));
+        }
+
+        // Add some definitely outside
+        aabbs.push(AABB::new(
+            Vec3::new(1000.0, 0.0, 0.0),
+            Vec3::new(1001.0, 1.0, 1.0),
+        ));
+
+        // Run Prealloc culling (which uses SIMD if available)
+        let mut simd_results = vec![false; aabbs.len()];
+        frustum.cull_aabbs_prealloc(&aabbs, &mut simd_results);
+
+        // Run Scalar manually
+        let mut scalar_results = Vec::new();
+        for aabb in &aabbs {
+            scalar_results.push(frustum.intersects_aabb(aabb));
+        }
+
+        assert_eq!(simd_results.len(), scalar_results.len());
+        for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
+            assert_eq!(
+                *simd, *scalar,
+                "Mismatch at index {}: simd={}, scalar={}",
+                i, simd, scalar
+            );
+        }
+    }
 }

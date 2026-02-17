@@ -1,6 +1,6 @@
 use abrash::culling::Frustum;
 use abrash::math::{Mat4, Vec3};
-use abrash::mesh::BoundingSphere;
+use abrash::mesh::{AABB, BoundingSphere};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_frustum_intersection(c: &mut Criterion) {
@@ -27,6 +27,18 @@ fn bench_frustum_intersection(c: &mut Criterion) {
         });
     }
 
+    // Create 10,000 AABBs
+    let mut aabbs = Vec::with_capacity(10_000);
+    for i in 0..10_000 {
+        let x = ((i % 100) as f32) - 50.0;
+        let y = ((i / 100) as f32) - 50.0;
+        let z = 0.0;
+        aabbs.push(AABB::new(
+            Vec3::new(x - 0.5, y - 0.5, z - 0.5),
+            Vec3::new(x + 0.5, y + 0.5, z + 0.5),
+        ));
+    }
+
     let mut group = c.benchmark_group("culling");
 
     group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
@@ -46,6 +58,14 @@ fn bench_frustum_intersection(c: &mut Criterion) {
             let results = frustum.cull_spheres(black_box(&spheres));
             let visible_count = results.iter().filter(|&&v| v).count();
             black_box(visible_count);
+        });
+    });
+
+    group.bench_function("frustum_cull_10k_aabbs_prealloc", |b| {
+        let mut results = vec![false; 10_000];
+        b.iter(|| {
+            frustum.cull_aabbs_prealloc(black_box(&aabbs), black_box(&mut results));
+            black_box(&results);
         });
     });
 
