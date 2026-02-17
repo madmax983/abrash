@@ -293,3 +293,7 @@ harness = false
 [[bench]]
 name = "textured_gouraud_scanline"
 harness = false
+
+[[bench]]
+name = "l_system"
+harness = false

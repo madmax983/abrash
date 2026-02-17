@@ -195,70 +195,52 @@ impl LSystem {
         mesh
     }
 
-    /// Adds a 4-sided prism segment to the mesh.
+    /// Adds a 3-sided prism segment to the mesh.
     fn add_segment(&self, mesh: &mut Mesh, turtle: &Turtle, start: Vec3, end: Vec3) {
-        // Calculate corner offsets based on turtle's Up and Left vectors
-        // We use a square cross-section aligned with the turtle's frame
         let r = turtle.radius;
+        // 3-sided prism (Triangle Tube)
+        // Vertices at 0, 120, 240 degrees around forward axis (heading)
+        // We use turtle.up as 0 degree reference.
+        // v = up * cos(theta) + left * sin(theta)
 
-        // 4 corners in local space (relative to position)
-        // c0: +Left, +Up
-        // c1: -Left, +Up
-        // c2: -Left, -Up
-        // c3: +Left, -Up
-        let corners = [
-            turtle.left * r + turtle.up * r,
-            turtle.left * -r + turtle.up * r,
-            turtle.left * -r + turtle.up * -r,
-            turtle.left * r + turtle.up * -r,
-        ];
+        // Theta = 0: cos=1, sin=0 -> up
+        // Theta = 120: cos=-0.5, sin=sqrt(3)/2 ~ 0.8660254
+        // Theta = 240: cos=-0.5, sin=-sqrt(3)/2 ~ -0.8660254
+
+        let up = turtle.up * r;
+        let left_part = turtle.left * (r * 0.866_025_4);
+        let up_part = turtle.up * (r * -0.5);
+
+        let p0 = up;
+        let p1 = up_part + left_part;
+        let p2 = up_part - left_part;
+
+        let corners = [p0, p1, p2];
 
         // Start vertices
         let base_idx = mesh.vertices.len();
         for c in &corners {
             mesh.vertices.push(start + *c);
+            mesh.normals.push(c.normalize());
         }
         // End vertices
         for c in &corners {
             mesh.vertices.push(end + *c);
-        }
-
-        // Normals (approximate as face normals or vertex normals?)
-        // For flat shading (prisms), we need duplicated vertices if we want sharp edges.
-        // But here we are sharing vertices for the corners.
-        // If we share vertices, the normal will be interpolated, making it look round (smooth shading).
-        // Since `Mesh` doesn't enforce smooth/flat, let's just push normals pointing out from center.
-
-        // Actually, let's just push vertices. Normals are optional for now or calculated later.
-        // But `Mesh` expects `normals` if we want lighting.
-        // Let's add normals pointing away from the segment axis.
-        for c in &corners {
-            mesh.normals.push(c.normalize());
-        }
-        for c in &corners {
             mesh.normals.push(c.normalize());
         }
 
-        // Indices (Triangles)
-        // 4 faces, 2 triangles each.
-        // Vertices: 0-3 (start), 4-7 (end)
-        // Face 0: 0, 4, 5, 1 (Side +Up) -> No, +Left/+Up is corner.
-        // Let's connect the sides.
-        // Side 1: 0 -> 4 -> 5 -> 1
-        mesh.indices.push([base_idx + 0, base_idx + 4, base_idx + 5]);
-        mesh.indices.push([base_idx + 0, base_idx + 5, base_idx + 1]);
+        // Indices (3 faces)
+        // Face 0: 0 -> 3 -> 4 -> 1
+        mesh.indices.push([base_idx + 0, base_idx + 3, base_idx + 4]);
+        mesh.indices.push([base_idx + 0, base_idx + 4, base_idx + 1]);
 
-        // Side 2: 1 -> 5 -> 6 -> 2
-        mesh.indices.push([base_idx + 1, base_idx + 5, base_idx + 6]);
-        mesh.indices.push([base_idx + 1, base_idx + 6, base_idx + 2]);
+        // Face 1: 1 -> 4 -> 5 -> 2
+        mesh.indices.push([base_idx + 1, base_idx + 4, base_idx + 5]);
+        mesh.indices.push([base_idx + 1, base_idx + 5, base_idx + 2]);
 
-        // Side 3: 2 -> 6 -> 7 -> 3
-        mesh.indices.push([base_idx + 2, base_idx + 6, base_idx + 7]);
-        mesh.indices.push([base_idx + 2, base_idx + 7, base_idx + 3]);
-
-        // Side 4: 3 -> 7 -> 4 -> 0
-        mesh.indices.push([base_idx + 3, base_idx + 7, base_idx + 4]);
-        mesh.indices.push([base_idx + 3, base_idx + 4, base_idx + 0]);
+        // Face 2: 2 -> 5 -> 3 -> 0
+        mesh.indices.push([base_idx + 2, base_idx + 5, base_idx + 3]);
+        mesh.indices.push([base_idx + 2, base_idx + 3, base_idx + 0]);
     }
 }
 
@@ -288,10 +270,10 @@ mod tests {
         let lsys = LSystem::new("F", 90.0, 1.0, 0.1);
         let mesh = lsys.generate_mesh(1);
 
-        // Should have 8 vertices (4 start, 4 end)
-        assert_eq!(mesh.vertices.len(), 8);
-        // Should have 8 triangles (4 faces * 2)
-        assert_eq!(mesh.indices.len(), 8);
+        // Should have 6 vertices (3 start, 3 end)
+        assert_eq!(mesh.vertices.len(), 6);
+        // Should have 6 triangles (3 faces * 2)
+        assert_eq!(mesh.indices.len(), 6);
     }
 
     #[test]
