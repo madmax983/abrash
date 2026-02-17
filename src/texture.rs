@@ -127,8 +127,8 @@ impl Texture {
 
         let size = u64::from(width)
             .checked_mul(u64::from(height))
-            .filter(|&s| u32::try_from(s).is_ok())
-            .ok_or("Texture size overflow")? as usize;
+            .filter(|&s| i32::try_from(s).is_ok())
+            .ok_or("Texture size overflow (max i32::MAX pixels)")? as usize;
 
         let width_shift = if width.is_power_of_two() {
             width.trailing_zeros() as u8
