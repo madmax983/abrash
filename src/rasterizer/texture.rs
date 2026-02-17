@@ -1183,9 +1183,9 @@ pub fn fill_triangle_textured(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -2132,7 +2132,6 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
     }
 
     // Scalar Tail
@@ -2339,9 +2338,9 @@ pub fn fill_triangle_normal_mapped(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -3156,6 +3155,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
+        }
     }
 
     // Scalar Tail
@@ -3567,9 +3567,9 @@ pub fn fill_triangle_textured_gouraud(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
