@@ -6,8 +6,8 @@
 //! Use the --ssao flag to control initial state (default: on).
 //! SSAO toggles every 3 seconds for comparison.
 
-use abrash::experimental::ssao::apply_ssao;
 use abrash::framebuffer::Framebuffer;
+use abrash::post_process::apply_ssao;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{Window, WindowBackend};
