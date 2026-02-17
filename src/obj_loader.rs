@@ -28,6 +28,43 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
+use std::hash::{BuildHasher, Hasher};
+
+/// A fast hasher for u64 keys, similar to FxHash.
+/// This avoids the overhead of SipHash for simple integer keys.
+#[derive(Default)]
+struct FastHasher {
+    hash: u64,
+}
+
+impl Hasher for FastHasher {
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // Fallback for non-u64 keys (should not be used here)
+        let mut hash = self.hash;
+        for &b in bytes {
+            hash = (hash.rotate_left(5) ^ u64::from(b)).wrapping_mul(0x517c_c1b7_2722_0a95);
+        }
+        self.hash = hash;
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.hash = (self.hash.rotate_left(5) ^ i).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+}
+
+#[derive(Clone, Default)]
+struct FastHasherBuilder;
+
+impl BuildHasher for FastHasherBuilder {
+    type Hasher = FastHasher;
+    fn build_hasher(&self) -> Self::Hasher {
+        FastHasher::default()
+    }
+}
 
 /// Optimized integer parser for OBJ indices.
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
@@ -114,7 +151,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Deduplication structure:
     // Key: Packed u64 (v_idx | vt_idx << 20 | vn_idx << 40)
     // Value: index in final_vertices.
-    let mut deduplicator: HashMap<u64, usize> = HashMap::with_capacity(estimated_capacity);
+    let mut deduplicator: HashMap<u64, usize, FastHasherBuilder> =
+        HashMap::with_capacity_and_hasher(estimated_capacity, FastHasherBuilder);
 
     let mut final_vertices = Vec::with_capacity(estimated_capacity);
     let mut final_uvs = Vec::with_capacity(estimated_capacity);
