@@ -20,8 +20,10 @@ pub use self::phong::{
     fill_triangle_lit, fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit,
 };
 pub use self::texture::{
-    PerspectiveSpanStart, PerspectiveTextureGradients, draw_scanline_textured_perspective,
-    fill_triangle_normal_mapped, fill_triangle_textured, fill_triangle_textured_gouraud,
+    PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
+    TexturedGouraudSpanStart, draw_scanline_textured_gouraud,
+    draw_scanline_textured_perspective, fill_triangle_normal_mapped, fill_triangle_textured,
+    fill_triangle_textured_gouraud,
 };
 
 // Re-export internal helpers for experimental modules
