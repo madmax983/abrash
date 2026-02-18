@@ -615,6 +615,10 @@ fn draw_scanline_point_lit(
     light_color: Vec3,
     attenuation: Vec3,
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -933,6 +937,10 @@ fn draw_scanline_phong_shadowed(
     shadow_map: &ZBuffer,
     light_vp: Mat4,
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -1687,6 +1695,10 @@ fn draw_scanline_phong(
     neg_light_dir: Vec3,
     ambient_255: Vec3, // Pre-scaled
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
