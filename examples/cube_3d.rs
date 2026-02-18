@@ -7,6 +7,9 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
@@ -21,7 +24,44 @@ const COLORS: [u32; 6] = [
     0xFF00_FFFF, // Cyan - left
 ];
 
+fn print_banner() {
+    println!("\n{}", "🧊 Cube 3D Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Basic 3D cube rendering").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("Software Rasterizer").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
     let mut window = Window::new("Abrash - 3D Cube", WIDTH, HEIGHT)?;
     let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
     let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
