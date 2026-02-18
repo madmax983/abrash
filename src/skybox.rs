@@ -299,9 +299,9 @@ pub fn fill_triangle_skybox(
 
     for i in 0..clipped.count {
         let base = i * 3;
-        let v0 = clipped.tris[base];
-        let v1 = clipped.tris[base + 1];
-        let v2 = clipped.tris[base + 2];
+        let v0 = clipped[base];
+        let v1 = clipped[base + 1];
+        let v2 = clipped[base + 2];
 
         // Project
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
