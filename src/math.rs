@@ -231,6 +231,7 @@ impl Vec3 {
 
     /// Calculates the Euclidean length (magnitude) of the vector.
     #[must_use]
+    #[inline]
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -257,9 +258,12 @@ impl Vec3 {
     /// ```
     #[must_use]
     pub fn normalize(&self) -> Self {
-        let len = self.length();
-        if len > 0.0001 {
-            let inv_len = 1.0 / len;
+        // Optimization: Use rsqrt instead of 1.0/sqrt.
+        // We use len_sq to avoid sqrt if the vector is too small.
+        // 0.0001^2 = 0.00000001
+        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        if len_sq > 0.00000001 {
+            let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
