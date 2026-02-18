@@ -46,6 +46,16 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
     y * (1.5 - xhalf * y * y)
 }
 
+/// A 2-component vector, used for texture coordinates (UVs) and 2D positions.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec2;
+///
+/// let uv = Vec2::new(0.5, 0.5);
+/// assert_eq!(uv.x, 0.5);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
@@ -54,6 +64,7 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    /// Creates a new 2D vector.
     #[must_use]
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
@@ -93,6 +104,22 @@ impl Mul<f32> for Vec2 {
     }
 }
 
+/// A 2x2 matrix, primarily used for 2D rotations and transformations.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Mat2, Vec2};
+///
+/// // Rotate 90 degrees (PI/2)
+/// let rot = Mat2::rotation(std::f32::consts::FRAC_PI_2);
+/// let v = Vec2::new(1.0, 0.0);
+/// let v_prime = rot.transform(v);
+///
+/// // (1, 0) rotated 90 deg -> (0, 1)
+/// assert!((v_prime.x).abs() < 1e-6);
+/// assert!((v_prime.y - 1.0).abs() < 1e-6);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat2 {
@@ -100,6 +127,9 @@ pub struct Mat2 {
 }
 
 impl Mat2 {
+    /// Creates a 2D rotation matrix.
+    ///
+    /// * `angle`: Rotation angle in radians (counter-clockwise).
     #[must_use]
     pub fn rotation(angle: f32) -> Self {
         let cos = angle.cos();
@@ -125,13 +155,13 @@ impl Mat2 {
         }
     }
 
-    /// Transform multiple vectors at once
+    /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
         vertices.iter().map(|&v| self.transform(v)).collect()
     }
 
-    /// Transform vertices in place
+    /// Transform vertices in place.
     pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
         for v in vertices.iter_mut() {
             *v = self.transform(*v);
@@ -521,6 +551,13 @@ impl Mat4 {
     /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
     /// vectorize loops that call this function.
     ///
+    /// # Safety
+    ///
+    /// The SIMD implementation uses `_mm_loadu_ps` (load unaligned packed single), which safely
+    /// handles unaligned memory access. This is necessary because the `m` field of `Mat4`
+    /// is a `[[f32; 4]; 4]` array, which is not guaranteed to be 16-byte aligned by Rust's
+    /// default layout.
+    ///
     /// # Examples
     ///
     /// ```
@@ -539,6 +576,8 @@ impl Mat4 {
     #[inline]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        // SAFETY: We use _mm_loadu_ps which is safe for potentially unaligned addresses.
+        // We rely on the `simd` feature gate ensuring SSE is available.
         unsafe {
             use std::arch::x86_64::{
                 _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,

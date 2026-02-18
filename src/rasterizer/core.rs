@@ -17,6 +17,11 @@ use crate::math::{ScreenPoint, Vec3};
 use crate::zbuffer::ZBuffer;
 
 /// Fixed point scale factor (16.16)
+///
+/// This constant defines the shift amount for 16.16 fixed-point arithmetic.
+/// Value is $2^{16} = 65536.0$.
+///
+/// Used to convert floating-point coordinates to fixed-point integers for sub-pixel precision.
 pub const FIXED_SCALE: f32 = 65536.0;
 
 /// Helper to ensure buffer dimensions match
@@ -203,8 +208,12 @@ pub unsafe fn blend_swar_simd(
 /// Helper to iterate along the edge of a triangle in screen space.
 ///
 /// This struct manages the state for walking down a triangle edge, interpolating
-/// X and Z coordinates. It uses fixed-point arithmetic for X to ensure
-/// pixel-perfect rasterization consistency.
+/// X and Z coordinates. It uses **16.16 fixed-point arithmetic** for the X coordinate
+/// to ensure pixel-perfect rasterization consistency and avoid "cracks" between adjacent triangles
+/// that can occur with floating-point errors.
+///
+/// *   **16.16 Format**: The upper 16 bits represent the integer pixel coordinate, and the lower
+///     16 bits represent the fractional sub-pixel position.
 pub(crate) struct EdgeWalker {
     /// Current X coordinate in 16.16 fixed-point format.
     ///

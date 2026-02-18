@@ -55,7 +55,7 @@
 //! The rasterizer uses a **scanline** approach. It breaks the triangle into two segments (top-half and bottom-half)
 //! and iterates row by row.
 //!
-//! *   **Edge Walking**: Uses the [`core::EdgeWalker`] to interpolate X coordinates and attributes along the left and right edges.
+//! *   **Edge Walking**: Uses an internal `EdgeWalker` to interpolate X coordinates and attributes along the left and right edges.
 //! *   **Span Drawing**: For each scanline, it iterates from `x_start` to `x_end`, interpolating attributes horizontally and writing to the framebuffer.
 //! *   **SIMD**: Key paths (like texture mapping and lighting) are optimized with AVX2 intrinsics for modern CPUs.
 

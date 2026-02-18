@@ -159,6 +159,20 @@ impl Texture {
         }
     }
 
+    /// Sets a pixel color at the specified coordinates.
+    ///
+    /// Coordinates are 0-based.
+    /// Does nothing if coordinates are out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::texture::Texture;
+    ///
+    /// let mut tex = Texture::new(4, 4).unwrap();
+    /// // Set pixel at (2, 2) to Red
+    /// tex.set_pixel(2, 2, 0xFFFF0000);
+    /// ```
     pub fn set_pixel(&mut self, x: u32, y: u32, color: u32) {
         if x < self.width && y < self.height {
             let idx = self.row_offset(y as usize) + (x as usize);
@@ -168,6 +182,14 @@ impl Texture {
 
     /// Generates mipmaps for the texture.
     /// Should be called after modifying pixels if Trilinear filtering is used.
+    ///
+    /// # Algorithm
+    ///
+    /// Uses a **Box Filter** (Simple Average) to downsample the texture.
+    /// Each pixel in mip level `L+1` is the arithmetic mean of the corresponding
+    /// 2x2 block of pixels in level `L`.
+    ///
+    /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
     ///
     /// # Panics
     ///
