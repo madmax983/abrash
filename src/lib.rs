@@ -93,7 +93,6 @@ pub mod zbuffer;
 pub mod ascii;
 pub mod clipping;
 pub mod culling;
-pub mod experimental;
 pub mod heat_vision;
 pub mod hiz_buffer;
 pub mod obj_loader;
@@ -109,6 +108,3 @@ pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
-
-#[cfg(feature = "nova")]
-pub mod experimental;
