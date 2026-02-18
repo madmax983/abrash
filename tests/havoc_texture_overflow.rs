@@ -17,7 +17,7 @@ proptest! {
 
         if let Ok(Ok(tex)) = res {
             let logical_size = u64::from(w) * u64::from(h);
-            let actual_size = tex.pixels.len() as u64;
+            let actual_size = tex.pixels().len() as u64;
 
             // This assertion MUST fail if the vulnerability exists
             assert_eq!(logical_size, actual_size,

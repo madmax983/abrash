@@ -57,46 +57,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Normal Map: Create a "bump" in the center
     // Flat normal is (0.5, 0.5, 1.0) -> 0x8080FF
-    let mut normal_map_pixels = vec![0xFFFF8080; 256 * 256]; // Default flat (ABGR: A=FF B=FF G=80 R=80 ? No, Normal Z=1 maps to 255. 0.5->128=0x80. So R=80, G=80, B=FF.
-    // wait, u32 color is 0xAARRGGBB.
-    // R = X, G = Y, B = Z.
-    // (0, 0, 1) -> (0.5, 0.5, 1.0) -> (128, 128, 255) -> 0xFF8080FF.
+    let mut normal_map = Texture::new(256, 256).unwrap();
+    normal_map.filter_mode = abrash::texture::FilterMode::Nearest;
 
-    for y in 0..256 {
-        for x in 0..256 {
-            let dx = (x as f32 - 128.0) / 128.0;
-            let dy = (y as f32 - 128.0) / 128.0;
-            let dist = (dx * dx + dy * dy).sqrt();
+    {
+        let pixels = normal_map.pixels_mut();
+        // Default flat (0, 0, 1) -> (0.5, 0.5, 1.0) -> (128, 128, 255) -> 0xFF8080FF.
+        // u32 color is 0xAARRGGBB. R=X, G=Y, B=Z.
 
-            if dist < 0.8 {
-                // Sphere/Hemisphere normal
-                // z = sqrt(1 - x^2 - y^2)
-                let z = (1.0 - dist * dist).sqrt();
-                let nx = dx; // Simplified
-                let ny = dy;
-                let nz = z;
+        for y in 0..256 {
+            for x in 0..256 {
+                let dx = (x as f32 - 128.0) / 128.0;
+                let dy = (y as f32 - 128.0) / 128.0;
+                let dist = (dx * dx + dy * dy).sqrt();
 
-                let n = Vec3::new(nx, ny, nz).normalize();
+                if dist < 0.8 {
+                    // Sphere/Hemisphere normal
+                    // z = sqrt(1 - x^2 - y^2)
+                    let z = (1.0 - dist * dist).sqrt();
+                    let nx = dx; // Simplified
+                    let ny = dy;
+                    let nz = z;
 
-                let r = ((n.x * 0.5 + 0.5) * 255.0) as u32;
-                let g = ((n.y * 0.5 + 0.5) * 255.0) as u32;
-                let b = ((n.z * 0.5 + 0.5) * 255.0) as u32;
+                    let n = Vec3::new(nx, ny, nz).normalize();
 
-                normal_map_pixels[y * 256 + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
-            } else {
-                normal_map_pixels[y * 256 + x] = 0xFF8080FF;
+                    let r = ((n.x * 0.5 + 0.5) * 255.0) as u32;
+                    let g = ((n.y * 0.5 + 0.5) * 255.0) as u32;
+                    let b = ((n.z * 0.5 + 0.5) * 255.0) as u32;
+
+                    pixels[y * 256 + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                } else {
+                    pixels[y * 256 + x] = 0xFF8080FF;
+                }
             }
         }
     }
-
-    let normal_map = Texture {
-        width: 256,
-        height: 256,
-        pixels: normal_map_pixels,
-        width_shift: 8,
-        mips: Vec::new(),
-        filter_mode: abrash::texture::FilterMode::Nearest,
-    };
 
     // Quad vertices
     // Position, UV, Normal, Tangent

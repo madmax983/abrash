@@ -31,7 +31,8 @@ unsafe fn draw_scanline_gouraud_simd_fast(
     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
 
-    let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec =
+        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
 
     // Initialize colors: Start + (dc * i)
     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
@@ -163,7 +164,8 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
     let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
 
-    let mut z_vec = unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec =
+        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
 
     // Initialize colors: Start + (dc * i)
     let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };

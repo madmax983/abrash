@@ -90,19 +90,48 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 
 /// A simple 2D texture.
 pub struct Texture {
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
-    pub width_shift: u8,
-    pub pixels: Vec<u32>,
+    width_shift: u8,
+    pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
-    pub mips: Vec<Vec<u32>>,
+    mips: Vec<Vec<u32>>,
     pub filter_mode: FilterMode,
 }
 
 impl Texture {
+    #[must_use]
+    pub const fn width(&self) -> u32 {
+        self.width
+    }
+
+    #[must_use]
+    pub const fn height(&self) -> u32 {
+        self.height
+    }
+
+    #[must_use]
+    pub const fn width_shift(&self) -> u8 {
+        self.width_shift
+    }
+
+    #[must_use]
+    pub fn pixels(&self) -> &[u32] {
+        &self.pixels
+    }
+
+    pub fn pixels_mut(&mut self) -> &mut [u32] {
+        &mut self.pixels
+    }
+
+    #[must_use]
+    pub fn mips(&self) -> &[Vec<u32>] {
+        &self.mips
+    }
+
     /// Creates a new texture with the given dimensions.
     ///
     /// # Errors
@@ -593,7 +622,7 @@ mod tests {
         let mut tex = Texture::new(4, 4).unwrap();
         // Fill base level with Black
         for i in 0..16 {
-            tex.pixels[i] = 0xFF00_0000;
+            tex.pixels_mut()[i] = 0xFF00_0000;
         }
         tex.generate_mipmaps();
 

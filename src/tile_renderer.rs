@@ -1367,8 +1367,8 @@ impl TileRenderer {
         }
 
         // Phase 1: Prepare
-        let tex_w = texture.width as f32;
-        let tex_h = texture.height as f32;
+        let tex_w = texture.width() as f32;
+        let tex_h = texture.height() as f32;
         for &(v0, uv0, v1, uv1, v2, uv2) in triangles {
             self.prepare_triangle_textured((v0, uv0), (v1, uv1), (v2, uv2), tex_w, tex_h);
         }

@@ -9,7 +9,7 @@ mod tests {
         let mut tex = Texture::new(16, 16).unwrap();
         // Fill with some data
         for i in 0..16 * 16 {
-            tex.pixels[i] = 0xFFFF_FFFF;
+            tex.pixels_mut()[i] = 0xFFFF_FFFF;
         }
         tex.generate_mipmaps();
 

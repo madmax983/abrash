@@ -93,6 +93,7 @@ pub mod zbuffer;
 pub mod ascii;
 pub mod clipping;
 pub mod culling;
+pub mod experimental;
 pub mod heat_vision;
 pub mod hiz_buffer;
 pub mod obj_loader;
@@ -102,7 +103,6 @@ pub mod procedural;
 pub mod skybox;
 pub mod texture;
 pub mod tile_renderer;
-pub mod experimental;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;

@@ -1,4 +1,4 @@
-use abrash::math::{Mat4, Vec3, project_triangle_to_screen, project_to_screen_optimized};
+use abrash::math::{Mat4, Vec3, project_to_screen_optimized, project_triangle_to_screen};
 use proptest::prelude::*;
 
 // Define strategies for Vec3 and Mat4 using ANY float (NaN, Inf, Subnormal)
