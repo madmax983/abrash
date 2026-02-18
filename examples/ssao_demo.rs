@@ -26,7 +26,7 @@ fn create_floor() -> Mesh {
 
     // 4 vertices
     mesh.vertices.push(Vec3::new(-h, 0.0, h)); // 0
-    mesh.vertices.push(Vec3::new(h, 0.0, h));  // 1
+    mesh.vertices.push(Vec3::new(h, 0.0, h)); // 1
     mesh.vertices.push(Vec3::new(h, 0.0, -h)); // 2
     mesh.vertices.push(Vec3::new(-h, 0.0, -h)); // 3
 
@@ -101,7 +101,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fill_triangle_lit(
                 &mut framebuffer,
                 &mut zbuffer,
-                v0, v1, v2,
+                v0,
+                v1,
+                v2,
                 normal,
                 floor_color,
                 ambient_color,
@@ -138,7 +140,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fill_triangle_lit(
                     &mut framebuffer,
                     &mut zbuffer,
-                    v0, v1, v2,
+                    v0,
+                    v1,
+                    v2,
                     normal,
                     cube_color,
                     ambient_color,

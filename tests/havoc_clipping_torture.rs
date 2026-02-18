@@ -1,4 +1,4 @@
-use abrash::clipping::{clip_triangle_to_frustum, ClippedTriangles};
+use abrash::clipping::{ClippedTriangles, clip_triangle_to_frustum};
 use abrash::math::Vec3;
 use proptest::prelude::*;
 
@@ -61,9 +61,18 @@ proptest! {
 fn test_clip_triangle_nan_panic() {
     // Explicitly construct a case that might cause trouble
     // NaN position
-    let v0 = TestVertex { pos: Vec3::new(f32::NAN, 0.0, 0.0), w: 1.0 };
-    let v1 = TestVertex { pos: Vec3::new(0.0, 0.0, 0.0), w: 1.0 };
-    let v2 = TestVertex { pos: Vec3::new(1.0, 1.0, 0.0), w: 1.0 };
+    let v0 = TestVertex {
+        pos: Vec3::new(f32::NAN, 0.0, 0.0),
+        w: 1.0,
+    };
+    let v1 = TestVertex {
+        pos: Vec3::new(0.0, 0.0, 0.0),
+        w: 1.0,
+    };
+    let v2 = TestVertex {
+        pos: Vec3::new(1.0, 1.0, 0.0),
+        w: 1.0,
+    };
 
     // Should not panic
     let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);
@@ -72,9 +81,18 @@ fn test_clip_triangle_nan_panic() {
 #[test]
 fn test_clip_triangle_inf_panic() {
     // Infinity position
-    let v0 = TestVertex { pos: Vec3::new(f32::INFINITY, 0.0, 0.0), w: 1.0 };
-    let v1 = TestVertex { pos: Vec3::new(0.0, 0.0, 0.0), w: 1.0 };
-    let v2 = TestVertex { pos: Vec3::new(1.0, 1.0, 0.0), w: 1.0 };
+    let v0 = TestVertex {
+        pos: Vec3::new(f32::INFINITY, 0.0, 0.0),
+        w: 1.0,
+    };
+    let v1 = TestVertex {
+        pos: Vec3::new(0.0, 0.0, 0.0),
+        w: 1.0,
+    };
+    let v2 = TestVertex {
+        pos: Vec3::new(1.0, 1.0, 0.0),
+        w: 1.0,
+    };
 
     // Should not panic
     let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);

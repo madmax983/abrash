@@ -147,22 +147,26 @@ impl LSystem {
                 }
                 '+' => {
                     // Yaw Left (around Up)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
+                    turtle.heading =
+                        rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
                 '-' => {
                     // Yaw Right (around Up)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
+                    turtle.heading =
+                        rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
                 '&' => {
                     // Pitch Down (around Left)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
+                    turtle.heading =
+                        rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
                 '^' => {
                     // Pitch Up (around Left)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
+                    turtle.heading =
+                        rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
                 '\\' => {
@@ -245,20 +249,28 @@ impl LSystem {
         // Face 0: 0, 4, 5, 1 (Side +Up) -> No, +Left/+Up is corner.
         // Let's connect the sides.
         // Side 1: 0 -> 4 -> 5 -> 1
-        mesh.indices.push([base_idx + 0, base_idx + 4, base_idx + 5]);
-        mesh.indices.push([base_idx + 0, base_idx + 5, base_idx + 1]);
+        mesh.indices
+            .push([base_idx + 0, base_idx + 4, base_idx + 5]);
+        mesh.indices
+            .push([base_idx + 0, base_idx + 5, base_idx + 1]);
 
         // Side 2: 1 -> 5 -> 6 -> 2
-        mesh.indices.push([base_idx + 1, base_idx + 5, base_idx + 6]);
-        mesh.indices.push([base_idx + 1, base_idx + 6, base_idx + 2]);
+        mesh.indices
+            .push([base_idx + 1, base_idx + 5, base_idx + 6]);
+        mesh.indices
+            .push([base_idx + 1, base_idx + 6, base_idx + 2]);
 
         // Side 3: 2 -> 6 -> 7 -> 3
-        mesh.indices.push([base_idx + 2, base_idx + 6, base_idx + 7]);
-        mesh.indices.push([base_idx + 2, base_idx + 7, base_idx + 3]);
+        mesh.indices
+            .push([base_idx + 2, base_idx + 6, base_idx + 7]);
+        mesh.indices
+            .push([base_idx + 2, base_idx + 7, base_idx + 3]);
 
         // Side 4: 3 -> 7 -> 4 -> 0
-        mesh.indices.push([base_idx + 3, base_idx + 7, base_idx + 4]);
-        mesh.indices.push([base_idx + 3, base_idx + 4, base_idx + 0]);
+        mesh.indices
+            .push([base_idx + 3, base_idx + 7, base_idx + 4]);
+        mesh.indices
+            .push([base_idx + 3, base_idx + 4, base_idx + 0]);
     }
 }
 

@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::rasterizer::{
-    draw_scanline_textured_perspective, PerspectiveSpanStart, PerspectiveTextureGradients,
+    PerspectiveSpanStart, PerspectiveTextureGradients, draw_scanline_textured_perspective,
 };
-use abrash::texture::{Texture, FilterMode};
+use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
@@ -37,7 +37,7 @@ fn bench_draw_scanline_trilinear_100px(c: &mut Criterion) {
     // Try du_dx = 2.0 (should pick Level 1 or mix between 0 and 1)
     let gradients = PerspectiveTextureGradients {
         dz_dx: 0.001,
-        dq_dx: 0.0,   // No perspective distortion (w constant)
+        dq_dx: 0.0,         // No perspective distortion (w constant)
         du_dx: 2.0 / 256.0, // traverse 2 texels per pixel
         dv_dx: 0.0,
         dq_dy: 0.0,
