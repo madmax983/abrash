@@ -132,6 +132,195 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
     }
 }
 
+fn box_blur_f32_horizontal(
+    src: &[f32],
+    dest: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    let scale = 1.0 / ((2 * radius + 1) as f32);
+
+    for y in 0..height {
+        let row_offset = y * width;
+        let src_row = &src[row_offset..row_offset + width];
+        let dst_row = &mut dest[row_offset..row_offset + width];
+
+        let mut acc = 0.0;
+
+        // Pre-fill accumulator
+        let first = src_row[0];
+        // Left boundary: clamp to first
+        for _ in 0..=radius {
+            acc += first;
+        }
+        // Right side of kernel
+        for x in 1..=radius {
+            acc += src_row[x.min(width - 1)];
+        }
+
+        for (x, dst_val) in dst_row.iter_mut().enumerate() {
+            *dst_val = acc * scale;
+
+            // Slide window
+            let outgoing = if x >= radius {
+                src_row[x - radius]
+            } else {
+                first
+            };
+
+            let incoming = src_row[(x + radius + 1).min(width - 1)];
+
+            acc = acc - outgoing + incoming;
+        }
+    }
+}
+
+fn box_blur_f32_vertical(
+    src: &[f32],
+    dest: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                box_blur_f32_vertical_avx2(src, dest, width, height, radius);
+            }
+            return;
+        }
+    }
+    box_blur_f32_vertical_scalar(src, dest, width, height, radius);
+}
+
+fn box_blur_f32_vertical_scalar(
+    src: &[f32],
+    dest: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    let scale = 1.0 / ((2 * radius + 1) as f32);
+    let mut acc = vec![0.0; width];
+
+    // Pre-fill accumulators
+    let row0 = &src[0..width];
+    for x in 0..width {
+        acc[x] += row0[x] * ((radius + 1) as f32);
+    }
+
+    for y in 1..=radius {
+        let row_idx = y.min(height - 1);
+        let row = &src[row_idx * width..(row_idx + 1) * width];
+        for x in 0..width {
+            acc[x] += row[x];
+        }
+    }
+
+    for y in 0..height {
+        let dst_row = &mut dest[y * width..(y + 1) * width];
+        for (x, dst_val) in dst_row.iter_mut().enumerate() {
+            *dst_val = acc[x] * scale;
+        }
+
+        // Update accumulators
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let in_y = (y + radius + 1).min(height - 1);
+        let row_out = &src[out_y * width..(out_y + 1) * width];
+        let row_in = &src[in_y * width..(in_y + 1) * width];
+
+        for x in 0..width {
+            acc[x] = acc[x] - row_out[x] + row_in[x];
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn box_blur_f32_vertical_avx2(
+    src: &[f32],
+    dest: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    use std::arch::x86_64::*;
+
+    let scale = 1.0 / ((2 * radius + 1) as f32);
+    let scale_vec = _mm256_set1_ps(scale);
+    let mut acc = vec![0.0; width];
+
+    // 1. Pre-fill
+    // Handle in chunks of 8
+    let mut x = 0;
+    let count_init = (radius + 1) as f32;
+    let count_init_vec = _mm256_set1_ps(count_init);
+
+    let row0_ptr = src.as_ptr();
+
+    while x + 8 <= width {
+        let p = _mm256_loadu_ps(row0_ptr.add(x));
+        let added = _mm256_mul_ps(p, count_init_vec);
+        _mm256_storeu_ps(acc.as_mut_ptr().add(x), added);
+        x += 8;
+    }
+    // Tail
+    for i in x..width {
+        acc[i] = *row0_ptr.add(i) * count_init;
+    }
+
+    for y in 1..=radius {
+        let row_idx = y.min(height - 1);
+        let row_ptr = src.as_ptr().add(row_idx * width);
+        let mut x = 0;
+        while x + 8 <= width {
+            let p = _mm256_loadu_ps(row_ptr.add(x));
+            let curr = _mm256_loadu_ps(acc.as_ptr().add(x));
+            _mm256_storeu_ps(acc.as_mut_ptr().add(x), _mm256_add_ps(curr, p));
+            x += 8;
+        }
+        for i in x..width {
+            acc[i] += *row_ptr.add(i);
+        }
+    }
+
+    // 2. Main loop
+    for y in 0..height {
+        let dst_ptr = dest.as_mut_ptr().add(y * width);
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let in_y = (y + radius + 1).min(height - 1);
+
+        let out_ptr = src.as_ptr().add(out_y * width);
+        let in_ptr = src.as_ptr().add(in_y * width);
+
+        let mut x = 0;
+        while x + 8 <= width {
+            // Write
+            let curr = _mm256_loadu_ps(acc.as_ptr().add(x));
+            let res = _mm256_mul_ps(curr, scale_vec);
+            _mm256_storeu_ps(dst_ptr.add(x), res);
+
+            // Update
+            let p_out = _mm256_loadu_ps(out_ptr.add(x));
+            let p_in = _mm256_loadu_ps(in_ptr.add(x));
+            let next = _mm256_add_ps(_mm256_sub_ps(curr, p_out), p_in);
+            _mm256_storeu_ps(acc.as_mut_ptr().add(x), next);
+
+            x += 8;
+        }
+
+        // Tail
+        for i in x..width {
+            *dst_ptr.add(i) = acc[i] * scale;
+            let p_out = *out_ptr.add(i);
+            let p_in = *in_ptr.add(i);
+            acc[i] = acc[i] - p_out + p_in;
+        }
+    }
+}
+
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u8) {
@@ -1269,30 +1458,6 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-fn box_blur_f32(src: &[f32], dest: &mut [f32], width: usize, height: usize) {
-    let radius = 2; // 5x5 kernel
-
-    for y in 0..height {
-        for x in 0..width {
-            let mut sum = 0.0;
-            let mut count = 0.0;
-
-            for ky in -(radius as isize)..=radius as isize {
-                for kx in -(radius as isize)..=radius as isize {
-                    let ny = y as isize + ky;
-                    let nx = x as isize + kx;
-
-                    if ny >= 0 && ny < height as isize && nx >= 0 && nx < width as isize {
-                        sum += src[ny as usize * width + nx as usize];
-                        count += 1.0;
-                    }
-                }
-            }
-            dest[y * width + x] = sum / count;
-        }
-    }
-}
-
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
 unsafe fn apply_ssao_avx2(
@@ -1369,8 +1534,14 @@ unsafe fn apply_ssao_avx2(
 
             // Gather Noise
             let x_i = _mm256_set_epi32(
-                x as i32 + 7, x as i32 + 6, x as i32 + 5, x as i32 + 4,
-                x as i32 + 3, x as i32 + 2, x as i32 + 1, x as i32,
+                x as i32 + 7,
+                x as i32 + 6,
+                x as i32 + 5,
+                x as i32 + 4,
+                x as i32 + 3,
+                x as i32 + 2,
+                x as i32 + 1,
+                x as i32,
             );
             let noise_mask = _mm256_set1_epi32(3);
             let noise_x = _mm256_and_si256(x_i, noise_mask);
@@ -1380,7 +1551,8 @@ unsafe fn apply_ssao_avx2(
             let noise_ptr = noise.as_ptr() as *const f32;
             // Gather X and Y components of noise
             let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
-            let ry = _mm256_i32gather_ps(noise_ptr, _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)), 4);
+            let ry =
+                _mm256_i32gather_ps(noise_ptr, _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)), 4);
 
             for k in 0..KERNEL_SIZE {
                 let s = kernel[k];
@@ -1415,14 +1587,26 @@ unsafe fn apply_ssao_avx2(
                 let s_y = _mm256_cvttps_epi32(s_y_f);
 
                 // Bounds check
-                let mask_x = _mm256_and_si256(_mm256_cmpgt_epi32(s_x, minus_one_i), _mm256_cmpgt_epi32(width_i, s_x));
-                let mask_y = _mm256_and_si256(_mm256_cmpgt_epi32(s_y, minus_one_i), _mm256_cmpgt_epi32(height_i, s_y));
+                let mask_x = _mm256_and_si256(
+                    _mm256_cmpgt_epi32(s_x, minus_one_i),
+                    _mm256_cmpgt_epi32(width_i, s_x),
+                );
+                let mask_y = _mm256_and_si256(
+                    _mm256_cmpgt_epi32(s_y, minus_one_i),
+                    _mm256_cmpgt_epi32(height_i, s_y),
+                );
                 let mask_bounds = _mm256_and_si256(mask_x, mask_y);
 
                 let idx = _mm256_add_epi32(_mm256_mullo_epi32(s_y, width_i), s_x);
 
                 // Gather depths with mask
-                let existing_depth = _mm256_mask_i32gather_ps(one, zb_data.as_ptr(), idx, _mm256_castsi256_ps(mask_bounds), 4);
+                let existing_depth = _mm256_mask_i32gather_ps(
+                    one,
+                    zb_data.as_ptr(),
+                    idx,
+                    _mm256_castsi256_ps(mask_bounds),
+                    4,
+                );
 
                 let existing_z_denom = _mm256_add_ps(existing_depth, p22);
                 let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
@@ -1432,7 +1616,8 @@ unsafe fn apply_ssao_avx2(
                 let mask_range = _mm256_cmp_ps(dist, radius_vec, _CMP_LT_OQ);
 
                 // Bias check
-                let mask_bias = _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
+                let mask_bias =
+                    _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
 
                 let mask_total = _mm256_and_ps(mask_w, _mm256_castsi256_ps(mask_bounds));
                 let mask_total = _mm256_and_ps(mask_total, mask_range);
@@ -1482,10 +1667,22 @@ unsafe fn apply_ssao_avx2(
 
                 // Scalar projection
                 let (clip, w) = {
-                    let x = sample_pos.x * proj_m[0] + sample_pos.y * proj_m[4] + sample_pos.z * proj_m[8] + proj_m[12];
-                    let y = sample_pos.x * proj_m[1] + sample_pos.y * proj_m[5] + sample_pos.z * proj_m[9] + proj_m[13];
-                    let z = sample_pos.x * proj_m[2] + sample_pos.y * proj_m[6] + sample_pos.z * proj_m[10] + proj_m[14];
-                    let w = sample_pos.x * proj_m[3] + sample_pos.y * proj_m[7] + sample_pos.z * proj_m[11] + proj_m[15];
+                    let x = sample_pos.x * proj_m[0]
+                        + sample_pos.y * proj_m[4]
+                        + sample_pos.z * proj_m[8]
+                        + proj_m[12];
+                    let y = sample_pos.x * proj_m[1]
+                        + sample_pos.y * proj_m[5]
+                        + sample_pos.z * proj_m[9]
+                        + proj_m[13];
+                    let z = sample_pos.x * proj_m[2]
+                        + sample_pos.y * proj_m[6]
+                        + sample_pos.z * proj_m[10]
+                        + proj_m[14];
+                    let w = sample_pos.x * proj_m[3]
+                        + sample_pos.y * proj_m[7]
+                        + sample_pos.z * proj_m[11]
+                        + proj_m[15];
                     (Vec3::new(x, y, z), w)
                 };
 
@@ -1496,12 +1693,18 @@ unsafe fn apply_ssao_avx2(
                     let s_screen_x = ((s_ndc_x + 1.0) * half_width) as i32;
                     let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
 
-                    if s_screen_x >= 0 && s_screen_x < width as i32 && s_screen_y >= 0 && s_screen_y < height as i32 {
+                    if s_screen_x >= 0
+                        && s_screen_x < width as i32
+                        && s_screen_y >= 0
+                        && s_screen_y < height as i32
+                    {
                         let idx = s_screen_y as usize * width + s_screen_x as usize;
                         let existing_depth = zb_data[idx];
                         let existing_view_z = -proj_m[14] / (existing_depth + proj_m[10]);
                         let sample_view_z = sample_pos.z;
-                        if existing_view_z >= sample_view_z + bias && (existing_view_z - sample_view_z).abs() < radius {
+                        if existing_view_z >= sample_view_z + bias
+                            && (existing_view_z - sample_view_z).abs() < radius
+                        {
                             occlusion += 1.0;
                         }
                     }
@@ -1577,12 +1780,11 @@ pub fn apply_ssao(
         // It mostly uses diagonal and last column.
         // Scalar fallback implementation in AVX2 function reconstructs manually.
 
-        let half_width = width as f32 * 0.5;
-        let half_height = height as f32 * 0.5;
-
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
             if std::is_x86_feature_detected!("avx2") {
+                let half_width = width as f32 * 0.5;
+                let half_height = height as f32 * 0.5;
                 unsafe {
                     apply_ssao_avx2(
                         occlusion_buffer,
@@ -1599,17 +1801,41 @@ pub fn apply_ssao(
                     );
                 }
             } else {
-                apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, width, height, radius, bias);
+                apply_ssao_scalar(
+                    occlusion_buffer,
+                    zb,
+                    proj,
+                    kernel,
+                    noise,
+                    width,
+                    height,
+                    radius,
+                    bias,
+                );
             }
         }
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, width, height, radius, bias);
+        apply_ssao_scalar(
+            occlusion_buffer,
+            zb,
+            proj,
+            kernel,
+            noise,
+            width,
+            height,
+            radius,
+            bias,
+        );
 
-        box_blur_f32(occlusion_buffer, scratch_buffer, width, height);
+        let blur_radius = 2;
+        // 1. Horizontal Pass: occlusion_buffer -> scratch_buffer
+        box_blur_f32_horizontal(occlusion_buffer, scratch_buffer, width, height, blur_radius);
+        // 2. Vertical Pass: scratch_buffer -> occlusion_buffer
+        box_blur_f32_vertical(scratch_buffer, occlusion_buffer, width, height, blur_radius);
 
         let pixels = fb.as_mut_slice();
         for (i, p) in pixels.iter_mut().enumerate() {
-            let occ = scratch_buffer[i];
+            let occ = occlusion_buffer[i];
             let factor = 1.0 - (occ / KERNEL_SIZE as f32) * intensity;
             let factor = factor.clamp(0.0, 1.0);
 
@@ -1693,8 +1919,7 @@ fn apply_ssao_scalar(
                         && s_screen_y >= 0
                         && s_screen_y < height as i32
                     {
-                        let existing_depth =
-                            zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
+                        let existing_depth = zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
                         let existing_view_z = -p32 / (existing_depth + p22);
                         let sample_view_z = sample_pos.z;
                         let range_check = (existing_view_z - sample_view_z).abs() < radius;

@@ -77,7 +77,11 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     // On 64-bit, usize is u64 (max ~1.8e19, 19 full digits).
     // On 32-bit, usize is u32 (max ~4e9, 9 full digits).
     // We strictly reject numbers longer than this to guarantee no overflow without checking.
-    const MAX_DIGITS: usize = if std::mem::size_of::<usize>() >= 8 { 19 } else { 9 };
+    const MAX_DIGITS: usize = if std::mem::size_of::<usize>() >= 8 {
+        19
+    } else {
+        9
+    };
 
     if bytes.len() > MAX_DIGITS {
         return None;
