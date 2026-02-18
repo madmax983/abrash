@@ -44,19 +44,26 @@ fn bench_fill_triangle_normal_mapped(c: &mut Criterion) {
         let light_color = Vec3::new(1.0, 1.0, 1.0);
         let ambient = Vec3::new(0.1, 0.1, 0.1);
 
+        let view_pos = Vec3::new(0.0, 0.0, 5.0);
+        let shininess = 32.0;
+        let specular = Vec3::new(1.0, 1.0, 1.0);
+
         b.iter(|| {
             zb.clear();
             fill_triangle_normal_mapped(
                 &mut fb,
                 &mut zb,
-                black_box((p0, uv0, n0, t0)),
-                black_box((p1, uv1, n1, t1)),
-                black_box((p2, uv2, n2, t2)),
+                black_box((p0, uv0, n0, t0, p0.0)),
+                black_box((p1, uv1, n1, t1, p1.0)),
+                black_box((p2, uv2, n2, t2, p2.0)),
                 &diffuse_map,
                 &normal_map,
                 black_box(light_dir),
                 black_box(light_color),
                 black_box(ambient),
+                black_box(view_pos),
+                black_box(shininess),
+                black_box(specular),
             );
         });
     });

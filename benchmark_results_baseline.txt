@@ -1,3 +1,1 @@
-apply_grayscale 1080p: ~1.83 ms
-apply_scanlines 1080p: ~293 µs
-apply_invert 1080p: ~433 µs
+fill_triangle_normal_mapped:   [2.4047 ms 2.4829 ms 2.5587 ms]

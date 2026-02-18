@@ -1371,6 +1371,9 @@ struct NormalMapGradients {
     dlx_dx: f32, // lx/w (Tangent Space Light X)
     dly_dx: f32,
     dlz_dx: f32,
+    dvx_dx: f32, // vx/w (Tangent Space View X)
+    dvy_dx: f32,
+    dvz_dx: f32,
 }
 
 impl NormalMapGradients {
@@ -1391,6 +1394,9 @@ impl NormalMapGradients {
         l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
         l1: Vec3,
         l2: Vec3,
+        view0: Vec3, // Tangent Space View Vectors (pre-scaled by q)
+        view1: Vec3,
+        view2: Vec3,
     ) -> (Self, bool) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
@@ -1401,6 +1407,9 @@ impl NormalMapGradients {
         let ulx = l1.x - l0.x;
         let uly = l1.y - l0.y;
         let ulz = l1.z - l0.z;
+        let uvx = view1.x - view0.x;
+        let uvy = view1.y - view0.y;
+        let uvz = view1.z - view0.z;
 
         let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
         let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
@@ -1411,6 +1420,9 @@ impl NormalMapGradients {
         let vlx = l2.x - l0.x;
         let vly = l2.y - l0.y;
         let vlz = l2.z - l0.z;
+        let vvx = view2.x - view0.x;
+        let vvy = view2.y - view0.y;
+        let vvz = view2.z - view0.z;
 
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
@@ -1436,6 +1448,15 @@ impl NormalMapGradients {
         let nx_lz = uy * vlz - ulz * vy;
         let dlz_dx = nx_lz * inv_nz;
 
+        let nx_vx = uy * vvx - uvx * vy;
+        let dvx_dx = nx_vx * inv_nz;
+
+        let nx_vy = uy * vvy - uvy * vy;
+        let dvy_dx = nx_vy * inv_nz;
+
+        let nx_vz = uy * vvz - uvz * vy;
+        let dvz_dx = nx_vz * inv_nz;
+
         (
             Self {
                 dz_dx,
@@ -1445,6 +1466,9 @@ impl NormalMapGradients {
                 dlx_dx,
                 dly_dx,
                 dlz_dx,
+                dvx_dx,
+                dvy_dx,
+                dvz_dx,
             },
             nz > 0.0,
         )
@@ -1460,6 +1484,9 @@ struct NormalMapEdgeWalker {
     lx: f32,
     ly: f32,
     lz: f32,
+    vx: f32,
+    vy: f32,
+    vz: f32,
     dx_dy: i64,
     dz_dy: f32,
     dq_dy: f32,
@@ -1468,6 +1495,9 @@ struct NormalMapEdgeWalker {
     dlx_dy: f32,
     dly_dy: f32,
     dlz_dy: f32,
+    dvx_dy: f32,
+    dvy_dy: f32,
+    dvz_dy: f32,
 }
 
 impl NormalMapEdgeWalker {
@@ -1483,6 +1513,8 @@ impl NormalMapEdgeWalker {
         v_end: f32,
         l_start: Vec3,
         l_end: Vec3,
+        view_start: Vec3,
+        view_end: Vec3,
     ) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
@@ -1496,6 +1528,9 @@ impl NormalMapEdgeWalker {
         let dlx_dy = (l_end.x - l_start.x) * inv_h;
         let dly_dy = (l_end.y - l_start.y) * inv_h;
         let dlz_dy = (l_end.z - l_start.z) * inv_h;
+        let dvx_dy = (view_end.x - view_start.x) * inv_h;
+        let dvy_dy = (view_end.y - view_start.y) * inv_h;
+        let dvz_dy = (view_end.z - view_start.z) * inv_h;
 
         Self {
             x: i64::from(p_start.x) << 16,
@@ -1506,6 +1541,9 @@ impl NormalMapEdgeWalker {
             lx: l_start.x,
             ly: l_start.y,
             lz: l_start.z,
+            vx: view_start.x,
+            vy: view_start.y,
+            vz: view_start.z,
             dx_dy,
             dz_dy,
             dq_dy,
@@ -1514,6 +1552,9 @@ impl NormalMapEdgeWalker {
             dlx_dy,
             dly_dy,
             dlz_dy,
+            dvx_dy,
+            dvy_dy,
+            dvz_dy,
         }
     }
 
@@ -1526,6 +1567,9 @@ impl NormalMapEdgeWalker {
         self.lx += self.dlx_dy;
         self.ly += self.dly_dy;
         self.lz += self.dlz_dy;
+        self.vx += self.dvx_dy;
+        self.vy += self.dvy_dy;
+        self.vz += self.dvz_dy;
     }
 
     fn step_n(&mut self, n: i64) {
@@ -1538,6 +1582,9 @@ impl NormalMapEdgeWalker {
         self.lx += self.dlx_dy * n_f;
         self.ly += self.dly_dy * n_f;
         self.lz += self.dlz_dy * n_f;
+        self.vx += self.dvx_dy * n_f;
+        self.vy += self.dvy_dy * n_f;
+        self.vz += self.dvz_dy * n_f;
     }
 }
 
@@ -1550,6 +1597,9 @@ struct NormalMapSpanStart {
     lx: f32,
     ly: f32,
     lz: f32,
+    vx: f32,
+    vy: f32,
+    vz: f32,
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -1567,11 +1617,16 @@ unsafe fn draw_scanline_normal_mapped_simd(
     lx: f32,
     ly: f32,
     lz: f32,
+    vx: f32,
+    vy: f32,
+    vz: f32,
     gradients: &NormalMapGradients,
     texture: &Texture,
     normal_map: &Texture,
     pre_diffuse_color: Vec3,
     ambient: Vec3,
+    shininess: f32,
+    specular_strength: Vec3,
 ) {
     unsafe {
         use std::arch::x86_64::*;
@@ -1627,6 +1682,22 @@ unsafe fn draw_scanline_normal_mapped_simd(
         let amb_b = _mm256_set1_ps(ambient.z);
 
         let scale_nm = _mm256_mul_ps(two, inv_255);
+
+        let dvx_dx = _mm256_set1_ps(gradients.dvx_dx);
+        let dvy_dx = _mm256_set1_ps(gradients.dvy_dx);
+        let dvz_dx = _mm256_set1_ps(gradients.dvz_dx);
+
+        let mut vx_vec = _mm256_add_ps(_mm256_set1_ps(vx), _mm256_mul_ps(dvx_dx, offsets));
+        let mut vy_vec = _mm256_add_ps(_mm256_set1_ps(vy), _mm256_mul_ps(dvy_dx, offsets));
+        let mut vz_vec = _mm256_add_ps(_mm256_set1_ps(vz), _mm256_mul_ps(dvz_dx, offsets));
+
+        let dvx_step = _mm256_mul_ps(dvx_dx, step_8);
+        let dvy_step = _mm256_mul_ps(dvy_dx, step_8);
+        let dvz_step = _mm256_mul_ps(dvz_dx, step_8);
+
+        let spec_str_x = _mm256_set1_ps(specular_strength.x);
+        let spec_str_y = _mm256_set1_ps(specular_strength.y);
+        let spec_str_z = _mm256_set1_ps(specular_strength.z);
 
         while i + 8 <= len {
             let depth_ptr = zb_slice.as_mut_ptr().add(i);
@@ -1753,24 +1824,81 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 let intensity = _mm256_max_ps(zero, _mm256_mul_ps(dot, inv_len));
                 let intensity = _mm256_blendv_ps(zero, intensity, len_valid);
 
+                // Define Normalized Light Vector for Half-Vector calculation
+                let l_norm_x = _mm256_mul_ps(lx_vec, inv_len);
+                let l_norm_y = _mm256_mul_ps(ly_vec, inv_len);
+                let l_norm_z = _mm256_mul_ps(lz_vec, inv_len);
+
+                // Specular Logic
+                // Normalize V
+                let v_len_sq = _mm256_add_ps(
+                    _mm256_mul_ps(vx_vec, vx_vec),
+                    _mm256_add_ps(_mm256_mul_ps(vy_vec, vy_vec), _mm256_mul_ps(vz_vec, vz_vec)),
+                );
+                let v_len_valid = _mm256_cmp_ps(v_len_sq, epsilon, _CMP_GT_OQ);
+                let v_safe_sq = _mm256_blendv_ps(one, v_len_sq, v_len_valid);
+                let v_rsqrt = _mm256_rsqrt_ps(v_safe_sq);
+                let v_iter1 = _mm256_mul_ps(v_safe_sq, _mm256_mul_ps(v_rsqrt, v_rsqrt));
+                let v_iter2 = _mm256_sub_ps(one_point_five, _mm256_mul_ps(zero_point_five, v_iter1));
+                let v_inv_len = _mm256_mul_ps(v_rsqrt, v_iter2);
+
+                let v_norm_x = _mm256_mul_ps(vx_vec, v_inv_len);
+                let v_norm_y = _mm256_mul_ps(vy_vec, v_inv_len);
+                let v_norm_z = _mm256_mul_ps(vz_vec, v_inv_len);
+
+                // H = normalize(L + V)
+                let h_x = _mm256_add_ps(l_norm_x, v_norm_x);
+                let h_y = _mm256_add_ps(l_norm_y, v_norm_y);
+                let h_z = _mm256_add_ps(l_norm_z, v_norm_z);
+
+                let h_len_sq = _mm256_add_ps(
+                    _mm256_mul_ps(h_x, h_x),
+                    _mm256_add_ps(_mm256_mul_ps(h_y, h_y), _mm256_mul_ps(h_z, h_z)),
+                );
+                let h_len_valid = _mm256_cmp_ps(h_len_sq, epsilon, _CMP_GT_OQ);
+                let h_safe_sq = _mm256_blendv_ps(one, h_len_sq, h_len_valid);
+                let h_rsqrt = _mm256_rsqrt_ps(h_safe_sq);
+                let h_iter1 = _mm256_mul_ps(h_safe_sq, _mm256_mul_ps(h_rsqrt, h_rsqrt));
+                let h_iter2 = _mm256_sub_ps(one_point_five, _mm256_mul_ps(zero_point_five, h_iter1));
+                let h_inv_len = _mm256_mul_ps(h_rsqrt, h_iter2);
+
+                let h_norm_x = _mm256_mul_ps(h_x, h_inv_len);
+                let h_norm_y = _mm256_mul_ps(h_y, h_inv_len);
+                let h_norm_z = _mm256_mul_ps(h_z, h_inv_len);
+
+                let n_dot_h = _mm256_add_ps(
+                    _mm256_mul_ps(nm_x, h_norm_x),
+                    _mm256_add_ps(_mm256_mul_ps(nm_y, h_norm_y), _mm256_mul_ps(nm_z, h_norm_z)),
+                );
+                let n_dot_h_clamped = _mm256_max_ps(zero, n_dot_h);
+
+                // Pow approximation by unpacking
+                // TODO: Optimize with approximate pow if needed
+                let mut ndh_vals = [0.0; 8];
+                _mm256_storeu_ps(ndh_vals.as_mut_ptr(), n_dot_h_clamped);
+                for k in 0..8 {
+                    ndh_vals[k] = ndh_vals[k].powf(shininess);
+                }
+                let spec_intensity = _mm256_loadu_ps(ndh_vals.as_ptr());
+
                 let diffuse_term_r = _mm256_mul_ps(diff_r_const, diff_r_tex);
                 let diffuse_term_g = _mm256_mul_ps(diff_g_const, diff_g_tex);
                 let diffuse_term_b = _mm256_mul_ps(diff_b_const, diff_b_tex);
 
-                let r_final = _mm256_fmadd_ps(diffuse_term_r, intensity, amb_r);
-                let g_final = _mm256_fmadd_ps(diffuse_term_g, intensity, amb_g);
-                let b_final = _mm256_fmadd_ps(diffuse_term_b, intensity, amb_b);
+                let total_r = _mm256_fmadd_ps(spec_str_x, spec_intensity, _mm256_fmadd_ps(diffuse_term_r, intensity, amb_r));
+                let total_g = _mm256_fmadd_ps(spec_str_y, spec_intensity, _mm256_fmadd_ps(diffuse_term_g, intensity, amb_g));
+                let total_b = _mm256_fmadd_ps(spec_str_z, spec_intensity, _mm256_fmadd_ps(diffuse_term_b, intensity, amb_b));
 
                 let r_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(r_final, scale_255), zero),
+                    _mm256_max_ps(_mm256_mul_ps(total_r, scale_255), zero),
                     scale_255,
                 );
                 let g_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(g_final, scale_255), zero),
+                    _mm256_max_ps(_mm256_mul_ps(total_g, scale_255), zero),
                     scale_255,
                 );
                 let b_clamp = _mm256_min_ps(
-                    _mm256_max_ps(_mm256_mul_ps(b_final, scale_255), zero),
+                    _mm256_max_ps(_mm256_mul_ps(total_b, scale_255), zero),
                     scale_255,
                 );
 
@@ -2125,6 +2253,8 @@ fn draw_scanline_normal_mapped(
     normal_map: &Texture,
     pre_diffuse_color: Vec3, // base_color * light_color
     ambient: Vec3,
+    shininess: f32,
+    specular_strength: Vec3,
 ) {
     if y < 0 || y >= fb.height() as i32 {
         return;
@@ -2142,6 +2272,9 @@ fn draw_scanline_normal_mapped(
     let mut lx = start.lx;
     let mut ly = start.ly;
     let mut lz = start.lz;
+    let mut vx = start.vx;
+    let mut vy = start.vy;
+    let mut vz = start.vz;
 
     if xs < 0 {
         let diff = -i64::from(xs);
@@ -2153,6 +2286,9 @@ fn draw_scanline_normal_mapped(
         lx += diff_f * gradients.dlx_dx;
         ly += diff_f * gradients.dly_dx;
         lz += diff_f * gradients.dlz_dx;
+        vx += diff_f * gradients.dvx_dx;
+        vy += diff_f * gradients.dvy_dx;
+        vz += diff_f * gradients.dvz_dx;
         xs = 0;
     }
 
@@ -2186,11 +2322,16 @@ fn draw_scanline_normal_mapped(
                 lx,
                 ly,
                 lz,
+                vx,
+                vy,
+                vz,
                 gradients,
                 texture,
                 normal_map,
                 pre_diffuse_color,
                 ambient,
+                shininess,
+                specular_strength,
             );
         }
         return;
@@ -2223,18 +2364,38 @@ fn draw_scanline_normal_mapped(
 
             // Light Vector in Tangent Space
             let len_sq = lx * lx + ly * ly + lz * lz;
-            let intensity = if len_sq > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
-                // Dot product: normal . light
-                (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
-            } else {
-                0.0
-            }
-            .max(0.0);
+            let inv_len = if len_sq > 0.0001 { fast_inv_sqrt(len_sq) } else { 0.0 };
+            let l_norm_x = lx * inv_len;
+            let l_norm_y = ly * inv_len;
+            let l_norm_z = lz * inv_len;
+
+            let intensity = (nm_r * l_norm_x + nm_g * l_norm_y + nm_b * l_norm_z).max(0.0);
+
+            // Specular (Blinn-Phong)
+            // View Vector
+            let v_len_sq = vx * vx + vy * vy + vz * vz;
+            let v_inv_len = if v_len_sq > 0.0001 { fast_inv_sqrt(v_len_sq) } else { 0.0 };
+            let v_norm_x = vx * v_inv_len;
+            let v_norm_y = vy * v_inv_len;
+            let v_norm_z = vz * v_inv_len;
+
+            // Half Vector: L + V
+            let h_x = l_norm_x + v_norm_x;
+            let h_y = l_norm_y + v_norm_y;
+            let h_z = l_norm_z + v_norm_z;
+            let h_len_sq = h_x * h_x + h_y * h_y + h_z * h_z;
+            let h_inv_len = if h_len_sq > 0.0001 { fast_inv_sqrt(h_len_sq) } else { 0.0 };
+            let h_norm_x = h_x * h_inv_len;
+            let h_norm_y = h_y * h_inv_len;
+            let h_norm_z = h_z * h_inv_len;
+
+            let n_dot_h = (nm_r * h_norm_x + nm_g * h_norm_y + nm_b * h_norm_z).max(0.0);
+            let specular_intensity = if intensity > 0.0 { n_dot_h.powf(shininess) } else { 0.0 };
 
             // Combine
             let diffuse_total = pre_diffuse_color * diffuse_sample * intensity;
-            let final_color_vec = ambient + diffuse_total;
+            let specular_total = specular_strength * specular_intensity;
+            let final_color_vec = ambient + diffuse_total + specular_total;
             *pixel = color_to_u32(final_color_vec);
         }
 
@@ -2245,6 +2406,9 @@ fn draw_scanline_normal_mapped(
         lx += gradients.dlx_dx;
         ly += gradients.dly_dx;
         lz += gradients.dlz_dx;
+        vx += gradients.dvx_dx;
+        vy += gradients.dvy_dx;
+        vz += gradients.dvz_dx;
     }
 }
 
@@ -2278,14 +2442,17 @@ fn draw_scanline_normal_mapped(
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
-    v0: ((Vec3, f32), Vec2, Vec3, Vec4),
-    v1: ((Vec3, f32), Vec2, Vec3, Vec4),
-    v2: ((Vec3, f32), Vec2, Vec3, Vec4),
+    v0: ((Vec3, f32), Vec2, Vec3, Vec4, Vec3),
+    v1: ((Vec3, f32), Vec2, Vec3, Vec4, Vec3),
+    v2: ((Vec3, f32), Vec2, Vec3, Vec4, Vec3),
     texture: &Texture,
     normal_map: &Texture,
     light_dir: Vec3,
     light_color: Vec3,
     ambient: Vec3,
+    view_pos: Vec3,
+    shininess: f32,
+    specular_strength: Vec3,
 ) {
     assert_same_dimensions(fb, zb);
 
@@ -2324,8 +2491,7 @@ pub fn fill_triangle_normal_mapped(
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        // Scale UV by texture size (assuming both maps match size or using one size for ratio)
-        // Usually, UVs are 0..1, we multiply by size to get texel coords
+        // Scale UV by texture size
         let w = texture.width as f32;
         let h = texture.height as f32;
 
@@ -2336,44 +2502,49 @@ pub fn fill_triangle_normal_mapped(
         let u2 = v2.1.x * w * inv_w2;
         let v2_val = v2.1.y * h * inv_w2;
 
-        // Compute Tangent Space Light Vectors
-        let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
+        // Tangent Space Transformation
+        let calculate_ts_vector = |n: Vec3, t: Vec4, world_vec: Vec3| -> Vec3 {
             let n_norm = n.normalize();
             let t_norm = Vec3::new(t.x, t.y, t.z).normalize();
             // Re-orthogonalize T with respect to N (Gram-Schmidt)
             let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).normalize();
             let b_ortho = n_norm.cross(t_ortho) * t.w;
 
-            // Transform LightDir to Tangent Space.
-            // LightDir passed in is direction of light (sun).
-            // We want vector TO light, so -light_dir.
-            let l_world = light_dir * -1.0;
-
-            // TS_L = TBN^T * L_world
+            // TS_V = TBN^T * World_V
             Vec3::new(
-                t_ortho.dot(l_world),
-                b_ortho.dot(l_world),
-                n_norm.dot(l_world),
+                t_ortho.dot(world_vec),
+                b_ortho.dot(world_vec),
+                n_norm.dot(world_vec),
             )
         };
 
-        // Use true normals/tangents (v0.2, v0.3) not scaled by inv_w
-        let l0_ts = calculate_ts_light(v0.2, v0.3);
-        let l1_ts = calculate_ts_light(v1.2, v1.3);
-        let l2_ts = calculate_ts_light(v2.2, v2.3);
+        // Light Vector (TO light)
+        let l_world = light_dir * -1.0;
+        let l0_ts = calculate_ts_vector(v0.2, v0.3, l_world);
+        let l1_ts = calculate_ts_vector(v1.2, v1.3, l_world);
+        let l2_ts = calculate_ts_vector(v2.2, v2.3, l_world);
 
-        // Prepare for interpolation
+        // View Vector (TO eye)
+        let v0_ts = calculate_ts_vector(v0.2, v0.3, view_pos - v0.4);
+        let v1_ts = calculate_ts_vector(v1.2, v1.3, view_pos - v1.4);
+        let v2_ts = calculate_ts_vector(v2.2, v2.3, view_pos - v2.4);
+
+        // Prepare for interpolation (Perspective Correct)
         let l0 = l0_ts * inv_w0;
         let l1 = l1_ts * inv_w1;
         let l2 = l2_ts * inv_w2;
 
+        let view0 = v0_ts * inv_w0;
+        let view1 = v1_ts * inv_w1;
+        let view2 = v2_ts * inv_w2;
+
         let mut verts = [
-            (p0_orig, u0, v0_val, l0),
-            (p1_orig, u1, v1_val, l1),
-            (p2_orig, u2, v2_val, l2),
+            (p0_orig, u0, v0_val, l0, view0),
+            (p1_orig, u1, v1_val, l1, view1),
+            (p2_orig, u2, v2_val, l2, view2),
         ];
         sort_by_y(&mut verts, |(p, ..)| p.y);
-        let [(p0, u0, v0, l0), (p1, u1, v1, l1), (p2, u2, v2, l2)] = verts;
+        let [(p0, u0, v0, l0, view0), (p1, u1, v1, l1, view1), (p2, u2, v2, l2, view2)] = verts;
 
         let q0 = p0.inv_w;
         let q1 = p1.inv_w;
@@ -2395,21 +2566,21 @@ pub fn fill_triangle_normal_mapped(
 
         // Gradients and Edge Walking
         let (gradients, long_edge_is_left) =
-            NormalMapGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2);
+            NormalMapGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2, view0, view1, view2);
 
-        let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, l0, l2);
+        let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, l0, l2, view0, view2);
         if y_start > p0.y {
             edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
         }
 
         let mut edge_b = if y_start < p1.y {
-            let mut e = NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1, l0, l1);
+            let mut e = NormalMapEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1, l0, l1, view0, view1);
             if y_start > p0.y {
                 e.step_n(i64::from(y_start) - i64::from(p0.y));
             }
             e
         } else {
-            let mut e = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, l1, l2);
+            let mut e = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, l1, l2, view1, view2);
             if y_start > p1.y {
                 e.step_n(i64::from(y_start) - i64::from(p1.y));
             }
@@ -2420,11 +2591,11 @@ pub fn fill_triangle_normal_mapped(
 
         for y in y_start..=y_end {
             if y == p1.y && y != p0.y {
-                edge_b = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, l1, l2);
+                edge_b = NormalMapEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, l1, l2, view1, view2);
             }
 
             // Unpack walker state
-            let (x_start, x_end, z_left, q_left, u_left, v_left, lx_left, ly_left, lz_left) =
+            let (x_start, x_end, z_left, q_left, u_left, v_left, lx_left, ly_left, lz_left, vx_left, vy_left, vz_left) =
                 if long_edge_is_left {
                     (
                         (edge_a.x >> 16) as i32,
@@ -2436,6 +2607,9 @@ pub fn fill_triangle_normal_mapped(
                         edge_a.lx,
                         edge_a.ly,
                         edge_a.lz,
+                        edge_a.vx,
+                        edge_a.vy,
+                        edge_a.vz,
                     )
                 } else {
                     (
@@ -2448,6 +2622,9 @@ pub fn fill_triangle_normal_mapped(
                         edge_b.lx,
                         edge_b.ly,
                         edge_b.lz,
+                        edge_b.vx,
+                        edge_b.vy,
+                        edge_b.vz,
                     )
                 };
 
@@ -2468,12 +2645,17 @@ pub fn fill_triangle_normal_mapped(
                         lx: lx_left,
                         ly: ly_left,
                         lz: lz_left,
+                        vx: vx_left,
+                        vy: vy_left,
+                        vz: vz_left,
                     },
                     &gradients,
                     texture,
                     normal_map,
                     pre_diffuse_color,
                     ambient,
+                    shininess,
+                    specular_strength,
                 );
             }
 

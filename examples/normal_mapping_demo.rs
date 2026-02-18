@@ -154,31 +154,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Render Quad (2 tris)
         // Tri 1: 0, 1, 2
+        // We pass WorldPos (p0, p1, p2) as the last element of the vertex tuple
+        // Since Model matrix is Identity, WorldPos == p0 etc.
+        let view_pos = Vec3::new(0.0, 0.0, 4.0);
+        let shininess = 32.0;
+        let specular = Vec3::new(1.0, 1.0, 1.0);
+
         fill_triangle_normal_mapped(
             &mut framebuffer,
             &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v1, uv1, nw, tw),
-            (v2, uv2, nw, tw),
+            (v0, uv0, nw, tw, p0),
+            (v1, uv1, nw, tw, p1),
+            (v2, uv2, nw, tw, p2),
             &diffuse_map,
             &normal_map,
             light_dir,
             light_color,
             ambient,
+            view_pos,
+            shininess,
+            specular,
         );
 
         // Tri 2: 0, 2, 3
         fill_triangle_normal_mapped(
             &mut framebuffer,
             &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v2, uv2, nw, tw),
-            (v3, uv3, nw, tw),
+            (v0, uv0, nw, tw, p0),
+            (v2, uv2, nw, tw, p2),
+            (v3, uv3, nw, tw, p3),
             &diffuse_map,
             &normal_map,
             light_dir,
             light_color,
             ambient,
+            view_pos,
+            shininess,
+            specular,
         );
 
         window.blit_framebuffer(&framebuffer);
