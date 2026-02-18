@@ -1,4 +1,4 @@
-use abrash::clipping::{clip_triangle_to_frustum, ClippedTriangles};
+use abrash::clipping::clip_triangle_to_frustum;
 use abrash::math::Vec3;
 use proptest::prelude::*;
 

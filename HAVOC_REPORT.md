@@ -42,3 +42,16 @@
 - **Outcome:** Quadratic complexity $O(N^2)$ for loading the mesh. A 50k vertex file takes >30 seconds to load instead of <100ms. DoS.
 
 **The Fix:** Implemented a depth limit (8) for the cache chain traversal. If a match isn't found within 8 steps, the vertex is treated as new (skipping deduplication) to ensure O(1) lookup time.
+
+## 5. Unsafe Memory Access via Clipping Index
+**The Trigger:** Accessing a `ClippedTriangles` result at index `0` when `count` is `0` (e.g., fully culled triangle).
+
+**The Mechanism:**
+- `ClippedTriangles` implements `Index<usize>`.
+- The implementation used `debug_assert!` to check bounds.
+- In Release builds, `debug_assert!` is removed.
+- The code proceeded to `unsafe { self.tris[index].assume_init_ref() }`.
+- `tris[index]` is uninitialized memory (`MaybeUninit`).
+- **Outcome:** Reading uninitialized memory (Undefined Behavior). Potential segfault or garbage values.
+
+**The Fix:** Replaced `debug_assert!` with `assert!` to ensure bounds checking is always active, turning potential UB into a safe panic.
