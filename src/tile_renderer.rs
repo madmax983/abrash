@@ -1502,9 +1502,9 @@ impl TileRenderer {
 
         for i in 0..clipped.count {
             let base = i * 3;
-            let cv0 = clipped.tris[base];
-            let cv1 = clipped.tris[base + 1];
-            let cv2 = clipped.tris[base + 2];
+            let cv0 = clipped[base];
+            let cv1 = clipped[base + 1];
+            let cv2 = clipped[base + 2];
 
             let p0_orig = project_to_screen(cv0.0.0, cv0.0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
@@ -1646,9 +1646,9 @@ impl TileRenderer {
 
         for i in 0..clipped.count {
             let base = i * 3;
-            let cv0 = clipped.tris[base];
-            let cv1 = clipped.tris[base + 1];
-            let cv2 = clipped.tris[base + 2];
+            let cv0 = clipped[base];
+            let cv1 = clipped[base + 1];
+            let cv2 = clipped[base + 2];
 
             let p0_orig = project_to_screen(cv0.0, cv0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
