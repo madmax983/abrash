@@ -120,6 +120,27 @@ fn benchmark_ssao(c: &mut Criterion) {
     });
 }
 
+fn benchmark_box_blur_f32(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let size = width * height;
+    let mut src = vec![0.5; size];
+    let mut dest = vec![0.0; size];
+    let mut acc = vec![0.0; width];
+
+    c.bench_function("box_blur_f32 1080p", |b| {
+        b.iter(|| {
+            post_process::box_blur_f32(
+                black_box(&mut src),
+                black_box(&mut dest),
+                black_box(&mut acc),
+                black_box(width),
+                black_box(height),
+            );
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -129,5 +150,6 @@ criterion_group!(
     benchmark_chromatic_aberration,
     benchmark_bloom,
     benchmark_ssao,
+    benchmark_box_blur_f32,
 );
 criterion_main!(benches);
