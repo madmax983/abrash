@@ -25,3 +25,11 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Consolidated Procedural Generation]
+**Tangle:** Procedural logic was fragmented: `procedural.rs` handled textures, while `experimental/arboretum.rs` (L-Systems) and `experimental/procedural_mesh.rs` (Terrain) handled meshes. This created low cohesion and scattered related functionality.
+**Blueprint:**
+1.  **Group:** Created `src/procedural/` directory.
+2.  **Relocate:** Moved `arboretum.rs` to `procedural/l_system.rs` and `procedural_mesh.rs` to `procedural/terrain.rs`.
+3.  **Unify:** Created `src/procedural/mod.rs` to re-export all submodules, providing a single entry point `abrash::procedural`.
+**Stability:** High cohesion for procedural generation. `experimental` is now reserved for truly experimental/unstable features (like jelly physics).
