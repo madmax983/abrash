@@ -102,13 +102,9 @@ pub mod procedural;
 pub mod skybox;
 pub mod texture;
 pub mod tile_renderer;
-pub mod experimental;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
-
-#[cfg(feature = "nova")]
-pub mod experimental;
