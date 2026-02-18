@@ -1,0 +1,158 @@
+use std::error::Error;
+
+#[cfg(feature = "nova")]
+mod demo {
+    use abrash::experimental::jelly::{SoftBody, Spring};
+    use abrash::experimental::sdf::{render_sdf, SdfObject, SdfPrimitive, SdfScene};
+    use abrash::framebuffer::Framebuffer;
+    use abrash::math::{Mat4, Vec3};
+    use abrash::mesh::Mesh;
+    use abrash::platform::{Window, WindowBackend};
+    use abrash::rasterizer::fill_triangle_3d;
+    use abrash::zbuffer::ZBuffer;
+    use std::time::Instant;
+
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        let width = 800;
+        let height = 600;
+
+        let mut window = Window::new("Jelly Physics Demo", width, height)?;
+        let mut fb = Framebuffer::new(width, height)?;
+        let mut zb = ZBuffer::new(width, height)?;
+
+        // Scene Setup
+        let mut sdf_scene = SdfScene::new();
+        // Floor
+        sdf_scene.add(SdfObject {
+            primitive: SdfPrimitive::Plane {
+                normal: Vec3::new(0.0, 1.0, 0.0),
+                distance: 2.0, // y = -2.0
+            },
+            color: 0xFF555555,
+        });
+        // Sphere
+        sdf_scene.add(SdfObject {
+            primitive: SdfPrimitive::Sphere {
+                radius: 1.5,
+                center: Vec3::new(0.0, -2.0, 0.0),
+            },
+            color: 0xFF0000FF,
+        });
+
+        // Jelly Setup
+        let mut mesh = Mesh::cube(2.0);
+        for v in &mut mesh.vertices {
+            v.y += 5.0; // Start high
+        }
+
+        let mut jelly = SoftBody::new(mesh, 1.0, 150.0, 2.0);
+
+        // Add internal cross-bracing springs for stability
+        let diag_len = (jelly.mesh.vertices[0] - jelly.mesh.vertices[6]).length();
+        jelly.springs.push(Spring {
+            index_a: 0,
+            index_b: 6,
+            rest_length: diag_len,
+        });
+        jelly.springs.push(Spring {
+            index_a: 1,
+            index_b: 7,
+            rest_length: diag_len,
+        });
+        jelly.springs.push(Spring {
+            index_a: 2,
+            index_b: 4,
+            rest_length: diag_len,
+        });
+        jelly.springs.push(Spring {
+            index_a: 3,
+            index_b: 5,
+            rest_length: diag_len,
+        });
+
+        // Camera
+        let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 100.0);
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 2.0, 12.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let mvp = proj * view; // Standard transformation order
+
+        let mut last_time = Instant::now();
+
+        while window.is_open() {
+            window.poll_events();
+
+            let now = Instant::now();
+            let dt = (now - last_time).as_secs_f32().min(0.05);
+            last_time = now;
+
+            // Physics Update
+            for _ in 0..4 {
+                jelly.update(dt / 4.0);
+                jelly.collide_sdf(&sdf_scene, 0.7);
+            }
+
+            fb.clear(0xFF101010);
+            zb.clear();
+
+            // 1. Render SDF obstacles
+            render_sdf(
+                &mut fb,
+                &mut zb,
+                &sdf_scene,
+                &view,
+                &proj,
+                Vec3::new(0.0, 2.0, 12.0),
+            );
+
+            // 2. Render Jelly
+            let stress = jelly.get_vertex_stress();
+
+            for tri in &jelly.mesh.indices {
+                let i0 = tri[0];
+                let i1 = tri[1];
+                let i2 = tri[2];
+
+                let v0 = jelly.mesh.vertices[i0];
+                let v1 = jelly.mesh.vertices[i1];
+                let v2 = jelly.mesh.vertices[i2];
+
+                let (c0, w0) = mvp.transform_point(v0);
+                let (c1, w1) = mvp.transform_point(v1);
+                let (c2, w2) = mvp.transform_point(v2);
+
+                if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
+                    continue;
+                }
+
+                // Color based on stress
+                let s = (stress[i0] + stress[i1] + stress[i2]) / 3.0;
+                // Green -> Red gradient
+                let t = (s * 10.0).clamp(0.0, 1.0);
+                let r = (t * 255.0) as u32;
+                let g = ((1.0 - t) * 255.0) as u32;
+                let color = 0xFF000000 | (r << 16) | (g << 8) | 0x00;
+
+                fill_triangle_3d(&mut fb, &mut zb, (c0, w0), (c1, w1), (c2, w2), color);
+            }
+
+            window.blit_framebuffer(&fb);
+        }
+        Ok(())
+    }
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    #[cfg(feature = "nova")]
+    {
+        demo::run()
+    }
+    #[cfg(not(feature = "nova"))]
+    {
+        println!("This example requires the 'nova' feature.");
+        println!("Run with: cargo run --example jelly_demo --features nova");
+        Ok(())
+    }
+}
