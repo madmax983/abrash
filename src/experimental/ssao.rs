@@ -110,8 +110,9 @@ pub fn apply_ssao(
             // But we might want AO on objects against far plane?
             // Usually far plane is 1.0 (or whatever clear value is).
             // Let's process everything except infinity if used.
-            if depth_val >= 1.0 { // Assuming 1.0 is far plane
-                 continue;
+            if depth_val >= 1.0 {
+                // Assuming 1.0 is far plane
+                continue;
             }
 
             // Reconstruct View Position
@@ -174,11 +175,11 @@ pub fn apply_ssao(
                 let rotated_sample = Vec3::new(
                     s.x * rx - s.y * ry,
                     s.x * ry + s.y * rx,
-                    s.z // Hemisphere Z is positive (towards camera if we map it to View +Z? Wait, View is -Z looking).
-                        // If surface normal is towards camera (View +Z?), then sample should be in +Z.
-                        // But View Space looks down -Z. Surface normal points to +Z (towards eye).
-                        // So samples should have +Z component relative to surface.
-                        // So if we add +Z to pos_view (which is negative Z), we move towards camera (closer).
+                    s.z, // Hemisphere Z is positive (towards camera if we map it to View +Z? Wait, View is -Z looking).
+                         // If surface normal is towards camera (View +Z?), then sample should be in +Z.
+                         // But View Space looks down -Z. Surface normal points to +Z (towards eye).
+                         // So samples should have +Z component relative to surface.
+                         // So if we add +Z to pos_view (which is negative Z), we move towards camera (closer).
                 );
 
                 let sample_pos = pos_view + rotated_sample * radius;
@@ -199,9 +200,11 @@ pub fn apply_ssao(
                     let s_screen_x = ((s_ndc_x + 1.0) * half_width) as i32;
                     let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
 
-                    if s_screen_x >= 0 && s_screen_x < width as i32 &&
-                       s_screen_y >= 0 && s_screen_y < height as i32 {
-
+                    if s_screen_x >= 0
+                        && s_screen_x < width as i32
+                        && s_screen_y >= 0
+                        && s_screen_y < height as i32
+                    {
                         // Get depth from Z-buffer at sample position
                         let existing_depth = zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
 
@@ -238,7 +241,7 @@ pub fn apply_ssao(
                         let range_check = (existing_view_z - sample_view_z).abs() < radius;
 
                         if existing_view_z >= sample_view_z + bias && range_check {
-                             occlusion += 1.0;
+                            occlusion += 1.0;
                         }
                     }
                 }
@@ -307,9 +310,9 @@ fn box_blur(src: &[f32], width: usize, height: usize) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zbuffer::ZBuffer;
     use crate::framebuffer::Framebuffer;
     use crate::math::Mat4;
+    use crate::zbuffer::ZBuffer;
     use std::f32::consts::PI;
 
     #[test]
@@ -375,7 +378,12 @@ mod tests {
         let lum_occluded = p_occluded & 0xFF;
         let lum_unoccluded = p_unoccluded & 0xFF;
 
-        assert!(lum_occluded < lum_unoccluded, "Pixel near post should be darker (got {} vs {})", lum_occluded, lum_unoccluded);
+        assert!(
+            lum_occluded < lum_unoccluded,
+            "Pixel near post should be darker (got {} vs {})",
+            lum_occluded,
+            lum_unoccluded
+        );
 
         // Also ensure it didn't turn black (sanity check)
         assert!(lum_occluded > 0, "Pixel shouldn't be completely black");

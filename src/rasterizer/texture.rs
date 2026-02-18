@@ -1874,15 +1874,7 @@ unsafe fn draw_span_trilinear_simd(
         let u_fix = u_fix_start.wrapping_sub(32768);
         let v_fix = v_fix_start.wrapping_sub(32768);
         draw_span_bilinear_simd(
-            fb_slice,
-            zb_slice,
-            texture,
-            z_start,
-            dz_dx,
-            u_fix,
-            v_fix,
-            du_fix,
-            dv_fix,
+            fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
         );
         return;
     }
@@ -1913,9 +1905,9 @@ unsafe fn draw_span_trilinear_simd(
             texture.pixels.as_slice(),
             texture.width,
             texture.height,
-            0 // base shift is 0 relative to u_fix >> 8 (bilinear)
-              // But u_fix passed in is 16.16. Bilinear expects 24.8.
-              // So effectively shift is 8.
+            0, // base shift is 0 relative to u_fix >> 8 (bilinear)
+               // But u_fix passed in is 16.16. Bilinear expects 24.8.
+               // So effectively shift is 8.
         )
     } else {
         let idx = level - 1;
@@ -1998,8 +1990,14 @@ unsafe fn draw_span_trilinear_simd(
 
             let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), $max_x);
             let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), $max_y);
-            let x1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i), $max_x);
-            let y1 = _mm256_min_epi32(_mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i), $max_y);
+            let x1 = _mm256_min_epi32(
+                _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
+                $max_x,
+            );
+            let y1 = _mm256_min_epi32(
+                _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
+                $max_y,
+            );
 
             let y0_w = _mm256_mullo_epi32(y0, $w_vec);
             let y1_w = _mm256_mullo_epi32(y1, $w_vec);
@@ -2087,7 +2085,7 @@ unsafe fn draw_span_trilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
-        }
+    }
     // Scalar Tail
     if i < len {
         let z_curr = z_start + (i as f32) * dz_dx;
@@ -2951,34 +2949,33 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let scale_255 = _mm256_set1_ps(255.0);
     let zero_ps = _mm256_setzero_ps();
 
-    let blend_swar_avx2 =
-        |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-            let mask = _mm256_set1_epi32(0x00FF00FF);
+    let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
+        let mask = _mm256_set1_epi32(0x00FF00FF);
 
-            let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
-            let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
 
-            let rb0 = _mm256_and_si256(c0, mask);
-            let rb1 = _mm256_and_si256(c1, mask);
+        let rb0 = _mm256_and_si256(c0, mask);
+        let rb1 = _mm256_and_si256(c1, mask);
 
-            let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
-            let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
 
-            let rb_sum = _mm256_add_epi16(
-                _mm256_mullo_epi16(rb0, inv_w_16),
-                _mm256_mullo_epi16(rb1, w_16),
-            );
+        let rb_sum = _mm256_add_epi16(
+            _mm256_mullo_epi16(rb0, inv_w_16),
+            _mm256_mullo_epi16(rb1, w_16),
+        );
 
-            let ag_sum = _mm256_add_epi16(
-                _mm256_mullo_epi16(ag0, inv_w_16),
-                _mm256_mullo_epi16(ag1, w_16),
-            );
+        let ag_sum = _mm256_add_epi16(
+            _mm256_mullo_epi16(ag0, inv_w_16),
+            _mm256_mullo_epi16(ag1, w_16),
+        );
 
-            let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
-            let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
 
-            _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
-        };
+        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+    };
 
     while i + 8 <= len {
         unsafe {
@@ -2987,125 +2984,126 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
             let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
 
             if _mm256_movemask_ps(mask_z) != 0 {
-            // Bilinear Texture Lookup
-            let u_img = _mm256_srai_epi32(u_fix_vec, 8);
-            let v_img = _mm256_srai_epi32(v_fix_vec, 8);
+                // Bilinear Texture Lookup
+                let u_img = _mm256_srai_epi32(u_fix_vec, 8);
+                let v_img = _mm256_srai_epi32(v_fix_vec, 8);
 
-            let wx = _mm256_and_si256(u_img, mask_ff);
-            let wy = _mm256_and_si256(v_img, mask_ff);
+                let wx = _mm256_and_si256(u_img, mask_ff);
+                let wy = _mm256_and_si256(v_img, mask_ff);
 
-            let inv_wx = _mm256_sub_epi32(const_256, wx);
-            let inv_wy = _mm256_sub_epi32(const_256, wy);
+                let inv_wx = _mm256_sub_epi32(const_256, wx);
+                let inv_wy = _mm256_sub_epi32(const_256, wy);
 
-            let x0_raw = _mm256_srai_epi32(u_img, 8);
-            let y0_raw = _mm256_srai_epi32(v_img, 8);
+                let x0_raw = _mm256_srai_epi32(u_img, 8);
+                let y0_raw = _mm256_srai_epi32(v_img, 8);
 
-            let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), max_x);
-            let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), max_y);
+                let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), max_x);
+                let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), max_y);
 
-            let x1 = _mm256_min_epi32(
-                _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
-                max_x,
-            );
-            let y1 = _mm256_min_epi32(
-                _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
-                max_y,
-            );
+                let x1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
+                    max_x,
+                );
+                let y1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
+                    max_y,
+                );
 
-            let y0_w = _mm256_mullo_epi32(y0, w_vec);
-            let y1_w = _mm256_mullo_epi32(y1, w_vec);
+                let y0_w = _mm256_mullo_epi32(y0, w_vec);
+                let y1_w = _mm256_mullo_epi32(y1, w_vec);
 
-            let idx00 = _mm256_add_epi32(y0_w, x0);
-            let idx10 = _mm256_add_epi32(y0_w, x1);
-            let idx01 = _mm256_add_epi32(y1_w, x0);
-            let idx11 = _mm256_add_epi32(y1_w, x1);
+                let idx00 = _mm256_add_epi32(y0_w, x0);
+                let idx10 = _mm256_add_epi32(y0_w, x1);
+                let idx01 = _mm256_add_epi32(y1_w, x0);
+                let idx11 = _mm256_add_epi32(y1_w, x1);
 
-            let pixels_ptr = texture.pixels.as_ptr() as *const i32;
-            let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
-            let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
-            let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
-            let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
+                let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
+                let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
+                let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
+                let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
 
-            let top = blend_swar_avx2(c00, c10, wx, inv_wx);
-            let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
-            let tex_color = blend_swar_avx2(top, bot, wy, inv_wy);
+                let top = blend_swar_avx2(c00, c10, wx, inv_wx);
+                let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
+                let tex_color = blend_swar_avx2(top, bot, wy, inv_wy);
 
-            // Gouraud Modulation
-            let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 16), mask_ff);
-            let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 8), mask_ff);
-            let tex_b_i = _mm256_and_si256(tex_color, mask_ff);
-            let tex_a_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 24), mask_ff);
+                // Gouraud Modulation
+                let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 16), mask_ff);
+                let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 8), mask_ff);
+                let tex_b_i = _mm256_and_si256(tex_color, mask_ff);
+                let tex_a_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 24), mask_ff);
 
-            let tex_r = _mm256_cvtepi32_ps(tex_r_i);
-            let tex_g = _mm256_cvtepi32_ps(tex_g_i);
-            let tex_b = _mm256_cvtepi32_ps(tex_b_i);
+                let tex_r = _mm256_cvtepi32_ps(tex_r_i);
+                let tex_g = _mm256_cvtepi32_ps(tex_g_i);
+                let tex_b = _mm256_cvtepi32_ps(tex_b_i);
 
-            let mod_r = _mm256_mul_ps(tex_r, r_vec);
-            let mod_g = _mm256_mul_ps(tex_g, g_vec);
-            let mod_b = _mm256_mul_ps(tex_b, b_vec);
+                let mod_r = _mm256_mul_ps(tex_r, r_vec);
+                let mod_g = _mm256_mul_ps(tex_g, g_vec);
+                let mod_b = _mm256_mul_ps(tex_b, b_vec);
 
-            let out_r =
-                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
-            let out_g =
-                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
-            let out_b =
-                _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
+                let out_r =
+                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
+                let out_g =
+                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
+                let out_b =
+                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
 
-            let out_color = _mm256_or_si256(
-                _mm256_slli_epi32(tex_a_i, 24),
-                _mm256_or_si256(
-                    _mm256_slli_epi32(out_r, 16),
-                    _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b),
-                ),
-            );
+                let out_color = _mm256_or_si256(
+                    _mm256_slli_epi32(tex_a_i, 24),
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(out_r, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(out_g, 8), out_b),
+                    ),
+                );
 
-            // Write Output
-            let opaque_mask = _mm256_cmpeq_epi32(tex_a_i, mask_ff);
-            let zero_mask = _mm256_cmpeq_epi32(tex_a_i, zero_i);
-            let mask_z_int = _mm256_castps_si256(mask_z);
+                // Write Output
+                let opaque_mask = _mm256_cmpeq_epi32(tex_a_i, mask_ff);
+                let zero_mask = _mm256_cmpeq_epi32(tex_a_i, zero_i);
+                let mask_z_int = _mm256_castps_si256(mask_z);
 
-            // Opaque
-            let write_opaque = _mm256_and_si256(mask_z_int, opaque_mask);
-            let write_opaque_ps = _mm256_castsi256_ps(write_opaque);
+                // Opaque
+                let write_opaque = _mm256_and_si256(mask_z_int, opaque_mask);
+                let write_opaque_ps = _mm256_castsi256_ps(write_opaque);
 
-            if _mm256_movemask_ps(write_opaque_ps) != 0 {
-                let old_z = _mm256_loadu_ps(depth_ptr);
-                let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
-                _mm256_storeu_ps(depth_ptr, new_z);
+                if _mm256_movemask_ps(write_opaque_ps) != 0 {
+                    let old_z = _mm256_loadu_ps(depth_ptr);
+                    let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
+                    _mm256_storeu_ps(depth_ptr, new_z);
 
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                let old_color = _mm256_loadu_si256(fb_ptr);
-                let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
-                _mm256_storeu_si256(fb_ptr, new_color);
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
+                    _mm256_storeu_si256(fb_ptr, new_color);
+                }
+
+                // Translucent
+                let write_trans =
+                    _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+                let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
+
+                if trans_bits != 0 {
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let current_dest = _mm256_loadu_si256(fb_ptr);
+
+                    let alpha_src = tex_a_i;
+                    let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                    let blended =
+                        blend_swar_simd(out_color, current_dest, inv_alpha_src, alpha_src);
+
+                    let result = _mm256_blendv_epi8(current_dest, blended, write_trans);
+                    _mm256_storeu_si256(fb_ptr, result);
+                }
             }
 
-            // Translucent
-            let write_trans =
-                _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
-            let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
-
-            if trans_bits != 0 {
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                let current_dest = _mm256_loadu_si256(fb_ptr);
-
-                let alpha_src = tex_a_i;
-                let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
-
-                let blended = blend_swar_simd(out_color, current_dest, inv_alpha_src, alpha_src);
-
-                let result = _mm256_blendv_epi8(current_dest, blended, write_trans);
-                _mm256_storeu_si256(fb_ptr, result);
-            }
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            r_vec = _mm256_add_ps(r_vec, dr_step);
+            g_vec = _mm256_add_ps(g_vec, dg_step);
+            b_vec = _mm256_add_ps(b_vec, db_step);
+            u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+            v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+            i += 8;
         }
-
-        z_vec = _mm256_add_ps(z_vec, dz_step);
-        r_vec = _mm256_add_ps(r_vec, dr_step);
-        g_vec = _mm256_add_ps(g_vec, dg_step);
-        b_vec = _mm256_add_ps(b_vec, db_step);
-        u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
-        v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
-        i += 8;
-    }
     }
 
     // Scalar Tail
@@ -3443,10 +3441,8 @@ pub fn draw_scanline_textured_gouraud(
                             let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
                             let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
 
-                            let final_color = ((tex_a as u32) << 24)
-                                | (final_r << 16)
-                                | (final_g << 8)
-                                | final_b;
+                            let final_color =
+                                ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                             if tex_a == 255 {
                                 *depth_val = z_curr;
