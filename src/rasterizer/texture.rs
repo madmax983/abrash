@@ -855,6 +855,10 @@ pub fn draw_scanline_textured_perspective(
     start: PerspectiveSpanStart,
     gradients: &PerspectiveTextureGradients,
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -2124,6 +2128,10 @@ fn draw_scanline_normal_mapped(
     pre_diffuse_color: Vec3, // base_color * light_color
     ambient: Vec3,
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
@@ -3241,6 +3249,10 @@ pub fn draw_scanline_textured_gouraud(
     gradients: &TexturedGouraudGradients,
     texture: &Texture,
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;

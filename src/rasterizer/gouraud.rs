@@ -325,6 +325,10 @@ pub fn draw_scanline_gouraud_i32(
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
+    if y < 0 || y >= fb.height() as i32 {
+        return;
+    }
+
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;

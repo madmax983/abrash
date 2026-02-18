@@ -17,3 +17,7 @@
 **2024-05-28 - [Harden OBJ Loader and Window Creation]**
 **Threat:** Potential Undefined Behavior in `obj_loader.rs` due to unnecessary `unsafe` indexing, and Integer Overflow in `Win32Window::new` / `TuiWindow::new` causing invalid window dimensions.
 **Defense:** Replaced `unsafe` blocks with safe indexing in `obj_loader.rs`. Added bounds checks (`width > i32::MAX`, `height > i32::MAX`, zero checks) in `Win32Window::new` and `TuiWindow::new`. Added regression test `tests/security_obj_loader.rs`.
+
+**2026-02-18 - [Hardened Rasterizer against OOB Scanlines]**
+**Threat:** Potential Buffer Overflow / Undefined Behavior in scanline rasterizers. The functions `draw_scanline_*` in `gouraud.rs`, `texture.rs`, and `phong.rs` accepted a `y` coordinate (i32) and used it to calculate an array offset `(y * width)` without validating if `y` was within the framebuffer's vertical bounds. A negative or excessively large `y` could lead to an invalid offset and subsequent out-of-bounds write via `get_unchecked_mut`.
+**Defense:** Added explicit bounds checks (`if y < 0 || y >= height { return; }`) at the start of all public and internal scanline drawing functions.
