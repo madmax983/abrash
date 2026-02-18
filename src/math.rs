@@ -73,6 +73,7 @@ impl Vec2 {
 impl Add for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -84,6 +85,7 @@ impl Add for Vec2 {
 impl Sub for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
@@ -95,6 +97,7 @@ impl Sub for Vec2 {
 impl Mul<f32> for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -200,6 +203,7 @@ impl Vec3 {
     /// *   Zero if perpendicular.
     /// *   Negative if pointing in opposite directions.
     #[must_use]
+    #[inline]
     pub fn dot(&self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
@@ -221,6 +225,7 @@ impl Vec3 {
     /// assert_eq!(z, Vec3::new(0.0, 0.0, 1.0));
     /// ```
     #[must_use]
+    #[inline]
     pub fn cross(&self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
@@ -231,6 +236,7 @@ impl Vec3 {
 
     /// Calculates the Euclidean length (magnitude) of the vector.
     #[must_use]
+    #[inline]
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -256,6 +262,7 @@ impl Vec3 {
     /// assert_eq!(tiny.normalize(), tiny);
     /// ```
     #[must_use]
+    #[inline]
     pub fn normalize(&self) -> Self {
         let len = self.length();
         if len > 0.0001 {
@@ -275,6 +282,7 @@ impl Vec3 {
     /// This is faster than `normalize()` but slightly less accurate.
     /// Useful for lighting calculations where extreme precision is not required.
     #[must_use]
+    #[inline]
     pub fn fast_normalize(&self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
@@ -292,6 +300,7 @@ impl Vec3 {
 
 impl Add for Vec3 {
     type Output = Self;
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -303,6 +312,7 @@ impl Add for Vec3 {
 
 impl Sub for Vec3 {
     type Output = Self;
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
@@ -314,6 +324,7 @@ impl Sub for Vec3 {
 
 impl Mul<f32> for Vec3 {
     type Output = Self;
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -325,6 +336,7 @@ impl Mul<f32> for Vec3 {
 
 impl Mul for Vec3 {
     type Output = Self;
+    #[inline]
     fn mul(self, other: Self) -> Self {
         Self {
             x: self.x * other.x,
@@ -1361,6 +1373,7 @@ impl Vec4 {
 /// Multiply vector by scalar.
 impl std::ops::Mul<f32> for Vec4 {
     type Output = Self;
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -1374,6 +1387,7 @@ impl std::ops::Mul<f32> for Vec4 {
 /// Component-wise addition.
 impl std::ops::Add for Vec4 {
     type Output = Self;
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -1387,6 +1401,7 @@ impl std::ops::Add for Vec4 {
 /// Component-wise subtraction.
 impl std::ops::Sub for Vec4 {
     type Output = Self;
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
