@@ -196,49 +196,90 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                 let mut shadow_val = _mm256_setzero_ps();
                 let mut sample_count = _mm256_setzero_ps();
 
-                for y_off in -1..=1 {
-                    for x_off in -1..=1 {
-                        let off_x = _mm256_set1_epi32(x_off);
-                        let off_y = _mm256_set1_epi32(y_off);
-                        let coord_x = _mm256_add_epi32(sm_x, off_x);
-                        let coord_y = _mm256_add_epi32(sm_y, off_y);
+                let one_i = _mm256_set1_epi32(1);
+                let zero_i = _mm256_setzero_si256();
 
-                        let in_bounds = _mm256_and_si256(
-                            _mm256_and_si256(
-                                _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_w_i32, coord_x),
-                            ),
-                            _mm256_and_si256(
-                                _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_h_i32, coord_y),
-                            ),
-                        );
+                let w_limit = _mm256_sub_epi32(sm_w_i32, one_i);
+                let h_limit = _mm256_sub_epi32(sm_h_i32, one_i);
 
-                        let safe_x = _mm256_max_epi32(
-                            _mm256_setzero_si256(),
-                            _mm256_min_epi32(
-                                coord_x,
-                                _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1)),
-                            ),
-                        );
-                        let safe_y = _mm256_max_epi32(
-                            _mm256_setzero_si256(),
-                            _mm256_min_epi32(
-                                coord_y,
-                                _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1)),
-                            ),
-                        );
-                        let idx =
-                            _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
-                        let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
+                let x_ge_1 = _mm256_cmpgt_epi32(sm_x, zero_i);
+                let x_lt_w_1 = _mm256_cmpgt_epi32(w_limit, sm_x);
+                let y_ge_1 = _mm256_cmpgt_epi32(sm_y, zero_i);
+                let y_lt_h_1 = _mm256_cmpgt_epi32(h_limit, sm_y);
 
-                        let is_shadow =
-                            _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
-                        let valid = _mm256_castsi256_ps(in_bounds);
+                let safe_mask = _mm256_and_si256(
+                    _mm256_and_si256(x_ge_1, x_lt_w_1),
+                    _mm256_and_si256(y_ge_1, y_lt_h_1)
+                );
 
-                        sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
-                        let lit = _mm256_andnot_ps(is_shadow, valid);
-                        shadow_val = _mm256_add_ps(shadow_val, _mm256_and_ps(one, lit));
+                let all_safe = _mm256_movemask_epi8(safe_mask) == -1;
+
+                if all_safe {
+                     let base_idx = _mm256_add_epi32(_mm256_mullo_epi32(sm_y, sm_width_stride), sm_x);
+                     let w_i32_scalar = shadow_map.width() as i32;
+
+                     let d = _mm256_i32gather_ps(sm_ptr, base_idx, 4);
+                     let s = _mm256_cmp_ps(ndc_z, _mm256_add_ps(d, bias), _CMP_GT_OQ);
+                     shadow_val = _mm256_add_ps(shadow_val, _mm256_andnot_ps(s, one));
+
+                     for y_off in -1..=1 {
+                         for x_off in -1..=1 {
+                             if x_off == 0 && y_off == 0 { continue; }
+
+                             let offset_val = y_off * w_i32_scalar + x_off;
+                             let offset = _mm256_set1_epi32(offset_val);
+                             let idx = _mm256_add_epi32(base_idx, offset);
+                             let d = _mm256_i32gather_ps(sm_ptr, idx, 4);
+                             let s = _mm256_cmp_ps(ndc_z, _mm256_add_ps(d, bias), _CMP_GT_OQ);
+                             shadow_val = _mm256_add_ps(shadow_val, _mm256_andnot_ps(s, one));
+                         }
+                     }
+                     sample_count = _mm256_set1_ps(9.0);
+                } else {
+                    for y_off in -1..=1 {
+                        for x_off in -1..=1 {
+                            let off_x = _mm256_set1_epi32(x_off);
+                            let off_y = _mm256_set1_epi32(y_off);
+                            let coord_x = _mm256_add_epi32(sm_x, off_x);
+                            let coord_y = _mm256_add_epi32(sm_y, off_y);
+
+                            let in_bounds = _mm256_and_si256(
+                                _mm256_and_si256(
+                                    _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
+                                    _mm256_cmpgt_epi32(sm_w_i32, coord_x),
+                                ),
+                                _mm256_and_si256(
+                                    _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
+                                    _mm256_cmpgt_epi32(sm_h_i32, coord_y),
+                                ),
+                            );
+
+                            let safe_x = _mm256_max_epi32(
+                                _mm256_setzero_si256(),
+                                _mm256_min_epi32(
+                                    coord_x,
+                                    _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1)),
+                                ),
+                            );
+                            let safe_y = _mm256_max_epi32(
+                                _mm256_setzero_si256(),
+                                _mm256_min_epi32(
+                                    coord_y,
+                                    _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1)),
+                                ),
+                            );
+                            let idx =
+                                _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
+                            let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
+
+                            let is_shadow =
+                                _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
+                            let valid = _mm256_castsi256_ps(in_bounds);
+
+                            sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
+                            let lit = _mm256_andnot_ps(is_shadow, valid);
+                            shadow_val = _mm256_add_ps(shadow_val, _mm256_and_ps(one, lit));
+                        }
                     }
                 }
 
