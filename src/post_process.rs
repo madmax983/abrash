@@ -2062,11 +2062,18 @@ mod tests {
         box_blur_f32(&mut src, &mut dest, &mut acc, width, height);
 
         // Check center
-        assert!((src[2 * width + 2] - 1.0).abs() < 1e-4, "Center pixel should be 1.0");
+        assert!(
+            (src[2 * width + 2] - 1.0).abs() < 1e-4,
+            "Center pixel should be 1.0"
+        );
 
         // Check corner (0,0)
         // Expected 1.0 with clamp-to-edge logic.
         let val = src[0];
-        assert!((val - 1.0).abs() < 1e-4, "Corner pixel mismatch. Got {}, expected 1.0", val);
+        assert!(
+            (val - 1.0).abs() < 1e-4,
+            "Corner pixel mismatch. Got {}, expected 1.0",
+            val
+        );
     }
 }

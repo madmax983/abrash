@@ -6,11 +6,12 @@ use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-fn bench_draw_scanline_bilinear_100px(c: &mut Criterion) {
+fn bench_draw_scanline_bilinear_pot(c: &mut Criterion) {
     let width = 200;
     let height = 100;
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
+    // Power of Two (256x256)
     let mut tex = Texture::new(256, 256).unwrap();
     // Fill texture with checkerboard
     for y in 0..256 {
@@ -29,11 +30,10 @@ fn bench_draw_scanline_bilinear_100px(c: &mut Criterion) {
     let x_start = 10;
     let x_end = 110; // 100 pixels
 
-    // Simple gradients (flat facing camera)
     let gradients = PerspectiveTextureGradients {
         dz_dx: 0.001,
-        dq_dx: 0.0,         // No perspective distortion (w constant)
-        du_dx: 1.0 / 256.0, // traverse 1 pixel per pixel
+        dq_dx: 0.0,
+        du_dx: 1.0 / 256.0,
         dv_dx: 0.0,
         dq_dy: 0.0,
         du_dy: 0.0,
@@ -47,9 +47,8 @@ fn bench_draw_scanline_bilinear_100px(c: &mut Criterion) {
         v: 0.0,
     };
 
-    c.bench_function("draw_scanline_bilinear_100px", |b| {
+    c.bench_function("draw_scanline_bilinear_pot_256", |b| {
         b.iter(|| {
-            // Reset Z for the scanline range
             let width_usize = width as usize;
             let start_idx = (y as usize) * width_usize + (x_start as usize);
             let end_idx = (y as usize) * width_usize + (x_end as usize);
@@ -72,5 +71,69 @@ fn bench_draw_scanline_bilinear_100px(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_draw_scanline_bilinear_100px);
+fn bench_draw_scanline_bilinear_npot(c: &mut Criterion) {
+    let width = 200;
+    let height = 100;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    // Non Power of Two (255x255)
+    let mut tex = Texture::new(255, 255).unwrap();
+    for y in 0..255 {
+        for x in 0..255 {
+            let color = 0xFFFFFFFF;
+            tex.set_pixel(x, y, color);
+        }
+    }
+    tex.filter_mode = FilterMode::Bilinear;
+
+    let y = 50;
+    let x_start = 10;
+    let x_end = 110;
+
+    let gradients = PerspectiveTextureGradients {
+        dz_dx: 0.001,
+        dq_dx: 0.0,
+        du_dx: 1.0 / 255.0,
+        dv_dx: 0.0,
+        dq_dy: 0.0,
+        du_dy: 0.0,
+        dv_dy: 0.0,
+    };
+
+    let start = PerspectiveSpanStart {
+        z: 0.5,
+        q: 1.0,
+        u: 0.0,
+        v: 0.0,
+    };
+
+    c.bench_function("draw_scanline_bilinear_npot_255", |b| {
+        b.iter(|| {
+            let width_usize = width as usize;
+            let start_idx = (y as usize) * width_usize + (x_start as usize);
+            let end_idx = (y as usize) * width_usize + (x_end as usize);
+
+            for z in &mut zb.as_mut_slice()[start_idx..=end_idx] {
+                *z = f32::INFINITY;
+            }
+
+            draw_scanline_textured_perspective(
+                &mut fb,
+                &mut zb,
+                &tex,
+                black_box(y),
+                black_box(x_start),
+                black_box(x_end),
+                black_box(start),
+                black_box(&gradients),
+            );
+        });
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_draw_scanline_bilinear_pot,
+    bench_draw_scanline_bilinear_npot
+);
 criterion_main!(benches);
