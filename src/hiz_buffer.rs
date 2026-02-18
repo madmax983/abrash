@@ -230,13 +230,146 @@ impl HiZBuffer {
         Ok(())
     }
 
-    /// Optimized scalar 2×2 min-reduction implementation
+    /// Optimized 2x2 min-reduction using AVX2
     ///
-    /// # SIMD Note
-    /// SIMD was attempted but found to be slower due to memory bandwidth saturation,
-    /// excessive shuffle operations for horizontal reduction, and small working sets.
-    /// See SIMD_PROFILING_ANALYSIS.md for details.
+    /// Processes 8 output pixels (16x2 input pixels) per iteration.
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    #[target_feature(enable = "avx2")]
+    unsafe fn min_reduce_2x2_avx2(
+        dest: &mut [f32],
+        dest_width: u32,
+        dest_height: u32,
+        source: &[f32],
+        source_width: u32,
+    ) {
+        use std::arch::x86_64::{
+            _mm256_castps_si256, _mm256_castsi256_ps, _mm256_loadu_ps, _mm256_min_ps,
+            _mm256_permute4x64_epi64, _mm256_shuffle_ps, _mm256_storeu_ps,
+        };
+
+        let sw = source_width as usize;
+        let dw = dest_width as usize;
+        let dh = dest_height as usize;
+
+        let mut y = 0;
+        // Process rows where we have both top and bottom source rows
+        while y < dh {
+            let src_y = y * 2;
+            if src_y + 1 >= (source.len() / sw) {
+                break;
+            }
+
+            let row0_ptr = source.as_ptr().add(src_y * sw);
+            let row1_ptr = source.as_ptr().add((src_y + 1) * sw);
+            let dest_ptr = dest.as_mut_ptr().add(y * dw);
+
+            let mut x = 0;
+            // Process 8 output pixels at a time (consuming 16 input pixels width)
+            while x + 8 <= dw {
+                if (x * 2 + 16) > sw {
+                    break;
+                }
+
+                // Load 16 floats from row 0
+                let r0_lo = _mm256_loadu_ps(row0_ptr.add(x * 2));
+                let r0_hi = _mm256_loadu_ps(row0_ptr.add(x * 2 + 8));
+
+                // Load 16 floats from row 1
+                let r1_lo = _mm256_loadu_ps(row1_ptr.add(x * 2));
+                let r1_hi = _mm256_loadu_ps(row1_ptr.add(x * 2 + 8));
+
+                // Vertical Min
+                let m_lo = _mm256_min_ps(r0_lo, r1_lo);
+                let m_hi = _mm256_min_ps(r0_hi, r1_hi);
+
+                // Horizontal Min (pairwise)
+                // Swap adjacent pairs: 0,1 -> 1,0
+                let shuf_lo = _mm256_shuffle_ps(m_lo, m_lo, 0xB1);
+                let min_lo = _mm256_min_ps(m_lo, shuf_lo);
+
+                let shuf_hi = _mm256_shuffle_ps(m_hi, m_hi, 0xB1);
+                let min_hi = _mm256_min_ps(m_hi, shuf_hi);
+
+                // Pack results
+                // min_lo lanes: [min01, min01, min23, min23, min45, min45, min67, min67]
+                // We want to pick indices 0, 2, 4, 6 from both min_lo and min_hi
+                // _mm256_shuffle_ps(a, b, 0x88) picks 0,2 from a and 0,2 from b (per 128-bit lane)
+                // Resulting 256-bit vector:
+                // Lane 0: [min01, min23, min89, min1011]
+                // Lane 1: [min45, min67, min1213, min1415]
+                let packed = _mm256_shuffle_ps(min_lo, min_hi, 0x88);
+
+                // Reorder 64-bit blocks to correct order
+                // Current blocks (pairs of floats):
+                // 0: min01, min23
+                // 1: min89, min1011
+                // 2: min45, min67
+                // 3: min1213, min1415
+                // Target order: 0, 2, 1, 3
+                // Imm: 11 01 10 00 = 0xD8
+                let result_i = _mm256_permute4x64_epi64(_mm256_castps_si256(packed), 0xD8);
+                let result = _mm256_castsi256_ps(result_i);
+
+                _mm256_storeu_ps(dest_ptr.add(x), result);
+
+                x += 8;
+            }
+
+            // Scalar tail for X
+            while x < dw {
+                let sx = x * 2;
+                let d00 = *row0_ptr.add(sx);
+                let d10 = if sx + 1 < sw { *row0_ptr.add(sx + 1) } else { d00 };
+                let d01 = *row1_ptr.add(sx);
+                let d11 = if sx + 1 < sw { *row1_ptr.add(sx + 1) } else { d01 };
+
+                *dest_ptr.add(x) = d00.min(d10).min(d01).min(d11);
+                x += 1;
+            }
+
+            y += 1;
+        }
+
+        // Scalar tail for Y (if odd height)
+        if y < dh {
+            let src_y = y * 2;
+            let row0_ptr = source.as_ptr().add(src_y * sw);
+            let dest_ptr = dest.as_mut_ptr().add(y * dw);
+
+            for x in 0..dw {
+                let sx = (x * 2) as usize;
+                let d00 = *row0_ptr.add(sx);
+                let d10 = if sx + 1 < sw { *row0_ptr.add(sx + 1) } else { d00 };
+                // Clamp to top row
+                *dest_ptr.add(x as usize) = d00.min(d10);
+            }
+        }
+    }
+
+    /// 2x2 min-reduction dispatcher
     fn min_reduce_2x2(
+        dest: &mut [f32],
+        dest_width: u32,
+        dest_height: u32,
+        source: &[f32],
+        source_width: u32,
+    ) {
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                // SAFETY: We checked for AVX2 support.
+                unsafe {
+                    Self::min_reduce_2x2_avx2(dest, dest_width, dest_height, source, source_width);
+                }
+                return;
+            }
+        }
+
+        Self::min_reduce_2x2_scalar(dest, dest_width, dest_height, source, source_width);
+    }
+
+    /// Optimized scalar 2×2 min-reduction implementation
+    fn min_reduce_2x2_scalar(
         dest: &mut [f32],
         dest_width: u32,
         dest_height: u32,
@@ -1124,5 +1257,102 @@ mod tests {
 
         // Should be visible (conservative: equal depth treated as visible)
         assert!(hiz.is_coarse_bin_visible(bin_aabb));
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_min_reduce_2x2_avx2_correctness() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let width = 64;
+        let height = 64;
+        let mut source = vec![0.0f32; width * height];
+        for (i, v) in source.iter_mut().enumerate() {
+            *v = (i % 17) as f32; // Deterministic pattern
+        }
+
+        let dest_width = width / 2;
+        let dest_height = height / 2;
+        let mut dest_scalar = vec![0.0f32; dest_width * dest_height];
+        let mut dest_avx2 = vec![0.0f32; dest_width * dest_height];
+
+        HiZBuffer::min_reduce_2x2_scalar(
+            &mut dest_scalar,
+            dest_width as u32,
+            dest_height as u32,
+            &source,
+            width as u32,
+        );
+
+        unsafe {
+            HiZBuffer::min_reduce_2x2_avx2(
+                &mut dest_avx2,
+                dest_width as u32,
+                dest_height as u32,
+                &source,
+                width as u32,
+            );
+        }
+
+        for (i, (s, a)) in dest_scalar.iter().zip(dest_avx2.iter()).enumerate() {
+            assert!(
+                (s - a).abs() < f32::EPSILON,
+                "Mismatch at index {}: scalar {}, avx2 {}",
+                i,
+                s,
+                a
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_min_reduce_2x2_avx2_odd_dimensions() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        // 33x33 -> 17x17 (odd)
+        let width = 33;
+        let height = 33;
+        let mut source = vec![0.0f32; width * height];
+        for (i, v) in source.iter_mut().enumerate() {
+            *v = (i % 23) as f32;
+        }
+
+        let dest_width = (width + 1) / 2;
+        let dest_height = (height + 1) / 2;
+        let mut dest_scalar = vec![0.0f32; dest_width * dest_height];
+        let mut dest_avx2 = vec![0.0f32; dest_width * dest_height];
+
+        HiZBuffer::min_reduce_2x2_scalar(
+            &mut dest_scalar,
+            dest_width as u32,
+            dest_height as u32,
+            &source,
+            width as u32,
+        );
+
+        unsafe {
+            HiZBuffer::min_reduce_2x2_avx2(
+                &mut dest_avx2,
+                dest_width as u32,
+                dest_height as u32,
+                &source,
+                width as u32,
+            );
+        }
+
+        for (i, (s, a)) in dest_scalar.iter().zip(dest_avx2.iter()).enumerate() {
+            assert!(
+                (s - a).abs() < f32::EPSILON,
+                "Mismatch at index {}: scalar {}, avx2 {}",
+                i,
+                s,
+                a
+            );
+        }
     }
 }

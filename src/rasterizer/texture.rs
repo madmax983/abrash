@@ -1877,9 +1877,11 @@ unsafe fn draw_span_trilinear_simd(
         // u_fix_start is 16.16 (center). Bilinear simd expects 16.16 (offset -0.5).
         let u_fix = u_fix_start.wrapping_sub(32768);
         let v_fix = v_fix_start.wrapping_sub(32768);
-        draw_span_bilinear_simd(
-            fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
-        );
+        unsafe {
+            draw_span_bilinear_simd(
+                fb_slice, zb_slice, texture, z_start, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+            );
+        }
         return;
     }
 
@@ -1939,7 +1941,8 @@ unsafe fn draw_span_trilinear_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
-    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    unsafe {
+        let dz_dx_vec = _mm256_set1_ps(dz_dx);
     let du_fix_vec = _mm256_set1_epi32(du_fix);
     let dv_fix_vec = _mm256_set1_epi32(dv_fix);
 
@@ -2085,10 +2088,11 @@ unsafe fn draw_span_trilinear_simd(
             }
         }
 
-        z_vec = _mm256_add_ps(z_vec, dz_step);
-        u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
-        v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
-        i += 8;
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+            v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+            i += 8;
+        }
     }
     // Scalar Tail
     if i < len {
@@ -2730,7 +2734,8 @@ unsafe fn draw_span_textured_gouraud_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
-    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    unsafe {
+        let dz_dx_vec = _mm256_set1_ps(dz_dx);
     let du_fix_vec = _mm256_set1_epi32(du_fix);
     let dv_fix_vec = _mm256_set1_epi32(dv_fix);
     let dr_dx_vec = _mm256_set1_ps(dr_dx);
@@ -2863,13 +2868,14 @@ unsafe fn draw_span_textured_gouraud_simd(
             }
         }
 
-        z_vec = _mm256_add_ps(z_vec, dz_step);
-        r_vec = _mm256_add_ps(r_vec, dr_step);
-        g_vec = _mm256_add_ps(g_vec, dg_step);
-        b_vec = _mm256_add_ps(b_vec, db_step);
-        u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
-        v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
-        i += 8;
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            r_vec = _mm256_add_ps(r_vec, dr_step);
+            g_vec = _mm256_add_ps(g_vec, dg_step);
+            b_vec = _mm256_add_ps(b_vec, db_step);
+            u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
+            v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
+            i += 8;
+        }
     }
 
     draw_span_textured_gouraud_scalar(
@@ -2918,7 +2924,8 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
-    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    unsafe {
+        let dz_dx_vec = _mm256_set1_ps(dz_dx);
     let du_fix_vec = _mm256_set1_epi32(du_fix);
     let dv_fix_vec = _mm256_set1_epi32(dv_fix);
     let dr_dx_vec = _mm256_set1_ps(dr_dx);
@@ -3114,6 +3121,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         }
     }
 
+    }
     // Scalar Tail
     let mut z_curr = z_start + (i as f32) * dz_dx;
     let mut u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
@@ -3123,8 +3131,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let mut b_curr = b_start + (i as f32) * db_dx;
 
     while i < len {
-        let depth_val = zb_slice.get_unchecked_mut(i);
-        if z_curr < *depth_val {
+            unsafe {
+                let depth_val = zb_slice.get_unchecked_mut(i);
+                if z_curr < *depth_val {
             let color = texture.get_pixel_bilinear_fixed(u_curr, v_curr);
 
             let tex_r = ((color >> 16) & 0xFF) as f32;
@@ -3151,6 +3160,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 );
             }
         }
+            }
         z_curr += dz_dx;
         u_curr = u_curr.wrapping_add(du_fix);
         v_curr = v_curr.wrapping_add(dv_fix);

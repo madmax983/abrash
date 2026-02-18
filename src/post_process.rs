@@ -1478,7 +1478,8 @@ unsafe fn apply_ssao_avx2(
 ) {
     use std::arch::x86_64::*;
 
-    let p00 = _mm256_set1_ps(proj_m[0]);
+    unsafe {
+        let p00 = _mm256_set1_ps(proj_m[0]);
     let p11 = _mm256_set1_ps(proj_m[5]);
     let p22 = _mm256_set1_ps(proj_m[10]);
     let p32 = _mm256_set1_ps(proj_m[14]);
@@ -1717,6 +1718,7 @@ unsafe fn apply_ssao_avx2(
             x += 1;
         }
     }
+    }
 }
 
 /// Applies Screen-Space Ambient Occlusion to the framebuffer.
@@ -1787,8 +1789,8 @@ pub fn apply_ssao(
         // It mostly uses diagonal and last column.
         // Scalar fallback implementation in AVX2 function reconstructs manually.
 
-        let half_width = width as f32 * 0.5;
-        let half_height = height as f32 * 0.5;
+        let _half_width = width as f32 * 0.5;
+        let _half_height = height as f32 * 0.5;
 
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
@@ -1804,8 +1806,8 @@ pub fn apply_ssao(
                         noise,
                         radius,
                         bias,
-                        half_width,
-                        half_height,
+                        _half_width,
+                        _half_height,
                     );
                 }
             } else {
