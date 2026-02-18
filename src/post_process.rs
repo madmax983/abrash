@@ -34,6 +34,7 @@ const NOISE_SIZE: usize = 4;
 struct SsaoContext {
     occlusion_buffer: Vec<f32>,
     scratch_buffer: Vec<f32>,
+    acc_buffer: Vec<f32>,
     kernel: [Vec3; KERNEL_SIZE],
     noise: [Vec3; NOISE_SIZE * NOISE_SIZE],
     initialized: bool,
@@ -44,6 +45,7 @@ impl Default for SsaoContext {
         Self {
             occlusion_buffer: Vec::new(),
             scratch_buffer: Vec::new(),
+            acc_buffer: Vec::new(),
             kernel: [Vec3::default(); KERNEL_SIZE],
             noise: [Vec3::default(); NOISE_SIZE * NOISE_SIZE],
             initialized: false,
@@ -128,6 +130,80 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
             *d = *s;
         } else {
             *d = 0xFF00_0000; // Black (with full alpha)
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn box_blur_f32_vertical_avx2(
+    src: &[f32],
+    dest: &mut [f32],
+    acc: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    use std::arch::x86_64::{
+        _mm256_add_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_set1_ps, _mm256_storeu_ps,
+        _mm256_sub_ps,
+    };
+
+    let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
+    let scale_vec = _mm256_set1_ps(scale);
+
+    // Reset accumulators
+    acc.fill(0.0);
+
+    // Pre-fill accumulators (Scalar loop is fine here, it's O(W*R))
+    // We could SIMD this too but it runs once per frame.
+    let row0 = &src[0..width];
+    for x in 0..width {
+        let val = row0[x];
+        for _ in 0..=radius {
+            acc[x] += val;
+        }
+    }
+    for y in 1..=radius {
+        let row_idx = y.min(height - 1);
+        let row = &src[row_idx * width..(row_idx + 1) * width];
+        for x in 0..width {
+            acc[x] += row[x];
+        }
+    }
+
+    for y in 0..height {
+        let dest_row_start = y * width;
+        let dest_row = &mut dest[dest_row_start..dest_row_start + width];
+
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let in_y = (y + radius + 1).min(height - 1);
+
+        let out_row = &src[out_y * width..(out_y + 1) * width];
+        let in_row = &src[in_y * width..(in_y + 1) * width];
+
+        let mut x = 0;
+        while x + 8 <= width {
+            // Load
+            let a = _mm256_loadu_ps(acc.as_ptr().add(x));
+            let o = _mm256_loadu_ps(out_row.as_ptr().add(x));
+            let i = _mm256_loadu_ps(in_row.as_ptr().add(x));
+
+            // Update acc = acc - out + in
+            let a_new = _mm256_add_ps(_mm256_sub_ps(a, o), i);
+            _mm256_storeu_ps(acc.as_mut_ptr().add(x), a_new);
+
+            // Calc dest
+            let d = _mm256_mul_ps(a_new, scale_vec);
+            _mm256_storeu_ps(dest_row.as_mut_ptr().add(x), d);
+
+            x += 8;
+        }
+
+        // Tail
+        for i in x..width {
+            acc[i] = acc[i] - out_row[i] + in_row[i];
+            dest_row[i] = acc[i] * scale;
         }
     }
 }
@@ -1269,26 +1345,118 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-fn box_blur_f32(src: &[f32], dest: &mut [f32], width: usize, height: usize) {
+/// Applies a separable box blur to a floating-point buffer.
+///
+/// # Arguments
+/// * `src` - Source buffer (modified in-place to contain result).
+/// * `dest` - Scratch buffer for intermediate horizontal pass.
+/// * `acc_buffer` - Scratch buffer for vertical pass accumulators.
+/// * `width` - Width of the buffer.
+/// * `height` - Height of the buffer.
+pub fn box_blur_f32(
+    src: &mut [f32],
+    dest: &mut [f32],
+    acc_buffer: &mut [f32],
+    width: usize,
+    height: usize,
+) {
     let radius = 2; // 5x5 kernel
 
-    for y in 0..height {
-        for x in 0..width {
-            let mut sum = 0.0;
-            let mut count = 0.0;
+    // 1. Horizontal pass: src -> dest
+    box_blur_f32_horizontal_scalar(src, dest, width, height, radius);
 
-            for ky in -(radius as isize)..=radius as isize {
-                for kx in -(radius as isize)..=radius as isize {
-                    let ny = y as isize + ky;
-                    let nx = x as isize + kx;
-
-                    if ny >= 0 && ny < height as isize && nx >= 0 && nx < width as isize {
-                        sum += src[ny as usize * width + nx as usize];
-                        count += 1.0;
-                    }
-                }
+    // 2. Vertical pass: dest -> src
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                box_blur_f32_vertical_avx2(dest, src, acc_buffer, width, height, radius);
             }
-            dest[y * width + x] = sum / count;
+            return;
+        }
+    }
+    box_blur_f32_vertical_scalar(dest, src, acc_buffer, width, height, radius);
+}
+
+fn box_blur_f32_horizontal_scalar(
+    src: &[f32],
+    dest: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
+
+    for y in 0..height {
+        let row_start = y * width;
+        let src_row = &src[row_start..row_start + width];
+        let dest_row = &mut dest[row_start..row_start + width];
+
+        let mut acc = 0.0;
+
+        // Pre-fill
+        let first = src_row[0];
+        for _ in 0..=radius {
+            acc += first;
+        }
+        for x in 1..=radius {
+            acc += src_row[x.min(width - 1)];
+        }
+
+        for x in 0..width {
+            dest_row[x] = acc * scale;
+
+            let out_idx = (x as isize - radius as isize).max(0) as usize;
+            let in_idx = (x + radius + 1).min(width - 1);
+
+            acc -= src_row[out_idx];
+            acc += src_row[in_idx];
+        }
+    }
+}
+
+fn box_blur_f32_vertical_scalar(
+    src: &[f32],
+    dest: &mut [f32],
+    acc: &mut [f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+) {
+    let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
+    // Reset accumulators
+    acc.fill(0.0);
+
+    // Pre-fill accumulators
+    let row0 = &src[0..width];
+    for x in 0..width {
+        let val = row0[x];
+        for _ in 0..=radius {
+            acc[x] += val;
+        }
+    }
+    for y in 1..=radius {
+        let row_idx = y.min(height - 1);
+        let row = &src[row_idx * width..(row_idx + 1) * width];
+        for x in 0..width {
+            acc[x] += row[x];
+        }
+    }
+
+    for y in 0..height {
+        let dest_row_start = y * width;
+        let dest_row = &mut dest[dest_row_start..dest_row_start + width];
+
+        let out_y = (y as isize - radius as isize).max(0) as usize;
+        let in_y = (y + radius + 1).min(height - 1);
+
+        let out_row = &src[out_y * width..(out_y + 1) * width];
+        let in_row = &src[in_y * width..(in_y + 1) * width];
+
+        for x in 0..width {
+            dest_row[x] = acc[x] * scale;
+            acc[x] -= out_row[x];
+            acc[x] += in_row[x];
         }
     }
 }
@@ -1555,9 +1723,13 @@ pub fn apply_ssao(
         if ctx.scratch_buffer.len() < needed_size {
             ctx.scratch_buffer.resize(needed_size, 0.0);
         }
+        if ctx.acc_buffer.len() < width {
+            ctx.acc_buffer.resize(width, 0.0);
+        }
 
         let occlusion_buffer = &mut ctx.occlusion_buffer[..needed_size];
         let scratch_buffer = &mut ctx.scratch_buffer[..needed_size];
+        let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
 
@@ -1605,11 +1777,11 @@ pub fn apply_ssao(
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
         apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, width, height, radius, bias);
 
-        box_blur_f32(occlusion_buffer, scratch_buffer, width, height);
+        box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
         let pixels = fb.as_mut_slice();
         for (i, p) in pixels.iter_mut().enumerate() {
-            let occ = scratch_buffer[i];
+            let occ = occlusion_buffer[i];
             let factor = 1.0 - (occ / KERNEL_SIZE as f32) * intensity;
             let factor = factor.clamp(0.0, 1.0);
 
@@ -1817,5 +1989,27 @@ mod tests {
             "Blue mismatch for red pixel, got {}",
             b
         );
+    }
+
+    #[test]
+    fn test_box_blur_f32_correctness() {
+        let width = 5;
+        let height = 5;
+        let mut src = vec![0.0; width * height];
+        let mut dest = vec![0.0; width * height];
+        let mut acc = vec![0.0; width];
+
+        // Set center pixel to 25.0
+        src[2 * width + 2] = 25.0;
+
+        box_blur_f32(&mut src, &mut dest, &mut acc, width, height);
+
+        // Check center
+        assert!((src[2 * width + 2] - 1.0).abs() < 1e-4, "Center pixel should be 1.0");
+
+        // Check corner (0,0)
+        // Expected 1.0 with clamp-to-edge logic.
+        let val = src[0];
+        assert!((val - 1.0).abs() < 1e-4, "Corner pixel mismatch. Got {}, expected 1.0", val);
     }
 }
