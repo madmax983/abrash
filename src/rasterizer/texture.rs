@@ -37,6 +37,9 @@ use crate::zbuffer::ZBuffer;
 
 use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface, sort_by_y};
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use super::core::blend_swar_simd;
+
 /// Gradients for perspective-correct texture mapping.
 ///
 /// This struct holds the per-pixel (dX) and per-scanline (dY) changes for:
@@ -551,38 +554,9 @@ unsafe fn draw_span_bilinear_simd(
                 let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
                 let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
 
-                let blend_swar_avx2 =
-                    |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-                        let mask = _mm256_set1_epi32(0x00FF00FF);
-
-                        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
-                        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
-
-                        let rb0 = _mm256_and_si256(c0, mask);
-                        let rb1 = _mm256_and_si256(c1, mask);
-
-                        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
-                        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
-
-                        let rb_sum = _mm256_add_epi16(
-                            _mm256_mullo_epi16(rb0, inv_w_16),
-                            _mm256_mullo_epi16(rb1, w_16),
-                        );
-
-                        let ag_sum = _mm256_add_epi16(
-                            _mm256_mullo_epi16(ag0, inv_w_16),
-                            _mm256_mullo_epi16(ag1, w_16),
-                        );
-
-                        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
-                        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
-
-                        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
-                    };
-
-                let top = blend_swar_avx2(c00, c10, wx, inv_wx);
-                let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
-                let final_color = blend_swar_avx2(top, bot, wy, inv_wy);
+                let top = blend_swar_simd(c00, c10, wx, inv_wx);
+                let bot = blend_swar_simd(c01, c11, wx, inv_wx);
+                let final_color = blend_swar_simd(top, bot, wy, inv_wy);
 
                 // Write Opaque: (mask_z & opaque)
                 // Need to extract alpha from final_color
@@ -610,21 +584,26 @@ unsafe fn draw_span_bilinear_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
                 if trans_bits != 0 {
-                    let mut temp_pixels = [0u32; 8];
-                    _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, final_color);
+                    // Load current framebuffer (might have been updated by opaque write)
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let current_dest = _mm256_loadu_si256(fb_ptr);
 
-                    let mut bit = 1;
-                    for k in 0..8 {
-                        if (trans_bits & bit) != 0 {
-                            let idx_scalar = i + k;
-                            let color = temp_pixels[k];
-                            let alpha = (color >> 24) & 0xFF;
-                            let dest = *fb_slice.get_unchecked(idx_scalar);
-                            *fb_slice.get_unchecked_mut(idx_scalar) =
-                                blend_swar(color, dest, 255 - alpha, alpha);
-                        }
-                        bit <<= 1;
-                    }
+                    // Alpha blending: src * alpha + dest * (1 - alpha)
+                    // blend_swar_simd(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
+                    // We want: src * alpha + dest * inv_alpha
+                    // So: c0 = src, inv_w = alpha
+                    //     c1 = dest, w = inv_alpha
+
+                    let alpha_src = a; // Already extracted: (final_color >> 24) & 0xFF
+                    let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                    let blended =
+                        blend_swar_simd(final_color, current_dest, inv_alpha_src, alpha_src);
+
+                    // Only write where trans_mask is set.
+                    // blendv_epi8(a, b, mask): if mask bit is 1, take b.
+                    let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
+                    _mm256_storeu_si256(fb_ptr, result);
                 }
             }
 
@@ -795,21 +774,19 @@ unsafe fn draw_span_nearest_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
                 if trans_bits != 0 {
-                    let mut temp_pixels = [0u32; 8];
-                    _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, pixel_vals);
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let current_dest = _mm256_loadu_si256(fb_ptr);
 
-                    let mut bit = 1;
-                    for k in 0..8 {
-                        if (trans_bits & bit) != 0 {
-                            let idx_scalar = i + k;
-                            let color = temp_pixels[k];
-                            let alpha = (color >> 24) & 0xFF;
-                            let dest = *fb_slice.get_unchecked(idx_scalar);
-                            *fb_slice.get_unchecked_mut(idx_scalar) =
-                                blend_swar(color, dest, 255 - alpha, alpha);
-                        }
-                        bit <<= 1;
-                    }
+                    let const_256 = _mm256_set1_epi32(256);
+                    let alpha_src = _mm256_and_si256(alphas_shifted, ff_mask_shifted);
+                    let alpha_src = _mm256_srli_epi32(alpha_src, 24);
+                    let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                    let blended =
+                        blend_swar_simd(pixel_vals, current_dest, inv_alpha_src, alpha_src);
+
+                    let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
+                    _mm256_storeu_si256(fb_ptr, result);
                 }
             }
 
@@ -2006,25 +1983,6 @@ unsafe fn draw_span_trilinear_simd(
     let shift_amt0 = _mm_cvtsi32_si128(8 + shift0 as i32);
     let shift_amt1 = _mm_cvtsi32_si128(8 + shift1 as i32);
 
-    // Helpers
-    let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-        let mask = _mm256_set1_epi32(0x00FF00FF);
-        let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
-        let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
-
-        let rb0 = _mm256_and_si256(c0, mask);
-        let rb1 = _mm256_and_si256(c1, mask);
-        let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
-        let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
-
-        let rb_sum = _mm256_add_epi16(_mm256_mullo_epi16(rb0, inv_w_16), _mm256_mullo_epi16(rb1, w_16));
-        let ag_sum = _mm256_add_epi16(_mm256_mullo_epi16(ag0, inv_w_16), _mm256_mullo_epi16(ag1, w_16));
-
-        let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
-        let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
-        _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
-    };
-
     // Generic Bilinear Gather Macro
     // It takes u_img, v_img (24.8 format), width constants, and pixel pointer
     // Returns packed colors
@@ -2057,9 +2015,9 @@ unsafe fn draw_span_trilinear_simd(
             let c01 = _mm256_i32gather_epi32(ptr, idx01, 4);
             let c11 = _mm256_i32gather_epi32(ptr, idx11, 4);
 
-            let top = blend_swar_avx2(c00, c10, wx, inv_wx);
-            let bot = blend_swar_avx2(c01, c11, wx, inv_wx);
-            blend_swar_avx2(top, bot, wy, inv_wy)
+            let top = blend_swar_simd(c00, c10, wx, inv_wx);
+            let bot = blend_swar_simd(c01, c11, wx, inv_wx);
+            blend_swar_simd(top, bot, wy, inv_wy)
         }};
     }
 
@@ -2086,7 +2044,7 @@ unsafe fn draw_span_trilinear_simd(
             let color1 = sample_level!(u_img1, v_img1, w1_vec, max_x1, max_y1, pixels1.as_ptr());
 
             // Trilinear Blend
-            let final_color = blend_swar_avx2(color0, color1, weight_vec, inv_weight_vec);
+            let final_color = blend_swar_simd(color0, color1, weight_vec, inv_weight_vec);
 
             // Write Opaque/Translucent (Same as bilinear)
             let a = _mm256_and_si256(_mm256_srli_epi32(final_color, 24), mask_ff);
@@ -2107,23 +2065,21 @@ unsafe fn draw_span_trilinear_simd(
             }
 
             let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
-            let trans_mask = _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+            let trans_mask =
+                _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
             if trans_bits != 0 {
-                let mut temp_pixels = [0u32; 8];
-                _mm256_storeu_si256(temp_pixels.as_mut_ptr() as *mut __m256i, final_color);
-                let mut bit = 1;
-                for k in 0..8 {
-                    if (trans_bits & bit) != 0 {
-                        let idx = i + k;
-                        let src = temp_pixels[k];
-                        let alpha = (src >> 24) as u8;
-                        let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) = blend_swar(src, dest, (255 - alpha).into(), alpha.into());
-                    }
-                    bit <<= 1;
-                }
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let current_dest = _mm256_loadu_si256(fb_ptr);
+
+                let alpha_src = a;
+                let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                let blended = blend_swar_simd(final_color, current_dest, inv_alpha_src, alpha_src);
+
+                let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
+                _mm256_storeu_si256(fb_ptr, result);
             }
         }
 
@@ -2882,21 +2838,22 @@ unsafe fn draw_span_textured_gouraud_simd(
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
             if trans_bits != 0 {
-                let mut temp_colors = [0u32; 8];
-                _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color);
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let current_dest = _mm256_loadu_si256(fb_ptr);
 
-                let mut bit = 1;
-                for k in 0..8 {
-                    if (trans_bits & bit) != 0 {
-                        let idx = i + k;
-                        let src = temp_colors[k];
-                        let alpha = (src >> 24) as u8;
-                        let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) =
-                            blend_swar(src, dest, (255 - alpha).into(), alpha.into());
-                    }
-                    bit <<= 1;
-                }
+                // Alpha blending: src * alpha + dest * inv_alpha
+                // blend_swar_simd(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
+                // c0 = src, inv_w = alpha
+                // c1 = dest, w = inv_alpha
+
+                let const_256 = _mm256_set1_epi32(256);
+                let alpha_src = tex_a_i;
+                let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                let blended = blend_swar_simd(out_color, current_dest, inv_alpha_src, alpha_src);
+
+                let result = _mm256_blendv_epi8(current_dest, blended, write_trans);
+                _mm256_storeu_si256(fb_ptr, result);
             }
         }
 
@@ -3128,21 +3085,16 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
             let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
             if trans_bits != 0 {
-                let mut temp_colors = [0u32; 8];
-                _mm256_storeu_si256(temp_colors.as_mut_ptr() as *mut __m256i, out_color);
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let current_dest = _mm256_loadu_si256(fb_ptr);
 
-                let mut bit = 1;
-                for k in 0..8 {
-                    if (trans_bits & bit) != 0 {
-                        let idx = i + k;
-                        let src = temp_colors[k];
-                        let alpha = (src >> 24) as u8;
-                        let dest = *fb_slice.get_unchecked(idx);
-                        *fb_slice.get_unchecked_mut(idx) =
-                            blend_swar(src, dest, (255 - alpha).into(), alpha.into());
-                    }
-                    bit <<= 1;
-                }
+                let alpha_src = tex_a_i;
+                let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
+
+                let blended = blend_swar_simd(out_color, current_dest, inv_alpha_src, alpha_src);
+
+                let result = _mm256_blendv_epi8(current_dest, blended, write_trans);
+                _mm256_storeu_si256(fb_ptr, result);
             }
         }
 

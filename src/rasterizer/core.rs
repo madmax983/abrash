@@ -163,6 +163,43 @@ pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
     pack_color_channels(r, g, b)
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[inline]
+pub unsafe fn blend_swar_simd(
+    c0: std::arch::x86_64::__m256i,
+    c1: std::arch::x86_64::__m256i,
+    w: std::arch::x86_64::__m256i,
+    inv_w: std::arch::x86_64::__m256i,
+) -> std::arch::x86_64::__m256i {
+    use std::arch::x86_64::*;
+    let mask = _mm256_set1_epi32(0x00FF00FF);
+
+    let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
+    let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
+
+    let rb0 = _mm256_and_si256(c0, mask);
+    let rb1 = _mm256_and_si256(c1, mask);
+
+    let ag0 = _mm256_and_si256(_mm256_srli_epi32(c0, 8), mask);
+    let ag1 = _mm256_and_si256(_mm256_srli_epi32(c1, 8), mask);
+
+    let rb_sum = _mm256_add_epi16(
+        _mm256_mullo_epi16(rb0, inv_w_16),
+        _mm256_mullo_epi16(rb1, w_16),
+    );
+
+    let ag_sum = _mm256_add_epi16(
+        _mm256_mullo_epi16(ag0, inv_w_16),
+        _mm256_mullo_epi16(ag1, w_16),
+    );
+
+    let rb = _mm256_and_si256(_mm256_srli_epi16(rb_sum, 8), mask);
+    let ag = _mm256_and_si256(_mm256_srli_epi16(ag_sum, 8), mask);
+
+    _mm256_or_si256(rb, _mm256_slli_epi32(ag, 8))
+}
+
 /// Helper to iterate along the edge of a triangle in screen space.
 ///
 /// This struct manages the state for walking down a triangle edge, interpolating
