@@ -106,31 +106,47 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// * `vn` - Vertex normal (x, y, z)
 /// * `f` - Face indices (v/vt/vn)
 ///
+/// # Errors
+///
+/// Returns a `String` error message if:
+/// *   The OBJ string contains invalid syntax (e.g., missing coordinates, malformed faces).
+/// *   Indices are out of bounds.
+/// *   Indices are 0 (OBJ is 1-based).
+/// *   Numerical values are NaN or Infinite.
+/// *   Vertex/Face count exceeds internal limits (1,000,000).
+///
 /// # Examples
 ///
 /// ```
 /// use abrash::obj_loader::load_obj;
 ///
 /// let obj_source = "
+/// # Simple Quad (2 Triangles)
 /// v -1.0 -1.0 0.0
 /// v  1.0 -1.0 0.0
-/// v  0.0  1.0 0.0
-/// f 1 2 3
+/// v  1.0  1.0 0.0
+/// v -1.0  1.0 0.0
+///
+/// vt 0.0 0.0
+/// vt 1.0 0.0
+/// vt 1.0 1.0
+/// vt 0.0 1.0
+///
+/// vn 0.0 0.0 1.0
+///
+/// # Face using v/vt/vn format
+/// f 1/1/1 2/2/1 3/3/1 4/4/1
 /// ";
 ///
 /// let mesh = load_obj(obj_source).expect("Failed to parse OBJ");
 ///
-/// // Iterate over triangles
-/// for (i, triangle_indices) in mesh.indices.iter().enumerate() {
-///     let v0 = mesh.vertices[triangle_indices[0]];
-///     let v1 = mesh.vertices[triangle_indices[1]];
-///     let v2 = mesh.vertices[triangle_indices[2]];
+/// // The quad is automatically triangulated into 2 triangles (6 indices)
+/// assert_eq!(mesh.indices.len(), 2); // 2 triangles
 ///
-///     println!("Triangle {}: {:?}, {:?}, {:?}", i, v0, v1, v2);
-/// }
-///
-/// assert_eq!(mesh.vertices.len(), 3);
-/// assert_eq!(mesh.indices.len(), 1);
+/// // Check first triangle
+/// let t0 = mesh.indices[0];
+/// let v0 = mesh.vertices[t0[0]];
+/// println!("Vertex 0 pos: {:?}", v0);
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {

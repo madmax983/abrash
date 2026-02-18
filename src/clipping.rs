@@ -101,6 +101,15 @@ impl Lerp for ((Vec3, f32), Vec3, Vec2) {
     }
 }
 
+/// A list of triangles resulting from clipping.
+///
+/// This struct uses `MaybeUninit` to avoid the overhead of initializing a fixed-size array
+/// with dummy values, as clipping is a hot path in the pipeline.
+///
+/// # Safety
+///
+/// The `tris` array is partially initialized up to `count`. Accessing elements beyond `count`
+/// is Undefined Behavior. The implementation of `Index` performs bounds checking to ensure safety.
 pub struct ClippedTriangles<V> {
     tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
     pub count: usize,           // Number of triangles
@@ -133,6 +142,20 @@ const NEAR: f32 = 0.001;
 /// Clip a triangle against the view frustum (6 planes) in Homogeneous Clip Space.
 ///
 /// Returns a list of triangles (fan triangulation of the clipped polygon).
+///
+/// # Algorithm
+///
+/// This implements the **Sutherland-Hodgman Algorithm**.
+/// The algorithm works by clipping the polygon against each of the 6 frustum planes in sequence.
+///
+/// 1.  Start with the input triangle.
+/// 2.  Clip against Plane 1. Output is a polygon (triangle or quad).
+/// 3.  Clip that polygon against Plane 2. Output is a polygon...
+/// ...
+/// 7.  Clip against Plane 6.
+///
+/// The final result is a convex polygon (potentially with many vertices), which is then
+/// triangulated into a triangle fan for rasterization.
 pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     v0: V,
     v1: V,
