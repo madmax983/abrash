@@ -24,8 +24,29 @@ use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 thread_local! {
-    static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
+    static BLOOM_BUFFERS: RefCell<BloomContext> = const { RefCell::new(BloomContext::new()) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+}
+
+#[derive(Default)]
+struct BloomContext {
+    bright_pixels: Vec<u32>,
+    scratch_buffer: Vec<u32>,
+    r_acc: Vec<i32>,
+    g_acc: Vec<i32>,
+    b_acc: Vec<i32>,
+}
+
+impl BloomContext {
+    const fn new() -> Self {
+        Self {
+            bright_pixels: Vec::new(),
+            scratch_buffer: Vec::new(),
+            r_acc: Vec::new(),
+            g_acc: Vec::new(),
+            b_acc: Vec::new(),
+        }
+    }
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -74,19 +95,40 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
     let needed_size = width * height;
 
     BLOOM_BUFFERS.with(|buffers| {
-        let mut borrowed = buffers.borrow_mut();
-        let (bright_pixels, scratch_buffer) = &mut *borrowed;
+        let mut ctx = buffers.borrow_mut();
 
         // Ensure buffers are large enough
-        if bright_pixels.len() < needed_size {
-            bright_pixels.resize(needed_size, 0);
+        if ctx.bright_pixels.len() < needed_size {
+            ctx.bright_pixels.resize(needed_size, 0);
         }
-        if scratch_buffer.len() < needed_size {
-            scratch_buffer.resize(needed_size, 0);
+        if ctx.scratch_buffer.len() < needed_size {
+            ctx.scratch_buffer.resize(needed_size, 0);
         }
+
+        if ctx.r_acc.len() < width {
+            ctx.r_acc.resize(width, 0);
+        }
+        if ctx.g_acc.len() < width {
+            ctx.g_acc.resize(width, 0);
+        }
+        if ctx.b_acc.len() < width {
+            ctx.b_acc.resize(width, 0);
+        }
+
+        let BloomContext {
+            bright_pixels,
+            scratch_buffer,
+            r_acc,
+            g_acc,
+            b_acc,
+        } = &mut *ctx;
 
         let bright_slice = &mut bright_pixels[..needed_size];
         let scratch_slice = &mut scratch_buffer[..needed_size];
+
+        let r_acc = &mut r_acc[..width];
+        let g_acc = &mut g_acc[..width];
+        let b_acc = &mut b_acc[..width];
 
         // 1. Extract bright pixels
         extract_bright_pixels(pixels, bright_slice, threshold);
@@ -95,7 +137,16 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
         // Horizontal pass: bright_pixels -> scratch_buffer
         box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
         // Vertical pass: scratch_buffer -> bright_pixels
-        box_blur_vertical(scratch_slice, bright_slice, width, height, blur_radius);
+        box_blur_vertical(
+            scratch_slice,
+            bright_slice,
+            r_acc,
+            g_acc,
+            b_acc,
+            width,
+            height,
+            blur_radius,
+        );
 
         // 3. Composite back
         blend_additive(pixels, bright_slice, intensity);
@@ -328,23 +379,35 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
     }
 }
 
-fn box_blur_vertical(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+fn box_blur_vertical(
+    src: &[u32],
+    dest: &mut [u32],
+    r_acc: &mut [i32],
+    g_acc: &mut [i32],
+    b_acc: &mut [i32],
+    width: usize,
+    height: usize,
+    radius: u32,
+) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
             unsafe {
-                box_blur_vertical_avx2(src, dest, width, height, radius);
+                box_blur_vertical_avx2(src, dest, r_acc, g_acc, b_acc, width, height, radius);
             }
             return;
         }
     }
 
-    box_blur_vertical_scalar(src, dest, width, height, radius);
+    box_blur_vertical_scalar(src, dest, r_acc, g_acc, b_acc, width, height, radius);
 }
 
 fn box_blur_vertical_scalar(
     src: &[u32],
     dest: &mut [u32],
+    r_acc: &mut [i32],
+    g_acc: &mut [i32],
+    b_acc: &mut [i32],
     width: usize,
     height: usize,
     radius: u32,
@@ -355,11 +418,6 @@ fn box_blur_vertical_scalar(
 
     // Optimized vertical blur: Iterate over Y, update all X.
     // Improves cache locality.
-
-    // Accumulators for each column
-    let mut r_acc = vec![0u32; width];
-    let mut g_acc = vec![0u32; width];
-    let mut b_acc = vec![0u32; width];
 
     // Pre-fill accumulators
     // For y=0 window is [-r, r]
@@ -372,9 +430,9 @@ fn box_blur_vertical_scalar(
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
         // (radius + 1) copies of row 0
-        r_acc[x] += r * (radius as u32 + 1);
-        g_acc[x] += g * (radius as u32 + 1);
-        b_acc[x] += b * (radius as u32 + 1);
+        r_acc[x] = (r as i32) * (radius as i32 + 1);
+        g_acc[x] = (g as i32) * (radius as i32 + 1);
+        b_acc[x] = (b as i32) * (radius as i32 + 1);
     }
 
     for y in 1..=radius {
@@ -382,9 +440,9 @@ fn box_blur_vertical_scalar(
         let row = &src[row_idx * width..(row_idx + 1) * width];
         for x in 0..width {
             let p = row[x];
-            r_acc[x] += (p >> 16) & 0xFF;
-            g_acc[x] += (p >> 8) & 0xFF;
-            b_acc[x] += p & 0xFF;
+            r_acc[x] += ((p >> 16) & 0xFF) as i32;
+            g_acc[x] += ((p >> 8) & 0xFF) as i32;
+            b_acc[x] += (p & 0xFF) as i32;
         }
     }
 
@@ -412,9 +470,11 @@ fn box_blur_vertical_scalar(
             let p_out = out_row[x];
             let p_in = in_row[x];
 
-            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) - ((p_out >> 16) & 0xFF);
-            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) - ((p_out >> 8) & 0xFF);
-            b_acc[x] = b_acc[x] + (p_in & 0xFF) - (p_out & 0xFF);
+            r_acc[x] =
+                r_acc[x] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+            g_acc[x] =
+                g_acc[x] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+            b_acc[x] = b_acc[x] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
         }
     }
 }
@@ -424,6 +484,9 @@ fn box_blur_vertical_scalar(
 unsafe fn box_blur_vertical_avx2(
     src: &[u32],
     dest: &mut [u32],
+    r_acc: &mut [i32],
+    g_acc: &mut [i32],
+    b_acc: &mut [i32],
     width: usize,
     height: usize,
     radius: u32,
@@ -443,11 +506,6 @@ unsafe fn box_blur_vertical_avx2(
         let scale = 1.0 / (kernel_size as f32);
         let scale_vec = _mm256_set1_ps(scale);
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
-        // Accumulators
-        let mut r_acc = vec![0i32; width];
-        let mut g_acc = vec![0i32; width];
-        let mut b_acc = vec![0i32; width];
 
         // Helper to add a row to accumulators (SIMD)
         // Note: We use i32 for accumulators to prevent overflow.
@@ -2068,5 +2126,45 @@ mod tests {
         // Expected 1.0 with clamp-to-edge logic.
         let val = src[0];
         assert!((val - 1.0).abs() < 1e-4, "Corner pixel mismatch. Got {}, expected 1.0", val);
+    }
+}
+
+#[cfg(test)]
+mod bloom_tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_bloom() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Set a bright pixel in the center
+        fb.set_pixel(5, 5, 0xFFFFFFFF);
+
+        // Apply bloom with high intensity
+        apply_bloom(&mut fb, 200, 2, 1.0);
+
+        // Center should remain bright
+        let center = fb.get_pixel(5, 5).unwrap();
+        assert_eq!(center, 0xFFFFFFFF);
+
+        // Neighbors should have some bloom (not black)
+        // With radius 2, (6,5) is within range.
+        let neighbor = fb.get_pixel(6, 5).unwrap();
+        assert_ne!(neighbor & 0xFFFFFF, 0, "Neighbor pixel should be lit by bloom");
+
+        // Run again to verify that reused dirty buffers don't cause artifacts
+        fb.clear(0xFF000000);
+        fb.set_pixel(5, 5, 0xFFFFFFFF);
+        apply_bloom(&mut fb, 200, 2, 1.0);
+        let center_2 = fb.get_pixel(5, 5).unwrap();
+        assert_eq!(center_2, 0xFFFFFFFF);
+        let neighbor_2 = fb.get_pixel(6, 5).unwrap();
+        assert_ne!(neighbor_2 & 0xFFFFFF, 0, "Neighbor pixel should be lit by bloom (2nd pass)");
+
+        // Ensure that a black image produces no bloom even with dirty buffers
+        fb.clear(0xFF000000);
+        apply_bloom(&mut fb, 200, 2, 1.0);
+        let any_pixel = fb.get_pixel(5, 5).unwrap();
+        // Should be black
+        assert_eq!(any_pixel & 0xFFFFFF, 0, "Black image should have no bloom (dirty buffer check)");
     }
 }
