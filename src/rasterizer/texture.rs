@@ -1162,11 +1162,10 @@ pub fn fill_triangle_textured(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
+    for tri in clipped.as_slice().chunks_exact(3) {
+        let v0 = tri[0];
+        let v1 = tri[1];
+        let v2 = tri[2];
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -2296,11 +2295,10 @@ pub fn fill_triangle_normal_mapped(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
+    for tri in clipped.as_slice().chunks_exact(3) {
+        let v0 = tri[0];
+        let v1 = tri[1];
+        let v2 = tri[2];
 
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
@@ -3523,11 +3521,10 @@ pub fn fill_triangle_textured_gouraud(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
+    for tri in clipped.as_slice().chunks_exact(3) {
+        let v0 = tri[0];
+        let v1 = tri[1];
+        let v2 = tri[2];
 
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,

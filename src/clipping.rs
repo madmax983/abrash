@@ -124,6 +124,22 @@ impl<V> ClippedTriangles<V> {
             count: 0,
         }
     }
+
+    /// Returns a slice of the initialized vertices.
+    ///
+    /// # Safety
+    ///
+    /// This relies on the invariant that `tris[0..count*3]` are initialized.
+    pub fn as_slice(&self) -> &[V] {
+        // SAFETY:
+        // 1. self.tris is [MaybeUninit<V>; 24].
+        // 2. Elements 0..self.count*3 are initialized.
+        // 3. MaybeUninit<V> has same layout as V.
+        unsafe {
+            let slice = &self.tris[0..self.count * 3];
+            &*(slice as *const [MaybeUninit<V>] as *const [V])
+        }
+    }
 }
 
 impl<V> Index<usize> for ClippedTriangles<V> {
