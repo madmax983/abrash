@@ -979,9 +979,40 @@ pub fn project_to_screen_optimized(
     let depth = v.z * inv_w;
 
     // NDC to screen coordinates
-    // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN
-    let screen_x = (((ndc_x + 1.0) * half_width) as i32).max(i32::MIN + 1);
-    let screen_y = (((1.0 - ndc_y) * half_height) as i32).max(i32::MIN + 1); // Flip Y
+    // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
+    // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
+    // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
+    const MAX_VAL: f32 = 2147483520.0;
+    const MIN_VAL: f32 = -2147483520.0;
+
+    let screen_x_f = (ndc_x + 1.0) * half_width;
+    let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
+
+    let screen_x = if screen_x_f.is_finite() {
+        screen_x_f.clamp(MIN_VAL, MAX_VAL) as i32
+    } else if screen_x_f.is_nan() {
+        0
+    } else {
+        // Infinity
+        if screen_x_f.is_sign_positive() {
+            i32::MAX
+        } else {
+            i32::MIN + 1
+        }
+    };
+
+    let screen_y = if screen_y_f.is_finite() {
+        screen_y_f.clamp(MIN_VAL, MAX_VAL) as i32
+    } else if screen_y_f.is_nan() {
+        0
+    } else {
+        // Infinity
+        if screen_y_f.is_sign_positive() {
+            i32::MAX
+        } else {
+            i32::MIN + 1
+        }
+    };
 
     ScreenPoint {
         x: screen_x,
@@ -1328,6 +1359,35 @@ mod tests {
         let y = fast_inv_sqrt(x);
         // 1/sqrt(16) = 0.25
         assert!((y - 0.25).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_project_to_screen_safety() {
+        let half_width = 400.0;
+        let half_height = 300.0;
+
+        // Test Infinity
+        let v_inf = Vec3::new(f32::INFINITY, 0.0, 0.0);
+        let sp_inf = project_to_screen_optimized(v_inf, 1.0, half_width, half_height);
+        // Expect clamping to max/min range
+        assert!(sp_inf.x == i32::MAX);
+
+        // Test Negative Infinity
+        let v_neg_inf = Vec3::new(f32::NEG_INFINITY, 0.0, 0.0);
+        let sp_neg_inf = project_to_screen_optimized(v_neg_inf, 1.0, half_width, half_height);
+        assert!(sp_neg_inf.x == i32::MIN + 1);
+
+        // Test NaN
+        let v_nan = Vec3::new(f32::NAN, 0.0, 0.0);
+        let sp_nan = project_to_screen_optimized(v_nan, 1.0, half_width, half_height);
+        // Expect 0 for NaN
+        assert_eq!(sp_nan.x, 0);
+
+        // Test Large Number (overflowing i32 but finite)
+        let v_large = Vec3::new(1e30, 0.0, 0.0);
+        let sp_large = project_to_screen_optimized(v_large, 1.0, half_width, half_height);
+        // Should clamp to 2147483520 (approx i32::MAX)
+        assert_eq!(sp_large.x, 2147483520);
     }
 }
 
