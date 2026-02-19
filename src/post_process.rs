@@ -269,8 +269,11 @@ unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u
 fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     let radius = radius as usize;
     // Window size (kernel width)
-    let kernel_size = 2 * radius + 1;
-    let scale = 1.0 / (kernel_size as f32);
+    let kernel_size = (2 * radius + 1) as u64;
+    // Fixed point scale factor (1.0 in 24.24 fixed point is 1<<24)
+    // We add kernel_size / 2 for rounding in the division
+    let scale = ((1 << 24) + kernel_size / 2) / kernel_size;
+    let bias = 1 << 23; // 0.5 in fixed point for rounding
 
     for y in 0..height {
         let row_offset = y * width;
@@ -305,9 +308,10 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
 
         for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
             // Write current blurred pixel
-            let r_avg = (r_acc as f32 * scale) as u32;
-            let g_avg = (g_acc as f32 * scale) as u32;
-            let b_avg = (b_acc as f32 * scale) as u32;
+            // Use u64 for multiplication to avoid overflow
+            let r_avg = ((r_acc as u64 * scale + bias) >> 24) as u32;
+            let g_avg = ((g_acc as u64 * scale + bias) >> 24) as u32;
+            let b_avg = ((b_acc as u64 * scale + bias) >> 24) as u32;
             *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
             // Shift window
