@@ -46,13 +46,20 @@ pub struct BoundingSphere {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AABB {
     pub min: Vec3,
+    pub pad0: f32, // Padding to align max to 16 bytes offset
     pub max: Vec3,
+    pub pad1: f32, // Padding to make total size 32 bytes
 }
 
 impl AABB {
     /// Create a new AABB from min and max points.
     pub fn new(min: Vec3, max: Vec3) -> Self {
-        Self { min, max }
+        Self {
+            min,
+            pad0: 0.0,
+            max,
+            pad1: 0.0,
+        }
     }
 
     /// Calculate AABB from a list of points.
@@ -60,7 +67,9 @@ impl AABB {
         if points.is_empty() {
             return Self {
                 min: Vec3::default(),
+                pad0: 0.0,
                 max: Vec3::default(),
+                pad1: 0.0,
             };
         }
 
@@ -89,7 +98,12 @@ impl AABB {
             }
         }
 
-        Self { min, max }
+        Self {
+            min,
+            pad0: 0.0,
+            max,
+            pad1: 0.0,
+        }
     }
 
     /// Get the center of the AABB.
