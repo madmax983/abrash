@@ -948,6 +948,14 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
 
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { apply_scanlines_avx2(pixels, width, height) };
+            return;
+        }
+    }
+
     // Iterate over odd rows only
     for y in (1..height).step_by(2) {
         let start = y * width;
@@ -958,6 +966,48 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
             // Halve RGB components: (color >> 1) & mask
             // Preserve Alpha: (p & 0xFF00_0000)
             *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_srli_epi32, _mm256_storeu_si256,
+    };
+
+    let mask_val = _mm256_set1_epi32(0x7F7F_7F7F);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    for y in (1..height).step_by(2) {
+        let row_start = y * width;
+        let mut row_ptr = pixels.as_mut_ptr().add(row_start);
+        let row_end = row_ptr.add(width);
+
+        while row_ptr.add(8) <= row_end {
+            let p = _mm256_loadu_si256(row_ptr.cast());
+
+            // ((p >> 1) & 0x7F7F_7F7F)
+            let shifted = _mm256_srli_epi32(p, 1);
+            let masked = _mm256_and_si256(shifted, mask_val);
+
+            // (p & 0xFF00_0000)
+            let alpha = _mm256_and_si256(p, alpha_mask);
+
+            // |
+            let result = _mm256_or_si256(masked, alpha);
+
+            _mm256_storeu_si256(row_ptr.cast(), result);
+            row_ptr = row_ptr.add(8);
+        }
+
+        // Tail
+        while row_ptr < row_end {
+            let p = *row_ptr;
+            *row_ptr = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+            row_ptr = row_ptr.add(1);
         }
     }
 }
