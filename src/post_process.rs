@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -309,9 +310,9 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
         for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
             // Write current blurred pixel
             // Use u64 for multiplication to avoid overflow
-            let r_avg = ((r_acc as u64 * scale + bias) >> 24) as u32;
-            let g_avg = ((g_acc as u64 * scale + bias) >> 24) as u32;
-            let b_avg = ((b_acc as u64 * scale + bias) >> 24) as u32;
+            let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+            let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+            let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
             *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
             // Shift window
@@ -1189,43 +1190,55 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
-    let mut row_buffer = Vec::with_capacity(width);
-    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
-    // but `u32` has no validity invariants (any bit pattern is a valid u32).
-    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
-    unsafe { row_buffer.set_len(width); }
-
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
-
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    CA_BUFFER.with(|buf| {
+        let mut row_buffer = buf.borrow_mut();
+        if row_buffer.len() < width {
+            // Reserve enough capacity
+            // Note: capacity() check might be redundant if we just resize, but
+            // we want to use set_len for performance to avoid zeroing.
+            if row_buffer.capacity() < width {
+                let additional = width - row_buffer.len();
+                row_buffer.reserve(additional);
+            }
+            // SAFETY: We immediately overwrite the buffer with `copy_from_slice`.
+            unsafe {
+                row_buffer.set_len(width);
+            }
         }
-    }
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy current row to scratch buffer
+            // We only need the first `width` elements.
+            row_buffer[..width].copy_from_slice(row_pixels);
+
+            for x in 0..width {
+                // Green (G) from current pixel
+                let g = (row_buffer[x] >> 8) & 0xFF;
+                // Alpha (A) from current pixel
+                let a = (row_buffer[x] >> 24) & 0xFF;
+
+                // Red (R) from left (x - offset)
+                let r = if x >= offset {
+                    (row_buffer[x - offset] >> 16) & 0xFF
+                } else {
+                    0
+                };
+
+                // Blue (B) from right (x + offset)
+                let b = if x + offset < width {
+                    row_buffer[x + offset] & 0xFF
+                } else {
+                    0
+                };
+
+                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -1335,7 +1348,7 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     let mut noise = [Vec3::default(); NOISE_SIZE * NOISE_SIZE];
     let mut seed = 987654321;
 
-    for v in noise.iter_mut() {
+    for v in &mut noise {
         let x = rand_f32(&mut seed) * 2.0 - 1.0;
         let y = rand_f32(&mut seed) * 2.0 - 1.0;
         *v = Vec3::new(x, y, 0.0).normalize();
@@ -1412,8 +1425,8 @@ fn box_blur_f32_horizontal_scalar(
             acc += src_row[x.min(width - 1)];
         }
 
-        for x in 0..width {
-            dest_row[x] = acc * scale;
+        for (x, dest_val) in dest_row.iter_mut().enumerate() {
+            *dest_val = acc * scale;
 
             let out_idx = (x as isize - radius as isize).max(0) as usize;
             let in_idx = (x + radius + 1).min(width - 1);
@@ -1796,12 +1809,11 @@ pub fn apply_ssao(
         // It mostly uses diagonal and last column.
         // Scalar fallback implementation in AVX2 function reconstructs manually.
 
-        let half_width = width as f32 * 0.5;
-        let half_height = height as f32 * 0.5;
-
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
             if std::is_x86_feature_detected!("avx2") {
+                let half_width = width as f32 * 0.5;
+                let half_height = height as f32 * 0.5;
                 unsafe {
                     apply_ssao_avx2(
                         occlusion_buffer,
@@ -2009,6 +2021,37 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_scanlines_simd() {
+        let width = 16;
+        let height = 3;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        fb.clear(0xFFFFFFFF); // All White
+
+        apply_scanlines(&mut fb);
+
+        // Row 0: Untouched
+        for x in 0..width as i32 {
+            assert_eq!(fb.get_pixel(x, 0).unwrap(), 0xFFFFFFFF);
+        }
+
+        // Row 1: Darkened
+        // 0xFF >> 1 = 0x7F
+        let expected = 0xFF7F7F7F;
+        for x in 0..width as i32 {
+            assert_eq!(
+                fb.get_pixel(x, 1).unwrap(),
+                expected,
+                "Pixel {x} on row 1 mismatch"
+            );
+        }
+
+        // Row 2: Untouched
+        for x in 0..width as i32 {
+            assert_eq!(fb.get_pixel(x, 2).unwrap(), 0xFFFFFFFF);
+        }
+    }
+
+    #[test]
     fn test_apply_sepia() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         // Set pixel to white (255, 255, 255)
@@ -2085,7 +2128,6 @@ mod tests {
             val
         );
     }
-}
 
     #[test]
     fn test_apply_chromatic_aberration() {
@@ -2101,17 +2143,6 @@ mod tests {
         // 4: (130, 140, 150, 255)
         for x in 0..width {
             let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
-            // For x=0: val=10. R=10, G=20, B=30
-            // For x=1: val=20. R=20, G=30, B=40 ... Wait logic above was:
-            // let r = val; let g = val+10; let b = val+20;
-            // x=0: R=10, G=20, B=30
-            // x=1: R=20, G=30, B=40
-            // x=2: R=30, G=40, B=50
-            // x=3: R=40, G=50, B=60
-            // x=4: R=50, G=60, B=70
-
-            // My comments in thought block were slightly different (10, 40, 70...)
-            // Let's stick to the code logic:
             let r = val;
             let g = val + 10;
             let b = val + 20;
@@ -2158,3 +2189,4 @@ mod tests {
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
     }
+}
