@@ -1183,8 +1183,13 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     let height = fb.height() as usize;
     let offset = offset as usize;
 
-    let mut row_buffer = vec![0u32; width];
     let pixels = fb.as_mut_slice();
+
+    let mut row_buffer = Vec::with_capacity(width);
+    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
+    // but `u32` has no validity invariants (any bit pattern is a valid u32).
+    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
+    unsafe { row_buffer.set_len(width); }
 
     for y in 0..height {
         let row_start = y * width;
@@ -2070,3 +2075,75 @@ mod tests {
         assert!((val - 1.0).abs() < 1e-4, "Corner pixel mismatch. Got {}, expected 1.0", val);
     }
 }
+
+    #[test]
+    fn test_apply_chromatic_aberration() {
+        let width = 5;
+        let height = 1;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        // Set pixel colors
+        // R G B A
+        // 0: (10, 20, 30, 255)
+        // 1: (40, 50, 60, 255)
+        // 2: (70, 80, 90, 255)
+        // 3: (100, 110, 120, 255)
+        // 4: (130, 140, 150, 255)
+        for x in 0..width {
+            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+            // For x=0: val=10. R=10, G=20, B=30
+            // For x=1: val=20. R=20, G=30, B=40 ... Wait logic above was:
+            // let r = val; let g = val+10; let b = val+20;
+            // x=0: R=10, G=20, B=30
+            // x=1: R=20, G=30, B=40
+            // x=2: R=30, G=40, B=50
+            // x=3: R=40, G=50, B=60
+            // x=4: R=50, G=60, B=70
+
+            // My comments in thought block were slightly different (10, 40, 70...)
+            // Let's stick to the code logic:
+            let r = val;
+            let g = val + 10;
+            let b = val + 20;
+            let p = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            fb.set_pixel(x as i32, 0, p);
+        }
+
+        // Apply offset 1
+        apply_chromatic_aberration(&mut fb, 1);
+
+        // Pixel 2 (x=2)
+        // Original: R=30, G=40, B=50
+        // New R: from x=1 => R=20
+        // New G: from x=2 => G=40
+        // New B: from x=3 => B=60
+        // Result: (20, 40, 60)
+
+        let p = fb.get_pixel(2, 0).unwrap();
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
+        assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
+        assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
+
+        // Edge case: x=0 (offset 1)
+        // R: from x-1 (out of bounds) -> 0
+        // G: from x=0 -> 20
+        // B: from x+1 -> 40
+        // Result: (0, 20, 40)
+        let p = fb.get_pixel(0, 0).unwrap();
+        assert_eq!((p >> 16) & 0xFF, 0, "Red mismatch at x=0");
+        assert_eq!((p >> 8) & 0xFF, 20, "Green mismatch at x=0");
+        assert_eq!(p & 0xFF, 40, "Blue mismatch at x=0");
+
+        // Edge case: x=4 (offset 1)
+        // R: from x-1=3 -> 40
+        // G: from x=4 -> 60
+        // B: from x+1 (out of bounds) -> 0
+        // Result: (40, 60, 0)
+        let p = fb.get_pixel(4, 0).unwrap();
+        assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
+        assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
+        assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+    }
