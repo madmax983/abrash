@@ -24,6 +24,15 @@ pub enum SdfPrimitive {
         minor_radius: f32,
         center: Vec3,
     },
+    Plane {
+        normal: Vec3,
+        distance: f32,
+    },
+    Capsule {
+        start: Vec3,
+        end: Vec3,
+        radius: f32,
+    },
 }
 
 /// An object in the SDF scene.
@@ -53,6 +62,13 @@ impl SdfObject {
                 let p = p - center;
                 let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
                 q.length() - minor_radius
+            }
+            SdfPrimitive::Plane { normal, distance } => p.dot(normal) + distance,
+            SdfPrimitive::Capsule { start, end, radius } => {
+                let pa = p - start;
+                let ba = end - start;
+                let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+                (pa - ba * h).length() - radius
             }
         }
     }

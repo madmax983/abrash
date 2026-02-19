@@ -6,6 +6,7 @@
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
 use std::collections::HashSet;
+use super::sdf::SdfScene;
 
 /// A spring connecting two vertices.
 #[derive(Debug, Clone, Copy)]
@@ -142,22 +143,70 @@ impl SoftBody {
 
             // Reset force accumulator
             self.forces[i] = Vec3::default();
-
-            // Simple Floor Collision (y = -5.0)
-            if self.mesh.vertices[i].y < -5.0 {
-                self.mesh.vertices[i].y = -5.0;
-                // Bounce with energy loss
-                if self.velocities[i].y < 0.0 {
-                    self.velocities[i].y = -self.velocities[i].y * 0.5;
-                    // Friction
-                    self.velocities[i].x *= 0.9;
-                    self.velocities[i].z *= 0.9;
-                }
-            }
         }
 
         // 3. Recompute Normals for lighting
         self.recompute_normals();
+    }
+
+    /// Resolves collisions with an SDF scene.
+    pub fn collide_sdf(&mut self, scene: &SdfScene, restitution: f32) {
+        for i in 0..self.mesh.vertices.len() {
+            let pos = self.mesh.vertices[i];
+            let (dist, _) = scene.map(pos);
+
+            if dist < 0.0 {
+                // Collision!
+                let normal = scene.normal(pos);
+                let penetration = -dist;
+
+                // Push out
+                self.mesh.vertices[i] = self.mesh.vertices[i] + normal * penetration;
+
+                // Reflect velocity
+                // v_new = v - (1 + e) * (v . n) * n
+                let v = self.velocities[i];
+                let v_n = v.dot(normal);
+                if v_n < 0.0 {
+                    let j = -(1.0 + restitution) * v_n;
+                    self.velocities[i] = v + normal * j;
+
+                    // Friction
+                    // v_t = v - v_n * n
+                    // v_t_new = v_t * (1 - friction)
+                    let v_t = v - normal * v_n;
+                    self.velocities[i] = self.velocities[i] - v_t * 0.1; // Simple friction
+                }
+            }
+        }
+    }
+
+    /// Calculates the average stress (strain) at each vertex.
+    ///
+    /// Returns a vector of stress values corresponding to `mesh.vertices`.
+    /// Positive values indicate stretching, negative values indicate compression (if implemented, but here length is unsigned so stress is abs error).
+    pub fn get_vertex_stress(&self) -> Vec<f32> {
+        let mut stress = vec![0.0; self.mesh.vertices.len()];
+        let mut counts = vec![0; self.mesh.vertices.len()];
+
+        for spring in &self.springs {
+            let p_a = self.mesh.vertices[spring.index_a];
+            let p_b = self.mesh.vertices[spring.index_b];
+            let len = (p_b - p_a).length();
+            let stretch = (len - spring.rest_length).abs() / spring.rest_length; // Strain
+
+            stress[spring.index_a] += stretch;
+            counts[spring.index_a] += 1;
+            stress[spring.index_b] += stretch;
+            counts[spring.index_b] += 1;
+        }
+
+        for i in 0..stress.len() {
+            if counts[i] > 0 {
+                stress[i] /= counts[i] as f32;
+            }
+        }
+        stress
     }
 
     /// Recomputes vertex normals based on current face geometry.
