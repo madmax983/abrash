@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** Unused experimental modules (`arboretum`, `jelly`, `procedural_mesh`, `sdf`) and redundant `ssao` implementation. Unnecessary nesting for `gpu` module.
+**Cut:** Deleted unused modules, consolidated `ssao` usage to `post_process`, flattened `src/gpu/mod.rs` to `src/gpu.rs`.
+**Saved:** 5 files (~800 lines of code), 1 directory level, and removed duplicate implementation.
