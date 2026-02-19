@@ -509,6 +509,10 @@ impl Mat4 {
 
     /// Creates a View matrix (`LookAt`) for a camera.
     ///
+    /// The View matrix transforms world coordinates into camera coordinates.
+    /// Effectively, it moves the entire world so that the camera is at the origin (0,0,0)
+    /// and looking down the negative Z axis.
+    ///
     /// * `eye` - Position of the camera.
     /// * `target` - Point the camera is looking at.
     /// * `up` - The "up" direction in the world (usually Y-up).
@@ -518,10 +522,15 @@ impl Mat4 {
     /// ```
     /// use abrash::math::{Mat4, Vec3};
     ///
-    /// let eye = Vec3::new(0.0, 0.0, 5.0);
-    /// let target = Vec3::new(0.0, 0.0, 0.0);
-    /// let up = Vec3::new(0.0, 1.0, 0.0);
+    /// let eye = Vec3::new(0.0, 0.0, 5.0); // Camera is 5 units back
+    /// let target = Vec3::new(0.0, 0.0, 0.0); // Looking at origin
+    /// let up = Vec3::new(0.0, 1.0, 0.0); // Y is up
     /// let view = Mat4::look_at(eye, target, up);
+    ///
+    /// // A point at the origin (0,0,0) should appear at (0,0,-5) relative to camera
+    /// let p = Vec3::new(0.0, 0.0, 0.0);
+    /// let (p_view, _) = view.transform_point(p);
+    /// assert_eq!(p_view, Vec3::new(0.0, 0.0, -5.0));
     /// ```
     #[must_use]
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
@@ -541,27 +550,22 @@ impl Mat4 {
     /// Transforms a point by this matrix.
     ///
     /// Returns a tuple `(transformed_point, w_component)`.
-    /// The `w` component is the Homogeneous W coordinate, used for perspective division.
+    ///
+    /// # The W Component
+    ///
+    /// The returned `w` is the Homogeneous W coordinate.
+    /// *   **Standard Usage**: If you just want the 3D position, you usually ignore `w` (it's 1.0 for affine transforms).
+    /// *   **Perspective**: After multiplying by a Projection matrix, `w` contains the depth info needed for perspective division ($x/w, y/w, z/w$).
+    ///
     /// In the rasterization pipeline, vertices are kept in this `(Vec3, w)` format
-    /// until the very last moment (viewport mapping) to preserve perspective correctness.
-    ///
-    /// # Performance
-    ///
-    /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
-    /// vectorize loops that call this function.
-    ///
-    /// # Safety
-    ///
-    /// The SIMD implementation uses `_mm_loadu_ps` (load unaligned packed single), which safely
-    /// handles unaligned memory access. This is necessary because the `m` field of `Mat4`
-    /// is a `[[f32; 4]; 4]` array, which is not guaranteed to be 16-byte aligned by Rust's
-    /// default layout.
+    /// until the very last moment (viewport mapping) to preserve perspective correctness during interpolation.
     ///
     /// # Examples
     ///
     /// ```
     /// use abrash::math::{Mat4, Vec3};
     ///
+    /// // 1. Translation (Affine) -> w remains 1.0
     /// let m = Mat4::translation(1.0, 2.0, 3.0);
     /// let p = Vec3::new(0.0, 0.0, 0.0);
     /// let (p_prime, w) = m.transform_point(p);
@@ -569,6 +573,16 @@ impl Mat4 {
     /// assert_eq!(p_prime, Vec3::new(1.0, 2.0, 3.0));
     /// assert_eq!(w, 1.0);
     /// ```
+    ///
+    /// # Safety
+    ///
+    /// The SIMD implementation uses `_mm_loadu_ps` (load unaligned packed single), which safely
+    /// handles unaligned memory access.
+    ///
+    /// # Performance
+    ///
+    /// Marked `#[inline]` to allow the compiler to optimize call overhead and potentially
+    /// vectorize loops that call this function.
     ///
     /// Marked `#[inline]` to allow cross-crate inlining and auto-vectorization by the compiler.
     #[must_use]
@@ -1329,9 +1343,27 @@ mod tests {
 
 /// A 4-component vector, often used for homogeneous coordinates or tangents.
 ///
-/// In the rasterization pipeline, `Vec4` is used for:
-/// *   Homogeneous coordinates (x, y, z, w) where w is the perspective term.
-/// *   Tangent vectors in Normal Mapping, where w stores the handedness of the tangent basis.
+/// # Usage in Graphics
+///
+/// *   **Homogeneous Coordinates**: Represents $(x, y, z, w)$. A 3D point is $(x/w, y/w, z/w)$.
+///     *   If $w=1$, it's a position.
+///     *   If $w=0$, it's a direction.
+/// *   **Tangent Vectors**: For normal mapping, we store the Tangent $(x, y, z)$ and use $w$ to store
+///     the "handedness" ($+1.0$ or $-1.0$) of the Bitangent basis.
+///     $$ Bitangent = (Normal \times Tangent) \cdot w $$
+/// *   **Colors**: $(Red, Green, Blue, Alpha)$.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec4;
+///
+/// // Create a homogenous point
+/// let pos = Vec4::new(10.0, 5.0, 0.0, 1.0);
+///
+/// // Create a tangent with handedness
+/// let tangent = Vec4::new(0.0, 1.0, 0.0, -1.0);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {

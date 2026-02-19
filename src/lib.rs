@@ -55,9 +55,11 @@
 //! let v2_local = Vec3::new(0.5, -0.5, 0.0);
 //!
 //! // Transform vertices to Homogeneous Clip Space.
-//! // transform_point returns `(Vec3, f32)` where the f32 is the 'w' component.
-//! // The rasterizer needs 'w' for perspective-correct interpolation.
-//! let v0_clip = view_proj.transform_point(v0_local);
+//! // `transform_point` returns `(Vec3, f32)`.
+//! // The first element is the transformed position (x, y, z).
+//! // The second element is the 'w' component, which represents depth for perspective division.
+//! // We must keep 'w' associated with the vertex for the rasterizer to do its job.
+//! let v0_clip = view_proj.transform_point(v0_local); // -> (Vec3, w)
 //! let v1_clip = view_proj.transform_point(v1_local);
 //! let v2_clip = view_proj.transform_point(v2_local);
 //!

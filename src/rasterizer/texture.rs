@@ -2,32 +2,36 @@
 //!
 //! This module implements scanline rasterization for textured triangles with perspective correction.
 //!
-//! # The Problem with Linear Interpolation
+//! # The Story of Perspective
 //!
-//! In 3D graphics, simply interpolating texture coordinates $(u, v)$ linearly across the screen
-//! results in "affine texture mapping," which looks distorted because it doesn't account for depth.
-//! As a polygon recedes into the distance, the texture should appear compressed.
+//! When we project a 3D world onto a 2D screen, parallel lines appear to converge at a vanishing point.
+//! This is the essence of perspective. However, this non-linear transformation breaks standard linear interpolation.
 //!
-//! # The Solution: Perspective Correction
+//! If we simply interpolate texture coordinates $(u, v)$ linearly across the screen (Affine Mapping),
+//! the texture will look "warped" or "swimming" because the interpolation doesn't account for the
+//! fact that one side of the triangle is much further away than the other.
 //!
-//! To achieve correct perspective, we must interpolate attributes in a way that respects the
-//! projective divide. The standard technique is to interpolate:
+//! ## The Solution: The "W" Divide
 //!
-//! *   $1/w$: The reciprocal of the homogeneous W coordinate.
-//! *   $u/w$: The texture U coordinate divided by W.
-//! *   $v/w$: The texture V coordinate divided by W.
+//! To fix this, we need to interpolate in "Clip Space" before the perspective divide happens.
+//! But rasterization happens in "Screen Space" *after* the divide.
 //!
-//! For each pixel, we recover the true texture coordinates by dividing by the interpolated $1/w$:
+//! The mathematical trick is to interpolate divided values:
 //!
-//! $$ u_{pixel} = \frac{(u/w)_{interpolated}}{(1/w)_{interpolated}} $$
-//! $$ v_{pixel} = \frac{(v/w)_{interpolated}}{(1/w)_{interpolated}} $$
+//! 1.  Calculate $1/w$ (Reciprocal of Depth) at each vertex.
+//! 2.  Calculate $u/w$ and $v/w$ at each vertex.
+//! 3.  Linearly interpolate these three values across the triangle.
+//! 4.  At each pixel, recover the true $u, v$:
+//!     $$ u = \frac{(u/w)_{interp}}{(1/w)_{interp}}, \quad v = \frac{(v/w)_{interp}}{(1/w)_{interp}} $$
+//!
+//! This ensures the texture "compresses" correctly as it recedes into the distance.
 //!
 //! # Features
 //!
 //! *   **Perspective Correction**: Accurate texture mapping at any angle.
-//! *   **Sub-pixel Precision**: Uses 16.16 fixed-point arithmetic for edge walking.
-//! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
-//! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
+//! *   **Sub-pixel Precision**: Uses 16.16 fixed-point arithmetic for edge walking to prevent "jittering".
+//! *   **Normal Mapping**: Supports per-pixel lighting using Tangent Space normal maps.
+//! *   **SIMD Optimization**: AVX2 accelerated paths for heavy shading logic.
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
@@ -42,14 +46,22 @@ use super::core::blend_swar_simd;
 
 /// Gradients for perspective-correct texture mapping.
 ///
-/// This struct holds the per-pixel (dX) and per-scanline (dY) changes for:
-/// *   `z`: Depth (linear in screen space).
-/// *   `q`: Inverse W ($1/w$).
+/// Think of gradients as the "slope" of the triangle's surface in screen space.
+/// They tell us how much an attribute changes when we move one pixel to the right (dX)
+/// or one scanline down (dY).
+///
+/// This struct holds the gradients for:
+/// *   `z`: Depth (used for Z-Buffering).
+/// *   `q`: Inverse W ($1/w$) (The perspective term).
 /// *   `u`: Texture U over W ($u/w$).
 /// *   `v`: Texture V over W ($v/w$).
 ///
-/// These gradients are calculated once per triangle and used to step the
-/// edge walkers and scanline interpolators.
+/// By adding these gradients to our starting values, we can efficiently "walk" across the triangle.
+///
+/// # Why calculate dY?
+///
+/// While we mostly iterate horizontally (dX), we need dY to handle the "edge walking" logic
+/// where we step down from scanline to scanline along the triangle edges.
 #[derive(Clone, Copy)]
 pub struct PerspectiveTextureGradients {
     /// Change in depth (Z) per X pixel.
@@ -2252,7 +2264,8 @@ fn draw_scanline_normal_mapped(
 /// Fill a triangle with Normal Mapping (Bump Mapping).
 ///
 /// Renders a triangle using a diffuse texture and a normal map for detailed surface lighting.
-/// The lighting calculation is performed in Tangent Space.
+/// The lighting calculation is performed in **Tangent Space**, which means lighting vectors are
+/// transformed relative to the surface of the triangle rather than the world.
 ///
 /// # Arguments
 ///
@@ -2266,15 +2279,45 @@ fn draw_scanline_normal_mapped(
 ///     *   `Tangent`: Model space tangent vector (w component stores bitangent handedness).
 /// *   `texture`: Diffuse color map (Albedo).
 /// *   `normal_map`: Tangent-space normal map (RGB encoded as XYZ).
-/// *   `light_dir`: Direction of the light rays (e.g., from light source to scene).
+/// *   `light_dir`: Direction of the light rays (World Space).
 /// *   `light_color`: Color and intensity of the directional light.
 /// *   `ambient`: Ambient light color added to the result.
 ///
 /// # Lighting Model
 ///
-/// Uses the Lambertian diffuse model:
-/// $$ I = Ambient + (Diffuse \cdot \max(N \cdot L, 0)) $$
-/// where $N$ is sampled from the normal map and $L$ is the light vector transformed into Tangent Space.
+/// Uses the Lambertian diffuse model with per-pixel normals:
+/// $$ I = Ambient + (Diffuse \cdot \max(N_{map} \cdot L_{tangent}, 0)) $$
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::fill_triangle_normal_mapped;
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::math::{Vec2, Vec3, Vec4};
+/// use abrash::texture::Texture;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let tex = Texture::new(32, 32).unwrap();
+/// let normal_map = Texture::new(32, 32).unwrap();
+///
+/// // Define vertex attributes: ((Pos, W), UV, Normal, Tangent)
+/// let v0 = ((Vec3::new(0.0, 5.0, 5.0), 5.0), Vec2::new(0.5, 0.0), Vec3::new(0.0,0.0,1.0), Vec4::new(1.0,0.0,0.0,1.0));
+/// let v1 = ((Vec3::new(-5.0, -5.0, 5.0), 5.0), Vec2::new(0.0, 1.0), Vec3::new(0.0,0.0,1.0), Vec4::new(1.0,0.0,0.0,1.0));
+/// let v2 = ((Vec3::new(5.0, -5.0, 5.0), 5.0), Vec2::new(1.0, 1.0), Vec3::new(0.0,0.0,1.0), Vec4::new(1.0,0.0,0.0,1.0));
+///
+/// let light_dir = Vec3::new(0.0, 0.0, -1.0); // Light coming from camera
+/// let light_color = Vec3::new(1.0, 1.0, 1.0);
+/// let ambient = Vec3::new(0.1, 0.1, 0.1);
+///
+/// fill_triangle_normal_mapped(
+///     &mut fb, &mut zb,
+///     v0, v1, v2,
+///     &tex, &normal_map,
+///     light_dir, light_color, ambient
+/// );
+/// ```
 pub fn fill_triangle_normal_mapped(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
