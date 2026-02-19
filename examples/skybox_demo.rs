@@ -36,8 +36,22 @@ fn print_banner() {
     println!("{table}");
 
     println!("\n{}", "🎮 Controls".bold());
-    println!(" • Mouse: None");
-    println!(" • Keyboard: Auto-rotating camera\n");
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Mouse"),
+            Cell::new("None"),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating camera"),
+        ]);
+    println!("{controls}\n");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
