@@ -124,8 +124,22 @@ fn print_banner(args: &Args) {
     println!("{table}");
 
     println!("\n{}", "🎮 Controls".bold());
-    println!(" • Close window to exit");
-    println!(" • (Interactive controls coming soon)\n");
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Close Window"),
+            Cell::new("Exit Application"),
+        ])
+        .add_row(vec![
+            Cell::new("Interactive"),
+            Cell::new("(Coming Soon)").fg(Color::DarkGrey),
+        ]);
+    println!("{controls}\n");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
