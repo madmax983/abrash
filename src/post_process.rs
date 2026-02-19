@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -1179,6 +1180,452 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
 /// apply_chromatic_aberration(&mut fb, 5);
 /// ```
+///
+/// Applies the Sobel edge detection operator to the framebuffer.
+///
+/// This filter calculates the gradient magnitude of the image luminance using
+/// 3x3 Gx and Gy kernels. The result is a grayscale image where bright pixels
+/// represent strong edges.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to apply the effect to.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::apply_sobel;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// // Draw something...
+/// apply_sobel(&mut fb);
+/// ```
+pub fn apply_sobel(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let needed_size = width * height;
+
+    if width < 3 || height < 3 {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+
+    SOBEL_BUFFER.with(|buffer| {
+        let mut luma_vec = buffer.borrow_mut();
+        if luma_vec.len() < needed_size {
+            luma_vec.resize(needed_size, 0);
+        }
+        let luma_slice = &mut luma_vec[..needed_size];
+
+        // 1. Compute Luminance
+        compute_luma(pixels, luma_slice);
+
+        // 2. Apply Sobel
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                unsafe {
+                    apply_sobel_avx2(luma_slice, pixels, width, height);
+                }
+                return;
+            }
+        }
+
+        apply_sobel_scalar(luma_slice, pixels, width, height);
+    });
+}
+
+fn compute_luma(src: &[u32], dest: &mut [u8]) {
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            let len = src.len();
+            let simd_len = len & !31; // Process 32 at a time
+            unsafe {
+                compute_luma_avx2(&src[..simd_len], &mut dest[..simd_len]);
+            }
+            // Tail
+            compute_luma_scalar(&src[simd_len..], &mut dest[simd_len..]);
+            return;
+        }
+    }
+    compute_luma_scalar(src, dest);
+}
+
+fn compute_luma_scalar(src: &[u32], dest: &mut [u8]) {
+    for (s, d) in src.iter().zip(dest.iter_mut()) {
+        *d = pixel_luminance(*s);
+    }
+}
+
+fn apply_sobel_scalar(luma: &[u8], dest: &mut [u32], width: usize, height: usize) {
+    // Fill borders with black
+    // Top row
+    dest[0..width].fill(0xFF00_0000);
+    // Bottom row
+    dest[(height - 1) * width..height * width].fill(0xFF00_0000);
+    // Left/Right cols handled in loop (or fill loop)
+
+    for y in 1..height - 1 {
+        let row_offset = y * width;
+        let prev_row_offset = (y - 1) * width;
+        let next_row_offset = (y + 1) * width;
+
+        dest[row_offset] = 0xFF00_0000; // Left border
+        dest[row_offset + width - 1] = 0xFF00_0000; // Right border
+
+        for x in 1..width - 1 {
+            let p00 = luma[prev_row_offset + x - 1] as i32;
+            let p01 = luma[prev_row_offset + x] as i32;
+            let p02 = luma[prev_row_offset + x + 1] as i32;
+
+            let p10 = luma[row_offset + x - 1] as i32;
+            let p12 = luma[row_offset + x + 1] as i32;
+
+            let p20 = luma[next_row_offset + x - 1] as i32;
+            let p21 = luma[next_row_offset + x] as i32;
+            let p22 = luma[next_row_offset + x + 1] as i32;
+
+            // Gx = (R - L)
+            // L = p00 + 2*p10 + p20
+            // R = p02 + 2*p12 + p22
+            let gx = (p02 + 2 * p12 + p22) - (p00 + 2 * p10 + p20);
+
+            // Gy = (B - T)
+            // T = p00 + 2*p01 + p02
+            // B = p20 + 2*p21 + p22
+            let gy = (p20 + 2 * p21 + p22) - (p00 + 2 * p01 + p02);
+
+            let mag = (gx.abs() + gy.abs()).min(255) as u32;
+            dest[row_offset + x] = 0xFF00_0000 | (mag << 16) | (mag << 8) | mag;
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn compute_luma_avx2(src: &[u32], dest: &mut [u8]) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
+        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_packus_epi16,
+        _mm256_packus_epi32, _mm256_permute4x64_epi64, _mm256_permutevar8x32_epi32,
+        _mm256_set1_epi64x, _mm256_setr_epi32, _mm256_srai_epi32, _mm256_storeu_si256,
+    };
+
+    let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D); // W0=29, W1=150, W2=77, W3=0
+
+    let mut s_ptr = src.as_ptr();
+    let mut d_ptr = dest.as_mut_ptr();
+    let end_ptr = s_ptr.add(src.len());
+
+    // Process 32 pixels per iteration
+    while s_ptr < end_ptr {
+        // Helper to compute luma for 8 pixels (returns 8 x i32)
+        let compute_8 = |ptr: *const u32| -> std::arch::x86_64::__m256i {
+            let chunk = _mm256_loadu_si256(ptr as *const _);
+            let lo_128 = _mm256_castsi256_si128(chunk);
+            let hi_128 = _mm256_extracti128_si256(chunk, 1);
+            let v_lo = _mm256_cvtepu8_epi16(lo_128);
+            let v_hi = _mm256_cvtepu8_epi16(hi_128);
+            let prod_lo = _mm256_madd_epi16(v_lo, weights);
+            let prod_hi = _mm256_madd_epi16(v_hi, weights);
+            let sums = _mm256_hadd_epi32(prod_lo, prod_hi);
+            let sums_perm = _mm256_permute4x64_epi64(sums, 0xD8);
+            _mm256_srai_epi32(sums_perm, 8) // 0..255
+        };
+
+        let l0 = compute_8(s_ptr);
+        let l1 = compute_8(s_ptr.add(8));
+        let l2 = compute_8(s_ptr.add(16));
+        let l3 = compute_8(s_ptr.add(24));
+
+        // Pack 32-bit lumas to 16-bit
+        // packus_epi32: Pack 8 i32s -> 8 u16s (in 128-bit lane), then another 8.
+        // Input a: [A0..A3, A4..A7], Input b: [B0..B3, B4..B7]
+        // Output: [A0..A3, B0..B3 (from a lane 0, b lane 0), A4..A7, B4..B7 (from lanes 1)]
+        // Order is permuted.
+        let p01 = _mm256_packus_epi32(l0, l1); // 16 u16s
+        let p23 = _mm256_packus_epi32(l2, l3); // 16 u16s
+
+        // Fix order of packus_epi32?
+        // packus_epi32 operates on 128-bit lanes independently.
+        // Lane 0 = Pack(l0_lo, l1_lo). Lane 1 = Pack(l0_hi, l1_hi).
+        // l0 is already permuted to be in order 0..7.
+        // l0: [0, 1, 2, 3 | 4, 5, 6, 7]
+        // l1: [8, 9, 10, 11 | 12, 13, 14, 15]
+        // p01 Lane 0: [0, 1, 2, 3, 8, 9, 10, 11] (Interleaved!)
+        // p01 Lane 1: [4, 5, 6, 7, 12, 13, 14, 15]
+        // We want: [0..7, 8..15].
+        // We need to permute p01 to fix this.
+        // _mm256_permute4x64_epi64(p01, 0xD8) -> 3 1 2 0 order of 64-bit blocks.
+        // Blocks: 0:[0..3,8..11], 1:[4..7,12..15], 2:[16..19,24..27], 3:[20..23,28..31] (from p23)
+        // No, p01 has only l0 and l1.
+        // Blocks: 0:[0..3,8..11] 1:[4..7,12..15] 2:[0..3,8..11] 3:[4..7,12..15] (repeated? No 256 bits)
+        // Lane 0 -> Blocks 0, 1. Lane 1 -> Blocks 2, 3.
+        // We want: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...
+        // Currently:
+        // Lane 0: 0,1,2,3, 8,9,10,11
+        // Lane 1: 4,5,6,7, 12,13,14,15
+        //
+        // This is tricky to unscramble with just permute4x64 because 8,9,10,11 is in same 64-bit block as 0,1,2,3.
+        // We need shuffle on 32-bit or 16-bit level.
+        //
+        // Easier approach:
+        // Pack l0, l0 (dummy) -> get [0..7] in lane 0? No.
+        //
+        // Correct approach for packing in AVX2:
+        // Use `_mm256_permute4x64_epi64` after `pack` is usually for `packus_epi16` crossing lanes.
+        // Here `packus_epi32` also works per lane.
+        //
+        // Let's rely on standard sequence:
+        // `p01 = _mm256_packus_epi32(l0, l1);`
+        // `p23 = _mm256_packus_epi32(l2, l3);`
+        //
+        // Now pack to u8:
+        // `u = _mm256_packus_epi16(p01, p23);`
+        // Lane 0 = Pack(p01_lo, p23_lo).
+        // p01_lo: 0,1,2,3, 8,9,10,11
+        // p23_lo: 16,17,18,19, 24,25,26,27
+        // Result Lane 0: 0,1,2,3, 8,9,10,11, 16,17,18,19, 24,25,26,27. (Still interleaved).
+        //
+        // Since we are writing to memory, we can just `store` and ignore order?
+        // No, order matters for image.
+        //
+        // Maybe store 8 bytes at a time?
+        // `_mm_storel_epi64` stores low 64 bits.
+        // Extract 64 bits is cleaner.
+        //
+        // Or simpler: Compute 8, pack to 8 u8 (using XMM), store 8 u8.
+        // AVX2 registers can hold 32 bytes.
+        // Processing 32 pixels -> 32 bytes output. Ideally one store.
+        //
+        // Let's use the permutation fix.
+        // p01: [0..3, 8..11] [4..7, 12..15]
+        // We want [0..7] [8..15].
+        // We can permute p01 to group [0..3] and [4..7].
+        // 0..3 is in 128-bit[0..63]. 4..7 is in 128-bit[128..191]? No.
+        // p01 is __m256i.
+        // Lane 0 (0..127): Pack(l0_lo, l1_lo). l0_lo=[0,1,2,3], l1_lo=[8,9,10,11].
+        // So Lane 0 = [0,1,2,3, 8,9,10,11].
+        // Lane 1 (128..255): Pack(l0_hi, l1_hi). [4,5,6,7, 12,13,14,15].
+        //
+        // If we permute p01 to bring [4..7] to [0..3]'s neighbor?
+        // We need to shuffle bytes/words.
+        //
+        // Actually, shuffling l0 and l1 BEFORE pack might be easier?
+        // No.
+        //
+        // What if we `storeu` l0 (as i32) then compact in memory? Slow.
+        //
+        // Let's use `_mm256_permutevar8x32_epi32`.
+        // We have 8 i32s in indices:
+        // 0, 1, 2, 3, 4, 5, 6, 7
+        // After pack (viewed as u16 indices):
+        // 0,1,2,3, 8,9,10,11, 4,5,6,7, 12,13,14,15.
+        // We want 0..15.
+        // Permutation needed: 0,1,2,3, 12,13,14,15 (wait indices are u16).
+        //
+        // Let's just process 8 pixels at a time and do 64-bit stores?
+        // Or 16 pixels.
+        // 16 pixels -> `l0`, `l1`.
+        // `p01 = packus_epi32(l0, l1)` -> [0..3, 8..11, 4..7, 12..15].
+        // `res = packus_epi16(p01, p01)` (duplicate).
+        // -> [0..3, 8..11, 0..3, 8..11 | 4..7, 12..15, 4..7, 12..15].
+        // This is getting messy.
+        //
+        // Simplest valid way for 32 pixels:
+        // Use `_mm256_shuffle_epi8` with a mask to reorder bytes at the end?
+        // We have 32 bytes in a YMM.
+        // We want to reorder them to correct linear order.
+        // Order after `packus_epi16(p01, p23)`:
+        // Lane 0: 0..3, 8..11, 16..19, 24..27
+        // Lane 1: 4..7, 12..15, 20..23, 28..31
+        //
+        // We want: 0..3, 4..7, 8..11, 12..15 ...
+        // We can use `vpermd` (`_mm256_permutevar8x32_epi32`) to reorder 32-bit blocks.
+        // Blocks in Lane 0: A=0..3, B=8..11, C=16..19, D=24..27.
+        // Blocks in Lane 1: E=4..7, F=12..15, G=20..23, H=28..31.
+        //
+        // Indices in YMM (0..7):
+        // Current: 0(A), 1(B), 2(C), 3(D), 4(E), 5(F), 6(G), 7(H).
+        // Target: A, E, B, F, C, G, D, H.
+        // Indices: 0, 4, 1, 5, 2, 6, 3, 7.
+        //
+        // `_mm256_permutevar8x32_epi32` can do exactly this!
+        let indices = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
+        let p01 = _mm256_packus_epi32(l0, l1);
+        let p23 = _mm256_packus_epi32(l2, l3);
+        let packed_u8 = _mm256_packus_epi16(p01, p23);
+        let final_u8 = _mm256_permutevar8x32_epi32(packed_u8, indices);
+
+        _mm256_storeu_si256(d_ptr as *mut _, final_u8);
+
+        s_ptr = s_ptr.add(32);
+        d_ptr = d_ptr.add(32);
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_sobel_avx2(luma: &[u8], dest: &mut [u32], width: usize, height: usize) {
+    use std::arch::x86_64::{
+        _mm256_abs_epi16, _mm256_add_epi16, _mm256_castsi256_si128, _mm256_cvtepu16_epi32,
+        _mm256_cvtepu8_epi16, _mm256_extracti128_si256, _mm256_min_epi16, _mm256_or_si256,
+        _mm256_set1_epi16, _mm256_set1_epi32, _mm256_slli_epi16, _mm256_slli_epi32,
+        _mm256_storeu_si256, _mm256_sub_epi16, _mm_loadu_si128,
+    };
+
+    // Fill borders black
+    dest[0..width].fill(0xFF00_0000);
+    dest[(height - 1) * width..height * width].fill(0xFF00_0000);
+
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let max_val = _mm256_set1_epi16(255);
+
+    for y in 1..height - 1 {
+        let row_offset = y * width;
+        let prev_row_ptr = luma.as_ptr().add((y - 1) * width);
+        let row_ptr = luma.as_ptr().add(y * width);
+        let next_row_ptr = luma.as_ptr().add((y + 1) * width);
+        let dest_row_ptr = dest.as_mut_ptr().add(row_offset);
+
+        // Scalar borders
+        *dest_row_ptr = 0xFF00_0000;
+        *dest_row_ptr.add(width - 1) = 0xFF00_0000;
+
+        let mut x = 1;
+        // Process 16 pixels at a time
+        while x + 16 < width - 1 {
+            // Load 16 pixels + neighbors (x-1 .. x+16)
+            // We need 18 bytes. loadu_si128 loads 16 bytes.
+            // We can load at x-1 (gets 0..15 relative).
+            // We need up to x+16 (index 17 relative).
+            // So we need 2 loads per row or unaligned loads?
+            // Actually, we process 16 pixels (x to x+15).
+            // Requirements:
+            // L: x-1 .. x+14
+            // C: x   .. x+15
+            // R: x+1 .. x+16
+            //
+            // Loading 16 bytes at x-1 gives L (all 16 needed).
+            // Loading 16 bytes at x gives C.
+            // Loading 16 bytes at x+1 gives R.
+            //
+            // `cvtepu8_epi16` expands 16 u8 to 16 i16 (YMM). Perfect.
+
+            let load_expand = |ptr: *const u8| -> std::arch::x86_64::__m256i {
+                let v128 = _mm_loadu_si128(ptr as *const _);
+                _mm256_cvtepu8_epi16(v128)
+            };
+
+            let p_prev_L = load_expand(prev_row_ptr.add(x - 1));
+            // let p_prev_C = load_expand(prev_row_ptr.add(x)); // Not needed for Sobel, only corners/sides?
+            // Wait, Gx needs L and R. Gy needs T and B.
+            // Gx = (R - L).
+            // L = prev_L + 2*curr_L + next_L.
+            // R = prev_R + 2*curr_R + next_R.
+            //
+            // Gy = (B - T).
+            // T = prev_L + 2*prev_C + prev_R.
+            // B = next_L + 2*next_C + next_R.
+            //
+            // So we need L, C, R for all 3 rows.
+
+            let p_prev_C = load_expand(prev_row_ptr.add(x));
+            let p_prev_R = load_expand(prev_row_ptr.add(x + 1));
+
+            let p_curr_L = load_expand(row_ptr.add(x - 1));
+            // let p_curr_C = load_expand(row_ptr.add(x)); // Center pixel not used in Sobel?
+            // Indeed, center is 0 in kernels.
+            let p_curr_R = load_expand(row_ptr.add(x + 1));
+
+            let p_next_L = load_expand(next_row_ptr.add(x - 1));
+            let p_next_C = load_expand(next_row_ptr.add(x));
+            let p_next_R = load_expand(next_row_ptr.add(x + 1));
+
+            // Calc Gx
+            // L_sum = prev_L + 2*curr_L + next_L
+            let l_sum = _mm256_add_epi16(
+                _mm256_add_epi16(p_prev_L, p_next_L),
+                _mm256_slli_epi16(p_curr_L, 1),
+            );
+            // R_sum = prev_R + 2*curr_R + next_R
+            let r_sum = _mm256_add_epi16(
+                _mm256_add_epi16(p_prev_R, p_next_R),
+                _mm256_slli_epi16(p_curr_R, 1),
+            );
+            let gx = _mm256_sub_epi16(r_sum, l_sum);
+
+            // Calc Gy
+            // T_sum = prev_L + 2*prev_C + prev_R
+            let t_sum = _mm256_add_epi16(
+                _mm256_add_epi16(p_prev_L, p_prev_R),
+                _mm256_slli_epi16(p_prev_C, 1),
+            );
+            // B_sum = next_L + 2*next_C + next_R
+            let b_sum = _mm256_add_epi16(
+                _mm256_add_epi16(p_next_L, p_next_R),
+                _mm256_slli_epi16(p_next_C, 1),
+            );
+            let gy = _mm256_sub_epi16(b_sum, t_sum);
+
+            // Mag = |Gx| + |Gy|
+            let mag = _mm256_add_epi16(_mm256_abs_epi16(gx), _mm256_abs_epi16(gy));
+            let mag_clamped = _mm256_min_epi16(mag, max_val);
+
+            // Expand to u32 and store
+            // mag_clamped has 16 values (0..255).
+            // Split to Lo/Hi.
+            let mag_lo = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(mag_clamped));
+            let mag_hi = _mm256_cvtepu16_epi32(_mm256_extracti128_si256(mag_clamped, 1));
+
+            // Convert val -> 0xFFvalvalval
+            let make_pixel = |v: std::arch::x86_64::__m256i| {
+                let v8 = _mm256_slli_epi32(v, 8);
+                let v16 = _mm256_slli_epi32(v, 16);
+                _mm256_or_si256(
+                    alpha_mask,
+                    _mm256_or_si256(v, _mm256_or_si256(v8, v16)),
+                )
+            };
+
+            let p_lo = make_pixel(mag_lo);
+            let p_hi = make_pixel(mag_hi);
+
+            _mm256_storeu_si256(dest_row_ptr.add(x) as *mut _, p_lo);
+            _mm256_storeu_si256(dest_row_ptr.add(x + 8) as *mut _, p_hi);
+
+            x += 16;
+        }
+
+        // Tail handled by outer loop?
+        // No, we need to finish the row scalar.
+        // We can just call scalar for the rest of the row?
+        // Or inline scalar tail.
+        while x < width - 1 {
+            let p00 = *prev_row_ptr.add(x - 1) as i32;
+            let p01 = *prev_row_ptr.add(x) as i32;
+            let p02 = *prev_row_ptr.add(x + 1) as i32;
+
+            let p10 = *row_ptr.add(x - 1) as i32;
+            let p12 = *row_ptr.add(x + 1) as i32;
+
+            let p20 = *next_row_ptr.add(x - 1) as i32;
+            let p21 = *next_row_ptr.add(x) as i32;
+            let p22 = *next_row_ptr.add(x + 1) as i32;
+
+            let gx = (p02 + 2 * p12 + p22) - (p00 + 2 * p10 + p20);
+            let gy = (p20 + 2 * p21 + p22) - (p00 + 2 * p01 + p02);
+
+            let mag = (gx.abs() + gy.abs()).min(255) as u32;
+            *dest_row_ptr.add(x) = 0xFF00_0000 | (mag << 16) | (mag << 8) | mag;
+            x += 1;
+        }
+    }
+}
+
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     if offset == 0 {
         return;
@@ -2157,4 +2604,119 @@ mod tests {
         assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+    }
+
+    #[test]
+    fn test_apply_sobel_simd() {
+        let width = 64;
+        let height = 32;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+
+        // Vertical edge at x=32
+        for y in 0..height {
+            for x in 0..width {
+                if x < 32 {
+                    fb.set_pixel(x as i32, y as i32, 0xFF00_0000);
+                } else {
+                    fb.set_pixel(x as i32, y as i32, 0xFFFF_FFFF);
+                }
+            }
+        }
+
+        apply_sobel(&mut fb);
+
+        // Check edge at x=31 (Black side) and x=32 (White side)
+        // x=31: L=30(0), C=31(0), R=32(255).
+        // Gx = (255 + 2*255 + 255) - (0) = 1020 -> 255.
+        // x=32: L=31(0), C=32(255), R=33(255).
+        // Gx = (255+510+255) - (0) = 1020 -> 255.
+
+        let p31 = fb.get_pixel(31, 15).unwrap();
+        let r31 = (p31 >> 16) & 0xFF;
+        assert_eq!(r31, 255, "Edge at x=31 should be detected. Got {}", r31);
+
+        let p32 = fb.get_pixel(32, 15).unwrap();
+        let r32 = (p32 >> 16) & 0xFF;
+        assert_eq!(r32, 255, "Edge at x=32 should be detected. Got {}", r32);
+
+        // Check non-edge
+        let p10 = fb.get_pixel(10, 15).unwrap();
+        let r10 = (p10 >> 16) & 0xFF;
+        assert_eq!(r10, 0, "Non-edge at x=10 should be black. Got {}", r10);
+    }
+
+    #[test]
+    fn test_apply_sobel() {
+        let width = 4;
+        let height = 4;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+
+        // Create a vertical edge at x=2
+        // Columns 0, 1 are black (0)
+        // Columns 2, 3 are white (255)
+        for y in 0..height {
+            fb.set_pixel(0, y as i32, 0xFF00_0000);
+            fb.set_pixel(1, y as i32, 0xFF00_0000);
+            fb.set_pixel(2, y as i32, 0xFFFF_FFFF);
+            fb.set_pixel(3, y as i32, 0xFFFF_FFFF);
+        }
+
+        apply_sobel(&mut fb);
+
+        // Check edge detection at x=1 and x=2
+        // Sobel kernel is 3x3.
+        // At x=1 (Black):
+        // Left col (x=0) is Black (0). Center (x=1) is Black (0). Right (x=2) is White (255).
+        // Gx kernel:
+        // -1 0 1
+        // -2 0 2
+        // -1 0 1
+        // Applied to neighborhood of x=1:
+        // Col 0 contributes negative (0 * -1 etc = 0)
+        // Col 1 contributes 0
+        // Col 2 contributes positive (255 * 1 + 255 * 2 + 255 * 1) = 255 * 4 = 1020.
+        // Gx = 1020.
+        // Gy should be 0 (vertical edge, no vertical change).
+        // Magnitude approx = |Gx| + |Gy| = 1020.
+        // Clamped to 255.
+        // So x=1 should be White (edge).
+
+        let p1 = fb.get_pixel(1, 1).unwrap();
+        let r1 = (p1 >> 16) & 0xFF;
+        assert_eq!(r1, 255, "Edge at x=1 should be detected (White). Got {}", r1);
+
+        // At x=2 (White):
+        // Left (x=1) Black (0). Center White. Right (x=3) White.
+        // Gx:
+        // Col 1 (0) * -1 = 0
+        // Col 2 (255) * 0 = 0
+        // Col 3 (255) * 1 = 255 * 4 = 1020.
+        // Wait.
+        // Left is 0. Right is 255.
+        // Gx = (Right - Left) ... sort of.
+        //
+        // Let's re-evaluate Gx at x=2.
+        // Left col (x=1) is 0.
+        // Center col (x=2) is 255.
+        // Right col (x=3) is 255.
+        // Gx:
+        // Top row: -1*0 + 0*255 + 1*255 = 255
+        // Mid row: -2*0 + 0*255 + 2*255 = 510
+        // Bot row: -1*0 + 0*255 + 1*255 = 255
+        // Total Gx = 1020.
+        //
+        // So x=2 is also an edge?
+        // Yes, Sobel detects gradient.
+        //
+        // What about x=0?
+        // Left (x=-1) is clamped/mirrored? Or skipped?
+        // If skipped (border 1 pixel), x=0 is untouched or black.
+        // Usually we skip borders.
+        // So x=0 and x=3 (last col) should be black or untouched.
+        // Let's assume implementation skips borders and leaves them black (or original).
+        // Since we initialized with Black/White, let's check x=1 and x=2 specifically.
+
+        let p2 = fb.get_pixel(2, 1).unwrap();
+        let r2 = (p2 >> 16) & 0xFF;
+        assert_eq!(r2, 255, "Edge at x=2 should be detected. Got {}", r2);
     }
