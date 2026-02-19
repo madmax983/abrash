@@ -6,35 +6,29 @@ use abrash::texture::{FilterMode, Texture};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-fn bench_draw_scanline_textured_100px(c: &mut Criterion) {
-    let width = 200;
+fn bench_scanline_lengths(c: &mut Criterion) {
+    let width = 2000;
     let height = 100;
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
     let mut tex = Texture::new(256, 256).unwrap();
-    // Fill texture with checkerboard
+    // Fill with pattern
     for y in 0..256 {
         for x in 0..256 {
-            let color = if ((x / 16) + (y / 16)) % 2 == 0 {
-                0xFFFFFFFF
-            } else {
-                0xFF000000
-            };
-            tex.set_pixel(x, y, color);
+            tex.set_pixel(x, y, (x ^ y) as u32 | 0xFF000000);
         }
     }
-    tex.filter_mode = FilterMode::Nearest;
+    // Use Bilinear to stress the SIMD path more (if it supports it)
+    tex.filter_mode = FilterMode::Bilinear;
 
-    let y = 50;
-    let x_start = 10;
-    let x_end = 110; // 100 pixels
+    let lengths = [16, 32, 64, 100, 500, 1920];
 
-    // Simple gradients (flat facing camera)
+    // Gradients simulating looking at a floor plane at an angle
     let gradients = PerspectiveTextureGradients {
-        dz_dx: 0.001,
-        dq_dx: 0.0,         // No perspective distortion (w constant)
-        du_dx: 1.0 / 256.0, // traverse 1 pixel per pixel
-        dv_dx: 0.0,
+        dz_dx: 0.0001,
+        dq_dx: 0.00005, // Some perspective
+        du_dx: 0.005,
+        dv_dx: 0.005,
         dq_dy: 0.0,
         du_dy: 0.0,
         dv_dy: 0.0,
@@ -47,34 +41,35 @@ fn bench_draw_scanline_textured_100px(c: &mut Criterion) {
         v: 0.0,
     };
 
-    c.bench_function("draw_scanline_textured_100px", |b| {
-        b.iter(|| {
-            // Reset Z for the scanline range
-            let width_usize = width as usize;
-            let start_idx = (y as usize) * width_usize + (x_start as usize);
-            let end_idx = (y as usize) * width_usize + (x_end as usize);
+    let y = 50;
+    let x_start = 0;
 
-            // We only need to clear Z if we care about Z-test passing.
-            // Since we write opaque pixels (mostly), we just need z < depth.
-            // Setting depth to infinity ensures pass.
-            // Using a slice is faster than clearing whole buffer.
-            for z in &mut zb.as_mut_slice()[start_idx..=end_idx] {
-                *z = f32::INFINITY;
-            }
+    let mut group = c.benchmark_group("scanline_perspective_bilinear");
 
-            draw_scanline_textured_perspective(
-                &mut fb,
-                &mut zb,
-                &tex,
-                black_box(y),
-                black_box(x_start),
-                black_box(x_end),
-                black_box(start),
-                black_box(&gradients),
-            );
+    for &len in &lengths {
+        group.bench_function(format!("len_{}", len), |b| {
+            b.iter(|| {
+                let x_end = x_start + len;
+                // Clear Z-buffer slice
+                let start_idx = (y as usize) * (width as usize) + (x_start as usize);
+                let end_idx = (y as usize) * (width as usize) + (x_end as usize);
+                zb.as_mut_slice()[start_idx..=end_idx].fill(f32::INFINITY);
+
+                draw_scanline_textured_perspective(
+                    &mut fb,
+                    &mut zb,
+                    &tex,
+                    black_box(y),
+                    black_box(x_start),
+                    black_box(x_end),
+                    black_box(start),
+                    black_box(&gradients),
+                );
+            });
         });
-    });
+    }
+    group.finish();
 }
 
-criterion_group!(benches, bench_draw_scanline_textured_100px);
+criterion_group!(benches, bench_scanline_lengths);
 criterion_main!(benches);

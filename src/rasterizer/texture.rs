@@ -867,6 +867,203 @@ unsafe fn draw_span_nearest_simd(
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::ptr_as_ptr)]
+unsafe fn draw_scanline_textured_perspective_simd(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    z: f32,
+    q: f32,
+    u: f32,
+    v: f32,
+    gradients: &PerspectiveTextureGradients,
+    texture: &Texture,
+) {
+    unsafe {
+        use std::arch::x86_64::*;
+
+        let len = fb_slice.len();
+        let mut i = 0;
+
+        // Load gradients
+        let dz_dx = _mm256_set1_ps(gradients.dz_dx);
+        let dq_dx = _mm256_set1_ps(gradients.dq_dx);
+        let du_dx = _mm256_set1_ps(gradients.du_dx);
+        let dv_dx = _mm256_set1_ps(gradients.dv_dx);
+
+        let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z), _mm256_mul_ps(dz_dx, offsets));
+        let mut q_vec = _mm256_add_ps(_mm256_set1_ps(q), _mm256_mul_ps(dq_dx, offsets));
+        let mut u_vec = _mm256_add_ps(_mm256_set1_ps(u), _mm256_mul_ps(du_dx, offsets));
+        let mut v_vec = _mm256_add_ps(_mm256_set1_ps(v), _mm256_mul_ps(dv_dx, offsets));
+
+        let step_8 = _mm256_set1_ps(8.0);
+        let dz_step = _mm256_mul_ps(dz_dx, step_8);
+        let dq_step = _mm256_mul_ps(dq_dx, step_8);
+        let du_step = _mm256_mul_ps(du_dx, step_8);
+        let dv_step = _mm256_mul_ps(dv_dx, step_8);
+
+        let one = _mm256_set1_ps(1.0);
+        let two = _mm256_set1_ps(2.0);
+        let scale_256 = _mm256_set1_ps(256.0);
+        let offset_neg_0_5 = _mm256_set1_ps(-128.0); // -0.5 * 256
+
+        let w_vec = _mm256_set1_epi32(texture.width as i32);
+        let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
+        let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
+        let zero_i = _mm256_setzero_si256();
+        let one_i = _mm256_set1_epi32(1);
+        let const_256_i = _mm256_set1_epi32(256);
+        let mask_ff = _mm256_set1_epi32(0xFF);
+
+        while i + 8 <= len {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+            if _mm256_movemask_ps(mask_z) != 0 {
+                // Perspective recover
+                let q_abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec);
+                let q_valid = _mm256_cmp_ps(q_abs, _mm256_set1_ps(1e-6), _CMP_GT_OQ);
+                let safe_q = _mm256_blendv_ps(one, q_vec, q_valid);
+
+                let rcp = _mm256_rcp_ps(safe_q);
+                let w_recip = _mm256_mul_ps(rcp, _mm256_sub_ps(two, _mm256_mul_ps(safe_q, rcp)));
+
+                let u_tex_f = _mm256_mul_ps(u_vec, w_recip);
+                let v_tex_f = _mm256_mul_ps(v_vec, w_recip);
+
+                // Bilinear Coordinates (24.8 format)
+                // val = u * 256 - 128
+                let u_val = _mm256_add_ps(_mm256_mul_ps(u_tex_f, scale_256), offset_neg_0_5);
+                let v_val = _mm256_add_ps(_mm256_mul_ps(v_tex_f, scale_256), offset_neg_0_5);
+
+                let u_floor = _mm256_floor_ps(u_val);
+                let v_floor = _mm256_floor_ps(v_val);
+
+                let u_int = _mm256_cvtps_epi32(u_floor);
+                let v_int = _mm256_cvtps_epi32(v_floor);
+
+                let wx = _mm256_and_si256(u_int, mask_ff);
+                let wy = _mm256_and_si256(v_int, mask_ff);
+                let inv_wx = _mm256_sub_epi32(const_256_i, wx);
+                let inv_wy = _mm256_sub_epi32(const_256_i, wy);
+
+                let x0_raw = _mm256_srai_epi32(u_int, 8);
+                let y0_raw = _mm256_srai_epi32(v_int, 8);
+
+                // Clamping
+                let x0 = _mm256_min_epi32(_mm256_max_epi32(x0_raw, zero_i), max_x);
+                let y0 = _mm256_min_epi32(_mm256_max_epi32(y0_raw, zero_i), max_y);
+                let x1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(x0_raw, one_i), zero_i),
+                    max_x,
+                );
+                let y1 = _mm256_min_epi32(
+                    _mm256_max_epi32(_mm256_add_epi32(y0_raw, one_i), zero_i),
+                    max_y,
+                );
+
+                // Gather
+                let y0_w = _mm256_mullo_epi32(y0, w_vec);
+                let y1_w = _mm256_mullo_epi32(y1, w_vec);
+
+                let idx00 = _mm256_add_epi32(y0_w, x0);
+                let idx10 = _mm256_add_epi32(y0_w, x1);
+                let idx01 = _mm256_add_epi32(y1_w, x0);
+                let idx11 = _mm256_add_epi32(y1_w, x1);
+
+                let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
+                let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
+                let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
+                let c11 = _mm256_i32gather_epi32(pixels_ptr, idx11, 4);
+
+                let top = blend_swar_simd(c00, c10, wx, inv_wx);
+                let bot = blend_swar_simd(c01, c11, wx, inv_wx);
+                let final_color = blend_swar_simd(top, bot, wy, inv_wy);
+
+                // Blending / Writing
+                let a = _mm256_and_si256(_mm256_srli_epi32(final_color, 24), mask_ff);
+                let opaque_mask = _mm256_cmpeq_epi32(a, mask_ff);
+                let mask_z_int = _mm256_castps_si256(mask_z);
+                let write_opaque_mask = _mm256_and_si256(mask_z_int, opaque_mask);
+                let write_opaque_mask_ps = _mm256_castsi256_ps(write_opaque_mask);
+
+                if _mm256_movemask_ps(write_opaque_mask_ps) != 0 {
+                    let old_z = _mm256_loadu_ps(depth_ptr);
+                    let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
+                    _mm256_storeu_ps(depth_ptr, new_z);
+
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let new_color = _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
+                    _mm256_storeu_si256(fb_ptr, new_color);
+                }
+
+                // Translucent
+                let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
+                let trans_mask =
+                    _mm256_andnot_si256(opaque_mask, _mm256_andnot_si256(zero_mask, mask_z_int));
+                let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
+
+                if trans_bits != 0 {
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let current_dest = _mm256_loadu_si256(fb_ptr);
+                    let alpha_src = a;
+                    let inv_alpha_src = _mm256_sub_epi32(const_256_i, alpha_src);
+                    let blended =
+                        blend_swar_simd(final_color, current_dest, inv_alpha_src, alpha_src);
+                    let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
+                    _mm256_storeu_si256(fb_ptr, result);
+                }
+            }
+
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            q_vec = _mm256_add_ps(q_vec, dq_step);
+            u_vec = _mm256_add_ps(u_vec, du_step);
+            v_vec = _mm256_add_ps(v_vec, dv_step);
+            i += 8;
+        }
+
+        // Scalar Tail
+        while i < len {
+            let i_f = i as f32;
+            let z_curr = z + i_f * gradients.dz_dx;
+            let q_curr = q + i_f * gradients.dq_dx;
+            let u_curr = u + i_f * gradients.du_dx;
+            let v_curr = v + i_f * gradients.dv_dx;
+
+            let depth_val = zb_slice.get_unchecked_mut(i);
+            if z_curr < *depth_val {
+                let w = if q_curr.abs() > 1e-6 {
+                    1.0 / q_curr
+                } else {
+                    1.0
+                };
+                let u_tex = u_curr * w;
+                let v_tex = v_curr * w;
+
+                let color = texture.get_pixel_bilinear_texel(u_tex, v_tex);
+
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z_curr;
+                    *fb_slice.get_unchecked_mut(i) = color;
+                } else if alpha > 0 {
+                    let dest = *fb_slice.get_unchecked(i);
+                    *fb_slice.get_unchecked_mut(i) = blend_swar(color, dest, 255 - alpha, alpha);
+                }
+            }
+            i += 1;
+        }
+    }
+}
+
 /// Draw a single scanline with perspective-correct texture mapping
 /// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
@@ -908,6 +1105,31 @@ pub fn draw_scanline_textured_perspective(
     }
 
     if xs > xe {
+        return;
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    if texture.filter_mode == FilterMode::Bilinear && is_x86_feature_detected!("avx2") {
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (xs as usize);
+        let end_idx = y_offset + (xe as usize);
+
+        // SAFETY: xs and xe are clamped to [0, width-1] and xs <= xe.
+        unsafe {
+            let fb_slice = fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx);
+            let zb_slice = zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx);
+            draw_scanline_textured_perspective_simd(
+                fb_slice,
+                zb_slice,
+                z,
+                q,
+                u,
+                v,
+                gradients,
+                texture,
+            );
+        }
         return;
     }
 
