@@ -17,6 +17,23 @@ fn bench_vec3_dot(c: &mut Criterion) {
     });
 }
 
+fn bench_vec3_normalize(c: &mut Criterion) {
+    let mut inputs = Vec::with_capacity(1000);
+    for i in 0..1000 {
+        let f = i as f32;
+        inputs.push(Vec3::new(f, f + 1.0, f + 2.0));
+    }
+
+    c.bench_function("vec3_normalize", |b| {
+        let mut i = 0;
+        b.iter(|| {
+            let v = unsafe { *inputs.get_unchecked(i % 1000) };
+            i += 1;
+            black_box(v.normalize())
+        });
+    });
+}
+
 fn bench_vec3_fast_normalize(c: &mut Criterion) {
     let mut inputs = Vec::with_capacity(1000);
     for i in 0..1000 {
@@ -38,6 +55,7 @@ criterion_group!(
     benches,
     bench_vec3_cross,
     bench_vec3_dot,
+    bench_vec3_normalize,
     bench_vec3_fast_normalize
 );
 criterion_main!(benches);
