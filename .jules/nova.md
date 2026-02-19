@@ -32,3 +32,8 @@
 **Concept:** Simulates global illumination by darkening crevices based on the depth buffer.
 **Fate:** Merged
 **Lesson:** Reconstructing view-space position from the depth buffer allows for advanced lighting effects without heavy ray tracing, though software implementation requires careful optimization.
+
+## [Volumetric Light Shafts (God Rays)]
+**Concept:** A radial blur post-process effect using a downsampled occlusion mask.
+**Fate:** Merged
+**Lesson:** Downsampling high-frequency masks for volumetric effects provides a soft, pleasing look and massive performance gains.
