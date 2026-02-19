@@ -65,6 +65,7 @@ pub struct Vec2 {
 impl Vec2 {
     /// Creates a new 2D vector.
     #[must_use]
+    #[inline]
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
@@ -73,6 +74,7 @@ impl Vec2 {
 impl Add for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -84,6 +86,7 @@ impl Add for Vec2 {
 impl Sub for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
@@ -95,6 +98,7 @@ impl Sub for Vec2 {
 impl Mul<f32> for Vec2 {
     type Output = Self;
 
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -189,6 +193,7 @@ pub struct Vec3 {
 impl Vec3 {
     /// Creates a new vector.
     #[must_use]
+    #[inline]
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
@@ -200,6 +205,7 @@ impl Vec3 {
     /// *   Zero if perpendicular.
     /// *   Negative if pointing in opposite directions.
     #[must_use]
+    #[inline]
     pub fn dot(&self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
@@ -221,6 +227,7 @@ impl Vec3 {
     /// assert_eq!(z, Vec3::new(0.0, 0.0, 1.0));
     /// ```
     #[must_use]
+    #[inline]
     pub fn cross(&self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
@@ -257,6 +264,7 @@ impl Vec3 {
     /// assert_eq!(tiny.normalize(), tiny);
     /// ```
     #[must_use]
+    #[inline]
     pub fn normalize(&self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
@@ -279,6 +287,7 @@ impl Vec3 {
     /// This is faster than `normalize()` but slightly less accurate.
     /// Useful for lighting calculations where extreme precision is not required.
     #[must_use]
+    #[inline]
     pub fn fast_normalize(&self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
@@ -296,6 +305,7 @@ impl Vec3 {
 
 impl Add for Vec3 {
     type Output = Self;
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -307,6 +317,7 @@ impl Add for Vec3 {
 
 impl Sub for Vec3 {
     type Output = Self;
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
@@ -318,6 +329,7 @@ impl Sub for Vec3 {
 
 impl Mul<f32> for Vec3 {
     type Output = Self;
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -329,6 +341,7 @@ impl Mul<f32> for Vec3 {
 
 impl Mul for Vec3 {
     type Output = Self;
+    #[inline]
     fn mul(self, other: Self) -> Self {
         Self {
             x: self.x * other.x,
@@ -386,6 +399,7 @@ pub struct Mat4 {
 impl Mat4 {
     /// Returns the identity matrix.
     #[must_use]
+    #[inline]
     pub const fn identity() -> Self {
         Self {
             m: [
@@ -405,6 +419,7 @@ impl Mat4 {
     /// * `y` - Translation along the Y axis.
     /// * `z` - Translation along the Z axis.
     #[must_use]
+    #[inline]
     pub const fn translation(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
@@ -418,6 +433,7 @@ impl Mat4 {
 
     /// Creates a scaling matrix.
     #[must_use]
+    #[inline]
     pub const fn scale(x: f32, y: f32, z: f32) -> Self {
         Self {
             m: [
@@ -433,6 +449,7 @@ impl Mat4 {
     ///
     /// * `angle` - The angle in radians.
     #[must_use]
+    #[inline]
     pub fn rotation_x(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -450,6 +467,7 @@ impl Mat4 {
     ///
     /// * `angle` - The angle in radians.
     #[must_use]
+    #[inline]
     pub fn rotation_y(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -467,6 +485,7 @@ impl Mat4 {
     ///
     /// * `angle` - The angle in radians.
     #[must_use]
+    #[inline]
     pub fn rotation_z(angle: f32) -> Self {
         let c = angle.cos();
         let s = angle.sin();
@@ -498,6 +517,7 @@ impl Mat4 {
     /// let proj = Mat4::perspective(PI / 4.0, 1.33, 0.1, 100.0);
     /// ```
     #[must_use]
+    #[inline]
     pub fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov / 2.0).tan();
         let nf = 1.0 / (near - far);
@@ -528,6 +548,7 @@ impl Mat4 {
     /// let view = Mat4::look_at(eye, target, up);
     /// ```
     #[must_use]
+    #[inline]
     pub fn look_at(eye: Vec3, target: Vec3, up: Vec3) -> Self {
         let f = (target - eye).normalize();
         let s = f.cross(up).normalize();
@@ -1417,6 +1438,7 @@ impl Vec4 {
     /// assert_eq!(v.w, 1.0);
     /// ```
     #[must_use]
+    #[inline]
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
@@ -1425,6 +1447,7 @@ impl Vec4 {
 /// Multiply vector by scalar.
 impl std::ops::Mul<f32> for Vec4 {
     type Output = Self;
+    #[inline]
     fn mul(self, scalar: f32) -> Self {
         Self {
             x: self.x * scalar,
@@ -1438,6 +1461,7 @@ impl std::ops::Mul<f32> for Vec4 {
 /// Component-wise addition.
 impl std::ops::Add for Vec4 {
     type Output = Self;
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -1451,6 +1475,7 @@ impl std::ops::Add for Vec4 {
 /// Component-wise subtraction.
 impl std::ops::Sub for Vec4 {
     type Output = Self;
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
