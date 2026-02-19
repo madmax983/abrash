@@ -118,9 +118,9 @@ pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> 
     let uy = i64::from(p1.y) - i64::from(p0.y);
     let vx = i64::from(p2.x) - i64::from(p0.x);
     let vy = i64::from(p2.y) - i64::from(p0.y);
-    // Use i64 for cross product.
-    // i64 is sufficient as long as viewport width < 3e9, which is enforced by Framebuffer::new.
-    let nz = ux * vy - uy * vx;
+    // Use i128 for cross product to prevent overflow with extreme coordinates.
+    // i64 is NOT sufficient if coordinates are near i32 limits (e.g. 4e9 * 4e9 = 1.6e19 > i64::MAX).
+    let nz = i128::from(ux) * i128::from(vy) - i128::from(uy) * i128::from(vx);
     nz >= 0
 }
 
@@ -361,5 +361,41 @@ mod tests {
 
         let result = is_backface(p0, p1, p2);
         assert!(result);
+    }
+
+    #[test]
+    fn test_is_backface_extreme_coordinates_overflow() {
+        // Test case that overflows i64
+        let p0 = ScreenPoint {
+            x: -2_000_000_000,
+            y: -2_000_000_000,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        let p1 = ScreenPoint {
+            x: 2_000_000_000,
+            y: -2_000_000_000,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+        let p2 = ScreenPoint {
+            x: -2_000_000_000,
+            y: 2_000_000_000,
+            z: 0.0,
+            inv_w: 1.0,
+        };
+
+        // ux = 4e9, uy = 0
+        // vx = 0, vy = 4e9
+        // nz = 16e18. i64 max is 9e18.
+        // With i64, this overflows and wraps to negative (kept).
+        // With i128, this stays positive (culled).
+
+        let result = is_backface(p0, p1, p2);
+        assert!(result, "Huge CW triangle should be culled (nz > 0)");
+
+        // Reverse winding (CCW)
+        let result_ccw = is_backface(p0, p2, p1);
+        assert!(!result_ccw, "Huge CCW triangle should be kept (nz < 0)");
     }
 }
