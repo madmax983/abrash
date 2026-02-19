@@ -145,6 +145,10 @@ name = "simd_micro"
 harness = false
 
 [[bench]]
+name = "scanline_micro"
+harness = false
+
+[[bench]]
 name = "obj_loading"
 harness = false
 
