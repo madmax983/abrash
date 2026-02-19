@@ -1,4 +1,4 @@
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_triangle_to_screen};
 use crate::texture::blend_swar;
@@ -342,26 +342,19 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| (v.0, v.1), |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) =
             project_triangle_to_screen(v0.0, v0.1, v1.0, v1.1, v2.0, v2.1, half_width, half_height);
 
         // Backface Culling (on original unsorted vertices)
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+            return;
         }
 
         // Sort by y
@@ -372,7 +365,7 @@ pub fn fill_triangle_3d(
         // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         // Optimization: Clamp Y range to screen bounds
@@ -382,7 +375,7 @@ pub fn fill_triangle_3d(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Optimization: Pre-calculate dz/dx constant for the whole triangle
@@ -472,7 +465,7 @@ pub fn fill_triangle_3d(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 #[cfg(test)]

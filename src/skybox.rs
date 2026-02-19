@@ -4,7 +4,7 @@
 //! The skybox is rendered as a unit cube centered on the camera,
 //! with "infinite" depth (z=1.0) to serve as a background.
 
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::rasterizer::sort_by_y;
@@ -289,20 +289,13 @@ pub fn fill_triangle_skybox(
         panic!("Framebuffer and ZBuffer dimensions mismatch");
     }
 
-    // Clip
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    // Clip
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -342,7 +335,7 @@ pub fn fill_triangle_skybox(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -351,7 +344,7 @@ pub fn fill_triangle_skybox(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         let gradients = SkyboxGradients::new(p0, p1, p2, q0, q1, q2, d0, d1, d2);
@@ -430,7 +423,7 @@ pub fn fill_triangle_skybox(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 /// Helper to render a Skybox.

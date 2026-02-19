@@ -68,7 +68,7 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
@@ -1478,20 +1478,13 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
-        for i in 0..clipped.count {
-            let base = i * 3;
-            let cv0 = clipped[base];
-            let cv1 = clipped[base + 1];
-            let cv2 = clipped[base + 2];
-
+        clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |cv0, cv1, cv2| {
             let p0_orig = project_to_screen(cv0.0.0, cv0.0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0.0, cv2.0.1, self.width, self.height);
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
+                return;
             }
 
             // Optimization: Reuse inv_w from projection
@@ -1520,7 +1513,7 @@ impl TileRenderer {
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
-                continue;
+                return;
             }
 
             // Gradients
@@ -1544,7 +1537,7 @@ impl TileRenderer {
             let max_y = p2.y.min(self.height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
-                continue;
+                return;
             }
 
             let min_depth = p0.z.min(p1.z).min(p2.z);
@@ -1579,7 +1572,7 @@ impl TileRenderer {
                 min_depth,
                 max_depth,
             });
-        }
+        });
     }
 
     fn bin_triangles_textured_cpu(&mut self) {
@@ -1622,20 +1615,13 @@ impl TileRenderer {
     }
 
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
-
-        for i in 0..clipped.count {
-            let base = i * 3;
-            let cv0 = clipped[base];
-            let cv1 = clipped[base + 1];
-            let cv2 = clipped[base + 2];
-
+        clip_triangle_to_frustum_iter(v0, v1, v2, |v| (v.0, v.1), |cv0, cv1, cv2| {
             let p0_orig = project_to_screen(cv0.0, cv0.1, self.width, self.height);
             let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0, cv2.1, self.width, self.height);
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
+                return;
             }
 
             let mut verts = [p0_orig, p1_orig, p2_orig];
@@ -1644,7 +1630,7 @@ impl TileRenderer {
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
-                continue;
+                return;
             }
 
             // Compute dz/dx
@@ -1667,7 +1653,7 @@ impl TileRenderer {
             let max_y = p2.y.min(self.height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
-                continue;
+                return;
             }
 
             // Compute min/max depth for Hi-Z occlusion culling
@@ -1696,7 +1682,7 @@ impl TileRenderer {
                 min_depth,
                 max_depth,
             });
-        }
+        });
     }
 
     /// CPU binning path with optional Hi-Z occlusion culling

@@ -1796,8 +1796,8 @@ pub fn apply_ssao(
         // It mostly uses diagonal and last column.
         // Scalar fallback implementation in AVX2 function reconstructs manually.
 
-        let half_width = width as f32 * 0.5;
-        let half_height = height as f32 * 0.5;
+        let _half_width = width as f32 * 0.5;
+        let _half_height = height as f32 * 0.5;
 
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
@@ -1813,8 +1813,8 @@ pub fn apply_ssao(
                         noise,
                         radius,
                         bias,
-                        half_width,
-                        half_height,
+                        _half_width,
+                        _half_height,
                     );
                 }
             } else {

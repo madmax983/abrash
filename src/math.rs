@@ -685,14 +685,20 @@ impl Mat4 {
         let m33 = _mm256_set1_ps(self.m[3][3]);
 
         while i + 8 <= len {
-            let p_ptr = points.as_ptr().add(i) as *const f32;
-
-            // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
-            // 8 points * 12 bytes = 96 bytes.
-            // Load first 4 points (48 bytes) -> 3 * 16 bytes
-            let r0 = _mm_loadu_ps(p_ptr); // x0 y0 z0 x1
-            let r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
-            let r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
+            let (r0, r1, r2, r3, r4, r5);
+            unsafe {
+                let p_ptr = points.as_ptr().add(i) as *const f32;
+                // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
+                // 8 points * 12 bytes = 96 bytes.
+                // Load first 4 points (48 bytes) -> 3 * 16 bytes
+                r0 = _mm_loadu_ps(p_ptr); // x0 y0 z0 x1
+                r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
+                r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
+                // Load next 4 points
+                r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
+                r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
+                r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
+            }
 
             // Shuffle to SOA (x_lo, y_lo, z_lo)
             // _MM_SHUFFLE(z, y, x, w) -> (z << 6) | (y << 4) | (x << 2) | w
@@ -710,11 +716,6 @@ impl Mat4 {
             let t_z2z3 = _mm_shuffle_ps(r2, r2, 0b11_00_11_00); // 3, 0, 3, 0
             // Mask for z_lo: a[0], a[2], b[0], b[1] -> 1, 0, 2, 0 -> 0x48
             let z_lo = _mm_shuffle_ps(t_z0z1, t_z2z3, 0b01_00_10_00);
-
-            // Load next 4 points
-            let r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
-            let r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
-            let r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
 
             let t_x4x5 = _mm_shuffle_ps(r3, r3, 0b11_00_11_00);
             let t_x6x7 = _mm_shuffle_ps(r4, r5, 0b01_01_10_10);
@@ -785,11 +786,13 @@ impl Mat4 {
             let final3 = _mm256_permute2f128_ps(out2, out3, 0x31); // p6 | p7
 
             // Store
-            let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
-            _mm256_storeu_ps(out_ptr, final0);
-            _mm256_storeu_ps(out_ptr.add(8), final1);
-            _mm256_storeu_ps(out_ptr.add(16), final2);
-            _mm256_storeu_ps(out_ptr.add(24), final3);
+            unsafe {
+                let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+                _mm256_storeu_ps(out_ptr, final0);
+                _mm256_storeu_ps(out_ptr.add(8), final1);
+                _mm256_storeu_ps(out_ptr.add(16), final2);
+                _mm256_storeu_ps(out_ptr.add(24), final3);
+            }
 
             i += 8;
         }

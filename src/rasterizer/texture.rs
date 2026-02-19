@@ -29,7 +29,7 @@
 //! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
 //! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
 
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
@@ -1403,18 +1403,12 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -1435,7 +1429,7 @@ pub fn fill_triangle_textured(
         let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
 
         if nz_orig >= 0.0 {
-            continue;
+            return;
         }
 
         let inv_w0 = p0_orig.inv_w;
@@ -1465,7 +1459,7 @@ pub fn fill_triangle_textured(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -1474,7 +1468,7 @@ pub fn fill_triangle_textured(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Gradients and Edge Walking
@@ -1607,7 +1601,7 @@ pub fn fill_triangle_textured(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 #[derive(Clone, Copy)]
@@ -2544,19 +2538,12 @@ unsafe fn draw_span_trilinear_simd(
     ) {
         assert_same_dimensions(fb, zb);
 
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
         let width = fb.width();
         let height = fb.height();
         let half_width = width as f32 * 0.5;
         let half_height = height as f32 * 0.5;
 
-        for i in 0..clipped.count {
-            let base = i * 3;
-            let v0 = clipped[base];
-            let v1 = clipped[base + 1];
-            let v2 = clipped[base + 2];
-
+        clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
             // Project to screen
             let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
                 v0.0.0,
@@ -2571,7 +2558,7 @@ unsafe fn draw_span_trilinear_simd(
 
             // Backface Culling
             if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
+                return;
             }
 
             // Prepare attributes
@@ -2636,7 +2623,7 @@ unsafe fn draw_span_trilinear_simd(
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
-                continue;
+                return;
             }
 
             let y_min = 0;
@@ -2645,7 +2632,7 @@ unsafe fn draw_span_trilinear_simd(
             let y_end = p2.y.min(y_max);
 
             if y_start > y_end {
-                continue;
+                return;
             }
 
             // Gradients and Edge Walking
@@ -2735,7 +2722,7 @@ unsafe fn draw_span_trilinear_simd(
                 edge_a.step();
                 edge_b.step();
             }
-        }
+        });
     }
 
     #[derive(Clone, Copy)]
@@ -3807,19 +3794,12 @@ pub fn fill_triangle_textured_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+        clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
             v0.0.1,
@@ -3832,7 +3812,7 @@ pub fn fill_triangle_textured_gouraud(
         );
 
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+                return;
         }
 
         let inv_w0 = p0_orig.inv_w;
@@ -3867,7 +3847,7 @@ pub fn fill_triangle_textured_gouraud(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+                return;
         }
 
         let y_min = 0;
@@ -3876,7 +3856,7 @@ pub fn fill_triangle_textured_gouraud(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+                return;
         }
 
         let (gradients, long_edge_is_left) = TexturedGouraudGradients::new(
@@ -3960,5 +3940,5 @@ pub fn fill_triangle_textured_gouraud(
             edge_a.step();
             edge_b.step();
         }
-    }
+        });
 }

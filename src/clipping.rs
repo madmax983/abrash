@@ -110,11 +110,13 @@ impl Lerp for ((Vec3, f32), Vec3, Vec2) {
 ///
 /// The `tris` array is partially initialized up to `count`. Accessing elements beyond `count`
 /// is Undefined Behavior. The implementation of `Index` performs bounds checking to ensure safety.
+#[deprecated(since = "0.2.0", note = "Use clip_triangle_to_frustum_iter instead")]
 pub struct ClippedTriangles<V> {
-    tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
+    pub tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
     pub count: usize,           // Number of triangles
 }
 
+#[allow(deprecated)]
 impl<V> ClippedTriangles<V> {
     // Unsafe because it returns uninitialized data structure
     fn new_uninit() -> Self {
@@ -126,6 +128,7 @@ impl<V> ClippedTriangles<V> {
     }
 }
 
+#[allow(deprecated)]
 impl<V> Index<usize> for ClippedTriangles<V> {
     type Output = V;
 
@@ -152,108 +155,92 @@ const NEAR: f32 = 0.001;
 ///
 /// This implements the **Sutherland-Hodgman Algorithm**.
 /// The algorithm works by clipping the polygon against each of the 6 frustum planes in sequence.
-///
-/// 1.  Start with the input triangle.
-/// 2.  Clip against Plane 1. Output is a polygon (triangle or quad).
-/// 3.  Clip that polygon against Plane 2. Output is a polygon...
-/// ...
-/// 7.  Clip against Plane 6.
-///
-/// The final result is a convex polygon (potentially with many vertices), which is then
-/// triangulated into a triangle fan for rasterization.
+#[allow(deprecated)]
+#[deprecated(since = "0.2.0", note = "Use clip_triangle_to_frustum_iter instead")]
 pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     v0: V,
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
 ) -> ClippedTriangles<V> {
+    let mut result = ClippedTriangles::new_uninit();
+
+    clip_triangle_to_frustum_iter(v0, v1, v2, get_pos, |t0, t1, t2| {
+        if result.count < 8 {
+            let idx = result.count * 3;
+            result.tris[idx].write(t0);
+            result.tris[idx+1].write(t1);
+            result.tris[idx+2].write(t2);
+            result.count += 1;
+        }
+    });
+
+    result
+}
+
+/// Clip a triangle against the view frustum (6 planes) in Homogeneous Clip Space.
+///
+/// Calls `emit` for each resulting triangle (fan triangulation).
+///
+/// # Benefits
+///
+/// This callback-based approach avoids allocating the intermediate `ClippedTriangles` struct,
+/// which can be large (~1.2KB) and costly to copy on the stack.
+pub fn clip_triangle_to_frustum_iter<V, G, F>(
+    v0: V,
+    v1: V,
+    v2: V,
+    get_pos: G,
+    mut emit: F,
+)
+where
+    V: Lerp + Copy,
+    G: Fn(&V) -> (Vec3, f32),
+    F: FnMut(V, V, V),
+{
     // Optimization: Trivial Accept/Reject
-    // Check if all vertices are inside all planes (Accept) or all outside one plane (Reject)
     let (p0, w0) = get_pos(&v0);
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
 
-    // Unrolled inside mask check
     let mut m0 = 0;
-    if p0.x >= -w0 {
-        m0 |= 1;
-    }
-    if p0.x <= w0 {
-        m0 |= 2;
-    }
-    if p0.y >= -w0 {
-        m0 |= 4;
-    }
-    if p0.y <= w0 {
-        m0 |= 8;
-    }
-    if p0.z >= -w0 {
-        m0 |= 16;
-    }
-    if p0.z <= w0 {
-        m0 |= 32;
-    }
+    if p0.x >= -w0 { m0 |= 1; }
+    if p0.x <= w0 { m0 |= 2; }
+    if p0.y >= -w0 { m0 |= 4; }
+    if p0.y <= w0 { m0 |= 8; }
+    if p0.z >= -w0 { m0 |= 16; }
+    if p0.z <= w0 { m0 |= 32; }
 
     let mut m1 = 0;
-    if p1.x >= -w1 {
-        m1 |= 1;
-    }
-    if p1.x <= w1 {
-        m1 |= 2;
-    }
-    if p1.y >= -w1 {
-        m1 |= 4;
-    }
-    if p1.y <= w1 {
-        m1 |= 8;
-    }
-    if p1.z >= -w1 {
-        m1 |= 16;
-    }
-    if p1.z <= w1 {
-        m1 |= 32;
-    }
+    if p1.x >= -w1 { m1 |= 1; }
+    if p1.x <= w1 { m1 |= 2; }
+    if p1.y >= -w1 { m1 |= 4; }
+    if p1.y <= w1 { m1 |= 8; }
+    if p1.z >= -w1 { m1 |= 16; }
+    if p1.z <= w1 { m1 |= 32; }
 
     let mut m2 = 0;
-    if p2.x >= -w2 {
-        m2 |= 1;
-    }
-    if p2.x <= w2 {
-        m2 |= 2;
-    }
-    if p2.y >= -w2 {
-        m2 |= 4;
-    }
-    if p2.y <= w2 {
-        m2 |= 8;
-    }
-    if p2.z >= -w2 {
-        m2 |= 16;
-    }
-    if p2.z <= w2 {
-        m2 |= 32;
-    }
+    if p2.x >= -w2 { m2 |= 1; }
+    if p2.x <= w2 { m2 |= 2; }
+    if p2.y >= -w2 { m2 |= 4; }
+    if p2.y <= w2 { m2 |= 8; }
+    if p2.z >= -w2 { m2 |= 16; }
+    if p2.z <= w2 { m2 |= 32; }
 
     let all_in = m0 & m1 & m2;
     if all_in == 0x3F {
         // Trivial Accept: All inside
-        let mut result = ClippedTriangles::new_uninit();
-        result.tris[0].write(v0);
-        result.tris[1].write(v1);
-        result.tris[2].write(v2);
-        result.count = 1;
-        return result;
+        emit(v0, v1, v2);
+        return;
     }
 
     let any_in = m0 | m1 | m2;
     if any_in != 0x3F {
         // Trivial Reject: All outside at least one plane
-        return ClippedTriangles::new_uninit();
+        return;
     }
 
     // Double buffering for vertex lists
-    // A triangle clipped by 6 planes can have at most 9 vertices (usually).
-    // We use a safe upper bound of 12 for the polygon vertices.
     // SAFETY: Arrays of MaybeUninit do not require initialization.
     let mut buf1: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
     let mut buf2: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
@@ -265,19 +252,16 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     let mut count = 3;
 
     // Macro to handle clipping logic for a plane
-    // Reads from $buf_in, writes to $buf_out
     macro_rules! clip_plane {
         ($buf_in:ident, $buf_out:ident, $dist_fn:expr) => {
             if count > 0 {
                 let mut out_count = 0;
                 let prev_idx = count - 1;
-                // SAFETY: We only read up to `count`, which are initialized.
                 let mut prev_v = unsafe { $buf_in[prev_idx].assume_init() };
                 let (prev_pos, prev_w) = get_pos(&prev_v);
                 let mut prev_d = $dist_fn(prev_pos, prev_w);
 
                 for i in 0..count {
-                    // SAFETY: i < count
                     let curr_v = unsafe { $buf_in[i].assume_init() };
                     let (curr_pos, curr_w) = get_pos(&curr_v);
                     let curr_d = $dist_fn(curr_pos, curr_w);
@@ -318,51 +302,23 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     }
 
     // Unroll loop over 6 planes using ping-pong buffering
-    // 1. Left: x >= -w -> x + w >= 0
     clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.x + w);
-
-    // 2. Right: x <= w -> w - x >= 0
     clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.x);
-
-    // 3. Bottom: y >= -w -> y + w >= 0
     clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.y + w);
-
-    // 4. Top: y <= w -> w - y >= 0
     clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.y);
-
-    // 5. Near: z >= -w -> z + w >= 0
     clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.z + w);
-
-    // 6. Far: z <= w -> w - z >= 0
     clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.z);
 
-    // Result is in buf1 (since we did an even number of ping-pongs)
-
     // Triangulate (Fan)
-    let mut result = ClippedTriangles::new_uninit();
-
     if count >= 3 {
         // Pivot vertex
-        // SAFETY: count >= 3, so buf1[0] is initialized
         let pivot = unsafe { buf1[0].assume_init() };
-        // Generate triangles: (0, 1, 2), (0, 2, 3), (0, 3, 4), ...
-        // Number of triangles = count - 2
-
         for i in 1..count - 1 {
-            if result.count < 8 {
-                let idx = result.count * 3;
-                // SAFETY: i < count-1, so i and i+1 are within bounds and initialized
-                let v1 = unsafe { buf1[i].assume_init() };
-                let v2 = unsafe { buf1[i + 1].assume_init() };
-                result.tris[idx].write(pivot);
-                result.tris[idx + 1].write(v1);
-                result.tris[idx + 2].write(v2);
-                result.count += 1;
-            }
+            let v1 = unsafe { buf1[i].assume_init() };
+            let v2 = unsafe { buf1[i + 1].assume_init() };
+            emit(pivot, v1, v2);
         }
     }
-
-    result
 }
 
 /// Clip a line segment against the view frustum (6 planes) in Homogeneous Clip Space.
@@ -428,6 +384,7 @@ pub fn clip_line_to_frustum<V: Lerp + Copy>(
 }
 
 // Keep the old function for now if needed, or deprecate.
+#[allow(deprecated)]
 pub fn clip_triangle_against_near_plane<V: Lerp + Copy>(
     v0: V,
     v1: V,
@@ -519,6 +476,7 @@ pub fn clip_triangle_against_near_plane<V: Lerp + Copy>(
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::math::Vec3;

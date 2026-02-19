@@ -1,4 +1,4 @@
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
@@ -750,19 +750,12 @@ pub fn fill_triangle_point_lit(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -777,7 +770,7 @@ pub fn fill_triangle_point_lit(
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+            return;
         }
 
         // Prepare attributes
@@ -805,7 +798,7 @@ pub fn fill_triangle_point_lit(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -814,7 +807,7 @@ pub fn fill_triangle_point_lit(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Gradients and Edge Walking
@@ -918,7 +911,7 @@ pub fn fill_triangle_point_lit(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 #[inline(always)]
@@ -1119,21 +1112,14 @@ pub fn fill_triangle_phong_shadowed(
 ) {
     assert_same_dimensions(fb, zb);
 
-    // Note: We use clip_triangle_to_frustum which uses Lerp.
-    // Ensure ((Vec3, f32), Vec3, Vec3) implements Lerp in clipping.rs
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    // Note: We use clip_triangle_to_frustum which uses Lerp.
+    // Ensure ((Vec3, f32), Vec3, Vec3) implements Lerp in clipping.rs
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -1148,7 +1134,7 @@ pub fn fill_triangle_phong_shadowed(
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+            return;
         }
 
         // Prepare attributes
@@ -1176,7 +1162,7 @@ pub fn fill_triangle_phong_shadowed(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -1185,7 +1171,7 @@ pub fn fill_triangle_phong_shadowed(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Gradients and Edge Walking
@@ -1291,7 +1277,7 @@ pub fn fill_triangle_phong_shadowed(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 struct ShadowPhongGradients {
@@ -1795,19 +1781,12 @@ pub fn fill_triangle_phong(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -1822,7 +1801,7 @@ pub fn fill_triangle_phong(
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+            return;
         }
 
         // Prepare attributes: q=1/w, n/w
@@ -1840,7 +1819,7 @@ pub fn fill_triangle_phong(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -1849,7 +1828,7 @@ pub fn fill_triangle_phong(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Gradients and Edge Walking
@@ -1929,7 +1908,7 @@ pub fn fill_triangle_phong(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 /// Fill a 3D triangle with custom lighting

@@ -1,4 +1,4 @@
-use crate::clipping::clip_triangle_to_frustum;
+use crate::clipping::clip_triangle_to_frustum_iter;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
@@ -24,35 +24,34 @@ unsafe fn draw_scanline_gouraud_simd_fast(
 
     // Load constants
     let dz_dx_vec = _mm256_set1_ps(dz_dx);
-    let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
-    let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
-    let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
 
-    let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
-    let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-    let mut z_vec =
-        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
     // Initialize colors: Start + (dc * i)
-    let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
-    let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
-    let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-    let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
-    let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
-    let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
 
     // Steps for 8 pixels
-    let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
     // dc * 8
-    let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
-    let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
-    let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
 
     // Masks
-    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
-    let mask_r = unsafe { _mm256_set1_epi32(0x00FF_0000) };
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let mask_r = _mm256_set1_epi32(0x00FF_0000);
 
     while i + 8 <= len {
         // SAFETY: Loop bounds checked (i + 8 <= len). `depth_ptr` and `fb_ptr` are valid.
@@ -73,12 +72,6 @@ unsafe fn draw_scanline_gouraud_simd_fast(
                 _mm256_storeu_ps(depth_ptr, new_z);
 
                 // Pack Colors: Hybrid Optimization
-                // Goal: Reduce instructions AND register pressure.
-                // R: mask_r (1 op, 1 const).
-                // G: shift, shift (2 ops, 0 const).
-                // B: shift (1 op, 0 const).
-                // Total: 4 ops, 1 const register (+ alpha). Same register count as baseline, fewer ops.
-
                 let r_packed = _mm256_and_si256(r_vec, mask_r);
                 let g_packed = _mm256_slli_epi32(_mm256_srli_epi32(g_vec, 16), 8);
                 let b_packed = _mm256_srli_epi32(b_vec, 16);
@@ -98,12 +91,10 @@ unsafe fn draw_scanline_gouraud_simd_fast(
         }
 
         // Advance
-        unsafe {
-            z_vec = _mm256_add_ps(z_vec, dz_step);
-            r_vec = _mm256_add_epi32(r_vec, dr_step);
-            g_vec = _mm256_add_epi32(g_vec, dg_step);
-            b_vec = _mm256_add_epi32(b_vec, db_step);
-        }
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
 
         i += 8;
     }
@@ -156,38 +147,37 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let mut i = 0;
 
     // Load constants
-    let dz_dx_vec = unsafe { _mm256_set1_ps(dz_dx) };
-    let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
-    let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
-    let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
 
-    let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
-    let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-    let mut z_vec =
-        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
     // Initialize colors: Start + (dc * i)
-    let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
-    let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
-    let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-    let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
-    let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
-    let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
 
     // Steps for 8 pixels
-    let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
     // dc * 8
-    let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
-    let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
-    let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
 
     // Masks
     // 0x00FF0000 is 255.0 in 16.16 fixed point
-    let min_val = unsafe { _mm256_setzero_si256() };
-    let max_val = unsafe { _mm256_set1_epi32(0x00FF_0000) };
-    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+    let min_val = _mm256_setzero_si256();
+    let max_val = _mm256_set1_epi32(0x00FF_0000);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
     while i + 8 <= len {
         // SAFETY: Loop bounds checked (i + 8 <= len). `depth_ptr` and `fb_ptr` are valid.
@@ -239,12 +229,10 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
         }
 
         // Advance
-        unsafe {
-            z_vec = _mm256_add_ps(z_vec, dz_step);
-            r_vec = _mm256_add_epi32(r_vec, dr_step);
-            g_vec = _mm256_add_epi32(g_vec, dg_step);
-            b_vec = _mm256_add_epi32(b_vec, db_step);
-        }
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
 
         i += 8;
     }
@@ -645,19 +633,12 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
-
     let width = fb.width();
     let height = fb.height();
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
-        let base = i * 3;
-        let v0 = clipped[base];
-        let v1 = clipped[base + 1];
-        let v2 = clipped[base + 2];
-
+    clip_triangle_to_frustum_iter(v0, v1, v2, |v| v.0, |v0, v1, v2| {
         // Project to screen
         let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
             v0.0.0,
@@ -672,7 +653,7 @@ pub fn fill_triangle_gouraud(
 
         // Backface Culling
         if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
+            return;
         }
 
         // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
@@ -688,7 +669,7 @@ pub fn fill_triangle_gouraud(
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
-            continue;
+            return;
         }
 
         let y_min = 0;
@@ -697,7 +678,7 @@ pub fn fill_triangle_gouraud(
         let y_end = p2.y.min(y_max);
 
         if y_start > y_end {
-            continue;
+            return;
         }
 
         // Gradients and Edge Walking
@@ -777,7 +758,7 @@ pub fn fill_triangle_gouraud(
             edge_a.step();
             edge_b.step();
         }
-    }
+    });
 }
 
 #[cfg(test)]
