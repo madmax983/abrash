@@ -66,6 +66,306 @@ impl BuildHasher for FastHasherBuilder {
     }
 }
 
+const MAX_VERTICES: usize = 1_000_000;
+const MAX_FACES: usize = 1_000_000;
+// 0xFFFFF is used as a sentinel for NO_INDEX.
+const SENTINEL: u64 = 0xF_FFFF;
+
+struct ObjParser {
+    raw_positions: Vec<Vec3>,
+    raw_uvs: Vec<Vec2>,
+    raw_normals: Vec<Vec3>,
+    final_vertices: Vec<Vec3>,
+    final_uvs: Vec<Vec2>,
+    final_normals: Vec<Vec3>,
+    final_indices: Vec<[usize; 3]>,
+    deduplicator: HashMap<u64, usize, FastHasherBuilder>,
+    face_indices: Vec<usize>,
+}
+
+impl ObjParser {
+    fn new(estimated_capacity: usize) -> Self {
+        Self {
+            raw_positions: Vec::with_capacity(estimated_capacity),
+            raw_uvs: Vec::with_capacity(estimated_capacity),
+            raw_normals: Vec::with_capacity(estimated_capacity),
+            final_vertices: Vec::with_capacity(estimated_capacity),
+            final_uvs: Vec::with_capacity(estimated_capacity),
+            final_normals: Vec::with_capacity(estimated_capacity),
+            final_indices: Vec::with_capacity(estimated_capacity),
+            deduplicator: HashMap::with_capacity_and_hasher(estimated_capacity, FastHasherBuilder),
+            face_indices: Vec::with_capacity(4),
+        }
+    }
+
+    fn parse_vertex(
+        &mut self,
+        parts: &mut std::str::SplitAsciiWhitespace,
+        line_num: usize,
+    ) -> Result<(), String> {
+        let x = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing x"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid x"))?;
+        let y = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing y"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid y"))?;
+        let z = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing z"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid z"))?;
+
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            return Err(format!("Line {line_num}: Coordinates must be finite"));
+        }
+        if self.raw_positions.len() >= MAX_VERTICES {
+            return Err(format!("Line {line_num}: Maximum vertices exceeded"));
+        }
+        self.raw_positions.push(Vec3::new(x, y, z));
+        Ok(())
+    }
+
+    fn parse_uv(
+        &mut self,
+        parts: &mut std::str::SplitAsciiWhitespace,
+        line_num: usize,
+    ) -> Result<(), String> {
+        let u = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing u"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid u"))?;
+        let v = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing v"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid v"))?;
+
+        if !u.is_finite() || !v.is_finite() {
+            return Err(format!("Line {line_num}: UV coordinates must be finite"));
+        }
+        if self.raw_uvs.len() >= MAX_VERTICES {
+            return Err(format!("Line {line_num}: Maximum UVs exceeded"));
+        }
+        self.raw_uvs.push(Vec2::new(u, v));
+        Ok(())
+    }
+
+    fn parse_normal(
+        &mut self,
+        parts: &mut std::str::SplitAsciiWhitespace,
+        line_num: usize,
+    ) -> Result<(), String> {
+        let x = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing nx"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid nx"))?;
+        let y = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing ny"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid ny"))?;
+        let z = parts
+            .next()
+            .ok_or_else(|| format!("Line {line_num}: Missing nz"))?
+            .parse::<f32>()
+            .map_err(|_| format!("Line {line_num}: Invalid nz"))?;
+
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            return Err(format!(
+                "Line {line_num}: Normal coordinates must be finite"
+            ));
+        }
+        if self.raw_normals.len() >= MAX_VERTICES {
+            return Err(format!("Line {line_num}: Maximum Normals exceeded"));
+        }
+        self.raw_normals.push(Vec3::new(x, y, z).normalize());
+        Ok(())
+    }
+
+    fn parse_face(
+        &mut self,
+        parts: std::str::SplitAsciiWhitespace,
+        line_num: usize,
+    ) -> Result<(), String> {
+        self.face_indices.clear();
+        for part in parts {
+            // format: v, v/vt, v//vn, v/vt/vn
+            // Manual parsing to avoid split() iterator overhead
+            let bytes = part.as_bytes();
+
+            // Find first '/' to separate v from vt/vn
+            // This is faster than split('/').next()
+            let mut first_slash = bytes.len();
+            for (i, &b) in bytes.iter().enumerate() {
+                if b == b'/' {
+                    first_slash = i;
+                    break;
+                }
+            }
+
+            // Parse v_idx (0..first_slash)
+            let v_idx = fast_parse_usize(&bytes[0..first_slash])
+                .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
+
+            let v_idx = v_idx
+                .checked_sub(1)
+                .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
+
+            // Parse vt_idx and vn_idx if present
+            let mut vt_idx = None;
+            let mut vn_idx = None;
+
+            if first_slash < bytes.len() {
+                let after_first_slash = first_slash + 1;
+                // Check if next char is also '/' (case v//vn)
+                if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
+                    // v//vn case
+                    let after_second_slash = after_first_slash + 1;
+                    if after_second_slash < bytes.len() {
+                        // Parse vn
+                        let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(
+                            || format!("Line {line_num}: Invalid Normal index"),
+                        )?;
+                        vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                            format!("Line {line_num}: Normal index 0 is invalid")
+                        })?);
+                    }
+                } else if after_first_slash < bytes.len() {
+                    // It's v/vt...
+                    // Find end of vt (next slash or end of string)
+                    let mut end_vt = bytes.len();
+                    let mut second_slash = None;
+
+                    for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
+                        if b == b'/' {
+                            end_vt = i;
+                            second_slash = Some(i);
+                            break;
+                        }
+                    }
+
+                    let vt_bytes = &bytes[after_first_slash..end_vt];
+                    if !vt_bytes.is_empty() {
+                        let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
+                            format!("Line {line_num}: Invalid UV index")
+                        })?;
+                        vt_idx = Some(
+                            idx.checked_sub(1)
+                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                        );
+                    }
+
+                    // If there's a second slash, parse vn (v/vt/vn)
+                    if let Some(slash2) = second_slash {
+                        let after_second_slash = slash2 + 1;
+                        if after_second_slash < bytes.len() {
+                            let idx = fast_parse_usize(&bytes[after_second_slash..])
+                                .ok_or_else(|| {
+                                    format!("Line {line_num}: Invalid Normal index")
+                                })?;
+                            vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
+                                format!("Line {line_num}: Normal index 0 is invalid")
+                            })?);
+                        }
+                    }
+                }
+            }
+
+            // Look up or insert
+            if v_idx >= self.raw_positions.len() {
+                return Err(format!(
+                    "Line {}: Vertex index {} out of bounds",
+                    line_num,
+                    v_idx + 1
+                ));
+            }
+
+            // Use HashMap for full deduplication
+            // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
+            // Max index is 1,000,000, which fits in 20 bits (1,048,576).
+
+            let k_v = v_idx as u64;
+            let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
+            let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
+
+            let key = k_v | (k_vt << 20) | (k_vn << 40);
+
+            match self.deduplicator.entry(key) {
+                std::collections::hash_map::Entry::Occupied(entry) => {
+                    self.face_indices.push(*entry.get());
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    let new_idx = self.final_vertices.len();
+
+                    // Push vertex
+                    self.final_vertices.push(self.raw_positions[v_idx]);
+
+                    // Push UV (or default 0,0)
+                    if let Some(ti) = vt_idx {
+                        if ti >= self.raw_uvs.len() {
+                            return Err(format!(
+                                "Line {}: UV index {} out of bounds",
+                                line_num,
+                                ti + 1
+                            ));
+                        }
+                        self.final_uvs.push(self.raw_uvs[ti]);
+                    } else {
+                        self.final_uvs.push(Vec2::new(0.0, 0.0));
+                    }
+
+                    // Push Normal (if present)
+                    if let Some(ni) = vn_idx {
+                        if ni >= self.raw_normals.len() {
+                            return Err(format!(
+                                "Line {}: Normal index {} out of bounds",
+                                line_num,
+                                ni + 1
+                            ));
+                        }
+                        self.final_normals.push(self.raw_normals[ni]);
+                    } else {
+                        // If we have some normals but not for this vertex, we should align
+                        // Or just push a default?
+                        // If final_normals is not empty, we should keep it aligned with final_vertices?
+                        // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
+                        // But here we build incrementally.
+                        // If we start having normals, we push. If we missed some earlier, we are in trouble?
+                        // For simplicity: If vn_idx is None, push Zero.
+                        self.final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+                    }
+
+                    entry.insert(new_idx);
+                    self.face_indices.push(new_idx);
+                }
+            }
+        }
+
+        // Triangulate fan
+        if self.face_indices.len() < 3 {
+            return Err(format!("Line {line_num}: Face has fewer than 3 vertices"));
+        }
+
+        for i in 1..self.face_indices.len() - 1 {
+            if self.final_indices.len() >= MAX_FACES {
+                return Err(format!("Line {line_num}: Maximum faces exceeded"));
+            }
+            self.final_indices.push([
+                self.face_indices[0],
+                self.face_indices[i],
+                self.face_indices[i + 1],
+            ]);
+        }
+        Ok(())
+    }
+}
+
 /// Optimized integer parser for OBJ indices.
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
@@ -154,33 +454,12 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// ```
 #[allow(clippy::missing_errors_doc)]
 pub fn load_obj(source: &str) -> Result<Mesh, String> {
-    const MAX_VERTICES: usize = 1_000_000;
-    const MAX_FACES: usize = 1_000_000;
-    // 0xFFFFF is used as a sentinel for NO_INDEX.
-    const SENTINEL: u64 = 0xF_FFFF;
-
     // Reserve reasonable initial capacity to avoid frequent reallocations
     // Heuristic: Estimate count based on file size.
     // Average line length ~40 bytes. Conservative estimate.
     let estimated_capacity = std::cmp::max(1024, source.len() / 40);
 
-    let mut raw_positions = Vec::with_capacity(estimated_capacity);
-    let mut raw_uvs = Vec::with_capacity(estimated_capacity);
-    let mut raw_normals = Vec::with_capacity(estimated_capacity);
-
-    // Deduplication structure:
-    // Key: Packed u64 (v_idx | vt_idx << 20 | vn_idx << 40)
-    // Value: index in final_vertices.
-    let mut deduplicator: HashMap<u64, usize, FastHasherBuilder> =
-        HashMap::with_capacity_and_hasher(estimated_capacity, FastHasherBuilder);
-
-    let mut final_vertices = Vec::with_capacity(estimated_capacity);
-    let mut final_uvs = Vec::with_capacity(estimated_capacity);
-    let mut final_normals = Vec::with_capacity(estimated_capacity);
-    let mut final_indices = Vec::with_capacity(estimated_capacity);
-
-    // Reuse vector for face indices to avoid allocation per face
-    let mut face_indices = Vec::with_capacity(4);
+    let mut parser = ObjParser::new(estimated_capacity);
 
     for (line_num, line) in source.lines().enumerate() {
         // Optimization: Use split_ascii_whitespace directly to avoid redundant trim().
@@ -193,258 +472,24 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         };
 
         match cmd {
-            "v" => {
-                let x = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing x"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid x"))?;
-                let y = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing y"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid y"))?;
-                let z = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing z"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid z"))?;
-
-                if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-                    return Err(format!("Line {line_num}: Coordinates must be finite"));
-                }
-                if raw_positions.len() >= MAX_VERTICES {
-                    return Err(format!("Line {line_num}: Maximum vertices exceeded"));
-                }
-                raw_positions.push(Vec3::new(x, y, z));
-            }
-            "vt" => {
-                let u = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing u"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid u"))?;
-                let v = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing v"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid v"))?;
-
-                if !u.is_finite() || !v.is_finite() {
-                    return Err(format!("Line {line_num}: UV coordinates must be finite"));
-                }
-                if raw_uvs.len() >= MAX_VERTICES {
-                    return Err(format!("Line {line_num}: Maximum UVs exceeded"));
-                }
-                raw_uvs.push(Vec2::new(u, v));
-            }
-            "vn" => {
-                let x = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing nx"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid nx"))?;
-                let y = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing ny"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid ny"))?;
-                let z = parts
-                    .next()
-                    .ok_or_else(|| format!("Line {line_num}: Missing nz"))?
-                    .parse::<f32>()
-                    .map_err(|_| format!("Line {line_num}: Invalid nz"))?;
-
-                if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-                    return Err(format!(
-                        "Line {line_num}: Normal coordinates must be finite"
-                    ));
-                }
-                if raw_normals.len() >= MAX_VERTICES {
-                    return Err(format!("Line {line_num}: Maximum Normals exceeded"));
-                }
-                raw_normals.push(Vec3::new(x, y, z).normalize());
-            }
-            "f" => {
-                face_indices.clear();
-                for part in parts {
-                    // format: v, v/vt, v//vn, v/vt/vn
-                    // Manual parsing to avoid split() iterator overhead
-                    let bytes = part.as_bytes();
-
-                    // Find first '/' to separate v from vt/vn
-                    // This is faster than split('/').next()
-                    let mut first_slash = bytes.len();
-                    for (i, &b) in bytes.iter().enumerate() {
-                        if b == b'/' {
-                            first_slash = i;
-                            break;
-                        }
-                    }
-
-                    // Parse v_idx (0..first_slash)
-                    let v_idx = fast_parse_usize(&bytes[0..first_slash])
-                        .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
-
-                    let v_idx = v_idx
-                        .checked_sub(1)
-                        .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
-
-                    // Parse vt_idx and vn_idx if present
-                    let mut vt_idx = None;
-                    let mut vn_idx = None;
-
-                    if first_slash < bytes.len() {
-                        let after_first_slash = first_slash + 1;
-                        // Check if next char is also '/' (case v//vn)
-                        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
-                            // v//vn case
-                            let after_second_slash = after_first_slash + 1;
-                            if after_second_slash < bytes.len() {
-                                // Parse vn
-                                let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                    .ok_or_else(|| {
-                                        format!("Line {line_num}: Invalid Normal index")
-                                    })?;
-                                vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                    format!("Line {line_num}: Normal index 0 is invalid")
-                                })?);
-                            }
-                        } else if after_first_slash < bytes.len() {
-                            // It's v/vt...
-                            // Find end of vt (next slash or end of string)
-                            let mut end_vt = bytes.len();
-                            let mut second_slash = None;
-
-                            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
-                                if b == b'/' {
-                                    end_vt = i;
-                                    second_slash = Some(i);
-                                    break;
-                                }
-                            }
-
-                            let vt_bytes = &bytes[after_first_slash..end_vt];
-                            if !vt_bytes.is_empty() {
-                                let idx = fast_parse_usize(vt_bytes)
-                                    .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
-                                vt_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                    format!("Line {line_num}: UV index 0 is invalid")
-                                })?);
-                            }
-
-                            // If there's a second slash, parse vn (v/vt/vn)
-                            if let Some(slash2) = second_slash {
-                                let after_second_slash = slash2 + 1;
-                                if after_second_slash < bytes.len() {
-                                    let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                        .ok_or_else(|| {
-                                            format!("Line {line_num}: Invalid Normal index")
-                                        })?;
-                                    vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                        format!("Line {line_num}: Normal index 0 is invalid")
-                                    })?);
-                                }
-                            }
-                        }
-                    }
-
-                    // Look up or insert
-                    if v_idx >= raw_positions.len() {
-                        return Err(format!(
-                            "Line {}: Vertex index {} out of bounds",
-                            line_num,
-                            v_idx + 1
-                        ));
-                    }
-
-                    // Use HashMap for full deduplication
-                    // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
-                    // Max index is 1,000,000, which fits in 20 bits (1,048,576).
-
-                    let k_v = v_idx as u64;
-                    let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
-                    let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
-
-                    let key = k_v | (k_vt << 20) | (k_vn << 40);
-
-                    match deduplicator.entry(key) {
-                        std::collections::hash_map::Entry::Occupied(entry) => {
-                            face_indices.push(*entry.get());
-                        }
-                        std::collections::hash_map::Entry::Vacant(entry) => {
-                            let new_idx = final_vertices.len();
-
-                            // Push vertex
-                            final_vertices.push(raw_positions[v_idx]);
-
-                            // Push UV (or default 0,0)
-                            if let Some(ti) = vt_idx {
-                                if ti >= raw_uvs.len() {
-                                    return Err(format!(
-                                        "Line {}: UV index {} out of bounds",
-                                        line_num,
-                                        ti + 1
-                                    ));
-                                }
-                                final_uvs.push(raw_uvs[ti]);
-                            } else {
-                                final_uvs.push(Vec2::new(0.0, 0.0));
-                            }
-
-                            // Push Normal (if present)
-                            if let Some(ni) = vn_idx {
-                                if ni >= raw_normals.len() {
-                                    return Err(format!(
-                                        "Line {}: Normal index {} out of bounds",
-                                        line_num,
-                                        ni + 1
-                                    ));
-                                }
-                                final_normals.push(raw_normals[ni]);
-                            } else {
-                                // If we have some normals but not for this vertex, we should align
-                                // Or just push a default?
-                                // If final_normals is not empty, we should keep it aligned with final_vertices?
-                                // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                                // But here we build incrementally.
-                                // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                                // For simplicity: If vn_idx is None, push Zero.
-                                final_normals.push(Vec3::new(0.0, 0.0, 0.0));
-                            }
-
-                            entry.insert(new_idx);
-                            face_indices.push(new_idx);
-                        }
-                    }
-                }
-
-                // Triangulate fan
-                if face_indices.len() < 3 {
-                    return Err(format!("Line {line_num}: Face has fewer than 3 vertices"));
-                }
-
-                for i in 1..face_indices.len() - 1 {
-                    if final_indices.len() >= MAX_FACES {
-                        return Err(format!("Line {line_num}: Maximum faces exceeded"));
-                    }
-                    final_indices.push([face_indices[0], face_indices[i], face_indices[i + 1]]);
-                }
-            }
+            "v" => parser.parse_vertex(&mut parts, line_num)?,
+            "vt" => parser.parse_uv(&mut parts, line_num)?,
+            "vn" => parser.parse_normal(&mut parts, line_num)?,
+            "f" => parser.parse_face(parts, line_num)?,
             _ => {} // Ignore groups (g), materials (usemtl), etc.
         }
     }
 
     // Post-processing: If no normals were parsed, clear the final_normals vector to avoid partial state
-    if raw_normals.is_empty() {
-        final_normals.clear();
+    if parser.raw_normals.is_empty() {
+        parser.final_normals.clear();
     }
 
     Ok(Mesh {
-        vertices: final_vertices,
-        indices: final_indices,
-        uvs: final_uvs,
-        normals: final_normals,
+        vertices: parser.final_vertices,
+        indices: parser.final_indices,
+        uvs: parser.final_uvs,
+        normals: parser.final_normals,
         tangents: Vec::new(), // Tangents must be computed explicitly
     })
 }
