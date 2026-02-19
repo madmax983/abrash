@@ -185,17 +185,19 @@ unsafe fn box_blur_f32_vertical_avx2(
         let mut x = 0;
         while x + 8 <= width {
             // Load
-            let a = _mm256_loadu_ps(acc.as_ptr().add(x));
-            let o = _mm256_loadu_ps(out_row.as_ptr().add(x));
-            let i = _mm256_loadu_ps(in_row.as_ptr().add(x));
+            unsafe {
+                let a = _mm256_loadu_ps(acc.as_ptr().add(x));
+                let o = _mm256_loadu_ps(out_row.as_ptr().add(x));
+                let i = _mm256_loadu_ps(in_row.as_ptr().add(x));
 
-            // Update acc = acc - out + in
-            let a_new = _mm256_add_ps(_mm256_sub_ps(a, o), i);
-            _mm256_storeu_ps(acc.as_mut_ptr().add(x), a_new);
+                // Update acc = acc - out + in
+                let a_new = _mm256_add_ps(_mm256_sub_ps(a, o), i);
+                _mm256_storeu_ps(acc.as_mut_ptr().add(x), a_new);
 
-            // Calc dest
-            let d = _mm256_mul_ps(a_new, scale_vec);
-            _mm256_storeu_ps(dest_row.as_mut_ptr().add(x), d);
+                // Calc dest
+                let d = _mm256_mul_ps(a_new, scale_vec);
+                _mm256_storeu_ps(dest_row.as_mut_ptr().add(x), d);
+            }
 
             x += 8;
         }
@@ -267,6 +269,20 @@ unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u
 }
 
 fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                box_blur_horizontal_avx2(src, dest, width, height, radius);
+            }
+            return;
+        }
+    }
+
+    box_blur_horizontal_scalar(src, dest, width, height, radius);
+}
+
+fn box_blur_horizontal_scalar(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
     let radius = radius as usize;
     // Window size (kernel width)
     let kernel_size = (2 * radius + 1) as u64;
@@ -907,11 +923,18 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { apply_grayscale_avx2(pixels) };
+            let len = pixels.len();
+            let simd_len = len & !7;
+            unsafe { apply_grayscale_avx2(&mut pixels[..simd_len]) };
+            apply_grayscale_scalar(&mut pixels[simd_len..]);
             return;
         }
     }
 
+    apply_grayscale_scalar(pixels);
+}
+
+fn apply_grayscale_scalar(pixels: &mut [u32]) {
     for pixel in pixels.iter_mut() {
         // Format: 0xAARRGGBB
         let p = *pixel;
@@ -1185,10 +1208,21 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     }
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    let offset = offset as usize;
+    let offset_usize = offset as usize;
 
     let pixels = fb.as_mut_slice();
 
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                apply_chromatic_aberration_avx2(pixels, width, height, offset);
+            }
+            return;
+        }
+    }
+
+    let offset = offset_usize;
     let mut row_buffer = Vec::with_capacity(width);
     // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
     // but `u32` has no validity invariants (any bit pattern is a valid u32).
@@ -1514,133 +1548,135 @@ unsafe fn apply_ssao_avx2(
         let noise_y_vec = _mm256_set1_epi32((noise_y * NOISE_SIZE) as i32);
 
         while x + 8 <= width {
-            let depth_ptr = zb_data.as_ptr().add(y_idx + x);
-            let depth_val = _mm256_loadu_ps(depth_ptr);
+            unsafe {
+                let depth_ptr = zb_data.as_ptr().add(y_idx + x);
+                let depth_val = _mm256_loadu_ps(depth_ptr);
 
-            // Check valid depth (< 1.0)
-            let mask_valid = _mm256_cmp_ps(depth_val, one, _CMP_LT_OQ);
+                // Check valid depth (< 1.0)
+                let mask_valid = _mm256_cmp_ps(depth_val, one, _CMP_LT_OQ);
 
-            if _mm256_movemask_ps(mask_valid) == 0 {
-                _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), zero);
-                x += 8;
-                continue;
+                if _mm256_movemask_ps(mask_valid) == 0 {
+                    _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), zero);
+                    x += 8;
+                    continue;
+                }
+
+                // Reconstruct View Z
+                let denom = _mm256_add_ps(depth_val, p22);
+                let z_view = _mm256_div_ps(_mm256_sub_ps(zero, p32), denom);
+
+                // Reconstruct X, Y View
+                let x_offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+                let x_base = _mm256_set1_ps(x as f32);
+                let x_vals = _mm256_add_ps(x_base, x_offsets);
+
+                let x_ndc = _mm256_sub_ps(_mm256_div_ps(x_vals, half_w_vec), one);
+                let y_ndc = _mm256_sub_ps(one, _mm256_div_ps(_mm256_set1_ps(y as f32), half_h_vec));
+
+                let neg_z_view = _mm256_sub_ps(zero, z_view);
+                let x_view = _mm256_div_ps(_mm256_mul_ps(x_ndc, neg_z_view), p00);
+                let y_view = _mm256_div_ps(_mm256_mul_ps(y_ndc, neg_z_view), p11);
+
+                let mut occlusion = _mm256_setzero_ps();
+
+                // Gather Noise
+                let x_i = _mm256_set_epi32(
+                    x as i32 + 7,
+                    x as i32 + 6,
+                    x as i32 + 5,
+                    x as i32 + 4,
+                    x as i32 + 3,
+                    x as i32 + 2,
+                    x as i32 + 1,
+                    x as i32,
+                );
+                let noise_mask = _mm256_set1_epi32(3);
+                let noise_x = _mm256_and_si256(x_i, noise_mask);
+                let noise_idx = _mm256_add_epi32(noise_y_vec, noise_x);
+
+                let idx_3 = _mm256_mullo_epi32(noise_idx, _mm256_set1_epi32(3)); // stride 3 floats (12 bytes)
+                let noise_ptr = noise.as_ptr() as *const f32;
+                // Gather X and Y components of noise
+                let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
+                let ry =
+                    _mm256_i32gather_ps(noise_ptr, _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)), 4);
+
+                for k in 0..KERNEL_SIZE {
+                    let s = kernel[k];
+                    let sx = _mm256_set1_ps(s.x);
+                    let sy = _mm256_set1_ps(s.y);
+                    let sz = _mm256_set1_ps(s.z);
+
+                    // Rotate sample
+                    let rot_x = _mm256_sub_ps(_mm256_mul_ps(sx, rx), _mm256_mul_ps(sy, ry));
+                    let rot_y = _mm256_add_ps(_mm256_mul_ps(sx, ry), _mm256_mul_ps(sy, rx));
+                    let rot_z = sz;
+
+                    let samp_x = _mm256_fmadd_ps(rot_x, radius_vec, x_view);
+                    let samp_y = _mm256_fmadd_ps(rot_y, radius_vec, y_view);
+                    let samp_z = _mm256_fmadd_ps(rot_z, radius_vec, z_view);
+
+                    // Project
+                    let clip_x = _mm256_mul_ps(samp_x, p00);
+                    let clip_y = _mm256_mul_ps(samp_y, p11);
+                    let clip_w = _mm256_sub_ps(zero, samp_z);
+
+                    let mask_w = _mm256_cmp_ps(clip_w, zero, _CMP_GT_OQ);
+                    let inv_w = _mm256_div_ps(one, clip_w);
+
+                    let ndc_x = _mm256_mul_ps(clip_x, inv_w);
+                    let ndc_y = _mm256_mul_ps(clip_y, inv_w);
+
+                    let s_x_f = _mm256_mul_ps(_mm256_add_ps(ndc_x, one), half_w_vec);
+                    let s_y_f = _mm256_mul_ps(_mm256_sub_ps(one, ndc_y), half_h_vec);
+
+                    let s_x = _mm256_cvttps_epi32(s_x_f);
+                    let s_y = _mm256_cvttps_epi32(s_y_f);
+
+                    // Bounds check
+                    let mask_x = _mm256_and_si256(
+                        _mm256_cmpgt_epi32(s_x, minus_one_i),
+                        _mm256_cmpgt_epi32(width_i, s_x),
+                    );
+                    let mask_y = _mm256_and_si256(
+                        _mm256_cmpgt_epi32(s_y, minus_one_i),
+                        _mm256_cmpgt_epi32(height_i, s_y),
+                    );
+                    let mask_bounds = _mm256_and_si256(mask_x, mask_y);
+
+                    let idx = _mm256_add_epi32(_mm256_mullo_epi32(s_y, width_i), s_x);
+
+                    // Gather depths with mask
+                    let existing_depth = _mm256_mask_i32gather_ps(
+                        one,
+                        zb_data.as_ptr(),
+                        idx,
+                        _mm256_castsi256_ps(mask_bounds),
+                        4,
+                    );
+
+                    let existing_z_denom = _mm256_add_ps(existing_depth, p22);
+                    let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
+
+                    // Range check
+                    let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
+                    let mask_range = _mm256_cmp_ps(dist, radius_vec, _CMP_LT_OQ);
+
+                    // Bias check
+                    let mask_bias =
+                        _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
+
+                    let mask_total = _mm256_and_ps(mask_w, _mm256_castsi256_ps(mask_bounds));
+                    let mask_total = _mm256_and_ps(mask_total, mask_range);
+                    let mask_total = _mm256_and_ps(mask_total, mask_bias);
+
+                    let contribution = _mm256_and_ps(mask_total, one);
+                    occlusion = _mm256_add_ps(occlusion, contribution);
+                }
+
+                let final_occ = _mm256_and_ps(occlusion, mask_valid);
+                _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), final_occ);
             }
-
-            // Reconstruct View Z
-            let denom = _mm256_add_ps(depth_val, p22);
-            let z_view = _mm256_div_ps(_mm256_sub_ps(zero, p32), denom);
-
-            // Reconstruct X, Y View
-            let x_offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
-            let x_base = _mm256_set1_ps(x as f32);
-            let x_vals = _mm256_add_ps(x_base, x_offsets);
-
-            let x_ndc = _mm256_sub_ps(_mm256_div_ps(x_vals, half_w_vec), one);
-            let y_ndc = _mm256_sub_ps(one, _mm256_div_ps(_mm256_set1_ps(y as f32), half_h_vec));
-
-            let neg_z_view = _mm256_sub_ps(zero, z_view);
-            let x_view = _mm256_div_ps(_mm256_mul_ps(x_ndc, neg_z_view), p00);
-            let y_view = _mm256_div_ps(_mm256_mul_ps(y_ndc, neg_z_view), p11);
-
-            let mut occlusion = _mm256_setzero_ps();
-
-            // Gather Noise
-            let x_i = _mm256_set_epi32(
-                x as i32 + 7,
-                x as i32 + 6,
-                x as i32 + 5,
-                x as i32 + 4,
-                x as i32 + 3,
-                x as i32 + 2,
-                x as i32 + 1,
-                x as i32,
-            );
-            let noise_mask = _mm256_set1_epi32(3);
-            let noise_x = _mm256_and_si256(x_i, noise_mask);
-            let noise_idx = _mm256_add_epi32(noise_y_vec, noise_x);
-
-            let idx_3 = _mm256_mullo_epi32(noise_idx, _mm256_set1_epi32(3)); // stride 3 floats (12 bytes)
-            let noise_ptr = noise.as_ptr() as *const f32;
-            // Gather X and Y components of noise
-            let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
-            let ry =
-                _mm256_i32gather_ps(noise_ptr, _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)), 4);
-
-            for k in 0..KERNEL_SIZE {
-                let s = kernel[k];
-                let sx = _mm256_set1_ps(s.x);
-                let sy = _mm256_set1_ps(s.y);
-                let sz = _mm256_set1_ps(s.z);
-
-                // Rotate sample
-                let rot_x = _mm256_sub_ps(_mm256_mul_ps(sx, rx), _mm256_mul_ps(sy, ry));
-                let rot_y = _mm256_add_ps(_mm256_mul_ps(sx, ry), _mm256_mul_ps(sy, rx));
-                let rot_z = sz;
-
-                let samp_x = _mm256_fmadd_ps(rot_x, radius_vec, x_view);
-                let samp_y = _mm256_fmadd_ps(rot_y, radius_vec, y_view);
-                let samp_z = _mm256_fmadd_ps(rot_z, radius_vec, z_view);
-
-                // Project
-                let clip_x = _mm256_mul_ps(samp_x, p00);
-                let clip_y = _mm256_mul_ps(samp_y, p11);
-                let clip_w = _mm256_sub_ps(zero, samp_z);
-
-                let mask_w = _mm256_cmp_ps(clip_w, zero, _CMP_GT_OQ);
-                let inv_w = _mm256_div_ps(one, clip_w);
-
-                let ndc_x = _mm256_mul_ps(clip_x, inv_w);
-                let ndc_y = _mm256_mul_ps(clip_y, inv_w);
-
-                let s_x_f = _mm256_mul_ps(_mm256_add_ps(ndc_x, one), half_w_vec);
-                let s_y_f = _mm256_mul_ps(_mm256_sub_ps(one, ndc_y), half_h_vec);
-
-                let s_x = _mm256_cvttps_epi32(s_x_f);
-                let s_y = _mm256_cvttps_epi32(s_y_f);
-
-                // Bounds check
-                let mask_x = _mm256_and_si256(
-                    _mm256_cmpgt_epi32(s_x, minus_one_i),
-                    _mm256_cmpgt_epi32(width_i, s_x),
-                );
-                let mask_y = _mm256_and_si256(
-                    _mm256_cmpgt_epi32(s_y, minus_one_i),
-                    _mm256_cmpgt_epi32(height_i, s_y),
-                );
-                let mask_bounds = _mm256_and_si256(mask_x, mask_y);
-
-                let idx = _mm256_add_epi32(_mm256_mullo_epi32(s_y, width_i), s_x);
-
-                // Gather depths with mask
-                let existing_depth = _mm256_mask_i32gather_ps(
-                    one,
-                    zb_data.as_ptr(),
-                    idx,
-                    _mm256_castsi256_ps(mask_bounds),
-                    4,
-                );
-
-                let existing_z_denom = _mm256_add_ps(existing_depth, p22);
-                let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
-
-                // Range check
-                let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
-                let mask_range = _mm256_cmp_ps(dist, radius_vec, _CMP_LT_OQ);
-
-                // Bias check
-                let mask_bias =
-                    _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
-
-                let mask_total = _mm256_and_ps(mask_w, _mm256_castsi256_ps(mask_bounds));
-                let mask_total = _mm256_and_ps(mask_total, mask_range);
-                let mask_total = _mm256_and_ps(mask_total, mask_bias);
-
-                let contribution = _mm256_and_ps(mask_total, one);
-                occlusion = _mm256_add_ps(occlusion, contribution);
-            }
-
-            let final_occ = _mm256_and_ps(occlusion, mask_valid);
-            _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), final_occ);
 
             x += 8;
         }
@@ -2158,3 +2194,205 @@ mod tests {
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
     }
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(pixels: &mut [u32], width: usize, height: usize, offset: u32) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_slli_epi32, _mm256_srli_epi32, _mm256_storeu_si256, _mm256_setzero_si256,
+    };
+
+    let offset = offset as usize;
+    // Buffer for one row
+    let mut row_buffer = Vec::with_capacity(width);
+    // SAFETY: We strictly control access and buffer size matches width.
+    // u32 has no validity invariants.
+    unsafe { row_buffer.set_len(width); }
+
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let _zero = _mm256_setzero_si256();
+
+    for y in 0..height {
+        let row_start = y * width;
+        let row_pixels = &mut pixels[row_start..row_start + width];
+
+        // Copy row
+        unsafe {
+            std::ptr::copy_nonoverlapping(row_pixels.as_ptr(), row_buffer.as_mut_ptr(), width);
+        }
+
+        let mut x = 0;
+
+        // Process scalar until offset (left boundary)
+        while x < offset && x < width {
+             let g = (row_buffer[x] >> 8) & 0xFF;
+             let a = (row_buffer[x] >> 24) & 0xFF;
+             let r = 0;
+             let b = if x + offset < width {
+                 row_buffer[x + offset] & 0xFF
+             } else {
+                 0
+             };
+             row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+             x += 1;
+        }
+
+        // Process SIMD loop
+        if width > offset + 8 {
+             let limit = width - offset - 8;
+             while x <= limit {
+                 unsafe {
+                     let curr_ptr = row_buffer.as_ptr().add(x);
+                     let left_ptr = row_buffer.as_ptr().add(x - offset);
+                     let right_ptr = row_buffer.as_ptr().add(x + offset);
+
+                     let curr = _mm256_loadu_si256(curr_ptr.cast());
+                     let left = _mm256_loadu_si256(left_ptr.cast());
+                     let right = _mm256_loadu_si256(right_ptr.cast());
+
+                     let g = _mm256_and_si256(_mm256_srli_epi32(curr, 8), mask_ff);
+                     let a = _mm256_and_si256(_mm256_srli_epi32(curr, 24), mask_ff);
+                     let r = _mm256_and_si256(_mm256_srli_epi32(left, 16), mask_ff);
+                     let b = _mm256_and_si256(right, mask_ff);
+
+                     let a_shift = _mm256_slli_epi32(a, 24);
+                     let r_shift = _mm256_slli_epi32(r, 16);
+                     let g_shift = _mm256_slli_epi32(g, 8);
+
+                     let res1 = _mm256_or_si256(a_shift, r_shift);
+                     let res2 = _mm256_or_si256(g_shift, b);
+                     let final_res = _mm256_or_si256(res1, res2);
+
+                     _mm256_storeu_si256(row_pixels.as_mut_ptr().add(x).cast(), final_res);
+                 }
+                 x += 8;
+             }
+        }
+
+        // Tail
+        while x < width {
+             let g = (row_buffer[x] >> 8) & 0xFF;
+             let a = (row_buffer[x] >> 24) & 0xFF;
+             let r = if x >= offset {
+                 (row_buffer[x - offset] >> 16) & 0xFF
+             } else {
+                 0
+             };
+             let b = if x + offset < width {
+                 row_buffer[x + offset] & 0xFF
+             } else {
+                 0
+             };
+             row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+             x += 1;
+        }
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn box_blur_horizontal_avx2(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+    use std::arch::x86_64::*;
+
+    let radius = radius as usize;
+    let kernel_size = (2 * radius + 1) as i32;
+    // Use float scale for precision and range
+    let scale_f = 1.0 / (kernel_size as f32);
+    let scale_vec_f = _mm256_set1_ps(scale_f);
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    let mut y = 0;
+    while y + 8 <= height {
+        let mut row_ptrs = [std::ptr::null::<u32>(); 8];
+        for i in 0..8 {
+            unsafe {
+                row_ptrs[i] = src.as_ptr().add((y + i) * width);
+            }
+        }
+
+        // Helper to load 8 pixels from 8 rows at offset x
+        // Returns (r, g, b) vectors
+        let load_column = |x: usize| -> (__m256i, __m256i, __m256i) {
+             let mut p = [0u32; 8];
+             for i in 0..8 {
+                 unsafe { p[i] = *row_ptrs[i].add(x); }
+             }
+             unsafe {
+                 let pixels = _mm256_loadu_si256(p.as_ptr() as *const __m256i);
+
+                 let b = _mm256_and_si256(pixels, mask_ff);
+                 let g = _mm256_and_si256(_mm256_srli_epi32(pixels, 8), mask_ff);
+                 let r = _mm256_and_si256(_mm256_srli_epi32(pixels, 16), mask_ff);
+                 (r, g, b)
+             }
+        };
+
+        // Pre-fill accumulators
+        let (r0, g0, b0) = load_column(0);
+        let count_init = _mm256_set1_epi32(radius as i32 + 1);
+
+        let mut r_acc = _mm256_mullo_epi32(r0, count_init);
+        let mut g_acc = _mm256_mullo_epi32(g0, count_init);
+        let mut b_acc = _mm256_mullo_epi32(b0, count_init);
+
+        for x in 1..=radius {
+            let idx = x.min(width - 1);
+            let (r, g, b) = load_column(idx);
+            r_acc = _mm256_add_epi32(r_acc, r);
+            g_acc = _mm256_add_epi32(g_acc, g);
+            b_acc = _mm256_add_epi32(b_acc, b);
+        }
+
+        for x in 0..width {
+            let r_f = _mm256_cvtepi32_ps(r_acc);
+            let g_f = _mm256_cvtepi32_ps(g_acc);
+            let b_f = _mm256_cvtepi32_ps(b_acc);
+
+            let r_out = _mm256_cvttps_epi32(_mm256_mul_ps(r_f, scale_vec_f));
+            let g_out = _mm256_cvttps_epi32(_mm256_mul_ps(g_f, scale_vec_f));
+            let b_out = _mm256_cvttps_epi32(_mm256_mul_ps(b_f, scale_vec_f));
+
+            let pixel = _mm256_or_si256(
+                alpha_mask,
+                _mm256_or_si256(
+                    _mm256_slli_epi32(r_out, 16),
+                    _mm256_or_si256(_mm256_slli_epi32(g_out, 8), b_out)
+                )
+            );
+
+            let mut out_arr = [0u32; 8];
+            unsafe {
+                _mm256_storeu_si256(out_arr.as_mut_ptr() as *mut __m256i, pixel);
+                for i in 0..8 {
+                    *dest.as_mut_ptr().add((y + i) * width + x) = out_arr[i];
+                }
+            }
+
+            let out_idx = (x as isize - radius as isize).max(0) as usize;
+            let in_idx = (x + radius as usize + 1).min(width - 1);
+
+            let (r_out_p, g_out_p, b_out_p) = load_column(out_idx);
+            let (r_in_p, g_in_p, b_in_p) = load_column(in_idx);
+
+            r_acc = _mm256_add_epi32(_mm256_sub_epi32(r_acc, r_out_p), r_in_p);
+            g_acc = _mm256_add_epi32(_mm256_sub_epi32(g_acc, g_out_p), g_in_p);
+            b_acc = _mm256_add_epi32(_mm256_sub_epi32(b_acc, b_out_p), b_in_p);
+        }
+
+        y += 8;
+    }
+
+    if y < height {
+        let remaining_h = height - y;
+        let start_idx = y * width;
+        box_blur_horizontal_scalar(
+            &src[start_idx..],
+            &mut dest[start_idx..],
+            width,
+            remaining_h,
+            radius as u32
+        );
+    }
+}
