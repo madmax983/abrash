@@ -25,3 +25,14 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Codebase Organization and Cohesion]
+**Tangle:** The `src/` directory was flat and cluttered with distinct concerns: assets (`obj_loader`, `texture`, `mesh`, `skybox`), pipeline stages (`clipping`, `culling`), and post-processing effects (`heat_vision`, `ascii`). This lack of structure made it harder to navigate and understand the high-level architecture.
+
+**Blueprint:**
+1.  **Extract Assets:** Created `src/assets/` to group `mesh.rs`, `obj_loader.rs`, `texture.rs`, and `skybox.rs`.
+2.  **Extract Pipeline:** Created `src/pipeline/` to group `clipping.rs` and `culling.rs`.
+3.  **Consolidate Post-Process:** Moved `heat_vision.rs` and `ascii.rs` into `src/post_process/` alongside the main module.
+4.  **Preserve API:** Used `pub use` re-exports in `src/lib.rs` to maintain the existing public API surface (e.g., `abrash::mesh` is re-exported from `abrash::assets::mesh`), avoiding breaking changes while improving internal organization.
+
+**Stability:** Improved high-level cohesion by grouping related modules. Reduced clutter in the root source directory.

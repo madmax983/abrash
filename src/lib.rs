@@ -81,28 +81,27 @@
 //! *   [`texture`]: Texture loading and sampling.
 //! *   [`obj_loader`]: Wavefront OBJ parser.
 
+pub mod assets;
 pub mod framebuffer;
 pub mod math;
-pub mod mesh;
+pub mod pipeline;
 pub mod platform;
 pub mod rasterizer;
 pub mod time;
 pub mod utils;
 pub mod zbuffer;
 
-pub mod ascii;
-pub mod clipping;
-pub mod culling;
 pub mod experimental;
-pub mod heat_vision;
 pub mod hiz_buffer;
-pub mod obj_loader;
 pub mod particles;
 pub mod post_process;
 pub mod procedural;
-pub mod skybox;
-pub mod texture;
 pub mod tile_renderer;
+
+// Re-exports for backward compatibility
+pub use assets::{mesh, obj_loader, skybox, texture};
+pub use pipeline::{clipping, culling};
+pub use post_process::{ascii, heat_vision};
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;

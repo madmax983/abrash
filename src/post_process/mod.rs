@@ -23,6 +23,9 @@ use crate::utils::pixel_luminance;
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
+pub mod ascii;
+pub mod heat_vision;
+
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
@@ -1787,7 +1790,9 @@ pub fn apply_ssao(
         // It mostly uses diagonal and last column.
         // Scalar fallback implementation in AVX2 function reconstructs manually.
 
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         let half_width = width as f32 * 0.5;
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         let half_height = height as f32 * 0.5;
 
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -2062,11 +2067,18 @@ mod tests {
         box_blur_f32(&mut src, &mut dest, &mut acc, width, height);
 
         // Check center
-        assert!((src[2 * width + 2] - 1.0).abs() < 1e-4, "Center pixel should be 1.0");
+        assert!(
+            (src[2 * width + 2] - 1.0).abs() < 1e-4,
+            "Center pixel should be 1.0"
+        );
 
         // Check corner (0,0)
         // Expected 1.0 with clamp-to-edge logic.
         let val = src[0];
-        assert!((val - 1.0).abs() < 1e-4, "Corner pixel mismatch. Got {}, expected 1.0", val);
+        assert!(
+            (val - 1.0).abs() < 1e-4,
+            "Corner pixel mismatch. Got {}, expected 1.0",
+            val
+        );
     }
 }
