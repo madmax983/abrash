@@ -1,9 +1,8 @@
 use std::error::Error;
 
-#[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
-    use abrash::experimental::sdf::{render_sdf, SdfObject, SdfPrimitive, SdfScene};
+    use abrash::jelly::{SoftBody, Spring};
+    use abrash::sdf::{render_sdf, SdfObject, SdfPrimitive, SdfScene};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
@@ -145,14 +144,5 @@ mod demo {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    #[cfg(feature = "nova")]
-    {
-        demo::run()
-    }
-    #[cfg(not(feature = "nova"))]
-    {
-        println!("This example requires the 'nova' feature.");
-        println!("Run with: cargo run --example jelly_demo --features nova");
-        Ok(())
-    }
+    demo::run()
 }

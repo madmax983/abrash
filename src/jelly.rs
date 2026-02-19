@@ -6,7 +6,7 @@
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
 use std::collections::HashSet;
-use super::sdf::SdfScene;
+use crate::sdf::SdfScene;
 
 /// A spring connecting two vertices.
 #[derive(Debug, Clone, Copy)]

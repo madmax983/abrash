@@ -80,6 +80,6 @@ pub use self::texture::{
     fill_triangle_normal_mapped, fill_triangle_textured, fill_triangle_textured_gouraud,
 };
 
-// Re-export internal helpers for experimental modules
+// Re-export internal helpers for other modules
 pub(crate) use self::core::{EdgeWalker, is_backface, sort_by_y};
 pub(crate) use self::texture::{PerspectiveTextureEdgeWalker, RECIPROCAL_TABLE};
