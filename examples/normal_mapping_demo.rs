@@ -157,28 +157,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fill_triangle_normal_mapped(
             &mut framebuffer,
             &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v1, uv1, nw, tw),
-            (v2, uv2, nw, tw),
+            (v0, uv0, nw, tw, p0),
+            (v1, uv1, nw, tw, p1),
+            (v2, uv2, nw, tw, p2),
             &diffuse_map,
             &normal_map,
             light_dir,
             light_color,
             ambient,
+            Vec3::new(0.0, 0.0, 4.0),
+            32.0,
+            Vec3::new(1.0, 1.0, 1.0),
         );
 
         // Tri 2: 0, 2, 3
         fill_triangle_normal_mapped(
             &mut framebuffer,
             &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v2, uv2, nw, tw),
-            (v3, uv3, nw, tw),
+            (v0, uv0, nw, tw, p0),
+            (v2, uv2, nw, tw, p2),
+            (v3, uv3, nw, tw, p3),
             &diffuse_map,
             &normal_map,
             light_dir,
             light_color,
             ambient,
+            Vec3::new(0.0, 0.0, 4.0),
+            32.0,
+            Vec3::new(1.0, 1.0, 1.0),
         );
 
         window.blit_framebuffer(&framebuffer);

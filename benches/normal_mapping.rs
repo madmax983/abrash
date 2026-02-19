@@ -20,9 +20,12 @@ fn bench_fill_triangle_normal_mapped(c: &mut Criterion) {
 
         // Vertices
         // Position + W
-        let p0 = (Vec3::new(0.0, 0.9, 0.5), 1.0);
-        let p1 = (Vec3::new(-0.9, -0.9, 0.5), 1.0);
-        let p2 = (Vec3::new(0.9, -0.9, 0.5), 1.0);
+        let p0_v = Vec3::new(0.0, 0.9, 0.5);
+        let p1_v = Vec3::new(-0.9, -0.9, 0.5);
+        let p2_v = Vec3::new(0.9, -0.9, 0.5);
+        let p0 = (p0_v, 1.0);
+        let p1 = (p1_v, 1.0);
+        let p2 = (p2_v, 1.0);
 
         // UVs
         let uv0 = Vec2::new(0.5, 0.0);
@@ -49,14 +52,17 @@ fn bench_fill_triangle_normal_mapped(c: &mut Criterion) {
             fill_triangle_normal_mapped(
                 &mut fb,
                 &mut zb,
-                black_box((p0, uv0, n0, t0)),
-                black_box((p1, uv1, n1, t1)),
-                black_box((p2, uv2, n2, t2)),
+                black_box((p0, uv0, n0, t0, p0_v)),
+                black_box((p1, uv1, n1, t1, p1_v)),
+                black_box((p2, uv2, n2, t2, p2_v)),
                 &diffuse_map,
                 &normal_map,
                 black_box(light_dir),
                 black_box(light_color),
                 black_box(ambient),
+                black_box(Vec3::new(0.0, 0.0, 5.0)),
+                black_box(32.0),
+                black_box(Vec3::new(1.0, 1.0, 1.0)),
             );
         });
     });
