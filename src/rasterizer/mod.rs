@@ -64,6 +64,7 @@ pub mod flat;
 pub mod gouraud;
 pub mod line;
 pub mod phong;
+pub mod reflection;
 pub mod texture;
 
 // Re-export public API
@@ -74,6 +75,7 @@ pub use self::line::{draw_line_3d, fill_triangle_wireframe};
 pub use self::phong::{
     fill_triangle_lit, fill_triangle_phong, fill_triangle_phong_shadowed, fill_triangle_point_lit,
 };
+pub use self::reflection::fill_triangle_reflection;
 pub use self::texture::{
     PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
     TexturedGouraudSpanStart, draw_scanline_textured_gouraud, draw_scanline_textured_perspective,
