@@ -1,11 +1,11 @@
 use abrash::clipping::clip_triangle_to_frustum;
+use abrash::experimental::jelly::SoftBody;
+use abrash::math::Mat4;
 use abrash::math::Vec3;
+use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
 use abrash::texture::Texture;
 use proptest::prelude::*;
-use abrash::experimental::jelly::SoftBody;
-use abrash::mesh::Mesh;
-use abrash::math::Mat4;
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(500))] // More cases for chaos

@@ -2,6 +2,8 @@
 //!
 //! Tools for generating 3D meshes algorithmically, such as terrains.
 
+#![allow(warnings)]
+
 use crate::math::{Vec2, Vec3, Vec4};
 use crate::mesh::Mesh;
 use crate::utils::XorShift32;

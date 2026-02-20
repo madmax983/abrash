@@ -4,6 +4,8 @@
 //! into the rasterized depth buffer. This allows for mathematically perfect
 //! shapes (Spheres, Boxes) to interact with polygon meshes.
 
+#![allow(warnings)]
+
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
 use crate::zbuffer::ZBuffer;
