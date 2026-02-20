@@ -114,10 +114,17 @@ mod tests {
 
 /// A particle emitter and manager.
 pub struct ParticleSystem {
+    /// Active particles.
     pub particles: Vec<Particle>,
+    /// Maximum number of particles allowed.
+    pub max_particles: usize,
+    /// Emitter position in World Space.
     pub position: Vec3,
-    pub emission_rate: f32, // Particles per second
+    /// Emission rate in particles per second.
+    pub emission_rate: f32,
+    /// Gravity vector applied to particles.
     pub gravity: Vec3,
+    /// Texture used for particle billboards.
     pub texture: Texture,
 
     // Emitter properties
@@ -135,12 +142,13 @@ impl ParticleSystem {
     /// Creates a new particle system.
     ///
     /// # Arguments
-    /// * `max_particles` - Initial capacity.
+    /// * `max_particles` - Maximum number of active particles.
     /// * `texture` - The texture to use for particles.
     #[must_use]
     pub fn new(max_particles: usize, texture: Texture) -> Self {
         Self {
             particles: Vec::with_capacity(max_particles),
+            max_particles,
             position: Vec3::new(0.0, 0.0, 0.0),
             emission_rate: 10.0,
             gravity: Vec3::new(0.0, -9.8, 0.0),
@@ -160,8 +168,19 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
+
+        // Safety: Clamp emission accumulator to prevent infinite loops (DoS) if dt is huge.
+        // We shouldn't try to emit more than the entire pool in one frame.
+        if self.emission_accumulator > self.max_particles as f32 {
+            self.emission_accumulator = self.max_particles as f32;
+        }
+
         #[allow(clippy::while_float)]
         while self.emission_accumulator >= 1.0 {
+            if self.particles.len() >= self.max_particles {
+                self.emission_accumulator = 0.0;
+                break;
+            }
             self.emit();
             self.emission_accumulator -= 1.0;
         }
@@ -188,6 +207,10 @@ impl ParticleSystem {
     }
 
     fn emit(&mut self) {
+        if self.particles.len() >= self.max_particles {
+            return;
+        }
+
         let vel = Vec3::new(
             self.rng.next_f32_signed() * self.spread,
             1.0 + self.rng.next_f32_signed() * self.spread, // Generally upwards

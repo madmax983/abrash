@@ -2,6 +2,15 @@
 //!
 //! Functions to apply full-screen effects to a `Framebuffer`.
 //!
+//! # Performance & Memory
+//!
+//! This module uses **Thread-Local Storage (TLS)** for scratch buffers (e.g., Bloom, SSAO).
+//! This design eliminates per-frame heap allocations, ensuring that post-processing effects
+//! are allocation-free during the render loop (after an initial warm-up).
+//!
+//! *   Buffers automatically resize if the framebuffer dimensions increase.
+//! *   Buffers are retained across frames.
+//!
 //! # Examples
 //!
 //! ```
@@ -1730,14 +1739,20 @@ unsafe fn apply_ssao_avx2(
 
 /// Applies Screen-Space Ambient Occlusion to the framebuffer.
 ///
+/// SSAO approximates ambient occlusion in real-time by sampling the depth buffer.
+/// It darkens creases, holes, and surfaces that are close to each other.
+///
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify (darkened by occlusion).
 /// * `zb` - The depth buffer (source of geometry).
 /// * `proj` - The projection matrix used to render the scene.
-/// * `radius` - Sampling radius in view space (e.g., 0.5).
-/// * `bias` - Bias to prevent self-occlusion (e.g., 0.025).
-/// * `intensity` - Strength of the effect (e.g., 1.0 - 3.0).
+/// * `radius` - Sampling radius in View Space units. Larger values cover more area but may reduce performance/quality.
+///   Recommended: `0.5` to `1.0`.
+/// * `bias` - Depth bias to prevent self-occlusion artifacts ("shadow acne").
+///   Recommended: `0.025`.
+/// * `intensity` - Strength of the darkening effect.
+///   Recommended: `1.0` (subtle) to `3.0` (strong).
 pub fn apply_ssao(
     fb: &mut Framebuffer,
     zb: &ZBuffer,

@@ -23,6 +23,15 @@ Modern graphics APIs (Vulkan, DirectX 12) are powerful but complex black boxes. 
     *   **Native Windows:** High-performance windowing using Win32.
     *   **TUI Backend:** Runs in your terminal for true cross-platform compatibility (Linux/macOS).
 
+## Safety & Performance 🛡️
+
+Abrash prioritizes both performance and robustness:
+
+*   **SIMD Optimization:** Key paths (Rasterization, Post-Processing) use hand-written AVX2 intrinsics when enabled via `--features simd`.
+*   **Zero-Allocation Effects:** Post-processing effects use thread-local scratch buffers to avoid heap allocations during the render loop.
+*   **DoS Prevention:** The Particle System enforces strict particle limits and clamps emission logic to prevent infinite loops or memory exhaustion.
+*   **Fail-Safe Math:** Math functions like `Vec3::normalize` handle edge cases (e.g., zero-length vectors) gracefully rather than panicking. See `.jules/bard.md` for design decisions.
+
 ## Quick Start 🚀
 
 Ensure you have Rust installed. Clone the repository and run the examples!
