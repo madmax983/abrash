@@ -678,15 +678,30 @@ mod tests {
 
         // Add edge cases
         // 1. Fully inside small
-        aabbs.push(AABB::new(Vec3::new(-0.1, -0.1, -0.1), Vec3::new(0.1, 0.1, 0.1)));
+        aabbs.push(AABB::new(
+            Vec3::new(-0.1, -0.1, -0.1),
+            Vec3::new(0.1, 0.1, 0.1),
+        ));
         // 2. Fully inside large (spanning)
-        aabbs.push(AABB::new(Vec3::new(-0.8, -0.8, -0.8), Vec3::new(0.8, 0.8, 0.8)));
+        aabbs.push(AABB::new(
+            Vec3::new(-0.8, -0.8, -0.8),
+            Vec3::new(0.8, 0.8, 0.8),
+        ));
         // 3. Fully outside (Right)
-        aabbs.push(AABB::new(Vec3::new(2.0, -1.0, -1.0), Vec3::new(3.0, 1.0, 1.0)));
+        aabbs.push(AABB::new(
+            Vec3::new(2.0, -1.0, -1.0),
+            Vec3::new(3.0, 1.0, 1.0),
+        ));
         // 4. Fully outside (Left)
-        aabbs.push(AABB::new(Vec3::new(-3.0, -1.0, -1.0), Vec3::new(-2.0, 1.0, 1.0)));
+        aabbs.push(AABB::new(
+            Vec3::new(-3.0, -1.0, -1.0),
+            Vec3::new(-2.0, 1.0, 1.0),
+        ));
         // 5. Intersecting Right Plane
-        aabbs.push(AABB::new(Vec3::new(0.5, -0.5, -0.5), Vec3::new(1.5, 0.5, 0.5)));
+        aabbs.push(AABB::new(
+            Vec3::new(0.5, -0.5, -0.5),
+            Vec3::new(1.5, 0.5, 0.5),
+        ));
 
         // Run Prealloc culling (which uses SIMD if available)
         let mut simd_results = vec![false; aabbs.len()];

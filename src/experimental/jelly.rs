@@ -3,10 +3,10 @@
 //! This module implements a mass-spring system for simulating deformable objects ("Soft Bodies").
 //! It converts a standard `Mesh` into a physical system where vertices are particles and edges are springs.
 
+use super::sdf::SdfScene;
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
 use std::collections::HashSet;
-use super::sdf::SdfScene;
 
 /// A spring connecting two vertices.
 #[derive(Debug, Clone, Copy)]

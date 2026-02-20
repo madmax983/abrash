@@ -119,6 +119,7 @@ pub struct ParticleSystem {
     pub emission_rate: f32, // Particles per second
     pub gravity: Vec3,
     pub texture: Texture,
+    pub max_particles: usize,
 
     // Emitter properties
     pub start_speed: f32,
@@ -141,6 +142,7 @@ impl ParticleSystem {
     pub fn new(max_particles: usize, texture: Texture) -> Self {
         Self {
             particles: Vec::with_capacity(max_particles),
+            max_particles,
             position: Vec3::new(0.0, 0.0, 0.0),
             emission_rate: 10.0,
             gravity: Vec3::new(0.0, -9.8, 0.0),
@@ -160,6 +162,12 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
+
+        // Security: Clamp accumulator to prevent infinite loops if dt or emission_rate is huge
+        if self.emission_accumulator > 5.0 {
+            self.emission_accumulator = 5.0;
+        }
+
         #[allow(clippy::while_float)]
         while self.emission_accumulator >= 1.0 {
             self.emit();
@@ -188,6 +196,11 @@ impl ParticleSystem {
     }
 
     fn emit(&mut self) {
+        // Security: Prevent unbounded allocation
+        if self.particles.len() >= self.max_particles {
+            return;
+        }
+
         let vel = Vec3::new(
             self.rng.next_f32_signed() * self.spread,
             1.0 + self.rng.next_f32_signed() * self.spread, // Generally upwards
