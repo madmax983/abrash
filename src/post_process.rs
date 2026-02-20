@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static CHROMATIC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -1189,41 +1190,155 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
-    let mut row_buffer = Vec::with_capacity(width);
-    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
-    // but `u32` has no validity invariants (any bit pattern is a valid u32).
-    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
-    unsafe { row_buffer.set_len(width); }
+    CHROMATIC_BUFFER.with(|buf| {
+        let mut row_buffer = buf.borrow_mut();
+        if row_buffer.len() < width {
+            row_buffer.resize(width, 0);
+        }
+        let scratch = &mut row_buffer[..width];
 
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                for y in 0..height {
+                    let row_start = y * width;
+                    let row_pixels = &mut pixels[row_start..row_start + width];
+                    scratch.copy_from_slice(row_pixels);
+                    unsafe {
+                        apply_chromatic_aberration_avx2(scratch, row_pixels, offset);
+                    }
+                }
+                return;
+            }
+        }
 
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
+        for y in 0..height {
+            let row_start = y * width;
+            let row_pixels = &mut pixels[row_start..row_start + width];
 
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
+            // Copy current row to scratch buffer
+            scratch.copy_from_slice(row_pixels);
 
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
+            // Optimized scalar loop
+            // R: 0x00FF_0000 (from left)
+            // G: 0x0000FF00 (from center)
+            // B: 0x0000_00FF (from right)
+            // A: 0xFF000000 (from center)
+
+            // Head (0..offset): No Red (Left out of bounds)
+            for x in 0..offset.min(width) {
+                let center = scratch[x];
+                let right = if x + offset < width {
+                    scratch[x + offset]
+                } else {
+                    0
+                };
+                row_pixels[x] = (center & 0xFF00_FF00) | (right & 0x0000_00FF);
+            }
+
+            // Body (offset .. width-offset)
+            if width > 2 * offset {
+                for x in offset..(width - offset) {
+                    let center = scratch[x];
+                    let left = scratch[x - offset];
+                    let right = scratch[x + offset];
+                    row_pixels[x] =
+                        (center & 0xFF00_FF00) | (left & 0x00FF_0000) | (right & 0x0000_00FF);
+                }
+            }
+
+            // Tail (width-offset .. width): No Blue (Right out of bounds)
+            let tail_start = if width > offset {
+                width - offset
+            } else {
+                offset
+            };
+            for x in tail_start..width {
+                let center = scratch[x];
+                let left = if x >= offset { scratch[x - offset] } else { 0 };
+                row_pixels[x] = (center & 0xFF00_FF00) | (left & 0x00FF_0000);
+            }
+        }
+    });
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(src: &[u32], dest: &mut [u32], offset: usize) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_storeu_si256,
+    };
+
+    unsafe {
+        let width = src.len();
+
+        // Masks
+        let mask_r = _mm256_set1_epi32(0x00FF_0000);
+        // 0xFF00_FF00 -> Alpha + Green
+        let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
+        let mask_b = _mm256_set1_epi32(0x0000_00FF);
+
+        let start = offset;
+        let end = if width > offset {
+            width - offset
+        } else {
+            offset
+        };
+
+        // Head (0..start)
+        for x in 0..start.min(width) {
+            let center = *src.get_unchecked(x);
+            let right = if x + offset < width {
+                *src.get_unchecked(x + offset)
             } else {
                 0
             };
+            *dest.get_unchecked_mut(x) = (center & 0xFF00_FF00) | (right & 0x0000_00FF);
+        }
 
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
+        // Body
+        if width > 2 * offset {
+            let mut x = start;
+            while x + 8 <= end {
+                let c_ptr = src.as_ptr().add(x);
+                let l_ptr = src.as_ptr().add(x - offset);
+                let r_ptr = src.as_ptr().add(x + offset);
+                let d_ptr = dest.as_mut_ptr().add(x);
+
+                let c_vec = _mm256_loadu_si256(c_ptr.cast());
+                let l_vec = _mm256_loadu_si256(l_ptr.cast());
+                let r_vec = _mm256_loadu_si256(r_ptr.cast());
+
+                let c_res = _mm256_and_si256(c_vec, mask_ga);
+                let l_res = _mm256_and_si256(l_vec, mask_r);
+                let r_res = _mm256_and_si256(r_vec, mask_b);
+
+                let res = _mm256_or_si256(c_res, _mm256_or_si256(l_res, r_res));
+                _mm256_storeu_si256(d_ptr.cast(), res);
+
+                x += 8;
+            }
+
+            // Scalar Body Tail
+            for i in x..end {
+                let center = *src.get_unchecked(i);
+                let left = *src.get_unchecked(i - offset);
+                let right = *src.get_unchecked(i + offset);
+                *dest.get_unchecked_mut(i) =
+                    (center & 0xFF00_FF00) | (left & 0x00FF_0000) | (right & 0x0000_00FF);
+            }
+        }
+
+        // Tail (end..width)
+        for x in end..width {
+            let center = *src.get_unchecked(x);
+            let left = if x >= offset {
+                *src.get_unchecked(x - offset)
             } else {
                 0
             };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            *dest.get_unchecked_mut(x) = (center & 0xFF00_FF00) | (left & 0x00FF_0000);
         }
     }
 }
@@ -2087,74 +2202,74 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_apply_chromatic_aberration() {
-        let width = 5;
-        let height = 1;
-        let mut fb = Framebuffer::new(width, height).unwrap();
-        // Set pixel colors
-        // R G B A
-        // 0: (10, 20, 30, 255)
-        // 1: (40, 50, 60, 255)
-        // 2: (70, 80, 90, 255)
-        // 3: (100, 110, 120, 255)
-        // 4: (130, 140, 150, 255)
-        for x in 0..width {
-            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
-            // For x=0: val=10. R=10, G=20, B=30
-            // For x=1: val=20. R=20, G=30, B=40 ... Wait logic above was:
-            // let r = val; let g = val+10; let b = val+20;
-            // x=0: R=10, G=20, B=30
-            // x=1: R=20, G=30, B=40
-            // x=2: R=30, G=40, B=50
-            // x=3: R=40, G=50, B=60
-            // x=4: R=50, G=60, B=70
+#[test]
+fn test_apply_chromatic_aberration() {
+    let width = 5;
+    let height = 1;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    // Set pixel colors
+    // R G B A
+    // 0: (10, 20, 30, 255)
+    // 1: (40, 50, 60, 255)
+    // 2: (70, 80, 90, 255)
+    // 3: (100, 110, 120, 255)
+    // 4: (130, 140, 150, 255)
+    for x in 0..width {
+        let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+        // For x=0: val=10. R=10, G=20, B=30
+        // For x=1: val=20. R=20, G=30, B=40 ... Wait logic above was:
+        // let r = val; let g = val+10; let b = val+20;
+        // x=0: R=10, G=20, B=30
+        // x=1: R=20, G=30, B=40
+        // x=2: R=30, G=40, B=50
+        // x=3: R=40, G=50, B=60
+        // x=4: R=50, G=60, B=70
 
-            // My comments in thought block were slightly different (10, 40, 70...)
-            // Let's stick to the code logic:
-            let r = val;
-            let g = val + 10;
-            let b = val + 20;
-            let p = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-            fb.set_pixel(x as i32, 0, p);
-        }
-
-        // Apply offset 1
-        apply_chromatic_aberration(&mut fb, 1);
-
-        // Pixel 2 (x=2)
-        // Original: R=30, G=40, B=50
-        // New R: from x=1 => R=20
-        // New G: from x=2 => G=40
-        // New B: from x=3 => B=60
-        // Result: (20, 40, 60)
-
-        let p = fb.get_pixel(2, 0).unwrap();
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
-
-        assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
-        assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
-        assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
-
-        // Edge case: x=0 (offset 1)
-        // R: from x-1 (out of bounds) -> 0
-        // G: from x=0 -> 20
-        // B: from x+1 -> 40
-        // Result: (0, 20, 40)
-        let p = fb.get_pixel(0, 0).unwrap();
-        assert_eq!((p >> 16) & 0xFF, 0, "Red mismatch at x=0");
-        assert_eq!((p >> 8) & 0xFF, 20, "Green mismatch at x=0");
-        assert_eq!(p & 0xFF, 40, "Blue mismatch at x=0");
-
-        // Edge case: x=4 (offset 1)
-        // R: from x-1=3 -> 40
-        // G: from x=4 -> 60
-        // B: from x+1 (out of bounds) -> 0
-        // Result: (40, 60, 0)
-        let p = fb.get_pixel(4, 0).unwrap();
-        assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
-        assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
-        assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+        // My comments in thought block were slightly different (10, 40, 70...)
+        // Let's stick to the code logic:
+        let r = val;
+        let g = val + 10;
+        let b = val + 20;
+        let p = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+        fb.set_pixel(x as i32, 0, p);
     }
+
+    // Apply offset 1
+    apply_chromatic_aberration(&mut fb, 1);
+
+    // Pixel 2 (x=2)
+    // Original: R=30, G=40, B=50
+    // New R: from x=1 => R=20
+    // New G: from x=2 => G=40
+    // New B: from x=3 => B=60
+    // Result: (20, 40, 60)
+
+    let p = fb.get_pixel(2, 0).unwrap();
+    let r = (p >> 16) & 0xFF;
+    let g = (p >> 8) & 0xFF;
+    let b = p & 0xFF;
+
+    assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
+    assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
+    assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
+
+    // Edge case: x=0 (offset 1)
+    // R: from x-1 (out of bounds) -> 0
+    // G: from x=0 -> 20
+    // B: from x+1 -> 40
+    // Result: (0, 20, 40)
+    let p = fb.get_pixel(0, 0).unwrap();
+    assert_eq!((p >> 16) & 0xFF, 0, "Red mismatch at x=0");
+    assert_eq!((p >> 8) & 0xFF, 20, "Green mismatch at x=0");
+    assert_eq!(p & 0xFF, 40, "Blue mismatch at x=0");
+
+    // Edge case: x=4 (offset 1)
+    // R: from x-1=3 -> 40
+    // G: from x=4 -> 60
+    // B: from x+1 (out of bounds) -> 0
+    // Result: (40, 60, 0)
+    let p = fb.get_pixel(4, 0).unwrap();
+    assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
+    assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
+    assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+}

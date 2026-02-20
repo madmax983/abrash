@@ -43,10 +43,7 @@ fn print_banner() {
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
         ])
-        .add_row(vec![
-            Cell::new("Mouse"),
-            Cell::new("None"),
-        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
         .add_row(vec![
             Cell::new("Keyboard"),
             Cell::new("Auto-rotating camera"),
