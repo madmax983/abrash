@@ -117,7 +117,7 @@ pub struct ClippedTriangles<V> {
 
 impl<V> ClippedTriangles<V> {
     // Unsafe because it returns uninitialized data structure
-    fn new_uninit() -> Self {
+    const fn new_uninit() -> Self {
         Self {
             // SAFETY: An array of MaybeUninit is safe to be uninitialized.
             tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },
@@ -172,6 +172,24 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     let (p0, w0) = get_pos(&v0);
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
+
+    // SAFETY CHECK: Reject invalid geometry (NaN/Inf)
+    // Sentry: Prevent propagation of NaN values which can cause undefined behavior in rasterization.
+    if !p0.x.is_finite()
+        || !p0.y.is_finite()
+        || !p0.z.is_finite()
+        || !w0.is_finite()
+        || !p1.x.is_finite()
+        || !p1.y.is_finite()
+        || !p1.z.is_finite()
+        || !w1.is_finite()
+        || !p2.x.is_finite()
+        || !p2.y.is_finite()
+        || !p2.z.is_finite()
+        || !w2.is_finite()
+    {
+        return ClippedTriangles::new_uninit();
+    }
 
     // Unrolled inside mask check
     let mut m0 = 0;
