@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -49,6 +50,225 @@ impl Default for SsaoContext {
             kernel: [Vec3::default(); KERNEL_SIZE],
             noise: [Vec3::default(); NOISE_SIZE * NOISE_SIZE],
             initialized: false,
+        }
+    }
+}
+
+/// Applies Sobel edge detection to the framebuffer in-place.
+///
+/// Converts the image to grayscale and applies 3x3 Sobel kernels to detect edges.
+/// Result is a grayscale image where white indicates strong edges.
+pub fn apply_sobel(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let pixels = fb.as_mut_slice();
+    let needed_size = width * height;
+
+    SOBEL_BUFFER.with(|buffer| {
+        let mut lum_buffer = buffer.borrow_mut();
+        // Add padding for SIMD over-read (we read 16 bytes at a time, up to the end of the last row)
+        // Max read is at (height-1)*width + (width-10) + 16 (approx) -> end + 6 bytes.
+        let padded_size = needed_size + 32;
+        if lum_buffer.len() < padded_size {
+            lum_buffer.resize(padded_size, 0);
+        }
+
+        // 1. Convert to Luminance
+        // We can optimize this later with SIMD
+        for (i, p) in pixels.iter().enumerate() {
+            lum_buffer[i] = pixel_luminance(*p);
+        }
+
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                unsafe { apply_sobel_avx2(pixels, &lum_buffer, width, height) };
+                return;
+            }
+        }
+
+        // 2. Apply Sobel
+        // Clear borders
+        // Top row
+        for x in 0..width {
+            pixels[x] = 0xFF000000;
+        }
+        // Bottom row
+        let bottom_start = (height - 1) * width;
+        for x in 0..width {
+            pixels[bottom_start + x] = 0xFF000000;
+        }
+        // Left/Right cols (excluding corners already handled)
+        for y in 1..height - 1 {
+            pixels[y * width] = 0xFF000000;
+            pixels[y * width + width - 1] = 0xFF000000;
+        }
+
+        // Inner loop
+        for y in 1..height - 1 {
+            let row_offset = y * width;
+            for x in 1..width - 1 {
+                let idx = row_offset + x;
+
+                // Neighbors
+                // TL T TR
+                // L  C  R
+                // BL B BR
+                let tl = i32::from(lum_buffer[idx - width - 1]);
+                let t = i32::from(lum_buffer[idx - width]);
+                let tr = i32::from(lum_buffer[idx - width + 1]);
+                let l = i32::from(lum_buffer[idx - 1]);
+                let r = i32::from(lum_buffer[idx + 1]);
+                let bl = i32::from(lum_buffer[idx + width - 1]);
+                let b = i32::from(lum_buffer[idx + width]);
+                let br = i32::from(lum_buffer[idx + width + 1]);
+
+                // Gx
+                // -1 0 1
+                // -2 0 2
+                // -1 0 1
+                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+
+                // Gy
+                // -1 -2 -1
+                //  0  0  0
+                //  1  2  1
+                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+
+                // Magnitude
+                let mag = ((gx * gx + gy * gy) as f32).sqrt() as u32;
+                let mag = mag.min(255);
+
+                pixels[idx] = 0xFF000000 | (mag << 16) | (mag << 8) | mag;
+            }
+        }
+    });
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_sobel_avx2(
+    pixels: &mut [u32],
+    lum_buffer: &[u8],
+    width: usize,
+    height: usize,
+) {
+    use std::arch::x86_64::{
+        _mm256_add_epi32, _mm256_cvtepi32_ps, _mm256_cvtepu8_epi32, _mm256_cvtps_epi32,
+        _mm256_min_epi32, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_slli_epi32, _mm256_sqrt_ps, _mm256_storeu_si256, _mm256_sub_epi32, _mm_alignr_epi8,
+        _mm_loadu_si128,
+    };
+
+    // Clear borders (scalar is fast enough for borders)
+    for x in 0..width {
+        pixels[x] = 0xFF000000;
+    }
+    let bottom_start = (height - 1) * width;
+    for x in 0..width {
+        pixels[bottom_start + x] = 0xFF000000;
+    }
+    for y in 1..height - 1 {
+        pixels[y * width] = 0xFF000000;
+        pixels[y * width + width - 1] = 0xFF000000;
+    }
+
+    let two = _mm256_set1_epi32(2);
+    let max_val = _mm256_set1_epi32(255);
+    let mask_alpha = _mm256_set1_epi32(0xFF000000u32 as i32);
+
+    for y in 1..height - 1 {
+        let row_offset = y * width;
+        let mut x = 1;
+
+        unsafe {
+            while x + 8 < width - 1 {
+                let idx = row_offset + x;
+
+                // Load 16 bytes (enough for 8 pixels + context)
+                // Context for 8 pixels (x to x+7) is x-1 to x+8. Total 10 bytes.
+                let top_ptr = lum_buffer.as_ptr().add(idx - width - 1);
+                let mid_ptr = lum_buffer.as_ptr().add(idx - 1);
+                let bot_ptr = lum_buffer.as_ptr().add(idx + width - 1);
+
+                let top_v = _mm_loadu_si128(top_ptr.cast());
+                let mid_v = _mm_loadu_si128(mid_ptr.cast());
+                let bot_v = _mm_loadu_si128(bot_ptr.cast());
+
+                // Expand to i32 (8 pixels)
+                let tl = _mm256_cvtepu8_epi32(top_v);
+                let t = _mm256_cvtepu8_epi32(_mm_alignr_epi8(top_v, top_v, 1));
+                let tr = _mm256_cvtepu8_epi32(_mm_alignr_epi8(top_v, top_v, 2));
+
+                let l = _mm256_cvtepu8_epi32(mid_v);
+                let r = _mm256_cvtepu8_epi32(_mm_alignr_epi8(mid_v, mid_v, 2));
+
+                let bl = _mm256_cvtepu8_epi32(bot_v);
+                let b = _mm256_cvtepu8_epi32(_mm_alignr_epi8(bot_v, bot_v, 1));
+                let br = _mm256_cvtepu8_epi32(_mm_alignr_epi8(bot_v, bot_v, 2));
+
+                // Gx = (tr + 2*r + br) - (tl + 2*l + bl)
+                let right_sum =
+                    _mm256_add_epi32(_mm256_add_epi32(tr, br), _mm256_mullo_epi32(r, two));
+                let left_sum =
+                    _mm256_add_epi32(_mm256_add_epi32(tl, bl), _mm256_mullo_epi32(l, two));
+                let gx = _mm256_sub_epi32(right_sum, left_sum);
+
+                // Gy = (bl + 2*b + br) - (tl + 2*t + tr)
+                let bot_sum =
+                    _mm256_add_epi32(_mm256_add_epi32(bl, br), _mm256_mullo_epi32(b, two));
+                let top_sum =
+                    _mm256_add_epi32(_mm256_add_epi32(tl, tr), _mm256_mullo_epi32(t, two));
+                let gy = _mm256_sub_epi32(bot_sum, top_sum);
+
+                // Mag^2 = Gx^2 + Gy^2
+                let gx2 = _mm256_mullo_epi32(gx, gx);
+                let gy2 = _mm256_mullo_epi32(gy, gy);
+                let mag2 = _mm256_add_epi32(gx2, gy2);
+
+                // Sqrt
+                let mag2_f = _mm256_cvtepi32_ps(mag2);
+                let mag_f = _mm256_sqrt_ps(mag2_f);
+                let mag_i = _mm256_cvtps_epi32(mag_f);
+
+                // Clamp
+                let mag_clamped = _mm256_min_epi32(mag_i, max_val);
+
+                // Pack to u32
+                let p_val = _mm256_or_si256(
+                    mask_alpha,
+                    _mm256_or_si256(
+                        _mm256_slli_epi32(mag_clamped, 16),
+                        _mm256_or_si256(_mm256_slli_epi32(mag_clamped, 8), mag_clamped),
+                    ),
+                );
+
+                _mm256_storeu_si256(pixels.as_mut_ptr().add(idx).cast(), p_val);
+
+                x += 8;
+            }
+        }
+
+        // Tail (Scalar fallback for remaining pixels in row)
+        while x < width - 1 {
+            let idx = row_offset + x;
+            let tl = i32::from(lum_buffer[idx - width - 1]);
+            let t = i32::from(lum_buffer[idx - width]);
+            let tr = i32::from(lum_buffer[idx - width + 1]);
+            let l = i32::from(lum_buffer[idx - 1]);
+            let r = i32::from(lum_buffer[idx + 1]);
+            let bl = i32::from(lum_buffer[idx + width - 1]);
+            let b = i32::from(lum_buffer[idx + width]);
+            let br = i32::from(lum_buffer[idx + width + 1]);
+
+            let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+            let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+
+            let mag = ((gx * gx + gy * gy) as f32).sqrt() as u32;
+            let mag = mag.min(255);
+
+            pixels[idx] = 0xFF000000 | (mag << 16) | (mag << 8) | mag;
+            x += 1;
         }
     }
 }
