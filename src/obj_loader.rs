@@ -229,9 +229,8 @@ impl ObjParser {
                     let after_second_slash = after_first_slash + 1;
                     if after_second_slash < bytes.len() {
                         // Parse vn
-                        let idx = fast_parse_usize(&bytes[after_second_slash..]).ok_or_else(
-                            || format!("Line {line_num}: Invalid Normal index"),
-                        )?;
+                        let idx = fast_parse_usize(&bytes[after_second_slash..])
+                            .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
                         vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
                             format!("Line {line_num}: Normal index 0 is invalid")
                         })?);
@@ -252,13 +251,12 @@ impl ObjParser {
 
                     let vt_bytes = &bytes[after_first_slash..end_vt];
                     if !vt_bytes.is_empty() {
-                        let idx = fast_parse_usize(vt_bytes).ok_or_else(|| {
-                            format!("Line {line_num}: Invalid UV index")
-                        })?;
-                        vt_idx = Some(
-                            idx.checked_sub(1)
-                                .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
-                        );
+                        let idx = fast_parse_usize(vt_bytes)
+                            .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
+                        vt_idx =
+                            Some(idx.checked_sub(1).ok_or_else(|| {
+                                format!("Line {line_num}: UV index 0 is invalid")
+                            })?);
                     }
 
                     // If there's a second slash, parse vn (v/vt/vn)
@@ -266,9 +264,7 @@ impl ObjParser {
                         let after_second_slash = slash2 + 1;
                         if after_second_slash < bytes.len() {
                             let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                .ok_or_else(|| {
-                                    format!("Line {line_num}: Invalid Normal index")
-                                })?;
+                                .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
                             vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
                                 format!("Line {line_num}: Normal index 0 is invalid")
                             })?);

@@ -659,144 +659,146 @@ impl Mat4 {
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[target_feature(enable = "avx2")]
     unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
-        use std::arch::x86_64::*;
+        unsafe {
+            use std::arch::x86_64::*;
 
-        let len = points.len();
-        let mut i = 0;
+            let len = points.len();
+            let mut i = 0;
 
-        let m00 = _mm256_set1_ps(self.m[0][0]);
-        let m01 = _mm256_set1_ps(self.m[0][1]);
-        let m02 = _mm256_set1_ps(self.m[0][2]);
-        let m03 = _mm256_set1_ps(self.m[0][3]);
+            let m00 = _mm256_set1_ps(self.m[0][0]);
+            let m01 = _mm256_set1_ps(self.m[0][1]);
+            let m02 = _mm256_set1_ps(self.m[0][2]);
+            let m03 = _mm256_set1_ps(self.m[0][3]);
 
-        let m10 = _mm256_set1_ps(self.m[1][0]);
-        let m11 = _mm256_set1_ps(self.m[1][1]);
-        let m12 = _mm256_set1_ps(self.m[1][2]);
-        let m13 = _mm256_set1_ps(self.m[1][3]);
+            let m10 = _mm256_set1_ps(self.m[1][0]);
+            let m11 = _mm256_set1_ps(self.m[1][1]);
+            let m12 = _mm256_set1_ps(self.m[1][2]);
+            let m13 = _mm256_set1_ps(self.m[1][3]);
 
-        let m20 = _mm256_set1_ps(self.m[2][0]);
-        let m21 = _mm256_set1_ps(self.m[2][1]);
-        let m22 = _mm256_set1_ps(self.m[2][2]);
-        let m23 = _mm256_set1_ps(self.m[2][3]);
+            let m20 = _mm256_set1_ps(self.m[2][0]);
+            let m21 = _mm256_set1_ps(self.m[2][1]);
+            let m22 = _mm256_set1_ps(self.m[2][2]);
+            let m23 = _mm256_set1_ps(self.m[2][3]);
 
-        let m30 = _mm256_set1_ps(self.m[3][0]);
-        let m31 = _mm256_set1_ps(self.m[3][1]);
-        let m32 = _mm256_set1_ps(self.m[3][2]);
-        let m33 = _mm256_set1_ps(self.m[3][3]);
+            let m30 = _mm256_set1_ps(self.m[3][0]);
+            let m31 = _mm256_set1_ps(self.m[3][1]);
+            let m32 = _mm256_set1_ps(self.m[3][2]);
+            let m33 = _mm256_set1_ps(self.m[3][3]);
 
-        while i + 8 <= len {
-            let p_ptr = points.as_ptr().add(i) as *const f32;
+            while i + 8 <= len {
+                let p_ptr = points.as_ptr().add(i) as *const f32;
 
-            // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
-            // 8 points * 12 bytes = 96 bytes.
-            // Load first 4 points (48 bytes) -> 3 * 16 bytes
-            let r0 = _mm_loadu_ps(p_ptr); // x0 y0 z0 x1
-            let r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
-            let r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
+                // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
+                // 8 points * 12 bytes = 96 bytes.
+                // Load first 4 points (48 bytes) -> 3 * 16 bytes
+                let r0 = _mm_loadu_ps(p_ptr); // x0 y0 z0 x1
+                let r1 = _mm_loadu_ps(p_ptr.add(4)); // y1 z1 x2 y2
+                let r2 = _mm_loadu_ps(p_ptr.add(8)); // z2 x3 y3 z3
 
-            // Shuffle to SOA (x_lo, y_lo, z_lo)
-            // _MM_SHUFFLE(z, y, x, w) -> (z << 6) | (y << 4) | (x << 2) | w
-            let t_x0x1 = _mm_shuffle_ps(r0, r0, 0b11_00_11_00); // 3, 0, 3, 0
-            let t_x2x3 = _mm_shuffle_ps(r1, r2, 0b01_01_10_10); // 1, 1, 2, 2
-            // Mask for x_lo: a[0], a[1], b[0], b[2] -> 2, 0, 1, 0 -> 0x84
-            let x_lo = _mm_shuffle_ps(t_x0x1, t_x2x3, 0b10_00_01_00);
+                // Shuffle to SOA (x_lo, y_lo, z_lo)
+                // _MM_SHUFFLE(z, y, x, w) -> (z << 6) | (y << 4) | (x << 2) | w
+                let t_x0x1 = _mm_shuffle_ps(r0, r0, 0b11_00_11_00); // 3, 0, 3, 0
+                let t_x2x3 = _mm_shuffle_ps(r1, r2, 0b01_01_10_10); // 1, 1, 2, 2
+                // Mask for x_lo: a[0], a[1], b[0], b[2] -> 2, 0, 1, 0 -> 0x84
+                let x_lo = _mm_shuffle_ps(t_x0x1, t_x2x3, 0b10_00_01_00);
 
-            let t_y0y1 = _mm_shuffle_ps(r0, r1, 0b00_00_01_01); // 0, 0, 1, 1
-            let t_y2y3 = _mm_shuffle_ps(r1, r2, 0b10_10_11_11); // 2, 2, 3, 3
-            // Mask for y_lo: a[0], a[2], b[0], b[2] -> 2, 0, 2, 0 -> 0x88
-            let y_lo = _mm_shuffle_ps(t_y0y1, t_y2y3, 0b10_00_10_00);
+                let t_y0y1 = _mm_shuffle_ps(r0, r1, 0b00_00_01_01); // 0, 0, 1, 1
+                let t_y2y3 = _mm_shuffle_ps(r1, r2, 0b10_10_11_11); // 2, 2, 3, 3
+                // Mask for y_lo: a[0], a[2], b[0], b[2] -> 2, 0, 2, 0 -> 0x88
+                let y_lo = _mm_shuffle_ps(t_y0y1, t_y2y3, 0b10_00_10_00);
 
-            let t_z0z1 = _mm_shuffle_ps(r0, r1, 0b01_01_10_10); // 1, 1, 2, 2
-            let t_z2z3 = _mm_shuffle_ps(r2, r2, 0b11_00_11_00); // 3, 0, 3, 0
-            // Mask for z_lo: a[0], a[2], b[0], b[1] -> 1, 0, 2, 0 -> 0x48
-            let z_lo = _mm_shuffle_ps(t_z0z1, t_z2z3, 0b01_00_10_00);
+                let t_z0z1 = _mm_shuffle_ps(r0, r1, 0b01_01_10_10); // 1, 1, 2, 2
+                let t_z2z3 = _mm_shuffle_ps(r2, r2, 0b11_00_11_00); // 3, 0, 3, 0
+                // Mask for z_lo: a[0], a[2], b[0], b[1] -> 1, 0, 2, 0 -> 0x48
+                let z_lo = _mm_shuffle_ps(t_z0z1, t_z2z3, 0b01_00_10_00);
 
-            // Load next 4 points
-            let r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
-            let r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
-            let r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
+                // Load next 4 points
+                let r3 = _mm_loadu_ps(p_ptr.add(12)); // x4 y4 z4 x5
+                let r4 = _mm_loadu_ps(p_ptr.add(16)); // y5 z5 x6 y6
+                let r5 = _mm_loadu_ps(p_ptr.add(20)); // z6 x7 y7 z7
 
-            let t_x4x5 = _mm_shuffle_ps(r3, r3, 0b11_00_11_00);
-            let t_x6x7 = _mm_shuffle_ps(r4, r5, 0b01_01_10_10);
-            let x_hi = _mm_shuffle_ps(t_x4x5, t_x6x7, 0b10_00_01_00);
+                let t_x4x5 = _mm_shuffle_ps(r3, r3, 0b11_00_11_00);
+                let t_x6x7 = _mm_shuffle_ps(r4, r5, 0b01_01_10_10);
+                let x_hi = _mm_shuffle_ps(t_x4x5, t_x6x7, 0b10_00_01_00);
 
-            let t_y4y5 = _mm_shuffle_ps(r3, r4, 0b00_00_01_01);
-            let t_y6y7 = _mm_shuffle_ps(r4, r5, 0b10_10_11_11);
-            let y_hi = _mm_shuffle_ps(t_y4y5, t_y6y7, 0b10_00_10_00);
+                let t_y4y5 = _mm_shuffle_ps(r3, r4, 0b00_00_01_01);
+                let t_y6y7 = _mm_shuffle_ps(r4, r5, 0b10_10_11_11);
+                let y_hi = _mm_shuffle_ps(t_y4y5, t_y6y7, 0b10_00_10_00);
 
-            let t_z4z5 = _mm_shuffle_ps(r3, r4, 0b01_01_10_10);
-            let t_z6z7 = _mm_shuffle_ps(r5, r5, 0b11_00_11_00);
-            let z_hi = _mm_shuffle_ps(t_z4z5, t_z6z7, 0b01_00_10_00);
+                let t_z4z5 = _mm_shuffle_ps(r3, r4, 0b01_01_10_10);
+                let t_z6z7 = _mm_shuffle_ps(r5, r5, 0b11_00_11_00);
+                let z_hi = _mm_shuffle_ps(t_z4z5, t_z6z7, 0b01_00_10_00);
 
-            // Combine to AVX
-            let vx = _mm256_insertf128_ps(_mm256_castps128_ps256(x_lo), x_hi, 1);
-            let vy = _mm256_insertf128_ps(_mm256_castps128_ps256(y_lo), y_hi, 1);
-            let vz = _mm256_insertf128_ps(_mm256_castps128_ps256(z_lo), z_hi, 1);
+                // Combine to AVX
+                let vx = _mm256_insertf128_ps(_mm256_castps128_ps256(x_lo), x_hi, 1);
+                let vy = _mm256_insertf128_ps(_mm256_castps128_ps256(y_lo), y_hi, 1);
+                let vz = _mm256_insertf128_ps(_mm256_castps128_ps256(z_lo), z_hi, 1);
 
-            // Matrix Multiplication
-            // Match scalar order: ((x*m0 + y*m1) + z*m2) + m3
-            let res_x = _mm256_add_ps(
-                _mm256_add_ps(
-                    _mm256_add_ps(_mm256_mul_ps(vx, m00), _mm256_mul_ps(vy, m10)),
-                    _mm256_mul_ps(vz, m20),
-                ),
-                m30,
-            );
+                // Matrix Multiplication
+                // Match scalar order: ((x*m0 + y*m1) + z*m2) + m3
+                let res_x = _mm256_add_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(_mm256_mul_ps(vx, m00), _mm256_mul_ps(vy, m10)),
+                        _mm256_mul_ps(vz, m20),
+                    ),
+                    m30,
+                );
 
-            let res_y = _mm256_add_ps(
-                _mm256_add_ps(
-                    _mm256_add_ps(_mm256_mul_ps(vx, m01), _mm256_mul_ps(vy, m11)),
-                    _mm256_mul_ps(vz, m21),
-                ),
-                m31,
-            );
+                let res_y = _mm256_add_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(_mm256_mul_ps(vx, m01), _mm256_mul_ps(vy, m11)),
+                        _mm256_mul_ps(vz, m21),
+                    ),
+                    m31,
+                );
 
-            let res_z = _mm256_add_ps(
-                _mm256_add_ps(
-                    _mm256_add_ps(_mm256_mul_ps(vx, m02), _mm256_mul_ps(vy, m12)),
-                    _mm256_mul_ps(vz, m22),
-                ),
-                m32,
-            );
+                let res_z = _mm256_add_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(_mm256_mul_ps(vx, m02), _mm256_mul_ps(vy, m12)),
+                        _mm256_mul_ps(vz, m22),
+                    ),
+                    m32,
+                );
 
-            let res_w = _mm256_add_ps(
-                _mm256_add_ps(
-                    _mm256_add_ps(_mm256_mul_ps(vx, m03), _mm256_mul_ps(vy, m13)),
-                    _mm256_mul_ps(vz, m23),
-                ),
-                m33,
-            );
+                let res_w = _mm256_add_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(_mm256_mul_ps(vx, m03), _mm256_mul_ps(vy, m13)),
+                        _mm256_mul_ps(vz, m23),
+                    ),
+                    m33,
+                );
 
-            // Transpose back to AOS (8x4)
-            let t0 = _mm256_unpacklo_ps(res_x, res_z); // x0 z0 x1 z1 ...
-            let t1 = _mm256_unpackhi_ps(res_x, res_z); // x2 z2 x3 z3 ...
-            let t2 = _mm256_unpacklo_ps(res_y, res_w); // y0 w0 y1 w1 ...
-            let t3 = _mm256_unpackhi_ps(res_y, res_w); // y2 w2 y3 w3 ...
+                // Transpose back to AOS (8x4)
+                let t0 = _mm256_unpacklo_ps(res_x, res_z); // x0 z0 x1 z1 ...
+                let t1 = _mm256_unpackhi_ps(res_x, res_z); // x2 z2 x3 z3 ...
+                let t2 = _mm256_unpacklo_ps(res_y, res_w); // y0 w0 y1 w1 ...
+                let t3 = _mm256_unpackhi_ps(res_y, res_w); // y2 w2 y3 w3 ...
 
-            let out0 = _mm256_unpacklo_ps(t0, t2); // x0 y0 z0 w0 ...
-            let out1 = _mm256_unpackhi_ps(t0, t2); // x1 y1 z1 w1 ...
-            let out2 = _mm256_unpacklo_ps(t1, t3); // x2 y2 z2 w2 ...
-            let out3 = _mm256_unpackhi_ps(t1, t3); // x3 y3 z3 w3 ...
+                let out0 = _mm256_unpacklo_ps(t0, t2); // x0 y0 z0 w0 ...
+                let out1 = _mm256_unpackhi_ps(t0, t2); // x1 y1 z1 w1 ...
+                let out2 = _mm256_unpacklo_ps(t1, t3); // x2 y2 z2 w2 ...
+                let out3 = _mm256_unpackhi_ps(t1, t3); // x3 y3 z3 w3 ...
 
-            // Order: p0, p1, p2, p3, p4, p5, p6, p7
-            let final0 = _mm256_permute2f128_ps(out0, out1, 0x20); // p0 | p1
-            let final1 = _mm256_permute2f128_ps(out2, out3, 0x20); // p2 | p3
-            let final2 = _mm256_permute2f128_ps(out0, out1, 0x31); // p4 | p5
-            let final3 = _mm256_permute2f128_ps(out2, out3, 0x31); // p6 | p7
+                // Order: p0, p1, p2, p3, p4, p5, p6, p7
+                let final0 = _mm256_permute2f128_ps(out0, out1, 0x20); // p0 | p1
+                let final1 = _mm256_permute2f128_ps(out2, out3, 0x20); // p2 | p3
+                let final2 = _mm256_permute2f128_ps(out0, out1, 0x31); // p4 | p5
+                let final3 = _mm256_permute2f128_ps(out2, out3, 0x31); // p6 | p7
 
-            // Store
-            let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
-            _mm256_storeu_ps(out_ptr, final0);
-            _mm256_storeu_ps(out_ptr.add(8), final1);
-            _mm256_storeu_ps(out_ptr.add(16), final2);
-            _mm256_storeu_ps(out_ptr.add(24), final3);
+                // Store
+                let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+                _mm256_storeu_ps(out_ptr, final0);
+                _mm256_storeu_ps(out_ptr.add(8), final1);
+                _mm256_storeu_ps(out_ptr.add(16), final2);
+                _mm256_storeu_ps(out_ptr.add(24), final3);
 
-            i += 8;
-        }
+                i += 8;
+            }
 
-        while i < len {
-            output[i] = self.transform_point(points[i]);
-            i += 1;
+            while i < len {
+                output[i] = self.transform_point(points[i]);
+                i += 1;
+            }
         }
     }
 
