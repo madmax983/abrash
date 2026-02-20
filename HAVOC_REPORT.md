@@ -42,3 +42,17 @@
 - **Outcome:** Quadratic complexity $O(N^2)$ for loading the mesh. A 50k vertex file takes >30 seconds to load instead of <100ms. DoS.
 
 **The Fix:** Implemented a depth limit (8) for the cache chain traversal. If a match isn't found within 8 steps, the vertex is treated as new (skipping deduplication) to ensure O(1) lookup time.
+
+## 5. SoftBody Panic via Invalid Mesh Indices
+**The Trigger:** A `Mesh` constructed with indices pointing to non-existent vertices (e.g., `indices=[0, 0, 1]` but `vertices.len() == 1`).
+
+**The Mechanism:**
+- `SoftBody::new` (or `update`) blindly trusts `mesh.indices`.
+- It accesses `mesh.vertices[index]` without bounds checking (or rather, relying on Rust's bounds checking which panics).
+- **Outcome:** Panic (Crash).
+
+**The Fix:** Not fixed. Reproduction provided in `tests/havoc.rs`.
+
+## Other Findings
+- **Mat4 SIMD Robustness**: `Mat4::transform_points` withstands fuzzing with `NaN`s and `Infinity` using AVX2, matching scalar implementation behavior.
+- **Gouraud Rasterizer**: `src/rasterizer/gouraud.rs` contains numerous unnecessary `unsafe` blocks around safe SIMD intrinsics.

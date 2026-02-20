@@ -3,6 +3,9 @@ use abrash::math::Vec3;
 use abrash::obj_loader::load_obj;
 use abrash::texture::Texture;
 use proptest::prelude::*;
+use abrash::experimental::jelly::SoftBody;
+use abrash::mesh::Mesh;
+use abrash::math::Mat4;
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(500))] // More cases for chaos
@@ -46,4 +49,77 @@ proptest! {
         // Should handle NaNs, Infs, and extreme values gracefully (clamp or return 0)
         let _pixel = tex.get_pixel_trilinear(u, v, lod);
     }
+
+    #[test]
+    fn fuzz_mat4_transform_points(
+        m in any::<[f32; 16]>(),
+        points in prop::collection::vec(any::<[f32; 3]>(), 0..20)
+    ) {
+        let mat = Mat4 {
+            m: [
+                [m[0], m[1], m[2], m[3]],
+                [m[4], m[5], m[6], m[7]],
+                [m[8], m[9], m[10], m[11]],
+                [m[12], m[13], m[14], m[15]],
+            ]
+        };
+
+        let vec3_points: Vec<Vec3> = points.iter().map(|p| Vec3::new(p[0], p[1], p[2])).collect();
+        let mut output = vec![(Vec3::default(), 0.0); vec3_points.len()];
+
+        // This runs the optimized implementation (AVX2 if available)
+        mat.transform_points(&vec3_points, &mut output);
+
+        for (i, p) in vec3_points.iter().enumerate() {
+            let (res_p, res_w) = output[i];
+
+            // Scalar calc
+            let x = mat.m[0][0] * p.x + mat.m[1][0] * p.y + mat.m[2][0] * p.z + mat.m[3][0];
+            let y = mat.m[0][1] * p.x + mat.m[1][1] * p.y + mat.m[2][1] * p.z + mat.m[3][1];
+            let z = mat.m[0][2] * p.x + mat.m[1][2] * p.y + mat.m[2][2] * p.z + mat.m[3][2];
+            let w = mat.m[0][3] * p.x + mat.m[1][3] * p.y + mat.m[2][3] * p.z + mat.m[3][3];
+
+            // Check
+            let check = |a: f32, b: f32, name: &str| -> Result<(), TestCaseError> {
+                 if a.is_nan() {
+                     if !b.is_nan() {
+                         return Err(TestCaseError::fail(format!("{} mismatch: NaN vs {}", name, b)));
+                     }
+                 } else if a.is_infinite() {
+                     if a != b {
+                         return Err(TestCaseError::fail(format!("{} mismatch: Inf vs {}", name, b)));
+                     }
+                 } else {
+                     if b.is_nan() {
+                          return Err(TestCaseError::fail(format!("{} mismatch: {} vs NaN", name, a)));
+                     }
+                     let diff = (a - b).abs();
+                     if diff > 1.0 && diff > a.abs() * 0.1 {
+                          return Err(TestCaseError::fail(format!("{} mismatch: {} vs {} (diff {})", name, a, b, diff)));
+                     }
+                 }
+                 Ok(())
+            };
+
+            check(x, res_p.x, "x")?;
+            check(y, res_p.y, "y")?;
+            check(z, res_p.z, "z")?;
+            check(w, res_w, "w")?;
+        }
+    }
+}
+
+#[test]
+#[should_panic]
+fn test_softbody_panic_on_invalid_mesh() {
+    let mut mesh = Mesh::new();
+    mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+    // Index 1 is out of bounds (only vertex 0 exists)
+    mesh.indices.push([0, 0, 1]);
+
+    // This accesses vertices[1], so it should panic here.
+    let mut soft_body = SoftBody::new(mesh, 1.0, 1.0, 0.5);
+
+    // If it survives creation, update definitely accesses invalid indices.
+    soft_body.update(0.1);
 }
