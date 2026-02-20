@@ -10,7 +10,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
-use crate::rasterizer::fill_triangle_textured;
+use crate::rasterizer::fill_quad_textured;
 use crate::texture::Texture;
 use crate::utils::XorShift32;
 use crate::zbuffer::ZBuffer;
@@ -270,22 +270,12 @@ impl ParticleSystem {
             let c3 = center_clip + r_vec - u_vec;
             let w3 = center_w + r_w - u_w;
 
-            // Render 2 Triangles
-            // Tri 1: 0-1-2
-            fill_triangle_textured(
+            // Render Quad
+            fill_quad_textured(
                 fb,
                 zb,
                 ((c0, w0), uv0),
                 ((c1, w1), uv1),
-                ((c2, w2), uv2),
-                &self.texture,
-            );
-
-            // Tri 2: 0-2-3
-            fill_triangle_textured(
-                fb,
-                zb,
-                ((c0, w0), uv0),
                 ((c2, w2), uv2),
                 ((c3, w3), uv3),
                 &self.texture,

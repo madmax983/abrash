@@ -365,6 +365,189 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     result
 }
 
+/// Clip a quad against the view frustum (6 planes) in Homogeneous Clip Space.
+///
+/// Returns a list of triangles (fan triangulation of the clipped polygon).
+///
+/// # Arguments
+/// * `v0`, `v1`, `v2`, `v3` - Vertices of the quad in CCW or CW order.
+/// * `get_pos` - Function to extract clip-space position (Vec3, w).
+pub fn clip_quad_to_frustum<V: Lerp + Copy>(
+    v0: V,
+    v1: V,
+    v2: V,
+    v3: V,
+    get_pos: impl Fn(&V) -> (Vec3, f32),
+) -> ClippedTriangles<V> {
+    // Optimization: Trivial Accept/Reject
+    let (p0, w0) = get_pos(&v0);
+    let (p1, w1) = get_pos(&v1);
+    let (p2, w2) = get_pos(&v2);
+    let (p3, w3) = get_pos(&v3);
+
+    let check_point = |p: Vec3, w: f32| -> u8 {
+        let mut m = 0;
+        if p.x >= -w {
+            m |= 1;
+        }
+        if p.x <= w {
+            m |= 2;
+        }
+        if p.y >= -w {
+            m |= 4;
+        }
+        if p.y <= w {
+            m |= 8;
+        }
+        if p.z >= -w {
+            m |= 16;
+        }
+        if p.z <= w {
+            m |= 32;
+        }
+        m
+    };
+
+    let m0 = check_point(p0, w0);
+    let m1 = check_point(p1, w1);
+    let m2 = check_point(p2, w2);
+    let m3 = check_point(p3, w3);
+
+    let all_in = m0 & m1 & m2 & m3;
+    if all_in == 0x3F {
+        // Trivial Accept: All inside
+        // Split quad into two triangles: 0-1-2 and 0-2-3
+        let mut result = ClippedTriangles::new_uninit();
+        result.tris[0].write(v0);
+        result.tris[1].write(v1);
+        result.tris[2].write(v2);
+
+        result.tris[3].write(v0);
+        result.tris[4].write(v2);
+        result.tris[5].write(v3);
+        result.count = 2;
+        return result;
+    }
+
+    let any_in = m0 | m1 | m2 | m3;
+    if any_in != 0x3F {
+        // Trivial Reject: All outside at least one plane
+        return ClippedTriangles::new_uninit();
+    }
+
+    // Double buffering for vertex lists
+    // A quad clipped by 6 planes can have more vertices. Safe upper bound 16.
+    let mut buf1: [MaybeUninit<V>; 16] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut buf2: [MaybeUninit<V>; 16] = unsafe { MaybeUninit::uninit().assume_init() };
+
+    // Initialize input buffer
+    buf1[0].write(v0);
+    buf1[1].write(v1);
+    buf1[2].write(v2);
+    buf1[3].write(v3);
+    let mut count = 4;
+
+    // Macro to handle clipping logic for a plane
+    // Reads from $buf_in, writes to $buf_out
+    macro_rules! clip_plane {
+        ($buf_in:ident, $buf_out:ident, $dist_fn:expr) => {
+            if count > 0 {
+                let mut out_count = 0;
+                let prev_idx = count - 1;
+                // SAFETY: We only read up to `count`, which are initialized.
+                let mut prev_v = unsafe { $buf_in[prev_idx].assume_init() };
+                let (prev_pos, prev_w) = get_pos(&prev_v);
+                let mut prev_d = $dist_fn(prev_pos, prev_w);
+
+                for i in 0..count {
+                    // SAFETY: i < count
+                    let curr_v = unsafe { $buf_in[i].assume_init() };
+                    let (curr_pos, curr_w) = get_pos(&curr_v);
+                    let curr_d = $dist_fn(curr_pos, curr_w);
+
+                    if curr_d >= 0.0 {
+                        // Current is inside
+                        if prev_d < 0.0 {
+                            // Entered: add intersection
+                            let t = prev_d / (prev_d - curr_d);
+                            if out_count < 16 {
+                                $buf_out[out_count].write(prev_v.lerp(curr_v, t));
+                                out_count += 1;
+                            }
+                        }
+                        // Add current
+                        if out_count < 16 {
+                            $buf_out[out_count].write(curr_v);
+                            out_count += 1;
+                        }
+                    } else {
+                        // Current is outside
+                        if prev_d >= 0.0 {
+                            // Exited: add intersection
+                            let t = prev_d / (prev_d - curr_d);
+                            if out_count < 16 {
+                                $buf_out[out_count].write(prev_v.lerp(curr_v, t));
+                                out_count += 1;
+                            }
+                        }
+                    }
+
+                    prev_v = curr_v;
+                    prev_d = curr_d;
+                }
+                count = out_count;
+            }
+        };
+    }
+
+    // Unroll loop over 6 planes using ping-pong buffering
+    // 1. Left: x >= -w -> x + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.x + w);
+
+    // 2. Right: x <= w -> w - x >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.x);
+
+    // 3. Bottom: y >= -w -> y + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.y + w);
+
+    // 4. Top: y <= w -> w - y >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.y);
+
+    // 5. Near: z >= -w -> z + w >= 0
+    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.z + w);
+
+    // 6. Far: z <= w -> w - z >= 0
+    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.z);
+
+    // Result is in buf1 (since we did an even number of ping-pongs)
+
+    // Triangulate (Fan)
+    let mut result = ClippedTriangles::new_uninit();
+
+    if count >= 3 {
+        // Pivot vertex
+        // SAFETY: count >= 3, so buf1[0] is initialized
+        let pivot = unsafe { buf1[0].assume_init() };
+        // Generate triangles: (0, 1, 2), (0, 2, 3), (0, 3, 4), ...
+        // Number of triangles = count - 2
+
+        for i in 1..count - 1 {
+            if result.count < 8 {
+                let idx = result.count * 3;
+                // SAFETY: i < count-1, so i and i+1 are within bounds and initialized
+                let v1 = unsafe { buf1[i].assume_init() };
+                let v2 = unsafe { buf1[i + 1].assume_init() };
+                result.tris[idx].write(pivot);
+                result.tris[idx + 1].write(v1);
+                result.tris[idx + 2].write(v2);
+                result.count += 1;
+            }
+        }
+    }
+
+    result
+}
+
 /// Clip a line segment against the view frustum (6 planes) in Homogeneous Clip Space.
 ///
 /// Returns `Some((v0, v1))` if the line is partially or fully visible, `None` if fully culled.
