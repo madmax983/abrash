@@ -141,6 +141,29 @@ fn benchmark_box_blur_f32(c: &mut Criterion) {
     });
 }
 
+fn benchmark_sobel(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    // Fill with a checkerboard pattern to ensure gradients
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_sobel 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_sobel(black_box(&mut fb));
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -151,5 +174,6 @@ criterion_group!(
     benchmark_bloom,
     benchmark_ssao,
     benchmark_box_blur_f32,
+    benchmark_sobel,
 );
 criterion_main!(benches);
