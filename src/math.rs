@@ -390,7 +390,7 @@ impl Mul for Vec3 {
 /// assert!((p_prime.y - 5.0).abs() < 0.001);
 /// assert!((p_prime.z - -2.0).abs() < 0.001);
 /// ```
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
@@ -577,10 +577,8 @@ impl Mat4 {
     ///
     /// # Safety
     ///
-    /// The SIMD implementation uses `_mm_loadu_ps` (load unaligned packed single), which safely
-    /// handles unaligned memory access. This is necessary because the `m` field of `Mat4`
-    /// is a `[[f32; 4]; 4]` array, which is not guaranteed to be 16-byte aligned by Rust's
-    /// default layout.
+    /// The SIMD implementation uses `_mm_load_ps` (load aligned packed single) for maximum performance.
+    /// `Mat4` is marked `#[repr(align(16))]`, ensuring 16-byte alignment for all rows.
     ///
     /// # Examples
     ///
@@ -600,17 +598,16 @@ impl Mat4 {
     #[inline]
     pub fn transform_point(&self, v: Vec3) -> (Vec3, f32) {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        // SAFETY: We use _mm_loadu_ps which is safe for potentially unaligned addresses.
-        // We rely on the `simd` feature gate ensuring SSE is available.
+        // SAFETY: Mat4 is 16-byte aligned, so _mm_load_ps is safe and optimal.
         unsafe {
             use std::arch::x86_64::{
-                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
+                _mm_add_ps, _mm_load_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
             };
 
-            let row0 = _mm_loadu_ps(self.m[0].as_ptr());
-            let row1 = _mm_loadu_ps(self.m[1].as_ptr());
-            let row2 = _mm_loadu_ps(self.m[2].as_ptr());
-            let row3 = _mm_loadu_ps(self.m[3].as_ptr());
+            let row0 = _mm_load_ps(self.m[0].as_ptr());
+            let row1 = _mm_load_ps(self.m[1].as_ptr());
+            let row2 = _mm_load_ps(self.m[2].as_ptr());
+            let row3 = _mm_load_ps(self.m[3].as_ptr());
 
             let vx = _mm_set1_ps(v.x);
             let vy = _mm_set1_ps(v.y);
@@ -914,19 +911,19 @@ impl Mul for Mat4 {
     fn mul(self, other: Self) -> Self {
         unsafe {
             use std::arch::x86_64::{
-                _mm_add_ps, _mm_loadu_ps, _mm_mul_ps, _mm_shuffle_ps, _mm_storeu_ps,
+                _mm_add_ps, _mm_load_ps, _mm_mul_ps, _mm_shuffle_ps, _mm_store_ps,
             };
             let mut result = Self { m: [[0.0; 4]; 4] };
 
             // Load rows of B
-            let b0 = _mm_loadu_ps(other.m[0].as_ptr());
-            let b1 = _mm_loadu_ps(other.m[1].as_ptr());
-            let b2 = _mm_loadu_ps(other.m[2].as_ptr());
-            let b3 = _mm_loadu_ps(other.m[3].as_ptr());
+            let b0 = _mm_load_ps(other.m[0].as_ptr());
+            let b1 = _mm_load_ps(other.m[1].as_ptr());
+            let b2 = _mm_load_ps(other.m[2].as_ptr());
+            let b3 = _mm_load_ps(other.m[3].as_ptr());
 
             for i in 0..4 {
                 // Load row i of A
-                let row_a = _mm_loadu_ps(self.m[i].as_ptr());
+                let row_a = _mm_load_ps(self.m[i].as_ptr());
 
                 // Broadcast A[i][0]
                 let a0 = _mm_shuffle_ps(row_a, row_a, 0x00);
@@ -944,7 +941,7 @@ impl Mul for Mat4 {
                 let a3 = _mm_shuffle_ps(row_a, row_a, 0xFF);
                 row_res = _mm_add_ps(row_res, _mm_mul_ps(a3, b3));
 
-                _mm_storeu_ps(result.m[i].as_mut_ptr(), row_res);
+                _mm_store_ps(result.m[i].as_mut_ptr(), row_res);
             }
             result
         }
