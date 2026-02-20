@@ -25,3 +25,7 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Refactor: High Cohesion Modules]
+**Tangle:** The `src/lib.rs` file was a flat list of 20+ modules, mixing core systems, pipeline stages, and assets.
+**Blueprint:** Grouped modules into `core`, `graphics`, `pipeline`, `assets`, `scene`, `render`. Used `pub(crate)` for modules and `pub use` in `lib.rs` to maintain the public API (Facade Pattern).

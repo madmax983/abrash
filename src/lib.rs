@@ -81,33 +81,40 @@
 //! *   [`texture`]: Texture loading and sampling.
 //! *   [`obj_loader`]: Wavefront OBJ parser.
 
-pub mod framebuffer;
-pub mod math;
-pub mod mesh;
-pub mod platform;
-pub mod rasterizer;
-pub mod time;
-pub mod utils;
-pub mod zbuffer;
+// Structural modules (hidden implementation details)
+pub(crate) mod core;
+pub(crate) mod graphics;
+pub(crate) mod pipeline;
+pub(crate) mod assets;
+pub(crate) mod scene;
+pub(crate) mod render;
 
-pub mod ascii;
-pub mod clipping;
-pub mod culling;
-pub mod heat_vision;
-pub mod hiz_buffer;
-pub mod obj_loader;
-pub mod particles;
-pub mod post_process;
-pub mod procedural;
-pub mod skybox;
-pub mod texture;
-pub mod tile_renderer;
+// Public API Re-exports (The Facade)
+// These maintain the flat API structure and allow internal `crate::module` resolution.
 
+// Core
+pub use self::core::{math, time, utils, platform};
+
+// Graphics
+pub use self::graphics::{framebuffer, zbuffer, hiz_buffer, texture, mesh};
+
+// Pipeline
+pub use self::pipeline::{rasterizer, clipping, culling, tile_renderer};
+
+// Assets
+pub use self::assets::obj_loader;
+
+// Scene / Effects
+pub use self::scene::{skybox, particles, heat_vision, procedural, post_process};
+
+// Render / Backends
+pub use self::render::ascii;
+#[cfg(feature = "gpu-render")]
+pub use self::render::gpu_render;
+
+// Experimental / Separate modules
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
-
-#[cfg(feature = "gpu-render")]
-pub mod gpu_render;
 
 #[cfg(feature = "nova")]
 pub mod experimental;
