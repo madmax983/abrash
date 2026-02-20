@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static CHROMATIC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -1189,43 +1190,162 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
-    let mut row_buffer = Vec::with_capacity(width);
-    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
-    // but `u32` has no validity invariants (any bit pattern is a valid u32).
-    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
-    unsafe { row_buffer.set_len(width); }
-
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
-
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    CHROMATIC_BUFFER.with(|buffer| {
+        let mut row_buffer = buffer.borrow_mut();
+        if row_buffer.len() < width {
+            row_buffer.resize(width, 0);
         }
+
+        // We only need `width` elements
+        let row_buffer = &mut row_buffer[..width];
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy current row to scratch buffer
+            row_buffer.copy_from_slice(row_pixels);
+
+            // 1. Left edge: x < offset
+            // Red is 0 (out of bounds)
+            // Blue is x + offset
+            let left_limit = offset.min(width);
+            for x in 0..left_limit {
+                let g = (row_buffer[x] >> 8) & 0xFF;
+                let a = (row_buffer[x] >> 24) & 0xFF;
+                let r = 0;
+                let b_idx = x + offset;
+                let b = if b_idx < width {
+                    row_buffer[b_idx] & 0xFF
+                } else {
+                    0
+                };
+                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+
+            // 2. Center: offset <= x < width - offset
+            // Both Red and Blue are within bounds
+            if width > 2 * offset {
+                let center_limit = width - offset;
+
+                #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+                if std::is_x86_feature_detected!("avx2") {
+                    // We process the bulk with SIMD
+                    // The SIMD function handles the range [offset, width-offset]
+                    // checking for 8-pixel chunks. It returns the new x.
+                    let next_x = unsafe {
+                        apply_chromatic_aberration_avx2(
+                            row_pixels,
+                            row_buffer,
+                            offset,
+                            width,
+                        )
+                    };
+
+                    // Process remaining scalar part (if any)
+                    for x in next_x..center_limit {
+                        unsafe {
+                            let g = (*row_buffer.get_unchecked(x) >> 8) & 0xFF;
+                            let a = (*row_buffer.get_unchecked(x) >> 24) & 0xFF;
+                            let r = (*row_buffer.get_unchecked(x - offset) >> 16) & 0xFF;
+                            let b = *row_buffer.get_unchecked(x + offset) & 0xFF;
+                            *row_pixels.get_unchecked_mut(x) =
+                                (a << 24) | (r << 16) | (g << 8) | b;
+                        }
+                    }
+                } else {
+                    for x in offset..center_limit {
+                        unsafe {
+                            let g = (*row_buffer.get_unchecked(x) >> 8) & 0xFF;
+                            let a = (*row_buffer.get_unchecked(x) >> 24) & 0xFF;
+                            let r = (*row_buffer.get_unchecked(x - offset) >> 16) & 0xFF;
+                            let b = *row_buffer.get_unchecked(x + offset) & 0xFF;
+                            *row_pixels.get_unchecked_mut(x) =
+                                (a << 24) | (r << 16) | (g << 8) | b;
+                        }
+                    }
+                }
+
+                #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+                for x in offset..center_limit {
+                    unsafe {
+                        let g = (*row_buffer.get_unchecked(x) >> 8) & 0xFF;
+                        let a = (*row_buffer.get_unchecked(x) >> 24) & 0xFF;
+                        let r = (*row_buffer.get_unchecked(x - offset) >> 16) & 0xFF;
+                        let b = *row_buffer.get_unchecked(x + offset) & 0xFF;
+                        *row_pixels.get_unchecked_mut(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
+                }
+            }
+
+            // 3. Right edge: width - offset <= x < width
+            // Red is x - offset
+            // Blue is 0 (out of bounds)
+            if width > offset {
+                let right_start = (width - offset).max(offset);
+                for x in right_start..width {
+                    let g = (row_buffer[x] >> 8) & 0xFF;
+                    let a = (row_buffer[x] >> 24) & 0xFF;
+                    let r = (row_buffer[x - offset] >> 16) & 0xFF;
+                    let b = 0;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+            }
+        }
+    });
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(
+    row_pixels: &mut [u32],
+    row_buffer: &[u32],
+    offset: usize,
+    width: usize,
+) -> usize {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_storeu_si256,
+    };
+
+    let start_x = offset;
+    let end_x = width - offset;
+
+    let mut x = start_x;
+
+    let mask_ga = _mm256_set1_epi32(0xFF00FF00u32 as i32);
+    let mask_r = _mm256_set1_epi32(0x00FF0000);
+    let mask_b = _mm256_set1_epi32(0x000000FF);
+
+    let src_ptr = row_buffer.as_ptr();
+    let dst_ptr = row_pixels.as_mut_ptr();
+
+    while x + 8 <= end_x {
+        // Load current (for G and A)
+        let curr = _mm256_loadu_si256(src_ptr.add(x).cast());
+
+        // Load left (for R)
+        let left = _mm256_loadu_si256(src_ptr.add(x - offset).cast());
+
+        // Load right (for B)
+        let right = _mm256_loadu_si256(src_ptr.add(x + offset).cast());
+
+        // Mask
+        let curr_ga = _mm256_and_si256(curr, mask_ga);
+        let left_r = _mm256_and_si256(left, mask_r);
+        let right_b = _mm256_and_si256(right, mask_b);
+
+        // Combine
+        let result = _mm256_or_si256(curr_ga, _mm256_or_si256(left_r, right_b));
+
+        // Store
+        _mm256_storeu_si256(dst_ptr.add(x).cast(), result);
+
+        x += 8;
     }
+
+    x
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
