@@ -1,8 +1,8 @@
-use abrash::texture::Texture;
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::math::{Vec3, Vec2};
+use abrash::math::{Vec2, Vec3};
 use abrash::rasterizer::fill_triangle_textured;
+use abrash::texture::Texture;
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn crash_texture_invariant_violation() {

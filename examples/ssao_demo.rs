@@ -6,11 +6,11 @@
 //! Use the --ssao flag to control initial state (default: on).
 //! SSAO toggles every 3 seconds for comparison.
 
-use abrash::post_process::apply_ssao;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::platform::{Window, WindowBackend};
+use abrash::post_process::apply_ssao;
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -53,14 +53,8 @@ fn print_banner() {
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
         ])
-        .add_row(vec![
-            Cell::new("Mouse"),
-            Cell::new("None"),
-        ])
-        .add_row(vec![
-            Cell::new("Keyboard"),
-            Cell::new("None (Auto-toggle)"),
-        ]);
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("None (Auto-toggle)")]);
     println!("{controls}\n");
 }
 
