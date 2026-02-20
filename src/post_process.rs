@@ -943,6 +943,47 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 /// // 0xFF >> 1 = 0x7F
 /// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
 /// ```
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_scanlines_avx2(pixels: &mut [u32]) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_srli_epi32, _mm256_storeu_si256,
+    };
+
+    unsafe {
+        let mask_7f = _mm256_set1_epi32(0x7F7F_7F7Fu32 as i32);
+        let mask_alpha = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+        let len = pixels.len();
+        let mut ptr = pixels.as_mut_ptr();
+        let end_ptr = ptr.add(len & !7);
+
+        while ptr < end_ptr {
+            let v = _mm256_loadu_si256(ptr.cast());
+
+            // ((p >> 1) & 0x7F7F_7F7F)
+            let v_shifted = _mm256_srli_epi32(v, 1);
+            let v_masked = _mm256_and_si256(v_shifted, mask_7f);
+
+            // | (p & 0xFF00_0000)
+            let v_alpha = _mm256_and_si256(v, mask_alpha);
+            let v_final = _mm256_or_si256(v_masked, v_alpha);
+
+            _mm256_storeu_si256(ptr.cast(), v_final);
+            ptr = ptr.add(8);
+        }
+
+        // Tail handled by caller or scalar fallback if needed?
+        // Since we iterate row by row, we can just handle tail here.
+        let tail_start = len & !7;
+        for i in tail_start..len {
+            let p = *pixels.get_unchecked(i);
+            *pixels.get_unchecked_mut(i) = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+        }
+    }
+}
+
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -953,6 +994,15 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
         let start = y * width;
         let end = start + width;
         let row = &mut pixels[start..end];
+
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                unsafe { apply_scanlines_avx2(row) };
+                continue;
+            }
+        }
+
         for pixel in row.iter_mut() {
             let p = *pixel;
             // Halve RGB components: (color >> 1) & mask
@@ -1179,6 +1229,125 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
 /// apply_chromatic_aberration(&mut fb, 5);
 /// ```
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(
+    row_pixels: &mut [u32],
+    row_buffer: &[u32],
+    offset: usize,
+) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_storeu_si256,
+    };
+
+    let width = row_pixels.len();
+    // Inner loop range: [offset, width - offset)
+    // We process 8 pixels at a time.
+    // We need to ensure we don't read/write out of bounds.
+    // Start at 'offset'.
+    // End at 'width - offset'.
+
+    if width <= 2 * offset {
+        // Fallback to scalar if overlap or too small
+        apply_chromatic_aberration_scalar(row_pixels, row_buffer, offset);
+        return;
+    }
+
+    let start_x = offset;
+    let end_x = width - offset;
+
+    // Handle left scalar part [0..start_x]
+    for x in 0..start_x {
+        let center = row_buffer[x];
+        let right = row_buffer[x + offset];
+        // R from left is 0
+        let a = (center >> 24) & 0xFF;
+        let g = (center >> 8) & 0xFF;
+        let b = right & 0xFF;
+        row_pixels[x] = (a << 24) | (g << 8) | b;
+    }
+
+    // SIMD loop [start_x..end_x]
+    let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32); // Alpha (FFxxxxxx) | Green (xxxxFFxx)
+    let mask_r = _mm256_set1_epi32(0x00FF_0000); // Red (xxFFxxxx)
+    let mask_b = _mm256_set1_epi32(0x0000_00FF); // Blue (xxxxxxFF)
+
+    let mut x = start_x;
+    while x + 8 <= end_x {
+        // Center
+        let center_ptr = row_buffer.as_ptr().add(x);
+        let center_vec = _mm256_loadu_si256(center_ptr.cast());
+
+        // Left (x - offset)
+        let left_ptr = row_buffer.as_ptr().add(x - offset);
+        let left_vec = _mm256_loadu_si256(left_ptr.cast());
+
+        // Right (x + offset)
+        let right_ptr = row_buffer.as_ptr().add(x + offset);
+        let right_vec = _mm256_loadu_si256(right_ptr.cast());
+
+        // Combine
+        // Dest = (Center & GA) | (Left & R) | (Right & B)
+        let part_ga = _mm256_and_si256(center_vec, mask_ga);
+        let part_r = _mm256_and_si256(left_vec, mask_r);
+        let part_b = _mm256_and_si256(right_vec, mask_b);
+
+        let res = _mm256_or_si256(part_ga, _mm256_or_si256(part_r, part_b));
+
+        _mm256_storeu_si256(row_pixels.as_mut_ptr().add(x).cast(), res);
+
+        x += 8;
+    }
+
+    // Scalar loop for remaining inner part
+    while x < end_x {
+        let center = row_buffer[x];
+        let left = row_buffer[x - offset];
+        let right = row_buffer[x + offset];
+
+        let a_g = center & 0xFF00_FF00;
+        let r = left & 0x00FF_0000;
+        let b = right & 0x0000_00FF;
+
+        row_pixels[x] = a_g | r | b;
+        x += 1;
+    }
+
+    // Handle right scalar part [end_x..width]
+    for x in end_x..width {
+        let center = row_buffer[x];
+        let left = row_buffer[x - offset];
+        // B from right is 0
+        let a = (center >> 24) & 0xFF;
+        let g = (center >> 8) & 0xFF;
+        let r = (left >> 16) & 0xFF;
+        row_pixels[x] = (a << 24) | (r << 16) | (g << 8);
+    }
+}
+
+fn apply_chromatic_aberration_scalar(row_pixels: &mut [u32], row_buffer: &[u32], offset: usize) {
+    let width = row_pixels.len();
+    for x in 0..width {
+        let g = (row_buffer[x] >> 8) & 0xFF;
+        let a = (row_buffer[x] >> 24) & 0xFF;
+
+        let r = if x >= offset {
+            (row_buffer[x - offset] >> 16) & 0xFF
+        } else {
+            0
+        };
+
+        let b = if x + offset < width {
+            row_buffer[x + offset] & 0xFF
+        } else {
+            0
+        };
+
+        row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    }
+}
+
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     if offset == 0 {
         return;
@@ -1203,28 +1372,15 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
         // Copy current row to scratch buffer
         row_buffer.copy_from_slice(row_pixels);
 
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                unsafe { apply_chromatic_aberration_avx2(row_pixels, &row_buffer, offset) };
+                continue;
+            }
         }
+
+        apply_chromatic_aberration_scalar(row_pixels, &row_buffer, offset);
     }
 }
 
