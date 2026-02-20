@@ -297,3 +297,7 @@ harness = false
 [[bench]]
 name = "textured_gouraud_scanline"
 harness = false
+
+[[bench]]
+name = "particles_bench"
+harness = false
