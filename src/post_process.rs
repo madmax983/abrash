@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static CHROMATIC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -1189,43 +1190,51 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
-    let mut row_buffer = Vec::with_capacity(width);
-    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
-    // but `u32` has no validity invariants (any bit pattern is a valid u32).
-    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
-    unsafe { row_buffer.set_len(width); }
-
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
-
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    CHROMATIC_BUFFER.with(|buffer| {
+        let mut row_buffer = buffer.borrow_mut();
+        let current_len = row_buffer.len();
+        if row_buffer.capacity() < width {
+            row_buffer.reserve(width.saturating_sub(current_len));
         }
-    }
+        // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
+        // but `u32` has no validity invariants (any bit pattern is a valid u32).
+        // We immediately overwrite the buffer with `copy_from_slice` in the loop.
+        unsafe {
+            row_buffer.set_len(width);
+        }
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy current row to scratch buffer
+            row_buffer.copy_from_slice(row_pixels);
+
+            for x in 0..width {
+                // Green (G) from current pixel
+                let g = (row_buffer[x] >> 8) & 0xFF;
+                // Alpha (A) from current pixel
+                let a = (row_buffer[x] >> 24) & 0xFF;
+
+                // Red (R) from left (x - offset)
+                let r = if x >= offset {
+                    (row_buffer[x - offset] >> 16) & 0xFF
+                } else {
+                    0
+                };
+
+                // Blue (B) from right (x + offset)
+                let b = if x + offset < width {
+                    row_buffer[x + offset] & 0xFF
+                } else {
+                    0
+                };
+
+                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -2157,4 +2166,56 @@ mod tests {
         assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+    }
+
+    #[test]
+    fn test_apply_chromatic_aberration_large() {
+        let width = 32;
+        let height = 1;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+
+        // Fill with pattern
+        for x in 0..width {
+            let val = (x + 1) as u32;
+            // R=val, G=val*2, B=val*3
+            let r = val;
+            let g = val * 2;
+            let b = val * 3;
+            let p = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            fb.set_pixel(x as i32, 0, p);
+        }
+
+        let offset = 2;
+        apply_chromatic_aberration(&mut fb, offset);
+
+        // Verify
+        for x in 0..width {
+            let p = fb.get_pixel(x as i32, 0).unwrap();
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            let val = (x + 1) as u32;
+            let expected_g = (val * 2) & 0xFF;
+
+            assert_eq!(g, expected_g, "Green mismatch at {}", x);
+
+            let expected_r = if x >= offset {
+                let prev_val = x - offset + 1;
+                prev_val & 0xFF
+            } else {
+                0
+            };
+
+            assert_eq!(r, expected_r, "Red mismatch at {}", x);
+
+            let expected_b = if x + offset < width {
+                let next_val = x + offset + 1;
+                (next_val * 3) & 0xFF
+            } else {
+                0
+            };
+
+            assert_eq!(b, expected_b, "Blue mismatch at {}", x);
+        }
     }
