@@ -26,6 +26,7 @@ use std::cell::RefCell;
 thread_local! {
     static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
+    static CHROMATIC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 const KERNEL_SIZE: usize = 16;
@@ -1189,44 +1190,91 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
-    let mut row_buffer = Vec::with_capacity(width);
-    // SAFETY: We explicitly set the length to `width`. The content is uninitialized (garbage),
-    // but `u32` has no validity invariants (any bit pattern is a valid u32).
-    // We immediately overwrite the buffer with `copy_from_slice` in the loop.
-    unsafe { row_buffer.set_len(width); }
-
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
-        // Copy current row to scratch buffer
-        row_buffer.copy_from_slice(row_pixels);
-
-        for x in 0..width {
-            // Green (G) from current pixel
-            let g = (row_buffer[x] >> 8) & 0xFF;
-            // Alpha (A) from current pixel
-            let a = (row_buffer[x] >> 24) & 0xFF;
-
-            // Red (R) from left (x - offset)
-            let r = if x >= offset {
-                (row_buffer[x - offset] >> 16) & 0xFF
-            } else {
-                0
-            };
-
-            // Blue (B) from right (x + offset)
-            let b = if x + offset < width {
-                row_buffer[x + offset] & 0xFF
-            } else {
-                0
-            };
-
-            row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    CHROMATIC_BUFFER.with(|buffer| {
+        let mut row_buffer = buffer.borrow_mut();
+        if row_buffer.len() < width {
+            row_buffer.resize(width, 0);
         }
+
+        let row_slice = &mut row_buffer[..width];
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy current row to scratch buffer
+            row_slice.copy_from_slice(row_pixels);
+
+            let center_start = offset;
+            let center_end = width.saturating_sub(offset);
+
+            if center_start < center_end {
+                // 1. Left Edge: 0..offset (Red is 0)
+                for x in 0..center_start {
+                    let g = (row_slice[x] >> 8) & 0xFF;
+                    let a = (row_slice[x] >> 24) & 0xFF;
+                    let r = 0;
+                    let b = row_slice[x + offset] & 0xFF;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+
+                // 2. Center: offset..width-offset
+                apply_chromatic_aberration_row_scalar(
+                    row_slice,
+                    row_pixels,
+                    offset,
+                    center_start,
+                    center_end,
+                );
+
+                // 3. Right Edge: width-offset..width (Blue is 0)
+                for x in center_end..width {
+                    let g = (row_slice[x] >> 8) & 0xFF;
+                    let a = (row_slice[x] >> 24) & 0xFF;
+                    let r = (row_slice[x - offset] >> 16) & 0xFF;
+                    let b = 0;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+            } else {
+                // Fallback for overlapping regions
+                for x in 0..width {
+                    let g = (row_slice[x] >> 8) & 0xFF;
+                    let a = (row_slice[x] >> 24) & 0xFF;
+                    let r = if x >= offset {
+                        (row_slice[x - offset] >> 16) & 0xFF
+                    } else {
+                        0
+                    };
+                    let b = if x + offset < width {
+                        row_slice[x + offset] & 0xFF
+                    } else {
+                        0
+                    };
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+            }
+        }
+    });
+}
+
+#[inline(always)]
+fn apply_chromatic_aberration_row_scalar(
+    src: &[u32],
+    dest: &mut [u32],
+    offset: usize,
+    start: usize,
+    end: usize,
+) {
+    for x in start..end {
+        let g = (src[x] >> 8) & 0xFF;
+        let a = (src[x] >> 24) & 0xFF;
+        let r = (src[x - offset] >> 16) & 0xFF;
+        let b = src[x + offset] & 0xFF;
+        dest[x] = (a << 24) | (r << 16) | (g << 8) | b;
     }
 }
+
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
