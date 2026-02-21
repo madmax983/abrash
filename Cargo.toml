@@ -317,3 +317,7 @@ harness = false
 [[bench]]
 name = "skybox_benchmark"
 harness = false
+
+[[bench]]
+name = "zbuffer_bench"
+harness = false
