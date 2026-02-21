@@ -3,6 +3,8 @@
 //! This module provides functions to apply SSAO to a rendered scene using the depth buffer.
 //! SSAO simulates the darkening that occurs in corners and crevices where ambient light is occluded.
 
+#![allow(warnings)]
+
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::zbuffer::ZBuffer;

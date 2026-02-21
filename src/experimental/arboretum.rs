@@ -18,6 +18,8 @@
 //! *   `[`: Push state to stack.
 //! *   `]`: Pop state from stack.
 
+#![allow(warnings)]
+
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::collections::HashMap;
