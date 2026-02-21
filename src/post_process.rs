@@ -1263,6 +1263,70 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
     apply_sepia_scalar(pixels);
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(
+    row_pixels: &mut [u32],
+    row_buffer: &[u32],
+    offset: usize,
+    start_x: usize,
+    end_x: usize,
+) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_slli_epi32, _mm256_srli_epi32, _mm256_storeu_si256,
+    };
+
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let mask_alpha = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    let mut x = start_x;
+    while x + 8 <= end_x {
+        unsafe {
+            // Pointers for unaligned loads
+            let ptr_center = row_buffer.as_ptr().add(x);
+            let ptr_left = row_buffer.as_ptr().add(x - offset);
+            let ptr_right = row_buffer.as_ptr().add(x + offset);
+
+            let v_center = _mm256_loadu_si256(ptr_center.cast());
+            let v_left = _mm256_loadu_si256(ptr_left.cast());
+            let v_right = _mm256_loadu_si256(ptr_right.cast());
+
+            // G: (center >> 8) & 0xFF
+            let g_shifted = _mm256_srli_epi32(v_center, 8);
+            let g = _mm256_and_si256(g_shifted, mask_ff);
+
+            // A: center & 0xFF000000
+            let a = _mm256_and_si256(v_center, mask_alpha);
+
+            // R: (left >> 16) & 0xFF
+            let r_shifted = _mm256_srli_epi32(v_left, 16);
+            let r = _mm256_and_si256(r_shifted, mask_ff);
+
+            // B: right & 0xFF
+            let b = _mm256_and_si256(v_right, mask_ff);
+
+            // Combine: A | (R << 16) | (G << 8) | B
+            let r_out = _mm256_slli_epi32(r, 16);
+            let g_out = _mm256_slli_epi32(g, 8);
+
+            let result = _mm256_or_si256(a, _mm256_or_si256(r_out, _mm256_or_si256(g_out, b)));
+
+            _mm256_storeu_si256(row_pixels.as_mut_ptr().add(x).cast(), result);
+        }
+        x += 8;
+    }
+
+    // Scalar tail for the SIMD range
+    for i in x..end_x {
+        let g = (row_buffer[i] >> 8) & 0xFF;
+        let a = (row_buffer[i] >> 24) & 0xFF;
+        let r = (row_buffer[i - offset] >> 16) & 0xFF;
+        let b = row_buffer[i + offset] & 0xFF;
+        row_pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
+    }
+}
+
 /// Applies chromatic aberration by shifting Red and Blue channels.
 ///
 /// *   Red channel is shifted left by `offset`.
@@ -1314,27 +1378,71 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
             // We only need the first `width` elements.
             row_buffer[..width].copy_from_slice(row_pixels);
 
-            for x in 0..width {
-                // Green (G) from current pixel
-                let g = (row_buffer[x] >> 8) & 0xFF;
-                // Alpha (A) from current pixel
-                let a = (row_buffer[x] >> 24) & 0xFF;
+            #[allow(unused_mut)]
+            let mut processed_simd = false;
 
-                // Red (R) from left (x - offset)
-                let r = if x >= offset {
-                    (row_buffer[x - offset] >> 16) & 0xFF
-                } else {
-                    0
-                };
+            #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+            if std::is_x86_feature_detected!("avx2") && width > 2 * offset {
+                let start_x = offset;
+                let end_x = width - offset;
 
-                // Blue (B) from right (x + offset)
-                let b = if x + offset < width {
-                    row_buffer[x + offset] & 0xFF
-                } else {
-                    0
-                };
+                // SAFETY: We checked AVX2 and bounds.
+                unsafe {
+                    apply_chromatic_aberration_avx2(
+                        row_pixels,
+                        &row_buffer[..width],
+                        offset,
+                        start_x,
+                        end_x,
+                    );
+                }
 
-                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                // Process Left Edge (0..offset)
+                // x < offset, so Red is always 0.
+                for x in 0..start_x {
+                    let g = (row_buffer[x] >> 8) & 0xFF;
+                    let a = (row_buffer[x] >> 24) & 0xFF;
+                    // Blue is valid if x + offset < width (which is true since offset < width/2)
+                    let b = row_buffer[x + offset] & 0xFF;
+                    row_pixels[x] = (a << 24) | (g << 8) | b;
+                }
+
+                // Process Right Edge (width-offset..width)
+                // x >= width - offset => x + offset >= width, so Blue is always 0.
+                for x in end_x..width {
+                    let g = (row_buffer[x] >> 8) & 0xFF;
+                    let a = (row_buffer[x] >> 24) & 0xFF;
+                    // Red is valid since x >= offset
+                    let r = (row_buffer[x - offset] >> 16) & 0xFF;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8);
+                }
+
+                processed_simd = true;
+            }
+
+            if !processed_simd {
+                for x in 0..width {
+                    // Green (G) from current pixel
+                    let g = (row_buffer[x] >> 8) & 0xFF;
+                    // Alpha (A) from current pixel
+                    let a = (row_buffer[x] >> 24) & 0xFF;
+
+                    // Red (R) from left (x - offset)
+                    let r = if x >= offset {
+                        (row_buffer[x - offset] >> 16) & 0xFF
+                    } else {
+                        0
+                    };
+
+                    // Blue (B) from right (x + offset)
+                    let b = if x + offset < width {
+                        row_buffer[x + offset] & 0xFF
+                    } else {
+                        0
+                    };
+
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
             }
         }
     });
@@ -1432,23 +1540,18 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
-unsafe fn apply_sobel_avx2(
-    pixels: &mut [u32],
-    lum_buffer: &mut [u8],
-    width: usize,
-    height: usize,
-) {
+unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usize, height: usize) {
     use std::arch::x86_64::*;
 
     // 1. RGB -> Luminance
     {
         let len = width * height;
-        let mut s_ptr = pixels.as_ptr();
-        let mut d_ptr = lum_buffer.as_mut_ptr();
+        let s_ptr = pixels.as_ptr();
+        let d_ptr = lum_buffer.as_mut_ptr();
 
         let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
         let perm_mask = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
-        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let _alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
         let mut i = 0;
         while i + 32 <= len {
@@ -1557,25 +1660,29 @@ unsafe fn apply_sobel_avx2(
                 let ptr = lum_buffer.as_ptr();
 
                 let tl = load_i16(ptr, top_offset + x - 1);
-                let t  = load_i16(ptr, top_offset + x);
+                let t = load_i16(ptr, top_offset + x);
                 let tr = load_i16(ptr, top_offset + x + 1);
 
-                let l  = load_i16(ptr, mid_offset + x - 1);
+                let l = load_i16(ptr, mid_offset + x - 1);
                 // let c  = load_i16(ptr, mid_offset + x); // Center unused
-                let r  = load_i16(ptr, mid_offset + x + 1);
+                let r = load_i16(ptr, mid_offset + x + 1);
 
                 let bl = load_i16(ptr, bot_offset + x - 1);
-                let b  = load_i16(ptr, bot_offset + x);
+                let b = load_i16(ptr, bot_offset + x);
                 let br = load_i16(ptr, bot_offset + x + 1);
 
                 // Gx = (TR + 2*R + BR) - (TL + 2*L + BL)
-                let right_part = _mm256_add_epi16(_mm256_add_epi16(tr, br), _mm256_mullo_epi16(r, two));
-                let left_part = _mm256_add_epi16(_mm256_add_epi16(tl, bl), _mm256_mullo_epi16(l, two));
+                let right_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tr, br), _mm256_mullo_epi16(r, two));
+                let left_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tl, bl), _mm256_mullo_epi16(l, two));
                 let gx = _mm256_sub_epi16(right_part, left_part);
 
                 // Gy = (BL + 2*B + BR) - (TL + 2*T + TR)
-                let bot_part = _mm256_add_epi16(_mm256_add_epi16(bl, br), _mm256_mullo_epi16(b, two));
-                let top_part = _mm256_add_epi16(_mm256_add_epi16(tl, tr), _mm256_mullo_epi16(t, two));
+                let bot_part =
+                    _mm256_add_epi16(_mm256_add_epi16(bl, br), _mm256_mullo_epi16(b, two));
+                let top_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tl, tr), _mm256_mullo_epi16(t, two));
                 let gy = _mm256_sub_epi16(bot_part, top_part);
 
                 // Magnitude = abs(Gx) + abs(Gy)
