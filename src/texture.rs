@@ -89,6 +89,7 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 }
 
 /// A simple 2D texture.
+#[derive(Clone)]
 pub struct Texture {
     pub width: u32,
     pub height: u32,

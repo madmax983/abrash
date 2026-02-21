@@ -112,6 +112,10 @@ path = "examples/normal_mapping_demo.rs"
 name = "particles"
 path = "examples/particles.rs"
 
+[[example]]
+name = "reflection_demo"
+path = "examples/reflection_demo.rs"
+
 [[bench]]
 name = "rasterization"
 harness = false
@@ -296,4 +300,8 @@ harness = false
 
 [[bench]]
 name = "textured_gouraud_scanline"
+harness = false
+
+[[bench]]
+name = "reflection_mapping"
 harness = false
