@@ -1824,6 +1824,33 @@ fn box_blur_f32_horizontal_scalar(
 ) {
     let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
 
+    // If width is too small, fallback to checked loop
+    if width <= 2 * radius + 1 {
+        for y in 0..height {
+            let row_start = y * width;
+            let src_row = &src[row_start..row_start + width];
+            let dest_row = &mut dest[row_start..row_start + width];
+
+            let mut acc = 0.0;
+            let first = src_row[0];
+            for _ in 0..=radius {
+                acc += first;
+            }
+            for x in 1..=radius {
+                acc += src_row[x.min(width - 1)];
+            }
+
+            for (x, dest_val) in dest_row.iter_mut().enumerate() {
+                *dest_val = acc * scale;
+                let out_idx = (x as isize - radius as isize).max(0) as usize;
+                let in_idx = (x + radius + 1).min(width - 1);
+                acc -= src_row[out_idx];
+                acc += src_row[in_idx];
+            }
+        }
+        return;
+    }
+
     for y in 0..height {
         let row_start = y * width;
         let src_row = &src[row_start..row_start + width];
@@ -1833,21 +1860,30 @@ fn box_blur_f32_horizontal_scalar(
 
         // Pre-fill
         let first = src_row[0];
-        for _ in 0..=radius {
-            acc += first;
+        acc += first * (radius as f32 + 1.0);
+        acc += src_row[1..=radius].iter().sum::<f32>();
+
+        // Head: Left edge where outgoing pixel is clamped to 0
+        for x in 0..radius {
+            dest_row[x] = acc * scale;
+            acc -= first;
+            acc += src_row[x + radius + 1];
         }
-        for x in 1..=radius {
-            acc += src_row[x.min(width - 1)];
+
+        // Body: No clamping needed
+        let limit = width - radius - 1;
+        for x in radius..limit {
+            dest_row[x] = acc * scale;
+            acc -= src_row[x - radius];
+            acc += src_row[x + radius + 1];
         }
 
-        for (x, dest_val) in dest_row.iter_mut().enumerate() {
-            *dest_val = acc * scale;
-
-            let out_idx = (x as isize - radius as isize).max(0) as usize;
-            let in_idx = (x + radius + 1).min(width - 1);
-
-            acc -= src_row[out_idx];
-            acc += src_row[in_idx];
+        // Tail: Right edge where incoming pixel is clamped to width-1
+        let last = src_row[width - 1];
+        for x in limit..width {
+            dest_row[x] = acc * scale;
+            acc -= src_row[x - radius];
+            acc += last;
         }
     }
 }
