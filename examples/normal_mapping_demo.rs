@@ -89,14 +89,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let normal_map = Texture {
-        width: 256,
-        height: 256,
-        pixels: normal_map_pixels,
-        width_shift: 8,
-        mips: Vec::new(),
-        filter_mode: abrash::texture::FilterMode::Nearest,
-    };
+    let mut normal_map = Texture::new(256, 256).unwrap();
+    normal_map.pixels_mut().copy_from_slice(&normal_map_pixels);
 
     // Quad vertices
     // Position, UV, Normal, Tangent

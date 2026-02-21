@@ -515,7 +515,7 @@ mod tests {
         // Create dummy texture with 1 pixel
         let white_tex = || {
             let mut t = Texture::new(1, 1).unwrap();
-            t.pixels[0] = 0xFFFFFFFF;
+            t.pixels_mut()[0] = 0xFFFFFFFF;
             t
         };
         let black_tex = || Texture::new(1, 1).unwrap();

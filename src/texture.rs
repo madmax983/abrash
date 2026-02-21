@@ -91,16 +91,16 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 /// A simple 2D texture.
 #[derive(Clone)]
 pub struct Texture {
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
-    pub width_shift: u8,
-    pub pixels: Vec<u32>,
+    width_shift: u8,
+    pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
-    pub mips: Vec<Vec<u32>>,
-    pub filter_mode: FilterMode,
+    mips: Vec<Vec<u32>>,
+    filter_mode: FilterMode,
 }
 
 impl Texture {
@@ -116,7 +116,7 @@ impl Texture {
     /// use abrash::texture::Texture;
     ///
     /// let texture = Texture::new(256, 256).unwrap();
-    /// assert_eq!(texture.width, 256);
+    /// assert_eq!(texture.width(), 256);
     /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width == 0 || height == 0 {
@@ -145,6 +145,58 @@ impl Texture {
             mips: Vec::new(),
             filter_mode: FilterMode::Nearest,
         })
+    }
+
+    /// Returns the width of the texture.
+    #[inline(always)]
+    pub const fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Returns the height of the texture.
+    #[inline(always)]
+    pub const fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// Returns the power-of-two shift amount for the width (log2(width)), or 0xFF if not POT.
+    #[inline(always)]
+    pub const fn width_shift(&self) -> u8 {
+        self.width_shift
+    }
+
+    /// Returns a reference to the pixel data.
+    #[inline(always)]
+    pub fn pixels(&self) -> &[u32] {
+        &self.pixels
+    }
+
+    /// Returns a mutable reference to the pixel data.
+    ///
+    /// # Safety
+    ///
+    /// The length of the returned slice MUST NOT be changed to be less than `width * height`.
+    /// However, since `Vec` resizing is not possible through `&mut [u32]`, this is safe.
+    #[inline(always)]
+    pub fn pixels_mut(&mut self) -> &mut [u32] {
+        &mut self.pixels
+    }
+
+    /// Returns a reference to the mipmap levels.
+    #[inline(always)]
+    pub fn mips(&self) -> &[Vec<u32>] {
+        &self.mips
+    }
+
+    /// Returns the current filter mode.
+    #[inline(always)]
+    pub const fn filter_mode(&self) -> FilterMode {
+        self.filter_mode
+    }
+
+    /// Sets the filter mode.
+    pub fn set_filter_mode(&mut self, mode: FilterMode) {
+        self.filter_mode = mode;
     }
 
     /// Calculate the byte offset for the start of a row.

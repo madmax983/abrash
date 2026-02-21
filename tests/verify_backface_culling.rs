@@ -11,7 +11,7 @@ fn test_fill_triangle_textured_culling() {
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
     let mut texture = Texture::new(32, 32).unwrap();
-    texture.pixels.fill(0xFFFFFFFF); // White Opaque
+    texture.pixels_mut().fill(0xFFFFFFFF); // White Opaque
 
     // Center of screen (50, 50).
     // v0 at (0,0,0) -> Proj: (0+1)*50 = 50. (1-0)*50 = 50. -> (50, 50)

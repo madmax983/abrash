@@ -21,3 +21,7 @@
 **2026-02-18 - [Hardened Rasterizer against OOB Scanlines]**
 **Threat:** Potential Buffer Overflow / Undefined Behavior in scanline rasterizers. The functions `draw_scanline_*` in `gouraud.rs`, `texture.rs`, and `phong.rs` accepted a `y` coordinate (i32) and used it to calculate an array offset `(y * width)` without validating if `y` was within the framebuffer's vertical bounds. A negative or excessively large `y` could lead to an invalid offset and subsequent out-of-bounds write via `get_unchecked_mut`.
 **Defense:** Added explicit bounds checks (`if y < 0 || y >= height { return; }`) at the start of all public and internal scanline drawing functions.
+
+**2026-02-18 - [Encapsulate Texture fields to prevent OOB access]**
+**Threat:** Public fields in `Texture` allowed external modification of `width`/`height` without updating `pixels`, creating an inconsistent state. The rasterizer's `unsafe` blocks rely on `width * height == pixels.len()` to prevent buffer over-reads/writes. A malicious caller could set `width` to a large value and trigger UB/segfault.
+**Defense:** Made `Texture` fields private and added read-only accessors. Updated all internal usages to use accessors. Removed the ability to modify `pixels` directly (replaced with `pixels_mut()` which returns a slice, preventing resizing).

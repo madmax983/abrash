@@ -576,7 +576,7 @@ fn render_triangle_in_tile_textured(
                     let w = 1.0 / q_left;
                     let u_tex = u_left * w;
                     let v_tex = v_left * w;
-                    tile_pixels[tile_idx] = match texture.filter_mode {
+                    tile_pixels[tile_idx] = match texture.filter_mode() {
                         FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
                         FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
                         FilterMode::Trilinear => {
@@ -688,7 +688,7 @@ fn rasterize_scanline_textured(
         let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
         let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
 
-        match texture.filter_mode {
+        match texture.filter_mode() {
             FilterMode::Nearest => {
                 let mut u_fix = (u_tex_start * 65536.0) as i32;
                 let mut v_fix = (v_tex_start * 65536.0) as i32;
@@ -1347,8 +1347,8 @@ impl TileRenderer {
         }
 
         // Phase 1: Prepare
-        let tex_w = texture.width as f32;
-        let tex_h = texture.height as f32;
+        let tex_w = texture.width() as f32;
+        let tex_h = texture.height() as f32;
         for &(v0, uv0, v1, uv1, v2, uv2) in triangles {
             self.prepare_triangle_textured((v0, uv0), (v1, uv1), (v2, uv2), tex_w, tex_h);
         }
