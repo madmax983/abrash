@@ -305,3 +305,7 @@ harness = false
 [[bench]]
 name = "reflection_mapping"
 harness = false
+
+[[bench]]
+name = "particles_benchmark"
+harness = false
