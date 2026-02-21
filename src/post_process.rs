@@ -184,6 +184,7 @@ unsafe fn box_blur_f32_vertical_avx2(
         _mm256_sub_ps,
     };
 
+    unsafe {
     let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
     let scale_vec = _mm256_set1_ps(scale);
 
@@ -240,6 +241,7 @@ unsafe fn box_blur_f32_vertical_avx2(
             acc[i] = acc[i] - out_row[i] + in_row[i];
             dest_row[i] = acc[i] * scale;
         }
+    }
     }
 }
 
@@ -479,11 +481,10 @@ unsafe fn box_blur_vertical_avx2(
     radius: u32,
 ) {
     use std::arch::x86_64::{
-        _mm256_add_epi32, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepi32_ps,
-        _mm256_cvtepu8_epi32, _mm256_cvttps_epi32, _mm256_loadu_si256, _mm256_mul_ps,
-        _mm256_mullo_epi32, _mm256_or_si256, _mm256_packus_epi16, _mm256_packus_epi32,
-        _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_ps, _mm256_slli_epi32,
-        _mm256_srai_epi32, _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_epi32,
+        _mm256_add_epi32, _mm256_and_si256, _mm256_cvtepi32_ps, _mm256_cvttps_epi32,
+        _mm256_loadu_si256, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_set1_ps, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_storeu_si256,
+        _mm256_sub_epi32,
     };
 
     unsafe {
@@ -778,9 +779,9 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
 unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
     use std::arch::x86_64::{
         _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
-        _mm256_extracti128_si256, _mm256_inserti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16,
-        _mm256_or_si256, _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16,
-        _mm256_set1_epi32, _mm256_srai_epi16, _mm256_storeu_si256,
+        _mm256_extracti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
+        _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
+        _mm256_srai_epi16, _mm256_storeu_si256,
     };
 
     unsafe {
@@ -1028,6 +1029,7 @@ unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) 
         _mm256_srli_epi32, _mm256_storeu_si256,
     };
 
+    unsafe {
     let mask_val = _mm256_set1_epi32(0x7F7F_7F7F);
     let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
@@ -1059,6 +1061,7 @@ unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) 
             *row_ptr = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
             row_ptr = row_ptr.add(1);
         }
+    }
     }
 }
 
@@ -1435,6 +1438,7 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usize, height: usize) {
     use std::arch::x86_64::*;
 
+    unsafe {
     // 1. RGB -> Luminance
     {
         let len = width * height;
@@ -1652,6 +1656,7 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                 pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
             }
         }
+    }
     }
 }
 
@@ -1950,6 +1955,7 @@ unsafe fn apply_ssao_avx2(
 ) {
     use std::arch::x86_64::*;
 
+    unsafe {
     let p00 = _mm256_set1_ps(proj_m[0]);
     let p11 = _mm256_set1_ps(proj_m[5]);
     let p22 = _mm256_set1_ps(proj_m[10]);
@@ -2188,6 +2194,7 @@ unsafe fn apply_ssao_avx2(
             occlusion_buffer[y * width + x] = occlusion;
             x += 1;
         }
+    }
     }
 }
 
