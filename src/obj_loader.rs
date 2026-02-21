@@ -30,8 +30,8 @@ use crate::mesh::Mesh;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hasher};
 
-/// A fast hasher for u64 keys, similar to FxHash.
-/// This avoids the overhead of SipHash for simple integer keys.
+/// A fast hasher for u64 keys, similar to `FxHash`.
+/// This avoids the overhead of `SipHash` for simple integer keys.
 #[derive(Default)]
 struct FastHasher {
     hash: u64,

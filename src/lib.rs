@@ -110,4 +110,6 @@ pub mod gpu;
 pub mod gpu_render;
 
 #[cfg(feature = "nova")]
-pub mod experimental;
+pub mod jelly;
+#[cfg(feature = "nova")]
+pub mod sdf;

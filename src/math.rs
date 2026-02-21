@@ -676,8 +676,8 @@ impl Mat4 {
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[target_feature(enable = "avx2")]
-    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
-        use std::arch::x86_64::*;
+    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) { unsafe {
+        use std::arch::x86_64::{_mm256_set1_ps, _mm_loadu_ps, _mm_shuffle_ps, _mm256_insertf128_ps, _mm256_castps128_ps256, _mm256_add_ps, _mm256_mul_ps, _mm256_unpacklo_ps, _mm256_unpackhi_ps, _mm256_permute2f128_ps, _mm256_storeu_ps};
 
         let len = points.len();
         let mut i = 0;
@@ -703,7 +703,7 @@ impl Mat4 {
         let m33 = _mm256_set1_ps(self.m[3][3]);
 
         while i + 8 <= len {
-            let p_ptr = points.as_ptr().add(i) as *const f32;
+            let p_ptr = points.as_ptr().add(i).cast::<f32>();
 
             // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
             // 8 points * 12 bytes = 96 bytes.
@@ -803,7 +803,7 @@ impl Mat4 {
             let final3 = _mm256_permute2f128_ps(out2, out3, 0x31); // p6 | p7
 
             // Store
-            let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+            let out_ptr = output.as_mut_ptr().add(i).cast::<f32>();
             _mm256_storeu_ps(out_ptr, final0);
             _mm256_storeu_ps(out_ptr.add(8), final1);
             _mm256_storeu_ps(out_ptr.add(16), final2);
@@ -816,7 +816,7 @@ impl Mat4 {
             output[i] = self.transform_point(points[i]);
             i += 1;
         }
-    }
+    }}
 
     /// Transforms multiple points by this matrix in parallel (if `parallel` feature is enabled).
     ///
@@ -1055,7 +1055,7 @@ pub fn project_triangle_to_screen(
     half_height: f32,
 ) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm_set_ps, _mm_set1_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_or_ps, _mm_and_ps, _mm_rcp_ps, _mm_mul_ps, _mm_sub_ps, _mm_add_ps, _mm_min_ps, _mm_max_ps, _mm_cvttps_epi32, _mm_storeu_si128, __m128i, _mm_storeu_ps};
 
         // Load data into SIMD registers
         // Layout: [v2, v1, v0, pad]
@@ -1120,8 +1120,8 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

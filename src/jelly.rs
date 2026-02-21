@@ -4,7 +4,7 @@
 //! It converts a standard `Mesh` into a physical system where vertices are particles and edges are springs.
 
 use super::sdf::SdfScene;
-use crate::math::{Vec3, Vec4};
+use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::collections::HashSet;
 
@@ -185,6 +185,7 @@ impl SoftBody {
     ///
     /// Returns a vector of stress values corresponding to `mesh.vertices`.
     /// Positive values indicate stretching, negative values indicate compression (if implemented, but here length is unsigned so stress is abs error).
+    #[must_use]
     pub fn get_vertex_stress(&self) -> Vec<f32> {
         let mut stress = vec![0.0; self.mesh.vertices.len()];
         let mut counts = vec![0; self.mesh.vertices.len()];

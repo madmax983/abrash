@@ -235,7 +235,7 @@ impl HiZBuffer {
     /// # SIMD Note
     /// SIMD was attempted but found to be slower due to memory bandwidth saturation,
     /// excessive shuffle operations for horizontal reduction, and small working sets.
-    /// See SIMD_PROFILING_ANALYSIS.md for details.
+    /// See `SIMD_PROFILING_ANALYSIS.md` for details.
     fn min_reduce_2x2(
         dest: &mut [f32],
         dest_width: u32,

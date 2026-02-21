@@ -5,10 +5,9 @@ use crate::mesh::{AABB, BoundingSphere};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use std::arch::x86_64::{
-    _CMP_GE_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_si256, _mm256_blendv_ps, _mm256_castpd_ps,
-    _mm256_castps_pd, _mm256_castps_si256, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_loadu_ps,
-    _mm256_movemask_ps, _mm256_mul_ps, _mm256_permute2f128_ps, _mm256_set1_epi32, _mm256_set1_ps,
-    _mm256_setzero_ps, _mm256_unpackhi_pd, _mm256_unpackhi_ps, _mm256_unpacklo_pd,
+    _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_si256, _mm256_castps_si256, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_loadu_ps,
+    _mm256_movemask_ps, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps,
+    _mm256_setzero_ps, _mm256_unpackhi_ps,
     _mm256_unpacklo_ps,
 };
 
@@ -50,6 +49,7 @@ impl Frustum {
     /// Assumes Row-Major matrix where `v_clip = v_world * M`.
     ///
     /// The planes are extracted such that the normal points **inside** the frustum.
+    #[must_use]
     pub fn from_matrix(m: Mat4) -> Self {
         // In Row-Vector convention v' = v * M,
         // x' = v . Col0
@@ -112,6 +112,7 @@ impl Frustum {
     /// Check if a sphere intersects or is inside the frustum.
     /// Returns `true` if the sphere is visible (partially or fully).
     /// Returns `false` if the sphere is fully outside any plane.
+    #[must_use]
     pub fn intersects(&self, sphere: &BoundingSphere) -> bool {
         for plane in &self.planes {
             // Distance is positive inside, negative outside.
@@ -125,6 +126,7 @@ impl Frustum {
 
     /// Check if an AABB intersects or is inside the frustum.
     /// uses the p-vertex optimization.
+    #[must_use]
     pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
         for plane in &self.planes {
             // Find the p-vertex (the vertex furthest along the normal direction)
@@ -157,6 +159,7 @@ impl Frustum {
 
     /// Check multiple spheres against the frustum using SIMD optimizations.
     /// Returns a `Vec<bool>` where `true` means the sphere is visible.
+    #[must_use]
     pub fn cull_spheres(&self, spheres: &[BoundingSphere]) -> Vec<bool> {
         let mut results = vec![true; spheres.len()];
         self.cull_spheres_prealloc(spheres, &mut results);
@@ -225,7 +228,7 @@ impl Frustum {
             }
 
             while i + 8 <= len {
-                let ptr = spheres.as_ptr().add(i) as *const f32;
+                let ptr = spheres.as_ptr().add(i).cast::<f32>();
 
                 // Load 8 spheres (4 registers of 2 spheres each)
                 // Each BoundingSphere is 4 floats: x, y, z, r
@@ -305,7 +308,7 @@ impl Frustum {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[target_feature(enable = "avx2")]
     unsafe fn cull_aabbs_avx2(&self, aabbs: &[AABB], results: &mut [bool]) {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_setzero_ps, _mm256_set1_ps, _mm256_loadu_ps, _mm256_unpacklo_ps, _mm256_unpackhi_ps, _mm256_castps_pd, _mm256_castpd_ps, _mm256_unpacklo_pd, _mm256_unpackhi_pd, _mm256_permute2f128_ps, _mm256_set1_epi32, _mm256_cmp_ps, _CMP_GE_OQ, _mm256_blendv_ps, _mm256_mul_ps, _mm256_add_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_andnot_si256, _mm256_movemask_ps, _mm256_castsi256_ps};
 
         let len = aabbs.len();
         let mut i = 0;
@@ -327,7 +330,7 @@ impl Frustum {
             let zero = _mm256_setzero_ps();
 
             while i + 8 <= len {
-                let ptr = aabbs.as_ptr().add(i) as *const f32;
+                let ptr = aabbs.as_ptr().add(i).cast::<f32>();
 
                 // Load 8 AABBs (8 * 8 floats = 64 floats)
                 // AABB layout: [min_x, min_y, min_z, pad0, max_x, max_y, max_z, pad1]

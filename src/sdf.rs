@@ -75,11 +75,11 @@ impl SdfObject {
 }
 
 // Helpers
-fn vec3_abs(v: Vec3) -> Vec3 {
+const fn vec3_abs(v: Vec3) -> Vec3 {
     Vec3::new(v.x.abs(), v.y.abs(), v.z.abs())
 }
 
-fn vec3_max(v: Vec3, val: f32) -> Vec3 {
+const fn vec3_max(v: Vec3, val: f32) -> Vec3 {
     Vec3::new(v.x.max(val), v.y.max(val), v.z.max(val))
 }
 

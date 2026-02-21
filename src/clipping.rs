@@ -117,7 +117,7 @@ pub struct ClippedTriangles<V> {
 
 impl<V> ClippedTriangles<V> {
     // Unsafe because it returns uninitialized data structure
-    fn new_uninit() -> Self {
+    const fn new_uninit() -> Self {
         Self {
             // SAFETY: An array of MaybeUninit is safe to be uninitialized.
             tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },

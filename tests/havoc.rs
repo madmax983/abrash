@@ -3,7 +3,7 @@ use abrash::math::Vec3;
 use abrash::obj_loader::load_obj;
 use abrash::texture::Texture;
 use proptest::prelude::*;
-use abrash::experimental::jelly::SoftBody;
+use abrash::jelly::SoftBody;
 use abrash::mesh::Mesh;
 use abrash::math::Mat4;
 
