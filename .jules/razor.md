@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** `src/experimental` directory with unused modules (`arboretum`, `procedural_mesh`, `voxelizer`) and redundant code (`ssao`). `nova` feature flag used only to hide this dead code.
+**Cut:** Deleted `src/experimental` and removed `nova` feature.
+**Saved:** 6 files, ~1000 lines of dead/redundant code, and one feature flag.
