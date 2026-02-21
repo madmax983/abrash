@@ -1,76 +1,99 @@
-use abrash::culling::Frustum;
-use abrash::math::{Mat4, Vec3};
-use abrash::mesh::{AABB, BoundingSphere};
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use abrash::framebuffer::Framebuffer;
+use abrash::zbuffer::ZBuffer;
+use abrash::math::{Vec3, Mat4};
+use abrash::mesh::{Mesh};
+use abrash::tile_renderer::{TileRenderer, ClipTriangle};
+use abrash::scene::{Scene, SceneObject, Camera};
+use std::sync::Arc;
 
-fn bench_frustum_intersection(c: &mut Criterion) {
-    // Setup Frustum
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 0.0, 50.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
-    let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
-    let vp = view * proj;
-    let frustum = Frustum::from_matrix(vp);
-
-    // Create 10,000 spheres
-    // Grid from -50 to 50 in X and Y, and spread in Z
-    let mut spheres = Vec::with_capacity(10_000);
-    for i in 0..10_000 {
-        let x = ((i % 100) as f32) - 50.0;
-        let y = ((i / 100) as f32) - 50.0;
-        let z = 0.0; // Place them on Z plane for simplicity, some will be culled by left/right/top/bottom
-        spheres.push(BoundingSphere {
-            center: Vec3::new(x, y, z),
-            radius: 0.5,
-        });
-    }
-
-    // Create 10,000 AABBs
-    let mut aabbs = Vec::with_capacity(10_000);
-    for i in 0..10_000 {
-        let x = ((i % 100) as f32) - 50.0;
-        let y = ((i / 100) as f32) - 50.0;
-        let z = 0.0;
-        aabbs.push(AABB::new(
-            Vec3::new(x - 0.5, y - 0.5, z - 0.5),
-            Vec3::new(x + 0.5, y + 0.5, z + 0.5),
-        ));
-    }
-
-    let mut group = c.benchmark_group("culling");
-
-    group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
-        b.iter(|| {
-            let mut visible_count = 0;
-            for sphere in &spheres {
-                if frustum.intersects(black_box(sphere)) {
-                    visible_count += 1;
-                }
-            }
-            black_box(visible_count);
-        });
-    });
-
-    group.bench_function("frustum_cull_10k_spheres_simd", |b| {
-        b.iter(|| {
-            let results = frustum.cull_spheres(black_box(&spheres));
-            let visible_count = results.iter().filter(|&&v| v).count();
-            black_box(visible_count);
-        });
-    });
-
-    group.bench_function("frustum_cull_10k_aabbs_prealloc", |b| {
-        let mut results = vec![false; 10_000];
-        b.iter(|| {
-            frustum.cull_aabbs_prealloc(black_box(&aabbs), black_box(&mut results));
-            black_box(&results);
-        });
-    });
-
-    group.finish();
+// Helper to create a simple cube mesh
+fn create_cube() -> Mesh {
+    Mesh::cube(1.0)
 }
 
-criterion_group!(benches, bench_frustum_intersection);
+fn object_culling_benchmark(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    let mut renderer = TileRenderer::new(width, height);
+
+    let cube_mesh = create_cube();
+
+    // Scene setup: 1000 objects arranged in a line
+    // Camera looks at the first few.
+    let mut objects = Vec::new();
+    for i in 0..1000 {
+        // Place objects along Z axis. Camera is at origin looking down -Z.
+        // Objects at -5, -10, -15...
+        // Objects further than -100 (far plane) should be culled.
+        let pos = Vec3::new(0.0, 0.0, -5.0 - (i as f32) * 5.0);
+        objects.push(pos);
+    }
+
+    let camera_pos = Vec3::new(0.0, 0.0, 0.0);
+    let camera_target = Vec3::new(0.0, 0.0, -1.0);
+    let camera_up = Vec3::new(0.0, 1.0, 0.0);
+
+    let view = Mat4::look_at(camera_pos, camera_target, camera_up);
+    let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
+    let view_proj = view * proj;
+
+    // Naive rendering: process all objects
+    c.bench_function("render_scene_naive", |b| {
+        b.iter(|| {
+            fb.clear(0xFF000000);
+            zb.clear();
+
+            let mut triangles: Vec<ClipTriangle> = Vec::with_capacity(1000 * 12);
+
+            for pos in &objects {
+                // Model matrix (just translation)
+                let model = Mat4::translation(pos.x, pos.y, pos.z);
+                // MVP
+                let mvp = model * view_proj;
+
+                // Transform all vertices (naive, per object)
+                for indices in &cube_mesh.indices {
+                    let v0_local = cube_mesh.vertices[indices[0]];
+                    let v1_local = cube_mesh.vertices[indices[1]];
+                    let v2_local = cube_mesh.vertices[indices[2]];
+
+                    let (v0_clip, w0) = mvp.transform_point(v0_local);
+                    let (v1_clip, w1) = mvp.transform_point(v1_local);
+                    let (v2_clip, w2) = mvp.transform_point(v2_local);
+
+                    triangles.push((
+                        (v0_clip, w0),
+                        (v1_clip, w1),
+                        (v2_clip, w2),
+                        0xFFFFFFFF
+                    ));
+                }
+            }
+
+            renderer.render_batch(&mut fb, &mut zb, &triangles);
+        })
+    });
+
+    // Optimized rendering: use Scene with Culling
+    c.bench_function("render_scene_optimized", |b| {
+        let mesh_arc = Arc::new(create_cube());
+        let mut scene = Scene::new(Camera::new(view, proj));
+
+        for pos in &objects {
+            let model = Mat4::translation(pos.x, pos.y, pos.z);
+            scene.add_object(SceneObject::new(mesh_arc.clone(), model, 0xFFFFFFFF));
+        }
+
+        b.iter(|| {
+            fb.clear(0xFF000000);
+            zb.clear();
+            scene.render(&mut renderer, &mut fb, &mut zb);
+        })
+    });
+}
+
+criterion_group!(benches, object_culling_benchmark);
 criterion_main!(benches);
