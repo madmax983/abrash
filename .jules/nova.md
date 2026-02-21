@@ -32,3 +32,8 @@
 **Concept:** Simulates global illumination by darkening crevices based on the depth buffer.
 **Fate:** Merged
 **Lesson:** Reconstructing view-space position from the depth buffer allows for advanced lighting effects without heavy ray tracing, though software implementation requires careful optimization.
+
+## [Isosurface Extraction]
+**Concept:** A system to convert mathematical Signed Distance Fields (SDFs) into renderable triangle meshes using the Marching Tetrahedra algorithm.
+**Fate:** Merged
+**Lesson:** Standard Marching Cubes tables found online often use different vertex/edge ordering conventions; deriving the 16 cases of Marching Tetrahedra manually is more reliable and ensures topological correctness.

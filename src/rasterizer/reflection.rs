@@ -4,9 +4,7 @@ use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::skybox::Cubemap;
 use crate::zbuffer::ZBuffer;
 
-use super::core::{
-    FIXED_SCALE, assert_same_dimensions, is_backface, sort_by_y,
-};
+use super::core::{FIXED_SCALE, assert_same_dimensions, is_backface, sort_by_y};
 
 #[derive(Clone, Copy)]
 struct ReflectionSpanStart {
