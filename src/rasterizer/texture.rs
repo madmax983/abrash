@@ -1428,13 +1428,7 @@ pub fn fill_triangle_textured(
         );
 
         // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
+        if is_backface(p0_orig, p1_orig, p2_orig) {
             continue;
         }
 
