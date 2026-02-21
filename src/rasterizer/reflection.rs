@@ -152,7 +152,7 @@ unsafe fn draw_scanline_reflection_simd(
                 for k in 0..8 {
                     // Check if mask bit is set (simplistic check on float representation or use _mm256_movemask_ps)
                     // _mm256_movemask_ps returns an int with bits.
-                    let bit = 1 << k ;
+                    let bit = 1 << k;
                     if (_mm256_movemask_ps(mask) & bit) != 0 {
                         let dir = Vec3::new(rx_arr[k], ry_arr[k], rz_arr[k]);
                         let color = cubemap.sample(dir);

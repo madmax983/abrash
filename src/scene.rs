@@ -6,7 +6,7 @@
 use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
-use crate::mesh::{Mesh, AABB};
+use crate::mesh::{AABB, Mesh};
 use crate::tile_renderer::TileRenderer;
 use crate::zbuffer::ZBuffer;
 use std::sync::Arc;
@@ -62,13 +62,25 @@ impl SceneObject {
             // Transform point (w=1.0)
             let (p, _) = self.transform.transform_point(corner);
 
-            if p.x < world_min.x { world_min.x = p.x; }
-            if p.y < world_min.y { world_min.y = p.y; }
-            if p.z < world_min.z { world_min.z = p.z; }
+            if p.x < world_min.x {
+                world_min.x = p.x;
+            }
+            if p.y < world_min.y {
+                world_min.y = p.y;
+            }
+            if p.z < world_min.z {
+                world_min.z = p.z;
+            }
 
-            if p.x > world_max.x { world_max.x = p.x; }
-            if p.y > world_max.y { world_max.y = p.y; }
-            if p.z > world_max.z { world_max.z = p.z; }
+            if p.x > world_max.x {
+                world_max.x = p.x;
+            }
+            if p.y > world_max.y {
+                world_max.y = p.y;
+            }
+            if p.z > world_max.z {
+                world_max.z = p.z;
+            }
         }
 
         AABB::new(world_min, world_max)
@@ -126,12 +138,7 @@ impl Scene {
     /// Render the scene using the provided renderer.
     ///
     /// This method performs Object Culling (Frustum Culling) before processing vertices.
-    pub fn render(
-        &self,
-        renderer: &mut TileRenderer,
-        fb: &mut Framebuffer,
-        zb: &mut ZBuffer,
-    ) {
+    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
         let mut triangle_batch = Vec::new();
 
@@ -165,12 +172,7 @@ impl Scene {
                 let (v1_clip, w1) = mvp.transform_point(v1_local);
                 let (v2_clip, w2) = mvp.transform_point(v2_local);
 
-                triangle_batch.push((
-                    (v0_clip, w0),
-                    (v1_clip, w1),
-                    (v2_clip, w2),
-                    obj.color,
-                ));
+                triangle_batch.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), obj.color));
             }
         }
 

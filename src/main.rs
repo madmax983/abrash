@@ -6,6 +6,7 @@ use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
+    style::Stylize,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
@@ -146,6 +147,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+
+    println!("\n{}", "👋 Thanks for using Abrash Engine!".bold().cyan());
 
     if let Err(err) = res {
         println!("{err:?}");
@@ -346,7 +349,9 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("Preparing to launch {name}...");
+    println!("\n{}", "🚀 Abrash Engine Launcher".bold().cyan());
+    println!("{}", "=========================".dark_grey());
+    println!("Preparing to launch {}...", name.bold().yellow());
 
     let mut cmd = Command::new("cargo");
     cmd.arg("run").arg("--release").arg("--example").arg(name);
@@ -359,22 +364,40 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     // the example runs (as Win32 API is not available).
     if std::env::consts::OS != "windows" && !is_gpu_render_example(name) {
         println!(
-            "ℹ️  Non-Windows OS detected ({}). Enabling TUI backend...",
-            std::env::consts::OS
+            "{} {}",
+            "ℹ️  Non-Windows OS detected.".blue(),
+            format!("({}). Enabling TUI backend...", std::env::consts::OS).dark_grey()
         );
         cmd.arg("--no-default-features")
             .arg("--features")
             .arg("backend-tui");
     }
 
+    println!(); // Spacer
+
     let mut child = cmd.spawn()?;
 
     let status = child.wait()?;
 
     if !status.success() {
-        eprintln!("❌ Demo exited with error: {status}");
+        println!("\n{}", "┌────────────────────────────────────────┐".red());
+        println!(
+            "{} {:^38} {}",
+            "│".red(),
+            "❌ Demo Exited with Error".bold().white(),
+            "│".red()
+        );
+        println!("{}", "├────────────────────────────────────────┤".red());
+        println!(
+            "{} {:^38} {}",
+            "│".red(),
+            format!("Status: {}", status).yellow(),
+            "│".red()
+        );
+        println!("{}", "└────────────────────────────────────────┘".red());
+
         // Give user a chance to read the error
-        println!("Press Enter to return to dashboard...");
+        println!("\n{}", "Press Enter to return to dashboard...".grey());
         let _ = std::io::stdin().read_line(&mut String::new());
     }
 

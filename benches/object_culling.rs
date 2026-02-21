@@ -1,10 +1,10 @@
-use criterion::{Criterion, criterion_group, criterion_main};
 use abrash::framebuffer::Framebuffer;
+use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
+use abrash::scene::{Camera, Scene, SceneObject};
+use abrash::tile_renderer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
-use abrash::math::{Vec3, Mat4};
-use abrash::mesh::{Mesh};
-use abrash::tile_renderer::{TileRenderer, ClipTriangle};
-use abrash::scene::{Scene, SceneObject, Camera};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::sync::Arc;
 
 // Helper to create a simple cube mesh
@@ -64,12 +64,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
                     let (v1_clip, w1) = mvp.transform_point(v1_local);
                     let (v2_clip, w2) = mvp.transform_point(v2_local);
 
-                    triangles.push((
-                        (v0_clip, w0),
-                        (v1_clip, w1),
-                        (v2_clip, w2),
-                        0xFFFFFFFF
-                    ));
+                    triangles.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), 0xFFFFFFFF));
                 }
             }
 

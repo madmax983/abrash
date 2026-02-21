@@ -1565,28 +1565,21 @@ fn fill_projected_triangle_textured(
                             FilterMode::Nearest => {
                                 texture.get_pixel_texel(u_tex as i32, v_tex as i32)
                             }
-                            FilterMode::Bilinear => {
-                                texture.get_pixel_bilinear_texel(u_tex, v_tex)
-                            }
+                            FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
                             FilterMode::Trilinear => {
                                 let w = 1.0 / q_left;
                                 let w_sq = w * w;
 
-                                let du_tex_dx = (gradients.du_dx * q_left
-                                    - u_left * gradients.dq_dx)
-                                    * w_sq;
-                                let dv_tex_dx = (gradients.dv_dx * q_left
-                                    - v_left * gradients.dq_dx)
-                                    * w_sq;
-                                let du_tex_dy = (gradients.du_dy * q_left
-                                    - u_left * gradients.dq_dy)
-                                    * w_sq;
-                                let dv_tex_dy = (gradients.dv_dy * q_left
-                                    - v_left * gradients.dq_dy)
-                                    * w_sq;
+                                let du_tex_dx =
+                                    (gradients.du_dx * q_left - u_left * gradients.dq_dx) * w_sq;
+                                let dv_tex_dx =
+                                    (gradients.dv_dx * q_left - v_left * gradients.dq_dx) * w_sq;
+                                let du_tex_dy =
+                                    (gradients.du_dy * q_left - u_left * gradients.dq_dy) * w_sq;
+                                let dv_tex_dy =
+                                    (gradients.dv_dy * q_left - v_left * gradients.dq_dy) * w_sq;
 
-                                let max_rho_sq = (du_tex_dx * du_tex_dx
-                                    + dv_tex_dx * dv_tex_dx)
+                                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
                                     .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
                                 let lod = 0.5 * max_rho_sq.log2();
@@ -1699,7 +1692,16 @@ pub fn fill_quad_textured(
 
         // Project all 4 (SIMD)
         let (p0, p1, p2, p3) = project_quad_to_screen(
-            v0.0.0, v0.0.1, v1.0.0, v1.0.1, v2.0.0, v2.0.1, v3.0.0, v3.0.1, half_width, half_height,
+            v0.0.0,
+            v0.0.1,
+            v1.0.0,
+            v1.0.1,
+            v2.0.0,
+            v2.0.1,
+            v3.0.0,
+            v3.0.1,
+            half_width,
+            half_height,
         );
 
         // Precompute UVs
