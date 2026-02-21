@@ -39,10 +39,24 @@ use std::ops::{Add, Mul, Sub};
 #[inline]
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
-    // Modern hardware sqrt (e.g. sqrtss) is extremely fast.
-    // Combined with reciprocal, this is faster (~2.3ns) than the legacy Quake III
-    // bit-hack (~3.4ns) on modern x86_64, and safer than manual intrinsics.
-    n.sqrt().recip()
+    // Use AVX/SSE approximate reciprocal square root if available.
+    // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
+    // We accept the approximation (error < 1.5*2^-12) for the sake of speed in lighting/normalization.
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    unsafe {
+        // _mm_rsqrt_ss computes approximate 1/sqrt(a) for the lower float.
+        let n_vec = std::arch::x86_64::_mm_set_ss(n);
+        let r = std::arch::x86_64::_mm_rsqrt_ss(n_vec);
+        std::arch::x86_64::_mm_cvtss_f32(r)
+    }
+
+    #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+    {
+        // Modern hardware sqrt (e.g. sqrtss) is extremely fast.
+        // Combined with reciprocal, this is faster (~2.3ns) than the legacy Quake III
+        // bit-hack (~3.4ns) on modern x86_64, and safer than manual intrinsics.
+        n.sqrt().recip()
+    }
 }
 
 /// A 2-component vector, used for texture coordinates (UVs) and 2D positions.

@@ -253,20 +253,42 @@ mod tests {
 
         for corner in corners {
             let (p, _) = transform.transform_point(corner);
-            if p.x < expected_min.x { expected_min.x = p.x; }
-            if p.y < expected_min.y { expected_min.y = p.y; }
-            if p.z < expected_min.z { expected_min.z = p.z; }
+            if p.x < expected_min.x {
+                expected_min.x = p.x;
+            }
+            if p.y < expected_min.y {
+                expected_min.y = p.y;
+            }
+            if p.z < expected_min.z {
+                expected_min.z = p.z;
+            }
 
-            if p.x > expected_max.x { expected_max.x = p.x; }
-            if p.y > expected_max.y { expected_max.y = p.y; }
-            if p.z > expected_max.z { expected_max.z = p.z; }
+            if p.x > expected_max.x {
+                expected_max.x = p.x;
+            }
+            if p.y > expected_max.y {
+                expected_max.y = p.y;
+            }
+            if p.z > expected_max.z {
+                expected_max.z = p.z;
+            }
         }
 
         // Check with epsilon
         let diff_min = calculated_aabb.min - expected_min;
         let diff_max = calculated_aabb.max - expected_max;
 
-        assert!(diff_min.length() < 0.0001, "Min bounds mismatch: {:?} vs {:?}", calculated_aabb.min, expected_min);
-        assert!(diff_max.length() < 0.0001, "Max bounds mismatch: {:?} vs {:?}", calculated_aabb.max, expected_max);
+        assert!(
+            diff_min.length() < 0.0001,
+            "Min bounds mismatch: {:?} vs {:?}",
+            calculated_aabb.min,
+            expected_min
+        );
+        assert!(
+            diff_max.length() < 0.0001,
+            "Max bounds mismatch: {:?} vs {:?}",
+            calculated_aabb.max,
+            expected_max
+        );
     }
 }

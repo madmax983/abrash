@@ -1479,17 +1479,11 @@ fn fill_projected_triangle_textured(
     let q2 = p2_orig.inv_w;
 
     let (gradients, _) = PerspectiveTextureGradients::new_with_winding(
-        p0_orig, p1_orig, p2_orig,
-        q0, q1, q2,
-        u0_in, u1_in, u2_in,
-        v0_in, v1_in, v2_in,
+        p0_orig, p1_orig, p2_orig, q0, q1, q2, u0_in, u1_in, u2_in, v0_in, v1_in, v2_in,
     );
 
     fill_projected_triangle_textured_with_gradients(
-        fb, zb,
-        p0_orig, p1_orig, p2_orig,
-        u0_in, v0_in, u1_in, v1_in, u2_in, v2_in,
-        texture,
+        fb, zb, p0_orig, p1_orig, p2_orig, u0_in, v0_in, u1_in, v1_in, u2_in, v2_in, texture,
         gradients,
     );
 }
@@ -1527,11 +1521,7 @@ fn fill_projected_triangle_textured_with_gradients(
     let width = fb.width();
     let height = fb.height();
 
-    let mut verts = [
-        (p0, u0, v0),
-        (p1, u1, v1),
-        (p2, u2, v2),
-    ];
+    let mut verts = [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)];
     sort_by_y(&mut verts, |(p, _, _)| p.y);
     let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
 
