@@ -54,8 +54,5 @@ fn test_fill_triangle_textured_culling() {
     fb.clear(0);
     fill_triangle_textured(&mut fb, &mut zb, v_center, v_top, v_right, &texture);
     let p_back = fb.get_pixel(60, 40).unwrap();
-    assert_eq!(
-        p_back, 0,
-        "Back face (Center->Top->Right) should be culled"
-    );
+    assert_eq!(p_back, 0, "Back face (Center->Top->Right) should be culled");
 }

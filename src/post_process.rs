@@ -1432,12 +1432,7 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[target_feature(enable = "avx2")]
-unsafe fn apply_sobel_avx2(
-    pixels: &mut [u32],
-    lum_buffer: &mut [u8],
-    width: usize,
-    height: usize,
-) {
+unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usize, height: usize) {
     use std::arch::x86_64::*;
 
     // 1. RGB -> Luminance
@@ -1557,25 +1552,29 @@ unsafe fn apply_sobel_avx2(
                 let ptr = lum_buffer.as_ptr();
 
                 let tl = load_i16(ptr, top_offset + x - 1);
-                let t  = load_i16(ptr, top_offset + x);
+                let t = load_i16(ptr, top_offset + x);
                 let tr = load_i16(ptr, top_offset + x + 1);
 
-                let l  = load_i16(ptr, mid_offset + x - 1);
+                let l = load_i16(ptr, mid_offset + x - 1);
                 // let c  = load_i16(ptr, mid_offset + x); // Center unused
-                let r  = load_i16(ptr, mid_offset + x + 1);
+                let r = load_i16(ptr, mid_offset + x + 1);
 
                 let bl = load_i16(ptr, bot_offset + x - 1);
-                let b  = load_i16(ptr, bot_offset + x);
+                let b = load_i16(ptr, bot_offset + x);
                 let br = load_i16(ptr, bot_offset + x + 1);
 
                 // Gx = (TR + 2*R + BR) - (TL + 2*L + BL)
-                let right_part = _mm256_add_epi16(_mm256_add_epi16(tr, br), _mm256_mullo_epi16(r, two));
-                let left_part = _mm256_add_epi16(_mm256_add_epi16(tl, bl), _mm256_mullo_epi16(l, two));
+                let right_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tr, br), _mm256_mullo_epi16(r, two));
+                let left_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tl, bl), _mm256_mullo_epi16(l, two));
                 let gx = _mm256_sub_epi16(right_part, left_part);
 
                 // Gy = (BL + 2*B + BR) - (TL + 2*T + TR)
-                let bot_part = _mm256_add_epi16(_mm256_add_epi16(bl, br), _mm256_mullo_epi16(b, two));
-                let top_part = _mm256_add_epi16(_mm256_add_epi16(tl, tr), _mm256_mullo_epi16(t, two));
+                let bot_part =
+                    _mm256_add_epi16(_mm256_add_epi16(bl, br), _mm256_mullo_epi16(b, two));
+                let top_part =
+                    _mm256_add_epi16(_mm256_add_epi16(tl, tr), _mm256_mullo_epi16(t, two));
                 let gy = _mm256_sub_epi16(bot_part, top_part);
 
                 // Magnitude = abs(Gx) + abs(Gy)

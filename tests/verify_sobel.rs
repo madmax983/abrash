@@ -27,7 +27,11 @@ fn test_apply_sobel_edge_detection() {
     // Check results
     // The center pixel (2,2) is surrounded by white, so it should have 0 gradient (black).
     let center = fb.get_pixel(2, 2).unwrap();
-    assert_eq!(center & 0xFFFFFF, 0, "Center pixel should be black (no gradient)");
+    assert_eq!(
+        center & 0xFFFFFF,
+        0,
+        "Center pixel should be black (no gradient)"
+    );
 
     // The edge pixels (e.g., 1,1) should have a gradient.
     // Neighbors of (1,1):

@@ -40,6 +40,31 @@ use super::core::{FIXED_SCALE, assert_same_dimensions, color_to_u32, is_backface
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use super::core::blend_swar_simd;
 
+#[inline(always)]
+fn calculate_slope(uy: f32, vy: f32, inv_nz: f32, d1: f32, d2: f32) -> f32 {
+    (uy * d2 - d1 * vy) * inv_nz
+}
+
+#[inline(always)]
+fn project_and_cull_triangle(
+    v0: Vec3,
+    w0: f32,
+    v1: Vec3,
+    w1: f32,
+    v2: Vec3,
+    w2: f32,
+    half_width: f32,
+    half_height: f32,
+) -> Option<(ScreenPoint, ScreenPoint, ScreenPoint)> {
+    let (p0, p1, p2) = project_triangle_to_screen(v0, w0, v1, w1, v2, w2, half_width, half_height);
+
+    if is_backface(p0, p1, p2) {
+        None
+    } else {
+        Some((p0, p1, p2))
+    }
+}
+
 /// Gradients for perspective-correct texture mapping.
 ///
 /// This struct holds the per-pixel (dX) and per-scanline (dY) changes for:
@@ -121,27 +146,24 @@ impl PerspectiveTextureGradients {
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
+        let dz_dx = calculate_slope(uy, vy, inv_nz, uz, vz);
+        let dq_dx = calculate_slope(uy, vy, inv_nz, uq, vq);
+        let du_dx = calculate_slope(uy, vy, inv_nz, uu, vu);
+        let dv_dx = calculate_slope(uy, vy, inv_nz, uv, vv);
 
         // Calculate Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
+        // Note: Y gradients use (uq * vx - ux * vq) * inv_nz
+        // This is equivalent to calculate_slope(vx, ux, inv_nz, vq, uq)?
+        // calculate_slope(a, b, inv, d1, d2) = (a * d2 - d1 * b) * inv
+        // Here: (vx * vq - uq * ux) ? No.
+        // ny_q = uq * vx - ux * vq
+        // This is (uq * vx - vq * ux)
+        // calculate_slope(vx, ux, inv_nz, vq, uq) -> (vx * uq - vq * ux) * inv_nz
+        // Yes! It matches calculate_slope(vx, ux, inv_nz, vq, uq).
 
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
-
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
+        let dq_dy = calculate_slope(vx, ux, inv_nz, vq, uq);
+        let du_dy = calculate_slope(vx, ux, inv_nz, vu, uu);
+        let dv_dy = calculate_slope(vx, ux, inv_nz, vv, uv);
 
         (
             Self {
@@ -1071,39 +1093,29 @@ unsafe fn draw_scanline_textured_perspective_simd(
     }
 }
 
-/// Draw a single scanline with perspective-correct texture mapping
-/// Optimized using span-based interpolation (every 16 pixels)
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
-pub fn draw_scanline_textured_perspective(
-    fb: &mut Framebuffer,
-    zb: &mut ZBuffer,
-    texture: &Texture,
+fn initialize_perspective_scanline(
+    fb: &Framebuffer,
     y: i32,
     x_start: i32,
     x_end: i32,
-    start: PerspectiveSpanStart,
+    mut start: PerspectiveSpanStart,
     gradients: &PerspectiveTextureGradients,
-) {
+) -> Option<(i32, i32, f32, f32, f32, f32)> {
     if y < 0 || y >= fb.height() as i32 {
-        return;
+        return None;
     }
 
     let width = fb.width() as i32;
     let mut xs = x_start;
     let mut xe = x_end;
-    let mut z = start.z;
-    let mut q = start.q;
-    let mut u = start.u;
-    let mut v = start.v;
 
     if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        q += diff_f * gradients.dq_dx;
-        u += diff_f * gradients.du_dx;
-        v += diff_f * gradients.dv_dx;
+        let diff = -i64::from(xs) as f32;
+        start.z += diff * gradients.dz_dx;
+        start.q += diff * gradients.dq_dx;
+        start.u += diff * gradients.du_dx;
+        start.v += diff * gradients.dv_dx;
         xs = 0;
     }
 
@@ -1112,11 +1124,144 @@ pub fn draw_scanline_textured_perspective(
     }
 
     if xs > xe {
-        return;
+        return None;
     }
 
+    Some((xs, xe, start.z, start.q, start.u, start.v))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_perspective_nearest(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    texture: &Texture,
+    y: i32,
+    xs: i32,
+    xe: i32,
+    mut z: f32,
+    mut q: f32,
+    mut u: f32,
+    mut v: f32,
+    gradients: &PerspectiveTextureGradients,
+) {
+    let span_size = 16;
+    let mut x = xs;
+
+    // Calculate initial start values
+    let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+    let mut u_tex_start = u * w_start;
+    let mut v_tex_start = v * w_start;
+
+    while x <= xe {
+        let remaining = xe - x + 1;
+        let count = remaining.min(span_size);
+
+        // End values at 'x + count'
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
+
+        // Perform perspective divide at span endpoints
+        let w_end = if q_end.abs() > 0.000_001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
+        let u_tex_end = u_end * w_end;
+        let v_tex_end = v_end * w_end;
+
+        // Interpolate texel coordinates linearly over the span
+        let inv_count = RECIPROCAL_TABLE[count as usize];
+        let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
+        let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
+
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (x as usize);
+        let end_idx = y_offset + ((x + count - 1) as usize);
+
+        // SAFETY: Bounds checked by xs, xe clamping and loop logic
+        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+        // Fixed point optimization for Nearest Neighbor
+        let u_fix = (u_tex_start * 65536.0) as i32;
+        let v_fix = (v_tex_start * 65536.0) as i32;
+        let du_fix = (du_tex_step * 65536.0) as i32;
+        let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_span_nearest_simd(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                );
+            }
+        } else {
+            draw_span_nearest(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+            );
+        }
+
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        draw_span_nearest(
+            fb_slice,
+            zb_slice,
+            texture,
+            z,
+            gradients.dz_dx,
+            u_fix,
+            v_fix,
+            du_fix,
+            dv_fix,
+        );
+
+        // Advance state
+        z += gradients.dz_dx * count as f32;
+        q = q_end;
+        u = u_end;
+        v = v_end;
+
+        // Reuse end values for next start
+        u_tex_start = u_tex_end;
+        v_tex_start = v_tex_end;
+
+        x += count;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_perspective_bilinear(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    texture: &Texture,
+    y: i32,
+    xs: i32,
+    xe: i32,
+    mut z: f32,
+    mut q: f32,
+    mut u: f32,
+    mut v: f32,
+    gradients: &PerspectiveTextureGradients,
+) {
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if texture.filter_mode == FilterMode::Bilinear && is_x86_feature_detected!("avx2") {
+    if is_x86_feature_detected!("avx2") {
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
         let start_idx = y_offset + (xs as usize);
@@ -1173,45 +1318,15 @@ pub fn draw_scanline_textured_perspective(
         let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
         let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
-        match texture.filter_mode {
-            FilterMode::Nearest => {
-                // Fixed point optimization for Nearest Neighbor
-                let u_fix = (u_tex_start * 65536.0) as i32;
-                let v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
+        let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+        let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
+        let du_fix = (du_tex_step * 65536.0) as i32;
+        let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_nearest_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
-                    }
-                } else {
-                    draw_span_nearest(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_nearest(
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_span_bilinear_simd(
                     fb_slice,
                     zb_slice,
                     texture,
@@ -1223,119 +1338,32 @@ pub fn draw_scanline_textured_perspective(
                     dv_fix,
                 );
             }
-            FilterMode::Bilinear => {
-                let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_bilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                        );
-                    }
-                } else {
-                    draw_span_bilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_bilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                );
-            }
-            FilterMode::Trilinear => {
-                // For Trilinear, we need LOD.
-                let w = w_start; // 1/q
-                let w_sq = w * w;
-
-                let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
-                let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
-                let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
-                let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
-
-                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
-                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-                let lod = 0.5 * max_rho_sq.log2();
-
-                let u_fix = (u_tex_start * 65536.0) as i32;
-                let v_fix = (v_tex_start * 65536.0) as i32;
-                let du_fix = (du_tex_step * 65536.0) as i32;
-                let dv_fix = (dv_tex_step * 65536.0) as i32;
-
-                #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
-                    unsafe {
-                        draw_span_trilinear_simd(
-                            fb_slice,
-                            zb_slice,
-                            texture,
-                            z,
-                            gradients.dz_dx,
-                            u_fix,
-                            v_fix,
-                            du_fix,
-                            dv_fix,
-                            lod,
-                        );
-                    }
-                } else {
-                    draw_span_trilinear(
-                        fb_slice,
-                        zb_slice,
-                        texture,
-                        z,
-                        gradients.dz_dx,
-                        u_fix,
-                        v_fix,
-                        du_fix,
-                        dv_fix,
-                        lod,
-                    );
-                }
-
-                #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-                draw_span_trilinear(
-                    fb_slice,
-                    zb_slice,
-                    texture,
-                    z,
-                    gradients.dz_dx,
-                    u_fix,
-                    v_fix,
-                    du_fix,
-                    dv_fix,
-                    lod,
-                );
-            }
+        } else {
+            draw_span_bilinear(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+            );
         }
+
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        draw_span_bilinear(
+            fb_slice,
+            zb_slice,
+            texture,
+            z,
+            gradients.dz_dx,
+            u_fix,
+            v_fix,
+            du_fix,
+            dv_fix,
+        );
 
         // Advance state
         z += gradients.dz_dx * count as f32;
@@ -1348,6 +1376,170 @@ pub fn draw_scanline_textured_perspective(
         v_tex_start = v_tex_end;
 
         x += count;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_perspective_trilinear(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    texture: &Texture,
+    y: i32,
+    xs: i32,
+    xe: i32,
+    mut z: f32,
+    mut q: f32,
+    mut u: f32,
+    mut v: f32,
+    gradients: &PerspectiveTextureGradients,
+) {
+    let span_size = 16;
+    let mut x = xs;
+
+    // Calculate initial start values
+    let w_start = if q.abs() > 0.000_001 { 1.0 / q } else { 1.0 };
+    let mut u_tex_start = u * w_start;
+    let mut v_tex_start = v * w_start;
+
+    while x <= xe {
+        let remaining = xe - x + 1;
+        let count = remaining.min(span_size);
+
+        // End values at 'x + count'
+        let q_end = q + gradients.dq_dx * count as f32;
+        let u_end = u + gradients.du_dx * count as f32;
+        let v_end = v + gradients.dv_dx * count as f32;
+
+        // Perform perspective divide at span endpoints
+        let w_end = if q_end.abs() > 0.000_001 {
+            1.0 / q_end
+        } else {
+            1.0
+        };
+        let u_tex_end = u_end * w_end;
+        let v_tex_end = v_end * w_end;
+
+        // Interpolate texel coordinates linearly over the span
+        let inv_count = RECIPROCAL_TABLE[count as usize];
+        let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
+        let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
+
+        let width_usize = fb.width() as usize;
+        let y_offset = (y as usize) * width_usize;
+        let start_idx = y_offset + (x as usize);
+        let end_idx = y_offset + ((x + count - 1) as usize);
+
+        // SAFETY: Bounds checked by xs, xe clamping and loop logic
+        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+
+        // For Trilinear, we need LOD.
+        let w = w_start; // 1/q
+        let w_sq = w * w;
+
+        let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
+        let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
+        let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
+        let dv_tex_dy = (gradients.dv_dy * q - v * gradients.dq_dy) * w_sq;
+
+        let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+            .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+        let lod = 0.5 * max_rho_sq.log2();
+
+        let u_fix = (u_tex_start * 65536.0) as i32;
+        let v_fix = (v_tex_start * 65536.0) as i32;
+        let du_fix = (du_tex_step * 65536.0) as i32;
+        let dv_fix = (dv_tex_step * 65536.0) as i32;
+
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_span_trilinear_simd(
+                    fb_slice,
+                    zb_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    lod,
+                );
+            }
+        } else {
+            draw_span_trilinear(
+                fb_slice,
+                zb_slice,
+                texture,
+                z,
+                gradients.dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                lod,
+            );
+        }
+
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        draw_span_trilinear(
+            fb_slice,
+            zb_slice,
+            texture,
+            z,
+            gradients.dz_dx,
+            u_fix,
+            v_fix,
+            du_fix,
+            dv_fix,
+            lod,
+        );
+
+        // Advance state
+        z += gradients.dz_dx * count as f32;
+        q = q_end;
+        u = u_end;
+        v = v_end;
+
+        // Reuse end values for next start
+        u_tex_start = u_tex_end;
+        v_tex_start = v_tex_end;
+
+        x += count;
+    }
+}
+
+/// Draw a single scanline with perspective-correct texture mapping
+/// Optimized using span-based interpolation (every 16 pixels)
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+pub fn draw_scanline_textured_perspective(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    texture: &Texture,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    start: PerspectiveSpanStart,
+    gradients: &PerspectiveTextureGradients,
+) {
+    let (xs, xe, z, q, u, v) =
+        match initialize_perspective_scanline(fb, y, x_start, x_end, start, gradients) {
+            Some(val) => val,
+            None => return,
+        };
+
+    match texture.filter_mode {
+        FilterMode::Nearest => {
+            draw_scanline_perspective_nearest(fb, zb, texture, y, xs, xe, z, q, u, v, gradients);
+        }
+        FilterMode::Bilinear => {
+            draw_scanline_perspective_bilinear(fb, zb, texture, y, xs, xe, z, q, u, v, gradients);
+        }
+        FilterMode::Trilinear => {
+            draw_scanline_perspective_trilinear(fb, zb, texture, y, xs, xe, z, q, u, v, gradients);
+        }
     }
 }
 
@@ -1415,8 +1607,8 @@ pub fn fill_triangle_textured(
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
         let v2 = clipped[base + 2];
-        // Project to screen
-        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+
+        let (p0_orig, p1_orig, p2_orig) = match project_and_cull_triangle(
             v0.0.0,
             v0.0.1,
             v1.0.0,
@@ -1425,12 +1617,10 @@ pub fn fill_triangle_textured(
             v2.0.1,
             half_width,
             half_height,
-        );
-
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
+        ) {
+            Some(pts) => pts,
+            None => continue,
+        };
 
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
@@ -1657,26 +1847,13 @@ impl NormalMapGradients {
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_lx = uy * vlx - ulx * vy;
-        let dlx_dx = nx_lx * inv_nz;
-
-        let nx_ly = uy * vly - uly * vy;
-        let dly_dx = nx_ly * inv_nz;
-
-        let nx_lz = uy * vlz - ulz * vy;
-        let dlz_dx = nx_lz * inv_nz;
+        let dz_dx = calculate_slope(uy, vy, inv_nz, uz, vz);
+        let dq_dx = calculate_slope(uy, vy, inv_nz, uq, vq);
+        let du_dx = calculate_slope(uy, vy, inv_nz, uu, vu);
+        let dv_dx = calculate_slope(uy, vy, inv_nz, uv, vv);
+        let dlx_dx = calculate_slope(uy, vy, inv_nz, ulx, vlx);
+        let dly_dx = calculate_slope(uy, vy, inv_nz, uly, vly);
+        let dlz_dx = calculate_slope(uy, vy, inv_nz, ulz, vlz);
 
         (
             Self {
@@ -2551,8 +2728,7 @@ pub fn fill_triangle_normal_mapped(
         let v1 = clipped[base + 1];
         let v2 = clipped[base + 2];
 
-        // Project to screen
-        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+        let (p0_orig, p1_orig, p2_orig) = match project_and_cull_triangle(
             v0.0.0,
             v0.0.1,
             v1.0.0,
@@ -2561,12 +2737,10 @@ pub fn fill_triangle_normal_mapped(
             v2.0.1,
             half_width,
             half_height,
-        );
-
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
+        ) {
+            Some(pts) => pts,
+            None => continue,
+        };
 
         // Prepare attributes
         let inv_w0 = p0_orig.inv_w;
@@ -2792,45 +2966,21 @@ impl TexturedGouraudGradients {
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
-
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
-
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
-
-        let nx_r = uy * vr - ur * vy;
-        let dr_dx = nx_r * inv_nz;
-
-        let nx_g = uy * vg - ug * vy;
-        let dg_dx = nx_g * inv_nz;
-
-        let nx_b = uy * vb - ub * vy;
-        let db_dx = nx_b * inv_nz;
+        let dz_dx = calculate_slope(uy, vy, inv_nz, uz, vz);
+        let dq_dx = calculate_slope(uy, vy, inv_nz, uq, vq);
+        let du_dx = calculate_slope(uy, vy, inv_nz, uu, vu);
+        let dv_dx = calculate_slope(uy, vy, inv_nz, uv, vv);
+        let dr_dx = calculate_slope(uy, vy, inv_nz, ur, vr);
+        let dg_dx = calculate_slope(uy, vy, inv_nz, ug, vg);
+        let db_dx = calculate_slope(uy, vy, inv_nz, ub, vb);
 
         // Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
-
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
-
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
-
-        let ny_r = ur * vx - ux * vr;
-        let dr_dy = ny_r * inv_nz;
-
-        let ny_g = ug * vx - ux * vg;
-        let dg_dy = ny_g * inv_nz;
-
-        let ny_b = ub * vx - ux * vb;
-        let db_dy = ny_b * inv_nz;
+        let dq_dy = calculate_slope(vx, ux, inv_nz, vq, uq);
+        let du_dy = calculate_slope(vx, ux, inv_nz, vu, uu);
+        let dv_dy = calculate_slope(vx, ux, inv_nz, vv, uv);
+        let dr_dy = calculate_slope(vx, ux, inv_nz, vr, ur);
+        let dg_dy = calculate_slope(vx, ux, inv_nz, vg, ug);
+        let db_dy = calculate_slope(vx, ux, inv_nz, vb, ub);
 
         (
             Self {
@@ -3822,7 +3972,7 @@ pub fn fill_triangle_textured_gouraud(
         let v1 = clipped[base + 1];
         let v2 = clipped[base + 2];
 
-        let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+        let (p0_orig, p1_orig, p2_orig) = match project_and_cull_triangle(
             v0.0.0,
             v0.0.1,
             v1.0.0,
@@ -3831,11 +3981,10 @@ pub fn fill_triangle_textured_gouraud(
             v2.0.1,
             half_width,
             half_height,
-        );
-
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
+        ) {
+            Some(pts) => pts,
+            None => continue,
+        };
 
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
