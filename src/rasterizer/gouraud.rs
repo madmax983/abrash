@@ -24,35 +24,34 @@ unsafe fn draw_scanline_gouraud_simd_fast(
 
     // Load constants
     let dz_dx_vec = _mm256_set1_ps(dz_dx);
-    let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
-    let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
-    let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
 
-    let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
-    let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-    let mut z_vec =
-        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
     // Initialize colors: Start + (dc * i)
-    let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
-    let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
-    let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-    let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
-    let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
-    let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
 
     // Steps for 8 pixels
-    let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
     // dc * 8
-    let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
-    let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
-    let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
 
     // Masks
-    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
-    let mask_r = unsafe { _mm256_set1_epi32(0x00FF_0000) };
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+    let mask_r = _mm256_set1_epi32(0x00FF_0000);
 
     while i + 8 <= len {
         // SAFETY: Loop bounds checked (i + 8 <= len). `depth_ptr` and `fb_ptr` are valid.
@@ -98,12 +97,10 @@ unsafe fn draw_scanline_gouraud_simd_fast(
         }
 
         // Advance
-        unsafe {
-            z_vec = _mm256_add_ps(z_vec, dz_step);
-            r_vec = _mm256_add_epi32(r_vec, dr_step);
-            g_vec = _mm256_add_epi32(g_vec, dg_step);
-            b_vec = _mm256_add_epi32(b_vec, db_step);
-        }
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
 
         i += 8;
     }
@@ -156,38 +153,37 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let mut i = 0;
 
     // Load constants
-    let dz_dx_vec = unsafe { _mm256_set1_ps(dz_dx) };
-    let dr_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.0) };
-    let dg_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.1) };
-    let db_dx_vec = unsafe { _mm256_set1_epi32(dc_dx.2) };
+    let dz_dx_vec = _mm256_set1_ps(dz_dx);
+    let dr_dx_vec = _mm256_set1_epi32(dc_dx.0);
+    let dg_dx_vec = _mm256_set1_epi32(dc_dx.1);
+    let db_dx_vec = _mm256_set1_epi32(dc_dx.2);
 
-    let offsets_f = unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) };
-    let offsets_i = unsafe { _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0) };
+    let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-    let mut z_vec =
-        unsafe { _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f)) };
+    let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
     // Initialize colors: Start + (dc * i)
-    let dr_off = unsafe { _mm256_mullo_epi32(dr_dx_vec, offsets_i) };
-    let dg_off = unsafe { _mm256_mullo_epi32(dg_dx_vec, offsets_i) };
-    let db_off = unsafe { _mm256_mullo_epi32(db_dx_vec, offsets_i) };
+    let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+    let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+    let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
-    let mut r_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off) };
-    let mut g_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off) };
-    let mut b_vec = unsafe { _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off) };
+    let mut r_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.0), dr_off);
+    let mut g_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.1), dg_off);
+    let mut b_vec = _mm256_add_epi32(_mm256_set1_epi32(c_start.2), db_off);
 
     // Steps for 8 pixels
-    let dz_step = unsafe { _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0)) };
+    let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
     // dc * 8
-    let dr_step = unsafe { _mm256_slli_epi32(dr_dx_vec, 3) };
-    let dg_step = unsafe { _mm256_slli_epi32(dg_dx_vec, 3) };
-    let db_step = unsafe { _mm256_slli_epi32(db_dx_vec, 3) };
+    let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+    let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+    let db_step = _mm256_slli_epi32(db_dx_vec, 3);
 
     // Masks
     // 0x00FF0000 is 255.0 in 16.16 fixed point
-    let min_val = unsafe { _mm256_setzero_si256() };
-    let max_val = unsafe { _mm256_set1_epi32(0x00FF_0000) };
-    let alpha_mask = unsafe { _mm256_set1_epi32(0xFF00_0000u32 as i32) };
+    let min_val = _mm256_setzero_si256();
+    let max_val = _mm256_set1_epi32(0x00FF_0000);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
     while i + 8 <= len {
         // SAFETY: Loop bounds checked (i + 8 <= len). `depth_ptr` and `fb_ptr` are valid.
@@ -239,12 +235,10 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
         }
 
         // Advance
-        unsafe {
-            z_vec = _mm256_add_ps(z_vec, dz_step);
-            r_vec = _mm256_add_epi32(r_vec, dr_step);
-            g_vec = _mm256_add_epi32(g_vec, dg_step);
-            b_vec = _mm256_add_epi32(b_vec, db_step);
-        }
+        z_vec = _mm256_add_ps(z_vec, dz_step);
+        r_vec = _mm256_add_epi32(r_vec, dr_step);
+        g_vec = _mm256_add_epi32(g_vec, dg_step);
+        b_vec = _mm256_add_epi32(b_vec, db_step);
 
         i += 8;
     }
