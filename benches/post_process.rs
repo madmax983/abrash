@@ -164,6 +164,35 @@ fn benchmark_sobel(c: &mut Criterion) {
     });
 }
 
+fn benchmark_dof(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+
+    // Populate buffers
+    fb.clear(0xFFFFFFFF);
+    // Fill Z buffer with some data (gradient)
+    for y in 0..height {
+        for x in 0..width {
+            let depth = 0.5 + (x as f32 / width as f32) * 0.4;
+            zb.test_and_set(x as i32, y as i32, depth);
+        }
+    }
+
+    c.bench_function("apply_depth_of_field 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_depth_of_field(
+                black_box(&mut fb),
+                black_box(&zb),
+                black_box(0.7),
+                black_box(0.1),
+                black_box(5),
+            );
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -175,5 +204,6 @@ criterion_group!(
     benchmark_ssao,
     benchmark_box_blur_f32,
     benchmark_sobel,
+    benchmark_dof,
 );
 criterion_main!(benches);
