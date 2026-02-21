@@ -309,6 +309,11 @@ harness = false
 [[bench]]
 name = "particles_benchmark"
 harness = false
+
+[[bench]]
+name = "scene_render"
+harness = false
+
 [[bench]]
 name = "skybox_benchmark"
 harness = false

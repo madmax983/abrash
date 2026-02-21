@@ -1,0 +1,77 @@
+use criterion::{Criterion, criterion_group, criterion_main};
+use abrash::framebuffer::Framebuffer;
+use abrash::zbuffer::ZBuffer;
+use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
+use abrash::scene::{Scene, Camera, SceneObject};
+use abrash::tile_renderer::TileRenderer;
+use std::sync::Arc;
+
+fn generate_grid_mesh(size: usize) -> Mesh {
+    let mut mesh = Mesh::new();
+    let offset = size as f32 * 0.5;
+
+    // Vertices
+    for y in 0..=size {
+        for x in 0..=size {
+            mesh.vertices.push(Vec3::new(x as f32 - offset, 0.0, y as f32 - offset));
+        }
+    }
+
+    // Indices
+    for y in 0..size {
+        for x in 0..size {
+            let i0 = y * (size + 1) + x;
+            let i1 = i0 + 1;
+            let i2 = (y + 1) * (size + 1) + x;
+            let i3 = i2 + 1;
+
+            mesh.indices.push([i0, i1, i2]);
+            mesh.indices.push([i1, i3, i2]);
+        }
+    }
+
+    mesh
+}
+
+fn bench_scene_render(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+
+    // Create buffers
+    // We recreate them inside the bench loop usually, or reset them.
+    // For rendering, we care about the `render` call cost.
+
+    // Setup Scene
+    // 100x100 grid = 10,201 vertices, 20,000 triangles
+    let mesh = Arc::new(generate_grid_mesh(100));
+    let transform = Mat4::identity();
+    let object = SceneObject::new(mesh, transform, 0xFFFFFFFF);
+
+    let view = Mat4::look_at(
+        Vec3::new(0.0, 50.0, 50.0), // Eye
+        Vec3::new(0.0, 0.0, 0.0),   // Target
+        Vec3::new(0.0, 1.0, 0.0),   // Up
+    );
+    let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
+    let camera = Camera::new(view, proj);
+
+    let mut scene = Scene::new(camera);
+    scene.add_object(object);
+
+    let mut renderer = TileRenderer::new(width, height);
+    // Reuse buffers to avoid allocation noise
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+
+    c.bench_function("scene_render_grid_100x100", |b| {
+        b.iter(|| {
+            fb.clear(0xFF000000);
+            zb.clear();
+            scene.render(&mut renderer, &mut fb, &mut zb);
+        })
+    });
+}
+
+criterion_group!(benches, bench_scene_render);
+criterion_main!(benches);

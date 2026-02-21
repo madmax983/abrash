@@ -186,19 +186,21 @@ impl Scene {
             let mesh = &obj.mesh;
 
             // Transform vertices and append to batch
-            // Note: This naive iteration transforms all triangles.
-            // Further optimization could use backface culling here too, but
-            // rasterizer handles that (and needs projected coords).
+            // Optimization: Batch transform vertices to reuse calculations for shared vertices.
+            let mut transformed_verts = vec![(Vec3::default(), 0.0); mesh.vertices.len()];
+
+            #[cfg(feature = "parallel")]
+            mvp.transform_points_parallel(&mesh.vertices, &mut transformed_verts);
+
+            #[cfg(not(feature = "parallel"))]
+            mvp.transform_points(&mesh.vertices, &mut transformed_verts);
+
             for indices in &mesh.indices {
-                let v0_local = mesh.vertices[indices[0]];
-                let v1_local = mesh.vertices[indices[1]];
-                let v2_local = mesh.vertices[indices[2]];
+                let v0 = transformed_verts[indices[0]];
+                let v1 = transformed_verts[indices[1]];
+                let v2 = transformed_verts[indices[2]];
 
-                let (v0_clip, w0) = mvp.transform_point(v0_local);
-                let (v1_clip, w1) = mvp.transform_point(v1_local);
-                let (v2_clip, w2) = mvp.transform_point(v2_local);
-
-                triangle_batch.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), obj.color));
+                triangle_batch.push((v0, v1, v2, obj.color));
             }
         }
 
