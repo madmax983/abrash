@@ -29,8 +29,8 @@
 //! *   **Multiple Filtering Modes**: Nearest Neighbor, Bilinear, and Trilinear (Mipmapping).
 //! *   **Simd Optimization**: AVX2 accelerated rasterization for high performance.
 
-use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
+use crate::geometry::clipping::clip_triangle_to_frustum;
 use crate::math::{ScreenPoint, Vec2, Vec3, Vec4, fast_inv_sqrt, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture, blend_four_way, blend_swar};
 use crate::zbuffer::ZBuffer;

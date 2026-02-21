@@ -1,8 +1,8 @@
 use abrash::ascii::AsciiCharset;
 use abrash::framebuffer::Framebuffer;
+use abrash::geometry::mesh::Mesh;
+use abrash::geometry::obj_loader::load_obj;
 use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
-use abrash::obj_loader::load_obj;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;

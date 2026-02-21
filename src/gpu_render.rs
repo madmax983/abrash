@@ -8,12 +8,14 @@ pub use abrash_gpu_render::{
 
 /// Converts a CPU `Mesh` to GPU-compatible vertex and index buffers.
 ///
-/// This bridge function allows `abrash::mesh::Mesh` (loaded via OBJ or generated procedurally)
+/// This bridge function allows `abrash::geometry::mesh::Mesh` (loaded via OBJ or generated procedurally)
 /// to be rendered by the `abrash-gpu-render` backend.
 ///
 /// # Errors
 /// Returns an error if the mesh has too many vertices for the 16-bit index buffer limit (65535).
-pub fn mesh_to_gpu(mesh: &crate::mesh::Mesh) -> Result<(Vec<GpuVertex>, Vec<u16>), String> {
+pub fn mesh_to_gpu(
+    mesh: &crate::geometry::mesh::Mesh,
+) -> Result<(Vec<GpuVertex>, Vec<u16>), String> {
     if mesh.vertices.len() > u16::MAX as usize {
         return Err(format!(
             "Mesh has too many vertices ({}) for u16 index buffer (max {})",

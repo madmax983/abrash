@@ -20,8 +20,8 @@
 
 #![allow(warnings)]
 
+use crate::geometry::mesh::Mesh;
 use crate::math::Vec3;
-use crate::mesh::Mesh;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 

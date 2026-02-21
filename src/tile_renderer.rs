@@ -68,8 +68,8 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
+use crate::geometry::clipping::clip_triangle_to_frustum;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{

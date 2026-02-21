@@ -3,8 +3,8 @@
 //! Converts a mesh into a voxel grid using stochastic sampling.
 //! Can also generate a mesh representation of the voxel grid (cubes).
 
+use crate::geometry::mesh::{AABB, Mesh};
 use crate::math::Vec3;
-use crate::mesh::{AABB, Mesh};
 use crate::utils::XorShift32;
 
 /// A grid of voxels representing a 3D volume.

@@ -1,5 +1,5 @@
+use abrash::geometry::obj_loader::load_obj;
 use abrash::gpu_render::{GpuDemoConfig, GpuVertex, mesh_to_gpu, run_mesh_demo};
-use abrash::obj_loader::load_obj;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 

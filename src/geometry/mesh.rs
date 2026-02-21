@@ -5,7 +5,7 @@
 //! # Examples
 //!
 //! ```
-//! use abrash::mesh::Mesh;
+//! use abrash::geometry::mesh::Mesh;
 //! use abrash::math::Vec3;
 //!
 //! let mut mesh = Mesh::new();
@@ -53,7 +53,8 @@ pub struct AABB {
 
 impl AABB {
     /// Create a new AABB from min and max points.
-    pub fn new(min: Vec3, max: Vec3) -> Self {
+    #[must_use]
+    pub const fn new(min: Vec3, max: Vec3) -> Self {
         Self {
             min,
             pad0: 0.0,
@@ -63,6 +64,7 @@ impl AABB {
     }
 
     /// Calculate AABB from a list of points.
+    #[must_use]
     pub fn from_points(points: &[Vec3]) -> Self {
         if points.is_empty() {
             return Self {
@@ -123,7 +125,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash::geometry::mesh::Mesh;
     /// let mesh = Mesh::new();
     /// assert!(mesh.vertices.is_empty());
     /// ```
@@ -146,7 +148,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash::geometry::mesh::Mesh;
     /// let cube = Mesh::cube(2.0);
     /// assert_eq!(cube.vertices.len(), 8);
     /// assert_eq!(cube.indices.len(), 12);
@@ -210,7 +212,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash::geometry::mesh::Mesh;
     /// use abrash::math::Vec3;
     ///
     /// let mut mesh = Mesh::new();

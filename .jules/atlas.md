@@ -25,3 +25,13 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Grouping Geometric Operations]
+**Tangle:** The `src/` directory was cluttered with top-level modules like `clipping.rs`, `culling.rs`, `mesh.rs`, and `obj_loader.rs`. These modules represent a cohesive "Geometry" subsystem but were scattered, lacking a clear boundary.
+
+**Blueprint:**
+1.  **Relocate:** Moved `clipping.rs`, `culling.rs`, `mesh.rs`, and `obj_loader.rs` into a new `src/geometry/` directory.
+2.  **Encapsulate:** Created `src/geometry/mod.rs` to expose these modules.
+3.  **Refactor:** Updated imports across `src/` and `examples/` to use `crate::geometry::*` or `abrash::geometry::*`.
+
+**Stability:** Improved organization of the root directory. Grouped related geometric types and operations into a single module, improving discoverability and cohesion.

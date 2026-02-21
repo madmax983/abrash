@@ -83,19 +83,17 @@
 
 pub mod framebuffer;
 pub mod math;
-pub mod mesh;
 pub mod platform;
 pub mod rasterizer;
 pub mod time;
 pub mod utils;
 pub mod zbuffer;
 
+pub mod geometry;
+
 pub mod ascii;
-pub mod clipping;
-pub mod culling;
 pub mod heat_vision;
 pub mod hiz_buffer;
-pub mod obj_loader;
 pub mod particles;
 pub mod post_process;
 pub mod procedural;

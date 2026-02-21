@@ -3,8 +3,8 @@
 //! Demonstrates flat shading with directional lighting.
 
 use abrash::framebuffer::Framebuffer;
+use abrash::geometry::mesh::Mesh;
 use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;

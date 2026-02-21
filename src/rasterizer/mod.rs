@@ -8,7 +8,7 @@
 //! The rasterizer sits between the Vertex Processing stage and the Framebuffer:
 //!
 //! 1.  **Input**: Vertices in Homogeneous Clip Space (output of the Vertex Shader/Transform stage).
-//! 2.  **Clipping**: Triangles are clipped against the view frustum (handled by [`crate::clipping`]).
+//! 2.  **Clipping**: Triangles are clipped against the view frustum (handled by [`crate::geometry::clipping`]).
 //! 3.  **Perspective Division**: Converting Homogeneous coordinates $(x, y, z, w)$ to Normalized Device Coordinates (NDC) $(x/w, y/w, z/w)$.
 //! 4.  **Viewport Mapping**: Converting NDC to Screen Space $(x_{screen}, y_{screen})$.
 //! 5.  **Scan Conversion**: Finding all pixels that lie inside the triangle.

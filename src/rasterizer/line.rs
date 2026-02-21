@@ -1,5 +1,5 @@
-use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
+use crate::geometry::clipping::clip_line_to_frustum;
 use crate::math::{Vec3, project_to_screen_optimized};
 use crate::zbuffer::ZBuffer;
 

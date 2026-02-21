@@ -90,7 +90,10 @@ fn verify_texture_culling() {
     zb.clear();
     fill_triangle_textured(&mut fb, &mut zb, v0, v1_ccw, v2_ccw, &texture);
     let pixels_drawn_ccw = fb.as_slice().iter().filter(|&&p| p != 0).count();
-    assert!(pixels_drawn_ccw > 0, "Front-facing triangle should be drawn");
+    assert!(
+        pixels_drawn_ccw > 0,
+        "Front-facing triangle should be drawn"
+    );
 
     // Benchmark Loop
     let start = Instant::now();

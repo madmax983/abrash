@@ -4,8 +4,8 @@
 //! The skybox is rendered as a unit cube centered on the camera,
 //! with "infinite" depth (z=1.0) to serve as a background.
 
-use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
+use crate::geometry::clipping::clip_triangle_to_frustum;
 use crate::math::{Mat4, ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::rasterizer::sort_by_y;
 use crate::texture::Texture;

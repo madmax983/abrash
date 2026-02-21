@@ -7,8 +7,8 @@ mod demo {
     use abrash::experimental::jelly::{SoftBody, Spring};
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
+    use abrash::geometry::mesh::Mesh;
     use abrash::math::{Mat4, Vec3};
-    use abrash::mesh::Mesh;
     use abrash::platform::{Window, WindowBackend};
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;

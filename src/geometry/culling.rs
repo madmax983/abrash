@@ -1,14 +1,13 @@
 //! Frustum Culling primitives.
 
+use crate::geometry::mesh::{AABB, BoundingSphere};
 use crate::math::{Mat4, Vec3};
-use crate::mesh::{AABB, BoundingSphere};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use std::arch::x86_64::{
-    _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_si256, _mm256_castps_si256, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_loadu_ps,
-    _mm256_movemask_ps, _mm256_mul_ps, _mm256_set1_epi32, _mm256_set1_ps,
-    _mm256_setzero_ps, _mm256_unpackhi_ps,
-    _mm256_unpacklo_ps,
+    _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_si256, _mm256_castps_si256, _mm256_castsi256_ps,
+    _mm256_cmp_ps, _mm256_loadu_ps, _mm256_movemask_ps, _mm256_mul_ps, _mm256_set1_epi32,
+    _mm256_set1_ps, _mm256_setzero_ps, _mm256_unpackhi_ps, _mm256_unpacklo_ps,
 };
 
 /// A geometric plane defined by a normal and a distance from the origin.
@@ -451,8 +450,8 @@ impl Frustum {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::mesh::BoundingSphere;
     use crate::math::{Mat4, Vec3};
-    use crate::mesh::BoundingSphere;
 
     #[test]
     fn test_cull_spheres_prealloc() {

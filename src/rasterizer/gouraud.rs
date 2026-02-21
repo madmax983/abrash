@@ -1,5 +1,5 @@
-use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
+use crate::geometry::clipping::clip_triangle_to_frustum;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
