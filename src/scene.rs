@@ -27,6 +27,7 @@ pub struct SceneObject {
 impl SceneObject {
     /// Create a new scene object from a mesh and transform.
     /// Automatically calculates the local AABB.
+    #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
         Self {
@@ -39,47 +40,70 @@ impl SceneObject {
 
     /// Calculate the World Space AABB by transforming the local AABB corners.
     /// Note: This results in a loose-fitting AABB (AABB of the OBB).
+    ///
+    /// Optimized using Arvo's algorithm (Transforming Center & Extents) to avoid
+    /// transforming all 8 corners explicitly.
+    #[must_use]
     pub fn calculate_world_aabb(&self) -> AABB {
         let min = self.local_aabb.min;
         let max = self.local_aabb.max;
+        let m = &self.transform.m;
 
-        // The 8 corners of the local AABB
-        let corners = [
-            Vec3::new(min.x, min.y, min.z),
-            Vec3::new(max.x, min.y, min.z),
-            Vec3::new(min.x, max.y, min.z),
-            Vec3::new(max.x, max.y, min.z),
-            Vec3::new(min.x, min.y, max.z),
-            Vec3::new(max.x, min.y, max.z),
-            Vec3::new(min.x, max.y, max.z),
-            Vec3::new(max.x, max.y, max.z),
-        ];
+        // Initialize with translation (w column)
+        // Since we use row-vectors (v * M), the translation is in the last row (m[3]).
+        let mut world_min = Vec3::new(m[3][0], m[3][1], m[3][2]);
+        let mut world_max = world_min;
 
-        let mut world_min = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
-        let mut world_max = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
+        // For each local axis i (x, y, z) (columns of the matrix)
+        for (i, row) in m.iter().enumerate().take(3) {
+            // Get the current local min/max component
+            let local_min = match i {
+                0 => min.x,
+                1 => min.y,
+                _ => min.z,
+            };
+            let local_max = match i {
+                0 => max.x,
+                1 => max.y,
+                _ => max.z,
+            };
 
-        for &corner in &corners {
-            // Transform point (w=1.0)
-            let (p, _) = self.transform.transform_point(corner);
+            // For each world axis j (x, y, z)
+            for (j, &element) in row.iter().enumerate().take(3) {
+                let e = element * local_min;
+                let f = element * local_max;
 
-            if p.x < world_min.x {
-                world_min.x = p.x;
-            }
-            if p.y < world_min.y {
-                world_min.y = p.y;
-            }
-            if p.z < world_min.z {
-                world_min.z = p.z;
-            }
-
-            if p.x > world_max.x {
-                world_max.x = p.x;
-            }
-            if p.y > world_max.y {
-                world_max.y = p.y;
-            }
-            if p.z > world_max.z {
-                world_max.z = p.z;
+                if e < f {
+                    match j {
+                        0 => {
+                            world_min.x += e;
+                            world_max.x += f;
+                        }
+                        1 => {
+                            world_min.y += e;
+                            world_max.y += f;
+                        }
+                        _ => {
+                            world_min.z += e;
+                            world_max.z += f;
+                        }
+                    }
+                } else {
+                    match j {
+                        0 => {
+                            world_min.x += f;
+                            world_max.x += e;
+                        }
+                        1 => {
+                            world_min.y += f;
+                            world_max.y += e;
+                        }
+                        _ => {
+                            world_min.z += f;
+                            world_max.z += e;
+                        }
+                    }
+                }
             }
         }
 
@@ -96,6 +120,7 @@ pub struct Camera {
 
 impl Camera {
     /// Create a new camera.
+    #[must_use]
     pub fn new(view: Mat4, proj: Mat4) -> Self {
         let view_proj = view * proj;
         let frustum = Frustum::from_matrix(view_proj);
@@ -123,7 +148,8 @@ pub struct Scene {
 
 impl Scene {
     /// Create a new scene.
-    pub fn new(camera: Camera) -> Self {
+    #[must_use]
+    pub const fn new(camera: Camera) -> Self {
         Self {
             objects: Vec::new(),
             camera,
@@ -182,5 +208,65 @@ impl Scene {
         if !triangle_batch.is_empty() {
             renderer.render_batch(fb, zb, &triangle_batch);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Vec3;
+
+    #[test]
+    fn test_calculate_world_aabb_matches_naive() {
+        // Create a mesh with known bounds (e.g., unit cube centered at origin)
+        // Local AABB: [-0.5, -0.5, -0.5] to [0.5, 0.5, 0.5]
+        let mesh = Arc::new(Mesh::cube(1.0));
+
+        // Create a transform: Rotate 45 deg around Y, Translate (10, 0, 0)
+        let rotation = Mat4::rotation_y(std::f32::consts::FRAC_PI_4);
+        let translation = Mat4::translation(10.0, 0.0, 0.0);
+        let transform = rotation * translation; // Translate then Rotate? No, row vector v*R*T
+
+        // In row-vector convention: v' = v * R * T.
+        // First rotate, then translate.
+
+        let obj = SceneObject::new(mesh, transform, 0xFFFFFFFF);
+
+        let calculated_aabb = obj.calculate_world_aabb();
+
+        // Naive calculation for verification
+        let min = obj.local_aabb.min;
+        let max = obj.local_aabb.max;
+        let corners = [
+            Vec3::new(min.x, min.y, min.z),
+            Vec3::new(max.x, min.y, min.z),
+            Vec3::new(min.x, max.y, min.z),
+            Vec3::new(max.x, max.y, min.z),
+            Vec3::new(min.x, min.y, max.z),
+            Vec3::new(max.x, min.y, max.z),
+            Vec3::new(min.x, max.y, max.z),
+            Vec3::new(max.x, max.y, max.z),
+        ];
+
+        let mut expected_min = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
+        let mut expected_max = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
+
+        for corner in corners {
+            let (p, _) = transform.transform_point(corner);
+            if p.x < expected_min.x { expected_min.x = p.x; }
+            if p.y < expected_min.y { expected_min.y = p.y; }
+            if p.z < expected_min.z { expected_min.z = p.z; }
+
+            if p.x > expected_max.x { expected_max.x = p.x; }
+            if p.y > expected_max.y { expected_max.y = p.y; }
+            if p.z > expected_max.z { expected_max.z = p.z; }
+        }
+
+        // Check with epsilon
+        let diff_min = calculated_aabb.min - expected_min;
+        let diff_max = calculated_aabb.max - expected_max;
+
+        assert!(diff_min.length() < 0.0001, "Min bounds mismatch: {:?} vs {:?}", calculated_aabb.min, expected_min);
+        assert!(diff_max.length() < 0.0001, "Max bounds mismatch: {:?} vs {:?}", calculated_aabb.max, expected_max);
     }
 }

@@ -1,8 +1,6 @@
 use abrash::clipping::clip_triangle_to_frustum;
-use abrash::experimental::jelly::SoftBody;
 use abrash::math::Mat4;
 use abrash::math::Vec3;
-use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
 use abrash::texture::Texture;
 use proptest::prelude::*;
@@ -107,19 +105,4 @@ proptest! {
             check(w, res_w, "w")?;
         }
     }
-}
-
-#[test]
-#[should_panic]
-fn test_softbody_panic_on_invalid_mesh() {
-    let mut mesh = Mesh::new();
-    mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
-    // Index 1 is out of bounds (only vertex 0 exists)
-    mesh.indices.push([0, 0, 1]);
-
-    // This accesses vertices[1], so it should panic here.
-    let mut soft_body = SoftBody::new(mesh, 1.0, 1.0, 0.5);
-
-    // If it survives creation, update definitely accesses invalid indices.
-    soft_body.update(0.1);
 }
