@@ -1470,13 +1470,67 @@ fn fill_projected_triangle_textured(
         return;
     }
 
+    // Gradients
+    // Calculate gradients based on the triangle plane.
+    // We compute this on unsorted vertices.
+    // Gradients are invariant to vertex order for the same plane.
+    let q0 = p0_orig.inv_w;
+    let q1 = p1_orig.inv_w;
+    let q2 = p2_orig.inv_w;
+
+    let (gradients, _) = PerspectiveTextureGradients::new_with_winding(
+        p0_orig, p1_orig, p2_orig,
+        q0, q1, q2,
+        u0_in, u1_in, u2_in,
+        v0_in, v1_in, v2_in,
+    );
+
+    fill_projected_triangle_textured_with_gradients(
+        fb, zb,
+        p0_orig, p1_orig, p2_orig,
+        u0_in, v0_in, u1_in, v1_in, u2_in, v2_in,
+        texture,
+        gradients,
+    );
+}
+
+#[inline(always)]
+fn calculate_signed_area_doubled(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> f32 {
+    let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+    let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+    let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    ux * vy - uy * vx
+}
+
+#[allow(clippy::too_many_arguments)]
+#[inline(always)]
+fn fill_projected_triangle_textured_with_gradients(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    p0: ScreenPoint,
+    p1: ScreenPoint,
+    p2: ScreenPoint,
+    u0: f32,
+    v0: f32,
+    u1: f32,
+    v1: f32,
+    u2: f32,
+    v2: f32,
+    texture: &Texture,
+    gradients: PerspectiveTextureGradients,
+) {
+    if is_backface(p0, p1, p2) {
+        return;
+    }
+
     let width = fb.width();
     let height = fb.height();
 
     let mut verts = [
-        (p0_orig, u0_in, v0_in),
-        (p1_orig, u1_in, v1_in),
-        (p2_orig, u2_in, v2_in),
+        (p0, u0, v0),
+        (p1, u1, v1),
+        (p2, u2, v2),
     ];
     sort_by_y(&mut verts, |(p, _, _)| p.y);
     let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
@@ -1499,10 +1553,11 @@ fn fill_projected_triangle_textured(
         return;
     }
 
-    // Gradients and Edge Walking
-    let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
-        p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
-    );
+    // Determine winding for Edge Walking setup
+    // We already have gradients, but we need to know which edge is "long" (left or right).
+    // This depends on the signed area of the *sorted* triangle.
+    let nz = calculate_signed_area_doubled(p0, p1, p2);
+    let long_edge_is_left = nz > 0.0;
 
     let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
     if y_start > p0.y {
