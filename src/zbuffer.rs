@@ -28,8 +28,8 @@ impl ZBuffer {
 
         let size = u64::from(width)
             .checked_mul(u64::from(height))
-            .filter(|&s| u32::try_from(s).is_ok())
-            .ok_or("Buffer size overflow")? as usize;
+            .filter(|&s| i32::try_from(s).is_ok())
+            .ok_or("Buffer size overflow (max i32::MAX pixels)")? as usize;
 
         Ok(Self {
             depths: vec![f32::INFINITY; size],
