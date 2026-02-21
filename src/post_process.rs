@@ -24,7 +24,7 @@ use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 thread_local! {
-    static BLOOM_BUFFERS: RefCell<(Vec<u32>, Vec<u32>)> = const { RefCell::new((Vec::new(), Vec::new())) };
+    static BLOOM_BUFFERS: RefCell<BloomContext> = RefCell::new(BloomContext::default());
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
     static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -32,6 +32,22 @@ thread_local! {
 
 const KERNEL_SIZE: usize = 16;
 const NOISE_SIZE: usize = 4;
+
+struct BloomContext {
+    bright_pixels: Vec<u32>,
+    scratch_buffer: Vec<u32>,
+    acc_buffer: Vec<i32>,
+}
+
+impl Default for BloomContext {
+    fn default() -> Self {
+        Self {
+            bright_pixels: Vec::new(),
+            scratch_buffer: Vec::new(),
+            acc_buffer: Vec::new(),
+        }
+    }
+}
 
 struct SsaoContext {
     occlusion_buffer: Vec<f32>,
@@ -74,21 +90,31 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
     let needed_size = width * height;
+    let acc_needed_size = width * 3;
 
     BLOOM_BUFFERS.with(|buffers| {
-        let mut borrowed = buffers.borrow_mut();
-        let (bright_pixels, scratch_buffer) = &mut *borrowed;
+        let mut ctx = buffers.borrow_mut();
 
         // Ensure buffers are large enough
-        if bright_pixels.len() < needed_size {
-            bright_pixels.resize(needed_size, 0);
+        if ctx.bright_pixels.len() < needed_size {
+            ctx.bright_pixels.resize(needed_size, 0);
         }
-        if scratch_buffer.len() < needed_size {
-            scratch_buffer.resize(needed_size, 0);
+        if ctx.scratch_buffer.len() < needed_size {
+            ctx.scratch_buffer.resize(needed_size, 0);
         }
+        if ctx.acc_buffer.len() < acc_needed_size {
+            ctx.acc_buffer.resize(acc_needed_size, 0);
+        }
+
+        let BloomContext {
+            bright_pixels,
+            scratch_buffer,
+            acc_buffer,
+        } = &mut *ctx;
 
         let bright_slice = &mut bright_pixels[..needed_size];
         let scratch_slice = &mut scratch_buffer[..needed_size];
+        let acc_slice = &mut acc_buffer[..acc_needed_size];
 
         // 1. Extract bright pixels
         extract_bright_pixels(pixels, bright_slice, threshold);
@@ -97,7 +123,14 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
         // Horizontal pass: bright_pixels -> scratch_buffer
         box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
         // Vertical pass: scratch_buffer -> bright_pixels
-        box_blur_vertical(scratch_slice, bright_slice, width, height, blur_radius);
+        box_blur_vertical(
+            scratch_slice,
+            bright_slice,
+            acc_slice,
+            width,
+            height,
+            blur_radius,
+        );
 
         // 3. Composite back
         blend_additive(pixels, bright_slice, intensity);
@@ -334,23 +367,31 @@ fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usiz
     }
 }
 
-fn box_blur_vertical(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+fn box_blur_vertical(
+    src: &[u32],
+    dest: &mut [u32],
+    acc_buffer: &mut [i32],
+    width: usize,
+    height: usize,
+    radius: u32,
+) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
             unsafe {
-                box_blur_vertical_avx2(src, dest, width, height, radius);
+                box_blur_vertical_avx2(src, dest, acc_buffer, width, height, radius);
             }
             return;
         }
     }
 
-    box_blur_vertical_scalar(src, dest, width, height, radius);
+    box_blur_vertical_scalar(src, dest, acc_buffer, width, height, radius);
 }
 
 fn box_blur_vertical_scalar(
     src: &[u32],
     dest: &mut [u32],
+    acc_buffer: &mut [i32],
     width: usize,
     height: usize,
     radius: u32,
@@ -359,13 +400,15 @@ fn box_blur_vertical_scalar(
     let kernel_size = 2 * radius + 1;
     let scale = 1.0 / (kernel_size as f32);
 
-    // Optimized vertical blur: Iterate over Y, update all X.
-    // Improves cache locality.
+    // Split accumulators
+    // We assume acc_buffer is size 3 * width
+    let (r_acc, rest) = acc_buffer.split_at_mut(width);
+    let (g_acc, b_acc) = rest.split_at_mut(width);
 
-    // Accumulators for each column
-    let mut r_acc = vec![0u32; width];
-    let mut g_acc = vec![0u32; width];
-    let mut b_acc = vec![0u32; width];
+    // Reset accumulators
+    r_acc.fill(0);
+    g_acc.fill(0);
+    b_acc.fill(0);
 
     // Pre-fill accumulators
     // For y=0 window is [-r, r]
@@ -378,9 +421,9 @@ fn box_blur_vertical_scalar(
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
         // (radius + 1) copies of row 0
-        r_acc[x] += r * (radius as u32 + 1);
-        g_acc[x] += g * (radius as u32 + 1);
-        b_acc[x] += b * (radius as u32 + 1);
+        r_acc[x] += r as i32 * (radius as i32 + 1);
+        g_acc[x] += g as i32 * (radius as i32 + 1);
+        b_acc[x] += b as i32 * (radius as i32 + 1);
     }
 
     for y in 1..=radius {
@@ -388,9 +431,9 @@ fn box_blur_vertical_scalar(
         let row = &src[row_idx * width..(row_idx + 1) * width];
         for x in 0..width {
             let p = row[x];
-            r_acc[x] += (p >> 16) & 0xFF;
-            g_acc[x] += (p >> 8) & 0xFF;
-            b_acc[x] += p & 0xFF;
+            r_acc[x] += ((p >> 16) & 0xFF) as i32;
+            g_acc[x] += ((p >> 8) & 0xFF) as i32;
+            b_acc[x] += (p & 0xFF) as i32;
         }
     }
 
@@ -418,9 +461,9 @@ fn box_blur_vertical_scalar(
             let p_out = out_row[x];
             let p_in = in_row[x];
 
-            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) - ((p_out >> 16) & 0xFF);
-            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) - ((p_out >> 8) & 0xFF);
-            b_acc[x] = b_acc[x] + (p_in & 0xFF) - (p_out & 0xFF);
+            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+            b_acc[x] = b_acc[x] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
         }
     }
 }
@@ -430,6 +473,7 @@ fn box_blur_vertical_scalar(
 unsafe fn box_blur_vertical_avx2(
     src: &[u32],
     dest: &mut [u32],
+    acc_buffer: &mut [i32],
     width: usize,
     height: usize,
     radius: u32,
@@ -451,9 +495,13 @@ unsafe fn box_blur_vertical_avx2(
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
         // Accumulators
-        let mut r_acc = vec![0i32; width];
-        let mut g_acc = vec![0i32; width];
-        let mut b_acc = vec![0i32; width];
+        let (r_acc, rest) = acc_buffer.split_at_mut(width);
+        let (g_acc, b_acc) = rest.split_at_mut(width);
+
+        // Reset
+        r_acc.fill(0);
+        g_acc.fill(0);
+        b_acc.fill(0);
 
         // Helper to add a row to accumulators (SIMD)
         // Note: We use i32 for accumulators to prevent overflow.

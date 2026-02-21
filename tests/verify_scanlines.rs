@@ -24,19 +24,34 @@ fn test_verify_scanlines_correctness() {
 
     // Verify Row 0 (Even) - Unchanged
     for x in 0..width {
-        assert_eq!(fb.get_pixel(x as i32, 0).unwrap(), 0xFFFFFFFF, "Row 0 pixel {} modified", x);
+        assert_eq!(
+            fb.get_pixel(x as i32, 0).unwrap(),
+            0xFFFFFFFF,
+            "Row 0 pixel {} modified",
+            x
+        );
     }
 
     // Verify Row 1 (Odd) - Darkened
     // 0xFF >> 1 = 0x7F
     // Expected: 0xFF7F7F7F
     for x in 0..width {
-        assert_eq!(fb.get_pixel(x as i32, 1).unwrap(), 0xFF7F7F7F, "Row 1 pixel {} incorrect", x);
+        assert_eq!(
+            fb.get_pixel(x as i32, 1).unwrap(),
+            0xFF7F7F7F,
+            "Row 1 pixel {} incorrect",
+            x
+        );
     }
 
     // Verify Row 2 (Even) - Unchanged
     for x in 0..width {
-        assert_eq!(fb.get_pixel(x as i32, 2).unwrap(), 0xFFFF0000, "Row 2 pixel {} modified", x);
+        assert_eq!(
+            fb.get_pixel(x as i32, 2).unwrap(),
+            0xFFFF0000,
+            "Row 2 pixel {} modified",
+            x
+        );
     }
 
     // Verify Row 3 (Odd) - Darkened + Alpha Preservation (Current behavior check)
@@ -48,6 +63,11 @@ fn test_verify_scanlines_correctness() {
     // The implementation accidentally increases alpha for semi-transparent pixels.
     // We assert this behavior to ensure SIMD matches Scalar.
     for x in 0..width {
-        assert_eq!(fb.get_pixel(x as i32, 3).unwrap(), 0xC0007F00, "Row 3 pixel {} incorrect (alpha check)", x);
+        assert_eq!(
+            fb.get_pixel(x as i32, 3).unwrap(),
+            0xC0007F00,
+            "Row 3 pixel {} incorrect (alpha check)",
+            x
+        );
     }
 }

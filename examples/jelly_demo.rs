@@ -1,6 +1,6 @@
-use std::error::Error;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+use std::error::Error;
 
 #[cfg(feature = "nova")]
 mod demo {
@@ -185,10 +185,7 @@ fn print_banner() {
             Cell::new("Mouse"),
             Cell::new("None (Passive Simulation)"),
         ])
-        .add_row(vec![
-            Cell::new("Keyboard"),
-            Cell::new("Q / Esc to Quit"),
-        ]);
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Q / Esc to Quit")]);
     println!("{controls}\n");
 }
 
@@ -202,9 +199,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(not(feature = "nova"))]
     {
         println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        println!("{}", "This demo requires the 'nova' feature to run.".white());
+        println!(
+            "{}",
+            "This demo requires the 'nova' feature to run.".white()
+        );
         println!("\nTry running with:");
-        println!("{}", "cargo run --example jelly_demo --features nova".green());
+        println!(
+            "{}",
+            "cargo run --example jelly_demo --features nova".green()
+        );
         Ok(())
     }
 }
