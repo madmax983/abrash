@@ -27,8 +27,8 @@ fn bench_skybox_render(c: &mut Criterion) {
     // Setup camera
     let view = Mat4::look_at(
         Vec3::new(0.0, 0.0, 0.0), // Camera at center
-        Vec3::new(1.0, 0.0, 0.0),  // Look at +X
-        Vec3::new(0.0, 1.0, 0.0),  // Up
+        Vec3::new(1.0, 0.0, 0.0), // Look at +X
+        Vec3::new(0.0, 1.0, 0.0), // Up
     );
     let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
 

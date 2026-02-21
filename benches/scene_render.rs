@@ -1,10 +1,10 @@
-use criterion::{Criterion, criterion_group, criterion_main};
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::scene::{Scene, Camera, SceneObject};
+use abrash::scene::{Camera, Scene, SceneObject};
 use abrash::tile_renderer::TileRenderer;
+use abrash::zbuffer::ZBuffer;
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::sync::Arc;
 
 fn generate_grid_mesh(size: usize) -> Mesh {
@@ -14,7 +14,8 @@ fn generate_grid_mesh(size: usize) -> Mesh {
     // Vertices
     for y in 0..=size {
         for x in 0..=size {
-            mesh.vertices.push(Vec3::new(x as f32 - offset, 0.0, y as f32 - offset));
+            mesh.vertices
+                .push(Vec3::new(x as f32 - offset, 0.0, y as f32 - offset));
         }
     }
 
