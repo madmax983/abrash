@@ -985,6 +985,17 @@ pub struct ScreenPoint {
 /// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
 ///
 /// This avoids repetitive integer-to-float conversions and divisions.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Vec3, project_to_screen_optimized};
+///
+/// let v = Vec3::new(0.0, 5.0, 5.0);
+/// let p = project_to_screen_optimized(v, 5.0, 400.0, 300.0);
+///
+/// assert_eq!(p.x, 400);
+/// ```
 #[must_use]
 #[inline]
 pub fn project_to_screen_optimized(
@@ -1044,6 +1055,26 @@ pub fn project_to_screen_optimized(
 }
 
 /// Project 3 vertices to screen coordinates in parallel.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{Vec3, project_triangle_to_screen};
+///
+/// let v0 = Vec3::new(0.0, 5.0, 5.0);
+/// let v1 = Vec3::new(-5.0, -5.0, 5.0);
+/// let v2 = Vec3::new(5.0, -5.0, 5.0);
+///
+/// // Assume w = z (simple perspective)
+/// let (p0, p1, p2) = project_triangle_to_screen(
+///     v0, 5.0,
+///     v1, 5.0,
+///     v2, 5.0,
+///     400.0, 300.0 // Half-width, Half-height
+/// );
+///
+/// assert_eq!(p0.x, 400); // Center X (0 NDC -> 400 Screen)
+/// ```
 #[cfg(target_arch = "x86_64")]
 #[must_use]
 #[inline]

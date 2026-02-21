@@ -55,14 +55,16 @@
 //! let v2_local = Vec3::new(0.5, -0.5, 0.0);
 //!
 //! // Transform vertices to Homogeneous Clip Space.
-//! // transform_point returns `(Vec3, f32)` where the f32 is the 'w' component.
-//! // The rasterizer needs 'w' for perspective-correct interpolation.
+//! // `transform_point` returns `(Vec3, f32)` -> `(position_xyz, w)`.
+//! // The `w` component is critical for Perspective Division (x/w, y/w, z/w)
+//! // which happens inside the rasterizer.
 //! let v0_clip = view_proj.transform_point(v0_local);
 //! let v1_clip = view_proj.transform_point(v1_local);
 //! let v2_clip = view_proj.transform_point(v2_local);
 //!
 //! // Rasterize the triangle
 //! // Arguments: Framebuffer, ZBuffer, Vertex0, Vertex1, Vertex2, Color (ARGB)
+//! // Vertices are passed as `(Vec3, f32)` tuples.
 //! fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, 0xFFFF0000);
 //!
 //! // 4. Display Framebuffer

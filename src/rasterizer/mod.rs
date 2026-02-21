@@ -58,6 +58,75 @@
 //! *   **Edge Walking**: Uses an internal `EdgeWalker` to interpolate X coordinates and attributes along the left and right edges.
 //! *   **Span Drawing**: For each scanline, it iterates from `x_start` to `x_end`, interpolating attributes horizontally and writing to the framebuffer.
 //! *   **SIMD**: Key paths (like texture mapping and lighting) are optimized with AVX2 intrinsics for modern CPUs.
+//!
+//! ## The Rendering Loop (Cookbook)
+//!
+//! Here is a complete example of setting up a scene, transforming vertices, and rasterizing a textured triangle.
+//!
+//! ```
+//! use abrash::rasterizer::fill_triangle_textured;
+//! use abrash::texture::Texture;
+//! use abrash::framebuffer::Framebuffer;
+//! use abrash::zbuffer::ZBuffer;
+//! use abrash::math::{Mat4, Vec3, Vec2};
+//!
+//! // 1. Setup Buffers and Texture
+//! let width = 640;
+//! let height = 480;
+//! let mut fb = Framebuffer::new(width, height).unwrap();
+//! let mut zb = ZBuffer::new(width, height).unwrap();
+//!
+//! // Create a simple 2x2 texture (Checkerboard)
+//! let mut texture = Texture::new(2, 2).unwrap();
+//! texture.set_pixel(0, 0, 0xFFFFFFFF); // White
+//! texture.set_pixel(1, 0, 0xFF000000); // Black
+//! texture.set_pixel(0, 1, 0xFF000000); // Black
+//! texture.set_pixel(1, 1, 0xFFFFFFFF); // White
+//!
+//! // 2. Setup Matrices
+//! let model = Mat4::identity(); // No transformation
+//! let view = Mat4::look_at(
+//!     Vec3::new(0.0, 0.0, 2.0), // Eye
+//!     Vec3::new(0.0, 0.0, 0.0), // Target
+//!     Vec3::new(0.0, 1.0, 0.0), // Up
+//! );
+//! let proj = Mat4::perspective(1.57, 1.33, 0.1, 100.0);
+//! let mvp = model * view * proj;
+//!
+//! // 3. Define Mesh (Triangle)
+//! // Vertices in Local Space
+//! let p0 = Vec3::new(0.0, 0.5, 0.0);
+//! let p1 = Vec3::new(-0.5, -0.5, 0.0);
+//! let p2 = Vec3::new(0.5, -0.5, 0.0);
+//!
+//! // UV Coordinates
+//! let uv0 = Vec2::new(0.5, 0.0);
+//! let uv1 = Vec2::new(0.0, 1.0);
+//! let uv2 = Vec2::new(1.0, 1.0);
+//!
+//! // 4. Vertex Shader Stage (Transform to Clip Space)
+//! let v0_clip = mvp.transform_point(p0);
+//! let v1_clip = mvp.transform_point(p1);
+//! let v2_clip = mvp.transform_point(p2);
+//!
+//! // 5. Rasterization Stage
+//! fb.clear(0xFF202020); // Dark Grey Background
+//! zb.clear();
+//!
+//! // Pack data: ((Position, W), UV)
+//! // Note: fill_triangle_textured handles Perspective Division and Viewport Mapping internally.
+//! fill_triangle_textured(
+//!     &mut fb,
+//!     &mut zb,
+//!     (v0_clip, uv0),
+//!     (v1_clip, uv1),
+//!     (v2_clip, uv2),
+//!     &texture
+//! );
+//!
+//! // Verification
+//! assert_ne!(fb.get_pixel(320, 240), Some(0xFF202020), "Center pixel should not be background color");
+//! ```
 
 pub mod core;
 pub mod flat;

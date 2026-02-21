@@ -115,8 +115,15 @@ impl Texture {
     /// ```
     /// use abrash::texture::Texture;
     ///
-    /// let texture = Texture::new(256, 256).unwrap();
-    /// assert_eq!(texture.width, 256);
+    /// let mut texture = Texture::new(2, 2).unwrap();
+    ///
+    /// // Fill with red (0xAARRGGBB)
+    /// texture.set_pixel(0, 0, 0xFFFF0000);
+    /// texture.set_pixel(1, 0, 0xFFFF0000);
+    /// texture.set_pixel(0, 1, 0xFFFF0000);
+    /// texture.set_pixel(1, 1, 0xFFFF0000);
+    ///
+    /// assert_eq!(texture.get_pixel(0.5, 0.5), 0xFFFF0000);
     /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width == 0 || height == 0 {
@@ -182,6 +189,11 @@ impl Texture {
     }
 
     /// Generates mipmaps for the texture.
+    ///
+    /// Mipmaps are pre-calculated, lower-resolution versions of the texture.
+    /// They are used to reduce aliasing artifacts (shimmering) when the texture
+    /// is viewed from a distance (minification).
+    ///
     /// Should be called after modifying pixels if Trilinear filtering is used.
     ///
     /// # Algorithm

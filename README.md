@@ -35,29 +35,36 @@ The main binary runs a lit 3D cube demo. Use `--release` for smooth performance!
 cargo run --release
 ```
 
-### Examples
+### Examples 🧪
 
-Explore different capabilities of the engine through the provided examples:
+The repository includes several examples demonstrating different stages of graphics programming:
 
-```bash
-# A simple 3D wireframe cube (good for debugging transformations)
-cargo run --release --example cube_3d
+*   **1. Wireframe Cube (`cube_3d`)**
+    *   *What it teaches:* Vertex transformation, World-to-Screen projection, and line drawing.
+    *   *Command:* `cargo run --release --example cube_3d`
 
-# A solid cube with simple lighting
-cargo run --release --example lit_cube
+*   **2. Lit Cube (`lit_cube`)**
+    *   *What it teaches:* Triangle rasterization, Z-Buffering for depth sorting, and basic directional lighting (Flat Shading).
+    *   *Command:* `cargo run --release --example lit_cube`
 
-# A textured rotating cube with perspective correction
-cargo run --release --example textured_cube
+*   **3. Textured Cube (`textured_cube`)**
+    *   *What it teaches:* Perspective-correct texture mapping. Observe how the checkerboard pattern compresses correctly in the distance, avoiding the "affine swim" effect.
+    *   *Command:* `cargo run --release --example textured_cube`
 
-# A hardware-accelerated rotating cube (wgpu)
-cargo run --release --example gpu_cube --features gpu-render
+*   **4. Hardware Acceleration (`gpu_cube`)**
+    *   *What it teaches:* Using `wgpu` for hardware-backed rendering, contrasting with the software implementation.
+    *   *Command:* `cargo run --release --example gpu_cube --features gpu-render`
 
-# A hardware-accelerated pyramid mesh via generic GPU runner
-cargo run --release --example gpu_pyramid --features gpu-render
-```
+*   **5. GPU Pyramid (`gpu_pyramid`)**
+    *   *What it teaches:* Rendering arbitrary meshes via the generic GPU runner.
+    *   *Command:* `cargo run --release --example gpu_pyramid --features gpu-render`
 
-GPU cube controls: drag left mouse to orbit, mouse wheel to zoom, arrows/WASD to orbit,
-`Q`/`E` to zoom, `Space` to toggle auto-rotation, `R` to reset camera.
+**GPU Controls:**
+*   **Mouse Drag:** Orbit camera
+*   **Mouse Wheel:** Zoom
+*   **WASD / Arrows:** Move camera
+*   **Space:** Toggle auto-rotation
+*   **R:** Reset camera
 
 GPU renderer benchmarks:
 ```bash
