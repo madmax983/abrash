@@ -120,3 +120,103 @@ impl ZBuffer {
         self.height
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_valid() {
+        let zb = ZBuffer::new(100, 200).expect("Should create valid buffer");
+        assert_eq!(zb.width(), 100);
+        assert_eq!(zb.height(), 200);
+        assert_eq!(zb.as_slice().len(), 20000);
+        // Initial state should be infinity
+        assert!(zb.get_depth(0, 0).unwrap().is_infinite());
+    }
+
+    #[test]
+    fn test_new_overflow() {
+        // Test dimensions exceeding i32::MAX
+        assert!(ZBuffer::new(i32::MAX as u32 + 1, 10).is_err());
+        assert!(ZBuffer::new(10, i32::MAX as u32 + 1).is_err());
+
+        // Test total size overflow (u32::MAX pixels)
+        // 65536 * 65536 = 4294967296 (exceeds u32::MAX by 1)
+        assert!(ZBuffer::new(65536, 65536).is_err());
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut zb = ZBuffer::new(2, 2).unwrap();
+        zb.test_and_set(0, 0, 1.0);
+        assert_eq!(zb.get_depth(0, 0), Some(1.0));
+
+        zb.clear();
+        assert!(zb.get_depth(0, 0).unwrap().is_infinite());
+    }
+
+    #[test]
+    fn test_test_and_set() {
+        let mut zb = ZBuffer::new(2, 2).unwrap();
+
+        // 1. Initial set (infinity -> 10.0) -> Pass
+        assert!(zb.test_and_set(0, 0, 10.0));
+        assert_eq!(zb.get_depth(0, 0), Some(10.0));
+
+        // 2. Set closer (10.0 -> 5.0) -> Pass
+        assert!(zb.test_and_set(0, 0, 5.0));
+        assert_eq!(zb.get_depth(0, 0), Some(5.0));
+
+        // 3. Set further (5.0 -> 8.0) -> Fail
+        assert!(!zb.test_and_set(0, 0, 8.0));
+        assert_eq!(zb.get_depth(0, 0), Some(5.0));
+
+        // 4. Set equal (5.0 -> 5.0) -> Fail (strict inequality)
+        assert!(!zb.test_and_set(0, 0, 5.0));
+        assert_eq!(zb.get_depth(0, 0), Some(5.0));
+
+        // 5. Boundary checks
+        assert!(!zb.test_and_set(-1, 0, 1.0));
+        assert!(!zb.test_and_set(0, -1, 1.0));
+        assert!(!zb.test_and_set(2, 0, 1.0)); // Width is 2, so index 2 is OOB
+        assert!(!zb.test_and_set(0, 2, 1.0));
+    }
+
+    #[test]
+    fn test_get_depth() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        zb.test_and_set(5, 5, 0.5);
+
+        assert_eq!(zb.get_depth(5, 5), Some(0.5));
+        assert!(zb.get_depth(0, 0).unwrap().is_infinite());
+
+        assert_eq!(zb.get_depth(-1, 0), None);
+        assert_eq!(zb.get_depth(10, 0), None);
+    }
+
+    #[test]
+    fn test_test_and_set_unchecked() {
+        let mut zb = ZBuffer::new(2, 2).unwrap();
+        unsafe {
+            // Should pass
+            assert!(zb.test_and_set_unchecked(0, 0, 10.0));
+            assert_eq!(zb.get_depth(0, 0), Some(10.0));
+
+            // Should fail
+            assert!(!zb.test_and_set_unchecked(0, 0, 15.0));
+            assert_eq!(zb.get_depth(0, 0), Some(10.0));
+        }
+    }
+
+    #[test]
+    fn test_as_slice_mut() {
+        let mut zb = ZBuffer::new(2, 1).unwrap();
+        let slice = zb.as_mut_slice();
+        slice[0] = 0.1;
+        slice[1] = 0.2;
+
+        assert_eq!(zb.get_depth(0, 0), Some(0.1));
+        assert_eq!(zb.get_depth(1, 0), Some(0.2));
+    }
+}
