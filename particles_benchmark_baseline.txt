@@ -1,0 +1,1 @@
+Baseline (2 triangles): 156.52 µs

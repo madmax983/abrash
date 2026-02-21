@@ -10,7 +10,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
-use crate::rasterizer::fill_triangle_textured;
+use crate::rasterizer::fill_quad_textured;
 use crate::texture::Texture;
 use crate::utils::XorShift32;
 use crate::zbuffer::ZBuffer;
@@ -115,6 +115,7 @@ mod tests {
 /// A particle emitter and manager.
 pub struct ParticleSystem {
     pub particles: Vec<Particle>,
+    pub max_particles: usize,
     pub position: Vec3,
     pub emission_rate: f32, // Particles per second
     pub gravity: Vec3,
@@ -141,6 +142,7 @@ impl ParticleSystem {
     pub fn new(max_particles: usize, texture: Texture) -> Self {
         Self {
             particles: Vec::with_capacity(max_particles),
+            max_particles,
             position: Vec3::new(0.0, 0.0, 0.0),
             emission_rate: 10.0,
             gravity: Vec3::new(0.0, -9.8, 0.0),
@@ -160,9 +162,17 @@ impl ParticleSystem {
     pub fn update(&mut self, dt: f32) {
         // Emit new particles
         self.emission_accumulator += dt * self.emission_rate;
+
+        // Safety clamp to prevent infinite loops on huge dt
+        if self.emission_accumulator > self.max_particles as f32 {
+            self.emission_accumulator = self.max_particles as f32;
+        }
+
         #[allow(clippy::while_float)]
         while self.emission_accumulator >= 1.0 {
-            self.emit();
+            if self.particles.len() < self.max_particles {
+                self.emit();
+            }
             self.emission_accumulator -= 1.0;
         }
 
@@ -270,22 +280,12 @@ impl ParticleSystem {
             let c3 = center_clip + r_vec - u_vec;
             let w3 = center_w + r_w - u_w;
 
-            // Render 2 Triangles
-            // Tri 1: 0-1-2
-            fill_triangle_textured(
+            // Render Quad (BL, TL, TR, BR)
+            fill_quad_textured(
                 fb,
                 zb,
                 ((c0, w0), uv0),
                 ((c1, w1), uv1),
-                ((c2, w2), uv2),
-                &self.texture,
-            );
-
-            // Tri 2: 0-2-3
-            fill_triangle_textured(
-                fb,
-                zb,
-                ((c0, w0), uv0),
                 ((c2, w2), uv2),
                 ((c3, w3), uv3),
                 &self.texture,
