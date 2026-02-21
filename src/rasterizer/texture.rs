@@ -495,6 +495,8 @@ unsafe fn draw_span_bilinear_simd(
         let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
+        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let is_pot = texture.width_shift < 32;
 
         let mask_ff = _mm256_set1_epi32(0xFF);
 
@@ -535,14 +537,26 @@ unsafe fn draw_span_bilinear_simd(
                     max_y,
                 );
 
-                // Indices: idx = y * w + x
-                let y0_w = _mm256_mullo_epi32(y0, w_vec);
-                let y1_w = _mm256_mullo_epi32(y1, w_vec);
-
-                let idx00 = _mm256_add_epi32(y0_w, x0);
-                let idx10 = _mm256_add_epi32(y0_w, x1);
-                let idx01 = _mm256_add_epi32(y1_w, x0);
-                let idx11 = _mm256_add_epi32(y1_w, x1);
+                // Indices: idx = y * w + x OR (y << shift) | x
+                let (idx00, idx10, idx01, idx11) = if is_pot {
+                    let y0_s = _mm256_sllv_epi32(y0, shift_vec);
+                    let y1_s = _mm256_sllv_epi32(y1, shift_vec);
+                    (
+                        _mm256_or_si256(y0_s, x0),
+                        _mm256_or_si256(y0_s, x1),
+                        _mm256_or_si256(y1_s, x0),
+                        _mm256_or_si256(y1_s, x1),
+                    )
+                } else {
+                    let y0_w = _mm256_mullo_epi32(y0, w_vec);
+                    let y1_w = _mm256_mullo_epi32(y1, w_vec);
+                    (
+                        _mm256_add_epi32(y0_w, x0),
+                        _mm256_add_epi32(y0_w, x1),
+                        _mm256_add_epi32(y1_w, x0),
+                        _mm256_add_epi32(y1_w, x1),
+                    )
+                };
 
                 // Gather
                 let pixels_ptr = texture.pixels.as_ptr() as *const i32;
@@ -2065,6 +2079,7 @@ unsafe fn draw_span_trilinear_simd(
     }
 
     while i + 8 <= len {
+        unsafe {
         // Z-Test
         let depth_ptr = zb_slice.as_mut_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
@@ -2811,6 +2826,7 @@ unsafe fn draw_span_textured_gouraud_simd(
     let zero_ps = _mm256_setzero_ps();
 
     while i + 8 <= len {
+        unsafe {
         let depth_ptr = zb_slice.as_mut_ptr().add(i);
         let depth_val = _mm256_loadu_ps(depth_ptr);
         let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
@@ -2902,7 +2918,6 @@ unsafe fn draw_span_textured_gouraud_simd(
                 }
             }
         }
-
         z_vec = _mm256_add_ps(z_vec, dz_step);
         r_vec = _mm256_add_ps(r_vec, dr_step);
         g_vec = _mm256_add_ps(g_vec, dg_step);
@@ -2910,6 +2925,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
+    }
     }
 
     draw_span_textured_gouraud_scalar(
@@ -2991,6 +3007,8 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
     let zero_i = _mm256_setzero_si256();
     let one_i = _mm256_set1_epi32(1);
+    let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+    let is_pot = texture.width_shift < 32;
 
     let mask_ff = _mm256_set1_epi32(0xFF);
     let const_256 = _mm256_set1_epi32(256);
@@ -3058,13 +3076,25 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 max_y,
             );
 
-            let y0_w = _mm256_mullo_epi32(y0, w_vec);
-            let y1_w = _mm256_mullo_epi32(y1, w_vec);
-
-            let idx00 = _mm256_add_epi32(y0_w, x0);
-            let idx10 = _mm256_add_epi32(y0_w, x1);
-            let idx01 = _mm256_add_epi32(y1_w, x0);
-            let idx11 = _mm256_add_epi32(y1_w, x1);
+            let (idx00, idx10, idx01, idx11) = if is_pot {
+                let y0_s = _mm256_sllv_epi32(y0, shift_vec);
+                let y1_s = _mm256_sllv_epi32(y1, shift_vec);
+                (
+                    _mm256_or_si256(y0_s, x0),
+                    _mm256_or_si256(y0_s, x1),
+                    _mm256_or_si256(y1_s, x0),
+                    _mm256_or_si256(y1_s, x1),
+                )
+            } else {
+                let y0_w = _mm256_mullo_epi32(y0, w_vec);
+                let y1_w = _mm256_mullo_epi32(y1, w_vec);
+                (
+                    _mm256_add_epi32(y0_w, x0),
+                    _mm256_add_epi32(y0_w, x1),
+                    _mm256_add_epi32(y1_w, x0),
+                    _mm256_add_epi32(y1_w, x1),
+                )
+            };
 
             let pixels_ptr = texture.pixels.as_ptr() as *const i32;
             let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
@@ -3156,6 +3186,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
         v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
         i += 8;
+        }
     }
 
     // Scalar Tail
@@ -3167,6 +3198,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let mut b_curr = b_start + (i as f32) * db_dx;
 
     while i < len {
+        unsafe {
         let depth_val = zb_slice.get_unchecked_mut(i);
         if z_curr < *depth_val {
             let color = texture.get_pixel_bilinear_fixed(u_curr, v_curr);
@@ -3194,6 +3226,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                     (tex_a as u8).into(),
                 );
             }
+        }
         }
         z_curr += dz_dx;
         u_curr = u_curr.wrapping_add(du_fix);
