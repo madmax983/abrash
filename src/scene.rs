@@ -66,8 +66,9 @@ use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::{AABB, Mesh};
-use crate::tile_renderer::TileRenderer;
+use crate::tile_renderer::{ClipTriangle, TileRenderer};
 use crate::zbuffer::ZBuffer;
+use std::cell::RefCell;
 use std::sync::Arc;
 
 /// A single object in the scene.
@@ -215,6 +216,17 @@ impl Camera {
     }
 }
 
+/// Thread-local rendering context to reuse buffers and avoid allocations per frame.
+#[derive(Default)]
+struct SceneRenderContext {
+    triangle_batch: Vec<ClipTriangle>,
+    transformed_verts: Vec<(Vec3, f32)>,
+}
+
+thread_local! {
+    static RENDER_CONTEXT: RefCell<SceneRenderContext> = RefCell::new(SceneRenderContext::default());
+}
+
 /// The Scene containing objects and the camera.
 ///
 /// See the [module-level documentation](self) for usage examples.
@@ -249,53 +261,55 @@ impl Scene {
     /// *   **Batching**: Vertex transformations are batched and (optionally) parallelized.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
-        let mut triangle_batch = Vec::new();
 
-        // Reserve capacity to avoid frequent reallocs
-        // Heuristic: visible objects * average triangles per object
-        // For now, just a safe guess or leave it dynamic.
+        RENDER_CONTEXT.with(|ctx| {
+            let mut ctx = ctx.borrow_mut();
+            let SceneRenderContext {
+                triangle_batch,
+                transformed_verts,
+            } = &mut *ctx;
 
-        // Reusable scratch buffer for vertex transformation
-        let mut transformed_verts = Vec::new();
+            triangle_batch.clear();
 
-        for obj in &self.objects {
-            // 1. Calculate World AABB
-            let world_aabb = obj.calculate_world_aabb();
+            for obj in &self.objects {
+                // 1. Calculate World AABB
+                let world_aabb = obj.calculate_world_aabb();
 
-            // 2. Frustum Cull
-            if !self.camera.frustum.intersects_aabb(&world_aabb) {
-                continue;
+                // 2. Frustum Cull
+                if !self.camera.frustum.intersects_aabb(&world_aabb) {
+                    continue;
+                }
+
+                // 3. Process Visible Object
+                let mvp = obj.transform * view_proj;
+                let mesh = &obj.mesh;
+
+                // Transform vertices and append to batch
+                // Optimization: Batch transform vertices to reuse calculations for shared vertices.
+                // We reuse the scratch buffer to eliminate per-object allocations.
+                transformed_verts.clear();
+                transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
+
+                #[cfg(feature = "parallel")]
+                mvp.transform_points_parallel(&mesh.vertices, &mut *transformed_verts);
+
+                #[cfg(not(feature = "parallel"))]
+                mvp.transform_points(&mesh.vertices, &mut *transformed_verts);
+
+                for indices in &mesh.indices {
+                    let v0 = transformed_verts[indices[0]];
+                    let v1 = transformed_verts[indices[1]];
+                    let v2 = transformed_verts[indices[2]];
+
+                    triangle_batch.push((v0, v1, v2, obj.color));
+                }
             }
 
-            // 3. Process Visible Object
-            let mvp = obj.transform * view_proj;
-            let mesh = &obj.mesh;
-
-            // Transform vertices and append to batch
-            // Optimization: Batch transform vertices to reuse calculations for shared vertices.
-            // We reuse the scratch buffer to eliminate per-object allocations.
-            transformed_verts.clear();
-            transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
-
-            #[cfg(feature = "parallel")]
-            mvp.transform_points_parallel(&mesh.vertices, &mut transformed_verts);
-
-            #[cfg(not(feature = "parallel"))]
-            mvp.transform_points(&mesh.vertices, &mut transformed_verts);
-
-            for indices in &mesh.indices {
-                let v0 = transformed_verts[indices[0]];
-                let v1 = transformed_verts[indices[1]];
-                let v2 = transformed_verts[indices[2]];
-
-                triangle_batch.push((v0, v1, v2, obj.color));
+            // 4. Submit Batch
+            if !triangle_batch.is_empty() {
+                renderer.render_batch(fb, zb, triangle_batch);
             }
-        }
-
-        // 4. Submit Batch
-        if !triangle_batch.is_empty() {
-            renderer.render_batch(fb, zb, &triangle_batch);
-        }
+        });
     }
 }
 
@@ -303,6 +317,56 @@ impl Scene {
 mod tests {
     use super::*;
     use crate::math::Vec3;
+
+    #[test]
+    fn test_render_reuses_buffers() {
+        use crate::tile_renderer::TileRenderer;
+        use crate::framebuffer::Framebuffer;
+        use crate::zbuffer::ZBuffer;
+        use crate::mesh::Mesh;
+        use crate::math::{Mat4, Vec3};
+        use std::sync::Arc;
+
+        let width = 64;
+        let height = 64;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut zb = ZBuffer::new(width, height).unwrap();
+        let mut renderer = TileRenderer::new(width, height);
+
+        let camera = Camera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 0.0, 10.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.57, 1.0, 0.1, 100.0),
+        );
+        let mut scene = Scene::new(camera);
+
+        let mesh = Arc::new(Mesh::cube(1.0));
+        let object = SceneObject::new(mesh, Mat4::identity(), 0xFFFFFFFF);
+        scene.add_object(object);
+
+        // Frame 1
+        scene.render(&mut renderer, &mut fb, &mut zb);
+
+        // Verify something was drawn
+        let pixel_count_1 = fb.as_slice().iter().filter(|&&p| p != 0).count();
+        assert!(pixel_count_1 > 0, "Frame 1 should draw pixels");
+
+        // Frame 2
+        let mut fb2 = Framebuffer::new(width, height).unwrap();
+        let mut zb2 = ZBuffer::new(width, height).unwrap();
+        let mut renderer2 = TileRenderer::new(width, height);
+
+        scene.render(&mut renderer2, &mut fb2, &mut zb2);
+
+        let pixel_count_2 = fb2.as_slice().iter().filter(|&&p| p != 0).count();
+        assert_eq!(
+            pixel_count_1, pixel_count_2,
+            "Frame 2 should draw same number of pixels"
+        );
+    }
 
     #[test]
     fn test_calculate_world_aabb_matches_naive() {
