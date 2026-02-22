@@ -447,6 +447,14 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
     let pixels = fb.as_mut_slice();
 
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { apply_chromatic_aberration_avx2(pixels, width, height, offset) };
+            return;
+        }
+    }
+
     CA_BUFFER.with(|buf| {
         let mut row_buffer = buf.borrow_mut();
         if row_buffer.len() < width {
@@ -493,6 +501,135 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
                 };
 
                 row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+    });
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_chromatic_aberration_avx2(
+    pixels: &mut [u32],
+    width: usize,
+    height: usize,
+    offset: usize,
+) {
+    use std::arch::x86_64::{
+        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_storeu_si256,
+    };
+
+    CA_BUFFER.with(|buf| {
+        let mut row_buffer = buf.borrow_mut();
+        if row_buffer.len() < width {
+            if row_buffer.capacity() < width {
+                row_buffer.reserve(width - row_buffer.len());
+            }
+            // SAFETY: We overwrite immediately
+            unsafe { row_buffer.set_len(width) };
+        }
+
+        let mask_r = _mm256_set1_epi32(0x00FF_0000);
+        let mask_b = _mm256_set1_epi32(0x0000_00FF);
+        // Precompute masks combined for center: G | A
+        // G: 0x0000FF00, A: 0xFF000000
+        let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
+
+        for y in 0..height {
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row_pixels = &mut pixels[row_start..row_end];
+
+            // Copy to scratch
+            row_buffer[..width].copy_from_slice(row_pixels);
+            let src_ptr = row_buffer.as_ptr();
+            let dst_ptr = row_pixels.as_mut_ptr();
+
+            let mut x = 0;
+
+            // 1. Left Edge (Scalar)
+            while x < offset && x < width {
+                let p_center = *src_ptr.add(x);
+                let g = (p_center >> 8) & 0xFF;
+                let a = (p_center >> 24) & 0xFF;
+
+                // R is 0 (OOB)
+                let r = 0;
+
+                // B from x+offset (might be OOB)
+                let b = if x + offset < width {
+                    *src_ptr.add(x + offset) & 0xFF
+                } else {
+                    0
+                };
+
+                *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                x += 1;
+            }
+
+            // 2. SIMD Loop
+            if offset + 32 <= width {
+                let simd_limit_unrolled = width - offset - 32;
+                while x <= simd_limit_unrolled {
+                    // Unroll 4x
+                    let process_block = |off: usize| {
+                        let v_center = _mm256_loadu_si256(src_ptr.add(x + off).cast());
+                        let v_left = _mm256_loadu_si256(src_ptr.add(x + off - offset).cast());
+                        let v_right = _mm256_loadu_si256(src_ptr.add(x + off + offset).cast());
+
+                        let ga = _mm256_and_si256(v_center, mask_ga);
+                        let r = _mm256_and_si256(v_left, mask_r);
+                        let b = _mm256_and_si256(v_right, mask_b);
+
+                        let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
+                        _mm256_storeu_si256(dst_ptr.add(x + off).cast(), res);
+                    };
+
+                    process_block(0);
+                    process_block(8);
+                    process_block(16);
+                    process_block(24);
+
+                    x += 32;
+                }
+            }
+
+            if offset + 8 <= width {
+                let simd_limit = width - offset - 8;
+                while x <= simd_limit {
+                    let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
+                    let v_left = _mm256_loadu_si256(src_ptr.add(x - offset).cast());
+                    let v_right = _mm256_loadu_si256(src_ptr.add(x + offset).cast());
+
+                    let ga = _mm256_and_si256(v_center, mask_ga);
+                    let r = _mm256_and_si256(v_left, mask_r);
+                    let b = _mm256_and_si256(v_right, mask_b);
+
+                    let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
+
+                    _mm256_storeu_si256(dst_ptr.add(x).cast(), res);
+                    x += 8;
+                }
+            }
+
+            // 3. Right Edge (Scalar)
+            while x < width {
+                let p_center = *src_ptr.add(x);
+                let g = (p_center >> 8) & 0xFF;
+                let a = (p_center >> 24) & 0xFF;
+
+                // R from x-offset
+                let r = if x >= offset {
+                    (*src_ptr.add(x - offset) >> 16) & 0xFF
+                } else {
+                    0
+                };
+
+                // B is 0 (OOB)
+                let b = 0;
+
+                *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                x += 1;
             }
         }
     });
@@ -952,6 +1089,68 @@ mod tests {
             "Blue mismatch for red pixel, got {}",
             b
         );
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_apply_chromatic_aberration_simd_vs_scalar() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let width = 100;
+        let height = 100;
+        let offset = 5;
+        let mut fb_scalar = Framebuffer::new(width, height).unwrap();
+        let mut fb_simd = Framebuffer::new(width, height).unwrap();
+
+        // Fill with random noise or gradient
+        for i in 0..width * height {
+            let val = 0xFF000000 | (i as u32);
+            fb_scalar.pixels_mut()[i as usize] = val;
+            fb_simd.pixels_mut()[i as usize] = val;
+        }
+
+        // Run SIMD path
+        unsafe {
+            apply_chromatic_aberration_avx2(
+                fb_simd.pixels_mut(),
+                width as usize,
+                height as usize,
+                offset as usize,
+            );
+        }
+
+        // Manual scalar implementation for verification
+        let width_usize = width as usize;
+        let height_usize = height as usize;
+        let offset_usize = offset as usize;
+        let pixels = fb_scalar.pixels_mut();
+
+        let mut temp = vec![0u32; width_usize];
+        for y in 0..height_usize {
+            let row_start = y * width_usize;
+            let row = &mut pixels[row_start..row_start + width_usize];
+            temp.copy_from_slice(row);
+
+            for x in 0..width_usize {
+                let g = (temp[x] >> 8) & 0xFF;
+                let a = (temp[x] >> 24) & 0xFF;
+                let r = if x >= offset_usize {
+                    (temp[x - offset_usize] >> 16) & 0xFF
+                } else {
+                    0
+                };
+                let b = if x + offset_usize < width_usize {
+                    temp[x + offset_usize] & 0xFF
+                } else {
+                    0
+                };
+                row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        }
+
+        assert_eq!(fb_scalar.pixels(), fb_simd.pixels());
     }
 
     #[test]
