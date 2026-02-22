@@ -49,61 +49,51 @@ impl SceneObject {
         let max = self.local_aabb.max;
         let m = &self.transform.m;
 
-        // Initialize with translation (w column)
-        // Since we use row-vectors (v * M), the translation is in the last row (m[3]).
+        // Initialize with translation (last row for row-vector convention)
         let mut world_min = Vec3::new(m[3][0], m[3][1], m[3][2]);
         let mut world_max = world_min;
 
-        // For each local axis i (x, y, z) (columns of the matrix)
+        // For each local axis (X, Y, Z), transform the interval to world space
+        // and accumulate the extent.
+        // Row 0 corresponds to the local X axis transformed into world space.
+        // Row 1 -> Local Y, Row 2 -> Local Z.
         for (i, row) in m.iter().enumerate().take(3) {
-            // Get the current local min/max component
-            let local_min = match i {
-                0 => min.x,
-                1 => min.y,
-                _ => min.z,
-            };
-            let local_max = match i {
-                0 => max.x,
-                1 => max.y,
-                _ => max.z,
+            let axis = Vec3::new(row[0], row[1], row[2]);
+            let (local_min, local_max) = match i {
+                0 => (min.x, max.x),
+                1 => (min.y, max.y),
+                _ => (min.z, max.z),
             };
 
-            // For each world axis j (x, y, z)
-            for (j, &element) in row.iter().enumerate().take(3) {
-                let e = element * local_min;
-                let f = element * local_max;
+            // Project the local interval [min, max] onto world axes.
+            // If the axis component is positive, min maps to min, max to max.
+            // If negative, min maps to max, max to min (swapped).
 
-                if e < f {
-                    match j {
-                        0 => {
-                            world_min.x += e;
-                            world_max.x += f;
-                        }
-                        1 => {
-                            world_min.y += e;
-                            world_max.y += f;
-                        }
-                        _ => {
-                            world_min.z += e;
-                            world_max.z += f;
-                        }
-                    }
-                } else {
-                    match j {
-                        0 => {
-                            world_min.x += f;
-                            world_max.x += e;
-                        }
-                        1 => {
-                            world_min.y += f;
-                            world_max.y += e;
-                        }
-                        _ => {
-                            world_min.z += f;
-                            world_max.z += e;
-                        }
-                    }
-                }
+            // World X
+            if axis.x > 0.0 {
+                world_min.x += axis.x * local_min;
+                world_max.x += axis.x * local_max;
+            } else {
+                world_min.x += axis.x * local_max;
+                world_max.x += axis.x * local_min;
+            }
+
+            // World Y
+            if axis.y > 0.0 {
+                world_min.y += axis.y * local_min;
+                world_max.y += axis.y * local_max;
+            } else {
+                world_min.y += axis.y * local_max;
+                world_max.y += axis.y * local_min;
+            }
+
+            // World Z
+            if axis.z > 0.0 {
+                world_min.z += axis.z * local_min;
+                world_max.z += axis.z * local_max;
+            } else {
+                world_min.z += axis.z * local_max;
+                world_max.z += axis.z * local_min;
             }
         }
 
