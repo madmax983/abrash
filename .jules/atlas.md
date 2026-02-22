@@ -25,3 +25,14 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Post Process Module Refactor]
+**Tangle:** `src/post_process.rs` was a "Blob" (~1400 lines) containing disparate effects (Bloom, SSAO, Filters, Sobel, Blur) and their SIMD implementations. This violated the Single Responsibility Principle and made adding new effects or optimizing existing ones difficult due to shared scope and large file size.
+
+**Blueprint:**
+1.  **Explode:** Split `src/post_process.rs` into a directory `src/post_process/`.
+2.  **Segregate:** Created dedicated modules: `bloom.rs`, `blur.rs`, `filters.rs`, `ssao.rs`, `sobel.rs`.
+3.  **Encapsulate:** Moved `thread_local!` buffers to their respective modules. Made internal helper functions `pub(crate)` to allow sharing (e.g. `blur` used by `bloom` and `ssao`) while keeping the public API clean.
+4.  **Facade:** Created `mod.rs` to re-export the public API, ensuring no breaking changes for consumers.
+
+**Result:** High cohesion (each file handles one effect). Reduced coupling (dependencies are explicit via imports). Easier maintenance and testing.
