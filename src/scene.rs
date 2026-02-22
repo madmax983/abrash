@@ -172,6 +172,9 @@ impl Scene {
         // Heuristic: visible objects * average triangles per object
         // For now, just a safe guess or leave it dynamic.
 
+        // Reusable scratch buffer for vertex transformation
+        let mut transformed_verts = Vec::new();
+
         for obj in &self.objects {
             // 1. Calculate World AABB
             let world_aabb = obj.calculate_world_aabb();
@@ -187,7 +190,9 @@ impl Scene {
 
             // Transform vertices and append to batch
             // Optimization: Batch transform vertices to reuse calculations for shared vertices.
-            let mut transformed_verts = vec![(Vec3::default(), 0.0); mesh.vertices.len()];
+            // We reuse the scratch buffer to eliminate per-object allocations.
+            transformed_verts.clear();
+            transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
 
             #[cfg(feature = "parallel")]
             mvp.transform_points_parallel(&mesh.vertices, &mut transformed_verts);
