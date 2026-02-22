@@ -4143,3 +4143,180 @@ pub fn fill_triangle_textured_gouraud(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+    use crate::zbuffer::ZBuffer;
+    use crate::math::{Vec3, Vec2};
+    use crate::texture::Texture;
+
+    #[test]
+    fn test_draw_scanline_nearest() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let mut tex = Texture::new(2, 2).unwrap();
+        // (0,0)=Red, (1,0)=Green, (0,1)=Blue, (1,1)=White
+        tex.set_pixel(0, 0, 0xFFFF0000);
+        tex.set_pixel(1, 0, 0xFF00FF00);
+        tex.set_pixel(0, 1, 0xFF0000FF);
+        tex.set_pixel(1, 1, 0xFFFFFFFF);
+
+        // Simple gradient: z=1, q=1 (w=1), u=0..1, v=0
+        let start = PerspectiveSpanStart {
+            z: 1.0,
+            q: 1.0,
+            u: 0.0,
+            v: 0.0,
+        };
+        // u goes from 0.0 to 1.0 over 2 pixels (width of texture)
+        // u is in range [0, 1]. To span the texture width (2 texels), u goes 0->1.
+        // We want x=0 -> u=0 (Texel 0), x=1 -> u=0.5 (Texel 1)
+        // du/dx = 0.5.
+        let gradients = PerspectiveTextureGradients {
+            dz_dx: 0.0,
+            dq_dx: 0.0,
+            du_dx: 0.5,
+            dv_dx: 0.0,
+            dq_dy: 0.0,
+            du_dy: 0.0,
+            dv_dy: 0.0,
+        };
+
+        draw_scanline_textured_perspective(
+            &mut fb,
+            &mut zb,
+            &tex,
+            5, // y
+            0, // x_start
+            3, // x_end
+            start,
+            &gradients,
+        );
+
+        // x=0: u=0.0 -> Texel 0 -> Red
+        // x=1: u=0.5 -> Texel 0 (floor(0.5)=0) -> Red
+        // x=2: u=1.0 -> Texel 1 (floor(1.0)=1) -> Green
+
+        assert_eq!(fb.get_pixel(0, 5).unwrap(), 0xFFFF0000, "Pixel 0 should be Red");
+        assert_eq!(fb.get_pixel(1, 5).unwrap(), 0xFFFF0000, "Pixel 1 should be Red");
+        assert_eq!(fb.get_pixel(2, 5).unwrap(), 0xFF00FF00, "Pixel 2 should be Green");
+    }
+
+    #[test]
+    fn test_draw_scanline_bilinear() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let mut tex = Texture::new(2, 2).unwrap();
+        tex.filter_mode = crate::texture::FilterMode::Bilinear;
+
+        // 0,0: Black (0x00000000)
+        // 1,0: White (0xFFFFFFFF)
+        tex.set_pixel(0, 0, 0xFF000000);
+        tex.set_pixel(1, 0, 0xFFFFFFFF);
+
+        let start = PerspectiveSpanStart {
+            z: 1.0,
+            q: 1.0,
+            u: 0.25, // Half-way into the first pixel (center is 0.25 in 0..1 space for 2 pixels)
+            // Wait. Texel centers are at index + 0.5.
+            // Width 2.
+            // Texel 0 center: 0.5 (in 0..2 space). Normalized: 0.25.
+            // Texel 1 center: 1.5. Normalized: 0.75.
+            // If we sample at u=0.5 (Normalized 0.25), we get exact Pixel 0?
+            // Bilinear logic: u_fix - 0.5.
+            // u=0.25 -> 0.5 texels.
+            // 0.5 - 0.5 = 0.0. Index 0.
+            // So u=0.25 should be exactly Black.
+
+            // We want to blend. Sample at u=0.5 (Normalized 0.25) + 0.25 = 0.5 (Texel 1.0)
+            // Normalized u = 0.5.
+            // Texel coord = 1.0.
+            // Offset -0.5 = 0.5.
+            // x0 = floor(0.5) = 0.
+            // frac = 0.5.
+            // Blend 50% Pixel 0, 50% Pixel 1.
+            v: 0.0,
+        };
+
+        let gradients = PerspectiveTextureGradients {
+            dz_dx: 0.0, dq_dx: 0.0, du_dx: 0.0, dv_dx: 0.0,
+            dq_dy: 0.0, du_dy: 0.0, dv_dy: 0.0,
+        };
+
+        // Override start.u for the test
+        let mut start_blend = start;
+        start_blend.u = 1.0; // Normalized 1.0 -> Texel 2.0. Offset -0.5 -> 1.5. x0=1. Blend 1 and 2?
+        // Wait. u_fix = u * width * 65536.
+        // u=1.0 (texel coords). Width already applied?
+        // In this test setup, I manually pass `start`.
+        // `draw_scanline` calculates `u_tex_start = u * w_start`.
+        // If I pass u=1.0. `u_tex_start` = 1.0.
+        // `u_fix` = 65536.
+        // Bilinear sub 32768 -> 32768 (0.5).
+        // x0_raw = 0. wx = 128 (0.5).
+        // Blend Pixel 0 and Pixel 1.
+        // Pixel 0: Black. Pixel 1: White.
+        // Result: Grey.
+        start_blend.u = 1.0;
+
+        draw_scanline_textured_perspective(
+            &mut fb, &mut zb, &tex, 5, 0, 0, start_blend, &gradients
+        );
+
+        let pixel = fb.get_pixel(0, 5).unwrap();
+        let r = (pixel >> 16) & 0xFF;
+
+        // (0 + 255) / 2 = 127.
+        assert!((120..=135).contains(&r), "Pixel should be ~127, got {}", r);
+    }
+
+    #[test]
+    fn test_fill_triangle_textured_clipped() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let tex = Texture::new(2, 2).unwrap();
+
+        // Triangle mostly outside
+        let v0 = ((Vec3::new(-100.0, 0.0, 5.0), 5.0), Vec2::new(0.0, 0.0));
+        let v1 = ((Vec3::new(100.0, -100.0, 5.0), 5.0), Vec2::new(1.0, 0.0));
+        let v2 = ((Vec3::new(100.0, 100.0, 5.0), 5.0), Vec2::new(0.0, 1.0));
+
+        // Should clip and run without panic
+        fill_triangle_textured(&mut fb, &mut zb, v0, v1, v2, &tex);
+    }
+
+    #[test]
+    fn test_fill_quad_textured_optimization() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let mut tex = Texture::new(2, 2).unwrap();
+        // Fill white to avoid sampling issues
+        for y in 0..2 {
+            for x in 0..2 {
+                tex.set_pixel(x, y, 0xFFFFFFFF);
+            }
+        }
+
+        // Quad fully inside frustum (-w..w)
+        let v0 = ((Vec3::new(-0.5, -0.5, 0.0), 1.0), Vec2::new(0.0, 0.0));
+        let v1 = ((Vec3::new( 0.5, -0.5, 0.0), 1.0), Vec2::new(1.0, 0.0));
+        let v2 = ((Vec3::new( 0.5,  0.5, 0.0), 1.0), Vec2::new(1.0, 1.0));
+        let v3 = ((Vec3::new(-0.5,  0.5, 0.0), 1.0), Vec2::new(0.0, 1.0));
+
+        fill_quad_textured(&mut fb, &mut zb, v0, v1, v2, v3, &tex);
+
+        // Should produce pixels.
+        // We didn't set view/proj matrices, so it projects directly.
+        // -0.5 -> screen coords.
+        // width=10. half=5.
+        // x = (-0.5 + 1) * 5 = 2.5 -> 2.
+        // y = (1 - (-0.5)) * 5 = 7.5 -> 7.
+        // It covers roughly 2..7 in x and y.
+
+        // Check pixel (5, 5)
+        let p = fb.get_pixel(5, 5).unwrap();
+        assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
+    }
+}

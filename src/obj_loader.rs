@@ -677,3 +677,27 @@ f 1/1/1 2/1/1 3/1/1
         assert_eq!(mesh2.indices.len(), 1);
     }
 }
+
+#[cfg(test)]
+mod extra_tests {
+    use super::fast_parse_usize;
+
+    #[test]
+    fn test_parse_large_integers() {
+        // Safe 9 digits (u32 safe)
+        assert_eq!(fast_parse_usize(b"999999999"), Some(999999999));
+
+        // 20 digits (exceeds MAX_DIGITS on both 32 and 64 bit)
+        // 1 followed by 19 zeros
+        assert_eq!(fast_parse_usize(b"10000000000000000000"), None);
+
+        // 19 digits check
+        if std::mem::size_of::<usize>() >= 8 {
+            // 9,999,999,999,999,999,999 (19 nines) fits in u64
+            assert_eq!(fast_parse_usize(b"9999999999999999999"), Some(9999999999999999999));
+        } else {
+            // On 32-bit, MAX_DIGITS is 9. 10 digits should fail.
+            assert_eq!(fast_parse_usize(b"1000000000"), None);
+        }
+    }
+}
