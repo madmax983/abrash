@@ -164,6 +164,12 @@ impl Scene {
     /// Render the scene using the provided renderer.
     ///
     /// This method performs Object Culling (Frustum Culling) before processing vertices.
+    ///
+    /// # Performance
+    ///
+    /// This method hoists the vertex transformation buffer allocation out of the object loop,
+    /// reusing the same memory for all objects. This eliminates $O(N)$ allocations per frame,
+    /// where $N$ is the number of visible objects.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
         let mut triangle_batch = Vec::new();
@@ -171,6 +177,9 @@ impl Scene {
         // Reserve capacity to avoid frequent reallocs
         // Heuristic: visible objects * average triangles per object
         // For now, just a safe guess or leave it dynamic.
+
+        // Reuse buffer for transformed vertices to avoid allocation per object
+        let mut transformed_verts = Vec::new();
 
         for obj in &self.objects {
             // 1. Calculate World AABB
@@ -187,7 +196,9 @@ impl Scene {
 
             // Transform vertices and append to batch
             // Optimization: Batch transform vertices to reuse calculations for shared vertices.
-            let mut transformed_verts = vec![(Vec3::default(), 0.0); mesh.vertices.len()];
+            // Optimization: Reuse vector capacity across objects
+            transformed_verts.clear();
+            transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
 
             #[cfg(feature = "parallel")]
             mvp.transform_points_parallel(&mesh.vertices, &mut transformed_verts);
