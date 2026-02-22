@@ -28,43 +28,6 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
-use std::hash::{BuildHasher, Hasher};
-
-/// A fast hasher for u64 keys, similar to FxHash.
-/// This avoids the overhead of SipHash for simple integer keys.
-#[derive(Default)]
-struct FastHasher {
-    hash: u64,
-}
-
-impl Hasher for FastHasher {
-    fn finish(&self) -> u64 {
-        self.hash
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        // Fallback for non-u64 keys (should not be used here)
-        let mut hash = self.hash;
-        for &b in bytes {
-            hash = (hash.rotate_left(5) ^ u64::from(b)).wrapping_mul(0x517c_c1b7_2722_0a95);
-        }
-        self.hash = hash;
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.hash = (self.hash.rotate_left(5) ^ i).wrapping_mul(0x517c_c1b7_2722_0a95);
-    }
-}
-
-#[derive(Clone, Default)]
-struct FastHasherBuilder;
-
-impl BuildHasher for FastHasherBuilder {
-    type Hasher = FastHasher;
-    fn build_hasher(&self) -> Self::Hasher {
-        FastHasher::default()
-    }
-}
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -79,7 +42,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<u64, usize, FastHasherBuilder>,
+    deduplicator: HashMap<u64, usize>,
     face_indices: Vec<usize>,
 }
 
@@ -93,7 +56,7 @@ impl ObjParser {
             final_uvs: Vec::with_capacity(estimated_capacity),
             final_normals: Vec::with_capacity(estimated_capacity),
             final_indices: Vec::with_capacity(estimated_capacity),
-            deduplicator: HashMap::with_capacity_and_hasher(estimated_capacity, FastHasherBuilder),
+            deduplicator: HashMap::with_capacity(estimated_capacity),
             face_indices: Vec::with_capacity(4),
         }
     }
