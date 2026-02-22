@@ -1,0 +1,135 @@
+//! Cloth Simulation Demo
+//!
+//! Visualizes a mass-spring cloth simulation.
+//! Requires the `nova` feature.
+
+#[cfg(feature = "nova")]
+mod demo {
+    use abrash::experimental::cloth::Cloth;
+    use abrash::framebuffer::Framebuffer;
+    use abrash::math::{Mat4, Vec3};
+    use abrash::platform::{Window, WindowBackend};
+    use abrash::rasterizer::fill_triangle_3d;
+    use abrash::zbuffer::ZBuffer;
+    use std::f32::consts::PI;
+    use std::time::Instant;
+
+    const WIDTH: usize = 800;
+    const HEIGHT: usize = 600;
+
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        let mut window = Window::new("Abrash - Cloth Simulation", WIDTH as u32, HEIGHT as u32)?;
+        let mut fb = Framebuffer::new(WIDTH as u32, HEIGHT as u32)?;
+        let mut zb = ZBuffer::new(WIDTH as u32, HEIGHT as u32)?;
+
+        // Initialize Cloth
+        // 20x20 grid, spacing 0.2 -> 4.0x4.0 size
+        let mut cloth = Cloth::new(20, 20, 0.2);
+
+        // Pin the top corners
+        cloth.pin(0, 0); // Top-Left (actually y=0 is bottom in my coord sys? Let's check)
+        // In Cloth::new:
+        // y * spacing - (height * spacing) / 2.0
+        // If height=20, spacing=0.2. Total height 4.0. Offset -2.0.
+        // y=0 -> -2.0 (Bottom). y=19 -> 1.8 (Top).
+        // So y=height-1 is top.
+        cloth.pin(0, cloth.height - 1);
+        cloth.pin(cloth.width - 1, cloth.height - 1);
+        // Pin middle too for a "curtain" look
+        cloth.pin(cloth.width / 2, cloth.height - 1);
+
+        let gravity = Vec3::new(0.0, -9.8, 0.0);
+        let mut wind = Vec3::new(0.0, 0.0, 2.0); // Blowing towards Z
+
+        let mut last_frame = Instant::now();
+        let mut time = 0.0;
+
+        // Camera
+        let proj = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 2.0, 6.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let view_proj = view * proj; // Row-major: v * View * Proj
+
+        while window.is_open() {
+            window.poll_events();
+
+            let now = Instant::now();
+            let dt = (now - last_frame).as_secs_f32();
+            last_frame = now;
+            time += dt;
+
+            // Vary wind
+            wind.x = (time * 2.0).sin() * 2.0;
+            wind.z = 2.0 + (time * 1.5).cos() * 1.0;
+
+            // Update Physics
+            // Sub-step for stability
+            let sub_steps = 5;
+            let sub_dt = dt.min(0.032) / sub_steps as f32; // Cap dt to avoid explosion
+            for _ in 0..sub_steps {
+                cloth.update(sub_dt, gravity, wind);
+            }
+
+            // Render
+            fb.clear(0xFF101010); // Dark Gray
+            zb.clear();
+
+            let mesh = cloth.to_mesh();
+
+            // Light direction (from camera roughly)
+            let light_dir = Vec3::new(0.5, 1.0, 1.0).normalize();
+
+            for tri in &mesh.indices {
+                let i0 = tri[0];
+                let i1 = tri[1];
+                let i2 = tri[2];
+
+                let v0 = mesh.vertices[i0];
+                let v1 = mesh.vertices[i1];
+                let v2 = mesh.vertices[i2];
+
+                // Compute face normal for flat shading
+                let edge1 = v1 - v0;
+                let edge2 = v2 - v0;
+                let normal = edge1.cross(edge2).normalize();
+
+                // Simple Lambertian
+                let ndotl = normal.dot(light_dir).max(0.1);
+
+                // Color: Red Cloth (0xFFAA0000)
+                let r = (170.0 * ndotl) as u32;
+                let g = (20.0 * ndotl) as u32;
+                let b = (20.0 * ndotl) as u32;
+                let color = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+                let (c0, w0) = view_proj.transform_point(v0);
+                let (c1, w1) = view_proj.transform_point(v1);
+                let (c2, w2) = view_proj.transform_point(v2);
+
+                // Simple clipping check
+                if w0 < 0.1 || w1 < 0.1 || w2 < 0.1 {
+                    continue;
+                }
+
+                fill_triangle_3d(&mut fb, &mut zb, (c0, w0), (c1, w1), (c2, w2), color);
+            }
+
+            window.blit_framebuffer(&fb);
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() {
+    println!("Please run with --features nova");
+}
+
+#[cfg(feature = "nova")]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    demo::run()
+}

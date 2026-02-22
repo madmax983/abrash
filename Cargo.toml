@@ -116,6 +116,11 @@ path = "examples/particles.rs"
 name = "reflection_demo"
 path = "examples/reflection_demo.rs"
 
+[[example]]
+name = "cloth_demo"
+path = "examples/cloth_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
