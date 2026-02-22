@@ -236,7 +236,10 @@ mod app {
                     current_span.push(c);
                 }
                 if !current_span.is_empty() {
-                    styled_dna.push(Span::styled(current_span, Style::default().fg(current_color)));
+                    styled_dna.push(Span::styled(
+                        current_span,
+                        Style::default().fg(current_color),
+                    ));
                 }
 
                 if expanded.len() > preview_len {

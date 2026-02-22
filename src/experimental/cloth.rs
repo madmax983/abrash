@@ -103,8 +103,8 @@ impl Cloth {
                         p2: idx + width + 1,
                         rest_length: diag_dist,
                     });
-                     // Shear (Diagonal Down-Left)
-                     constraints.push(Constraint {
+                    // Shear (Diagonal Down-Left)
+                    constraints.push(Constraint {
                         p1: idx + 1,
                         p2: idx + width,
                         rest_length: diag_dist,
@@ -282,6 +282,11 @@ mod tests {
         }
 
         let y_end = cloth.particles[idx_bottom].pos.y;
-        assert!(y_end < y_lifted, "Particle should fall from lifted position. Start: {}, End: {}", y_lifted, y_end);
+        assert!(
+            y_end < y_lifted,
+            "Particle should fall from lifted position. Start: {}, End: {}",
+            y_lifted,
+            y_end
+        );
     }
 }

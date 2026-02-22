@@ -224,7 +224,7 @@ mod tests {
         // 127 is closer to 170? |127-170|=43. |127-85|=42.
         // 42 < 43. So it should be 85.
         assert_eq!(quantize(127.0, 2), 85); // Let's check logic.
-                                            // 127 / 85 = 1.494. Round -> 1. 1*85 = 85. Correct.
+        // 127 / 85 = 1.494. Round -> 1. 1*85 = 85. Correct.
     }
 
     #[test]

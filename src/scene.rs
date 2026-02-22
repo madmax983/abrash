@@ -66,8 +66,9 @@ use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::{AABB, Mesh};
-use crate::tile_renderer::TileRenderer;
+use crate::tile_renderer::{ClipTriangle, TileRenderer};
 use crate::zbuffer::ZBuffer;
+use std::cell::RefCell;
 use std::sync::Arc;
 
 /// A single object in the scene.
@@ -215,6 +216,16 @@ impl Camera {
     }
 }
 
+thread_local! {
+    static RENDER_CONTEXT: RefCell<SceneRenderContext> = RefCell::new(SceneRenderContext::default());
+}
+
+#[derive(Default)]
+struct SceneRenderContext {
+    transformed_verts: Vec<(Vec3, f32)>,
+    triangle_batch: Vec<ClipTriangle>,
+}
+
 /// The Scene containing objects and the camera.
 ///
 /// See the [module-level documentation](self) for usage examples.
@@ -249,53 +260,55 @@ impl Scene {
     /// *   **Batching**: Vertex transformations are batched and (optionally) parallelized.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
-        let mut triangle_batch = Vec::new();
 
-        // Reserve capacity to avoid frequent reallocs
-        // Heuristic: visible objects * average triangles per object
-        // For now, just a safe guess or leave it dynamic.
+        // Use thread-local scratch buffers to avoid per-frame allocations
+        RENDER_CONTEXT.with(|ctx_cell| {
+            let mut ctx_guard = ctx_cell.borrow_mut();
+            let ctx = &mut *ctx_guard;
+            let triangle_batch = &mut ctx.triangle_batch;
+            let transformed_verts = &mut ctx.transformed_verts;
 
-        // Reusable scratch buffer for vertex transformation
-        let mut transformed_verts = Vec::new();
+            triangle_batch.clear();
 
-        for obj in &self.objects {
-            // 1. Calculate World AABB
-            let world_aabb = obj.calculate_world_aabb();
+            for obj in &self.objects {
+                // 1. Calculate World AABB
+                let world_aabb = obj.calculate_world_aabb();
 
-            // 2. Frustum Cull
-            if !self.camera.frustum.intersects_aabb(&world_aabb) {
-                continue;
+                // 2. Frustum Cull
+                if !self.camera.frustum.intersects_aabb(&world_aabb) {
+                    continue;
+                }
+
+                // 3. Process Visible Object
+                let mvp = obj.transform * view_proj;
+                let mesh = &obj.mesh;
+
+                // Transform vertices and append to batch
+                // Optimization: Batch transform vertices to reuse calculations for shared vertices.
+                // We reuse the scratch buffer to eliminate per-object allocations.
+                transformed_verts.clear();
+                transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
+
+                #[cfg(feature = "parallel")]
+                mvp.transform_points_parallel(&mesh.vertices, transformed_verts);
+
+                #[cfg(not(feature = "parallel"))]
+                mvp.transform_points(&mesh.vertices, transformed_verts);
+
+                for indices in &mesh.indices {
+                    let v0 = transformed_verts[indices[0]];
+                    let v1 = transformed_verts[indices[1]];
+                    let v2 = transformed_verts[indices[2]];
+
+                    triangle_batch.push((v0, v1, v2, obj.color));
+                }
             }
 
-            // 3. Process Visible Object
-            let mvp = obj.transform * view_proj;
-            let mesh = &obj.mesh;
-
-            // Transform vertices and append to batch
-            // Optimization: Batch transform vertices to reuse calculations for shared vertices.
-            // We reuse the scratch buffer to eliminate per-object allocations.
-            transformed_verts.clear();
-            transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
-
-            #[cfg(feature = "parallel")]
-            mvp.transform_points_parallel(&mesh.vertices, &mut transformed_verts);
-
-            #[cfg(not(feature = "parallel"))]
-            mvp.transform_points(&mesh.vertices, &mut transformed_verts);
-
-            for indices in &mesh.indices {
-                let v0 = transformed_verts[indices[0]];
-                let v1 = transformed_verts[indices[1]];
-                let v2 = transformed_verts[indices[2]];
-
-                triangle_batch.push((v0, v1, v2, obj.color));
+            // 4. Submit Batch
+            if !triangle_batch.is_empty() {
+                renderer.render_batch(fb, zb, triangle_batch);
             }
-        }
-
-        // 4. Submit Batch
-        if !triangle_batch.is_empty() {
-            renderer.render_batch(fb, zb, &triangle_batch);
-        }
+        });
     }
 }
 
