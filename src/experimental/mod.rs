@@ -1,4 +1,5 @@
 pub mod arboretum;
+pub mod dither;
 pub mod isosurface;
 pub mod jelly;
 pub mod procedural_mesh;
