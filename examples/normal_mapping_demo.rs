@@ -57,10 +57,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Normal Map: Create a "bump" in the center
     // Flat normal is (0.5, 0.5, 1.0) -> 0x8080FF
-    let mut normal_map_pixels = vec![0xFFFF8080; 256 * 256]; // Default flat (ABGR: A=FF B=FF G=80 R=80 ? No, Normal Z=1 maps to 255. 0.5->128=0x80. So R=80, G=80, B=FF.
-    // wait, u32 color is 0xAARRGGBB.
-    // R = X, G = Y, B = Z.
-    // (0, 0, 1) -> (0.5, 0.5, 1.0) -> (128, 128, 255) -> 0xFF8080FF.
+    let mut normal_map = Texture::new(256, 256).unwrap();
+    let normal_map_pixels = normal_map.pixels_mut();
+
+    // Initialize default flat
+    normal_map_pixels.fill(0xFFFF8080);
 
     for y in 0..256 {
         for x in 0..256 {
@@ -88,15 +89,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
-    let normal_map = Texture {
-        width: 256,
-        height: 256,
-        pixels: normal_map_pixels,
-        width_shift: 8,
-        mips: Vec::new(),
-        filter_mode: abrash::texture::FilterMode::Nearest,
-    };
 
     // Quad vertices
     // Position, UV, Normal, Tangent

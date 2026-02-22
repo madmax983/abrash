@@ -10,21 +10,14 @@ fn crash_texture_invariant_violation() {
     let mut zb = ZBuffer::new(100, 100).unwrap();
 
     // Create a small texture (2x2) -> 4 pixels
-    let mut texture = Texture::new(2, 2).unwrap();
+    let texture = Texture::new(2, 2).unwrap();
 
-    // Maliciously update width to be huge.
-    // The texture buffer still only has 4 pixels.
-    // But the rasterizer will think it has 1000 columns.
-    texture.width = 1000;
+    // VULNERABILITY FIX:
+    // The following line causes a compile error because `width` is now private.
+    // This prevents the invariant violation (width > pixels.len()) that caused the crash.
+    // texture.width = 1000;
 
-    // Setup a triangle that maps to the texture
-    // Vertices at screen coordinates (0,0), (100,0), (0,100)
-    // UVs map to (0,0), (1,0), (0,1)
-    // The rasterizer will interpolate UVs.
-    // At u=0.5, x_tex = 0.5 * 1000 = 500.
-    // It will try to access pixel at index 500.
-    // Boom.
-
+    // Verify safe rendering still works
     let v0 = ((Vec3::new(0.0, 0.0, 1.0), 1.0), Vec2::new(0.0, 0.0));
     let v1 = ((Vec3::new(100.0, 0.0, 1.0), 1.0), Vec2::new(1.0, 0.0));
     let v2 = ((Vec3::new(0.0, 100.0, 1.0), 1.0), Vec2::new(0.0, 1.0));
