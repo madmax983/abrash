@@ -3265,12 +3265,12 @@ unsafe fn draw_span_textured_gouraud_simd(
     v_fix_start: i32,
     du_fix: i32,
     dv_fix: i32,
-    r_start: f32,
-    g_start: f32,
-    b_start: f32,
-    dr_dx: f32,
-    dg_dx: f32,
-    db_dx: f32,
+    r_start: i32,
+    g_start: i32,
+    b_start: i32,
+    dr_dx: i32,
+    dg_dx: i32,
+    db_dx: i32,
 ) {
     use std::arch::x86_64::*;
 
@@ -3281,28 +3281,31 @@ unsafe fn draw_span_textured_gouraud_simd(
         let dz_dx_vec = _mm256_set1_ps(dz_dx);
         let du_fix_vec = _mm256_set1_epi32(du_fix);
         let dv_fix_vec = _mm256_set1_epi32(dv_fix);
-        let dr_dx_vec = _mm256_set1_ps(dr_dx);
-        let dg_dx_vec = _mm256_set1_ps(dg_dx);
-        let db_dx_vec = _mm256_set1_ps(db_dx);
+        let dr_dx_vec = _mm256_set1_epi32(dr_dx);
+        let dg_dx_vec = _mm256_set1_epi32(dg_dx);
+        let db_dx_vec = _mm256_set1_epi32(db_dx);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
         let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
-        let mut r_vec = _mm256_add_ps(_mm256_set1_ps(r_start), _mm256_mul_ps(dr_dx_vec, offsets_f));
-        let mut g_vec = _mm256_add_ps(_mm256_set1_ps(g_start), _mm256_mul_ps(dg_dx_vec, offsets_f));
-        let mut b_vec = _mm256_add_ps(_mm256_set1_ps(b_start), _mm256_mul_ps(db_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+        let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+        let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+        let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
         let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
         let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
+        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
+        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
-        let dr_step = _mm256_mul_ps(dr_dx_vec, _mm256_set1_ps(8.0));
-        let dg_step = _mm256_mul_ps(dg_dx_vec, _mm256_set1_ps(8.0));
-        let db_step = _mm256_mul_ps(db_dx_vec, _mm256_set1_ps(8.0));
+        let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+        let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+        let db_step = _mm256_slli_epi32(db_dx_vec, 3);
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
@@ -3314,8 +3317,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         let is_pot = texture.width_shift < 32;
 
         let ff_mask = _mm256_set1_epi32(0xFF);
-        let scale_255 = _mm256_set1_ps(255.0);
-        let zero_ps = _mm256_setzero_ps();
+        let mask_255 = _mm256_set1_epi32(255);
 
         while i + 8 <= len {
             let depth_ptr = zb_slice.as_mut_ptr().add(i);
@@ -3344,20 +3346,20 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let tex_b_i = _mm256_and_si256(pixel_vals, ff_mask);
                 let tex_a_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 24), ff_mask);
 
-                let tex_r = _mm256_cvtepi32_ps(tex_r_i);
-                let tex_g = _mm256_cvtepi32_ps(tex_g_i);
-                let tex_b = _mm256_cvtepi32_ps(tex_b_i);
+                // Use max(0, r) to clamp lower bound of shade.
+                let r_clamped = _mm256_max_epi32(r_fix_vec, zero_i);
+                let g_clamped = _mm256_max_epi32(g_fix_vec, zero_i);
+                let b_clamped = _mm256_max_epi32(b_fix_vec, zero_i);
 
-                let mod_r = _mm256_mul_ps(tex_r, r_vec);
-                let mod_g = _mm256_mul_ps(tex_g, g_vec);
-                let mod_b = _mm256_mul_ps(tex_b, b_vec);
+                // Multiply: (tex * shade)
+                let mod_r = _mm256_mullo_epi32(tex_r_i, r_clamped);
+                let mod_g = _mm256_mullo_epi32(tex_g_i, g_clamped);
+                let mod_b = _mm256_mullo_epi32(tex_b_i, b_clamped);
 
-                let out_r =
-                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_r, zero_ps), scale_255));
-                let out_g =
-                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_g, zero_ps), scale_255));
-                let out_b =
-                    _mm256_cvttps_epi32(_mm256_min_ps(_mm256_max_ps(mod_b, zero_ps), scale_255));
+                // Shift right 16 (divide by 65536) and clamp to 255
+                let out_r = _mm256_min_epi32(_mm256_srai_epi32(mod_r, 16), mask_255);
+                let out_g = _mm256_min_epi32(_mm256_srai_epi32(mod_g, 16), mask_255);
+                let out_b = _mm256_min_epi32(_mm256_srai_epi32(mod_b, 16), mask_255);
 
                 let out_color = _mm256_or_si256(
                     _mm256_slli_epi32(tex_a_i, 24),
@@ -3414,9 +3416,9 @@ unsafe fn draw_span_textured_gouraud_simd(
             }
 
             z_vec = _mm256_add_ps(z_vec, dz_step);
-            r_vec = _mm256_add_ps(r_vec, dr_step);
-            g_vec = _mm256_add_ps(g_vec, dg_step);
-            b_vec = _mm256_add_ps(b_vec, db_step);
+            r_fix_vec = _mm256_add_epi32(r_fix_vec, dr_step);
+            g_fix_vec = _mm256_add_epi32(g_fix_vec, dg_step);
+            b_fix_vec = _mm256_add_epi32(b_fix_vec, db_step);
             u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
             v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
             i += 8;
@@ -3433,9 +3435,9 @@ unsafe fn draw_span_textured_gouraud_simd(
         v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32)),
         du_fix,
         dv_fix,
-        r_start + (i as f32) * dr_dx,
-        g_start + (i as f32) * dg_dx,
-        b_start + (i as f32) * db_dx,
+        r_start.wrapping_add(dr_dx.wrapping_mul(i as i32)),
+        g_start.wrapping_add(dg_dx.wrapping_mul(i as i32)),
+        b_start.wrapping_add(db_dx.wrapping_mul(i as i32)),
         dr_dx,
         dg_dx,
         db_dx,
@@ -3457,12 +3459,12 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     v_fix_start: i32,
     du_fix: i32,
     dv_fix: i32,
-    r_start: f32,
-    g_start: f32,
-    b_start: f32,
-    dr_dx: f32,
-    dg_dx: f32,
-    db_dx: f32,
+    r_start: i32,
+    g_start: i32,
+    b_start: i32,
+    dr_dx: i32,
+    dg_dx: i32,
+    db_dx: i32,
 ) {
     use std::arch::x86_64::*;
 
@@ -3473,28 +3475,31 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         let dz_dx_vec = _mm256_set1_ps(dz_dx);
         let du_fix_vec = _mm256_set1_epi32(du_fix);
         let dv_fix_vec = _mm256_set1_epi32(dv_fix);
-        let dr_dx_vec = _mm256_set1_ps(dr_dx);
-        let dg_dx_vec = _mm256_set1_ps(dg_dx);
-        let db_dx_vec = _mm256_set1_ps(db_dx);
+        let dr_dx_vec = _mm256_set1_epi32(dr_dx);
+        let dg_dx_vec = _mm256_set1_epi32(dg_dx);
+        let db_dx_vec = _mm256_set1_epi32(db_dx);
 
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
         let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
-        let mut r_vec = _mm256_add_ps(_mm256_set1_ps(r_start), _mm256_mul_ps(dr_dx_vec, offsets_f));
-        let mut g_vec = _mm256_add_ps(_mm256_set1_ps(g_start), _mm256_mul_ps(dg_dx_vec, offsets_f));
-        let mut b_vec = _mm256_add_ps(_mm256_set1_ps(b_start), _mm256_mul_ps(db_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
+        let dr_off = _mm256_mullo_epi32(dr_dx_vec, offsets_i);
+        let dg_off = _mm256_mullo_epi32(dg_dx_vec, offsets_i);
+        let db_off = _mm256_mullo_epi32(db_dx_vec, offsets_i);
 
         let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
         let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+        let mut r_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(r_start), dr_off);
+        let mut g_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(g_start), dg_off);
+        let mut b_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(b_start), db_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
-        let dr_step = _mm256_mul_ps(dr_dx_vec, _mm256_set1_ps(8.0));
-        let dg_step = _mm256_mul_ps(dg_dx_vec, _mm256_set1_ps(8.0));
-        let db_step = _mm256_mul_ps(db_dx_vec, _mm256_set1_ps(8.0));
+        let dr_step = _mm256_slli_epi32(dr_dx_vec, 3);
+        let dg_step = _mm256_slli_epi32(dg_dx_vec, 3);
+        let db_step = _mm256_slli_epi32(db_dx_vec, 3);
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
         let dv_step = _mm256_slli_epi32(dv_fix_vec, 3);
 
@@ -3509,8 +3514,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
 
         let mask_ff = _mm256_set1_epi32(0xFF);
         let const_256 = _mm256_set1_epi32(256);
-        let scale_255 = _mm256_set1_ps(255.0);
-        let zero_ps = _mm256_setzero_ps();
+        let mask_255 = _mm256_set1_epi32(255);
 
         // Closure inside unsafe block needs to be safe or unsafe?
         // It uses intrinsics, so it must be unsafe block inside?
@@ -3613,26 +3617,20 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                         let tex_b_i = _mm256_and_si256(tex_color, mask_ff);
                         let tex_a_i = _mm256_and_si256(_mm256_srli_epi32(tex_color, 24), mask_ff);
 
-                        let tex_r = _mm256_cvtepi32_ps(tex_r_i);
-                        let tex_g = _mm256_cvtepi32_ps(tex_g_i);
-                        let tex_b = _mm256_cvtepi32_ps(tex_b_i);
+                        // Clamp shade to 0
+                        let r_clamped = _mm256_max_epi32(r_fix_vec, zero_i);
+                        let g_clamped = _mm256_max_epi32(g_fix_vec, zero_i);
+                        let b_clamped = _mm256_max_epi32(b_fix_vec, zero_i);
 
-                        let mod_r = _mm256_mul_ps(tex_r, r_vec);
-                        let mod_g = _mm256_mul_ps(tex_g, g_vec);
-                        let mod_b = _mm256_mul_ps(tex_b, b_vec);
+                        // Multiply (tex * shade)
+                        let mod_r = _mm256_mullo_epi32(tex_r_i, r_clamped);
+                        let mod_g = _mm256_mullo_epi32(tex_g_i, g_clamped);
+                        let mod_b = _mm256_mullo_epi32(tex_b_i, b_clamped);
 
-                        let out_r = _mm256_cvttps_epi32(_mm256_min_ps(
-                            _mm256_max_ps(mod_r, zero_ps),
-                            scale_255,
-                        ));
-                        let out_g = _mm256_cvttps_epi32(_mm256_min_ps(
-                            _mm256_max_ps(mod_g, zero_ps),
-                            scale_255,
-                        ));
-                        let out_b = _mm256_cvttps_epi32(_mm256_min_ps(
-                            _mm256_max_ps(mod_b, zero_ps),
-                            scale_255,
-                        ));
+                        // Shift >> 16 and clamp to 255
+                        let out_r = _mm256_min_epi32(_mm256_srai_epi32(mod_r, 16), mask_255);
+                        let out_g = _mm256_min_epi32(_mm256_srai_epi32(mod_g, 16), mask_255);
+                        let out_b = _mm256_min_epi32(_mm256_srai_epi32(mod_b, 16), mask_255);
 
                         let out_color = _mm256_or_si256(
                             _mm256_slli_epi32(tex_a_i, 24),
@@ -3685,9 +3683,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                     }
 
                     z_vec = _mm256_add_ps(z_vec, dz_step);
-                    r_vec = _mm256_add_ps(r_vec, dr_step);
-                    g_vec = _mm256_add_ps(g_vec, dg_step);
-                    b_vec = _mm256_add_ps(b_vec, db_step);
+                    r_fix_vec = _mm256_add_epi32(r_fix_vec, dr_step);
+                    g_fix_vec = _mm256_add_epi32(g_fix_vec, dg_step);
+                    b_fix_vec = _mm256_add_epi32(b_fix_vec, db_step);
                     u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
                     v_fix_vec = _mm256_add_epi32(v_fix_vec, dv_step);
                     i += 8;
@@ -3706,9 +3704,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     let mut z_curr = z_start + (i as f32) * dz_dx;
     let mut u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
     let mut v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
-    let mut r_curr = r_start + (i as f32) * dr_dx;
-    let mut g_curr = g_start + (i as f32) * dg_dx;
-    let mut b_curr = b_start + (i as f32) * db_dx;
+    let mut r_curr = r_start.wrapping_add(dr_dx.wrapping_mul(i as i32));
+    let mut g_curr = g_start.wrapping_add(dg_dx.wrapping_mul(i as i32));
+    let mut b_curr = b_start.wrapping_add(db_dx.wrapping_mul(i as i32));
 
     while i < len {
         unsafe {
@@ -3716,14 +3714,18 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
             if z_curr < *depth_val {
                 let color = texture.get_pixel_bilinear_fixed(u_curr, v_curr);
 
-                let tex_r = ((color >> 16) & 0xFF) as f32;
-                let tex_g = ((color >> 8) & 0xFF) as f32;
-                let tex_b = (color & 0xFF) as f32;
+                let tex_r = ((color >> 16) & 0xFF) as i32;
+                let tex_g = ((color >> 8) & 0xFF) as i32;
+                let tex_b = (color & 0xFF) as i32;
                 let tex_a = (color >> 24) & 0xFF;
 
-                let final_r = (tex_r * r_curr).clamp(0.0, 255.0) as u32;
-                let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
-                let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
+                let r_val = r_curr.max(0);
+                let g_val = g_curr.max(0);
+                let b_val = b_curr.max(0);
+
+                let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
+                let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
+                let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
                 let final_color =
                     ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
@@ -3745,9 +3747,9 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         z_curr += dz_dx;
         u_curr = u_curr.wrapping_add(du_fix);
         v_curr = v_curr.wrapping_add(dv_fix);
-        r_curr += dr_dx;
-        g_curr += dg_dx;
-        b_curr += db_dx;
+        r_curr = r_curr.wrapping_add(dr_dx);
+        g_curr = g_curr.wrapping_add(dg_dx);
+        b_curr = b_curr.wrapping_add(db_dx);
         i += 1;
     }
 }
@@ -3763,12 +3765,12 @@ fn draw_span_textured_gouraud_scalar(
     mut v_fix: i32,
     du_fix: i32,
     dv_fix: i32,
-    mut r: f32,
-    mut g: f32,
-    mut b: f32,
-    dr_dx: f32,
-    dg_dx: f32,
-    db_dx: f32,
+    mut r_fix: i32,
+    mut g_fix: i32,
+    mut b_fix: i32,
+    dr_dx: i32,
+    dg_dx: i32,
+    db_dx: i32,
 ) {
     let tex_pixels = &texture.pixels;
     let tex_w = texture.width;
@@ -3793,14 +3795,22 @@ fn draw_span_textured_gouraud_scalar(
                 texture.get_pixel_texel(u, v)
             };
 
-            let tex_r = ((color >> 16) & 0xFF) as f32;
-            let tex_g = ((color >> 8) & 0xFF) as f32;
-            let tex_b = (color & 0xFF) as f32;
+            let tex_r = ((color >> 16) & 0xFF) as i32;
+            let tex_g = ((color >> 8) & 0xFF) as i32;
+            let tex_b = (color & 0xFF) as i32;
             let tex_a = (color >> 24) & 0xFF;
 
-            let final_r = (tex_r * r).clamp(0.0, 255.0) as u32;
-            let final_g = (tex_g * g).clamp(0.0, 255.0) as u32;
-            let final_b = (tex_b * b).clamp(0.0, 255.0) as u32;
+            // Use 16.16 shade values.
+            // Shade is max 1.0 (65536). Tex is max 255.
+            // tex * shade -> max ~1.67e7 (fits in i32).
+            // Shift right 16 to get result in 0..255 range.
+            let r_clamped = r_fix.max(0);
+            let g_clamped = g_fix.max(0);
+            let b_clamped = b_fix.max(0);
+
+            let final_r = ((tex_r * r_clamped) >> 16).clamp(0, 255) as u32;
+            let final_g = ((tex_g * g_clamped) >> 16).clamp(0, 255) as u32;
+            let final_b = ((tex_b * b_clamped) >> 16).clamp(0, 255) as u32;
 
             let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
@@ -3820,9 +3830,9 @@ fn draw_span_textured_gouraud_scalar(
         z += dz_dx;
         u_fix = u_fix.wrapping_add(du_fix);
         v_fix = v_fix.wrapping_add(dv_fix);
-        r += dr_dx;
-        g += dg_dx;
-        b += db_dx;
+        r_fix = r_fix.wrapping_add(dr_dx);
+        g_fix = g_fix.wrapping_add(dg_dx);
+        b_fix = b_fix.wrapping_add(db_dx);
     }
 }
 
@@ -3854,6 +3864,12 @@ pub fn draw_scanline_textured_gouraud(
     let mut g = start.g;
     let mut b = start.b;
 
+    // Fixed point 16.16 setup
+    let scale = 65536.0;
+    let dr_dx_i = (gradients.dr_dx * scale) as i32;
+    let dg_dx_i = (gradients.dg_dx * scale) as i32;
+    let db_dx_i = (gradients.db_dx * scale) as i32;
+
     if xs < 0 {
         let diff = -i64::from(xs);
         let diff_f = diff as f32;
@@ -3884,6 +3900,11 @@ pub fn draw_scanline_textured_gouraud(
     let mut u_tex_start = u * w_start;
     let mut v_tex_start = v * w_start;
 
+    // Current color in fixed point
+    let mut r_fix = (r * scale) as i32;
+    let mut g_fix = (g * scale) as i32;
+    let mut b_fix = (b * scale) as i32;
+
     while x <= xe {
         let remaining = xe - x + 1;
         let count = remaining.min(span_size);
@@ -3903,11 +3924,6 @@ pub fn draw_scanline_textured_gouraud(
         let inv_count = RECIPROCAL_TABLE[count as usize];
         let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
         let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
-
-        // Color interpolation (Linear)
-        let r_end = r + gradients.dr_dx * count as f32;
-        let g_end = g + gradients.dg_dx * count as f32;
-        let b_end = b + gradients.db_dx * count as f32;
 
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
@@ -3937,12 +3953,12 @@ pub fn draw_scanline_textured_gouraud(
                             v_fix,
                             du_fix,
                             dv_fix,
-                            r,
-                            g,
-                            b,
-                            gradients.dr_dx,
-                            gradients.dg_dx,
-                            gradients.db_dx,
+                            r_fix,
+                            g_fix,
+                            b_fix,
+                            dr_dx_i,
+                            dg_dx_i,
+                            db_dx_i,
                         );
                     }
                 } else {
@@ -3956,12 +3972,12 @@ pub fn draw_scanline_textured_gouraud(
                         v_fix,
                         du_fix,
                         dv_fix,
-                        r,
-                        g,
-                        b,
-                        gradients.dr_dx,
-                        gradients.dg_dx,
-                        gradients.db_dx,
+                        r_fix,
+                        g_fix,
+                        b_fix,
+                        dr_dx_i,
+                        dg_dx_i,
+                        db_dx_i,
                     );
                 }
                 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
@@ -3975,12 +3991,12 @@ pub fn draw_scanline_textured_gouraud(
                     v_fix,
                     du_fix,
                     dv_fix,
-                    r,
-                    g,
-                    b,
-                    gradients.dr_dx,
-                    gradients.dg_dx,
-                    gradients.db_dx,
+                    r_fix,
+                    g_fix,
+                    b_fix,
+                    dr_dx_i,
+                    dg_dx_i,
+                    db_dx_i,
                 );
             }
             FilterMode::Bilinear | FilterMode::Trilinear => {
@@ -4002,19 +4018,19 @@ pub fn draw_scanline_textured_gouraud(
                             v_fix,
                             du_fix,
                             dv_fix,
-                            r,
-                            g,
-                            b,
-                            gradients.dr_dx,
-                            gradients.dg_dx,
-                            gradients.db_dx,
+                            r_fix,
+                            g_fix,
+                            b_fix,
+                            dr_dx_i,
+                            dg_dx_i,
+                            db_dx_i,
                         );
                     }
                 } else {
                     let mut z_curr = z;
-                    let mut r_curr = r;
-                    let mut g_curr = g;
-                    let mut b_curr = b;
+                    let mut r_curr = r_fix;
+                    let mut g_curr = g_fix;
+                    let mut b_curr = b_fix;
 
                     for i in 0..count {
                         let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
@@ -4035,14 +4051,19 @@ pub fn draw_scanline_textured_gouraud(
 
                             let color = texture.get_pixel_bilinear_texel(u_tex, v_tex);
 
-                            let tex_r = ((color >> 16) & 0xFF) as f32;
-                            let tex_g = ((color >> 8) & 0xFF) as f32;
-                            let tex_b = (color & 0xFF) as f32;
+                            let tex_r = ((color >> 16) & 0xFF) as i32;
+                            let tex_g = ((color >> 8) & 0xFF) as i32;
+                            let tex_b = (color & 0xFF) as i32;
                             let tex_a = (color >> 24) & 0xFF;
 
-                            let final_r = (tex_r * r_curr).clamp(0.0, 255.0) as u32;
-                            let final_g = (tex_g * g_curr).clamp(0.0, 255.0) as u32;
-                            let final_b = (tex_b * b_curr).clamp(0.0, 255.0) as u32;
+                            // 16.16 fixed modulation
+                            let r_val = r_curr.max(0);
+                            let g_val = g_curr.max(0);
+                            let b_val = b_curr.max(0);
+
+                            let final_r = ((tex_r * r_val) >> 16).clamp(0, 255) as u32;
+                            let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
+                            let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
                             let final_color =
                                 ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
@@ -4061,9 +4082,9 @@ pub fn draw_scanline_textured_gouraud(
                             }
                         }
                         z_curr += gradients.dz_dx;
-                        r_curr += gradients.dr_dx;
-                        g_curr += gradients.dg_dx;
-                        b_curr += gradients.db_dx;
+                        r_curr += dr_dx_i;
+                        g_curr += dg_dx_i;
+                        b_curr += db_dx_i;
                     }
                 }
             }
@@ -4073,9 +4094,12 @@ pub fn draw_scanline_textured_gouraud(
         q = q_end;
         u = u_end;
         v = v_end;
-        r = r_end;
-        g = g_end;
-        b = b_end;
+
+        // Accumulate fixed point color
+        r_fix = r_fix.wrapping_add(dr_dx_i.wrapping_mul(count));
+        g_fix = g_fix.wrapping_add(dg_dx_i.wrapping_mul(count));
+        b_fix = b_fix.wrapping_add(db_dx_i.wrapping_mul(count));
+
         u_tex_start = u_tex_end;
         v_tex_start = v_tex_end;
         x += count;
