@@ -13,7 +13,7 @@ fn test_particle_color_rendering() {
 
     // Create a pure white texture
     let mut texture = Texture::new(2, 2).unwrap();
-    texture.pixels.fill(0xFFFFFFFF);
+    texture.pixels_mut().fill(0xFFFFFFFF);
 
     let mut sys = ParticleSystem::new(10, texture);
 
