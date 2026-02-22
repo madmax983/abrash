@@ -453,7 +453,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Reserve reasonable initial capacity to avoid frequent reallocations
     // Heuristic: Estimate count based on file size.
     // Average line length ~40 bytes. Conservative estimate.
-    let estimated_capacity = std::cmp::max(1024, source.len() / 40);
+    // Clamp to MAX_VERTICES to prevent DoS via massive allocation.
+    let estimated_capacity = (source.len() / 40).clamp(1024, MAX_VERTICES);
 
     let mut parser = ObjParser::new(estimated_capacity);
 

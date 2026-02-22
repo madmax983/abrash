@@ -91,15 +91,15 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 /// A simple 2D texture.
 #[derive(Clone)]
 pub struct Texture {
-    pub width: u32,
-    pub height: u32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
-    pub width_shift: u8,
-    pub pixels: Vec<u32>,
+    pub(crate) width_shift: u8,
+    pub(crate) pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
-    pub mips: Vec<Vec<u32>>,
+    pub(crate) mips: Vec<Vec<u32>>,
     pub filter_mode: FilterMode,
 }
 
@@ -543,6 +543,34 @@ impl Texture {
             let y = y.clamp(0, self.height as i32 - 1) as usize;
             unsafe { *self.pixels.get_unchecked(self.row_offset(y) + x) }
         }
+    }
+
+    /// Returns the width of the texture.
+    #[inline]
+    #[must_use]
+    pub const fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Returns the height of the texture.
+    #[inline]
+    #[must_use]
+    pub const fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// Returns a reference to the pixel buffer.
+    #[inline]
+    #[must_use]
+    pub fn pixels(&self) -> &[u32] {
+        &self.pixels
+    }
+
+    /// Returns a mutable reference to the pixel buffer.
+    #[inline]
+    #[must_use]
+    pub fn pixels_mut(&mut self) -> &mut [u32] {
+        &mut self.pixels
     }
 
     /// Create a checkerboard texture.
