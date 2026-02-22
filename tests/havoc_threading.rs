@@ -1,9 +1,9 @@
-use std::thread;
-use std::sync::{Arc, Barrier};
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::{apply_bloom, apply_ssao, apply_sobel};
-use abrash::zbuffer::ZBuffer;
 use abrash::math::Mat4;
+use abrash::post_process::{apply_bloom, apply_sobel, apply_ssao};
+use abrash::zbuffer::ZBuffer;
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 #[test]
 fn test_post_process_concurrency() {

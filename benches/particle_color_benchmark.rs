@@ -35,7 +35,7 @@ fn bench_colored_particles_render(c: &mut Criterion) {
                 Vec3::new(0.0, 0.0, 0.0),
                 10.0,
                 0.5,
-                color as u32
+                color as u32,
             ));
         }
 

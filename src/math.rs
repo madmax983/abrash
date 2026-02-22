@@ -1041,18 +1041,21 @@ pub fn project_to_screen_optimized(
     // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
     // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
     // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
-    const MAX_VAL: f32 = 2147483520.0;
-    const MIN_VAL: f32 = -2147483520.0;
+    const MAX_VAL: f32 = 2_147_483_520.0;
+    const MIN_VAL: f32 = -2_147_483_520.0;
 
     let screen_x_f = (ndc_x + 1.0) * half_width;
     let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
 
     // Optimization: Branchless clamp to avoid stalls.
-    // If NaN, max(MIN) returns MIN. min(MAX) returns MIN.
-    // If +Inf, max(MIN) returns +Inf. min(MAX) returns MAX.
-    // If -Inf, max(MIN) returns MIN. min(MAX) returns MIN.
+    // If NaN, max(MIN) returns MIN (because max propagates non-NaN).
+    // Then min(MIN, MAX) returns MIN.
     // Result is always in [MIN, MAX] (or MIN if NaN).
+    // Note: f32::clamp() returns NaN for NaN inputs, which makes casting to i32 undefined/zero.
+    // We strictly want MIN_VAL behavior for NaNs here.
+    #[allow(clippy::manual_clamp)]
     let screen_x = screen_x_f.max(MIN_VAL).min(MAX_VAL) as i32;
+    #[allow(clippy::manual_clamp)]
     let screen_y = screen_y_f.max(MIN_VAL).min(MAX_VAL) as i32;
 
     ScreenPoint {
@@ -1121,8 +1124,8 @@ pub fn project_triangle_to_screen(
 
         // Clamp values to valid i32 range to avoid undefined behavior/overflow in cvttps
         // 2147483520.0 is the largest float strictly less than i32::MAX + 1 that is representable and fits in i32
-        let max_val_i32 = _mm_set1_ps(2147483520.0);
-        let min_val_i32 = _mm_set1_ps(-2147483648.0);
+        let max_val_i32 = _mm_set1_ps(2_147_483_520.0);
+        let min_val_i32 = _mm_set1_ps(-2_147_483_520.0);
 
         // screen_x = (ndc_x + 1.0) * half_width
         let sx = _mm_mul_ps(_mm_add_ps(ndc_x, one), hw);
@@ -1148,26 +1151,22 @@ pub fn project_triangle_to_screen(
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
-        // Clamp logic: max(i32::MIN + 1)
-        // Note: cvttps returns 0x80000000 (i32::MIN) for overflow/NaN
-        let fix = |val: i32| val.max(i32::MIN + 1);
-
         (
             ScreenPoint {
-                x: fix(x_arr[0]),
-                y: fix(y_arr[0]),
+                x: x_arr[0],
+                y: y_arr[0],
                 z: z_arr[0],
                 inv_w: iw_arr[0],
             },
             ScreenPoint {
-                x: fix(x_arr[1]),
-                y: fix(y_arr[1]),
+                x: x_arr[1],
+                y: y_arr[1],
                 z: z_arr[1],
                 inv_w: iw_arr[1],
             },
             ScreenPoint {
-                x: fix(x_arr[2]),
-                y: fix(y_arr[2]),
+                x: x_arr[2],
+                y: y_arr[2],
                 z: z_arr[2],
                 inv_w: iw_arr[2],
             },
@@ -1223,8 +1222,8 @@ pub fn project_quad_to_screen(
         let hw = _mm_set1_ps(half_width);
         let hh = _mm_set1_ps(half_height);
 
-        let max_val_i32 = _mm_set1_ps(2147483520.0);
-        let min_val_i32 = _mm_set1_ps(-2147483648.0);
+        let max_val_i32 = _mm_set1_ps(2_147_483_520.0);
+        let min_val_i32 = _mm_set1_ps(-2_147_483_520.0);
 
         let sx = _mm_mul_ps(_mm_add_ps(ndc_x, one), hw);
         let sy = _mm_mul_ps(_mm_sub_ps(one, ndc_y), hh);
@@ -1245,30 +1244,28 @@ pub fn project_quad_to_screen(
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
-        let fix = |val: i32| val.max(i32::MIN + 1);
-
         (
             ScreenPoint {
-                x: fix(x_arr[0]),
-                y: fix(y_arr[0]),
+                x: x_arr[0],
+                y: y_arr[0],
                 z: z_arr[0],
                 inv_w: iw_arr[0],
             },
             ScreenPoint {
-                x: fix(x_arr[1]),
-                y: fix(y_arr[1]),
+                x: x_arr[1],
+                y: y_arr[1],
                 z: z_arr[1],
                 inv_w: iw_arr[1],
             },
             ScreenPoint {
-                x: fix(x_arr[2]),
-                y: fix(y_arr[2]),
+                x: x_arr[2],
+                y: y_arr[2],
                 z: z_arr[2],
                 inv_w: iw_arr[2],
             },
             ScreenPoint {
-                x: fix(x_arr[3]),
-                y: fix(y_arr[3]),
+                x: x_arr[3],
+                y: y_arr[3],
                 z: z_arr[3],
                 inv_w: iw_arr[3],
             },

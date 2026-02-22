@@ -1,4 +1,4 @@
-use abrash::math::{Vec3, Mat4, project_to_screen_optimized};
+use abrash::math::{Mat4, Vec3, project_to_screen_optimized};
 use proptest::prelude::*;
 
 proptest! {

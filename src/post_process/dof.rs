@@ -1,7 +1,7 @@
+use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
-use super::blur::{box_blur_horizontal, box_blur_vertical};
 
 thread_local! {
     static DOF_CONTEXT: RefCell<DofContext> = RefCell::new(DofContext::default());
@@ -75,14 +75,24 @@ pub fn apply_depth_of_field(
         // Horizontal pass: original -> scratch
         box_blur_horizontal(original_pixels, scratch_slice, width, height, blur_radius);
         // Vertical pass: scratch -> blurred
-        box_blur_vertical(scratch_slice, blurred_slice, acc_slice, width, height, blur_radius);
+        box_blur_vertical(
+            scratch_slice,
+            blurred_slice,
+            acc_slice,
+            width,
+            height,
+            blur_radius,
+        );
 
         // 2. Blend based on depth
         // We iterate over the original buffer and the blurred buffer
         let zb_slice = zb.as_slice();
 
         // Ensure we don't go out of bounds if buffers mismatch (though they shouldn't)
-        let len = original_pixels.len().min(zb_slice.len()).min(blurred_slice.len());
+        let len = original_pixels
+            .len()
+            .min(zb_slice.len())
+            .min(blurred_slice.len());
 
         for i in 0..len {
             let depth = zb_slice[i];
@@ -173,12 +183,18 @@ mod tests {
         // Check if out-of-focus pixel changed
         let new_pixel = fb.get_pixel(width as i32 - 1, height as i32 - 1).unwrap();
 
-        assert_ne!(original_pixel, new_pixel, "Out of focus pixel should be modified by blur");
+        assert_ne!(
+            original_pixel, new_pixel,
+            "Out of focus pixel should be modified by blur"
+        );
 
         // Check if in-focus pixel is UNCHANGED (or minimally changed)
         let focus_pixel_orig = 0xFF000000; // (0,0) is black
         let focus_pixel_new = fb.get_pixel(0, 0).unwrap();
         // Since factor should be 0.0 for dist=0, it should be exact.
-        assert_eq!(focus_pixel_orig, focus_pixel_new, "In focus pixel should not change");
+        assert_eq!(
+            focus_pixel_orig, focus_pixel_new,
+            "In focus pixel should not change"
+        );
     }
 }

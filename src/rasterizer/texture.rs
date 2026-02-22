@@ -4215,9 +4215,8 @@ fn fill_projected_triangle_textured_gouraud(
         return;
     }
 
-    let (gradients, long_edge_is_left) = TexturedGouraudGradients::new(
-        p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2,
-    );
+    let (gradients, long_edge_is_left) =
+        TexturedGouraudGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2);
 
     let mut edge_a = TexturedGouraudEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, c0, c2);
     if y_start > p0.y {
@@ -4302,9 +4301,9 @@ fn fill_projected_triangle_textured_gouraud(
 mod tests {
     use super::*;
     use crate::framebuffer::Framebuffer;
-    use crate::zbuffer::ZBuffer;
-    use crate::math::{Vec3, Vec2};
+    use crate::math::{Vec2, Vec3};
     use crate::texture::Texture;
+    use crate::zbuffer::ZBuffer;
 
     #[test]
     fn test_draw_scanline_nearest() {
@@ -4339,23 +4338,31 @@ mod tests {
         };
 
         draw_scanline_textured_perspective(
-            &mut fb,
-            &mut zb,
-            &tex,
-            5, // y
+            &mut fb, &mut zb, &tex, 5, // y
             0, // x_start
             3, // x_end
-            start,
-            &gradients,
+            start, &gradients,
         );
 
         // x=0: u=0.0 -> Texel 0 -> Red
         // x=1: u=0.5 -> Texel 0 (floor(0.5)=0) -> Red
         // x=2: u=1.0 -> Texel 1 (floor(1.0)=1) -> Green
 
-        assert_eq!(fb.get_pixel(0, 5).unwrap(), 0xFFFF0000, "Pixel 0 should be Red");
-        assert_eq!(fb.get_pixel(1, 5).unwrap(), 0xFFFF0000, "Pixel 1 should be Red");
-        assert_eq!(fb.get_pixel(2, 5).unwrap(), 0xFF00FF00, "Pixel 2 should be Green");
+        assert_eq!(
+            fb.get_pixel(0, 5).unwrap(),
+            0xFFFF0000,
+            "Pixel 0 should be Red"
+        );
+        assert_eq!(
+            fb.get_pixel(1, 5).unwrap(),
+            0xFFFF0000,
+            "Pixel 1 should be Red"
+        );
+        assert_eq!(
+            fb.get_pixel(2, 5).unwrap(),
+            0xFF00FF00,
+            "Pixel 2 should be Green"
+        );
     }
 
     #[test]
@@ -4395,8 +4402,13 @@ mod tests {
         };
 
         let gradients = PerspectiveTextureGradients {
-            dz_dx: 0.0, dq_dx: 0.0, du_dx: 0.0, dv_dx: 0.0,
-            dq_dy: 0.0, du_dy: 0.0, dv_dy: 0.0,
+            dz_dx: 0.0,
+            dq_dx: 0.0,
+            du_dx: 0.0,
+            dv_dx: 0.0,
+            dq_dy: 0.0,
+            du_dy: 0.0,
+            dv_dy: 0.0,
         };
 
         // Override start.u for the test
@@ -4416,7 +4428,14 @@ mod tests {
         start_blend.u = 1.0;
 
         draw_scanline_textured_perspective(
-            &mut fb, &mut zb, &tex, 5, 0, 0, start_blend, &gradients
+            &mut fb,
+            &mut zb,
+            &tex,
+            5,
+            0,
+            0,
+            start_blend,
+            &gradients,
         );
 
         let pixel = fb.get_pixel(0, 5).unwrap();
@@ -4455,9 +4474,9 @@ mod tests {
 
         // Quad fully inside frustum (-w..w)
         let v0 = ((Vec3::new(-0.5, -0.5, 0.0), 1.0), Vec2::new(0.0, 0.0));
-        let v1 = ((Vec3::new( 0.5, -0.5, 0.0), 1.0), Vec2::new(1.0, 0.0));
-        let v2 = ((Vec3::new( 0.5,  0.5, 0.0), 1.0), Vec2::new(1.0, 1.0));
-        let v3 = ((Vec3::new(-0.5,  0.5, 0.0), 1.0), Vec2::new(0.0, 1.0));
+        let v1 = ((Vec3::new(0.5, -0.5, 0.0), 1.0), Vec2::new(1.0, 0.0));
+        let v2 = ((Vec3::new(0.5, 0.5, 0.0), 1.0), Vec2::new(1.0, 1.0));
+        let v3 = ((Vec3::new(-0.5, 0.5, 0.0), 1.0), Vec2::new(0.0, 1.0));
 
         fill_quad_textured(&mut fb, &mut zb, v0, v1, v2, v3, &tex);
 

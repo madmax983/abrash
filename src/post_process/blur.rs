@@ -166,67 +166,73 @@ unsafe fn box_blur_f32_vertical_avx2(
     };
 
     unsafe {
-    let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
-    let scale_vec = _mm256_set1_ps(scale);
+        let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
+        let scale_vec = _mm256_set1_ps(scale);
 
-    // Reset accumulators
-    acc.fill(0.0);
+        // Reset accumulators
+        acc.fill(0.0);
 
-    // Pre-fill accumulators (Scalar loop is fine here, it's O(W*R))
-    // We could SIMD this too but it runs once per frame.
-    let row0 = &src[0..width];
-    for x in 0..width {
-        let val = row0[x];
-        for _ in 0..=radius {
-            acc[x] += val;
-        }
-    }
-    for y in 1..=radius {
-        let row_idx = y.min(height - 1);
-        let row = &src[row_idx * width..(row_idx + 1) * width];
+        // Pre-fill accumulators (Scalar loop is fine here, it's O(W*R))
+        // We could SIMD this too but it runs once per frame.
+        let row0 = &src[0..width];
         for x in 0..width {
-            acc[x] += row[x];
+            let val = row0[x];
+            for _ in 0..=radius {
+                acc[x] += val;
+            }
         }
-    }
-
-    for y in 0..height {
-        let dest_row_start = y * width;
-        let dest_row = &mut dest[dest_row_start..dest_row_start + width];
-
-        let out_y = (y as isize - radius as isize).max(0) as usize;
-        let in_y = (y + radius + 1).min(height - 1);
-
-        let out_row = &src[out_y * width..(out_y + 1) * width];
-        let in_row = &src[in_y * width..(in_y + 1) * width];
-
-        let mut x = 0;
-        while x + 8 <= width {
-            // Load
-            let a = _mm256_loadu_ps(acc.as_ptr().add(x));
-            let o = _mm256_loadu_ps(out_row.as_ptr().add(x));
-            let i = _mm256_loadu_ps(in_row.as_ptr().add(x));
-
-            // Update acc = acc - out + in
-            let a_new = _mm256_add_ps(_mm256_sub_ps(a, o), i);
-            _mm256_storeu_ps(acc.as_mut_ptr().add(x), a_new);
-
-            // Calc dest
-            let d = _mm256_mul_ps(a_new, scale_vec);
-            _mm256_storeu_ps(dest_row.as_mut_ptr().add(x), d);
-
-            x += 8;
+        for y in 1..=radius {
+            let row_idx = y.min(height - 1);
+            let row = &src[row_idx * width..(row_idx + 1) * width];
+            for x in 0..width {
+                acc[x] += row[x];
+            }
         }
 
-        // Tail
-        for i in x..width {
-            acc[i] = acc[i] - out_row[i] + in_row[i];
-            dest_row[i] = acc[i] * scale;
+        for y in 0..height {
+            let dest_row_start = y * width;
+            let dest_row = &mut dest[dest_row_start..dest_row_start + width];
+
+            let out_y = (y as isize - radius as isize).max(0) as usize;
+            let in_y = (y + radius + 1).min(height - 1);
+
+            let out_row = &src[out_y * width..(out_y + 1) * width];
+            let in_row = &src[in_y * width..(in_y + 1) * width];
+
+            let mut x = 0;
+            while x + 8 <= width {
+                // Load
+                let a = _mm256_loadu_ps(acc.as_ptr().add(x));
+                let o = _mm256_loadu_ps(out_row.as_ptr().add(x));
+                let i = _mm256_loadu_ps(in_row.as_ptr().add(x));
+
+                // Update acc = acc - out + in
+                let a_new = _mm256_add_ps(_mm256_sub_ps(a, o), i);
+                _mm256_storeu_ps(acc.as_mut_ptr().add(x), a_new);
+
+                // Calc dest
+                let d = _mm256_mul_ps(a_new, scale_vec);
+                _mm256_storeu_ps(dest_row.as_mut_ptr().add(x), d);
+
+                x += 8;
+            }
+
+            // Tail
+            for i in x..width {
+                acc[i] = acc[i] - out_row[i] + in_row[i];
+                dest_row[i] = acc[i] * scale;
+            }
         }
-    }
     }
 }
 
-pub fn box_blur_horizontal(src: &[u32], dest: &mut [u32], width: usize, height: usize, radius: u32) {
+pub fn box_blur_horizontal(
+    src: &[u32],
+    dest: &mut [u32],
+    width: usize,
+    height: usize,
+    radius: u32,
+) {
     let radius = radius as usize;
     // Window size (kernel width)
     let kernel_size = (2 * radius + 1) as u64;

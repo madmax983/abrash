@@ -695,7 +695,10 @@ mod extra_tests {
         // 19 digits check
         if std::mem::size_of::<usize>() >= 8 {
             // 9,999,999,999,999,999,999 (19 nines) fits in u64
-            assert_eq!(fast_parse_usize(b"9999999999999999999"), Some(9999999999999999999));
+            assert_eq!(
+                fast_parse_usize(b"9999999999999999999"),
+                Some(9999999999999999999)
+            );
         } else {
             // On 32-bit, MAX_DIGITS is 9. 10 digits should fail.
             assert_eq!(fast_parse_usize(b"1000000000"), None);

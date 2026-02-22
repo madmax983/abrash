@@ -1,7 +1,7 @@
+use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 use std::cell::RefCell;
-use super::blur::{box_blur_horizontal, box_blur_vertical};
 
 thread_local! {
     static BLOOM_BUFFERS: RefCell<BloomContext> = RefCell::new(BloomContext::default());

@@ -1,8 +1,8 @@
+use super::blur::box_blur_f32;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
-use super::blur::box_blur_f32;
 
 thread_local! {
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
@@ -264,245 +264,248 @@ unsafe fn apply_ssao_avx2(
     use std::arch::x86_64::*;
 
     unsafe {
-    let p00 = _mm256_set1_ps(proj_m[0]);
-    let p11 = _mm256_set1_ps(proj_m[5]);
-    let p22 = _mm256_set1_ps(proj_m[10]);
-    let p32 = _mm256_set1_ps(proj_m[14]);
+        let p00 = _mm256_set1_ps(proj_m[0]);
+        let p11 = _mm256_set1_ps(proj_m[5]);
+        let p22 = _mm256_set1_ps(proj_m[10]);
+        let p32 = _mm256_set1_ps(proj_m[14]);
 
-    let radius_vec = _mm256_set1_ps(radius);
-    let bias_vec = _mm256_set1_ps(bias);
-    let half_w_vec = _mm256_set1_ps(half_width);
-    let half_h_vec = _mm256_set1_ps(half_height);
-    let one = _mm256_set1_ps(1.0);
-    let zero = _mm256_setzero_ps();
-    let minus_zero = _mm256_set1_ps(-0.0);
+        let radius_vec = _mm256_set1_ps(radius);
+        let bias_vec = _mm256_set1_ps(bias);
+        let half_w_vec = _mm256_set1_ps(half_width);
+        let half_h_vec = _mm256_set1_ps(half_height);
+        let one = _mm256_set1_ps(1.0);
+        let zero = _mm256_setzero_ps();
+        let minus_zero = _mm256_set1_ps(-0.0);
 
-    let width_i = _mm256_set1_epi32(width as i32);
-    let height_i = _mm256_set1_epi32(height as i32);
-    let minus_one_i = _mm256_set1_epi32(-1);
+        let width_i = _mm256_set1_epi32(width as i32);
+        let height_i = _mm256_set1_epi32(height as i32);
+        let minus_one_i = _mm256_set1_epi32(-1);
 
-    let zb_data = zb.as_slice();
+        let zb_data = zb.as_slice();
 
-    for y in 0..height {
-        let y_idx = y * width;
-        let mut x = 0;
+        for y in 0..height {
+            let y_idx = y * width;
+            let mut x = 0;
 
-        let noise_y = y % NOISE_SIZE;
-        let noise_y_vec = _mm256_set1_epi32((noise_y * NOISE_SIZE) as i32);
+            let noise_y = y % NOISE_SIZE;
+            let noise_y_vec = _mm256_set1_epi32((noise_y * NOISE_SIZE) as i32);
 
-        while x + 8 <= width {
-            let depth_ptr = zb_data.as_ptr().add(y_idx + x);
-            let depth_val = _mm256_loadu_ps(depth_ptr);
+            while x + 8 <= width {
+                let depth_ptr = zb_data.as_ptr().add(y_idx + x);
+                let depth_val = _mm256_loadu_ps(depth_ptr);
 
-            // Check valid depth (< 1.0)
-            let mask_valid = _mm256_cmp_ps(depth_val, one, _CMP_LT_OQ);
+                // Check valid depth (< 1.0)
+                let mask_valid = _mm256_cmp_ps(depth_val, one, _CMP_LT_OQ);
 
-            if _mm256_movemask_ps(mask_valid) == 0 {
-                _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), zero);
-                x += 8;
-                continue;
-            }
+                if _mm256_movemask_ps(mask_valid) == 0 {
+                    _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), zero);
+                    x += 8;
+                    continue;
+                }
 
-            // Reconstruct View Z
-            let denom = _mm256_add_ps(depth_val, p22);
-            let z_view = _mm256_div_ps(_mm256_sub_ps(zero, p32), denom);
+                // Reconstruct View Z
+                let denom = _mm256_add_ps(depth_val, p22);
+                let z_view = _mm256_div_ps(_mm256_sub_ps(zero, p32), denom);
 
-            // Reconstruct X, Y View
-            let x_offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
-            let x_base = _mm256_set1_ps(x as f32);
-            let x_vals = _mm256_add_ps(x_base, x_offsets);
+                // Reconstruct X, Y View
+                let x_offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+                let x_base = _mm256_set1_ps(x as f32);
+                let x_vals = _mm256_add_ps(x_base, x_offsets);
 
-            let x_ndc = _mm256_sub_ps(_mm256_div_ps(x_vals, half_w_vec), one);
-            let y_ndc = _mm256_sub_ps(one, _mm256_div_ps(_mm256_set1_ps(y as f32), half_h_vec));
+                let x_ndc = _mm256_sub_ps(_mm256_div_ps(x_vals, half_w_vec), one);
+                let y_ndc = _mm256_sub_ps(one, _mm256_div_ps(_mm256_set1_ps(y as f32), half_h_vec));
 
-            let neg_z_view = _mm256_sub_ps(zero, z_view);
-            let x_view = _mm256_div_ps(_mm256_mul_ps(x_ndc, neg_z_view), p00);
-            let y_view = _mm256_div_ps(_mm256_mul_ps(y_ndc, neg_z_view), p11);
+                let neg_z_view = _mm256_sub_ps(zero, z_view);
+                let x_view = _mm256_div_ps(_mm256_mul_ps(x_ndc, neg_z_view), p00);
+                let y_view = _mm256_div_ps(_mm256_mul_ps(y_ndc, neg_z_view), p11);
 
-            let mut occlusion = _mm256_setzero_ps();
+                let mut occlusion = _mm256_setzero_ps();
 
-            // Gather Noise
-            let x_i = _mm256_set_epi32(
-                x as i32 + 7,
-                x as i32 + 6,
-                x as i32 + 5,
-                x as i32 + 4,
-                x as i32 + 3,
-                x as i32 + 2,
-                x as i32 + 1,
-                x as i32,
-            );
-            let noise_mask = _mm256_set1_epi32(3);
-            let noise_x = _mm256_and_si256(x_i, noise_mask);
-            let noise_idx = _mm256_add_epi32(noise_y_vec, noise_x);
-
-            let idx_3 = _mm256_mullo_epi32(noise_idx, _mm256_set1_epi32(3)); // stride 3 floats (12 bytes)
-            let noise_ptr = noise.as_ptr() as *const f32;
-            // Gather X and Y components of noise
-            let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
-            let ry =
-                _mm256_i32gather_ps(noise_ptr, _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)), 4);
-
-            for k in 0..KERNEL_SIZE {
-                let s = kernel[k];
-                let sx = _mm256_set1_ps(s.x);
-                let sy = _mm256_set1_ps(s.y);
-                let sz = _mm256_set1_ps(s.z);
-
-                // Rotate sample
-                let rot_x = _mm256_sub_ps(_mm256_mul_ps(sx, rx), _mm256_mul_ps(sy, ry));
-                let rot_y = _mm256_add_ps(_mm256_mul_ps(sx, ry), _mm256_mul_ps(sy, rx));
-                let rot_z = sz;
-
-                let samp_x = _mm256_fmadd_ps(rot_x, radius_vec, x_view);
-                let samp_y = _mm256_fmadd_ps(rot_y, radius_vec, y_view);
-                let samp_z = _mm256_fmadd_ps(rot_z, radius_vec, z_view);
-
-                // Project
-                let clip_x = _mm256_mul_ps(samp_x, p00);
-                let clip_y = _mm256_mul_ps(samp_y, p11);
-                let clip_w = _mm256_sub_ps(zero, samp_z);
-
-                let mask_w = _mm256_cmp_ps(clip_w, zero, _CMP_GT_OQ);
-                let inv_w = _mm256_div_ps(one, clip_w);
-
-                let ndc_x = _mm256_mul_ps(clip_x, inv_w);
-                let ndc_y = _mm256_mul_ps(clip_y, inv_w);
-
-                let s_x_f = _mm256_mul_ps(_mm256_add_ps(ndc_x, one), half_w_vec);
-                let s_y_f = _mm256_mul_ps(_mm256_sub_ps(one, ndc_y), half_h_vec);
-
-                let s_x = _mm256_cvttps_epi32(s_x_f);
-                let s_y = _mm256_cvttps_epi32(s_y_f);
-
-                // Bounds check
-                let mask_x = _mm256_and_si256(
-                    _mm256_cmpgt_epi32(s_x, minus_one_i),
-                    _mm256_cmpgt_epi32(width_i, s_x),
+                // Gather Noise
+                let x_i = _mm256_set_epi32(
+                    x as i32 + 7,
+                    x as i32 + 6,
+                    x as i32 + 5,
+                    x as i32 + 4,
+                    x as i32 + 3,
+                    x as i32 + 2,
+                    x as i32 + 1,
+                    x as i32,
                 );
-                let mask_y = _mm256_and_si256(
-                    _mm256_cmpgt_epi32(s_y, minus_one_i),
-                    _mm256_cmpgt_epi32(height_i, s_y),
-                );
-                let mask_bounds = _mm256_and_si256(mask_x, mask_y);
+                let noise_mask = _mm256_set1_epi32(3);
+                let noise_x = _mm256_and_si256(x_i, noise_mask);
+                let noise_idx = _mm256_add_epi32(noise_y_vec, noise_x);
 
-                let idx = _mm256_add_epi32(_mm256_mullo_epi32(s_y, width_i), s_x);
-
-                // Gather depths with mask
-                let existing_depth = _mm256_mask_i32gather_ps(
-                    one,
-                    zb_data.as_ptr(),
-                    idx,
-                    _mm256_castsi256_ps(mask_bounds),
+                let idx_3 = _mm256_mullo_epi32(noise_idx, _mm256_set1_epi32(3)); // stride 3 floats (12 bytes)
+                let noise_ptr = noise.as_ptr() as *const f32;
+                // Gather X and Y components of noise
+                let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
+                let ry = _mm256_i32gather_ps(
+                    noise_ptr,
+                    _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)),
                     4,
                 );
 
-                let existing_z_denom = _mm256_add_ps(existing_depth, p22);
-                let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
+                for k in 0..KERNEL_SIZE {
+                    let s = kernel[k];
+                    let sx = _mm256_set1_ps(s.x);
+                    let sy = _mm256_set1_ps(s.y);
+                    let sz = _mm256_set1_ps(s.z);
 
-                // Range check
-                let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
-                let mask_range = _mm256_cmp_ps(dist, radius_vec, _CMP_LT_OQ);
+                    // Rotate sample
+                    let rot_x = _mm256_sub_ps(_mm256_mul_ps(sx, rx), _mm256_mul_ps(sy, ry));
+                    let rot_y = _mm256_add_ps(_mm256_mul_ps(sx, ry), _mm256_mul_ps(sy, rx));
+                    let rot_z = sz;
 
-                // Bias check
-                let mask_bias =
-                    _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
+                    let samp_x = _mm256_fmadd_ps(rot_x, radius_vec, x_view);
+                    let samp_y = _mm256_fmadd_ps(rot_y, radius_vec, y_view);
+                    let samp_z = _mm256_fmadd_ps(rot_z, radius_vec, z_view);
 
-                let mask_total = _mm256_and_ps(mask_w, _mm256_castsi256_ps(mask_bounds));
-                let mask_total = _mm256_and_ps(mask_total, mask_range);
-                let mask_total = _mm256_and_ps(mask_total, mask_bias);
+                    // Project
+                    let clip_x = _mm256_mul_ps(samp_x, p00);
+                    let clip_y = _mm256_mul_ps(samp_y, p11);
+                    let clip_w = _mm256_sub_ps(zero, samp_z);
 
-                let contribution = _mm256_and_ps(mask_total, one);
-                occlusion = _mm256_add_ps(occlusion, contribution);
+                    let mask_w = _mm256_cmp_ps(clip_w, zero, _CMP_GT_OQ);
+                    let inv_w = _mm256_div_ps(one, clip_w);
+
+                    let ndc_x = _mm256_mul_ps(clip_x, inv_w);
+                    let ndc_y = _mm256_mul_ps(clip_y, inv_w);
+
+                    let s_x_f = _mm256_mul_ps(_mm256_add_ps(ndc_x, one), half_w_vec);
+                    let s_y_f = _mm256_mul_ps(_mm256_sub_ps(one, ndc_y), half_h_vec);
+
+                    let s_x = _mm256_cvttps_epi32(s_x_f);
+                    let s_y = _mm256_cvttps_epi32(s_y_f);
+
+                    // Bounds check
+                    let mask_x = _mm256_and_si256(
+                        _mm256_cmpgt_epi32(s_x, minus_one_i),
+                        _mm256_cmpgt_epi32(width_i, s_x),
+                    );
+                    let mask_y = _mm256_and_si256(
+                        _mm256_cmpgt_epi32(s_y, minus_one_i),
+                        _mm256_cmpgt_epi32(height_i, s_y),
+                    );
+                    let mask_bounds = _mm256_and_si256(mask_x, mask_y);
+
+                    let idx = _mm256_add_epi32(_mm256_mullo_epi32(s_y, width_i), s_x);
+
+                    // Gather depths with mask
+                    let existing_depth = _mm256_mask_i32gather_ps(
+                        one,
+                        zb_data.as_ptr(),
+                        idx,
+                        _mm256_castsi256_ps(mask_bounds),
+                        4,
+                    );
+
+                    let existing_z_denom = _mm256_add_ps(existing_depth, p22);
+                    let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
+
+                    // Range check
+                    let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
+                    let mask_range = _mm256_cmp_ps(dist, radius_vec, _CMP_LT_OQ);
+
+                    // Bias check
+                    let mask_bias =
+                        _mm256_cmp_ps(existing_view_z, _mm256_add_ps(samp_z, bias_vec), _CMP_GE_OQ);
+
+                    let mask_total = _mm256_and_ps(mask_w, _mm256_castsi256_ps(mask_bounds));
+                    let mask_total = _mm256_and_ps(mask_total, mask_range);
+                    let mask_total = _mm256_and_ps(mask_total, mask_bias);
+
+                    let contribution = _mm256_and_ps(mask_total, one);
+                    occlusion = _mm256_add_ps(occlusion, contribution);
+                }
+
+                let final_occ = _mm256_and_ps(occlusion, mask_valid);
+                _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), final_occ);
+
+                x += 8;
             }
 
-            let final_occ = _mm256_and_ps(occlusion, mask_valid);
-            _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), final_occ);
+            // Tail
+            while x < width {
+                let noise_x = x % NOISE_SIZE;
+                let noise_idx = noise_y * NOISE_SIZE + noise_x;
+                let random_vec = noise[noise_idx];
 
-            x += 8;
-        }
+                let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
-        // Tail
-        while x < width {
-            let noise_x = x % NOISE_SIZE;
-            let noise_idx = noise_y * NOISE_SIZE + noise_x;
-            let random_vec = noise[noise_idx];
+                if depth_val >= 1.0 {
+                    occlusion_buffer[y * width + x] = 0.0;
+                    x += 1;
+                    continue;
+                }
 
-            let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
+                let z_view = -proj_m[14] / (depth_val + proj_m[10]);
 
-            if depth_val >= 1.0 {
-                occlusion_buffer[y * width + x] = 0.0;
-                x += 1;
-                continue;
-            }
+                let x_ndc = (x as f32 / half_width) - 1.0;
+                let y_ndc = 1.0 - (y as f32 / half_height);
+                let x_view = x_ndc * (-z_view) / proj_m[0];
+                let y_view = y_ndc * (-z_view) / proj_m[5];
+                let pos_view = Vec3::new(x_view, y_view, z_view);
 
-            let z_view = -proj_m[14] / (depth_val + proj_m[10]);
+                let rx = random_vec.x;
+                let ry = random_vec.y;
 
-            let x_ndc = (x as f32 / half_width) - 1.0;
-            let y_ndc = 1.0 - (y as f32 / half_height);
-            let x_view = x_ndc * (-z_view) / proj_m[0];
-            let y_view = y_ndc * (-z_view) / proj_m[5];
-            let pos_view = Vec3::new(x_view, y_view, z_view);
+                let mut occlusion = 0.0;
 
-            let rx = random_vec.x;
-            let ry = random_vec.y;
+                for k in 0..KERNEL_SIZE {
+                    let s = kernel[k];
+                    let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
+                    let sample_pos = pos_view + rotated_sample * radius;
 
-            let mut occlusion = 0.0;
+                    // Scalar projection
+                    let (clip, w) = {
+                        let x = sample_pos.x * proj_m[0]
+                            + sample_pos.y * proj_m[4]
+                            + sample_pos.z * proj_m[8]
+                            + proj_m[12];
+                        let y = sample_pos.x * proj_m[1]
+                            + sample_pos.y * proj_m[5]
+                            + sample_pos.z * proj_m[9]
+                            + proj_m[13];
+                        let z = sample_pos.x * proj_m[2]
+                            + sample_pos.y * proj_m[6]
+                            + sample_pos.z * proj_m[10]
+                            + proj_m[14];
+                        let w = sample_pos.x * proj_m[3]
+                            + sample_pos.y * proj_m[7]
+                            + sample_pos.z * proj_m[11]
+                            + proj_m[15];
+                        (Vec3::new(x, y, z), w)
+                    };
 
-            for k in 0..KERNEL_SIZE {
-                let s = kernel[k];
-                let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
-                let sample_pos = pos_view + rotated_sample * radius;
+                    if w > 0.0 {
+                        let inv_w = 1.0 / w;
+                        let s_ndc_x = clip.x * inv_w;
+                        let s_ndc_y = clip.y * inv_w;
+                        let s_screen_x = ((s_ndc_x + 1.0) * half_width) as i32;
+                        let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
 
-                // Scalar projection
-                let (clip, w) = {
-                    let x = sample_pos.x * proj_m[0]
-                        + sample_pos.y * proj_m[4]
-                        + sample_pos.z * proj_m[8]
-                        + proj_m[12];
-                    let y = sample_pos.x * proj_m[1]
-                        + sample_pos.y * proj_m[5]
-                        + sample_pos.z * proj_m[9]
-                        + proj_m[13];
-                    let z = sample_pos.x * proj_m[2]
-                        + sample_pos.y * proj_m[6]
-                        + sample_pos.z * proj_m[10]
-                        + proj_m[14];
-                    let w = sample_pos.x * proj_m[3]
-                        + sample_pos.y * proj_m[7]
-                        + sample_pos.z * proj_m[11]
-                        + proj_m[15];
-                    (Vec3::new(x, y, z), w)
-                };
-
-                if w > 0.0 {
-                    let inv_w = 1.0 / w;
-                    let s_ndc_x = clip.x * inv_w;
-                    let s_ndc_y = clip.y * inv_w;
-                    let s_screen_x = ((s_ndc_x + 1.0) * half_width) as i32;
-                    let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
-
-                    if s_screen_x >= 0
-                        && s_screen_x < width as i32
-                        && s_screen_y >= 0
-                        && s_screen_y < height as i32
-                    {
-                        let idx = s_screen_y as usize * width + s_screen_x as usize;
-                        let existing_depth = zb_data[idx];
-                        let existing_view_z = -proj_m[14] / (existing_depth + proj_m[10]);
-                        let sample_view_z = sample_pos.z;
-                        if existing_view_z >= sample_view_z + bias
-                            && (existing_view_z - sample_view_z).abs() < radius
+                        if s_screen_x >= 0
+                            && s_screen_x < width as i32
+                            && s_screen_y >= 0
+                            && s_screen_y < height as i32
                         {
-                            occlusion += 1.0;
+                            let idx = s_screen_y as usize * width + s_screen_x as usize;
+                            let existing_depth = zb_data[idx];
+                            let existing_view_z = -proj_m[14] / (existing_depth + proj_m[10]);
+                            let sample_view_z = sample_pos.z;
+                            if existing_view_z >= sample_view_z + bias
+                                && (existing_view_z - sample_view_z).abs() < radius
+                            {
+                                occlusion += 1.0;
+                            }
                         }
                     }
                 }
+                occlusion_buffer[y * width + x] = occlusion;
+                x += 1;
             }
-            occlusion_buffer[y * width + x] = occlusion;
-            x += 1;
         }
-    }
     }
 }
 
