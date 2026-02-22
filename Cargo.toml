@@ -321,3 +321,7 @@ harness = false
 [[bench]]
 name = "zbuffer_bench"
 harness = false
+
+[[bench]]
+name = "particle_color_benchmark"
+harness = false

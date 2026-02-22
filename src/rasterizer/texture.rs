@@ -1449,6 +1449,108 @@ pub fn fill_triangle_textured(
     }
 }
 
+/// Fill a textured quad with Gouraud shading.
+///
+/// Optimized for quads that are fully within the view frustum.
+#[allow(clippy::too_many_arguments)]
+pub fn fill_quad_textured_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    v0: ((Vec3, f32), Vec3, Vec2),
+    v1: ((Vec3, f32), Vec3, Vec2),
+    v2: ((Vec3, f32), Vec3, Vec2),
+    v3: ((Vec3, f32), Vec3, Vec2),
+    texture: &Texture,
+) {
+    assert_same_dimensions(fb, zb);
+
+    // Trivial Acceptance Check: All inside frustum
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    let all_inside = unsafe {
+        use std::arch::x86_64::*;
+        let x_vec = _mm_set_ps(v3.0.0.x, v2.0.0.x, v1.0.0.x, v0.0.0.x);
+        let y_vec = _mm_set_ps(v3.0.0.y, v2.0.0.y, v1.0.0.y, v0.0.0.y);
+        let z_vec = _mm_set_ps(v3.0.0.z, v2.0.0.z, v1.0.0.z, v0.0.0.z);
+        let w_vec = _mm_set_ps(v3.0.1, v2.0.1, v1.0.1, v0.0.1);
+        let neg_w = _mm_sub_ps(_mm_setzero_ps(), w_vec);
+
+        let x_ok = _mm_and_ps(
+            _mm_cmp_ps(x_vec, neg_w, _CMP_GE_OQ),
+            _mm_cmp_ps(x_vec, w_vec, _CMP_LE_OQ),
+        );
+        let y_ok = _mm_and_ps(
+            _mm_cmp_ps(y_vec, neg_w, _CMP_GE_OQ),
+            _mm_cmp_ps(y_vec, w_vec, _CMP_LE_OQ),
+        );
+        let z_ok = _mm_and_ps(
+            _mm_cmp_ps(z_vec, neg_w, _CMP_GE_OQ),
+            _mm_cmp_ps(z_vec, w_vec, _CMP_LE_OQ),
+        );
+
+        let all_ok = _mm_and_ps(x_ok, _mm_and_ps(y_ok, z_ok));
+        _mm_movemask_ps(all_ok) == 0xF
+    };
+
+    #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
+    let all_inside = {
+        let is_inside = |v: (Vec3, f32)| -> bool {
+            let (p, w) = v;
+            p.x >= -w && p.x <= w && p.y >= -w && p.y <= w && p.z >= -w && p.z <= w
+        };
+        is_inside(v0.0) && is_inside(v1.0) && is_inside(v2.0) && is_inside(v3.0)
+    };
+
+    if all_inside {
+        // Fast Path
+        let width = fb.width();
+        let height = fb.height();
+        let half_width = width as f32 * 0.5;
+        let half_height = height as f32 * 0.5;
+
+        let (p0, p1, p2, p3) = project_quad_to_screen(
+            v0.0.0,
+            v0.0.1,
+            v1.0.0,
+            v1.0.1,
+            v2.0.0,
+            v2.0.1,
+            v3.0.0,
+            v3.0.1,
+            half_width,
+            half_height,
+        );
+
+        let tex_w = texture.width as f32;
+        let tex_h = texture.height as f32;
+
+        let u0 = v0.2.x * tex_w * p0.inv_w;
+        let v0_val = v0.2.y * tex_h * p0.inv_w;
+
+        let u1 = v1.2.x * tex_w * p1.inv_w;
+        let v1_val = v1.2.y * tex_h * p1.inv_w;
+
+        let u2 = v2.2.x * tex_w * p2.inv_w;
+        let v2_val = v2.2.y * tex_h * p2.inv_w;
+
+        let u3 = v3.2.x * tex_w * p3.inv_w;
+        let v3_val = v3.2.y * tex_h * p3.inv_w;
+
+        // Render (0, 1, 2)
+        fill_projected_triangle_textured_gouraud(
+            fb, zb, p0, p1, p2, u0, v0_val, u1, v1_val, u2, v2_val, v0.1, v1.1, v2.1, texture,
+        );
+
+        // Render (0, 2, 3)
+        fill_projected_triangle_textured_gouraud(
+            fb, zb, p0, p2, p3, u0, v0_val, u2, v2_val, u3, v3_val, v0.1, v2.1, v3.1, texture,
+        );
+    } else {
+        // Fallback
+        fill_triangle_textured_gouraud(fb, zb, v0, v1, v2, texture);
+        fill_triangle_textured_gouraud(fb, zb, v0, v2, v3, texture);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
 fn fill_projected_triangle_textured(
@@ -4042,104 +4144,138 @@ pub fn fill_triangle_textured_gouraud(
         sort_by_y(&mut verts, |(p, ..)| p.y);
         let [(p0, u0, v0, c0), (p1, u1, v1, c1), (p2, u2, v2, c2)] = verts;
 
-        let q0 = p0.inv_w;
-        let q1 = p1.inv_w;
-        let q2 = p2.inv_w;
-
-        let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        if total_height == 0.0 {
-            continue;
-        }
-
-        let y_min = 0;
-        let y_max = height as i32 - 1;
-        let y_start = p0.y.max(y_min);
-        let y_end = p2.y.min(y_max);
-
-        if y_start > y_end {
-            continue;
-        }
-
-        let (gradients, long_edge_is_left) = TexturedGouraudGradients::new(
-            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2,
+        fill_projected_triangle_textured_gouraud(
+            fb, zb, p0, p1, p2, u0, v0, u1, v1, u2, v2, c0, c1, c2, texture,
         );
+    }
+}
 
-        let mut edge_a = TexturedGouraudEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, c0, c2);
+#[allow(clippy::too_many_arguments)]
+#[inline(always)]
+fn fill_projected_triangle_textured_gouraud(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    p0: ScreenPoint,
+    p1: ScreenPoint,
+    p2: ScreenPoint,
+    u0: f32,
+    v0: f32,
+    u1: f32,
+    v1: f32,
+    u2: f32,
+    v2: f32,
+    c0: Vec3,
+    c1: Vec3,
+    c2: Vec3,
+    texture: &Texture,
+) {
+    if is_backface(p0, p1, p2) {
+        return;
+    }
+
+    let height = fb.height();
+
+    let mut verts = [(p0, u0, v0, c0), (p1, u1, v1, c1), (p2, u2, v2, c2)];
+    sort_by_y(&mut verts, |(p, ..)| p.y);
+    let [(p0, u0, v0, c0), (p1, u1, v1, c1), (p2, u2, v2, c2)] = verts;
+
+    let q0 = p0.inv_w;
+    let q1 = p1.inv_w;
+    let q2 = p2.inv_w;
+
+    let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+    if total_height == 0.0 {
+        return;
+    }
+
+    let y_min = 0;
+    let y_max = height as i32 - 1;
+    let y_start = p0.y.max(y_min);
+    let y_end = p2.y.min(y_max);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let (gradients, long_edge_is_left) = TexturedGouraudGradients::new(
+        p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2,
+    );
+
+    let mut edge_a = TexturedGouraudEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, c0, c2);
+    if y_start > p0.y {
+        edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+    }
+
+    let mut edge_b = if y_start < p1.y {
+        let mut e = TexturedGouraudEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1, c0, c1);
         if y_start > p0.y {
-            edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+            e.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+        e
+    } else {
+        let mut e = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
+        if y_start > p1.y {
+            e.step_n(i64::from(y_start) - i64::from(p1.y));
+        }
+        e
+    };
+
+    for y in y_start..=y_end {
+        if y == p1.y && y != p0.y {
+            edge_b = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
         }
 
-        let mut edge_b = if y_start < p1.y {
-            let mut e = TexturedGouraudEdgeWalker::new(p0, p1, q0, q1, u0, u1, v0, v1, c0, c1);
-            if y_start > p0.y {
-                e.step_n(i64::from(y_start) - i64::from(p0.y));
-            }
-            e
-        } else {
-            let mut e = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
-            if y_start > p1.y {
-                e.step_n(i64::from(y_start) - i64::from(p1.y));
-            }
-            e
-        };
+        let (x_start, x_end, z_left, q_left, u_left, v_left, r_left, g_left, b_left) =
+            if long_edge_is_left {
+                (
+                    (edge_a.x >> 16) as i32,
+                    (edge_b.x >> 16) as i32,
+                    edge_a.z,
+                    edge_a.q,
+                    edge_a.u,
+                    edge_a.v,
+                    edge_a.r,
+                    edge_a.g,
+                    edge_a.b,
+                )
+            } else {
+                (
+                    (edge_b.x >> 16) as i32,
+                    (edge_a.x >> 16) as i32,
+                    edge_b.z,
+                    edge_b.q,
+                    edge_b.u,
+                    edge_b.v,
+                    edge_b.r,
+                    edge_b.g,
+                    edge_b.b,
+                )
+            };
 
-        for y in y_start..=y_end {
-            if y == p1.y && y != p0.y {
-                edge_b = TexturedGouraudEdgeWalker::new(p1, p2, q1, q2, u1, u2, v1, v2, c1, c2);
-            }
+        let dx = i64::from(x_end) - i64::from(x_start);
 
-            let (x_start, x_end, z_left, q_left, u_left, v_left, r_left, g_left, b_left) =
-                if long_edge_is_left {
-                    (
-                        (edge_a.x >> 16) as i32,
-                        (edge_b.x >> 16) as i32,
-                        edge_a.z,
-                        edge_a.q,
-                        edge_a.u,
-                        edge_a.v,
-                        edge_a.r,
-                        edge_a.g,
-                        edge_a.b,
-                    )
-                } else {
-                    (
-                        (edge_b.x >> 16) as i32,
-                        (edge_a.x >> 16) as i32,
-                        edge_b.z,
-                        edge_b.q,
-                        edge_b.u,
-                        edge_b.v,
-                        edge_b.r,
-                        edge_b.g,
-                        edge_b.b,
-                    )
-                };
-
-            let dx = i64::from(x_end) - i64::from(x_start);
-
-            if dx > 0 {
-                draw_scanline_textured_gouraud(
-                    fb,
-                    zb,
-                    y,
-                    x_start,
-                    x_end,
-                    TexturedGouraudSpanStart {
-                        z: z_left,
-                        q: q_left,
-                        u: u_left,
-                        v: v_left,
-                        r: r_left,
-                        g: g_left,
-                        b: b_left,
-                    },
-                    &gradients,
-                    texture,
-                );
-            }
-
-            edge_a.step();
-            edge_b.step();
+        if dx > 0 {
+            draw_scanline_textured_gouraud(
+                fb,
+                zb,
+                y,
+                x_start,
+                x_end,
+                TexturedGouraudSpanStart {
+                    z: z_left,
+                    q: q_left,
+                    u: u_left,
+                    v: v_left,
+                    r: r_left,
+                    g: g_left,
+                    b: b_left,
+                },
+                &gradients,
+                texture,
+            );
         }
+
+        edge_a.step();
+        edge_b.step();
     }
 }
