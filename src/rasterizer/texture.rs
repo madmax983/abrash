@@ -1586,7 +1586,7 @@ fn fill_projected_triangle_textured(
 
     fill_projected_triangle_textured_with_gradients(
         fb, zb, p0_orig, p1_orig, p2_orig, u0_in, v0_in, u1_in, v1_in, u2_in, v2_in, texture,
-        gradients,
+        gradients, true,
     );
 }
 
@@ -1615,8 +1615,9 @@ fn fill_projected_triangle_textured_with_gradients(
     v2: f32,
     texture: &Texture,
     gradients: PerspectiveTextureGradients,
+    check_backface: bool,
 ) {
-    if is_backface(p0, p1, p2) {
+    if check_backface && is_backface(p0, p1, p2) {
         return;
     }
 
@@ -1867,13 +1868,30 @@ pub fn fill_quad_textured(
         let u3 = v3.1.x * tex_w * p3.inv_w;
         let v3_val = v3.1.y * tex_h * p3.inv_w;
 
-        // Render two triangles: (0, 1, 2) and (0, 2, 3)
-        fill_projected_triangle_textured(
-            fb, zb, p0, p1, p2, u0, v0_val, u1, v1_val, u2, v2_val, texture,
+        // Calculate gradients once for the quad plane using the first triangle (0, 1, 2).
+        // Since the quad is coplanar, these gradients apply to the second triangle (0, 2, 3) as well.
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        // Note argument order for gradients: u0, u1, u2, then v0, v1, v2
+        let (gradients, is_front_facing) = PerspectiveTextureGradients::new_with_winding(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_val, v1_val, v2_val,
         );
 
-        fill_projected_triangle_textured(
-            fb, zb, p0, p2, p3, u0, v0_val, u2, v2_val, u3, v3_val, texture,
+        if !is_front_facing {
+            return;
+        }
+
+        // Render two triangles using the shared gradients: (0, 1, 2) and (0, 2, 3)
+        // Note argument order for fill: u0, v0, u1, v1, u2, v2
+        // We skip backface checking because we already confirmed winding for the plane.
+        fill_projected_triangle_textured_with_gradients(
+            fb, zb, p0, p1, p2, u0, v0_val, u1, v1_val, u2, v2_val, texture, gradients, false,
+        );
+
+        fill_projected_triangle_textured_with_gradients(
+            fb, zb, p0, p2, p3, u0, v0_val, u2, v2_val, u3, v3_val, texture, gradients, false,
         );
     } else {
         // Fallback: Split and Clip
