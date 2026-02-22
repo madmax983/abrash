@@ -1,4 +1,6 @@
 pub mod arboretum;
+pub mod cloth;
+pub mod csg;
 pub mod dither;
 pub mod isosurface;
 pub mod jelly;
@@ -6,4 +8,3 @@ pub mod procedural_mesh;
 pub mod sdf;
 pub mod ssao;
 pub mod voxelizer;
-pub mod cloth;

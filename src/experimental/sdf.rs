@@ -37,6 +37,38 @@ pub enum SdfPrimitive {
     },
 }
 
+impl SdfPrimitive {
+    /// Evaluate the signed distance to this primitive.
+    #[must_use]
+    pub fn distance(&self, p: Vec3) -> f32 {
+        match self {
+            Self::Sphere { radius, center } => (p - *center).length() - radius,
+            Self::Box { size, center } => {
+                let d = vec3_abs(p - *center) - *size;
+                let inside_dist = d.x.max(d.y).max(d.z).min(0.0);
+                let outside_dist = vec3_max(d, 0.0).length();
+                inside_dist + outside_dist
+            }
+            Self::Torus {
+                major_radius,
+                minor_radius,
+                center,
+            } => {
+                let p = p - *center;
+                let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
+                q.length() - minor_radius
+            }
+            Self::Plane { normal, distance } => p.dot(*normal) + distance,
+            Self::Capsule { start, end, radius } => {
+                let pa = p - *start;
+                let ba = *end - *start;
+                let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+                (pa - ba * h).length() - radius
+            }
+        }
+    }
+}
+
 /// An object in the SDF scene.
 #[derive(Clone, Copy, Debug)]
 pub struct SdfObject {
@@ -48,40 +80,16 @@ impl SdfObject {
     /// Evaluate the signed distance to this object.
     #[must_use]
     pub fn distance(&self, p: Vec3) -> f32 {
-        match self.primitive {
-            SdfPrimitive::Sphere { radius, center } => (p - center).length() - radius,
-            SdfPrimitive::Box { size, center } => {
-                let d = vec3_abs(p - center) - size;
-                let inside_dist = d.x.max(d.y).max(d.z).min(0.0);
-                let outside_dist = vec3_max(d, 0.0).length();
-                inside_dist + outside_dist
-            }
-            SdfPrimitive::Torus {
-                major_radius,
-                minor_radius,
-                center,
-            } => {
-                let p = p - center;
-                let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
-                q.length() - minor_radius
-            }
-            SdfPrimitive::Plane { normal, distance } => p.dot(normal) + distance,
-            SdfPrimitive::Capsule { start, end, radius } => {
-                let pa = p - start;
-                let ba = end - start;
-                let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
-                (pa - ba * h).length() - radius
-            }
-        }
+        self.primitive.distance(p)
     }
 }
 
 // Helpers
-fn vec3_abs(v: Vec3) -> Vec3 {
+pub fn vec3_abs(v: Vec3) -> Vec3 {
     Vec3::new(v.x.abs(), v.y.abs(), v.z.abs())
 }
 
-fn vec3_max(v: Vec3, val: f32) -> Vec3 {
+pub fn vec3_max(v: Vec3, val: f32) -> Vec3 {
     Vec3::new(v.x.max(val), v.y.max(val), v.z.max(val))
 }
 
