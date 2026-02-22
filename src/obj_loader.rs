@@ -366,10 +366,6 @@ impl ObjParser {
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
 fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
-    if bytes.is_empty() {
-        return None;
-    }
-
     // On 64-bit, usize is u64 (max ~1.8e19, 19 full digits).
     // On 32-bit, usize is u32 (max ~4e9, 9 full digits).
     // We strictly reject numbers longer than this to guarantee no overflow without checking.
@@ -378,6 +374,10 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     } else {
         9
     };
+
+    if bytes.is_empty() {
+        return None;
+    }
 
     if bytes.len() > MAX_DIGITS {
         return None;
