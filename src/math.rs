@@ -218,6 +218,22 @@ impl Vec3 {
     /// *   Positive if pointing in similar direction.
     /// *   Zero if perpendicular.
     /// *   Negative if pointing in opposite directions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let a = Vec3::new(1.0, 0.0, 0.0);
+    /// let b = Vec3::new(0.5, 0.0, 0.0);
+    /// let c = Vec3::new(0.0, 1.0, 0.0);
+    ///
+    /// // Parallel vectors
+    /// assert_eq!(a.dot(b), 0.5);
+    ///
+    /// // Perpendicular vectors
+    /// assert_eq!(a.dot(c), 0.0);
+    /// ```
     #[must_use]
     #[inline]
     pub fn dot(&self, other: Self) -> f32 {
@@ -605,6 +621,14 @@ impl Mat4 {
     ///
     /// assert_eq!(p_prime, Vec3::new(1.0, 2.0, 3.0));
     /// assert_eq!(w, 1.0);
+    ///
+    /// // Example with Perspective Projection (where w != 1.0)
+    /// let proj = Mat4::perspective(1.57, 1.0, 1.0, 10.0);
+    /// let p_view = Vec3::new(0.0, 0.0, -5.0); // Point in front of camera
+    /// let (p_clip, w_clip) = proj.transform_point(p_view);
+    ///
+    /// // In standard perspective projection, w_clip = -z_view
+    /// assert_eq!(w_clip, 5.0);
     /// ```
     ///
     /// Marked `#[inline]` to allow cross-crate inlining and auto-vectorization by the compiler.

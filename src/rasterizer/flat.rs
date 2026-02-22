@@ -303,21 +303,33 @@ pub fn draw_scanline_flat_blended(
 /// use abrash::rasterizer::fill_triangle_3d;
 /// use abrash::framebuffer::Framebuffer;
 /// use abrash::zbuffer::ZBuffer;
-/// use abrash::math::Vec3;
+/// use abrash::math::{Mat4, Vec3};
 ///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// let mut zb = ZBuffer::new(100, 100).unwrap();
+/// let width = 100;
+/// let height = 100;
+/// let mut fb = Framebuffer::new(width, height).unwrap();
+/// let mut zb = ZBuffer::new(width, height).unwrap();
 ///
-/// // Vertices are passed as (Position, w) tuples in Clip Space.
-/// // w usually comes from the projection matrix (typically z_view).
-/// // Here we simulate a triangle at z=5.0 with w=5.0 (so z_ndc = 1.0, far plane).
+/// // 1. Define triangle in Model Space
+/// let v0_model = Vec3::new(0.0, 0.5, 0.0);
+/// let v1_model = Vec3::new(-0.5, -0.5, 0.0);
+/// let v2_model = Vec3::new(0.5, -0.5, 0.0);
 ///
-/// let v0 = (Vec3::new(0.0, 5.0, 5.0), 5.0);   // Top
-/// let v1 = (Vec3::new(-5.0, -5.0, 5.0), 5.0); // Bottom Left
-/// let v2 = (Vec3::new(5.0, -5.0, 5.0), 5.0);  // Bottom Right
+/// // 2. Create View-Projection Matrix
+/// // View: Camera at (0,0,2) looking at origin -> Translate world by (0,0,-2)
+/// let view = Mat4::translation(0.0, 0.0, -2.0);
+/// let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
+/// let view_proj = view * proj;
+///
+/// // 3. Transform to Clip Space
+/// // transform_point returns (Vec3, w) which is exactly what the rasterizer needs.
+/// let v0_clip = view_proj.transform_point(v0_model);
+/// let v1_clip = view_proj.transform_point(v1_model);
+/// let v2_clip = view_proj.transform_point(v2_model);
+///
+/// // 4. Rasterize
 /// let color = 0xFFFF0000; // Red
-///
-/// fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color);
+/// fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, color);
 ///
 /// // Verify center pixel
 /// assert_eq!(fb.get_pixel(50, 50), Some(0xFFFF0000));

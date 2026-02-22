@@ -2,6 +2,65 @@
 //!
 //! This module provides a scene graph structure that organizes objects and performs
 //! frustum culling before submitting visible geometry to the rasterizer.
+//!
+//! # The Scene Graph
+//!
+//! In Abrash, a [`Scene`] is a collection of [`SceneObject`]s and a [`Camera`].
+//! The scene is responsible for:
+//!
+//! 1.  **Spatial Organization**: Managing objects and their transforms.
+//! 2.  **Culling**: Determining which objects are visible to the camera (Frustum Culling).
+//! 3.  **Rendering**: Submitting visible geometry to a [`TileRenderer`] or other rasterizer.
+//!
+//! # Coordinate Spaces
+//!
+//! *   **Model Space**: The local coordinates of the mesh vertices.
+//! *   **World Space**: The coordinates of the object in the scene (after applying `object.transform`).
+//! *   **View Space**: The coordinates relative to the camera.
+//! *   **Clip Space**: The coordinates after projection (before perspective division).
+//!
+//! The [`Scene::render`] method transforms vertices from Model Space directly to Clip Space
+//! using a combined Model-View-Projection (MVP) matrix for efficiency.
+//!
+//! # Usage
+//!
+//! ```
+//! use abrash::scene::{Scene, SceneObject, Camera};
+//! use abrash::mesh::Mesh;
+//! use abrash::math::{Mat4, Vec3};
+//! use abrash::tile_renderer::TileRenderer;
+//! use abrash::framebuffer::Framebuffer;
+//! use abrash::zbuffer::ZBuffer;
+//! use std::sync::Arc;
+//!
+//! // 1. Setup Renderer and Buffers
+//! let width = 800;
+//! let height = 600;
+//! let mut fb = Framebuffer::new(width, height).unwrap();
+//! let mut zb = ZBuffer::new(width, height).unwrap();
+//! let mut renderer = TileRenderer::new(width, height);
+//!
+//! // 2. Setup Camera
+//! let eye = Vec3::new(0.0, 5.0, 10.0);
+//! let target = Vec3::new(0.0, 0.0, 0.0);
+//! let up = Vec3::new(0.0, 1.0, 0.0);
+//!
+//! let view = Mat4::look_at(eye, target, up);
+//! let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
+//! let camera = Camera::new(view, proj);
+//!
+//! // 3. Create Scene
+//! let mut scene = Scene::new(camera);
+//!
+//! // 4. Add Objects
+//! let mesh = Arc::new(Mesh::cube(1.0));
+//! let transform = Mat4::translation(0.0, 0.0, 0.0);
+//! let object = SceneObject::new(mesh, transform, 0xFFFF0000); // Red Cube
+//! scene.add_object(object);
+//!
+//! // 5. Render
+//! scene.render(&mut renderer, &mut fb, &mut zb);
+//! ```
 
 use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
@@ -12,6 +71,14 @@ use crate::zbuffer::ZBuffer;
 use std::sync::Arc;
 
 /// A single object in the scene.
+///
+/// An object consists of a geometric [`Mesh`], a transformation [`Mat4`],
+/// and a base color.
+///
+/// # Axis-Aligned Bounding Box (AABB)
+///
+/// Each object maintains a pre-calculated Local AABB. When rendering, the Scene
+/// transforms this AABB to World Space to perform fast Frustum Culling.
 pub struct SceneObject {
     /// The geometric mesh data.
     pub mesh: Arc<Mesh>,
@@ -112,14 +179,22 @@ impl SceneObject {
 }
 
 /// A Camera defined by View and Projection matrices.
+///
+/// The camera also maintains a [`Frustum`] derived from the View-Projection matrix,
+/// which is used for culling objects that are outside the field of view.
 pub struct Camera {
+    /// The View Matrix (World Space -> View Space).
     pub view: Mat4,
+    /// The Projection Matrix (View Space -> Clip Space).
     pub proj: Mat4,
+    /// The View Frustum extracted from `view * proj`.
     pub frustum: Frustum,
 }
 
 impl Camera {
     /// Create a new camera.
+    ///
+    /// Automatically calculates the View Frustum.
     #[must_use]
     pub fn new(view: Mat4, proj: Mat4) -> Self {
         let view_proj = view * proj;
@@ -141,6 +216,8 @@ impl Camera {
 }
 
 /// The Scene containing objects and the camera.
+///
+/// See the [module-level documentation](self) for usage examples.
 pub struct Scene {
     pub objects: Vec<SceneObject>,
     pub camera: Camera,
@@ -164,6 +241,12 @@ impl Scene {
     /// Render the scene using the provided renderer.
     ///
     /// This method performs Object Culling (Frustum Culling) before processing vertices.
+    /// Visible objects are transformed to Clip Space and submitted to the `renderer`.
+    ///
+    /// # Performance
+    ///
+    /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
+    /// *   **Batching**: Vertex transformations are batched and (optionally) parallelized.
     pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
         let mut triangle_batch = Vec::new();
