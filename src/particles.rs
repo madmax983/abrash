@@ -10,7 +10,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec2, Vec3};
-use crate::rasterizer::fill_quad_textured;
+use crate::rasterizer::fill_quad_textured_gouraud;
 use crate::texture::Texture;
 use crate::utils::XorShift32;
 use crate::zbuffer::ZBuffer;
@@ -270,13 +270,18 @@ impl ParticleSystem {
             let c3 = center_clip + r_vec - u_vec;
             let w3 = center_w + r_w - u_w;
 
-            fill_quad_textured(
+            let r = ((p.color >> 16) & 0xFF) as f32 / 255.0;
+            let g = ((p.color >> 8) & 0xFF) as f32 / 255.0;
+            let b = (p.color & 0xFF) as f32 / 255.0;
+            let color_vec = Vec3::new(r, g, b);
+
+            fill_quad_textured_gouraud(
                 fb,
                 zb,
-                ((c0, w0), uv0),
-                ((c1, w1), uv1),
-                ((c2, w2), uv2),
-                ((c3, w3), uv3),
+                ((c0, w0), color_vec, uv0),
+                ((c1, w1), color_vec, uv1),
+                ((c2, w2), color_vec, uv2),
+                ((c3, w3), color_vec, uv3),
                 &self.texture,
             );
         }
