@@ -33,20 +33,11 @@ thread_local! {
 const KERNEL_SIZE: usize = 16;
 const NOISE_SIZE: usize = 4;
 
+#[derive(Default)]
 struct BloomContext {
     bright_pixels: Vec<u32>,
     scratch_buffer: Vec<u32>,
     acc_buffer: Vec<i32>,
-}
-
-impl Default for BloomContext {
-    fn default() -> Self {
-        Self {
-            bright_pixels: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-        }
-    }
 }
 
 struct SsaoContext {
@@ -2334,6 +2325,7 @@ pub fn apply_ssao(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_ssao_scalar(
     occlusion_buffer: &mut [f32],
     zb: &ZBuffer,
@@ -2381,8 +2373,7 @@ fn apply_ssao_scalar(
 
             let mut occlusion = 0.0;
 
-            for k in 0..KERNEL_SIZE {
-                let s = kernel[k];
+            for s in kernel.iter().take(KERNEL_SIZE) {
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
                 let sample_pos = pos_view + rotated_sample * radius;

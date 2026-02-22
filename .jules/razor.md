@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** `src/experimental` directory containing unused/dead code (`arboretum`, `isosurface`, `jelly`, `procedural_mesh`, `sdf`, `ssao`, `voxelizer`). `ssao` was duplicated in `post_process`. `src/gpu` directory with a single file.
+**Cut:** Deleted `src/experimental` and `examples/jelly_demo.rs`. Flattened `src/gpu/mod.rs` to `src/gpu.rs`. Removed `nova` feature.
+**Saved:** 7 source files (~1500 lines of dead code), 1 directory, and reduced feature flag complexity. Fixed 20+ clippy errors.
