@@ -334,3 +334,7 @@ harness = false
 [[bench]]
 name = "prepare_triangle"
 harness = false
+
+[[bench]]
+name = "pbr_shading"
+harness = false
