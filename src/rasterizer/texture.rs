@@ -283,7 +283,8 @@ fn draw_span_nearest(
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
                 let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    tex_pixels[((v as usize) << shift) + (u as usize)]
+                    // SAFETY: We checked u < width and v < height. The buffer size is asserted at start of function.
+                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
@@ -307,7 +308,10 @@ fn draw_span_nearest(
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
                 let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    tex_pixels[(v as usize) * tex_w_usize + (u as usize)]
+                    // SAFETY: We checked u < width and v < height. The buffer size is asserted at start of function.
+                    unsafe {
+                        *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize))
+                    }
                 } else {
                     texture.get_pixel_texel(u, v)
                 };

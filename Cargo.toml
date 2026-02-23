@@ -338,3 +338,7 @@ harness = false
 [[bench]]
 name = "pbr_shading"
 harness = false
+
+[[bench]]
+name = "texture_nearest_bench"
+harness = false
