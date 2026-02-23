@@ -14,10 +14,11 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    text::Span,
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Row, Table},
 };
 use std::{error::Error, io, process::Command};
+use comfy_table::{Table as ComfyTable, presets as ComfyPresets, Cell as ComfyCell, Color as ComfyColor};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -27,8 +28,28 @@ struct Args {
     demo: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum DemoCategory {
+    Cpu3D,
+    Gpu3D,
+    Simulation,
+    Utility,
+}
+
+impl DemoCategory {
+    const fn icon(&self) -> char {
+        match self {
+            Self::Cpu3D => '🧊',
+            Self::Gpu3D => '🚀',
+            Self::Simulation => '✨',
+            Self::Utility => '🔧',
+        }
+    }
+}
+
 struct Demo {
     name: &'static str,
+    category: DemoCategory,
     description: &'static str,
     instructions: &'static str,
     example_name: &'static str,
@@ -37,60 +58,70 @@ struct Demo {
 const DEMOS: &[Demo] = &[
     Demo {
         name: "Lit Cube",
+        category: DemoCategory::Cpu3D,
         description: "Flat shaded cube with directional lighting",
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "lit_cube",
     },
     Demo {
         name: "Cube 3D",
+        category: DemoCategory::Cpu3D,
         description: "Basic 3D cube rendering",
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "cube_3d",
     },
     Demo {
         name: "OBJ Viewer",
+        category: DemoCategory::Utility,
         description: "Loads and renders a 3D model (Spaceship)",
         instructions: "• Mouse: None\n• Keyboard: Auto-rotating",
         example_name: "obj_viewer",
     },
     Demo {
         name: "GPU Cube",
+        category: DemoCategory::Gpu3D,
         description: "Hardware-accelerated cube rendering with wgpu",
         instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_cube",
     },
     Demo {
         name: "GPU Pyramid",
+        category: DemoCategory::Gpu3D,
         description: "Hardware-accelerated pyramid mesh via generic GPU mesh runner",
         instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_pyramid",
     },
     Demo {
         name: "GPU OBJ",
+        category: DemoCategory::Gpu3D,
         description: "Hardware-accelerated OBJ rendering (Spaceship)",
         instructions: "Mouse: Drag to orbit, wheel to zoom\nKeyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_obj",
     },
     Demo {
         name: "Particles",
+        category: DemoCategory::Simulation,
         description: "Interactive particle system simulation",
         instructions: "Mouse: None\nKeyboard: Auto-rotating",
         example_name: "particles",
     },
     Demo {
         name: "Heat Vision",
+        category: DemoCategory::Simulation,
         description: "Simulates thermal imaging effect",
         instructions: "Mouse: None\nKeyboard: Auto-rotating",
         example_name: "heat_vision",
     },
     Demo {
         name: "Normal Mapping",
+        category: DemoCategory::Cpu3D,
         description: "Per-pixel lighting with normal maps",
         instructions: "Mouse: None\nKeyboard: Auto-rotating light",
         example_name: "normal_mapping_demo",
     },
     Demo {
         name: "Skybox",
+        category: DemoCategory::Cpu3D,
         description: "Renders a cubemap skybox",
         instructions: "Mouse: None\nKeyboard: Auto-rotating camera",
         example_name: "skybox_demo",
@@ -217,7 +248,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .split(f.area());
 
             // Title
-            let title = Paragraph::new("Abrash Engine Dashboard")
+            let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
                 .style(
                     Style::default()
                         .fg(Color::Cyan)
@@ -232,8 +263,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .direction(Direction::Horizontal)
                 .constraints(
                     [
-                        Constraint::Percentage(40), // List
-                        Constraint::Percentage(60), // Details
+                        Constraint::Percentage(30), // List
+                        Constraint::Percentage(70), // Details
                     ]
                     .as_ref(),
                 )
@@ -244,7 +275,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .iter()
                 .map(|demo| {
                     ListItem::new(Span::styled(
-                        format!(" {} ", demo.name),
+                        format!("{} {}", demo.category.icon(), demo.name),
                         Style::default().fg(Color::White),
                     ))
                 })
@@ -265,41 +296,55 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
             if let Some(i) = app.state.selected() {
                 let demo = &DEMOS[i];
 
-                let details_text = vec![
-                    Line::from(Span::styled(
-                        "Description:",
-                        Style::default()
-                            .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
-                    )),
-                    Line::from(format!("  {}\n", demo.description)),
-                    Line::from(Span::styled(
-                        "Instructions:",
-                        Style::default()
-                            .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
-                    )),
-                    Line::from(format!("{}\n", demo.instructions)),
-                    Line::from(Span::styled(
-                        "Command:",
-                        Style::default()
-                            .add_modifier(Modifier::BOLD)
-                            .fg(Color::Cyan),
-                    )),
-                    Line::from(Span::styled(
-                        format!("  {}", demo_command(demo.example_name)),
-                        Style::default().fg(Color::DarkGray),
-                    )),
+                let rows = vec![
+                    Row::new(vec![
+                        Span::styled(
+                            "Description",
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw(demo.description),
+                    ])
+                    .height(2),
+                    Row::new(vec![
+                        Span::styled(
+                            "Category",
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
+                    ]),
+                    Row::new(vec![
+                        Span::styled(
+                            "Instructions",
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw(demo.instructions),
+                    ])
+                    .height(4), // Give instructions some space
+                    Row::new(vec![
+                        Span::styled(
+                            "Command",
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            demo_command(demo.example_name),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]),
                 ];
 
-                let details = Paragraph::new(details_text)
-                    .block(Block::default().borders(Borders::ALL).title(" Details "))
-                    .wrap(Wrap { trim: true });
-                f.render_widget(details, content_chunks[1]);
+                let table = Table::new(
+                    rows,
+                    [Constraint::Length(15), Constraint::Min(0)], // Columns width
+                )
+                .block(Block::default().borders(Borders::ALL).title(" Details "))
+                .column_spacing(1);
+
+                f.render_widget(table, content_chunks[1]);
             } else {
                 let placeholder = Paragraph::new("Select a demo to view details")
                     .block(Block::default().borders(Borders::ALL))
-                    .style(Style::default().fg(Color::DarkGray));
+                    .style(Style::default().fg(Color::DarkGray))
+                    .alignment(ratatui::layout::Alignment::Center);
                 f.render_widget(placeholder, content_chunks[1]);
             }
 
@@ -349,9 +394,17 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 }
 
 fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
-    println!("\n{}", "🚀 Abrash Engine Launcher".bold().cyan());
-    println!("{}", "=========================".dark_grey());
-    println!("Preparing to launch {}...", name.bold().yellow());
+    let mut table = ComfyTable::new();
+    table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![ComfyCell::new("🚀 Launching Demo")
+            .add_attribute(comfy_table::Attribute::Bold)
+            .fg(ComfyColor::Cyan)])
+        .add_row(vec![ComfyCell::new(format!(
+            "Preparing to launch '{}'...",
+            name
+        ))]);
+    println!("\n{table}");
 
     let mut cmd = Command::new("cargo");
     cmd.arg("run").arg("--release").arg("--example").arg(name);
@@ -363,11 +416,15 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure
     // the example runs (as Win32 API is not available).
     if std::env::consts::OS != "windows" && !is_gpu_render_example(name) {
-        println!(
-            "{} {}",
-            "ℹ️  Non-Windows OS detected.".blue(),
-            format!("({}). Enabling TUI backend...", std::env::consts::OS).dark_grey()
-        );
+        let mut info_table = ComfyTable::new();
+        info_table
+            .load_preset(ComfyPresets::UTF8_FULL)
+            .add_row(vec![
+                ComfyCell::new("ℹ️  Non-Windows OS detected").fg(ComfyColor::Blue),
+                ComfyCell::new("Enabling TUI backend...").fg(ComfyColor::DarkGrey),
+            ]);
+        println!("{info_table}");
+
         cmd.arg("--no-default-features")
             .arg("--features")
             .arg("backend-tui");
@@ -380,21 +437,16 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if !status.success() {
-        println!("\n{}", "┌────────────────────────────────────────┐".red());
-        println!(
-            "{} {:^38} {}",
-            "│".red(),
-            "❌ Demo Exited with Error".bold().white(),
-            "│".red()
-        );
-        println!("{}", "├────────────────────────────────────────┤".red());
-        println!(
-            "{} {:^38} {}",
-            "│".red(),
-            format!("Status: {}", status).yellow(),
-            "│".red()
-        );
-        println!("{}", "└────────────────────────────────────────┘".red());
+        let mut error_table = ComfyTable::new();
+        error_table
+            .load_preset(ComfyPresets::UTF8_FULL)
+            .set_header(vec![ComfyCell::new("❌ Demo Crashed")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Red)])
+            .add_row(vec![ComfyCell::new(format!("Exit Status: {}", status))
+                .fg(ComfyColor::Yellow)]);
+
+        println!("\n{error_table}");
 
         // Give user a chance to read the error
         println!("\n{}", "Press Enter to return to dashboard...".grey());
