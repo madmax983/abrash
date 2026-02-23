@@ -10,7 +10,7 @@
 //!
 //! 1.  **Spatial Organization**: Managing objects and their transforms.
 //! 2.  **Culling**: Determining which objects are visible to the camera (Frustum Culling).
-//! 3.  **Rendering**: Submitting visible geometry to a [`TileRenderer`] or other rasterizer.
+//! 3.  **Rendering**: Submitting visible geometry to the rasterizer.
 //!
 //! # Coordinate Spaces
 //!
@@ -28,17 +28,15 @@
 //! use abrash::scene::{Scene, SceneObject, Camera};
 //! use abrash::mesh::Mesh;
 //! use abrash::math::{Mat4, Vec3};
-//! use abrash::tile_renderer::TileRenderer;
 //! use abrash::framebuffer::Framebuffer;
 //! use abrash::zbuffer::ZBuffer;
 //! use std::sync::Arc;
 //!
-//! // 1. Setup Renderer and Buffers
+//! // 1. Setup Buffers
 //! let width = 800;
 //! let height = 600;
 //! let mut fb = Framebuffer::new(width, height).unwrap();
 //! let mut zb = ZBuffer::new(width, height).unwrap();
-//! let mut renderer = TileRenderer::new(width, height);
 //!
 //! // 2. Setup Camera
 //! let eye = Vec3::new(0.0, 5.0, 10.0);
@@ -59,14 +57,14 @@
 //! scene.add_object(object);
 //!
 //! // 5. Render
-//! scene.render(&mut renderer, &mut fb, &mut zb);
+//! scene.render(&mut fb, &mut zb);
 //! ```
 
 use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::{AABB, Mesh};
-use crate::tile_renderer::TileRenderer;
+use crate::rasterizer::fill_triangle_3d;
 use crate::zbuffer::ZBuffer;
 use std::sync::Arc;
 
@@ -238,22 +236,17 @@ impl Scene {
         self.objects.push(object);
     }
 
-    /// Render the scene using the provided renderer.
+    /// Render the scene.
     ///
     /// This method performs Object Culling (Frustum Culling) before processing vertices.
-    /// Visible objects are transformed to Clip Space and submitted to the `renderer`.
+    /// Visible objects are transformed to Clip Space and rasterized directly.
     ///
     /// # Performance
     ///
     /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
     /// *   **Batching**: Vertex transformations are batched and (optionally) parallelized.
-    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
+    pub fn render(&self, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         let view_proj = self.camera.view * self.camera.proj;
-        let mut triangle_batch = Vec::new();
-
-        // Reserve capacity to avoid frequent reallocs
-        // Heuristic: visible objects * average triangles per object
-        // For now, just a safe guess or leave it dynamic.
 
         // Reusable scratch buffer for vertex transformation
         let mut transformed_verts = Vec::new();
@@ -271,7 +264,7 @@ impl Scene {
             let mvp = obj.transform * view_proj;
             let mesh = &obj.mesh;
 
-            // Transform vertices and append to batch
+            // Transform vertices
             // Optimization: Batch transform vertices to reuse calculations for shared vertices.
             // We reuse the scratch buffer to eliminate per-object allocations.
             transformed_verts.clear();
@@ -288,13 +281,8 @@ impl Scene {
                 let v1 = transformed_verts[indices[1]];
                 let v2 = transformed_verts[indices[2]];
 
-                triangle_batch.push((v0, v1, v2, obj.color));
+                fill_triangle_3d(fb, zb, v0, v1, v2, obj.color);
             }
-        }
-
-        // 4. Submit Batch
-        if !triangle_batch.is_empty() {
-            renderer.render_batch(fb, zb, &triangle_batch);
         }
     }
 }

@@ -134,59 +134,12 @@ name = "clipping_benchmark"
 harness = false
 
 [[bench]]
-name = "tile_rendering"
-harness = false
-
-[[bench]]
-name = "tile_rendering_textured"
-harness = false
-
-[[bench]]
 name = "mipmapping"
-harness = false
-
-[[bench]]
-name = "phase1_simd"
-harness = false
-
-[[bench]]
-name = "simd_micro"
-harness = false
-
-[[bench]]
-name = "scanline_micro"
 harness = false
 
 [[bench]]
 name = "obj_loading"
 harness = false
-
-[[bench]]
-name = "simd_micro_bench"
-harness = false
-
-[[bench]]
-name = "gpu_binning"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "two_level_binning"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "gpu_hiz_build"
-harness = false
-required-features = ["backend-win32", "gpu-binning"]
-
-[[bench]]
-name = "hiz_benchmark"
-harness = false
-
-[[bin]]
-name = "simd_profiling"
-path = "benches/simd_profiling.rs"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -208,14 +161,7 @@ struct_field_names = "allow"
 # mul_add without hardware FMA falls back to slow software impl — keep a*b+c
 suboptimal_flops = "allow"
 [[bench]]
-name = "parallel_tile_rendering"
-harness = false
-[[bench]]
 name = "clipping_optimization"
-harness = false
-
-[[bench]]
-name = "software_two_level_binning"
 harness = false
 
 [[bench]]

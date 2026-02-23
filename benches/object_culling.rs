@@ -1,8 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
+use abrash::rasterizer::fill_triangle_3d;
 use abrash::scene::{Camera, Scene, SceneObject};
-use abrash::tile_renderer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::sync::Arc;
@@ -17,7 +17,6 @@ fn object_culling_benchmark(c: &mut Criterion) {
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
-    let mut renderer = TileRenderer::new(width, height);
 
     let cube_mesh = create_cube();
 
@@ -46,8 +45,6 @@ fn object_culling_benchmark(c: &mut Criterion) {
             fb.clear(0xFF000000);
             zb.clear();
 
-            let mut triangles: Vec<ClipTriangle> = Vec::with_capacity(1000 * 12);
-
             for pos in &objects {
                 // Model matrix (just translation)
                 let model = Mat4::translation(pos.x, pos.y, pos.z);
@@ -64,11 +61,16 @@ fn object_culling_benchmark(c: &mut Criterion) {
                     let (v1_clip, w1) = mvp.transform_point(v1_local);
                     let (v2_clip, w2) = mvp.transform_point(v2_local);
 
-                    triangles.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), 0xFFFFFFFF));
+                    fill_triangle_3d(
+                        &mut fb,
+                        &mut zb,
+                        (v0_clip, w0),
+                        (v1_clip, w1),
+                        (v2_clip, w2),
+                        0xFFFFFFFF,
+                    );
                 }
             }
-
-            renderer.render_batch(&mut fb, &mut zb, &triangles);
         })
     });
 
@@ -85,7 +87,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF000000);
             zb.clear();
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            scene.render(&mut fb, &mut zb);
         })
     });
 }

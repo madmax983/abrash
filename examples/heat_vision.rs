@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::heat_vision::apply_heat_vision;
 use abrash::math::{Mat4, Vec3};
+use abrash::post_process::apply_heat_vision;
 use abrash::mesh::Mesh;
 use abrash::platform::{Window, WindowBackend};
 use abrash::rasterizer::fill_triangle_3d;

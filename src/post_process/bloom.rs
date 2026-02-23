@@ -1,299 +1,110 @@
 use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use crate::post_process::blur::{box_blur_horizontal, box_blur_vertical};
 use std::cell::RefCell;
-use super::blur::{box_blur_horizontal, box_blur_vertical};
 
-thread_local! {
-    static BLOOM_BUFFERS: RefCell<BloomContext> = RefCell::new(BloomContext::default());
-}
-
+// Reusable scratch buffers for Bloom
+// Allocating these per-frame would be slow.
+// We use a thread-local RefCell to reuse them safely.
+#[derive(Default)]
 struct BloomContext {
     bright_pixels: Vec<u32>,
-    scratch_buffer: Vec<u32>,
+    blurred_buffer: Vec<u32>,
+    // Intermediate buffer for separable blur
+    // Stored as i32 for accumulation precision? No, box blur usually uses u32 or f32.
+    // The current blur implementation expects &mut [u32].
     acc_buffer: Vec<i32>,
 }
 
-impl Default for BloomContext {
-    fn default() -> Self {
-        Self {
-            bright_pixels: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-        }
-    }
+thread_local! {
+    static BLOOM_CONTEXT: RefCell<BloomContext> = RefCell::new(BloomContext::default());
 }
 
-/// Applies a bloom effect to the framebuffer in-place.
+/// Applies a Bloom effect to the framebuffer.
 ///
-/// Bloom creates a glow effect around bright areas of the image.
+/// 1. Threshold: Extract bright pixels.
+/// 2. Blur: Apply a box blur to the bright pixels.
+/// 3. Composite: Add the blurred result back to the original image.
 ///
 /// # Arguments
 ///
-/// *   `fb` - The framebuffer to apply the effect to.
-/// *   `threshold` - Minimum luminance (0-255) for a pixel to contribute to bloom.
-/// *   `blur_radius` - Radius of the box blur kernel.
-/// *   `intensity` - Multiplier for the bloom intensity.
-pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intensity: f32) {
-    if blur_radius == 0 || intensity <= 0.0 {
-        return;
-    }
-
+/// * `fb` - The framebuffer to modify in-place.
+/// * `threshold` - Brightness threshold (0-255). Pixels brighter than this contribute to bloom.
+/// * `blur_radius` - Radius of the box blur.
+/// * `intensity` - Multiplier for the bloom effect.
+pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: usize, intensity: f32) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    let pixels = fb.as_mut_slice();
-    let needed_size = width * height;
-    let acc_needed_size = width * 3;
+    let len = width * height;
 
-    BLOOM_BUFFERS.with(|buffers| {
-        let mut ctx = buffers.borrow_mut();
+    BLOOM_CONTEXT.with(|ctx| {
+        let mut ctx = ctx.borrow_mut();
 
-        // Ensure buffers are large enough
-        if ctx.bright_pixels.len() < needed_size {
-            ctx.bright_pixels.resize(needed_size, 0);
-        }
-        if ctx.scratch_buffer.len() < needed_size {
-            ctx.scratch_buffer.resize(needed_size, 0);
-        }
-        if ctx.acc_buffer.len() < acc_needed_size {
-            ctx.acc_buffer.resize(acc_needed_size, 0);
+        // 1. Resize buffers if needed
+        if ctx.bright_pixels.len() != len {
+            ctx.bright_pixels.resize(len, 0);
+            ctx.blurred_buffer.resize(len, 0);
+            ctx.acc_buffer.resize(len, 0); // Not used by current simple blur, but ready
         }
 
+        let pixels = fb.as_slice();
         let BloomContext {
             bright_pixels,
-            scratch_buffer,
-            acc_buffer,
+            blurred_buffer: blurred,
+            acc_buffer: acc,
         } = &mut *ctx;
 
-        let bright_slice = &mut bright_pixels[..needed_size];
-        let scratch_slice = &mut scratch_buffer[..needed_size];
-        let acc_slice = &mut acc_buffer[..acc_needed_size];
+        // 2. Extract Bright Pixels
+        for (i, &p) in pixels.iter().enumerate() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+            // Simple luminance or max component
+            let max_c = r.max(g).max(b) as u8;
 
-        // 1. Extract bright pixels
-        extract_bright_pixels(pixels, bright_slice, threshold);
+            if max_c > threshold {
+                bright_pixels[i] = p;
+            } else {
+                bright_pixels[i] = 0xFF000000; // Black
+            }
+        }
 
-        // 2. Blur the bright pixels
-        // Horizontal pass: bright_pixels -> scratch_buffer
-        box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
-        // Vertical pass: scratch_buffer -> bright_pixels
-        box_blur_vertical(
-            scratch_slice,
-            bright_slice,
-            acc_slice,
+        // 3. Blur (Separable Box Blur)
+        // Horizontal pass: bright_pixels -> blurred
+        box_blur_horizontal(
+            bright_pixels,
+            blurred,
             width,
             height,
-            blur_radius,
+            blur_radius as u32,
+        );
+        // Vertical pass: blurred -> bright_pixels (ping-pong)
+        // We reuse bright_pixels as the destination for the second pass
+        box_blur_vertical(
+            blurred,
+            bright_pixels,
+            acc,
+            width,
+            height,
+            blur_radius as u32,
         );
 
-        // 3. Composite back
-        blend_additive(pixels, bright_slice, intensity);
+        // 4. Composite (Additive blending)
+        // Final result is in bright_pixels
+        let pixels_mut = fb.as_mut_slice();
+        for (dest, &src) in pixels_mut.iter_mut().zip(bright_pixels.iter()) {
+            let r_src = ((src >> 16) & 0xFF) as f32;
+            let g_src = ((src >> 8) & 0xFF) as f32;
+            let b_src = (src & 0xFF) as f32;
+
+            let r_dest = ((*dest >> 16) & 0xFF) as f32;
+            let g_dest = ((*dest >> 8) & 0xFF) as f32;
+            let b_dest = (*dest & 0xFF) as f32;
+
+            let r_final = (r_dest + r_src * intensity).min(255.0) as u32;
+            let g_final = (g_dest + g_src * intensity).min(255.0) as u32;
+            let b_final = (b_dest + b_src * intensity).min(255.0) as u32;
+
+            *dest = 0xFF000000 | (r_final << 16) | (g_final << 8) | b_final;
+        }
     });
-}
-
-fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            let len = src.len();
-            let simd_len = len & !7;
-            unsafe {
-                extract_bright_pixels_avx2(&src[..simd_len], &mut dest[..simd_len], threshold);
-            }
-            // Tail
-            for (s, d) in src[simd_len..].iter().zip(dest[simd_len..].iter_mut()) {
-                let lum = pixel_luminance(*s);
-                if lum > threshold {
-                    *d = *s;
-                } else {
-                    *d = 0xFF00_0000;
-                }
-            }
-            return;
-        }
-    }
-
-    for (s, d) in src.iter().zip(dest.iter_mut()) {
-        let lum = pixel_luminance(*s);
-        if lum > threshold {
-            *d = *s;
-        } else {
-            *d = 0xFF00_0000; // Black (with full alpha)
-        }
-    }
-}
-
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn extract_bright_pixels_avx2(src: &[u32], dest: &mut [u32], threshold: u8) {
-    use std::arch::x86_64::{
-        _mm256_and_si256, _mm256_blendv_epi8, _mm256_castsi256_si128, _mm256_cmpgt_epi32,
-        _mm256_cvtepu8_epi16, _mm256_extracti128_si256, _mm256_hadd_epi32, _mm256_loadu_si256,
-        _mm256_madd_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_epi64x,
-        _mm256_srai_epi32, _mm256_storeu_si256,
-    };
-
-    unsafe {
-        // Reuse luminance weights from grayscale
-        // W0=29(B), W1=150(G), W2=77(R), W3=0(A)
-        let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
-        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-        let black_pixel = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-        let threshold_vec = _mm256_set1_epi32(i32::from(threshold));
-
-        let len = src.len();
-        let mut s_ptr = src.as_ptr();
-        let mut d_ptr = dest.as_mut_ptr();
-        let end_ptr = s_ptr.add(len);
-
-        while s_ptr < end_ptr {
-            let chunk = _mm256_loadu_si256(s_ptr.cast());
-
-            // 1. Calculate Luminance (same as grayscale)
-            let _alphas = _mm256_and_si256(chunk, alpha_mask);
-            let lo_128 = _mm256_castsi256_si128(chunk);
-            let hi_128 = _mm256_extracti128_si256(chunk, 1);
-            let v_lo = _mm256_cvtepu8_epi16(lo_128);
-            let v_hi = _mm256_cvtepu8_epi16(hi_128);
-
-            let prod_lo = _mm256_madd_epi16(v_lo, weights);
-            let prod_hi = _mm256_madd_epi16(v_hi, weights);
-
-            let sums_scrambled = _mm256_hadd_epi32(prod_lo, prod_hi);
-            let sums = _mm256_permute4x64_epi64(sums_scrambled, 0xD8);
-            let luma = _mm256_srai_epi32(sums, 8); // Luminance 0..255
-
-            // 2. Threshold
-            // Compare > threshold. _mm256_cmpgt_epi32 returns 0xFFFFFFFF if true, 0 if false.
-            let mask = _mm256_cmpgt_epi32(luma, threshold_vec);
-
-            // 3. Select
-            // If > threshold, keep original chunk. Else black.
-            // blendv_epi8 selects second arg (chunk) if mask MSB is 1.
-            // Wait, mask is 32-bit. blendv_epi8 works on bytes.
-            // Since mask is all 1s or all 0s per 32-bit lane, it works for blendv_epi8 too.
-            let result = _mm256_blendv_epi8(black_pixel, chunk, mask);
-
-            _mm256_storeu_si256(d_ptr.cast(), result);
-            s_ptr = s_ptr.add(8);
-            d_ptr = d_ptr.add(8);
-        }
-    }
-}
-
-fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            let len = dest.len();
-            let simd_len = len & !7;
-            unsafe {
-                blend_additive_avx2(&mut dest[..simd_len], &src[..simd_len], intensity);
-            }
-            // Tail
-            let intensity_scale = (intensity * 256.0) as u32;
-            for (d, s) in dest[simd_len..].iter_mut().zip(src[simd_len..].iter()) {
-                let d_val = *d;
-                let s_val = *s;
-                let r_d = (d_val >> 16) & 0xFF;
-                let g_d = (d_val >> 8) & 0xFF;
-                let b_d = d_val & 0xFF;
-                let r_s = (s_val >> 16) & 0xFF;
-                let g_s = (s_val >> 8) & 0xFF;
-                let b_s = s_val & 0xFF;
-                let r_new = (r_d + ((r_s * intensity_scale) >> 8)).min(255);
-                let g_new = (g_d + ((g_s * intensity_scale) >> 8)).min(255);
-                let b_new = (b_d + ((b_s * intensity_scale) >> 8)).min(255);
-                *d = (d_val & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
-            }
-            return;
-        }
-    }
-
-    // Convert intensity to fixed point 8.8 (approx) or just use floats for now.
-    // For Green phase, correctness first.
-    let intensity_scale = (intensity * 256.0) as u32;
-
-    for (d, s) in dest.iter_mut().zip(src.iter()) {
-        let d_val = *d;
-        let s_val = *s;
-
-        let r_d = (d_val >> 16) & 0xFF;
-        let g_d = (d_val >> 8) & 0xFF;
-        let b_d = d_val & 0xFF;
-
-        let r_s = (s_val >> 16) & 0xFF;
-        let g_s = (s_val >> 8) & 0xFF;
-        let b_s = s_val & 0xFF;
-
-        // Additive blend: dest + src * intensity
-        let r_new = (r_d + ((r_s * intensity_scale) >> 8)).min(255);
-        let g_new = (g_d + ((g_s * intensity_scale) >> 8)).min(255);
-        let b_new = (b_d + ((b_s * intensity_scale) >> 8)).min(255);
-
-        *d = (d_val & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
-    }
-}
-
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
-    use std::arch::x86_64::{
-        _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
-        _mm256_extracti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
-        _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
-        _mm256_srai_epi16, _mm256_storeu_si256,
-    };
-
-    unsafe {
-        let scale = (intensity * 256.0) as i16;
-        let scale_vec = _mm256_set1_epi16(scale);
-        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
-        let len = dest.len();
-        let mut d_ptr = dest.as_mut_ptr();
-        let mut s_ptr = src.as_ptr();
-        let end_ptr = d_ptr.add(len);
-
-        while d_ptr < end_ptr {
-            let s_chunk = _mm256_loadu_si256(s_ptr.cast());
-            let d_chunk = _mm256_loadu_si256(d_ptr.cast());
-
-            // Preserve dest alpha
-            let d_alpha = _mm256_and_si256(d_chunk, alpha_mask);
-
-            // Unpack to 16-bit
-            let s_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(s_chunk));
-            let s_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(s_chunk, 1));
-
-            let d_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(d_chunk));
-            let d_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(d_chunk, 1));
-
-            // Multiply src * scale
-            let s_lo_scaled = _mm256_mullo_epi16(s_lo, scale_vec);
-            let s_hi_scaled = _mm256_mullo_epi16(s_hi, scale_vec);
-
-            // Divide by 256
-            let s_lo_final = _mm256_srai_epi16(s_lo_scaled, 8);
-            let s_hi_final = _mm256_srai_epi16(s_hi_scaled, 8);
-
-            // Add dest
-            let res_lo = _mm256_add_epi16(d_lo, s_lo_final);
-            let res_hi = _mm256_add_epi16(d_hi, s_hi_final);
-
-            // Pack back to u8 (saturates)
-            let packed = _mm256_packus_epi16(res_lo, res_hi);
-
-            // Fix lane ordering:
-            let permuted = _mm256_permute4x64_epi64(packed, 0xD8);
-
-            // Restore Alpha
-            let rgb_mask = _mm256_set1_epi32(0x00FF_FFFFu32 as i32);
-            let rgb_result = _mm256_and_si256(permuted, rgb_mask);
-            let final_result = _mm256_or_si256(rgb_result, d_alpha);
-
-            _mm256_storeu_si256(d_ptr.cast(), final_result);
-
-            d_ptr = d_ptr.add(8);
-            s_ptr = s_ptr.add(8);
-        }
-    }
 }

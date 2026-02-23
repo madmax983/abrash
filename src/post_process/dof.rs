@@ -7,20 +7,11 @@ thread_local! {
     static DOF_CONTEXT: RefCell<DofContext> = RefCell::new(DofContext::default());
 }
 
+#[derive(Default)]
 struct DofContext {
     blurred_buffer: Vec<u32>,
     scratch_buffer: Vec<u32>,
     acc_buffer: Vec<i32>,
-}
-
-impl Default for DofContext {
-    fn default() -> Self {
-        Self {
-            blurred_buffer: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-        }
-    }
 }
 
 /// Applies depth of field effect.

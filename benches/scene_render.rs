@@ -2,7 +2,6 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::scene::{Camera, Scene, SceneObject};
-use abrash::tile_renderer::TileRenderer;
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::sync::Arc;
@@ -63,7 +62,6 @@ fn bench_scene_render(c: &mut Criterion) {
         scene.add_object(object);
     }
 
-    let mut renderer = TileRenderer::new(width, height);
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
 
@@ -71,7 +69,7 @@ fn bench_scene_render(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF000000);
             zb.clear();
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            scene.render(&mut fb, &mut zb);
         })
     });
 }
