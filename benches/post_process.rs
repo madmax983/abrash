@@ -141,6 +141,26 @@ fn benchmark_box_blur_f32(c: &mut Criterion) {
     });
 }
 
+fn benchmark_box_blur_horizontal(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let size = width * height;
+    let src = vec![0u32; size];
+    let mut dest = vec![0u32; size];
+
+    c.bench_function("box_blur_horizontal 1080p", |b| {
+        b.iter(|| {
+            post_process::box_blur_horizontal(
+                black_box(&src),
+                black_box(&mut dest),
+                black_box(width),
+                black_box(height),
+                black_box(10), // radius
+            );
+        })
+    });
+}
+
 fn benchmark_sobel(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
@@ -216,6 +236,7 @@ criterion_group!(
     benchmark_bloom,
     benchmark_ssao,
     benchmark_box_blur_f32,
+    benchmark_box_blur_horizontal,
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
