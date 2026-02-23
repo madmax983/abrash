@@ -173,6 +173,8 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
 
+    let mut active_planes = 0u8;
+
     #[cfg(target_arch = "x86_64")]
     unsafe {
         use std::arch::x86_64::*;
@@ -209,9 +211,6 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         );
 
         // Check if lower 3 bits are set (bits 0, 1, 2)
-        // movemask returns bits corresponding to MSB of each float lane.
-        // Lane 0 (v0), Lane 1 (v1), Lane 2 (v2).
-        // If (mask & 7) == 7, then v0, v1, v2 are all inside all planes.
         if (_mm_movemask_ps(all_planes) & 0x7) == 0x7 {
             let mut result = ClippedTriangles::new_uninit();
             result.tris[0].write(v0);
@@ -221,14 +220,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
             return result;
         }
 
-        // Trivial Reject: All vertices outside ONE plane
-        // Outside Left: !(x >= -w) -> x < -w.
-        // In SIMD with CMPLT: x < -w.
-        // Or simply checking if bits are 0 in the 'inside' mask?
-        // No, 'inside' mask bit 0 means v0 is inside Left plane.
-        // If bit 0, 1, 2 are ALL 0, then v0, v1, v2 are ALL outside Left plane.
-        // So we check if (movemask(m_left) & 7) == 0.
-
+        // Trivial Reject & Active Plane Detection
         let mask_left = _mm_movemask_ps(m_left) & 0x7;
         let mask_right = _mm_movemask_ps(m_right) & 0x7;
         let mask_bottom = _mm_movemask_ps(m_bottom) & 0x7;
@@ -245,6 +237,13 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         {
             return ClippedTriangles::new_uninit();
         }
+
+        if mask_left != 7 { active_planes |= 1; }
+        if mask_right != 7 { active_planes |= 2; }
+        if mask_bottom != 7 { active_planes |= 4; }
+        if mask_top != 7 { active_planes |= 8; }
+        if mask_near != 7 { active_planes |= 16; }
+        if mask_far != 7 { active_planes |= 32; }
     }
 
     #[cfg(not(target_arch = "x86_64"))]
@@ -326,6 +325,14 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
             // Trivial Reject: All outside at least one plane
             return ClippedTriangles::new_uninit();
         }
+
+        // Active Plane Detection
+        if (all_in & 1) == 0 { active_planes |= 1; }
+        if (all_in & 2) == 0 { active_planes |= 2; }
+        if (all_in & 4) == 0 { active_planes |= 4; }
+        if (all_in & 8) == 0 { active_planes |= 8; }
+        if (all_in & 16) == 0 { active_planes |= 16; }
+        if (all_in & 32) == 0 { active_planes |= 32; }
     }
 
     // Double buffering for vertex lists
@@ -344,7 +351,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     // Macro to handle clipping logic for a plane
     // Reads from $buf_in, writes to $buf_out
     macro_rules! clip_plane {
-        ($buf_in:ident, $buf_out:ident, $dist_fn:expr) => {
+        ($buf_in:expr, $buf_out:expr, $dist_fn:expr) => {
             if count > 0 {
                 let mut out_count = 0;
                 let prev_idx = count - 1;
@@ -394,34 +401,51 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         };
     }
 
-    // Unroll loop over 6 planes using ping-pong buffering
+    // Dynamic buffer selection state
+    let mut input_is_buf1 = true;
+
+    // Helper to run clipping if plane is active
+    macro_rules! run_clip {
+        ($plane_bit:expr, $dist_fn:expr) => {
+            if (active_planes & $plane_bit) != 0 {
+                if input_is_buf1 {
+                    clip_plane!(buf1, buf2, $dist_fn);
+                } else {
+                    clip_plane!(buf2, buf1, $dist_fn);
+                }
+                input_is_buf1 = !input_is_buf1;
+            }
+        };
+    }
+
     // 1. Left: x >= -w -> x + w >= 0
-    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.x + w);
+    run_clip!(1, |p: Vec3, w: f32| p.x + w);
 
     // 2. Right: x <= w -> w - x >= 0
-    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.x);
+    run_clip!(2, |p: Vec3, w: f32| w - p.x);
 
     // 3. Bottom: y >= -w -> y + w >= 0
-    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.y + w);
+    run_clip!(4, |p: Vec3, w: f32| p.y + w);
 
     // 4. Top: y <= w -> w - y >= 0
-    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.y);
+    run_clip!(8, |p: Vec3, w: f32| w - p.y);
 
     // 5. Near: z >= -w -> z + w >= 0
-    clip_plane!(buf1, buf2, |p: Vec3, w: f32| p.z + w);
+    run_clip!(16, |p: Vec3, w: f32| p.z + w);
 
     // 6. Far: z <= w -> w - z >= 0
-    clip_plane!(buf2, buf1, |p: Vec3, w: f32| w - p.z);
+    run_clip!(32, |p: Vec3, w: f32| w - p.z);
 
-    // Result is in buf1 (since we did an even number of ping-pongs)
+    // Result is in the buffer indicated by input_is_buf1
+    let final_buf = if input_is_buf1 { &buf1 } else { &buf2 };
 
     // Triangulate (Fan)
     let mut result = ClippedTriangles::new_uninit();
 
     if count >= 3 {
         // Pivot vertex
-        // SAFETY: count >= 3, so buf1[0] is initialized
-        let pivot = unsafe { buf1[0].assume_init() };
+        // SAFETY: count >= 3, so final_buf[0] is initialized
+        let pivot = unsafe { final_buf[0].assume_init() };
         // Generate triangles: (0, 1, 2), (0, 2, 3), (0, 3, 4), ...
         // Number of triangles = count - 2
 
@@ -429,8 +453,8 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
             if result.count < 8 {
                 let idx = result.count * 3;
                 // SAFETY: i < count-1, so i and i+1 are within bounds and initialized
-                let v1 = unsafe { buf1[i].assume_init() };
-                let v2 = unsafe { buf1[i + 1].assume_init() };
+                let v1 = unsafe { final_buf[i].assume_init() };
+                let v2 = unsafe { final_buf[i + 1].assume_init() };
                 result.tris[idx].write(pivot);
                 result.tris[idx + 1].write(v1);
                 result.tris[idx + 2].write(v2);
