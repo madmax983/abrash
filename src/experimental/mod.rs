@@ -6,5 +6,6 @@ pub mod jelly;
 pub mod procedural_mesh;
 pub mod sdf;
 pub mod ssao;
+pub mod volume;
 pub mod voxel_explosion;
 pub mod voxelizer;
