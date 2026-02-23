@@ -333,13 +333,13 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
         return None;
     }
 
-    // On 64-bit, usize is u64 (max ~1.8e19, 19 full digits).
-    // On 32-bit, usize is u32 (max ~4e9, 9 full digits).
-    // We strictly reject numbers longer than this to guarantee no overflow without checking.
+    // On 64-bit, usize is u64 (max ~1.84e19, 20 digits).
+    // On 32-bit, usize is u32 (max ~4.29e9, 10 digits).
+    // We allow full length and rely on checked arithmetic.
     const MAX_DIGITS: usize = if std::mem::size_of::<usize>() >= 8 {
-        19
+        20
     } else {
-        9
+        10
     };
 
     if bytes.len() > MAX_DIGITS {
@@ -352,8 +352,8 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
         if d > 9 {
             return None;
         }
-        // No checked_mul/add needed because of MAX_DIGITS check
-        n = n * 10 + (d as usize);
+        // Use checked arithmetic to prevent overflow for edge cases (e.g. 19 nines on u64)
+        n = n.checked_mul(10).and_then(|n| n.checked_add(d as usize))?;
     }
     Some(n)
 }

@@ -1107,10 +1107,9 @@ unsafe fn apply_vignette_avx2(
 pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
     let width = fb.width();
     let height = fb.height();
-    let width_f = width as f32;
-    let height_f = height as f32;
-    let center_x = width_f * 0.5;
-    let center_y = height_f * 0.5;
+    let _width_f = width as f32;
+    let _height_f = height as f32;
+    // Removed unused center calculations
 
     let pixels = fb.as_mut_slice();
 

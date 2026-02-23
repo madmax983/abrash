@@ -25,6 +25,9 @@ use crate::mesh::Mesh;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
+const MAX_ITERATIONS: u32 = 64;
+const MAX_EXPANSION_LENGTH: usize = 64 * 1024 * 1024; // 64 MB limit
+
 /// Represents the state of the drawing turtle.
 #[derive(Clone, Debug)]
 pub struct Turtle {
@@ -107,27 +110,45 @@ impl LSystem {
     }
 
     /// Expands the axiom string by `iterations`.
-    pub fn expand(&self, iterations: u32) -> String {
+    pub fn expand(&self, iterations: u32) -> Result<String, String> {
+        if iterations > MAX_ITERATIONS {
+            return Err(format!("Iterations {} exceeds limit {}", iterations, MAX_ITERATIONS));
+        }
+
         let mut current = self.axiom.clone();
 
         for _ in 0..iterations {
-            let mut next = String::with_capacity(current.len() * 2);
+            if current.len() > MAX_EXPANSION_LENGTH {
+                return Err(format!("Expansion length {} exceeds limit {}", current.len(), MAX_EXPANSION_LENGTH));
+            }
+
+            // Estimate capacity: slightly more than current length (heuristic)
+            // We check length during expansion to prevent massive pre-allocation if estimate is wrong.
+            // Using saturating_mul to avoid overflow in capacity calculation (though Vec handles limits)
+            let capacity = current.len().saturating_mul(2);
+            // Don't allocate more than limit
+            let capacity = capacity.min(MAX_EXPANSION_LENGTH + 1024);
+
+            let mut next = String::with_capacity(capacity);
             for c in current.chars() {
                 if let Some(replacement) = self.rules.get(&c) {
                     next.push_str(replacement);
                 } else {
                     next.push(c);
                 }
+                if next.len() > MAX_EXPANSION_LENGTH {
+                    return Err(format!("Expansion length exceeded limit {}", MAX_EXPANSION_LENGTH));
+                }
             }
             current = next;
         }
 
-        current
+        Ok(current)
     }
 
     /// Generates a Mesh from the expanded L-System string.
-    pub fn generate_mesh(&self, iterations: u32) -> Mesh {
-        let instructions = self.expand(iterations);
+    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
+        let instructions = self.expand(iterations)?;
         let mut mesh = Mesh::new();
         let mut stack: Vec<Turtle> = Vec::new();
         let mut turtle = Turtle::new(self.step_length, self.radius);
@@ -188,6 +209,7 @@ impl LSystem {
                 }
                 '[' => {
                     stack.push(turtle.clone());
+                    // Stack depth limit could be added here too
                 }
                 ']' => {
                     if let Some(state) = stack.pop() {
@@ -198,7 +220,7 @@ impl LSystem {
             }
         }
 
-        mesh
+        Ok(mesh)
     }
 
     /// Adds a 4-sided prism segment to the mesh.
@@ -287,20 +309,20 @@ mod tests {
         lsys.add_rule('B', "A");
 
         // Iteration 0: A
-        assert_eq!(lsys.expand(0), "A");
+        assert_eq!(lsys.expand(0).unwrap(), "A");
         // Iteration 1: AB
-        assert_eq!(lsys.expand(1), "AB");
+        assert_eq!(lsys.expand(1).unwrap(), "AB");
         // Iteration 2: ABA
-        assert_eq!(lsys.expand(2), "ABA");
+        assert_eq!(lsys.expand(2).unwrap(), "ABA");
         // Iteration 3: ABAAB
-        assert_eq!(lsys.expand(3), "ABAAB");
+        assert_eq!(lsys.expand(3).unwrap(), "ABAAB");
     }
 
     #[test]
     fn test_mesh_generation() {
         // Simple "stick"
         let lsys = LSystem::new("F", 90.0, 1.0, 0.1);
-        let mesh = lsys.generate_mesh(1);
+        let mesh = lsys.generate_mesh(1).unwrap();
 
         // Should have 8 vertices (4 start, 4 end)
         assert_eq!(mesh.vertices.len(), 8);
