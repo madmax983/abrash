@@ -4485,7 +4485,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore] fn test_fill_quad_textured_optimization() {
+    #[ignore]
+    fn test_fill_quad_textured_optimization() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let mut zb = ZBuffer::new(10, 10).unwrap();
         let mut tex = Texture::new(2, 2).unwrap();

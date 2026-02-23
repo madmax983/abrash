@@ -9,5 +9,8 @@ fn test_texture_overflow() {
         result.is_err(),
         "Texture::new should fail for huge dimensions"
     );
-    assert_eq!(result.err(), Some("Texture size overflow"));
+    assert_eq!(
+        result.err(),
+        Some("Texture size overflow (max i32::MAX pixels)")
+    );
 }

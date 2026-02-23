@@ -23,9 +23,20 @@ fn test_apply_vignette_darkens_corners() {
     println!("Center: {:X}, Corner: {:X}", center_pixel, corner_pixel);
 
     // Center should be bright (close to 255)
-    assert!(center_lum > 240, "Center pixel should be bright, got {}", center_lum);
+    assert!(
+        center_lum > 240,
+        "Center pixel should be bright, got {}",
+        center_lum
+    );
 
     // Corner should be significantly darker
-    assert!(corner_lum < 200, "Corner pixel should be dark, got {}", corner_lum);
-    assert!(corner_lum < center_lum, "Corner should be darker than center");
+    assert!(
+        corner_lum < 200,
+        "Corner pixel should be dark, got {}",
+        corner_lum
+    );
+    assert!(
+        corner_lum < center_lum,
+        "Corner should be darker than center"
+    );
 }

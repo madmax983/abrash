@@ -9,6 +9,6 @@ fn reproduce_project_to_screen_min_int() {
 
     let p = project_to_screen_optimized(v, w, half_width, half_height);
 
-    // This confirms that it returns i32::MIN + 1 (clamped), preventing the vulnerability.
-    assert_eq!(p.x, i32::MIN + 1);
+    // This confirms that it returns the clamped value (-2147483520), preventing the vulnerability.
+    assert_eq!(p.x, -2_147_483_520);
 }
