@@ -552,7 +552,6 @@ f 1/1 1/2 1/1
     }
 
     #[test]
-    #[ignore]
     fn test_load_normals() {
         let obj = "
 v 0 0 0
@@ -564,11 +563,13 @@ f 1//1 2//1 3//1
         let mesh = load_obj(obj).unwrap();
         assert_eq!(mesh.vertices.len(), 3);
         assert_eq!(mesh.normals.len(), 3);
-        assert_eq!(mesh.normals[0], Vec3::new(0.0, 1.0, 0.0));
+
+        let n = mesh.normals[0];
+        let expected = Vec3::new(0.0, 1.0, 0.0);
+        assert!((n - expected).length() < 0.001, "Normal mismatch: {:?} vs {:?}", n, expected);
     }
 
     #[test]
-    #[ignore]
     fn test_load_mixed_normals() {
         let obj = "
 v 0 0 0
@@ -580,7 +581,11 @@ f 1//1 2 3
         let mesh = load_obj(obj).unwrap();
         assert_eq!(mesh.vertices.len(), 3);
         assert_eq!(mesh.normals.len(), 3);
-        assert_eq!(mesh.normals[0], Vec3::new(0.0, 1.0, 0.0));
+
+        let n = mesh.normals[0];
+        let expected = Vec3::new(0.0, 1.0, 0.0);
+        assert!((n - expected).length() < 0.001, "Normal mismatch: {:?} vs {:?}", n, expected);
+
         // Second vertex has no normal specified, should default to zero
         assert_eq!(mesh.normals[1], Vec3::new(0.0, 0.0, 0.0));
     }

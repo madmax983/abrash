@@ -1,5 +1,4 @@
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
-use abrash::mesh::BoundingSphere;
 use std::mem;
 
 #[test]
@@ -73,33 +72,5 @@ fn test_mat4_layout() {
         for i in 0..16 {
             assert_eq!(*ptr.add(i), i as f32);
         }
-    }
-}
-
-#[test]
-fn test_bounding_sphere_layout() {
-    // x, y, z, r
-    // BoundingSphere is #[repr(C)] { Vec3, f32 }
-    // Size should be 12 + 4 = 16.
-    assert_eq!(mem::size_of::<BoundingSphere>(), 16);
-    assert_eq!(mem::align_of::<BoundingSphere>(), 4);
-
-    let s = BoundingSphere {
-        center: Vec3 {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-        },
-        radius: 4.0,
-    };
-    let ptr = &s as *const BoundingSphere as *const f32;
-
-    // Critical assertion: The memory layout MUST be x, y, z, r packed.
-    // The AVX culling code depends on this to load 8 spheres into vector registers.
-    unsafe {
-        assert_eq!(*ptr.add(0), 1.0); // x
-        assert_eq!(*ptr.add(1), 2.0); // y
-        assert_eq!(*ptr.add(2), 3.0); // z
-        assert_eq!(*ptr.add(3), 4.0); // r
     }
 }

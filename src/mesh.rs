@@ -33,14 +33,6 @@ pub struct Mesh {
     pub tangents: Vec<Vec4>,
 }
 
-/// A Bounding Sphere for object-level culling.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BoundingSphere {
-    pub center: Vec3,
-    pub radius: f32,
-}
-
 /// Axis-Aligned Bounding Box (AABB) for object-level culling.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -237,60 +229,6 @@ impl Mesh {
                 edge1.cross(edge2).normalize()
             })
             .collect()
-    }
-
-    /// Calculates the bounding sphere of the mesh.
-    ///
-    /// Uses a simple algorithm: Center is the average of min/max bounds (AABB center),
-    /// and radius is the distance to the furthest vertex.
-    #[must_use]
-    pub fn calculate_bounding_sphere(&self) -> BoundingSphere {
-        if self.vertices.is_empty() {
-            return BoundingSphere {
-                center: Vec3::default(),
-                radius: 0.0,
-            };
-        }
-
-        let mut min = self.vertices[0];
-        let mut max = self.vertices[0];
-
-        for v in &self.vertices {
-            if v.x < min.x {
-                min.x = v.x;
-            }
-            if v.y < min.y {
-                min.y = v.y;
-            }
-            if v.z < min.z {
-                min.z = v.z;
-            }
-            if v.x > max.x {
-                max.x = v.x;
-            }
-            if v.y > max.y {
-                max.y = v.y;
-            }
-            if v.z > max.z {
-                max.z = v.z;
-            }
-        }
-
-        let center = (min + max) * 0.5;
-        let mut max_dist_sq = 0.0;
-
-        for v in &self.vertices {
-            let d = *v - center;
-            let dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-            if dist_sq > max_dist_sq {
-                max_dist_sq = dist_sq;
-            }
-        }
-
-        BoundingSphere {
-            center,
-            radius: max_dist_sq.sqrt(),
-        }
     }
 
     /// Compute vertex tangents for normal mapping.
