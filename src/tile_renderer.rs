@@ -71,7 +71,7 @@
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
-use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
@@ -931,6 +931,9 @@ pub struct TileRenderer {
     #[cfg(feature = "gpu-binning")]
     gpu_binner: Option<crate::gpu::GpuBinner>,
     use_two_level_binning: bool,
+    // Pre-calculated half dimensions for projection
+    half_width: f32,
+    half_height: f32,
 }
 
 impl TileRenderer {
@@ -965,6 +968,8 @@ impl TileRenderer {
             #[cfg(feature = "gpu-binning")]
             gpu_binner: None,
             use_two_level_binning: false,
+            half_width: width as f32 * 0.5,
+            half_height: height as f32 * 0.5,
         }
     }
 
@@ -1486,9 +1491,16 @@ impl TileRenderer {
             let cv1 = clipped[base + 1];
             let cv2 = clipped[base + 2];
 
-            let p0_orig = project_to_screen(cv0.0.0, cv0.0.1, self.width, self.height);
-            let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
-            let p2_orig = project_to_screen(cv2.0.0, cv2.0.1, self.width, self.height);
+            let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+                cv0.0.0,
+                cv0.0.1,
+                cv1.0.0,
+                cv1.0.1,
+                cv2.0.0,
+                cv2.0.1,
+                self.half_width,
+                self.half_height,
+            );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
                 continue;
@@ -1630,9 +1642,16 @@ impl TileRenderer {
             let cv1 = clipped[base + 1];
             let cv2 = clipped[base + 2];
 
-            let p0_orig = project_to_screen(cv0.0, cv0.1, self.width, self.height);
-            let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
-            let p2_orig = project_to_screen(cv2.0, cv2.1, self.width, self.height);
+            let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+                cv0.0,
+                cv0.1,
+                cv1.0,
+                cv1.1,
+                cv2.0,
+                cv2.1,
+                self.half_width,
+                self.half_height,
+            );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
                 continue;
