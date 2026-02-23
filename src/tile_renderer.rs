@@ -1075,59 +1075,43 @@ impl TileRenderer {
         self.tiles_y
     }
 
-    /// Render a batch of clip-space triangles using the 4-phase tile-based pipeline.
+    /// Begin a new frame. Clears internal buffers and prepares for triangle submission.
     ///
-    /// This method processes all triangles through:
-    /// 1. Prepare: Clip against near plane, project to screen, cull backfaces, sort vertices
-    /// 2. Bin: Assign triangles to tiles based on AABB overlap
-    /// 3. Render: Rasterize each tile with its assigned triangles
-    /// 4. Merge: Copy tile buffers back to main framebuffer
+    /// This must be called before submitting any triangles.
+    pub fn begin_frame(&mut self) {
+        self.prepared.clear();
+        self.prepared_textured.clear();
+        for bin in &mut self.tile_bins {
+            bin.clear();
+        }
+    }
+
+    /// Submit a triangle for rendering.
+    ///
+    /// The triangle is clipped, projected, and added to the preparation queue.
+    /// Actual rendering happens in `end_frame`.
     ///
     /// # Arguments
     ///
-    /// * `fb` - Target framebuffer (must match dimensions from [`new`](Self::new))
-    /// * `zb` - Depth buffer for z-testing (must match dimensions)
-    /// * `triangles` - Slice of clip-space triangles `((Vec3, w), (Vec3, w), (Vec3, w), color)`
-    ///
-    /// # Panics
-    ///
-    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
-    ///
-    /// # Performance Notes
-    ///
-    /// - **Reusable**: This method can be called multiple times with different geometry. Internal
-    ///   buffers are reused to avoid allocations.
-    /// - **Best for low triangle counts**: At 4K resolution, this is 27% faster than scanline
-    ///   with 10 triangles, but 6% slower with 500 triangles due to binning overhead.
-    /// - **Empty tiles skipped**: Tiles with no overlapping triangles are not processed, so
-    ///   performance scales with screen coverage, not framebuffer size.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use abrash::tile_renderer::TileRenderer;
-    /// # use abrash::framebuffer::Framebuffer;
-    /// # use abrash::zbuffer::ZBuffer;
-    /// # use abrash::math::Vec3;
-    /// let mut renderer = TileRenderer::new(1920, 1080);
-    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
-    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
-    ///
-    /// let triangles = vec![
-    ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
-    ///      (Vec3::new(1.0, 0.0, 1.0), 1.0),
-    ///      (Vec3::new(0.5, 1.0, 1.0), 1.0),
-    ///      0xFFFFFFFF),
-    /// ];
-    ///
-    /// renderer.render_batch(&mut fb, &mut zb, &triangles);
-    /// ```
-    pub fn render_batch(
+    /// * `v0`, `v1`, `v2`: Vertices as `(position, w)`.
+    /// * `color`: Flat color.
+    pub fn submit_triangle(
         &mut self,
-        fb: &mut Framebuffer,
-        zb: &mut ZBuffer,
-        triangles: &[ClipTriangle],
+        v0: (Vec3, f32),
+        v1: (Vec3, f32),
+        v2: (Vec3, f32),
+        color: u32,
     ) {
+        self.prepare_triangle(v0, v1, v2, color);
+    }
+
+    /// Finish the frame. Performs binning, rasterization, and merging to the framebuffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `fb` - Target framebuffer.
+    /// * `zb` - Target z-buffer.
+    pub fn end_frame(&mut self, fb: &mut Framebuffer, zb: &mut ZBuffer) {
         assert_eq!(
             fb.width(),
             self.width,
@@ -1148,16 +1132,6 @@ impl TileRenderer {
             self.height,
             "ZBuffer height must match TileRenderer height"
         );
-
-        self.prepared.clear();
-        for bin in &mut self.tile_bins {
-            bin.clear();
-        }
-
-        // Phase 1: Prepare
-        for &(v0, v1, v2, color) in triangles {
-            self.prepare_triangle(v0, v1, v2, color);
-        }
 
         // Build Hi-Z pyramid from previous frame (temporal coherence)
         if let Some(ref mut hiz) = self.hiz_buffer {
@@ -1311,6 +1285,69 @@ impl TileRenderer {
         if let Some(ref mut hiz) = self.hiz_buffer {
             hiz.invalidate();
         }
+    }
+
+    /// Render a batch of clip-space triangles using the 4-phase tile-based pipeline.
+    ///
+    /// This method processes all triangles through:
+    /// 1. Prepare: Clip against near plane, project to screen, cull backfaces, sort vertices
+    /// 2. Bin: Assign triangles to tiles based on AABB overlap
+    /// 3. Render: Rasterize each tile with its assigned triangles
+    /// 4. Merge: Copy tile buffers back to main framebuffer
+    ///
+    /// # Arguments
+    ///
+    /// * `fb` - Target framebuffer (must match dimensions from [`new`](Self::new))
+    /// * `zb` - Depth buffer for z-testing (must match dimensions)
+    /// * `triangles` - Slice of clip-space triangles `((Vec3, w), (Vec3, w), (Vec3, w), color)`
+    ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
+    ///
+    /// # Performance Notes
+    ///
+    /// - **Reusable**: This method can be called multiple times with different geometry. Internal
+    ///   buffers are reused to avoid allocations.
+    /// - **Best for low triangle counts**: At 4K resolution, this is 27% faster than scanline
+    ///   with 10 triangles, but 6% slower with 500 triangles due to binning overhead.
+    /// - **Empty tiles skipped**: Tiles with no overlapping triangles are not processed, so
+    ///   performance scales with screen coverage, not framebuffer size.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use abrash::tile_renderer::TileRenderer;
+    /// # use abrash::framebuffer::Framebuffer;
+    /// # use abrash::zbuffer::ZBuffer;
+    /// # use abrash::math::Vec3;
+    /// let mut renderer = TileRenderer::new(1920, 1080);
+    /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
+    ///
+    /// let triangles = vec![
+    ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
+    ///      (Vec3::new(1.0, 0.0, 1.0), 1.0),
+    ///      (Vec3::new(0.5, 1.0, 1.0), 1.0),
+    ///      0xFFFFFFFF),
+    /// ];
+    ///
+    /// renderer.render_batch(&mut fb, &mut zb, &triangles);
+    /// ```
+    pub fn render_batch(
+        &mut self,
+        fb: &mut Framebuffer,
+        zb: &mut ZBuffer,
+        triangles: &[ClipTriangle],
+    ) {
+        self.begin_frame();
+
+        // Phase 1: Prepare
+        for &(v0, v1, v2, color) in triangles {
+            self.prepare_triangle(v0, v1, v2, color);
+        }
+
+        self.end_frame(fb, zb);
     }
 
     /// Render a batch of textured clip-space triangles.
