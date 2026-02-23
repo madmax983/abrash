@@ -57,7 +57,8 @@ fn test_vec4_layout() {
 fn test_mat4_layout() {
     // 16 floats, row major
     assert_eq!(mem::size_of::<Mat4>(), 64);
-    assert_eq!(mem::align_of::<Mat4>(), 4);
+    // Mat4 is 16-byte aligned for SIMD
+    assert_eq!(mem::align_of::<Mat4>(), 16);
 
     let m = Mat4 {
         m: [

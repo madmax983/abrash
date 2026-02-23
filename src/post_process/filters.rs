@@ -626,7 +626,7 @@ unsafe fn apply_chromatic_aberration_avx2(
                 // 3. Right Edge (Scalar)
                 while x < width {
                     let p_center = *src_ptr.add(x);
-                    let g = (p_center >>8) & 0xFF;
+                    let g = (p_center >> 8) & 0xFF;
                     let a = (p_center >> 24) & 0xFF;
 
                     // R from x-offset
@@ -982,7 +982,11 @@ unsafe fn apply_vignette_avx2(
         let center_y = height_f * 0.5;
 
         let max_dist_sq = center_x * center_x + center_y * center_y;
-        let inv_max_dist_sq = if max_dist_sq > 0.0 { 1.0 / max_dist_sq } else { 0.0 };
+        let inv_max_dist_sq = if max_dist_sq > 0.0 {
+            1.0 / max_dist_sq
+        } else {
+            0.0
+        };
 
         let center_x_vec = _mm256_set1_ps(center_x);
         let inv_max_vec = _mm256_set1_ps(inv_max_dist_sq);
@@ -1023,16 +1027,16 @@ unsafe fn apply_vignette_avx2(
 
                 // Convert to fixed point 0..256
                 let factor_256 = _mm256_mul_ps(factor_clamped, scale_256);
-            let factor_i32 = _mm256_cvttps_epi32(factor_256);
+                let factor_i32 = _mm256_cvttps_epi32(factor_256);
 
                 // Create weights
-            // Broadcast F0..F3 to both lanes for weights_lo
-            let factor_lo_lanes = _mm256_permute4x64_epi64(factor_i32, 0x44);
-            // Broadcast F4..F7 to both lanes for weights_hi
-            let factor_hi_lanes = _mm256_permute4x64_epi64(factor_i32, 0xEE);
+                // Broadcast F0..F3 to both lanes for weights_lo
+                let factor_lo_lanes = _mm256_permute4x64_epi64(factor_i32, 0x44);
+                // Broadcast F4..F7 to both lanes for weights_hi
+                let factor_hi_lanes = _mm256_permute4x64_epi64(factor_i32, 0xEE);
 
-            let weights_lo = _mm256_shuffle_epi8(factor_lo_lanes, factors_lo_indices);
-            let weights_hi = _mm256_shuffle_epi8(factor_hi_lanes, factors_lo_indices);
+                let weights_lo = _mm256_shuffle_epi8(factor_lo_lanes, factors_lo_indices);
+                let weights_hi = _mm256_shuffle_epi8(factor_hi_lanes, factors_lo_indices);
 
                 // Load and process pixels
                 let chunk = _mm256_loadu_si256(ptr.cast());
@@ -1117,12 +1121,26 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { apply_vignette_avx2(pixels, width as usize, height as usize, intensity, roundness) };
+            unsafe {
+                apply_vignette_avx2(
+                    pixels,
+                    width as usize,
+                    height as usize,
+                    intensity,
+                    roundness,
+                )
+            };
             return;
         }
     }
 
-    apply_vignette_scalar(pixels, width as usize, height as usize, intensity, roundness);
+    apply_vignette_scalar(
+        pixels,
+        width as usize,
+        height as usize,
+        intensity,
+        roundness,
+    );
 }
 
 fn apply_vignette_scalar(
@@ -1138,7 +1156,11 @@ fn apply_vignette_scalar(
     let center_y = height_f * 0.5;
 
     let max_dist_sq = center_x * center_x + center_y * center_y;
-    let inv_max_dist_sq = if max_dist_sq > 0.0 { 1.0 / max_dist_sq } else { 0.0 };
+    let inv_max_dist_sq = if max_dist_sq > 0.0 {
+        1.0 / max_dist_sq
+    } else {
+        0.0
+    };
 
     for y in 0..height {
         let row_offset = y * width;
@@ -1404,7 +1426,8 @@ mod tests {
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[ignore] fn test_apply_chromatic_aberration_simd_vs_scalar() {
+    #[ignore]
+    fn test_apply_chromatic_aberration_simd_vs_scalar() {
         if !std::is_x86_feature_detected!("avx2") {
             return;
         }
@@ -1465,7 +1488,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore] fn test_apply_chromatic_aberration() {
+    #[ignore]
+    fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;
         let mut fb = Framebuffer::new(width, height).unwrap();
