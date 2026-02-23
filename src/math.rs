@@ -332,6 +332,28 @@ impl Vec3 {
             *self
         }
     }
+
+    /// Returns a new vector containing the minimum value for each component.
+    #[must_use]
+    #[inline]
+    pub fn min(&self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
+        }
+    }
+
+    /// Returns a new vector containing the maximum value for each component.
+    #[must_use]
+    #[inline]
+    pub fn max(&self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
+        }
+    }
 }
 
 impl Add for Vec3 {
@@ -1592,6 +1614,22 @@ mod tests {
         let sp_large = project_to_screen_optimized(v_large, 1.0, half_width, half_height);
         // Should clamp to 2147483520 (approx i32::MAX)
         assert_eq!(sp_large.x, 2147483520);
+    }
+
+    #[test]
+    fn test_vec3_min_max() {
+        let a = Vec3::new(1.0, 5.0, -2.0);
+        let b = Vec3::new(3.0, 2.0, -1.0);
+
+        let min = a.min(b);
+        assert_eq!(min.x, 1.0);
+        assert_eq!(min.y, 2.0);
+        assert_eq!(min.z, -2.0);
+
+        let max = a.max(b);
+        assert_eq!(max.x, 3.0);
+        assert_eq!(max.y, 5.0);
+        assert_eq!(max.z, -1.0);
     }
 }
 
