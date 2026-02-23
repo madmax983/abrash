@@ -117,63 +117,27 @@ impl SceneObject {
         let max = self.local_aabb.max;
         let m = &self.transform.m;
 
-        // Initialize with translation (w column)
-        // Since we use row-vectors (v * M), the translation is in the last row (m[3]).
-        let mut world_min = Vec3::new(m[3][0], m[3][1], m[3][2]);
-        let mut world_max = world_min;
+        let right = Vec3::new(m[0][0], m[0][1], m[0][2]);
+        let up = Vec3::new(m[1][0], m[1][1], m[1][2]);
+        let back = Vec3::new(m[2][0], m[2][1], m[2][2]);
+        let translation = Vec3::new(m[3][0], m[3][1], m[3][2]);
 
-        // For each local axis i (x, y, z) (columns of the matrix)
-        for (i, row) in m.iter().enumerate().take(3) {
-            // Get the current local min/max component
-            let local_min = match i {
-                0 => min.x,
-                1 => min.y,
-                _ => min.z,
-            };
-            let local_max = match i {
-                0 => max.x,
-                1 => max.y,
-                _ => max.z,
-            };
+        let xa = right * min.x;
+        let xb = right * max.x;
 
-            // For each world axis j (x, y, z)
-            for (j, &element) in row.iter().enumerate().take(3) {
-                let e = element * local_min;
-                let f = element * local_max;
+        let ya = up * min.y;
+        let yb = up * max.y;
 
-                if e < f {
-                    match j {
-                        0 => {
-                            world_min.x += e;
-                            world_max.x += f;
-                        }
-                        1 => {
-                            world_min.y += e;
-                            world_max.y += f;
-                        }
-                        _ => {
-                            world_min.z += e;
-                            world_max.z += f;
-                        }
-                    }
-                } else {
-                    match j {
-                        0 => {
-                            world_min.x += f;
-                            world_max.x += e;
-                        }
-                        1 => {
-                            world_min.y += f;
-                            world_max.y += e;
-                        }
-                        _ => {
-                            world_min.z += f;
-                            world_max.z += e;
-                        }
-                    }
-                }
-            }
-        }
+        let za = back * min.z;
+        let zb = back * max.z;
+
+        // Arvo's algorithm:
+        // NewMin = Translation + sum(min(a, b))
+        // NewMax = Translation + sum(max(a, b))
+        // where a = M * min, b = M * max (component-wise)
+
+        let world_min = translation + xa.min(xb) + ya.min(yb) + za.min(zb);
+        let world_max = translation + xa.max(xb) + ya.max(yb) + za.max(zb);
 
         AABB::new(world_min, world_max)
     }
