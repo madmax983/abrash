@@ -467,17 +467,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     CA_BUFFER.with(|buf| {
         let mut row_buffer = buf.borrow_mut();
         if row_buffer.len() < width {
-            // Reserve enough capacity
-            // Note: capacity() check might be redundant if we just resize, but
-            // we want to use set_len for performance to avoid zeroing.
-            if row_buffer.capacity() < width {
-                let additional = width - row_buffer.len();
-                row_buffer.reserve(additional);
-            }
-            // SAFETY: We immediately overwrite the buffer with `copy_from_slice`.
-            unsafe {
-                row_buffer.set_len(width);
-            }
+            row_buffer.resize(width, 0);
         }
 
         for y in 0..height {
@@ -531,12 +521,7 @@ unsafe fn apply_chromatic_aberration_avx2(
     CA_BUFFER.with(|buf| {
         let mut row_buffer = buf.borrow_mut();
         if row_buffer.len() < width {
-            if row_buffer.capacity() < width {
-                let len = row_buffer.len();
-                row_buffer.reserve(width - len);
-            }
-            // SAFETY: We overwrite immediately
-            unsafe { row_buffer.set_len(width) };
+            row_buffer.resize(width, 0);
         }
 
         let mask_r = _mm256_set1_epi32(0x00FF_0000);
