@@ -764,8 +764,16 @@ impl Mat4 {
 
         #[cfg(debug_assertions)]
         {
-            assert_eq!(std::mem::size_of::<(Vec3, f32)>(), 16, "Layout mismatch: (Vec3, f32) size != 16");
-            assert_eq!(std::mem::align_of::<(Vec3, f32)>(), 4, "Layout mismatch: (Vec3, f32) align != 4");
+            assert_eq!(
+                std::mem::size_of::<(Vec3, f32)>(),
+                16,
+                "Layout mismatch: (Vec3, f32) size != 16"
+            );
+            assert_eq!(
+                std::mem::align_of::<(Vec3, f32)>(),
+                4,
+                "Layout mismatch: (Vec3, f32) align != 4"
+            );
             // Verify offsets
             let dummy: (Vec3, f32) = (Vec3::new(0.0, 0.0, 0.0), 0.0);
             let base = &dummy as *const _ as usize;

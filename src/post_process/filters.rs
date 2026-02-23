@@ -650,12 +650,14 @@ unsafe fn apply_chromatic_aberration_avx2(
 pub fn apply_sobel(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
+    if width < 3 || height < 3 {
+        return;
+    }
     let pixels = fb.as_mut_slice();
-    let needed_size = width * height;
 
-    // Use SOBEL_BUFFER for luminance data
-    // We need 32 bytes padding for SIMD later.
-    let buffer_size = needed_size + 32;
+    // Use SOBEL_BUFFER for rolling luminance data.
+    // Need 3 rows.
+    let buffer_size = width * 3;
 
     SOBEL_BUFFER.with(|buf| {
         let mut lum_buffer = buf.borrow_mut();
@@ -663,48 +665,68 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
             lum_buffer.resize(buffer_size, 0);
         }
 
-        let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
-
-        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        {
-            if std::is_x86_feature_detected!("avx2") {
-                unsafe { apply_sobel_avx2(pixels, lum_slice, width, height) };
-                return;
+        // Helper to compute luminance for a row
+        // We write to lum_buffer at specific offset
+        let compute_row_lum = |pixels: &[u32], lum_out: &mut [u8], y: usize, w: usize| {
+            let start = y * w;
+            let end = start + w;
+            for (p, out) in pixels[start..end].iter().zip(lum_out.iter_mut()) {
+                *out = pixel_luminance(*p);
             }
-        }
+        };
 
-        // 1. Convert to Luminance (Scalar)
-        for (i, p) in pixels.iter().enumerate() {
-            lum_slice[i] = pixel_luminance(*p);
-        }
+        // Initialize first 2 rows
+        // Row 0 -> Index 0
+        // Row 1 -> Index 1
+        compute_row_lum(pixels, &mut lum_buffer[0..width], 0, width);
+        compute_row_lum(pixels, &mut lum_buffer[width..2 * width], 1, width);
 
-        // 2. Apply Sobel
-        // We skip the 1-pixel border
+        // Process
         for y in 1..height - 1 {
+            // Determine ring buffer indices
+            // We need rows y-1, y, y+1.
+            // Map to 0, 1, 2.
+            let r0_idx = (y - 1) % 3;
+            let r1_idx = y % 3;
+            let r2_idx = (y + 1) % 3;
+
+            // Compute Next Row (y+1) into r2
+            compute_row_lum(
+                pixels,
+                &mut lum_buffer[r2_idx * width..(r2_idx + 1) * width],
+                y + 1,
+                width,
+            );
+
+            let r0_offset = r0_idx * width;
+            let r1_offset = r1_idx * width;
+            let r2_offset = r2_idx * width;
+
             let row_offset = y * width;
+
             for x in 1..width - 1 {
-                let idx = row_offset + x;
+                // Neighbors
+                // TL T TR from r0
+                // L  . R  from r1
+                // BL B BR from r2
 
-                // Neighborhood
-                let tl = i32::from(lum_slice[idx - width - 1]);
-                let t = i32::from(lum_slice[idx - width]);
-                let tr = i32::from(lum_slice[idx - width + 1]);
-                let l = i32::from(lum_slice[idx - 1]);
-                let r = i32::from(lum_slice[idx + 1]);
-                let bl = i32::from(lum_slice[idx + width - 1]);
-                let b = i32::from(lum_slice[idx + width]);
-                let br = i32::from(lum_slice[idx + width + 1]);
+                let tl = i32::from(lum_buffer[r0_offset + x - 1]);
+                let t = i32::from(lum_buffer[r0_offset + x]);
+                let tr = i32::from(lum_buffer[r0_offset + x + 1]);
 
-                // Gx Kernel
+                let l = i32::from(lum_buffer[r1_offset + x - 1]);
+                let r = i32::from(lum_buffer[r1_offset + x + 1]);
+
+                let bl = i32::from(lum_buffer[r2_offset + x - 1]);
+                let b = i32::from(lum_buffer[r2_offset + x]);
+                let br = i32::from(lum_buffer[r2_offset + x + 1]);
+
                 let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-
-                // Gy Kernel
                 let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
 
-                // Magnitude
                 let mag = (gx.abs() + gy.abs()).min(255) as u32;
 
-                // Write back (Gray + Alpha)
+                let idx = row_offset + x;
                 let original_alpha = pixels[idx] & 0xFF00_0000;
                 pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
             }
@@ -720,233 +742,6 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
             pixels[y * width + width - 1] &= 0xFF00_0000;
         }
     });
-}
-
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usize, height: usize) {
-    use std::arch::x86_64::*;
-
-    unsafe {
-        // 1. RGB -> Luminance
-        {
-            let len = width * height;
-            let mut s_ptr = pixels.as_ptr();
-            let mut d_ptr = lum_buffer.as_mut_ptr();
-
-            let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
-            let perm_mask = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
-            let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
-            let mut i = 0;
-            while i + 32 <= len {
-                // Unroll 4x
-                let p0 = _mm256_loadu_si256(s_ptr.add(i).cast());
-                let p1 = _mm256_loadu_si256(s_ptr.add(i + 8).cast());
-                let p2 = _mm256_loadu_si256(s_ptr.add(i + 16).cast());
-                let p3 = _mm256_loadu_si256(s_ptr.add(i + 24).cast());
-
-                // Helper closure for luma calc (returns 8 i32s)
-                // Can't use closure with target_feature in unsafe fn easily in Rust versions
-                // So inline it or use macro. Inlining manually.
-
-                // Luma 0
-                let l0 = {
-                    let lo_128 = _mm256_castsi256_si128(p0);
-                    let hi_128 = _mm256_extracti128_si256(p0, 1);
-                    let v_lo = _mm256_cvtepu8_epi16(lo_128);
-                    let v_hi = _mm256_cvtepu8_epi16(hi_128);
-                    let prod_lo = _mm256_madd_epi16(v_lo, weights);
-                    let prod_hi = _mm256_madd_epi16(v_hi, weights);
-                    let sums = _mm256_hadd_epi32(prod_lo, prod_hi);
-                    let scrambled = _mm256_permute4x64_epi64(sums, 0xD8);
-                    _mm256_srai_epi32(scrambled, 8)
-                };
-
-                // Luma 1
-                let l1 = {
-                    let lo_128 = _mm256_castsi256_si128(p1);
-                    let hi_128 = _mm256_extracti128_si256(p1, 1);
-                    let v_lo = _mm256_cvtepu8_epi16(lo_128);
-                    let v_hi = _mm256_cvtepu8_epi16(hi_128);
-                    let prod_lo = _mm256_madd_epi16(v_lo, weights);
-                    let prod_hi = _mm256_madd_epi16(v_hi, weights);
-                    let sums = _mm256_hadd_epi32(prod_lo, prod_hi);
-                    let scrambled = _mm256_permute4x64_epi64(sums, 0xD8);
-                    _mm256_srai_epi32(scrambled, 8)
-                };
-
-                // Luma 2
-                let l2 = {
-                    let lo_128 = _mm256_castsi256_si128(p2);
-                    let hi_128 = _mm256_extracti128_si256(p2, 1);
-                    let v_lo = _mm256_cvtepu8_epi16(lo_128);
-                    let v_hi = _mm256_cvtepu8_epi16(hi_128);
-                    let prod_lo = _mm256_madd_epi16(v_lo, weights);
-                    let prod_hi = _mm256_madd_epi16(v_hi, weights);
-                    let sums = _mm256_hadd_epi32(prod_lo, prod_hi);
-                    let scrambled = _mm256_permute4x64_epi64(sums, 0xD8);
-                    _mm256_srai_epi32(scrambled, 8)
-                };
-
-                // Luma 3
-                let l3 = {
-                    let lo_128 = _mm256_castsi256_si128(p3);
-                    let hi_128 = _mm256_extracti128_si256(p3, 1);
-                    let v_lo = _mm256_cvtepu8_epi16(lo_128);
-                    let v_hi = _mm256_cvtepu8_epi16(hi_128);
-                    let prod_lo = _mm256_madd_epi16(v_lo, weights);
-                    let prod_hi = _mm256_madd_epi16(v_hi, weights);
-                    let sums = _mm256_hadd_epi32(prod_lo, prod_hi);
-                    let scrambled = _mm256_permute4x64_epi64(sums, 0xD8);
-                    _mm256_srai_epi32(scrambled, 8)
-                };
-
-                let l01_16 = _mm256_packus_epi32(l0, l1);
-                let l23_16 = _mm256_packus_epi32(l2, l3);
-                let packed = _mm256_packus_epi16(l01_16, l23_16);
-                let final_u8 = _mm256_permutevar8x32_epi32(packed, perm_mask);
-
-                _mm256_storeu_si256(d_ptr.add(i).cast(), final_u8);
-                i += 32;
-            }
-
-            // Tail
-            for j in i..len {
-                *d_ptr.add(j) = pixel_luminance(*s_ptr.add(j));
-            }
-        }
-
-        // 2. Apply Sobel
-        {
-            // Vectors for weighting
-            let two = _mm256_set1_epi16(2);
-            let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
-
-            for y in 1..height - 1 {
-                let top_offset = (y - 1) * width;
-                let mid_offset = y * width;
-                let bot_offset = (y + 1) * width;
-
-                let mut x = 1;
-                while x + 16 < width - 1 {
-                    // Load neighborhood (16 pixels)
-                    // We need TL, T, TR etc.
-                    // TL starts at x-1. T starts at x. TR starts at x+1.
-                    // We load 16 bytes at once from x-1, x, x+1?
-                    // Actually, just load u8s and convert to i16.
-
-                    // Helper to load 16 bytes and convert to 16 i16s
-                    let load_i16 = |ptr: *const u8, offset: usize| {
-                        let v8 = _mm_loadu_si128(ptr.add(offset).cast());
-                        _mm256_cvtepu8_epi16(v8)
-                    };
-
-                    let ptr = lum_buffer.as_ptr();
-
-                    let tl = load_i16(ptr, top_offset + x - 1);
-                    let t = load_i16(ptr, top_offset + x);
-                    let tr = load_i16(ptr, top_offset + x + 1);
-
-                    let l = load_i16(ptr, mid_offset + x - 1);
-                    // let c  = load_i16(ptr, mid_offset + x); // Center unused
-                    let r = load_i16(ptr, mid_offset + x + 1);
-
-                    let bl = load_i16(ptr, bot_offset + x - 1);
-                    let b = load_i16(ptr, bot_offset + x);
-                    let br = load_i16(ptr, bot_offset + x + 1);
-
-                    // Gx = (TR + 2*R + BR) - (TL + 2*L + BL)
-                    let right_part =
-                        _mm256_add_epi16(_mm256_add_epi16(tr, br), _mm256_mullo_epi16(r, two));
-                    let left_part =
-                        _mm256_add_epi16(_mm256_add_epi16(tl, bl), _mm256_mullo_epi16(l, two));
-                    let gx = _mm256_sub_epi16(right_part, left_part);
-
-                    // Gy = (BL + 2*B + BR) - (TL + 2*T + TR)
-                    let bot_part =
-                        _mm256_add_epi16(_mm256_add_epi16(bl, br), _mm256_mullo_epi16(b, two));
-                    let top_part =
-                        _mm256_add_epi16(_mm256_add_epi16(tl, tr), _mm256_mullo_epi16(t, two));
-                    let gy = _mm256_sub_epi16(bot_part, top_part);
-
-                    // Magnitude = abs(Gx) + abs(Gy)
-                    let gx_abs = _mm256_abs_epi16(gx);
-                    let gy_abs = _mm256_abs_epi16(gy);
-                    let mag = _mm256_add_epi16(gx_abs, gy_abs); // i16
-                    // Saturating pack to u8
-                    // packus_epi16 packs 2 256-bit vecs to 1 256-bit vec.
-                    // We have 1 256-bit vec (mag).
-                    // We can use zero for the second argument?
-                    // result = packus(mag, zero).
-                    // Output: [mag_lo, zero_lo, mag_hi, zero_hi] (128-bit lanes).
-                    // We need to permute to get [mag_lo, mag_hi, zero_lo, zero_hi].
-                    let zero = _mm256_setzero_si256();
-                    let packed = _mm256_packus_epi16(mag, zero);
-                    let perm = _mm256_permute4x64_epi64(packed, 0xD8);
-                    // Now first 128 bits (16 bytes) are our result.
-                    let mag_u8 = _mm256_castsi256_si128(perm);
-
-                    // Expand to u32 pixels
-                    // mag_u8 contains 16 magnitude values.
-                    // We need to expand to 16 u32 pixels.
-                    // 16 pixels = 2 YMM registers (8 each).
-
-                    // Low 8 bytes -> YMM 0
-                    let mag_lo = _mm256_cvtepu8_epi32(mag_u8);
-                    // High 8 bytes -> YMM 1
-                    let mag_hi = _mm256_cvtepu8_epi32(_mm_srli_si128(mag_u8, 8));
-
-                    // Prepare pixels: | M | M | M | A | ? No A | M | M | M
-                    // 0xFF00_0000 | (mag << 16) | (mag << 8) | mag
-                    // Construct (mag << 16) | (mag << 8) | mag
-                    let m_sh16 = _mm256_slli_epi32(mag_lo, 16);
-                    let m_sh8 = _mm256_slli_epi32(mag_lo, 8);
-                    let gray_lo = _mm256_or_si256(mag_lo, _mm256_or_si256(m_sh16, m_sh8));
-
-                    let m_sh16_hi = _mm256_slli_epi32(mag_hi, 16);
-                    let m_sh8_hi = _mm256_slli_epi32(mag_hi, 8);
-                    let gray_hi = _mm256_or_si256(mag_hi, _mm256_or_si256(m_sh16_hi, m_sh8_hi));
-
-                    // Load original alphas
-                    let dest_ptr = pixels.as_mut_ptr().add(mid_offset + x);
-                    let orig_lo = _mm256_loadu_si256(dest_ptr.cast());
-                    let orig_hi = _mm256_loadu_si256(dest_ptr.add(8).cast());
-
-                    let alpha_lo = _mm256_and_si256(orig_lo, alpha_mask);
-                    let alpha_hi = _mm256_and_si256(orig_hi, alpha_mask);
-
-                    let final_lo = _mm256_or_si256(gray_lo, alpha_lo);
-                    let final_hi = _mm256_or_si256(gray_hi, alpha_hi);
-
-                    _mm256_storeu_si256(dest_ptr.cast(), final_lo);
-                    _mm256_storeu_si256(dest_ptr.add(8).cast(), final_hi);
-
-                    x += 16;
-                }
-
-                // Tail
-                for cx in x..width - 1 {
-                    let idx = mid_offset + cx;
-                    let tl = i32::from(lum_buffer[top_offset + cx - 1]);
-                    let t = i32::from(lum_buffer[top_offset + cx]);
-                    let tr = i32::from(lum_buffer[top_offset + cx + 1]);
-                    let l = i32::from(lum_buffer[mid_offset + cx - 1]);
-                    let r = i32::from(lum_buffer[mid_offset + cx + 1]);
-                    let bl = i32::from(lum_buffer[bot_offset + cx - 1]);
-                    let b = i32::from(lum_buffer[bot_offset + cx]);
-                    let br = i32::from(lum_buffer[bot_offset + cx + 1]);
-
-                    let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-                    let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
-                    let mag = (gx.abs() + gy.abs()).min(255) as u32;
-
-                    let original_alpha = pixels[idx] & 0xFF00_0000;
-                    pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
-                }
-            }
-        }
-    }
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -1466,6 +1261,76 @@ mod tests {
         }
 
         assert_eq!(fb_scalar.as_slice(), fb_simd.as_slice());
+    }
+
+    #[test]
+    fn test_apply_sobel() {
+        let width = 10;
+        let height = 10;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+
+        // Create a white square in the middle of black background
+        // Background: Black (0)
+        // Square: 4,4 to 6,6 White (255)
+        fb.clear(0xFF000000);
+
+        for y in 4..=6 {
+            for x in 4..=6 {
+                fb.set_pixel(x, y, 0xFFFFFFFF);
+            }
+        }
+
+        apply_sobel(&mut fb);
+
+        // Center of square (5,5) should be black (no gradient)
+        // Surrounded by white (flat) -> black.
+        // Neighbors: all white. gx=0, gy=0.
+        let p_center = fb.get_pixel(5, 5).unwrap();
+        assert_eq!(p_center & 0xFFFFFF, 0, "Center should be black");
+
+        // Edge (4, 5) - Left Edge of square
+        // Neighbors:
+        // Left col (x=3): Black
+        // Center col (x=4): White
+        // Right col (x=5): White
+
+        // Sobel Gx mask:
+        // -1 0 1
+        // -2 0 2
+        // -1 0 1
+
+        // At (4, 5):
+        // TL(3,4)=B, T(4,4)=W, TR(5,4)=W
+        // L (3,5)=B, C(4,5)=W, R (5,5)=W
+        // BL(3,6)=B, B(4,6)=W, BR(5,6)=W
+
+        // Luminance: B=0, W=255.
+        // Gx = (TR + 2R + BR) - (TL + 2L + BL)
+        //    = (255 + 2*255 + 255) - (0 + 0 + 0)
+        //    = 4*255 = 1020.
+
+        // Gy = (BL + 2B + BR) - (TL + 2T + TR)
+        //    = (0 + 2*255 + 255) - (0 + 2*255 + 255)
+        //    = 0.
+
+        // Mag = |Gx| + |Gy| = 1020 -> clamped to 255.
+
+        let p_edge = fb.get_pixel(4, 5).unwrap();
+        let val = p_edge & 0xFF; // Blue channel
+        assert_eq!(val, 255, "Left edge should be white (strong gradient)");
+
+        // Corner (4, 4) - Top Left
+        // TL(3,3)=B, T(4,3)=B, TR(5,3)=B
+        // L (3,4)=B, C(4,4)=W, R (5,4)=W
+        // BL(3,5)=B, B(4,5)=W, BR(5,5)=W
+
+        // Gx = (0 + 2*255 + 255) - (0 + 0 + 0) = 765.
+        // Gy = (0 + 2*255 + 255) - (0 + 0 + 0) = 765.
+
+        // Mag = 765 + 765 = 1530 -> 255.
+
+        let p_corner = fb.get_pixel(4, 4).unwrap();
+        assert_eq!(p_corner & 0xFF, 255, "Corner should be white");
     }
 
     #[test]
