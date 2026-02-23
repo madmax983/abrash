@@ -287,13 +287,22 @@ impl Scene {
                 // Optimization: Batch transform vertices to reuse calculations for shared vertices.
                 // We reuse the scratch buffer to eliminate per-object allocations.
                 transformed_verts.clear();
-                transformed_verts.resize(mesh.vertices.len(), (Vec3::default(), 0.0));
+                transformed_verts.reserve(mesh.vertices.len());
+
+                // Use spare_capacity_mut to get uninitialized memory safely
+                let uninit_slice = transformed_verts.spare_capacity_mut();
+                let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
                 #[cfg(feature = "parallel")]
-                mvp.transform_points_parallel(&mesh.vertices, transformed_verts);
+                mvp.transform_points_uninit_parallel(&mesh.vertices, uninit_slice);
 
                 #[cfg(not(feature = "parallel"))]
-                mvp.transform_points(&mesh.vertices, transformed_verts);
+                mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+
+                // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
+                unsafe {
+                    transformed_verts.set_len(mesh.vertices.len());
+                }
 
                 for indices in &mesh.indices {
                     let v0 = transformed_verts[indices[0]];

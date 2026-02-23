@@ -34,6 +34,7 @@
 //!
 //! All operations use `f32` for compatibility with graphics APIs.
 
+use std::mem::MaybeUninit;
 use std::ops::{Add, Mul, Sub};
 
 #[inline]
@@ -697,6 +698,23 @@ impl Mat4 {
     /// assert_eq!(output[1].0, Vec3::new(0.0, 2.0, 0.0));
     /// ```
     pub fn transform_points(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+        // SAFETY: (Vec3, f32) has same layout as MaybeUninit<(Vec3, f32)>
+        let output_uninit = unsafe {
+            &mut *(std::ptr::from_mut::<[(Vec3, f32)]>(output) as *mut [MaybeUninit<(Vec3, f32)>])
+        };
+        self.transform_points_uninit(points, output_uninit);
+    }
+
+    /// Transforms multiple points by this matrix into uninitialized memory.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `points.len()` does not equal `output.len()`.
+    pub fn transform_points_uninit(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
         assert_eq!(points.len(), output.len());
 
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -708,13 +726,18 @@ impl Mat4 {
         }
 
         for (p, out) in points.iter().zip(output.iter_mut()) {
-            *out = self.transform_point(*p);
+            out.write(self.transform_point(*p));
         }
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     #[target_feature(enable = "avx2")]
-    unsafe fn transform_points_avx2(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+    #[allow(clippy::wildcard_imports)]
+    unsafe fn transform_points_avx2(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
         use std::arch::x86_64::*;
 
         let len = points.len();
@@ -743,7 +766,7 @@ impl Mat4 {
         while i + 8 <= len {
             // SAFETY: Memory access is bounded by loop condition and caller guarantees.
             unsafe {
-                let p_ptr = points.as_ptr().add(i) as *const f32;
+                let p_ptr = points.as_ptr().add(i).cast::<f32>();
 
                 // Load 8 Vec3s (96 bytes) as 3 chunks of 32 bytes? No, SSE loads of 16 bytes.
                 // 8 points * 12 bytes = 96 bytes.
@@ -843,7 +866,7 @@ impl Mat4 {
                 let final3 = _mm256_permute2f128_ps(out2, out3, 0x31); // p6 | p7
 
                 // Store
-                let out_ptr = output.as_mut_ptr().add(i) as *mut f32;
+                let out_ptr = output.as_mut_ptr().add(i).cast::<f32>();
                 _mm256_storeu_ps(out_ptr, final0);
                 _mm256_storeu_ps(out_ptr.add(8), final1);
                 _mm256_storeu_ps(out_ptr.add(16), final2);
@@ -854,7 +877,7 @@ impl Mat4 {
         }
 
         while i < len {
-            output[i] = self.transform_point(points[i]);
+            output[i].write(self.transform_point(points[i]));
             i += 1;
         }
     }
@@ -882,6 +905,23 @@ impl Mat4 {
     /// assert_eq!(output[0].0, Vec3::new(10.0, 0.0, 0.0));
     /// ```
     pub fn transform_points_parallel(&self, points: &[Vec3], output: &mut [(Vec3, f32)]) {
+        // SAFETY: (Vec3, f32) has same layout as MaybeUninit<(Vec3, f32)>
+        let output_uninit = unsafe {
+            &mut *(std::ptr::from_mut::<[(Vec3, f32)]>(output) as *mut [MaybeUninit<(Vec3, f32)>])
+        };
+        self.transform_points_uninit_parallel(points, output_uninit);
+    }
+
+    /// Transforms multiple points by this matrix into uninitialized memory in parallel.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `points.len()` does not equal `output.len()`.
+    pub fn transform_points_uninit_parallel(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
         assert_eq!(points.len(), output.len());
 
         #[cfg(feature = "parallel")]
@@ -894,13 +934,13 @@ impl Mat4 {
                 .par_chunks(CHUNK_SIZE)
                 .zip(output.par_chunks_mut(CHUNK_SIZE))
                 .for_each(|(p_chunk, out_chunk)| {
-                    self.transform_points(p_chunk, out_chunk);
+                    self.transform_points_uninit(p_chunk, out_chunk);
                 });
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            self.transform_points(points, output);
+            self.transform_points_uninit(points, output);
         }
     }
 
