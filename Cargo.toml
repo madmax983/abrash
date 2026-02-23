@@ -330,3 +330,7 @@ harness = false
 [[bench]]
 name = "particle_color_benchmark"
 harness = false
+
+[[bench]]
+name = "prepare_triangle"
+harness = false
