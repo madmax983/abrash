@@ -7,20 +7,11 @@ thread_local! {
     static BLOOM_BUFFERS: RefCell<BloomContext> = RefCell::new(BloomContext::default());
 }
 
+#[derive(Default)]
 struct BloomContext {
     bright_pixels: Vec<u32>,
     scratch_buffer: Vec<u32>,
     acc_buffer: Vec<i32>,
-}
-
-impl Default for BloomContext {
-    fn default() -> Self {
-        Self {
-            bright_pixels: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-        }
-    }
 }
 
 /// Applies a bloom effect to the framebuffer in-place.

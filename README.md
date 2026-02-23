@@ -18,6 +18,7 @@ Modern graphics APIs (Vulkan, DirectX 12) are powerful but complex black boxes. 
 *   **Software Rasterization:** Triangle filling with flat, Gouraud, and perspective-correct textured shading.
 *   **3D Pipeline:** Complete vertex transformation pipeline (Model -> View -> Projection -> Clip Space -> Screen Space).
 *   **Z-Buffering:** Pixel-perfect depth testing for correct visibility.
+*   **Post-Processing:** Screen-space effects like SSAO, Depth of Field, and Bloom (see [`post_process`] module).
 *   **Math Library:** Custom `Vec3` and `Mat4` implementations optimized for graphics (SIMD-ready logic).
 *   **Platform Abstraction:**
     *   **Native Windows:** High-performance windowing using Win32.
