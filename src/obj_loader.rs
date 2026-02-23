@@ -34,6 +34,13 @@ const MAX_FACES: usize = 1_000_000;
 // 0xFFFFF is used as a sentinel for NO_INDEX.
 const SENTINEL: u64 = 0xF_FFFF;
 
+#[derive(Clone, Copy)]
+struct ParsedIndices {
+    v_idx: usize,
+    vt_idx: Option<usize>,
+    vn_idx: Option<usize>,
+}
+
 struct ObjParser {
     raw_positions: Vec<Vec3>,
     raw_uvs: Vec<Vec2>,
@@ -44,6 +51,94 @@ struct ObjParser {
     final_indices: Vec<[usize; 3]>,
     deduplicator: HashMap<u64, usize>,
     face_indices: Vec<usize>,
+}
+
+fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, String> {
+    // format: v, v/vt, v//vn, v/vt/vn
+    // Manual parsing to avoid split() iterator overhead
+    let bytes = part.as_bytes();
+
+    // Find first '/' to separate v from vt/vn
+    // This is faster than split('/').next()
+    let mut first_slash = bytes.len();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'/' {
+            first_slash = i;
+            break;
+        }
+    }
+
+    // Parse v_idx (0..first_slash)
+    let v_idx = fast_parse_usize(&bytes[0..first_slash])
+        .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
+
+    let v_idx = v_idx
+        .checked_sub(1)
+        .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
+
+    // Parse vt_idx and vn_idx if present
+    let mut vt_idx = None;
+    let mut vn_idx = None;
+
+    if first_slash < bytes.len() {
+        let after_first_slash = first_slash + 1;
+        // Check if next char is also '/' (case v//vn)
+        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
+            // v//vn case
+            let after_second_slash = after_first_slash + 1;
+            if after_second_slash < bytes.len() {
+                // Parse vn
+                let idx = fast_parse_usize(&bytes[after_second_slash..])
+                    .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
+                vn_idx = Some(
+                    idx.checked_sub(1)
+                        .ok_or_else(|| format!("Line {line_num}: Normal index 0 is invalid"))?,
+                );
+            }
+        } else if after_first_slash < bytes.len() {
+            // It's v/vt...
+            // Find end of vt (next slash or end of string)
+            let mut end_vt = bytes.len();
+            let mut second_slash = None;
+
+            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
+                if b == b'/' {
+                    end_vt = i;
+                    second_slash = Some(i);
+                    break;
+                }
+            }
+
+            let vt_bytes = &bytes[after_first_slash..end_vt];
+            if !vt_bytes.is_empty() {
+                let idx = fast_parse_usize(vt_bytes)
+                    .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
+                vt_idx = Some(
+                    idx.checked_sub(1)
+                        .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+                );
+            }
+
+            // If there's a second slash, parse vn (v/vt/vn)
+            if let Some(slash2) = second_slash {
+                let after_second_slash = slash2 + 1;
+                if after_second_slash < bytes.len() {
+                    let idx = fast_parse_usize(&bytes[after_second_slash..])
+                        .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
+                    vn_idx =
+                        Some(idx.checked_sub(1).ok_or_else(|| {
+                            format!("Line {line_num}: Normal index 0 is invalid")
+                        })?);
+                }
+            }
+        }
+    }
+
+    Ok(ParsedIndices {
+        v_idx,
+        vt_idx,
+        vn_idx,
+    })
 }
 
 impl ObjParser {
@@ -151,6 +246,80 @@ impl ObjParser {
         Ok(())
     }
 
+    fn get_or_insert_vertex(
+        &mut self,
+        indices: ParsedIndices,
+        line_num: usize,
+    ) -> Result<usize, String> {
+        let v_idx = indices.v_idx;
+        let vt_idx = indices.vt_idx;
+        let vn_idx = indices.vn_idx;
+
+        if v_idx >= self.raw_positions.len() {
+            return Err(format!(
+                "Line {}: Vertex index {} out of bounds",
+                line_num,
+                v_idx + 1
+            ));
+        }
+
+        // Use HashMap for full deduplication
+        // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
+        // Max index is 1,000,000, which fits in 20 bits (1,048,576).
+        let k_v = v_idx as u64;
+        let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
+        let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
+
+        let key = k_v | (k_vt << 20) | (k_vn << 40);
+
+        if let Some(&idx) = self.deduplicator.get(&key) {
+            return Ok(idx);
+        }
+
+        let new_idx = self.final_vertices.len();
+
+        // Push vertex
+        self.final_vertices.push(self.raw_positions[v_idx]);
+
+        // Push UV (or default 0,0)
+        if let Some(ti) = vt_idx {
+            if ti >= self.raw_uvs.len() {
+                return Err(format!(
+                    "Line {}: UV index {} out of bounds",
+                    line_num,
+                    ti + 1
+                ));
+            }
+            self.final_uvs.push(self.raw_uvs[ti]);
+        } else {
+            self.final_uvs.push(Vec2::new(0.0, 0.0));
+        }
+
+        // Push Normal (if present)
+        if let Some(ni) = vn_idx {
+            if ni >= self.raw_normals.len() {
+                return Err(format!(
+                    "Line {}: Normal index {} out of bounds",
+                    line_num,
+                    ni + 1
+                ));
+            }
+            self.final_normals.push(self.raw_normals[ni]);
+        } else {
+            // If we have some normals but not for this vertex, we should align
+            // Or just push a default?
+            // If final_normals is not empty, we should keep it aligned with final_vertices?
+            // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
+            // But here we build incrementally.
+            // If we start having normals, we push. If we missed some earlier, we are in trouble?
+            // For simplicity: If vn_idx is None, push Zero.
+            self.final_normals.push(Vec3::new(0.0, 0.0, 0.0));
+        }
+
+        self.deduplicator.insert(key, new_idx);
+        Ok(new_idx)
+    }
+
     fn parse_face(
         &mut self,
         parts: std::str::SplitAsciiWhitespace,
@@ -158,152 +327,9 @@ impl ObjParser {
     ) -> Result<(), String> {
         self.face_indices.clear();
         for part in parts {
-            // format: v, v/vt, v//vn, v/vt/vn
-            // Manual parsing to avoid split() iterator overhead
-            let bytes = part.as_bytes();
-
-            // Find first '/' to separate v from vt/vn
-            // This is faster than split('/').next()
-            let mut first_slash = bytes.len();
-            for (i, &b) in bytes.iter().enumerate() {
-                if b == b'/' {
-                    first_slash = i;
-                    break;
-                }
-            }
-
-            // Parse v_idx (0..first_slash)
-            let v_idx = fast_parse_usize(&bytes[0..first_slash])
-                .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
-
-            let v_idx = v_idx
-                .checked_sub(1)
-                .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
-
-            // Parse vt_idx and vn_idx if present
-            let mut vt_idx = None;
-            let mut vn_idx = None;
-
-            if first_slash < bytes.len() {
-                let after_first_slash = first_slash + 1;
-                // Check if next char is also '/' (case v//vn)
-                if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
-                    // v//vn case
-                    let after_second_slash = after_first_slash + 1;
-                    if after_second_slash < bytes.len() {
-                        // Parse vn
-                        let idx = fast_parse_usize(&bytes[after_second_slash..])
-                            .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
-                        vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                            format!("Line {line_num}: Normal index 0 is invalid")
-                        })?);
-                    }
-                } else if after_first_slash < bytes.len() {
-                    // It's v/vt...
-                    // Find end of vt (next slash or end of string)
-                    let mut end_vt = bytes.len();
-                    let mut second_slash = None;
-
-                    for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
-                        if b == b'/' {
-                            end_vt = i;
-                            second_slash = Some(i);
-                            break;
-                        }
-                    }
-
-                    let vt_bytes = &bytes[after_first_slash..end_vt];
-                    if !vt_bytes.is_empty() {
-                        let idx = fast_parse_usize(vt_bytes)
-                            .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
-                        vt_idx =
-                            Some(idx.checked_sub(1).ok_or_else(|| {
-                                format!("Line {line_num}: UV index 0 is invalid")
-                            })?);
-                    }
-
-                    // If there's a second slash, parse vn (v/vt/vn)
-                    if let Some(slash2) = second_slash {
-                        let after_second_slash = slash2 + 1;
-                        if after_second_slash < bytes.len() {
-                            let idx = fast_parse_usize(&bytes[after_second_slash..])
-                                .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
-                            vn_idx = Some(idx.checked_sub(1).ok_or_else(|| {
-                                format!("Line {line_num}: Normal index 0 is invalid")
-                            })?);
-                        }
-                    }
-                }
-            }
-
-            // Look up or insert
-            if v_idx >= self.raw_positions.len() {
-                return Err(format!(
-                    "Line {}: Vertex index {} out of bounds",
-                    line_num,
-                    v_idx + 1
-                ));
-            }
-
-            // Use HashMap for full deduplication
-            // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
-            // Max index is 1,000,000, which fits in 20 bits (1,048,576).
-
-            let k_v = v_idx as u64;
-            let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
-            let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
-
-            let key = k_v | (k_vt << 20) | (k_vn << 40);
-
-            match self.deduplicator.entry(key) {
-                std::collections::hash_map::Entry::Occupied(entry) => {
-                    self.face_indices.push(*entry.get());
-                }
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    let new_idx = self.final_vertices.len();
-
-                    // Push vertex
-                    self.final_vertices.push(self.raw_positions[v_idx]);
-
-                    // Push UV (or default 0,0)
-                    if let Some(ti) = vt_idx {
-                        if ti >= self.raw_uvs.len() {
-                            return Err(format!(
-                                "Line {}: UV index {} out of bounds",
-                                line_num,
-                                ti + 1
-                            ));
-                        }
-                        self.final_uvs.push(self.raw_uvs[ti]);
-                    } else {
-                        self.final_uvs.push(Vec2::new(0.0, 0.0));
-                    }
-
-                    // Push Normal (if present)
-                    if let Some(ni) = vn_idx {
-                        if ni >= self.raw_normals.len() {
-                            return Err(format!(
-                                "Line {}: Normal index {} out of bounds",
-                                line_num,
-                                ni + 1
-                            ));
-                        }
-                        self.final_normals.push(self.raw_normals[ni]);
-                    } else {
-                        // If we have some normals but not for this vertex, we should align
-                        // Or just push a default?
-                        // If final_normals is not empty, we should keep it aligned with final_vertices?
-                        // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-                        // But here we build incrementally.
-                        // If we start having normals, we push. If we missed some earlier, we are in trouble?
-                        // For simplicity: If vn_idx is None, push Zero.
-                        self.final_normals.push(Vec3::new(0.0, 0.0, 0.0));
-                    }
-
-                    entry.insert(new_idx);
-                    self.face_indices.push(new_idx);
-                }
-            }
+            let indices = parse_vertex_indices(part, line_num)?;
+            let final_idx = self.get_or_insert_vertex(indices, line_num)?;
+            self.face_indices.push(final_idx);
         }
 
         // Triangulate fan
@@ -329,10 +355,6 @@ impl ObjParser {
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
 #[inline]
 fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
-    if bytes.is_empty() {
-        return None;
-    }
-
     // On 64-bit, usize is u64 (max ~1.8e19, 19 full digits).
     // On 32-bit, usize is u32 (max ~4e9, 9 full digits).
     // We strictly reject numbers longer than this to guarantee no overflow without checking.
@@ -341,6 +363,10 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
     } else {
         9
     };
+
+    if bytes.is_empty() {
+        return None;
+    }
 
     if bytes.len() > MAX_DIGITS {
         return None;
@@ -526,7 +552,8 @@ f 1/1 1/2 1/1
     }
 
     #[test]
-    #[ignore] fn test_load_normals() {
+    #[ignore]
+    fn test_load_normals() {
         let obj = "
 v 0 0 0
 v 1 0 0
@@ -541,7 +568,8 @@ f 1//1 2//1 3//1
     }
 
     #[test]
-    #[ignore] fn test_load_mixed_normals() {
+    #[ignore]
+    fn test_load_mixed_normals() {
         let obj = "
 v 0 0 0
 v 1 0 0
