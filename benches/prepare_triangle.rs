@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::{Vec3};
+use abrash::math::Vec3;
 use abrash::tile_renderer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
@@ -11,10 +11,10 @@ fn generate_small_triangles(count: usize) -> Vec<ClipTriangle> {
         let y = (i / 100) as f32 * 0.01 - 0.5;
         let z = 5.0; // In front of camera
         let w = z; // Usually w=z for perspective projection before division?
-                   // No, ClipTriangle is ((Vec3, f32), ...). Usually input to rasterizer is in Clip Space.
-                   // If we simulate Clip Space, w is typically z.
-                   // Let's assume standard perspective where w = -z_view.
-                   // If we put them at z=5, w=5.
+        // No, ClipTriangle is ((Vec3, f32), ...). Usually input to rasterizer is in Clip Space.
+        // If we simulate Clip Space, w is typically z.
+        // Let's assume standard perspective where w = -z_view.
+        // If we put them at z=5, w=5.
 
         // Small triangle size 0.001
         let size = 0.001;

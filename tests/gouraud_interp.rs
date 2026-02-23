@@ -1,10 +1,9 @@
-
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::texture::Texture;
 use abrash::rasterizer::texture::{
-    draw_scanline_textured_gouraud, TexturedGouraudSpanStart, TexturedGouraudGradients
+    TexturedGouraudGradients, TexturedGouraudSpanStart, draw_scanline_textured_gouraud,
 };
+use abrash::texture::Texture;
+use abrash::zbuffer::ZBuffer;
 
 #[test]
 fn test_draw_scanline_textured_gouraud_correctness() {
@@ -28,20 +27,32 @@ fn test_draw_scanline_textured_gouraud_correctness() {
     // B: 0.5 constant. db_dx = 0.0.
 
     let gradients = TexturedGouraudGradients {
-        dz_dx: 0.0, dq_dx: 0.0, du_dx: 0.0, dv_dx: 0.0,
-        dr_dx: 0.01, dg_dx: -0.01, db_dx: 0.0,
-        dq_dy: 0.0, du_dy: 0.0, dv_dy: 0.0,
-        dr_dy: 0.0, dg_dy: 0.0, db_dy: 0.0,
+        dz_dx: 0.0,
+        dq_dx: 0.0,
+        du_dx: 0.0,
+        dv_dx: 0.0,
+        dr_dx: 0.01,
+        dg_dx: -0.01,
+        db_dx: 0.0,
+        dq_dy: 0.0,
+        du_dy: 0.0,
+        dv_dy: 0.0,
+        dr_dy: 0.0,
+        dg_dy: 0.0,
+        db_dy: 0.0,
     };
 
     let start = TexturedGouraudSpanStart {
-        z: 1.0, q: 1.0, u: 0.0, v: 0.0,
-        r: 0.0, g: 1.0, b: 0.5,
+        z: 1.0,
+        q: 1.0,
+        u: 0.0,
+        v: 0.0,
+        r: 0.0,
+        g: 1.0,
+        b: 0.5,
     };
 
-    draw_scanline_textured_gouraud(
-        &mut fb, &mut zb, 5, 0, 99, start, &gradients, &tex
-    );
+    draw_scanline_textured_gouraud(&mut fb, &mut zb, 5, 0, 99, start, &gradients, &tex);
 
     // Verify Pixel 0
     // Tex=White(1.0). R=0.0. G=1.0. B=0.5.

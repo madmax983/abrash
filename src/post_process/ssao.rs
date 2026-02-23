@@ -209,8 +209,7 @@ fn apply_ssao_scalar(
 
             let mut occlusion = 0.0;
 
-            for k in 0..KERNEL_SIZE {
-                let s = kernel[k];
+            for s in kernel.iter().take(KERNEL_SIZE) {
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
                 let sample_pos = pos_view + rotated_sample * radius;

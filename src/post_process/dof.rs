@@ -7,23 +7,17 @@ thread_local! {
     static DOF_CONTEXT: RefCell<DofContext> = RefCell::new(DofContext::default());
 }
 
+#[derive(Default)]
 struct DofContext {
     blurred_buffer: Vec<u32>,
     scratch_buffer: Vec<u32>,
     acc_buffer: Vec<i32>,
 }
 
-impl Default for DofContext {
-    fn default() -> Self {
-        Self {
-            blurred_buffer: Vec::new(),
-            scratch_buffer: Vec::new(),
-            acc_buffer: Vec::new(),
-        }
-    }
-}
-
 /// Applies depth of field effect.
+///
+/// This simulates a camera lens where objects at `focus_dist` are sharp, and objects
+/// farther away (in either direction) become increasingly blurred.
 ///
 /// # Arguments
 /// * `fb` - The framebuffer (modified in-place).
@@ -31,6 +25,26 @@ impl Default for DofContext {
 /// * `focus_dist` - The depth at which objects are perfectly in focus (0.0 - 1.0 in non-linear z-buffer space).
 /// * `focus_range` - The range of depth that remains reasonably sharp.
 /// * `blur_radius` - The radius of the blur for out-of-focus areas.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::post_process::dof::apply_depth_of_field;
+///
+/// let width = 800;
+/// let height = 600;
+/// let mut fb = Framebuffer::new(width, height).unwrap();
+/// let mut zb = ZBuffer::new(width, height).unwrap();
+///
+/// // Render scene...
+///
+/// // Apply Depth of Field
+/// // Focus on objects at depth 5.0 (in View Space, converted to Z-Buffer space appropriately)
+/// // Note: ZBuffer typically stores non-linear depth.
+/// apply_depth_of_field(&mut fb, &zb, 0.5, 0.1, 5);
+/// ```
 pub fn apply_depth_of_field(
     fb: &mut Framebuffer,
     zb: &ZBuffer,
