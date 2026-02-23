@@ -740,6 +740,19 @@ impl Mat4 {
     ) {
         use std::arch::x86_64::*;
 
+        #[cfg(debug_assertions)]
+        {
+            assert_eq!(std::mem::size_of::<(Vec3, f32)>(), 16, "Layout mismatch: (Vec3, f32) size != 16");
+            assert_eq!(std::mem::align_of::<(Vec3, f32)>(), 4, "Layout mismatch: (Vec3, f32) align != 4");
+            // Verify offsets
+            let dummy: (Vec3, f32) = (Vec3::new(0.0, 0.0, 0.0), 0.0);
+            let base = &dummy as *const _ as usize;
+            let x_ptr = &dummy.0.x as *const _ as usize;
+            let w_ptr = &dummy.1 as *const _ as usize;
+            assert_eq!(x_ptr - base, 0, "Offset of Vec3.x must be 0");
+            assert_eq!(w_ptr - base, 12, "Offset of f32 must be 12");
+        }
+
         let len = points.len();
         let mut i = 0;
 
