@@ -1,4 +1,4 @@
-use abrash::{framebuffer::Framebuffer, math::Vec3, tile_renderer::TileRenderer, zbuffer::ZBuffer};
+use abrash::{framebuffer::Framebuffer, math::Vec3, rasterizer::tile::TileRenderer, zbuffer::ZBuffer};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_scanline_rasterization(c: &mut Criterion) {

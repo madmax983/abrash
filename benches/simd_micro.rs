@@ -4,7 +4,7 @@
 //! to identify bottlenecks and validate optimization effectiveness.
 
 use abrash::{
-    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
+    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, rasterizer::tile::TileRenderer,
     zbuffer::ZBuffer,
 };
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};

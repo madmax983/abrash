@@ -66,7 +66,7 @@ use crate::culling::Frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::{AABB, Mesh};
-use crate::tile_renderer::{ClipTriangle, TileRenderer};
+use crate::rasterizer::tile::{ClipTriangle, TileRenderer};
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 use std::sync::Arc;

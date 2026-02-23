@@ -10,7 +10,7 @@
 use std::arch::x86_64::_rdtsc;
 
 use abrash::{
-    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
+    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, rasterizer::tile::TileRenderer,
     zbuffer::ZBuffer,
 };
 

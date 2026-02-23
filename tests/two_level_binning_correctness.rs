@@ -9,7 +9,7 @@ use abrash::{
     framebuffer::Framebuffer,
     hiz_buffer::{AABB3D, HiZBuffer},
     math::Vec3,
-    tile_renderer::{ClipTriangle, TileRenderer},
+    rasterizer::tile::{ClipTriangle, TileRenderer},
     zbuffer::ZBuffer,
 };
 

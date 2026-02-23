@@ -66,6 +66,7 @@ pub mod line;
 pub mod phong;
 pub mod reflection;
 pub mod texture;
+pub mod tile;
 
 // Re-export public API
 pub use self::core::{FIXED_SCALE, color_to_u32};

@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::tile_renderer::{ClipTriangle, TileRenderer};
+use abrash::rasterizer::tile::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 

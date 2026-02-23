@@ -49,7 +49,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use abrash::tile_renderer::{TileRenderer, ClipTriangle};
+//! use abrash::rasterizer::tile::{TileRenderer, ClipTriangle};
 //! use abrash::framebuffer::Framebuffer;
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
@@ -1105,7 +1105,7 @@ impl TileRenderer {
     /// # Example
     ///
     /// ```no_run
-    /// # use abrash::tile_renderer::TileRenderer;
+    /// # use abrash::rasterizer::tile::TileRenderer;
     /// # use abrash::framebuffer::Framebuffer;
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
@@ -1911,7 +1911,7 @@ impl TileRenderer {
 /// # Examples
 ///
 /// ```
-/// use abrash::tile_renderer::should_use_tiled_rendering;
+/// use abrash::rasterizer::tile::should_use_tiled_rendering;
 ///
 /// // 4K resolution with 50 triangles → use tiled (27% faster in benchmarks)
 /// assert!(should_use_tiled_rendering(3840, 2160, 50));

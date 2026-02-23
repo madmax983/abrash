@@ -4,7 +4,7 @@
 
 #![cfg(all(feature = "backend-win32", feature = "gpu-binning"))]
 
-use abrash::{framebuffer::Framebuffer, math::Vec3, tile_renderer::TileRenderer, zbuffer::ZBuffer};
+use abrash::{framebuffer::Framebuffer, math::Vec3, rasterizer::tile::TileRenderer, zbuffer::ZBuffer};
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
