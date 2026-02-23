@@ -57,7 +57,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
+use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::rasterizer::core::{
     FIXED_SCALE, assert_same_dimensions, color_to_u32_scaled, is_backface, sort_by_y,
 };
@@ -302,7 +302,7 @@ fn fresnel_schlick(cos_theta: f32, f0: Vec3) -> Vec3 {
     let pow2 = one_minus_cos * one_minus_cos;
     let pow4 = pow2 * pow2;
     let pow5 = pow4 * one_minus_cos;
-    f0 + (Vec3::new(1.0, 1.0, 1.0) - f0) * pow5
+    f0.lerp(Vec3::ONE, pow5)
 }
 
 /// Fills a 3D triangle using Physically Based Rendering (PBR).
@@ -579,8 +579,7 @@ fn draw_scanline_pbr(
 
             // Reconstruct vectors
             // Normal needs normalization after interpolation
-            let inv_len_n = fast_inv_sqrt(nx * nx + ny * ny + nz * nz);
-            let n = Vec3::new(nx * inv_len_n, ny * inv_len_n, nz * inv_len_n);
+            let n = Vec3::new(nx, ny, nz).fast_normalize();
             let world_pos = Vec3::new(wx, wy, wz);
 
             let v = (constants.view_pos - world_pos).normalize();
@@ -604,7 +603,7 @@ fn draw_scanline_pbr(
             let specular = numerator * (1.0 / denominator);
 
             let k_s = f;
-            let k_d = (Vec3::new(1.0, 1.0, 1.0) - k_s) * (1.0 - constants.metallic);
+            let k_d = (Vec3::ONE - k_s) * (1.0 - constants.metallic);
 
             // lo = (k_d * albedo / PI + specular) * radiance * n_dot_l
             let diffuse = k_d * constants.albedo * (1.0 / PI);
@@ -615,7 +614,7 @@ fn draw_scanline_pbr(
 
             // Tone mapping (Reinhard)
             // mapped = color / (color + 1.0)
-            let denom = color + Vec3::new(1.0, 1.0, 1.0);
+            let denom = color + Vec3::ONE;
             let mapped = Vec3::new(
                 color.x / denom.x,
                 color.y / denom.y,
