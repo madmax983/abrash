@@ -258,7 +258,7 @@ pub(crate) const RECIPROCAL_TABLE: [f32; 17] = [
 
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_span_nearest(
+pub(crate) fn draw_span_nearest(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
@@ -330,7 +330,7 @@ fn draw_span_nearest(
 
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_span_bilinear(
+pub(crate) fn draw_span_bilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
@@ -460,7 +460,7 @@ fn draw_span_bilinear(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
-unsafe fn draw_span_bilinear_simd(
+pub(crate) unsafe fn draw_span_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
@@ -672,7 +672,7 @@ unsafe fn draw_span_bilinear_simd(
 
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
-fn draw_span_trilinear(
+pub(crate) fn draw_span_trilinear(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
@@ -708,7 +708,7 @@ fn draw_span_trilinear(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
-unsafe fn draw_span_nearest_simd(
+pub(crate) unsafe fn draw_span_nearest_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
@@ -2398,7 +2398,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
-unsafe fn draw_span_trilinear_simd(
+pub(crate) unsafe fn draw_span_trilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     texture: &Texture,
