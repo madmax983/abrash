@@ -119,6 +119,7 @@ impl VertexFixed {
     /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
     /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
     #[inline]
+    #[cfg(test)]
     fn from_screen_point(p: ScreenPoint) -> Self {
         Self {
             x: p.x << 8, // Convert to 24.8 fixed point
@@ -218,10 +219,6 @@ pub struct PreparedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    // Fixed-point vertices for deterministic edge function evaluation
-    pub p0_fixed: VertexFixed,
-    pub p1_fixed: VertexFixed,
-    pub p2_fixed: VertexFixed,
     pub dz_dx: f32,
     pub long_edge_is_left: bool,
     pub color: u32,
@@ -239,9 +236,6 @@ pub struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    pub p0_fixed: VertexFixed,
-    pub p1_fixed: VertexFixed,
-    pub p2_fixed: VertexFixed,
     pub q0: f32,
     pub q1: f32,
     pub q2: f32,
@@ -1734,17 +1728,10 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            let p0_fixed = VertexFixed::from_screen_point(p0);
-            let p1_fixed = VertexFixed::from_screen_point(p1);
-            let p2_fixed = VertexFixed::from_screen_point(p2);
-
             self.prepared_textured.push(PreparedTexturedTriangle {
                 p0,
                 p1,
                 p2,
-                p0_fixed,
-                p1_fixed,
-                p2_fixed,
                 q0,
                 q1,
                 q2,
@@ -1865,18 +1852,10 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            // Convert to fixed-point for deterministic edge functions
-            let p0_fixed = VertexFixed::from_screen_point(p0);
-            let p1_fixed = VertexFixed::from_screen_point(p1);
-            let p2_fixed = VertexFixed::from_screen_point(p2);
-
             self.prepared.push(PreparedTriangle {
                 p0,
                 p1,
                 p2,
-                p0_fixed,
-                p1_fixed,
-                p2_fixed,
                 dz_dx,
                 long_edge_is_left,
                 color,
