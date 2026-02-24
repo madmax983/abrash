@@ -5,7 +5,7 @@
 
 use crate::experimental::voxelizer::Voxelizer;
 use crate::math::Vec3;
-use crate::mesh::{Mesh, AABB};
+use crate::mesh::{AABB, Mesh};
 use crate::particles::{Particle, ParticleSystem};
 use crate::texture::Texture;
 use crate::utils::XorShift32;
@@ -72,11 +72,12 @@ pub fn create_explosion(
             for x in 0..grid.width {
                 if grid.get(x, y, z) {
                     // Calculate world position of voxel center
-                    let pos = grid.origin + Vec3::new(
-                        (x as f32) * grid.voxel_size + half_voxel,
-                        (y as f32) * grid.voxel_size + half_voxel,
-                        (z as f32) * grid.voxel_size + half_voxel,
-                    );
+                    let pos = grid.origin
+                        + Vec3::new(
+                            (x as f32) * grid.voxel_size + half_voxel,
+                            (y as f32) * grid.voxel_size + half_voxel,
+                            (z as f32) * grid.voxel_size + half_voxel,
+                        );
 
                     // Calculate direction from center
                     // Add some small randomness to avoid perfectly uniform lines

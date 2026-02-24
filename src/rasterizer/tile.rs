@@ -68,21 +68,17 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::hiz_buffer::{AABB3D, HiZBuffer};
-use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
-use super::texture::{
-    draw_span_bilinear, draw_span_nearest, draw_span_trilinear,
-};
+use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-use super::texture::{
-    draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd,
-};
+use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
 use super::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
 };
+use crate::clipping::clip_triangle_to_frustum;
+use crate::framebuffer::Framebuffer;
+use crate::hiz_buffer::{AABB3D, HiZBuffer};
+use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
 
@@ -1406,10 +1402,14 @@ impl TileRenderer {
                                     let fb_start = row as usize * width as usize + tile_x0 as usize;
 
                                     for col in 0..tile_cols {
-                                        fb_ptr
-                                            .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                        zb_ptr
-                                            .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
                                     }
                                 }
                             }

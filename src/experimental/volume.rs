@@ -65,11 +65,12 @@ impl Volume {
             for y in min_y..=max_y {
                 for x in min_x..=max_x {
                     // Check distance
-                    let p = self.grid.origin + Vec3::new(
-                        (x as f32 + 0.5) * self.grid.voxel_size,
-                        (y as f32 + 0.5) * self.grid.voxel_size,
-                        (z as f32 + 0.5) * self.grid.voxel_size,
-                    );
+                    let p = self.grid.origin
+                        + Vec3::new(
+                            (x as f32 + 0.5) * self.grid.voxel_size,
+                            (y as f32 + 0.5) * self.grid.voxel_size,
+                            (z as f32 + 0.5) * self.grid.voxel_size,
+                        );
 
                     let diff = p - center;
                     if diff.dot(diff) <= r2 {
@@ -93,11 +94,12 @@ impl Volume {
                         continue;
                     }
 
-                    let center = self.grid.origin + Vec3::new(
-                        (x as f32 + 0.5) * self.grid.voxel_size,
-                        (y as f32 + 0.5) * self.grid.voxel_size,
-                        (z as f32 + 0.5) * self.grid.voxel_size,
-                    );
+                    let center = self.grid.origin
+                        + Vec3::new(
+                            (x as f32 + 0.5) * self.grid.voxel_size,
+                            (y as f32 + 0.5) * self.grid.voxel_size,
+                            (z as f32 + 0.5) * self.grid.voxel_size,
+                        );
 
                     // Check neighbors
                     // Left (-X)
@@ -142,42 +144,42 @@ impl Volume {
                 Vec3::new(-h, -h, h),  // BR
                 Vec3::new(-h, h, h),   // TR
                 Vec3::new(-h, h, -h),  // TL
-                Vec3::new(-1.0, 0.0, 0.0)
+                Vec3::new(-1.0, 0.0, 0.0),
             ),
             Face::Right => (
-                Vec3::new(h, -h, h), // BL (relative to face normal looking at it)
+                Vec3::new(h, -h, h),  // BL (relative to face normal looking at it)
                 Vec3::new(h, -h, -h), // BR
-                Vec3::new(h, h, -h), // TR
-                Vec3::new(h, h, h), // TL
-                Vec3::new(1.0, 0.0, 0.0)
+                Vec3::new(h, h, -h),  // TR
+                Vec3::new(h, h, h),   // TL
+                Vec3::new(1.0, 0.0, 0.0),
             ),
             Face::Bottom => (
                 Vec3::new(-h, -h, -h),
                 Vec3::new(h, -h, -h),
                 Vec3::new(h, -h, h),
                 Vec3::new(-h, -h, h),
-                Vec3::new(0.0, -1.0, 0.0)
+                Vec3::new(0.0, -1.0, 0.0),
             ),
             Face::Top => (
                 Vec3::new(-h, h, h),
                 Vec3::new(h, h, h),
                 Vec3::new(h, h, -h),
                 Vec3::new(-h, h, -h),
-                Vec3::new(0.0, 1.0, 0.0)
+                Vec3::new(0.0, 1.0, 0.0),
             ),
             Face::Back => (
                 Vec3::new(h, -h, -h),
                 Vec3::new(-h, -h, -h),
                 Vec3::new(-h, h, -h),
                 Vec3::new(h, h, -h),
-                Vec3::new(0.0, 0.0, -1.0)
+                Vec3::new(0.0, 0.0, -1.0),
             ),
             Face::Front => (
                 Vec3::new(-h, -h, h),
                 Vec3::new(h, -h, h),
                 Vec3::new(h, h, h),
                 Vec3::new(-h, h, h),
-                Vec3::new(0.0, 0.0, 1.0)
+                Vec3::new(0.0, 0.0, 1.0),
             ),
         };
 

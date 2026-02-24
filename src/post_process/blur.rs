@@ -248,11 +248,13 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        dest.par_chunks_mut(width).enumerate().for_each(|(y, dst_row)| {
-            let row_offset = y * width;
-            let src_row = &src[row_offset..row_offset + width];
-            process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
-        });
+        dest.par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, dst_row)| {
+                let row_offset = y * width;
+                let src_row = &src[row_offset..row_offset + width];
+                process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
+            });
     }
 
     #[cfg(not(feature = "parallel"))]

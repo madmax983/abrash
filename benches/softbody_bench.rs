@@ -1,7 +1,7 @@
 use abrash::experimental::jelly::SoftBody;
-use abrash::mesh::Mesh;
 use abrash::math::Vec3;
-use criterion::{criterion_group, criterion_main, Criterion};
+use abrash::mesh::Mesh;
+use criterion::{Criterion, criterion_group, criterion_main};
 
 fn create_grid_mesh(size: usize) -> Mesh {
     let mut mesh = Mesh::new();

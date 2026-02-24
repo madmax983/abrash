@@ -387,9 +387,7 @@ pub(crate) fn draw_span_nearest(
                 let v = v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
-                    unsafe {
-                        *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize))
-                    }
+                    unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
                 } else {
                     texture.get_pixel_texel(u, v)
                 }
@@ -1605,14 +1603,30 @@ pub fn fill_quad_textured_gouraud(
         let u3 = v3.2.x * tex_w * p3.inv_w;
         let v3_val = v3.2.y * tex_h * p3.inv_w;
 
-        // Render (0, 1, 2)
-        fill_projected_triangle_textured_gouraud(
-            fb, zb, p0, p1, p2, u0, v0_val, u1, v1_val, u2, v2_val, v0.1, v1.1, v2.1, texture,
+        // Calculate gradients once for the quad plane using the first triangle (0, 1, 2).
+        let q0 = p0.inv_w;
+        let q1 = p1.inv_w;
+        let q2 = p2.inv_w;
+
+        // Backface Culling (Check Tri 1, assuming Planar Quad)
+        if is_backface(p0, p1, p2) {
+            return;
+        }
+
+        // Note argument order for gradients: u0, u1, u2, then v0, v1, v2
+        let (gradients, _) = TexturedGouraudGradients::new(
+            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_val, v1_val, v2_val, v0.1, v1.1, v2.1,
         );
 
-        // Render (0, 2, 3)
-        fill_projected_triangle_textured_gouraud(
+        // Render two triangles using the shared gradients: (0, 1, 2) and (0, 2, 3)
+        fill_projected_triangle_textured_gouraud_with_gradients(
+            fb, zb, p0, p1, p2, u0, v0_val, u1, v1_val, u2, v2_val, v0.1, v1.1, v2.1, texture,
+            &gradients,
+        );
+
+        fill_projected_triangle_textured_gouraud_with_gradients(
             fb, zb, p0, p2, p3, u0, v0_val, u2, v2_val, u3, v3_val, v0.1, v2.1, v3.1, texture,
+            &gradients,
         );
     } else {
         // Fallback
@@ -4285,6 +4299,38 @@ fn fill_projected_triangle_textured_gouraud(
         return;
     }
 
+    let q0 = p0.inv_w;
+    let q1 = p1.inv_w;
+    let q2 = p2.inv_w;
+
+    let (gradients, _) =
+        TexturedGouraudGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2);
+
+    fill_projected_triangle_textured_gouraud_with_gradients(
+        fb, zb, p0, p1, p2, u0, v0, u1, v1, u2, v2, c0, c1, c2, texture, &gradients,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+#[inline(always)]
+fn fill_projected_triangle_textured_gouraud_with_gradients(
+    fb: &mut Framebuffer,
+    zb: &mut ZBuffer,
+    p0: ScreenPoint,
+    p1: ScreenPoint,
+    p2: ScreenPoint,
+    u0: f32,
+    v0: f32,
+    u1: f32,
+    v1: f32,
+    u2: f32,
+    v2: f32,
+    c0: Vec3,
+    c1: Vec3,
+    c2: Vec3,
+    texture: &Texture,
+    gradients: &TexturedGouraudGradients,
+) {
     let height = fb.height();
 
     let mut verts = [(p0, u0, v0, c0), (p1, u1, v1, c1), (p2, u2, v2, c2)];
@@ -4309,8 +4355,8 @@ fn fill_projected_triangle_textured_gouraud(
         return;
     }
 
-    let (gradients, long_edge_is_left) =
-        TexturedGouraudGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, c0, c1, c2);
+    let nz = calculate_signed_area_doubled(p0, p1, p2);
+    let long_edge_is_left = nz > 0.0;
 
     let mut edge_a = TexturedGouraudEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, c0, c2);
     if y_start > p0.y {

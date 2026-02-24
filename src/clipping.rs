@@ -238,12 +238,24 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
             return ClippedTriangles::new_uninit();
         }
 
-        if mask_left != 7 { active_planes |= 1; }
-        if mask_right != 7 { active_planes |= 2; }
-        if mask_bottom != 7 { active_planes |= 4; }
-        if mask_top != 7 { active_planes |= 8; }
-        if mask_near != 7 { active_planes |= 16; }
-        if mask_far != 7 { active_planes |= 32; }
+        if mask_left != 7 {
+            active_planes |= 1;
+        }
+        if mask_right != 7 {
+            active_planes |= 2;
+        }
+        if mask_bottom != 7 {
+            active_planes |= 4;
+        }
+        if mask_top != 7 {
+            active_planes |= 8;
+        }
+        if mask_near != 7 {
+            active_planes |= 16;
+        }
+        if mask_far != 7 {
+            active_planes |= 32;
+        }
     }
 
     #[cfg(not(target_arch = "x86_64"))]
@@ -327,12 +339,24 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
         }
 
         // Active Plane Detection
-        if (all_in & 1) == 0 { active_planes |= 1; }
-        if (all_in & 2) == 0 { active_planes |= 2; }
-        if (all_in & 4) == 0 { active_planes |= 4; }
-        if (all_in & 8) == 0 { active_planes |= 8; }
-        if (all_in & 16) == 0 { active_planes |= 16; }
-        if (all_in & 32) == 0 { active_planes |= 32; }
+        if (all_in & 1) == 0 {
+            active_planes |= 1;
+        }
+        if (all_in & 2) == 0 {
+            active_planes |= 2;
+        }
+        if (all_in & 4) == 0 {
+            active_planes |= 4;
+        }
+        if (all_in & 8) == 0 {
+            active_planes |= 8;
+        }
+        if (all_in & 16) == 0 {
+            active_planes |= 16;
+        }
+        if (all_in & 32) == 0 {
+            active_planes |= 32;
+        }
     }
 
     // Double buffering for vertex lists
