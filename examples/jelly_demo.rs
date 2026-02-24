@@ -47,7 +47,7 @@ mod demo {
             v.y += 5.0; // Start high
         }
 
-        let mut jelly = SoftBody::new(mesh, 1.0, 150.0, 2.0);
+        let mut jelly = SoftBody::new(mesh, 1.0, 150.0, 2.0).expect("Failed to create jelly");
 
         // Add internal cross-bracing springs for stability
         let diag_len = (jelly.mesh.vertices[0] - jelly.mesh.vertices[6]).length();

@@ -116,7 +116,7 @@ impl Texture {
     /// use abrash::texture::Texture;
     ///
     /// let texture = Texture::new(256, 256).unwrap();
-    /// assert_eq!(texture.width, 256);
+    /// assert_eq!(texture.width(), 256);
     /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
         if width == 0 || height == 0 {

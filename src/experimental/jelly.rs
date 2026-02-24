@@ -42,11 +42,22 @@ impl SoftBody {
     /// Creates a new `SoftBody` from a Mesh.
     ///
     /// Automatically generates springs from the mesh's unique edges.
-    #[must_use]
-    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Self {
+    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, String> {
         let vertex_count = mesh.vertices.len();
         let velocities = vec![Vec3::default(); vertex_count];
         let forces = vec![Vec3::default(); vertex_count];
+
+        // Validate indices to prevent panics
+        for (tri_idx, tri) in mesh.indices.iter().enumerate() {
+            for &v_idx in tri.iter() {
+                if v_idx >= vertex_count {
+                    return Err(format!(
+                        "Mesh index {} out of bounds (vertex count: {}) at triangle {}",
+                        v_idx, vertex_count, tri_idx
+                    ));
+                }
+            }
+        }
 
         let mut edges = HashSet::new();
         let mut springs = Vec::new();
@@ -76,7 +87,7 @@ impl SoftBody {
             }
         }
 
-        Self {
+        Ok(Self {
             mesh,
             velocities,
             forces,
@@ -85,7 +96,7 @@ impl SoftBody {
             stiffness,
             damping,
             drag: 0.01,
-        }
+        })
     }
 
     /// Applies an external force to a specific vertex.
@@ -260,7 +271,7 @@ mod tests {
         mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
         mesh.indices.push([0, 1, 2]);
 
-        let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5);
+        let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
         // Should have 3 vertices
         assert_eq!(jelly.mesh.vertices.len(), 3);
@@ -274,7 +285,7 @@ mod tests {
         mesh.vertices.push(Vec3::new(0.0, 10.0, 0.0)); // High up
         mesh.indices.push([0, 0, 0]); // Dummy index to keep struct valid, though springs won't form on degenerate triangle
 
-        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5);
+        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
         // Initial Y
         let y0 = jelly.mesh.vertices[0].y;
