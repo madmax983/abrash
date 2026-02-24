@@ -42,9 +42,22 @@ impl SoftBody {
     /// Creates a new `SoftBody` from a Mesh.
     ///
     /// Automatically generates springs from the mesh's unique edges.
-    #[must_use]
-    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Self {
+    /// Returns an error if the mesh indices are invalid.
+    pub fn new(mesh: Mesh, mass: f32, stiffness: f32, damping: f32) -> Result<Self, String> {
         let vertex_count = mesh.vertices.len();
+
+        // Validate indices before doing anything
+        for (i, tri) in mesh.indices.iter().enumerate() {
+            for &idx in tri {
+                if idx >= vertex_count {
+                    return Err(format!(
+                        "Mesh validation failed: Index {} in triangle {} is out of bounds (vertex count: {})",
+                        idx, i, vertex_count
+                    ));
+                }
+            }
+        }
+
         let velocities = vec![Vec3::default(); vertex_count];
         let forces = vec![Vec3::default(); vertex_count];
 
@@ -63,6 +76,7 @@ impl SoftBody {
                 let pair = if a < b { (a, b) } else { (b, a) };
 
                 if edges.insert(pair) {
+                    // Safe because we validated indices above
                     let p_a = mesh.vertices[a];
                     let p_b = mesh.vertices[b];
                     let dist = (p_b - p_a).length();
@@ -76,7 +90,7 @@ impl SoftBody {
             }
         }
 
-        Self {
+        Ok(Self {
             mesh,
             velocities,
             forces,
@@ -85,7 +99,7 @@ impl SoftBody {
             stiffness,
             damping,
             drag: 0.01,
-        }
+        })
     }
 
     /// Applies an external force to a specific vertex.
@@ -215,12 +229,18 @@ impl SoftBody {
     fn recompute_normals(&mut self) {
         // Zero out normals
         let mut new_normals = vec![Vec3::default(); self.mesh.vertices.len()];
+        let v_len = self.mesh.vertices.len();
 
         // Accumulate face normals
         for tri in &self.mesh.indices {
             let i0 = tri[0];
             let i1 = tri[1];
             let i2 = tri[2];
+
+            // Defensive check against external mutation of mesh indices
+            if i0 >= v_len || i1 >= v_len || i2 >= v_len {
+                continue;
+            }
 
             let v0 = self.mesh.vertices[i0];
             let v1 = self.mesh.vertices[i1];
@@ -260,7 +280,7 @@ mod tests {
         mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
         mesh.indices.push([0, 1, 2]);
 
-        let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5);
+        let jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
         // Should have 3 vertices
         assert_eq!(jelly.mesh.vertices.len(), 3);
@@ -274,7 +294,7 @@ mod tests {
         mesh.vertices.push(Vec3::new(0.0, 10.0, 0.0)); // High up
         mesh.indices.push([0, 0, 0]); // Dummy index to keep struct valid, though springs won't form on degenerate triangle
 
-        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5);
+        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
 
         // Initial Y
         let y0 = jelly.mesh.vertices[0].y;
