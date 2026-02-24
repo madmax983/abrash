@@ -1075,6 +1075,215 @@ impl TileRenderer {
         self.tiles_y
     }
 
+    /// Begin a new frame. Clears internal buffers and prepares for triangle submission.
+    ///
+    /// This should be called before submitting any meshes via `submit_mesh`.
+    pub fn begin_frame(&mut self) {
+        self.prepared.clear();
+        self.prepared_textured.clear();
+        for bin in &mut self.tile_bins {
+            bin.clear();
+        }
+    }
+
+    /// Submit a mesh for rendering.
+    ///
+    /// This method iterates over the indices, fetches vertices from the `vertices` buffer,
+    /// and prepares triangles for rasterization (clipping, projection, etc.).
+    ///
+    /// # Arguments
+    ///
+    /// * `indices` - A list of triangle indices (triplets of indices into `vertices`).
+    /// * `vertices` - A buffer of transformed vertices (position + w).
+    /// * `color` - The flat color of the mesh.
+    pub fn submit_mesh(&mut self, indices: &[[usize; 3]], vertices: &[(Vec3, f32)], color: u32) {
+        for &[i0, i1, i2] in indices {
+            // Using direct indexing which panics on out-of-bounds, ensuring safety
+            let v0 = vertices[i0];
+            let v1 = vertices[i1];
+            let v2 = vertices[i2];
+
+            self.prepare_triangle(v0, v1, v2, color);
+        }
+    }
+
+    /// Finish the frame: bin triangles, build Hi-Z, render tiles, and merge to framebuffer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if framebuffer or zbuffer dimensions do not match the renderer configuration.
+    pub fn end_frame(&mut self, fb: &mut Framebuffer, zb: &mut ZBuffer) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height must match TileRenderer height"
+        );
+
+        // Build Hi-Z pyramid from previous frame (temporal coherence)
+        if let Some(ref mut hiz) = self.hiz_buffer {
+            if !hiz.is_valid() {
+                hiz.build_pyramid(zb);
+            }
+        }
+
+        // Currently, TileRenderer handles either flat or textured batches per frame (via tile_bins index reuse).
+        // If 'prepared' is non-empty, we assume flat rendering mode.
+        if !self.prepared.is_empty() {
+            // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
+            #[cfg(feature = "gpu-binning")]
+            if let Some(ref mut gpu) = self.gpu_binner {
+                // GPU binning path - check if two-level binning is enabled
+                if gpu.is_two_level_enabled() {
+                    // Two-level hierarchical binning with Hi-Z culling
+                    match gpu.bin_triangles_two_level(
+                        &self.prepared,
+                        self.hiz_buffer.as_ref(),
+                        &mut self.tile_bins,
+                    ) {
+                        Ok(_stats) => {
+                            // Two-level binning succeeded
+                        }
+                        Err(e) => {
+                            eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
+                            self.bin_triangles_cpu();
+                        }
+                    }
+                } else {
+                    // Single-level GPU binning
+                    if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
+                        eprintln!("GPU binning failed: {e}, falling back to CPU");
+                        self.bin_triangles_cpu();
+                    }
+                }
+            } else {
+                self.bin_triangles_cpu();
+            }
+
+            #[cfg(not(feature = "gpu-binning"))]
+            self.bin_triangles_cpu();
+
+            // Phase 3+4: Render and merge each tile
+            #[cfg(not(feature = "parallel"))]
+            {
+                // Sequential rendering
+                for ty in 0..self.tiles_y {
+                    for tx in 0..self.tiles_x {
+                        if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                            tx,
+                            ty,
+                            &self.tile_bins,
+                            &self.prepared,
+                            self.tiles_x,
+                            self.width,
+                            self.height,
+                            &mut self.tile_pixels,
+                            &mut self.tile_depths,
+                        ) {
+                            Self::merge_tile_direct(
+                                &self.tile_pixels,
+                                &self.tile_depths,
+                                fb,
+                                zb,
+                                tx,
+                                ty,
+                                self.width,
+                                self.height,
+                                clear_y_min,
+                                clear_y_max,
+                            );
+                        }
+                    }
+                }
+            }
+
+            #[cfg(feature = "parallel")]
+            {
+                // Parallel rendering using Rayon
+                use rayon::prelude::*;
+
+                // Collect tile coordinates
+                let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
+                    .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                    .collect();
+
+                // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
+                unsafe {
+                    let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
+                    let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                    let width = self.width;
+                    let height = self.height;
+                    let tiles_x = self.tiles_x;
+                    let tile_bins = &self.tile_bins;
+                    let prepared = &self.prepared;
+
+                    tiles.par_iter().for_each_init(
+                        || {
+                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                        },
+                        |buffers, &(tx, ty)| {
+                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                                tx,
+                                ty,
+                                tile_bins,
+                                prepared,
+                                tiles_x,
+                                width,
+                                height,
+                                tile_pixels,
+                                tile_depths,
+                            ) {
+                                // Merge tile into framebuffer/zbuffer
+                                let tile_x0 = tx * TILE_SIZE;
+                                let tile_y0 = ty * TILE_SIZE;
+                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                let tile_cols = (tile_x_end - tile_x0) as usize;
+
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
+
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+                                    for col in 0..tile_cols {
+                                        fb_ptr
+                                            .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                        zb_ptr
+                                            .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    }
+                                }
+                            }
+                        },
+                    );
+                }
+            }
+        }
+
+        // Invalidate Hi-Z for next frame
+        if let Some(ref mut hiz) = self.hiz_buffer {
+            hiz.invalidate();
+        }
+    }
+
     /// Render a batch of clip-space triangles using the 4-phase tile-based pipeline.
     ///
     /// This method processes all triangles through:
@@ -1128,189 +1337,11 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
-        assert_eq!(
-            fb.width(),
-            self.width,
-            "Framebuffer width must match TileRenderer width"
-        );
-        assert_eq!(
-            fb.height(),
-            self.height,
-            "Framebuffer height must match TileRenderer height"
-        );
-        assert_eq!(
-            zb.width(),
-            self.width,
-            "ZBuffer width must match TileRenderer width"
-        );
-        assert_eq!(
-            zb.height(),
-            self.height,
-            "ZBuffer height must match TileRenderer height"
-        );
-
-        self.prepared.clear();
-        for bin in &mut self.tile_bins {
-            bin.clear();
-        }
-
-        // Phase 1: Prepare
+        self.begin_frame();
         for &(v0, v1, v2, color) in triangles {
             self.prepare_triangle(v0, v1, v2, color);
         }
-
-        // Build Hi-Z pyramid from previous frame (temporal coherence)
-        if let Some(ref mut hiz) = self.hiz_buffer {
-            if !hiz.is_valid() {
-                hiz.build_pyramid(zb);
-            }
-        }
-
-        // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-        #[cfg(feature = "gpu-binning")]
-        if let Some(ref mut gpu) = self.gpu_binner {
-            // GPU binning path - check if two-level binning is enabled
-            if gpu.is_two_level_enabled() {
-                // Two-level hierarchical binning with Hi-Z culling
-                match gpu.bin_triangles_two_level(
-                    &self.prepared,
-                    self.hiz_buffer.as_ref(),
-                    &mut self.tile_bins,
-                ) {
-                    Ok(_stats) => {
-                        // Two-level binning succeeded
-                        // Stats available for debugging/profiling but not used in production
-                    }
-                    Err(e) => {
-                        eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
-                        self.bin_triangles_cpu();
-                    }
-                }
-            } else {
-                // Single-level GPU binning
-                if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
-                    eprintln!("GPU binning failed: {e}, falling back to CPU");
-                    self.bin_triangles_cpu();
-                }
-            }
-        } else {
-            self.bin_triangles_cpu();
-        }
-
-        #[cfg(not(feature = "gpu-binning"))]
-        self.bin_triangles_cpu();
-
-        // Phase 3+4: Render and merge each tile
-        #[cfg(not(feature = "parallel"))]
-        {
-            // Sequential rendering
-            for ty in 0..self.tiles_y {
-                for tx in 0..self.tiles_x {
-                    if let Some((clear_y_min, clear_y_max)) = render_single_tile(
-                        tx,
-                        ty,
-                        &self.tile_bins,
-                        &self.prepared,
-                        self.tiles_x,
-                        self.width,
-                        self.height,
-                        &mut self.tile_pixels,
-                        &mut self.tile_depths,
-                    ) {
-                        Self::merge_tile_direct(
-                            &self.tile_pixels,
-                            &self.tile_depths,
-                            fb,
-                            zb,
-                            tx,
-                            ty,
-                            self.width,
-                            self.height,
-                            clear_y_min,
-                            clear_y_max,
-                        );
-                    }
-                }
-            }
-        }
-
-        #[cfg(feature = "parallel")]
-        {
-            // Parallel rendering using Rayon
-            use rayon::prelude::*;
-
-            // Collect tile coordinates
-            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                .collect();
-
-            // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
-            // Tiles are 32×32 pixels at coordinates (tx*32, ty*32), so no two tiles overlap.
-            // This is safe because:
-            // 1. Each tile computes its own (tile_x0, tile_y0) bounds
-            // 2. merge_tile_direct writes only to pixels within [tile_x0..tile_x1) × [tile_y0..tile_y1)
-            // 3. No two tiles have the same (tx, ty), therefore no two tiles write to the same pixels
-            unsafe {
-                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
-                let width = self.width;
-                let height = self.height;
-                let tiles_x = self.tiles_x;
-                let tile_bins = &self.tile_bins;
-                let prepared = &self.prepared;
-
-                tiles.par_iter().for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, &(tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
-
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
-
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                // SAFETY: fb_start and tile_row_offset are within bounds, and each thread
-                                // writes to non-overlapping regions determined by unique (tx, ty)
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
-                                }
-                            }
-                        }
-                    },
-                );
-            }
-        }
-
-        // Invalidate Hi-Z for next frame
-        if let Some(ref mut hiz) = self.hiz_buffer {
-            hiz.invalidate();
-        }
+        self.end_frame(fb, zb);
     }
 
     /// Render a batch of textured clip-space triangles.
