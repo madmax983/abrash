@@ -1,3 +1,6 @@
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Applies a separable box blur to a floating-point buffer.
 ///
 /// # Arguments
@@ -241,60 +244,84 @@ pub fn box_blur_horizontal(
     let scale = ((1 << 24) + kernel_size / 2) / kernel_size;
     let bias = 1 << 23; // 0.5 in fixed point for rounding
 
-    for y in 0..height {
-        let row_offset = y * width;
-        let src_row = &src[row_offset..row_offset + width];
-        let dst_row = &mut dest[row_offset..row_offset + width];
+    #[cfg(feature = "parallel")]
+    {
+        // Suppress unused variable warning for height if parallel is active
+        let _ = height;
+        dest.par_chunks_mut(width).enumerate().for_each(|(y, dst_row)| {
+            let row_offset = y * width;
+            let src_row = &src[row_offset..row_offset + width];
+            process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
+        });
+    }
 
-        // Initialize accumulator
-        let mut r_acc = 0;
-        let mut g_acc = 0;
-        let mut b_acc = 0;
-
-        // Pre-fill accumulator with left-boundary pixels (clamped to first pixel)
-        // For x < 0, use src_row[0]
-        let first_pixel = src_row[0];
-        let r_first = (first_pixel >> 16) & 0xFF;
-        let g_first = (first_pixel >> 8) & 0xFF;
-        let b_first = first_pixel & 0xFF;
-
-        for _ in 0..=radius {
-            r_acc += r_first;
-            g_acc += g_first;
-            b_acc += b_first;
+    #[cfg(not(feature = "parallel"))]
+    {
+        for y in 0..height {
+            let row_offset = y * width;
+            let src_row = &src[row_offset..row_offset + width];
+            let dst_row = &mut dest[row_offset..row_offset + width];
+            process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
         }
+    }
+}
 
-        // Add initial right side
-        for x in 1..=radius {
-            let p = src_row[x.min(width - 1)];
-            r_acc += (p >> 16) & 0xFF;
-            g_acc += (p >> 8) & 0xFF;
-            b_acc += p & 0xFF;
-        }
+fn process_row_horizontal(
+    src_row: &[u32],
+    dst_row: &mut [u32],
+    width: usize,
+    radius: usize,
+    scale: u64,
+    bias: u64,
+) {
+    // Initialize accumulator
+    let mut r_acc = 0;
+    let mut g_acc = 0;
+    let mut b_acc = 0;
 
-        for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
-            // Write current blurred pixel
-            // Use u64 for multiplication to avoid overflow
-            let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
-            let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
-            let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
-            *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+    // Pre-fill accumulator with left-boundary pixels (clamped to first pixel)
+    // For x < 0, use src_row[0]
+    let first_pixel = src_row[0];
+    let r_first = (first_pixel >> 16) & 0xFF;
+    let g_first = (first_pixel >> 8) & 0xFF;
+    let b_first = first_pixel & 0xFF;
 
-            // Shift window
-            // Remove outgoing pixel (x - radius)
-            let outgoing_idx = (x as isize - radius as isize).max(0) as usize;
-            let p_out = src_row[outgoing_idx];
-            r_acc -= (p_out >> 16) & 0xFF;
-            g_acc -= (p_out >> 8) & 0xFF;
-            b_acc -= p_out & 0xFF;
+    for _ in 0..=radius {
+        r_acc += r_first;
+        g_acc += g_first;
+        b_acc += b_first;
+    }
 
-            // Add incoming pixel (x + radius + 1)
-            let incoming_idx = (x + radius + 1).min(width - 1);
-            let p_in = src_row[incoming_idx];
-            r_acc += (p_in >> 16) & 0xFF;
-            g_acc += (p_in >> 8) & 0xFF;
-            b_acc += p_in & 0xFF;
-        }
+    // Add initial right side
+    for x in 1..=radius {
+        let p = src_row[x.min(width - 1)];
+        r_acc += (p >> 16) & 0xFF;
+        g_acc += (p >> 8) & 0xFF;
+        b_acc += p & 0xFF;
+    }
+
+    for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
+        // Write current blurred pixel
+        // Use u64 for multiplication to avoid overflow
+        let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+        let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+        let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
+        *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+
+        // Shift window
+        // Remove outgoing pixel (x - radius)
+        let outgoing_idx = (x as isize - radius as isize).max(0) as usize;
+        let p_out = src_row[outgoing_idx];
+        r_acc -= (p_out >> 16) & 0xFF;
+        g_acc -= (p_out >> 8) & 0xFF;
+        b_acc -= p_out & 0xFF;
+
+        // Add incoming pixel (x + radius + 1)
+        let incoming_idx = (x + radius + 1).min(width - 1);
+        let p_in = src_row[incoming_idx];
+        r_acc += (p_in >> 16) & 0xFF;
+        g_acc += (p_in >> 8) & 0xFF;
+        b_acc += p_in & 0xFF;
     }
 }
 
