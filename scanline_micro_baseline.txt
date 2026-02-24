@@ -1,0 +1,4 @@
+scanline_micro/large_triangle_1080p
+                        time:   [1.3357 ms 1.3680 ms 1.4040 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
