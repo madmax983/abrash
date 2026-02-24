@@ -15,3 +15,7 @@
 **[SIMD vs Scalar Inconsistency]**
 **Learning:** `_mm_cvttps_epi32` behaves differently than scalar `as i32` for out-of-range floats (wraps to `i32::MIN` vs saturates to `i32::MAX`). This caused massive visual glitches for large coordinates.
 **Action:** Always clamp float inputs to `[i32::MIN as f32, i32::MAX as f32]` before converting to integer in SIMD paths.
+
+**[SIMD Newton-Raphson & Infinity]**
+**Learning:** `_mm_rcp_ps` returns 0 for `Inf`, but the Newton-Raphson refinement `y0 * (2 - x * y0)` produces `0 * (2 - Inf * 0)` -> `0 * (2 - NaN)` -> `NaN` when `x` is `Inf`.
+**Action:** Clamp inputs to a large finite value (e.g., `1e30`) before `_mm_rcp_ps` if `Inf` is a possible input and exact precision isn't required for large values.

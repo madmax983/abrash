@@ -1228,6 +1228,10 @@ pub fn project_triangle_to_screen(
         // Use logical ops for SSE2 compatibility: (w & mask) | (1.0 & ~mask)
         let safe_w = _mm_or_ps(_mm_and_ps(w_vec, mask), _mm_andnot_ps(mask, one));
 
+        // Clamp to avoid Inf * 0 = NaN in Newton-Raphson
+        let max_w = _mm_set1_ps(1e30);
+        let safe_w = _mm_min_ps(safe_w, max_w);
+
         // Use fast approximate reciprocal with one Newton-Raphson iteration
         // This avoids the high-latency, unpipelined division instruction,
         // freeing up the divider unit for subsequent gradient setup.
@@ -1331,6 +1335,10 @@ pub fn project_quad_to_screen(
         let abs_w = _mm_andnot_ps(_mm_set1_ps(-0.0), w_vec);
         let mask = _mm_cmpgt_ps(abs_w, min_val);
         let safe_w = _mm_or_ps(_mm_and_ps(w_vec, mask), _mm_andnot_ps(mask, one));
+
+        // Clamp to avoid Inf * 0 = NaN in Newton-Raphson
+        let max_w = _mm_set1_ps(1e30);
+        let safe_w = _mm_min_ps(safe_w, max_w);
 
         // Fast reciprocal
         let rcp = _mm_rcp_ps(safe_w);
@@ -1566,7 +1574,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_look_at() {
         let eye = Vec3::new(0.0, 0.0, 10.0);
         let target = Vec3::new(0.0, 0.0, 0.0);
@@ -1578,9 +1585,11 @@ mod tests {
         let p = Vec3::new(0.0, 0.0, 0.0);
         let (p_view, _) = view.transform_point(p);
 
-        assert!((p_view.x - 0.0).abs() < 1e-5);
-        assert!((p_view.y - 0.0).abs() < 1e-5);
-        assert!((p_view.z - (-10.0)).abs() < 1e-5);
+        // Relaxed tolerance due to fast_inv_sqrt usage in look_at normalization
+        let epsilon = 1e-3;
+        assert!((p_view.x - 0.0).abs() < epsilon, "X mismatch: {}", p_view.x);
+        assert!((p_view.y - 0.0).abs() < epsilon, "Y mismatch: {}", p_view.y);
+        assert!((p_view.z - (-10.0)).abs() < epsilon, "Z mismatch: {}", p_view.z);
 
         // Point at eye should map to (0, 0, 0)
         let (p_eye, _) = view.transform_point(eye);
@@ -1691,6 +1700,65 @@ mod tests {
         assert_eq!(max.x, 3.0);
         assert_eq!(max.y, 5.0);
         assert_eq!(max.z, -1.0);
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn test_project_to_screen_simd_consistency() {
+        let half_width = 400.0;
+        let half_height = 300.0;
+
+        let test_cases = vec![
+            (Vec3::new(100.0, 100.0, 10.0), 1.0, "Normal"),
+            (Vec3::new(0.0, 0.0, 0.0), 1.0, "Origin"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.0000001, "Small w (epsilon)"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.0, "Zero w"),
+            (Vec3::new(1.0, 1.0, 1.0), -1.0, "Negative w"),
+            (Vec3::new(f32::INFINITY, 0.0, 0.0), 1.0, "Inf X"),
+            (Vec3::new(f32::NAN, 0.0, 0.0), 1.0, "NaN X"),
+            (Vec3::new(1e30, 0.0, 0.0), 1.0, "Large X"),
+            (Vec3::new(-1e30, 0.0, 0.0), 1.0, "Large Negative X"),
+            (Vec3::new(0.0, 0.0, 0.0), f32::INFINITY, "Inf W"),
+        ];
+
+        for (v, w, name) in test_cases {
+            // Scalar
+            let s_scalar = project_to_screen_optimized(v, w, half_width, half_height);
+
+            // SIMD (Triangle)
+            let (s_tri_0, _, _) = project_triangle_to_screen(
+                v, w,
+                v, w,
+                v, w,
+                half_width, half_height
+            );
+
+            // Verify X and Y (allow off-by-one due to float precision + truncation)
+            assert!((i64::from(s_scalar.x) - i64::from(s_tri_0.x)).abs() <= 1, "X mismatch for case {}: {} vs {}", name, s_scalar.x, s_tri_0.x);
+            assert!((i64::from(s_scalar.y) - i64::from(s_tri_0.y)).abs() <= 1, "Y mismatch for case {}: {} vs {}", name, s_scalar.y, s_tri_0.y);
+
+            // Check z and inv_w with some tolerance
+            let z_diff = (s_scalar.z - s_tri_0.z).abs();
+            let inv_w_diff = (s_scalar.inv_w - s_tri_0.inv_w).abs();
+
+            let tolerance = if w.abs() > 1e-4 {
+                0.002 // Approximation error
+            } else {
+                1.0 // Loose tolerance for fallback/singularities
+            };
+
+            if s_scalar.z.is_nan() {
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+            } else {
+                 assert!(z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()), "Z mismatch for {}: {} vs {} (diff: {})", name, s_scalar.z, s_tri_0.z, z_diff);
+            }
+
+            if s_scalar.inv_w.is_nan() {
+                 assert!(s_tri_0.inv_w.is_nan(), "InvW NaN mismatch for case: {}", name);
+            } else {
+                 assert!(inv_w_diff < tolerance || (s_scalar.inv_w.is_infinite() && s_tri_0.inv_w.is_infinite()), "InvW mismatch for {}: {} vs {} (diff: {})", name, s_scalar.inv_w, s_tri_0.inv_w, inv_w_diff);
+            }
+        }
     }
 }
 
