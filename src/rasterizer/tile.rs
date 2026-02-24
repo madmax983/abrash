@@ -81,6 +81,7 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
+use std::ops::{Deref, DerefMut};
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
 ///
@@ -198,6 +199,57 @@ unsafe impl<T> Send for SendPtr<T> {}
 
 #[cfg(feature = "parallel")]
 unsafe impl<T> Sync for SendPtr<T> {}
+
+struct AlignedBuffer<T> {
+    _data: Vec<T>,
+    ptr: *mut T,
+    len: usize,
+}
+
+impl<T: Default + Copy> AlignedBuffer<T> {
+    fn new(len: usize) -> Self {
+        // We want 32-byte alignment.
+        let align_bytes = 32;
+        let elem_size = std::mem::size_of::<T>();
+        // Ensure we allocate enough extra space to align the pointer
+        // Worst case offset is align_bytes - 1. We need ceil((align_bytes)/elem_size) extra elements.
+        let extra_elements = (align_bytes + elem_size - 1) / elem_size;
+
+        let mut data = vec![T::default(); len + extra_elements];
+
+        let start_ptr = data.as_mut_ptr();
+        let start_addr = start_ptr as usize;
+
+        // Calculate offset to next 32-byte boundary
+        let offset_bytes = (align_bytes - (start_addr % align_bytes)) % align_bytes;
+        // Assume elem_size divides align_bytes or at least offset_bytes (true for u32/f32 and align 32)
+        let offset_elements = offset_bytes / elem_size;
+
+        let ptr = unsafe { start_ptr.add(offset_elements) };
+
+        Self {
+            _data: data,
+            ptr,
+            len,
+        }
+    }
+}
+
+impl<T> Deref for AlignedBuffer<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
+impl<T> DerefMut for AlignedBuffer<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
+    }
+}
+
+unsafe impl<T: Send> Send for AlignedBuffer<T> {}
+unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
 pub const TILE_SIZE: u32 = 32;
@@ -1054,9 +1106,9 @@ fn rasterize_scanline_simd(
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
     #[cfg(not(feature = "parallel"))]
-    tile_pixels: Vec<u32>,
+    tile_pixels: AlignedBuffer<u32>,
     #[cfg(not(feature = "parallel"))]
-    tile_depths: Vec<f32>,
+    tile_depths: AlignedBuffer<f32>,
     tiles_x: u32,
     tiles_y: u32,
     width: u32,
@@ -1091,9 +1143,9 @@ impl TileRenderer {
 
         Self {
             #[cfg(not(feature = "parallel"))]
-            tile_pixels: vec![0; tile_area],
+            tile_pixels: AlignedBuffer::new(tile_area),
             #[cfg(not(feature = "parallel"))]
-            tile_depths: vec![0.0; tile_area],
+            tile_depths: AlignedBuffer::new(tile_area),
             tiles_x,
             tiles_y,
             width,
