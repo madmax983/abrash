@@ -15,6 +15,7 @@ struct SsaoContext {
     occlusion_buffer: Vec<f32>,
     scratch_buffer: Vec<f32>,
     acc_buffer: Vec<f32>,
+    precomputed_kernel_buffer: Vec<f32>,
     kernel: [Vec3; KERNEL_SIZE],
     noise: [Vec3; NOISE_SIZE * NOISE_SIZE],
     initialized: bool,
@@ -26,6 +27,7 @@ impl Default for SsaoContext {
             occlusion_buffer: Vec::new(),
             scratch_buffer: Vec::new(),
             acc_buffer: Vec::new(),
+            precomputed_kernel_buffer: Vec::new(),
             kernel: [Vec3::default(); KERNEL_SIZE],
             noise: [Vec3::default(); NOISE_SIZE * NOISE_SIZE],
             initialized: false,
@@ -66,6 +68,7 @@ pub fn apply_ssao(
         if !ctx.initialized {
             ctx.kernel = generate_kernel();
             ctx.noise = generate_noise();
+            ctx.precomputed_kernel_buffer = generate_precomputed_kernels(&ctx.kernel, &ctx.noise);
             ctx.initialized = true;
         }
 
@@ -84,6 +87,7 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
+        let precomputed_kernels = &ctx.precomputed_kernel_buffer;
 
         // Projection parameters
         // Flatten matrix for SIMD
@@ -108,6 +112,7 @@ pub fn apply_ssao(
                         &proj_flat,
                         kernel,
                         noise,
+                        precomputed_kernels,
                         radius,
                         bias,
                         half_width,
@@ -255,6 +260,7 @@ unsafe fn apply_ssao_avx2(
     proj_m: &[f32; 16],
     kernel: &[Vec3],
     noise: &[Vec3],
+    precomputed_kernels: &[f32],
     radius: f32,
     bias: f32,
     half_width: f32,
@@ -267,6 +273,12 @@ unsafe fn apply_ssao_avx2(
         let p11 = _mm256_set1_ps(proj_m[5]);
         let p22 = _mm256_set1_ps(proj_m[10]);
         let p32 = _mm256_set1_ps(proj_m[14]);
+
+        // Precompute inverse constants to replace division with multiplication
+        let inv_p00 = _mm256_set1_ps(1.0 / proj_m[0]);
+        let inv_p11 = _mm256_set1_ps(1.0 / proj_m[5]);
+        let inv_half_w = _mm256_set1_ps(1.0 / half_width);
+        let inv_half_h = _mm256_set1_ps(1.0 / half_height);
 
         let radius_vec = _mm256_set1_ps(radius);
         let bias_vec = _mm256_set1_ps(bias);
@@ -287,7 +299,6 @@ unsafe fn apply_ssao_avx2(
             let mut x = 0;
 
             let noise_y = y % NOISE_SIZE;
-            let noise_y_vec = _mm256_set1_epi32((noise_y * NOISE_SIZE) as i32);
 
             while x + 8 <= width {
                 let depth_ptr = zb_data.as_ptr().add(y_idx + x);
@@ -303,57 +314,45 @@ unsafe fn apply_ssao_avx2(
                 }
 
                 // Reconstruct View Z
+                // z_view = -p32 / (depth_val + p22)
+                // Use rcp for division: z_view ~= -p32 * rcp(depth_val + p22)
                 let denom = _mm256_add_ps(depth_val, p22);
-                let z_view = _mm256_div_ps(_mm256_sub_ps(zero, p32), denom);
+                let rcp_denom = _mm256_rcp_ps(denom);
+                // Optional Newton-Raphson step for better precision: x1 = x0 * (2 - d * x0)
+                // let rcp_denom = _mm256_mul_ps(rcp_denom, _mm256_sub_ps(_mm256_set1_ps(2.0), _mm256_mul_ps(denom, rcp_denom)));
+
+                let z_view = _mm256_mul_ps(_mm256_sub_ps(zero, p32), rcp_denom);
 
                 // Reconstruct X, Y View
                 let x_offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
                 let x_base = _mm256_set1_ps(x as f32);
                 let x_vals = _mm256_add_ps(x_base, x_offsets);
 
-                let x_ndc = _mm256_sub_ps(_mm256_div_ps(x_vals, half_w_vec), one);
-                let y_ndc = _mm256_sub_ps(one, _mm256_div_ps(_mm256_set1_ps(y as f32), half_h_vec));
+                // x_ndc = (x / half_width) - 1.0 = x * inv_half_w - 1.0
+                let x_ndc = _mm256_sub_ps(_mm256_mul_ps(x_vals, inv_half_w), one);
+                // y_ndc = 1.0 - (y / half_height) = 1.0 - y * inv_half_h
+                let y_ndc = _mm256_sub_ps(one, _mm256_mul_ps(_mm256_set1_ps(y as f32), inv_half_h));
 
                 let neg_z_view = _mm256_sub_ps(zero, z_view);
-                let x_view = _mm256_div_ps(_mm256_mul_ps(x_ndc, neg_z_view), p00);
-                let y_view = _mm256_div_ps(_mm256_mul_ps(y_ndc, neg_z_view), p11);
+
+                // x_view = x_ndc * (-z_view) / p00 = x_ndc * (-z_view) * inv_p00
+                let x_view = _mm256_mul_ps(_mm256_mul_ps(x_ndc, neg_z_view), inv_p00);
+                // y_view = y_ndc * (-z_view) / p11 = y_ndc * (-z_view) * inv_p11
+                let y_view = _mm256_mul_ps(_mm256_mul_ps(y_ndc, neg_z_view), inv_p11);
 
                 let mut occlusion = _mm256_setzero_ps();
 
-                // Gather Noise
-                let x_i = _mm256_set_epi32(
-                    x as i32 + 7,
-                    x as i32 + 6,
-                    x as i32 + 5,
-                    x as i32 + 4,
-                    x as i32 + 3,
-                    x as i32 + 2,
-                    x as i32 + 1,
-                    x as i32,
-                );
-                let noise_mask = _mm256_set1_epi32(3);
-                let noise_x = _mm256_and_si256(x_i, noise_mask);
-                let noise_idx = _mm256_add_epi32(noise_y_vec, noise_x);
-
-                let idx_3 = _mm256_mullo_epi32(noise_idx, _mm256_set1_epi32(3)); // stride 3 floats (12 bytes)
-                let noise_ptr = noise.as_ptr() as *const f32;
-                // Gather X and Y components of noise
-                let rx = _mm256_i32gather_ps(noise_ptr, idx_3, 4);
-                let ry = _mm256_i32gather_ps(
-                    noise_ptr,
-                    _mm256_add_epi32(idx_3, _mm256_set1_epi32(1)),
-                    4,
-                );
-
                 for k in 0..KERNEL_SIZE {
                     let s = kernel[k];
-                    let sx = _mm256_set1_ps(s.x);
-                    let sy = _mm256_set1_ps(s.y);
                     let sz = _mm256_set1_ps(s.z);
 
-                    // Rotate sample
-                    let rot_x = _mm256_sub_ps(_mm256_mul_ps(sx, rx), _mm256_mul_ps(sy, ry));
-                    let rot_y = _mm256_add_ps(_mm256_mul_ps(sx, ry), _mm256_mul_ps(sy, rx));
+                    // Load precomputed rotated X/Y
+                    // index = (noise_y * KERNEL_SIZE + k) * 16
+                    let kernel_offset = (noise_y * KERNEL_SIZE + k) * 16;
+                    let ptr = precomputed_kernels.as_ptr().add(kernel_offset);
+
+                    let rot_x = _mm256_loadu_ps(ptr);
+                    let rot_y = _mm256_loadu_ps(ptr.add(8));
                     let rot_z = sz;
 
                     let samp_x = _mm256_fmadd_ps(rot_x, radius_vec, x_view);
@@ -366,7 +365,9 @@ unsafe fn apply_ssao_avx2(
                     let clip_w = _mm256_sub_ps(zero, samp_z);
 
                     let mask_w = _mm256_cmp_ps(clip_w, zero, _CMP_GT_OQ);
-                    let inv_w = _mm256_div_ps(one, clip_w);
+
+                    // inv_w = 1.0 / clip_w. Use approximate reciprocal.
+                    let inv_w = _mm256_rcp_ps(clip_w);
 
                     let ndc_x = _mm256_mul_ps(clip_x, inv_w);
                     let ndc_y = _mm256_mul_ps(clip_y, inv_w);
@@ -400,7 +401,8 @@ unsafe fn apply_ssao_avx2(
                     );
 
                     let existing_z_denom = _mm256_add_ps(existing_depth, p22);
-                    let existing_view_z = _mm256_div_ps(_mm256_sub_ps(zero, p32), existing_z_denom);
+                    // Use rcp for existing_view_z calculation as well
+                    let existing_view_z = _mm256_mul_ps(_mm256_sub_ps(zero, p32), _mm256_rcp_ps(existing_z_denom));
 
                     // Range check
                     let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
@@ -545,6 +547,51 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     noise
 }
 
+fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
+    // Layout: [noise_y (0..NOISE_SIZE)][kernel_idx (0..KERNEL_SIZE)][component (x, y)][simd_lane (0..8)]
+    // Flat: NOISE_SIZE * KERNEL_SIZE * 2 * 8
+    let mut buffer = vec![0.0; NOISE_SIZE * KERNEL_SIZE * 2 * 8];
+
+    for ny in 0..NOISE_SIZE {
+        for k in 0..KERNEL_SIZE {
+            let s = kernel[k];
+
+            // For each of the 8 SIMD lanes, we have a different x => different noise_x
+            // Lane i corresponds to pixel x_base + i.
+            // noise_x = (x_base + i) % NOISE_SIZE.
+            // Since we process aligned to 8, the pattern of (x % 4) is:
+            // 0, 1, 2, 3, 0, 1, 2, 3.
+
+            let mut rot_xs = [0.0; 8];
+            let mut rot_ys = [0.0; 8];
+
+            for i in 0..8 {
+                let nx = i % NOISE_SIZE;
+                let noise_idx = ny * NOISE_SIZE + nx;
+                let random_vec = noise[noise_idx];
+
+                let rx = random_vec.x;
+                let ry = random_vec.y;
+
+                // Rotate sample around Z axis
+                // x' = x*rx - y*ry
+                // y' = x*ry + y*rx
+                rot_xs[i] = s.x * rx - s.y * ry;
+                rot_ys[i] = s.x * ry + s.y * rx;
+            }
+
+            // Store in buffer
+            // 16 floats per kernel (8 for X, 8 for Y)
+            let base_idx = (ny * KERNEL_SIZE + k) * 16;
+            for i in 0..8 {
+                buffer[base_idx + i] = rot_xs[i];       // X component
+                buffer[base_idx + 8 + i] = rot_ys[i];   // Y component
+            }
+        }
+    }
+    buffer
+}
+
 /// Simple Linear Congruential Generator for deterministic randomness.
 fn rand_f32(seed: &mut u32) -> f32 {
     *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -553,4 +600,91 @@ fn rand_f32(seed: &mut u32) -> f32 {
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+    use crate::math::Mat4;
+    use crate::zbuffer::ZBuffer;
+    use std::f32::consts::PI;
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_ssao_simd_vs_scalar() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let width = 64;
+        let height = 64;
+        let mut zb = ZBuffer::new(width, height).unwrap();
+        let proj = Mat4::perspective(PI / 2.0, 1.0, 0.1, 100.0);
+
+        // Fill Z buffer with some data (gradient)
+        for y in 0..height {
+            for x in 0..width {
+                let depth = 0.5 + (x as f32 / width as f32) * 0.4;
+                zb.test_and_set(x as i32, y as i32, depth);
+            }
+        }
+
+        let mut occ_scalar = vec![0.0; (width * height) as usize];
+        let mut occ_simd = vec![0.0; (width * height) as usize];
+
+        let kernel = generate_kernel();
+        let noise = generate_noise();
+        let precomputed = generate_precomputed_kernels(&kernel, &noise);
+
+        // Projection parameters
+        let mut proj_flat = [0.0; 16];
+        for i in 0..4 {
+            for j in 0..4 {
+                proj_flat[i * 4 + j] = proj.m[i][j];
+            }
+        }
+
+        apply_ssao_scalar(
+            &mut occ_scalar,
+            &zb,
+            &proj,
+            &kernel,
+            &noise,
+            width as usize,
+            height as usize,
+            1.0,
+            0.001,
+        );
+
+        unsafe {
+            apply_ssao_avx2(
+                &mut occ_simd,
+                &zb,
+                width as usize,
+                height as usize,
+                &proj_flat,
+                &kernel,
+                &noise,
+                &precomputed,
+                1.0,
+                0.001,
+                width as f32 * 0.5,
+                height as f32 * 0.5,
+            );
+        }
+
+        // Compare
+        let mut max_diff = 0.0f32;
+        for i in 0..occ_scalar.len() {
+            let diff = (occ_scalar[i] - occ_simd[i]).abs();
+            if diff > max_diff {
+                max_diff = diff;
+            }
+        }
+
+        println!("Max difference between scalar and SIMD SSAO: {}", max_diff);
+        // Allow some difference due to floating point precision and rcp approximation
+        assert!(max_diff < 1e-4, "SSAO output mismatch too large: {}", max_diff);
+    }
 }
