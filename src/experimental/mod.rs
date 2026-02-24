@@ -1,12 +1,4 @@
 pub mod arboretum;
 pub mod cloth;
-pub mod dither;
-pub mod glitch;
-pub mod isosurface;
 pub mod jelly;
-pub mod procedural_mesh;
 pub mod sdf;
-pub mod ssao;
-pub mod volume;
-pub mod voxel_explosion;
-pub mod voxelizer;

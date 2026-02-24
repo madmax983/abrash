@@ -370,7 +370,7 @@ impl Vec3 {
     /// Returns a new vector containing the minimum value for each component.
     #[must_use]
     #[inline]
-    pub fn min(&self, other: Self) -> Self {
+    pub const fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
             y: self.y.min(other.y),
@@ -381,7 +381,7 @@ impl Vec3 {
     /// Returns a new vector containing the maximum value for each component.
     #[must_use]
     #[inline]
-    pub fn max(&self, other: Self) -> Self {
+    pub const fn max(&self, other: Self) -> Self {
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -815,9 +815,9 @@ impl Mat4 {
             assert_eq!(std::mem::align_of::<(Vec3, f32)>(), 4, "Layout mismatch: (Vec3, f32) align != 4");
             // Verify offsets
             let dummy: (Vec3, f32) = (Vec3::new(0.0, 0.0, 0.0), 0.0);
-            let base = &dummy as *const _ as usize;
-            let x_ptr = &dummy.0.x as *const _ as usize;
-            let w_ptr = &dummy.1 as *const _ as usize;
+            let base = std::ptr::addr_of!(dummy) as usize;
+            let x_ptr = std::ptr::addr_of!(dummy.0.x) as usize;
+            let w_ptr = std::ptr::addr_of!(dummy.1) as usize;
             assert_eq!(x_ptr - base, 0, "Offset of Vec3.x must be 0");
             assert_eq!(w_ptr - base, 12, "Offset of f32 must be 12");
         }
@@ -1203,7 +1203,7 @@ pub fn project_triangle_to_screen(
     half_height: f32,
 ) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm_set_ps, _mm_set1_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_or_ps, _mm_and_ps, _mm_min_ps, _mm_rcp_ps, _mm_mul_ps, _mm_sub_ps, _mm_add_ps, _mm_max_ps, _mm_cvttps_epi32, _mm_storeu_si128, __m128i, _mm_storeu_ps};
 
         // Load data into SIMD registers
         // Layout: [v2, v1, v0, pad]
@@ -1272,8 +1272,8 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1319,7 +1319,7 @@ pub fn project_quad_to_screen(
     half_height: f32,
 ) -> (ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm_set_ps, _mm_set1_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_or_ps, _mm_and_ps, _mm_min_ps, _mm_rcp_ps, _mm_mul_ps, _mm_sub_ps, _mm_add_ps, _mm_max_ps, _mm_cvttps_epi32, _mm_storeu_si128, __m128i, _mm_storeu_ps};
 
         // Load data into SIMD registers
         // Layout: [v3, v2, v1, v0]
@@ -1369,8 +1369,8 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

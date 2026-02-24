@@ -162,6 +162,7 @@ pub fn apply_ssao(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_ssao_scalar(
     occlusion_buffer: &mut [f32],
     zb: &ZBuffer,
@@ -511,7 +512,7 @@ unsafe fn apply_ssao_avx2(
 /// Generates a deterministic pseudo-random kernel for SSAO sampling.
 fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
     let mut kernel = [Vec3::default(); KERNEL_SIZE];
-    let mut seed = 123456789;
+    let mut seed = 123_456_789;
 
     for (i, v) in kernel.iter_mut().enumerate() {
         let r1 = rand_f32(&mut seed) * 2.0 - 1.0; // x: -1..1
@@ -534,7 +535,7 @@ fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
 /// Generates a noise texture for kernel rotation.
 fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     let mut noise = [Vec3::default(); NOISE_SIZE * NOISE_SIZE];
-    let mut seed = 987654321;
+    let mut seed = 987_654_321;
 
     for v in &mut noise {
         let x = rand_f32(&mut seed) * 2.0 - 1.0;
@@ -547,8 +548,8 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
 
 /// Simple Linear Congruential Generator for deterministic randomness.
 fn rand_f32(seed: &mut u32) -> f32 {
-    *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-    (*seed >> 9) as f32 / 8388607.0
+    *seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+    (*seed >> 9) as f32 / 8_388_607.0
 }
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {

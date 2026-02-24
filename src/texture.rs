@@ -195,6 +195,7 @@ impl Texture {
     /// # Panics
     ///
     /// Panics if internal logic fails to retrieve previous mip level.
+    #[allow(clippy::doc_markdown)]
     pub fn generate_mipmaps(&mut self) {
         let mut width = self.width;
         let mut height = self.height;

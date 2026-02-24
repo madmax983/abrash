@@ -53,7 +53,8 @@ pub struct AABB {
 
 impl AABB {
     /// Create a new AABB from min and max points.
-    pub fn new(min: Vec3, max: Vec3) -> Self {
+    #[must_use]
+    pub const fn new(min: Vec3, max: Vec3) -> Self {
         Self {
             min,
             pad0: 0.0,
@@ -63,6 +64,7 @@ impl AABB {
     }
 
     /// Calculate AABB from a list of points.
+    #[must_use]
     pub fn from_points(points: &[Vec3]) -> Self {
         if points.is_empty() {
             return Self {
@@ -107,11 +109,13 @@ impl AABB {
     }
 
     /// Get the center of the AABB.
+    #[must_use]
     pub fn center(&self) -> Vec3 {
         (self.min + self.max) * 0.5
     }
 
     /// Get the extents (half-size) of the AABB.
+    #[must_use]
     pub fn extents(&self) -> Vec3 {
         (self.max - self.min) * 0.5
     }

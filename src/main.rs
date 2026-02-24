@@ -37,7 +37,7 @@ enum DemoCategory {
 }
 
 impl DemoCategory {
-    const fn icon(&self) -> char {
+    const fn icon(self) -> char {
         match self {
             Self::Cpu3D => '🧊',
             Self::Gpu3D => '🚀',
@@ -401,8 +401,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
             .add_attribute(comfy_table::Attribute::Bold)
             .fg(ComfyColor::Cyan)])
         .add_row(vec![ComfyCell::new(format!(
-            "Preparing to launch '{}'...",
-            name
+            "Preparing to launch '{name}'..."
         ))]);
     println!("\n{table}");
 
@@ -443,7 +442,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
             .set_header(vec![ComfyCell::new("❌ Demo Crashed")
                 .add_attribute(comfy_table::Attribute::Bold)
                 .fg(ComfyColor::Red)])
-            .add_row(vec![ComfyCell::new(format!("Exit Status: {}", status))
+            .add_row(vec![ComfyCell::new(format!("Exit Status: {status}"))
                 .fg(ComfyColor::Yellow)]);
 
         println!("\n{error_table}");
