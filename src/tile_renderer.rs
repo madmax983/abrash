@@ -72,6 +72,13 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
+use crate::rasterizer::texture::{
+    draw_span_bilinear, draw_span_nearest, draw_span_trilinear,
+};
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+use crate::rasterizer::texture::{
+    draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd,
+};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
@@ -688,53 +695,110 @@ fn rasterize_scanline_textured(
         let du_tex_step = (u_tex_end - u_tex_start) * inv_count;
         let dv_tex_step = (v_tex_end - v_tex_start) * inv_count;
 
+        let pixels_slice = &mut pixels[i..i + count];
+        let depths_slice = &mut depths[i..i + count];
+
         match texture.filter_mode {
             FilterMode::Nearest => {
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let u_fix = (u_tex_start * 65536.0) as i32;
+                let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-                for k in 0..count {
-                    let depth_val = unsafe { depths.get_unchecked_mut(i + k) };
-                    let pixel = unsafe { pixels.get_unchecked_mut(i + k) };
-
-                    if z < *depth_val {
-                        *depth_val = z;
-                        *pixel = texture.get_pixel_texel(u_fix >> 16, v_fix >> 16);
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_nearest_simd(
+                            pixels_slice,
+                            depths_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                        );
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    draw_span_nearest(
+                        pixels_slice,
+                        depths_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
                 }
+
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+                draw_span_nearest(
+                    pixels_slice,
+                    depths_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                );
             }
             FilterMode::Bilinear => {
-                // Fixed point optimization for Bilinear
-                // Optimization: Subtract 0.5 (128 units in 24.8, 32768 in 16.16) upfront
-                let mut u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
-                let mut v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let u_fix = ((u_tex_start * 65536.0) as i32).wrapping_sub(32768);
+                let v_fix = ((v_tex_start * 65536.0) as i32).wrapping_sub(32768);
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-                for k in 0..count {
-                    let depth_val = unsafe { depths.get_unchecked_mut(i + k) };
-                    let pixel = unsafe { pixels.get_unchecked_mut(i + k) };
-
-                    if z < *depth_val {
-                        *depth_val = z;
-                        *pixel = texture.get_pixel_bilinear_fixed_no_offset(u_fix >> 8, v_fix >> 8);
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_bilinear_simd(
+                            pixels_slice,
+                            depths_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                        );
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    draw_span_bilinear(
+                        pixels_slice,
+                        depths_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                    );
                 }
+
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+                draw_span_bilinear(
+                    pixels_slice,
+                    depths_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                );
             }
             FilterMode::Trilinear => {
-                // Calculate LOD once per span (approximation)
                 let w = w_start; // 1/q
                 let w_sq = w * w;
 
-                // Derivatives of u_tex w.r.t screen X/Y
                 let du_tex_dx = (gradients.du_dx * q - u * gradients.dq_dx) * w_sq;
                 let dv_tex_dx = (gradients.dv_dx * q - v * gradients.dq_dx) * w_sq;
                 let du_tex_dy = (gradients.du_dy * q - u * gradients.dq_dy) * w_sq;
@@ -745,31 +809,63 @@ fn rasterize_scanline_textured(
 
                 let lod = 0.5 * max_rho_sq.log2();
 
-                let mut u_fix = (u_tex_start * 65536.0) as i32;
-                let mut v_fix = (v_tex_start * 65536.0) as i32;
+                let u_fix = (u_tex_start * 65536.0) as i32;
+                let v_fix = (v_tex_start * 65536.0) as i32;
                 let du_fix = (du_tex_step * 65536.0) as i32;
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
-                for k in 0..count {
-                    let depth_val = unsafe { depths.get_unchecked_mut(i + k) };
-                    let pixel = unsafe { pixels.get_unchecked_mut(i + k) };
-
-                    if z < *depth_val {
-                        *depth_val = z;
-                        let u_float = (u_fix as f32) / 65536.0;
-                        let v_float = (v_fix as f32) / 65536.0;
-                        *pixel = texture.get_pixel_trilinear(u_float, v_float, lod);
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+                if is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_span_trilinear_simd(
+                            pixels_slice,
+                            depths_slice,
+                            texture,
+                            z,
+                            gradients.dz_dx,
+                            u_fix,
+                            v_fix,
+                            du_fix,
+                            dv_fix,
+                            lod,
+                        );
                     }
-                    z += gradients.dz_dx;
-                    u_fix = u_fix.wrapping_add(du_fix);
-                    v_fix = v_fix.wrapping_add(dv_fix);
+                } else {
+                    draw_span_trilinear(
+                        pixels_slice,
+                        depths_slice,
+                        texture,
+                        z,
+                        gradients.dz_dx,
+                        u_fix,
+                        v_fix,
+                        du_fix,
+                        dv_fix,
+                        lod,
+                    );
                 }
+
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+                draw_span_trilinear(
+                    pixels_slice,
+                    depths_slice,
+                    texture,
+                    z,
+                    gradients.dz_dx,
+                    u_fix,
+                    v_fix,
+                    du_fix,
+                    dv_fix,
+                    lod,
+                );
             }
         }
 
+        z += gradients.dz_dx * count as f32;
         q = q_end;
         u = u_end;
         v = v_end;
+
         u_tex_start = u_tex_end;
         v_tex_start = v_tex_end;
         i += count;
@@ -786,11 +882,56 @@ fn rasterize_scanline_scalar(
     color: u32,
 ) {
     let mut z = z_start;
+    let len = pixels.len();
+    let mut i = 0;
 
-    for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
-        if z < *depth {
-            *depth = z;
-            *pixel = color;
+    // Unroll loop 4x for better pipeline utilization
+    while i + 4 <= len {
+        // SAFETY: Bounds checked by loop condition
+        unsafe {
+            // Pixel 0
+            let d0 = depths.get_unchecked_mut(i);
+            if z < *d0 {
+                *d0 = z;
+                *pixels.get_unchecked_mut(i) = color;
+            }
+            z += dz_dx;
+
+            // Pixel 1
+            let d1 = depths.get_unchecked_mut(i + 1);
+            if z < *d1 {
+                *d1 = z;
+                *pixels.get_unchecked_mut(i + 1) = color;
+            }
+            z += dz_dx;
+
+            // Pixel 2
+            let d2 = depths.get_unchecked_mut(i + 2);
+            if z < *d2 {
+                *d2 = z;
+                *pixels.get_unchecked_mut(i + 2) = color;
+            }
+            z += dz_dx;
+
+            // Pixel 3
+            let d3 = depths.get_unchecked_mut(i + 3);
+            if z < *d3 {
+                *d3 = z;
+                *pixels.get_unchecked_mut(i + 3) = color;
+            }
+            z += dz_dx;
+        }
+        i += 4;
+    }
+
+    // Handle remaining pixels
+    for k in i..len {
+        unsafe {
+            let d = depths.get_unchecked_mut(k);
+            if z < *d {
+                *d = z;
+                *pixels.get_unchecked_mut(k) = color;
+            }
         }
         z += dz_dx;
     }

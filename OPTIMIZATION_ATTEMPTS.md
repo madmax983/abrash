@@ -64,3 +64,44 @@ This function consumes ~25% of the frame time in `object_culling` benchmark.
 - Since memory bandwidth is the bottleneck for clearing large buffers, manual AVX2 stores do not provide additional throughput over what the compiler/std lib achieves.
 
 **Conclusion**: Reverted changes. Using `slice::fill` is optimal and safer.
+
+## 4. Barycentric Rasterization (Tile Renderer)
+
+**Goal**: Replace scanline rasterization in `TileRenderer` with a SIMD-optimized Barycentric rasterizer.
+Barycentric rasterization is inherently SIMD-friendly as it evaluates edge functions in parallel.
+
+**Implementation**:
+- Implemented `render_triangle_in_tile_barycentric_simd` using AVX2.
+- Used `_mm256_mullo_epi32` for edge function updates and `_mm256_blendv_ps` for masked depth writes.
+- Integrated into `render_single_tile`.
+
+**Result**: **Regression (2x slower)**
+- Baseline (Scanline): ~14.0 ms (1080p, 100 triangles)
+- SIMD Barycentric: ~29.6 ms
+
+**Analysis**:
+- Barycentric iteration covers the bounding box of the triangle within the tile. For diagonal triangles, this results in significant "overdraw" (processing pixels outside the triangle) compared to scanline which visits exact spans.
+- The overhead of SIMD setup, masking, and managing the loop state for 32x32 tiles outweighed the benefit of vectorized edge checks, especially since the scalar scanline loop (`z += dz_dx`) is incredibly cheap (1 add per pixel).
+- Confirms findings in `SIMD_PROFILING_ANALYSIS.md` that small working sets are hard to optimize with SIMD.
+
+**Conclusion**: Reverted to Scanline Rasterizer.
+
+## 5. SIMD Textured Scanline (Integration in TileRenderer)
+
+**Goal**: Reuse optimized SIMD span drawers from `rasterizer/texture.rs` in `TileRenderer`.
+Previously, `TileRenderer` used a custom scalar loop for textured rendering.
+
+**Implementation**:
+- Exported `draw_span_{nearest, bilinear, trilinear}_simd` from `src/rasterizer/texture.rs` as `pub(crate)`.
+- Updated `TileRenderer::rasterize_scanline_textured` to dispatch to these SIMD functions when AVX2 is available.
+
+**Result**: **Improvement (~5.7% faster)**
+- Baseline (Scalar): ~24.3 ms (1080p, 100 textured triangles)
+- SIMD Integration: ~22.9 ms
+
+**Analysis**:
+- Unlike flat shading, texture mapping involves expensive memory access and filtering arithmetic.
+- The SIMD implementation in `texture.rs` uses gather instructions and vectorized filtering which provides a net benefit despite setup overhead, likely because the arithmetic intensity is higher.
+- Reusing existing optimized code reduces duplication and maintenance burden.
+
+**Conclusion**: Applied changes. `TileRenderer` now benefits from AVX2 texture rendering.
