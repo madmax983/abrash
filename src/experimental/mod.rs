@@ -10,3 +10,4 @@ pub mod ssao;
 pub mod volume;
 pub mod voxel_explosion;
 pub mod voxelizer;
+pub mod raytracer;
