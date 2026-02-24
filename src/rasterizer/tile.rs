@@ -100,84 +100,6 @@ use crate::zbuffer::ZBuffer;
 /// # Format
 ///
 /// - Fixed-point scale factor: 256 (2^8)
-/// - Conversion: `fixed = (float * 256.0) as i32`
-/// - Sub-pixel precision: 1/256th of a pixel (~0.004 pixels)
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct VertexFixed {
-    pub x: i32, // 24.8 fixed point
-    pub y: i32, // 24.8 fixed point
-    pub z: i32, // 24.8 fixed-point depth
-}
-
-impl VertexFixed {
-    /// Convert a `ScreenPoint` to fixed-point coordinates.
-    ///
-    /// # Format
-    ///
-    /// The integer screen coordinates are shifted left by 8 bits to create the
-    /// 24.8 fixed-point representation. For example:
-    /// - Screen coordinate 100 → Fixed-point 25600 (100 << 8)
-    /// - Screen coordinate 50.5 → Not applicable (`ScreenPoint` uses i32)
-    #[inline]
-    fn from_screen_point(p: ScreenPoint) -> Self {
-        Self {
-            x: p.x << 8, // Convert to 24.8 fixed point
-            y: p.y << 8,
-            z: (p.z * 256.0) as i32, // Convert depth to 24.8 fixed point
-        }
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    #[cfg(test)]
-    const fn to_pixel_x(self) -> i32 {
-        self.x >> 8
-    }
-
-    /// Extract the integer pixel coordinate (discard fractional part).
-    #[inline]
-    #[cfg(test)]
-    const fn to_pixel_y(self) -> i32 {
-        self.y >> 8
-    }
-}
-
-/// Compute fixed-point edge function for triangle rasterization.
-///
-/// The edge function computes the signed area of the parallelogram formed by
-/// vectors (p - v0) and (v1 - v0). It's used to determine if a point is inside
-/// a triangle.
-///
-/// # Returns
-///
-/// - Positive if point p is on the "right" side of edge v0→v1
-/// - Negative if point p is on the "left" side
-/// - Zero if point p is exactly on the edge
-///
-/// # Format
-///
-/// Input coordinates are in 24.8 fixed-point. The result is in 16.16 fixed-point
-/// due to the multiplication of two 24.8 values:
-/// - (24.8) * (24.8) = (48.16) → truncated to i32 preserves upper 32 bits
-///
-/// This is intentional - we only care about the sign for edge testing, not the
-/// exact magnitude.
-#[inline(always)]
-#[cfg(test)]
-const fn edge_function_fixed(px: i32, py: i32, v0: VertexFixed, v1: VertexFixed) -> i32 {
-    // Edge function: (p.x - v0.x) * (v1.y - v0.y) - (p.y - v0.y) * (v1.x - v0.x)
-    // All coordinates are 24.8 fixed point
-    let dx = px - v0.x;
-    let dy = py - v0.y;
-    let edge_dx = v1.x - v0.x;
-    let edge_dy = v1.y - v0.y;
-
-    // Multiply: (24.8) * (24.8) = (48.16)
-    // The i32 result keeps the upper 32 bits, giving us 16.16 fixed point
-    // This is fine for edge testing - we only care about the sign
-    (dx as i64 * edge_dy as i64 - dy as i64 * edge_dx as i64) as i32
-}
-
 #[cfg(feature = "parallel")]
 /// Wrapper for raw pointers to enable thread-safe parallel writes to non-overlapping regions.
 ///
@@ -218,10 +140,6 @@ pub struct PreparedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    // Fixed-point vertices for deterministic edge function evaluation
-    pub p0_fixed: VertexFixed,
-    pub p1_fixed: VertexFixed,
-    pub p2_fixed: VertexFixed,
     pub dz_dx: f32,
     pub long_edge_is_left: bool,
     pub color: u32,
@@ -239,9 +157,6 @@ pub struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    pub p0_fixed: VertexFixed,
-    pub p1_fixed: VertexFixed,
-    pub p2_fixed: VertexFixed,
     pub q0: f32,
     pub q1: f32,
     pub q2: f32,
@@ -1734,17 +1649,10 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            let p0_fixed = VertexFixed::from_screen_point(p0);
-            let p1_fixed = VertexFixed::from_screen_point(p1);
-            let p2_fixed = VertexFixed::from_screen_point(p2);
-
             self.prepared_textured.push(PreparedTexturedTriangle {
                 p0,
                 p1,
                 p2,
-                p0_fixed,
-                p1_fixed,
-                p2_fixed,
                 q0,
                 q1,
                 q2,
@@ -1865,18 +1773,10 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            // Convert to fixed-point for deterministic edge functions
-            let p0_fixed = VertexFixed::from_screen_point(p0);
-            let p1_fixed = VertexFixed::from_screen_point(p1);
-            let p2_fixed = VertexFixed::from_screen_point(p2);
-
             self.prepared.push(PreparedTriangle {
                 p0,
                 p1,
                 p2,
-                p0_fixed,
-                p1_fixed,
-                p2_fixed,
                 dz_dx,
                 long_edge_is_left,
                 color,
@@ -2860,125 +2760,6 @@ mod tests {
 
         // 4K with 101 triangles: should use scanline (> 100)
         assert!(!should_use_tiled_rendering(3840, 2160, 101));
-    }
-
-    // --- Fixed-point arithmetic tests ---
-
-    #[test]
-    fn vertex_fixed_conversion() {
-        // Test conversion from ScreenPoint to VertexFixed
-        let p = ScreenPoint {
-            x: 100,
-            y: 200,
-            z: 5.0,
-            inv_w: 1.0,
-        };
-
-        let fixed = VertexFixed::from_screen_point(p);
-
-        // 24.8 fixed point: value << 8
-        assert_eq!(fixed.x, 100 << 8); // 25600
-        assert_eq!(fixed.y, 200 << 8); // 51200
-        assert_eq!(fixed.z, (5.0 * 256.0) as i32); // 24.8 fixed point
-
-        // Test conversion back to pixel coordinates
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-    }
-
-    #[test]
-    fn vertex_fixed_subpixel_precision() {
-        // Test that 24.8 format supports sub-pixel precision
-        let fixed = VertexFixed {
-            x: (100 << 8) + 128, // 100.5 in 24.8 format (128 = 256/2)
-            y: (200 << 8) + 64,  // 200.25 in 24.8 format (64 = 256/4)
-            z: 256,              // 1.0 in 24.8 fixed-point
-        };
-
-        // Integer part should round down
-        assert_eq!(fixed.to_pixel_x(), 100);
-        assert_eq!(fixed.to_pixel_y(), 200);
-
-        // Verify the fractional parts are preserved
-        assert_eq!(fixed.x & 0xFF, 128); // 0.5 * 256 = 128
-        assert_eq!(fixed.y & 0xFF, 64); // 0.25 * 256 = 64
-    }
-
-    #[test]
-    fn edge_function_fixed_correctness() {
-        // Create a simple CCW triangle with vertices at (0, 0), (100, 0), (50, 100)
-        // Winding: v0→v1 is right, v1→v2 is up-left, v2→v0 is down-left → CCW when viewed from top-down
-        let v0 = VertexFixed { x: 0, y: 0, z: 256 }; // 1.0 in 24.8 fixed-point;
-        let v1 = VertexFixed {
-            x: 100 << 8,
-            y: 0,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-        let v2 = VertexFixed {
-            x: 50 << 8,
-            y: 100 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-
-        // Test point inside triangle (50, 50)
-        let inside_x = 50 << 8;
-        let inside_y = 50 << 8;
-
-        // For edge function, all three should have consistent sign for inside points
-        let e0 = edge_function_fixed(inside_x, inside_y, v0, v1);
-        let e1 = edge_function_fixed(inside_x, inside_y, v1, v2);
-        let e2 = edge_function_fixed(inside_x, inside_y, v2, v0);
-
-        // All should have the same sign (either all positive or all negative) for point inside
-        // This triangle is actually CW in screen space (Y increases downward), so edges will be negative
-        let all_same_sign = (e0 < 0 && e1 < 0 && e2 < 0) || (e0 > 0 && e1 > 0 && e2 > 0);
-        assert!(
-            all_same_sign,
-            "Point inside triangle should have consistent edge signs: e0={e0}, e1={e1}, e2={e2}"
-        );
-
-        // Test point outside triangle (200, 50) - far to the right
-        let outside_x = 200 << 8;
-        let outside_y = 50 << 8;
-
-        let e0_out = edge_function_fixed(outside_x, outside_y, v0, v1);
-        let e1_out = edge_function_fixed(outside_x, outside_y, v1, v2);
-        let e2_out = edge_function_fixed(outside_x, outside_y, v2, v0);
-
-        // At least one edge function should have opposite sign for outside point
-        let all_same_sign_out =
-            (e0_out < 0 && e1_out < 0 && e2_out < 0) || (e0_out > 0 && e1_out > 0 && e2_out > 0);
-        assert!(
-            !all_same_sign_out,
-            "Point outside triangle should not have consistent edge signs"
-        );
-    }
-
-    #[test]
-    fn edge_function_fixed_deterministic() {
-        // Fixed-point should give identical results for same inputs
-        let v0 = VertexFixed {
-            x: 10 << 8,
-            y: 20 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-        let v1 = VertexFixed {
-            x: 30 << 8,
-            y: 40 << 8,
-            z: 256, // 1.0 in 24.8 fixed-point
-        };
-
-        let px = 25 << 8;
-        let py = 35 << 8;
-
-        // Call multiple times
-        let result1 = edge_function_fixed(px, py, v0, v1);
-        let result2 = edge_function_fixed(px, py, v0, v1);
-        let result3 = edge_function_fixed(px, py, v0, v1);
-
-        // Should be identical (deterministic)
-        assert_eq!(result1, result2);
-        assert_eq!(result2, result3);
     }
 
     #[test]
