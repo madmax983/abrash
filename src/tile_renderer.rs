@@ -72,6 +72,7 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
+use crate::rasterizer::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
@@ -205,6 +206,9 @@ pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
 /// A clip-space triangle with three vertices `(position, w)` and UV coordinates.
 pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f32), Vec2);
 
+/// A clip-space triangle with three vertices `(position, w)` and vertex colors.
+pub type ClipTriangleGouraud = ((Vec3, f32), Vec3, (Vec3, f32), Vec3, (Vec3, f32), Vec3);
+
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 #[derive(Clone, Copy)]
 pub struct PreparedTriangle {
@@ -245,6 +249,28 @@ pub struct PreparedTexturedTriangle {
     pub v1: f32,
     pub v2: f32,
     pub gradients: PerspectiveTextureGradients,
+    pub long_edge_is_left: bool,
+    pub aabb_min_x: i32,
+    pub aabb_min_y: i32,
+    pub aabb_max_x: i32,
+    pub aabb_max_y: i32,
+    pub min_depth: f32,
+    pub max_depth: f32,
+}
+
+/// A gouraud-shaded triangle prepared for rasterization.
+#[derive(Clone, Copy)]
+pub struct PreparedGouraudTriangle {
+    pub p0: ScreenPoint,
+    pub p1: ScreenPoint,
+    pub p2: ScreenPoint,
+    pub p0_fixed: VertexFixed,
+    pub p1_fixed: VertexFixed,
+    pub p2_fixed: VertexFixed,
+    pub c0: Vec3,
+    pub c1: Vec3,
+    pub c2: Vec3,
+    pub gradients: GouraudGradients,
     pub long_edge_is_left: bool,
     pub aabb_min_x: i32,
     pub aabb_min_y: i32,
@@ -927,6 +953,7 @@ pub struct TileRenderer {
     tile_bins: Vec<Vec<usize>>,
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
+    prepared_gouraud: Vec<PreparedGouraudTriangle>,
     hiz_buffer: Option<HiZBuffer>,
     #[cfg(feature = "gpu-binning")]
     gpu_binner: Option<crate::gpu::GpuBinner>,
@@ -964,6 +991,7 @@ impl TileRenderer {
             tile_bins: vec![Vec::new(); tile_count],
             prepared: Vec::new(),
             prepared_textured: Vec::new(),
+            prepared_gouraud: Vec::new(),
             hiz_buffer: None,
             #[cfg(feature = "gpu-binning")]
             gpu_binner: None,
@@ -1472,6 +1500,266 @@ impl TileRenderer {
         // Invalidate Hi-Z for next frame
         if let Some(ref mut hiz) = self.hiz_buffer {
             hiz.invalidate();
+        }
+    }
+
+    /// Render a batch of Gouraud-shaded clip-space triangles.
+    pub fn render_batch_gouraud(
+        &mut self,
+        fb: &mut Framebuffer,
+        zb: &mut ZBuffer,
+        triangles: &[ClipTriangleGouraud],
+    ) {
+        assert_eq!(fb.width(), self.width);
+        assert_eq!(fb.height(), self.height);
+        assert_eq!(zb.width(), self.width);
+        assert_eq!(zb.height(), self.height);
+
+        self.prepared_gouraud.clear();
+        for bin in &mut self.tile_bins {
+            bin.clear();
+        }
+
+        // Phase 1: Prepare
+        for &(v0, c0, v1, c1, v2, c2) in triangles {
+            self.prepare_triangle_gouraud((v0, c0), (v1, c1), (v2, c2));
+        }
+
+        // Build Hi-Z
+        if let Some(ref mut hiz) = self.hiz_buffer {
+            if !hiz.is_valid() {
+                hiz.build_pyramid(zb);
+            }
+        }
+
+        // Phase 2: Bin (CPU)
+        self.bin_triangles_gouraud_cpu();
+
+        // Phase 3+4: Render and merge
+        #[cfg(not(feature = "parallel"))]
+        {
+            for ty in 0..self.tiles_y {
+                for tx in 0..self.tiles_x {
+                    if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
+                        tx,
+                        ty,
+                        &self.tile_bins,
+                        &self.prepared_gouraud,
+                        self.tiles_x,
+                        self.width,
+                        self.height,
+                        &mut self.tile_pixels,
+                        &mut self.tile_depths,
+                    ) {
+                        Self::merge_tile_direct(
+                            &self.tile_pixels,
+                            &self.tile_depths,
+                            fb,
+                            zb,
+                            tx,
+                            ty,
+                            self.width,
+                            self.height,
+                            clear_y_min,
+                            clear_y_max,
+                        );
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
+                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                .collect();
+
+            unsafe {
+                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
+                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                let width = self.width;
+                let height = self.height;
+                let tiles_x = self.tiles_x;
+                let tile_bins = &self.tile_bins;
+                let prepared = &self.prepared_gouraud;
+
+                tiles.par_iter().for_each_init(
+                    || {
+                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                    },
+                    |buffers, &(tx, ty)| {
+                        let (tile_pixels, tile_depths) = &mut *buffers;
+                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
+                            tx,
+                            ty,
+                            tile_bins,
+                            prepared,
+                            tiles_x,
+                            width,
+                            height,
+                            tile_pixels,
+                            tile_depths,
+                        ) {
+                            let tile_x0 = tx * TILE_SIZE;
+                            let tile_y0 = ty * TILE_SIZE;
+                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                            let tile_cols = (tile_x_end - tile_x0) as usize;
+
+                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                            let row_end = (clear_y_max as u32 + 1)
+                                .min(tile_y0 + TILE_SIZE)
+                                .min(height);
+
+                            for row in row_begin..row_end {
+                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+                                for col in 0..tile_cols {
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                }
+                            }
+                        }
+                    },
+                );
+            }
+        }
+
+        if let Some(ref mut hiz) = self.hiz_buffer {
+            hiz.invalidate();
+        }
+    }
+
+    fn prepare_triangle_gouraud(
+        &mut self,
+        v0: ((Vec3, f32), Vec3),
+        v1: ((Vec3, f32), Vec3),
+        v2: ((Vec3, f32), Vec3),
+    ) {
+        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+
+        for i in 0..clipped.count {
+            let base = i * 3;
+            let cv0 = clipped[base];
+            let cv1 = clipped[base + 1];
+            let cv2 = clipped[base + 2];
+
+            let (p0_orig, p1_orig, p2_orig) = project_triangle_to_screen(
+                cv0.0.0,
+                cv0.0.1,
+                cv1.0.0,
+                cv1.0.1,
+                cv2.0.0,
+                cv2.0.1,
+                self.half_width,
+                self.half_height,
+            );
+
+            if is_backface(p0_orig, p1_orig, p2_orig) {
+                continue;
+            }
+
+            // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
+            // allowing us to skip clamp/mul per pixel.
+            let c0 = cv0.1 * 255.0;
+            let c1 = cv1.1 * 255.0;
+            let c2 = cv2.1 * 255.0;
+
+            let mut verts = [
+                (p0_orig, c0),
+                (p1_orig, c1),
+                (p2_orig, c2),
+            ];
+            sort_by_y(&mut verts, |(p, _)| p.y);
+            let [(p0, c0), (p1, c1), (p2, c2)] = verts;
+
+            let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            if total_height == 0.0 {
+                continue;
+            }
+
+            // Gradients
+            let (gradients, long_edge_is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
+
+            // AABB
+            let min_x = p0.x.min(p1.x).min(p2.x).max(0);
+            let min_y = p0.y.max(0);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(self.width as i32 - 1);
+            let max_y = p2.y.min(self.height as i32 - 1);
+
+            if min_x > max_x || min_y > max_y {
+                continue;
+            }
+
+            let min_depth = p0.z.min(p1.z).min(p2.z);
+            let max_depth = p0.z.max(p1.z).max(p2.z);
+
+            let p0_fixed = VertexFixed::from_screen_point(p0);
+            let p1_fixed = VertexFixed::from_screen_point(p1);
+            let p2_fixed = VertexFixed::from_screen_point(p2);
+
+            self.prepared_gouraud.push(PreparedGouraudTriangle {
+                p0,
+                p1,
+                p2,
+                p0_fixed,
+                p1_fixed,
+                p2_fixed,
+                c0,
+                c1,
+                c2,
+                gradients,
+                long_edge_is_left,
+                aabb_min_x: min_x,
+                aabb_min_y: min_y,
+                aabb_max_x: max_x,
+                aabb_max_y: max_y,
+                min_depth,
+                max_depth,
+            });
+        }
+    }
+
+    fn bin_triangles_gouraud_cpu(&mut self) {
+        let prepared_len = self.prepared_gouraud.len();
+        for i in 0..prepared_len {
+            if let Some(ref hiz) = self.hiz_buffer {
+                let tri = &self.prepared_gouraud[i];
+                let aabb = AABB3D {
+                    min_x: tri.aabb_min_x,
+                    max_x: tri.aabb_max_x,
+                    min_y: tri.aabb_min_y,
+                    max_y: tri.aabb_max_y,
+                    min_depth: tri.min_depth,
+                    max_depth: tri.max_depth,
+                };
+
+                if !hiz.is_potentially_visible(aabb) {
+                    continue;
+                }
+            }
+            self.bin_triangle_gouraud(i);
+        }
+    }
+
+    fn bin_triangle_gouraud(&mut self, tri_idx: usize) {
+        let tri = &self.prepared_gouraud[tri_idx];
+        let tile_size_i32 = TILE_SIZE as i32;
+
+        let tx_min = (tri.aabb_min_x / tile_size_i32) as u32;
+        let ty_min = (tri.aabb_min_y / tile_size_i32) as u32;
+        let tx_max = ((tri.aabb_max_x / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((tri.aabb_max_y / tile_size_i32) as u32).min(self.tiles_y - 1);
+
+        for ty in ty_min..=ty_max {
+            for tx in tx_min..=tx_max {
+                let bin_idx = (ty * self.tiles_x + tx) as usize;
+                self.tile_bins[bin_idx].push(tri_idx);
+            }
         }
     }
 
@@ -2893,5 +3181,208 @@ mod tests {
             "Expected at least 100 pixels rendered, got {}",
             pixels_changed
         );
+    }
+}
+
+/// Render a single gouraud tile: clear, rasterize triangles, and return tile buffers.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn render_single_tile_gouraud(
+    tx: u32,
+    ty: u32,
+    tile_bins: &[Vec<usize>],
+    prepared: &[PreparedGouraudTriangle],
+    tiles_x: u32,
+    width: u32,
+    _height: u32,
+    tile_pixels: &mut [u32],
+    tile_depths: &mut [f32],
+) -> Option<(i32, i32)> {
+    let bin_idx = (ty * tiles_x + tx) as usize;
+    if tile_bins[bin_idx].is_empty() {
+        return None;
+    }
+
+    let tile_x0 = (tx * TILE_SIZE) as i32;
+    let tile_y0 = (ty * TILE_SIZE) as i32;
+    let tile_x1 = tile_x0 + TILE_SIZE as i32;
+    let tile_y1 = tile_y0 + TILE_SIZE as i32;
+
+    // Compute Y range covered by triangles in this bin (partial tile clear)
+    let mut clear_y_min = tile_y1;
+    let mut clear_y_max = tile_y0;
+    let bin = &tile_bins[bin_idx];
+    for &tri_idx in bin {
+        let tri = &prepared[tri_idx];
+        clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
+        clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
+    }
+
+    // Clear only the rows that will be touched
+    let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
+    let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
+    tile_pixels[row_start..row_end].fill(0xFF00_0000);
+    tile_depths[row_start..row_end].fill(f32::INFINITY);
+
+    // Render all triangles in bin
+    let screen_w = width as i32;
+    for &tri_idx in bin {
+        let tri = &prepared[tri_idx];
+        render_triangle_in_tile_gouraud(
+            tile_pixels,
+            tile_depths,
+            tri,
+            tile_x0,
+            tile_y0,
+            tile_x1,
+            tile_y1,
+            screen_w,
+        );
+    }
+
+    Some((clear_y_min, clear_y_max))
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn render_triangle_in_tile_gouraud(
+    tile_pixels: &mut [u32],
+    tile_depths: &mut [f32],
+    tri: &PreparedGouraudTriangle,
+    tile_x0: i32,
+    tile_y0: i32,
+    tile_x1: i32,
+    tile_y1: i32,
+    screen_w: i32,
+) {
+    let y_start = tri.p0.y.max(tile_y0);
+    let y_end = tri.p2.y.min(tile_y1 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    let screen_x_max = screen_w - 1;
+
+    let mut edge_a = GouraudEdgeWalker::new(tri.p0, tri.p2, tri.c0, tri.c2);
+    if y_start > tri.p0.y {
+        edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
+    }
+
+    let mut edge_b = if y_start < tri.p1.y {
+        let mut e = GouraudEdgeWalker::new(tri.p0, tri.p1, tri.c0, tri.c1);
+        if y_start > tri.p0.y {
+            e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
+        }
+        e
+    } else {
+        let mut e = GouraudEdgeWalker::new(tri.p1, tri.p2, tri.c1, tri.c2);
+        if y_start > tri.p1.y {
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
+        }
+        e
+    };
+
+    for y in y_start..=y_end {
+        if y == tri.p1.y && y != tri.p0.y {
+            edge_b = GouraudEdgeWalker::new(tri.p1, tri.p2, tri.c1, tri.c2);
+        }
+
+        let (x_start, x_end, z_left, c_left) = if tri.long_edge_is_left {
+            (
+                (edge_a.x >> 16) as i32,
+                (edge_b.x >> 16) as i32,
+                edge_a.z,
+                edge_a.c,
+            )
+        } else {
+            (
+                (edge_b.x >> 16) as i32,
+                (edge_a.x >> 16) as i32,
+                edge_b.z,
+                edge_b.c,
+            )
+        };
+
+        let dx = i64::from(x_end) - i64::from(x_start);
+
+        if dx <= 0 {
+            // Single pixel
+            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
+                let tile_idx =
+                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
+                if z_left < tile_depths[tile_idx] {
+                    tile_depths[tile_idx] = z_left;
+                    tile_pixels[tile_idx] = crate::rasterizer::core::pack_color_fixed_i32(c_left);
+                }
+            }
+        } else {
+            let xs = x_start.max(tile_x0).max(0);
+            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
+
+            if xs <= xe {
+                let diff_start = (i64::from(xs) - i64::from(x_start)) as f32;
+                let z_at_xs = z_left + diff_start * tri.gradients.dz_dx;
+
+                let diff_start_i32 = xs - x_start;
+                let c_at_xs = (
+                    c_left
+                        .0
+                        .wrapping_add(tri.gradients.dc_dx.0.wrapping_mul(diff_start_i32)),
+                    c_left
+                        .1
+                        .wrapping_add(tri.gradients.dc_dx.1.wrapping_mul(diff_start_i32)),
+                    c_left
+                        .2
+                        .wrapping_add(tri.gradients.dc_dx.2.wrapping_mul(diff_start_i32)),
+                );
+
+                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
+                let col_start = (xs - tile_x0) as usize;
+                let col_end = (xe - tile_x0) as usize;
+
+                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
+                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
+
+                rasterize_scanline_gouraud(
+                    pixels,
+                    depths,
+                    z_at_xs,
+                    tri.gradients.dz_dx,
+                    c_at_xs,
+                    tri.gradients.dc_dx,
+                );
+            }
+        }
+
+        edge_a.step();
+        edge_b.step();
+    }
+}
+
+#[inline(always)]
+fn rasterize_scanline_gouraud(
+    pixels: &mut [u32],
+    depths: &mut [f32],
+    z_start: f32,
+    dz_dx: f32,
+    c_start: (i32, i32, i32),
+    dc_dx: (i32, i32, i32),
+) {
+    let mut z = z_start;
+    let mut r = c_start.0;
+    let mut g = c_start.1;
+    let mut b = c_start.2;
+    let (dr, dg, db) = dc_dx;
+
+    for (pixel, depth) in pixels.iter_mut().zip(depths.iter_mut()) {
+        if z < *depth {
+            *depth = z;
+            *pixel = crate::rasterizer::core::pack_color_fixed_i32((r, g, b));
+        }
+        z += dz_dx;
+        r = r.wrapping_add(dr);
+        g = g.wrapping_add(dg);
+        b = b.wrapping_add(db);
     }
 }

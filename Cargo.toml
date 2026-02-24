@@ -338,3 +338,8 @@ harness = false
 [[bench]]
 name = "pbr_shading"
 harness = false
+
+[[bench]]
+name = "tile_renderer_gouraud"
+path = "benches/tile_renderer_gouraud.rs"
+harness = false
