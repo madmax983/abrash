@@ -276,58 +276,124 @@ pub(crate) fn draw_span_nearest(
 
     assert!(tex_pixels.len() >= (tex_w as usize) * (tex_h as usize));
 
+    // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
+    let len = fb_slice.len() as i32;
+    let can_use_fast_path = if len > 0 {
+        // Calculate range of u_fix and v_fix
+        let (u_min, u_max) = if du_fix >= 0 {
+            let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
+            if u_end < u_fix {
+                (1, 0)
+            } else {
+                (u_fix, u_end)
+            } // Overflow check
+        } else {
+            let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
+            if u_end > u_fix {
+                (1, 0)
+            } else {
+                (u_end, u_fix)
+            } // Underflow check
+        };
+
+        let (v_min, v_max) = if dv_fix >= 0 {
+            let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
+            if v_end < v_fix {
+                (1, 0)
+            } else {
+                (v_fix, v_end)
+            }
+        } else {
+            let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
+            if v_end > v_fix {
+                (1, 0)
+            } else {
+                (v_end, v_fix)
+            }
+        };
+
+        // Check validity (min <= max) and bounds
+        // (val >> 16) is the integer coordinate.
+        u_min <= u_max
+            && v_min <= v_max
+            && (u_min >> 16) >= 0
+            && (u_max >> 16) < (tex_w as i32)
+            && (v_min >> 16) >= 0
+            && (v_max >> 16) < (tex_h as i32)
+    } else {
+        false
+    };
+
     let shift = texture.width_shift;
-    if shift < 32 {
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            if z < *depth_val {
+
+    macro_rules! process_span_nearest {
+        ($fetch_block:block) => {
+            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+                if z < *depth_val {
+                    let color = $fetch_block;
+
+                    let alpha = (color >> 24) & 0xFF;
+                    if alpha == 255 {
+                        *depth_val = z;
+                        *pixel = color;
+                    } else if alpha > 0 {
+                        let dest = *pixel;
+                        // Correct blending: src * alpha + dest * (1 - alpha)
+                        // blend_swar(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
+                        // So w = 255 - alpha, inv_w = alpha
+                        *pixel = blend_swar(color, dest, 255 - alpha, alpha);
+                    }
+                }
+                z += dz_dx;
+                u_fix = u_fix.wrapping_add(du_fix);
+                v_fix = v_fix.wrapping_add(dv_fix);
+            }
+        };
+    }
+
+    if can_use_fast_path {
+        // FAST PATH: No bounds checks inside loop
+        if shift < 32 {
+            process_span_nearest!({
+                let u = (u_fix >> 16) as usize;
+                let v = (v_fix >> 16) as usize;
+                // SAFETY: Verified entire span is within bounds.
+                unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
+            });
+        } else {
+            process_span_nearest!({
+                let u = (u_fix >> 16) as usize;
+                let v = (v_fix >> 16) as usize;
+                // SAFETY: Verified entire span is within bounds.
+                unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
+            });
+        }
+    } else {
+        // SLOW PATH: Per-pixel bounds checks (handling repeat/clamp/overflow)
+        if shift < 32 {
+            process_span_nearest!({
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
-                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    // SAFETY: We checked u < width and v < height. The buffer size is asserted at start of function.
+                if (u as u32) < tex_w && (v as u32) < tex_h {
+                    // SAFETY: Checked bounds
                     unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
                 } else {
                     texture.get_pixel_texel(u, v)
-                };
-
-                let alpha = (color >> 24) & 0xFF;
-                if alpha == 255 {
-                    *depth_val = z;
-                    *pixel = color;
-                } else if alpha > 0 {
-                    let dest = *pixel;
-                    *pixel = blend_swar(color, dest, 255 - alpha, alpha);
                 }
-            }
-            z += dz_dx;
-            u_fix = u_fix.wrapping_add(du_fix);
-            v_fix = v_fix.wrapping_add(dv_fix);
-        }
-    } else {
-        for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-            if z < *depth_val {
+            });
+        } else {
+            process_span_nearest!({
                 let u = u_fix >> 16;
                 let v = v_fix >> 16;
-                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
-                    // SAFETY: We checked u < width and v < height. The buffer size is asserted at start of function.
+                if (u as u32) < tex_w && (v as u32) < tex_h {
+                    // SAFETY: Checked bounds
                     unsafe {
                         *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize))
                     }
                 } else {
                     texture.get_pixel_texel(u, v)
-                };
-
-                let alpha = (color >> 24) & 0xFF;
-                if alpha == 255 {
-                    *depth_val = z;
-                    *pixel = color;
-                } else if alpha > 0 {
-                    let dest = *pixel;
-                    *pixel = blend_swar(color, dest, alpha, 255 - alpha);
                 }
-            }
-            z += dz_dx;
-            u_fix = u_fix.wrapping_add(du_fix);
-            v_fix = v_fix.wrapping_add(dv_fix);
+            });
         }
     }
 }
