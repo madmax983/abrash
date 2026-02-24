@@ -35,7 +35,10 @@ fn bench_fill_triangle_pbr_large(c: &mut Criterion) {
     let light_color = Vec3::new(1.0, 1.0, 1.0);
     let view_pos = Vec3::new(0.0, 0.0, 5.0);
 
-    c.bench_function("fill_triangle_pbr_1080p", |b| {
+    let mut group = c.benchmark_group("pbr");
+    group.sample_size(10);
+
+    group.bench_function("fill_triangle_pbr_1080p", |b| {
         b.iter(|| {
             // Clear Z-Buffer roughly (just setting one value isn't enough for full clear but we want to benchmark drawing)
             // Actually, fill_triangle respects Z-buffer. If Z is closer, it won't draw.

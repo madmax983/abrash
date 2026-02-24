@@ -206,6 +206,17 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
+
     /// Creates a new vector.
     #[must_use]
     #[inline]
@@ -333,6 +344,29 @@ impl Vec3 {
         }
     }
 
+    /// Calculates the squared length (magnitude) of the vector.
+    ///
+    /// Faster than `length()` as it avoids a square root operation.
+    /// Useful for comparing distances.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
+    #[must_use]
+    #[inline]
+    pub fn lerp(&self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+
     /// Returns a new vector containing the minimum value for each component.
     #[must_use]
     #[inline]
@@ -400,6 +434,19 @@ impl Mul for Vec3 {
             x: self.x * other.x,
             y: self.y * other.y,
             z: self.z * other.z,
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Vec3 {
+    type Output = Self;
+    #[inline]
+    fn div(self, scalar: f32) -> Self {
+        let inv = 1.0 / scalar;
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
+            z: self.z * inv,
         }
     }
 }
