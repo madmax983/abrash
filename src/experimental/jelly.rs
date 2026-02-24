@@ -111,12 +111,11 @@ impl SoftBody {
         let gravity = Vec3::new(0.0, -9.8, 0.0);
 
         // 1. Accumulate Forces
-        for i in 0..self.mesh.vertices.len() {
-            // Gravity
-            self.forces[i] = self.forces[i] + gravity * self.mass;
-
-            // Air Drag
-            self.forces[i] = self.forces[i] - self.velocities[i] * self.drag;
+        let gravity_force = gravity * self.mass;
+        for (force, velocity) in self.forces.iter_mut().zip(&self.velocities) {
+            // Gravity + Air Drag
+            // Note: force is assumed to be reset to zero at end of previous frame
+            *force = *force + gravity_force - *velocity * self.drag;
         }
 
         // Spring Forces
@@ -130,7 +129,8 @@ impl SoftBody {
             let current_length = delta.length();
 
             if current_length > 0.0001 {
-                let direction = delta.normalize();
+                // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
+                let direction = delta * (1.0 / current_length);
 
                 // Hooke's Law: F = -k * (x - x0)
                 let displacement = current_length - spring.rest_length;
@@ -231,10 +231,8 @@ impl SoftBody {
             self.mesh.normals.resize(len, Vec3::default());
         }
 
-        // Zero out normals
-        for n in &mut self.mesh.normals {
-            *n = Vec3::default();
-        }
+        // Zero out normals efficiently
+        self.mesh.normals.fill(Vec3::default());
 
         // We need to split borrow self.mesh to access indices (read) and normals (write) simultaneously.
         // This is safe because indices, vertices, and normals are distinct fields of Mesh.

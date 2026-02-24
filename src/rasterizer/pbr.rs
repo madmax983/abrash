@@ -422,8 +422,7 @@ pub fn fill_triangle_pbr(
             continue;
         }
 
-        let (gradients, long_edge_is_left) =
-            PbrGradients::new(p0, p1, p2, n0, n1, n2, w0, w1, w2);
+        let (gradients, long_edge_is_left) = PbrGradients::new(p0, p1, p2, n0, n1, n2, w0, w1, w2);
 
         let mut edge_a = PbrEdgeWalker::new(p0, p2, n0, n2, w0, w2);
         if y_start > p0.y {
@@ -449,41 +448,32 @@ pub fn fill_triangle_pbr(
                 edge_b = PbrEdgeWalker::new(p1, p2, n1, n2, w1, w2);
             }
 
-            let (
-                x_start,
-                x_end,
-                z_left,
-                nx_left,
-                ny_left,
-                nz_left,
-                wx_left,
-                wy_left,
-                wz_left,
-            ) = if long_edge_is_left {
-                (
-                    (edge_a.x >> 16) as i32,
-                    (edge_b.x >> 16) as i32,
-                    edge_a.z,
-                    edge_a.nx,
-                    edge_a.ny,
-                    edge_a.nz,
-                    edge_a.wx,
-                    edge_a.wy,
-                    edge_a.wz,
-                )
-            } else {
-                (
-                    (edge_b.x >> 16) as i32,
-                    (edge_a.x >> 16) as i32,
-                    edge_b.z,
-                    edge_b.nx,
-                    edge_b.ny,
-                    edge_b.nz,
-                    edge_b.wx,
-                    edge_b.wy,
-                    edge_b.wz,
-                )
-            };
+            let (x_start, x_end, z_left, nx_left, ny_left, nz_left, wx_left, wy_left, wz_left) =
+                if long_edge_is_left {
+                    (
+                        (edge_a.x >> 16) as i32,
+                        (edge_b.x >> 16) as i32,
+                        edge_a.z,
+                        edge_a.nx,
+                        edge_a.ny,
+                        edge_a.nz,
+                        edge_a.wx,
+                        edge_a.wy,
+                        edge_a.wz,
+                    )
+                } else {
+                    (
+                        (edge_b.x >> 16) as i32,
+                        (edge_a.x >> 16) as i32,
+                        edge_b.z,
+                        edge_b.nx,
+                        edge_b.ny,
+                        edge_b.nz,
+                        edge_b.wx,
+                        edge_b.wy,
+                        edge_b.wz,
+                    )
+                };
 
             let dx = i64::from(x_end) - i64::from(x_start);
 
@@ -615,18 +605,10 @@ fn draw_scanline_pbr(
             // Tone mapping (Reinhard)
             // mapped = color / (color + 1.0)
             let denom = color + Vec3::ONE;
-            let mapped = Vec3::new(
-                color.x / denom.x,
-                color.y / denom.y,
-                color.z / denom.z,
-            );
+            let mapped = Vec3::new(color.x / denom.x, color.y / denom.y, color.z / denom.z);
             // Gamma correction (Approximation Gamma 2.0 using sqrt)
             // fast_inv_sqrt is for 1/sqrt. sqrt is fast.
-            let corrected = Vec3::new(
-                mapped.x.sqrt(),
-                mapped.y.sqrt(),
-                mapped.z.sqrt(),
-            );
+            let corrected = Vec3::new(mapped.x.sqrt(), mapped.y.sqrt(), mapped.z.sqrt());
 
             *pixel = color_to_u32_scaled(corrected * 255.0);
         }

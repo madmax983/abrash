@@ -1,8 +1,8 @@
 #![cfg(feature = "nova")]
 
 use abrash::experimental::jelly::SoftBody;
-use abrash::mesh::Mesh;
 use abrash::math::Vec3;
+use abrash::mesh::Mesh;
 
 #[test]
 fn test_softbody_panic_repro() {
@@ -15,5 +15,8 @@ fn test_softbody_panic_repro() {
 
     // This used to panic. Now it should return a Result::Err.
     let result = SoftBody::new(mesh, 1.0, 1.0, 0.5);
-    assert!(result.is_err(), "SoftBody::new should return Err for invalid mesh indices");
+    assert!(
+        result.is_err(),
+        "SoftBody::new should return Err for invalid mesh indices"
+    );
 }

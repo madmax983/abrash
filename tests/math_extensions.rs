@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use abrash::math::Vec3;
