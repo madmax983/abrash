@@ -33,6 +33,46 @@ const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
 // 0xFFFFF is used as a sentinel for NO_INDEX.
 const SENTINEL: u64 = 0xF_FFFF;
+const ESTIMATED_LINE_LENGTH: usize = 40;
+
+struct FastSplitter<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> FastSplitter<'a> {
+    const fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, pos: 0 }
+    }
+
+    fn next_part(&mut self) -> Option<&'a [u8]> {
+        if self.pos >= self.bytes.len() {
+            return None;
+        }
+
+        let start = self.pos;
+        for i in self.pos..self.bytes.len() {
+            if self.bytes[i] == b'/' {
+                self.pos = i + 1;
+                return Some(&self.bytes[start..i]);
+            }
+        }
+        self.pos = self.bytes.len();
+        Some(&self.bytes[start..])
+    }
+}
+
+fn parse_next_f32(
+    parts: &mut std::str::SplitAsciiWhitespace,
+    context: &str,
+    line_num: usize,
+) -> Result<f32, String> {
+    parts
+        .next()
+        .ok_or_else(|| format!("Line {line_num}: Missing {context}"))?
+        .parse::<f32>()
+        .map_err(|_| format!("Line {line_num}: Invalid {context}"))
+}
 
 #[derive(Clone, Copy)]
 struct ParsedIndices {
@@ -55,81 +95,42 @@ struct ObjParser {
 
 fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, String> {
     // format: v, v/vt, v//vn, v/vt/vn
-    // Manual parsing to avoid split() iterator overhead
-    let bytes = part.as_bytes();
+    let mut splitter = FastSplitter::new(part.as_bytes());
 
-    // Find first '/' to separate v from vt/vn
-    // This is faster than split('/').next()
-    let mut first_slash = bytes.len();
-    for (i, &b) in bytes.iter().enumerate() {
-        if b == b'/' {
-            first_slash = i;
-            break;
-        }
-    }
+    // 1. Parse Vertex Index (always present)
+    let v_bytes = splitter
+        .next_part()
+        .ok_or_else(|| format!("Line {line_num}: Empty vertex part"))?;
 
-    // Parse v_idx (0..first_slash)
-    let v_idx = fast_parse_usize(&bytes[0..first_slash])
+    let v_idx = fast_parse_usize(v_bytes)
         .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
-
     let v_idx = v_idx
         .checked_sub(1)
         .ok_or_else(|| format!("Line {line_num}: Vertex index 0 is invalid"))?;
 
-    // Parse vt_idx and vn_idx if present
     let mut vt_idx = None;
     let mut vn_idx = None;
 
-    if first_slash < bytes.len() {
-        let after_first_slash = first_slash + 1;
-        // Check if next char is also '/' (case v//vn)
-        if after_first_slash < bytes.len() && bytes[after_first_slash] == b'/' {
-            // v//vn case
-            let after_second_slash = after_first_slash + 1;
-            if after_second_slash < bytes.len() {
-                // Parse vn
-                let idx = fast_parse_usize(&bytes[after_second_slash..])
+    // 2. Parse UV Index (optional)
+    if let Some(vt_bytes) = splitter.next_part() {
+        if !vt_bytes.is_empty() {
+            let idx = fast_parse_usize(vt_bytes)
+                .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
+            vt_idx = Some(
+                idx.checked_sub(1)
+                    .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
+            );
+        }
+
+        // 3. Parse Normal Index (optional)
+        if let Some(vn_bytes) = splitter.next_part() {
+            if !vn_bytes.is_empty() {
+                let idx = fast_parse_usize(vn_bytes)
                     .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
                 vn_idx = Some(
                     idx.checked_sub(1)
                         .ok_or_else(|| format!("Line {line_num}: Normal index 0 is invalid"))?,
                 );
-            }
-        } else if after_first_slash < bytes.len() {
-            // It's v/vt...
-            // Find end of vt (next slash or end of string)
-            let mut end_vt = bytes.len();
-            let mut second_slash = None;
-
-            for (i, &b) in bytes.iter().enumerate().skip(after_first_slash) {
-                if b == b'/' {
-                    end_vt = i;
-                    second_slash = Some(i);
-                    break;
-                }
-            }
-
-            let vt_bytes = &bytes[after_first_slash..end_vt];
-            if !vt_bytes.is_empty() {
-                let idx = fast_parse_usize(vt_bytes)
-                    .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
-                vt_idx = Some(
-                    idx.checked_sub(1)
-                        .ok_or_else(|| format!("Line {line_num}: UV index 0 is invalid"))?,
-                );
-            }
-
-            // If there's a second slash, parse vn (v/vt/vn)
-            if let Some(slash2) = second_slash {
-                let after_second_slash = slash2 + 1;
-                if after_second_slash < bytes.len() {
-                    let idx = fast_parse_usize(&bytes[after_second_slash..])
-                        .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
-                    vn_idx =
-                        Some(idx.checked_sub(1).ok_or_else(|| {
-                            format!("Line {line_num}: Normal index 0 is invalid")
-                        })?);
-                }
             }
         }
     }
@@ -161,21 +162,9 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let x = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing x"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid x"))?;
-        let y = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing y"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid y"))?;
-        let z = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing z"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid z"))?;
+        let x = parse_next_f32(parts, "x", line_num)?;
+        let y = parse_next_f32(parts, "y", line_num)?;
+        let z = parse_next_f32(parts, "z", line_num)?;
 
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return Err(format!("Line {line_num}: Coordinates must be finite"));
@@ -192,16 +181,8 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let u = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing u"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid u"))?;
-        let v = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing v"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid v"))?;
+        let u = parse_next_f32(parts, "u", line_num)?;
+        let v = parse_next_f32(parts, "v", line_num)?;
 
         if !u.is_finite() || !v.is_finite() {
             return Err(format!("Line {line_num}: UV coordinates must be finite"));
@@ -218,21 +199,9 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let x = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing nx"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid nx"))?;
-        let y = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing ny"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid ny"))?;
-        let z = parts
-            .next()
-            .ok_or_else(|| format!("Line {line_num}: Missing nz"))?
-            .parse::<f32>()
-            .map_err(|_| format!("Line {line_num}: Invalid nz"))?;
+        let x = parse_next_f32(parts, "nx", line_num)?;
+        let y = parse_next_f32(parts, "ny", line_num)?;
+        let z = parse_next_f32(parts, "nz", line_num)?;
 
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return Err(format!(
@@ -443,7 +412,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Heuristic: Estimate count based on file size.
     // Average line length ~40 bytes. Conservative estimate.
     // Clamp to MAX_VERTICES to prevent DoS via massive allocation.
-    let estimated_capacity = (source.len() / 40).clamp(1024, MAX_VERTICES);
+    let estimated_capacity =
+        (source.len() / ESTIMATED_LINE_LENGTH).clamp(1024, MAX_VERTICES);
 
     let mut parser = ObjParser::new(estimated_capacity);
 
