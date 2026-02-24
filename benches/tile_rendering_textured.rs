@@ -3,7 +3,7 @@ use abrash::math::{Mat4, Vec2, Vec3};
 use abrash::mesh::Mesh;
 use abrash::rasterizer::fill_triangle_textured;
 use abrash::texture::Texture;
-use abrash::tile_renderer::{TexturedClipTriangle, TileRenderer};
+use abrash::rasterizer::{TexturedClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 

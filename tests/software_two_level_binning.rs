@@ -6,7 +6,7 @@
 use abrash::{
     framebuffer::Framebuffer,
     math::Vec3,
-    tile_renderer::{ClipTriangle, TileRenderer},
+    rasterizer::{ClipTriangle, TileRenderer},
     zbuffer::ZBuffer,
 };
 

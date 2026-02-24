@@ -6,7 +6,7 @@
 /// 3. Occlusion queries are correct (no false negatives)
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::tile_renderer::{ClipTriangle, TileRenderer};
+use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 
 /// Verify that rendering with Hi-Z produces pixel-identical output to without Hi-Z

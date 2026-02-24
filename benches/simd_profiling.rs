@@ -1,5 +1,5 @@
 use abrash::{
-    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, tile_renderer::TileRenderer,
+    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, rasterizer::TileRenderer,
     zbuffer::ZBuffer,
 };
 use comfy_table::{

@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::tile_renderer::{ClipTriangle, TileRenderer};
+use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use proptest::prelude::*;
 

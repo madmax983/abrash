@@ -20,7 +20,7 @@
 //! | 3840×2160 | 66.4 MB | ≥200 | **6% slower** (use scanline) |
 //!
 //! **Usage Guideline**: Use [`TileRenderer`] when resolution ≥ 1920×1080 AND triangle count ≤ 100.
-//! Use [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d) otherwise.
+//! Use [`fill_triangle_3d`](super::fill_triangle_3d) otherwise.
 //!
 //! # Parallel Rendering
 //!
@@ -49,7 +49,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use abrash::tile_renderer::{TileRenderer, ClipTriangle};
+//! use abrash::rasterizer::{TileRenderer, ClipTriangle};
 //! use abrash::framebuffer::Framebuffer;
 //! use abrash::zbuffer::ZBuffer;
 //! use abrash::math::Vec3;
@@ -72,14 +72,14 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
-use crate::rasterizer::texture::{
+use super::texture::{
     draw_span_bilinear, draw_span_nearest, draw_span_trilinear,
 };
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-use crate::rasterizer::texture::{
+use super::texture::{
     draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd,
 };
-use crate::rasterizer::{
+use super::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
 };
@@ -1046,7 +1046,7 @@ fn rasterize_scanline_simd(
 /// - Triangle count ≤ 100 per frame (after culling)
 ///
 /// For smaller resolutions or higher triangle counts, use
-/// [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d) instead,
+/// [`fill_triangle_3d`](super::fill_triangle_3d) instead,
 /// as it avoids the prepare/bin/merge overhead.
 ///
 /// # Performance
@@ -1455,7 +1455,7 @@ impl TileRenderer {
     /// # Example
     ///
     /// ```no_run
-    /// # use abrash::tile_renderer::TileRenderer;
+    /// # use abrash::rasterizer::TileRenderer;
     /// # use abrash::framebuffer::Framebuffer;
     /// # use abrash::zbuffer::ZBuffer;
     /// # use abrash::math::Vec3;
@@ -2078,12 +2078,12 @@ impl TileRenderer {
 /// # Returns
 ///
 /// - `true` if tile-based rendering is recommended (framebuffer > 12 MB AND triangles ≤ 100)
-/// - `false` if scanline rendering is recommended (use [`fill_triangle_3d`](crate::rasterizer::fill_triangle_3d))
+/// - `false` if scanline rendering is recommended (use [`fill_triangle_3d`](super::fill_triangle_3d))
 ///
 /// # Examples
 ///
 /// ```
-/// use abrash::tile_renderer::should_use_tiled_rendering;
+/// use abrash::rasterizer::should_use_tiled_rendering;
 ///
 /// // 4K resolution with 50 triangles → use tiled (27% faster in benchmarks)
 /// assert!(should_use_tiled_rendering(3840, 2160, 50));

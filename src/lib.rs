@@ -102,7 +102,6 @@ pub mod procedural;
 pub mod scene;
 pub mod skybox;
 pub mod texture;
-pub mod tile_renderer;
 
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;

@@ -25,3 +25,13 @@
 1.  **Extract:** Created `src/utils.rs` to house `XorShift32` and `pixel_luminance`.
 2.  **Refactor:** Updated all dependent modules to use the centralized utilities.
 3.  **Result:** High cohesion for utility logic; Reduced code duplication.
+
+## [Relocate TileRenderer to Rasterizer]
+**Tangle:** `src/tile_renderer.rs` was a top-level module in `src/`, polluting the root namespace and violating the principle that `rasterizer` should own all rasterization strategies. It was also tightly coupled with `rasterizer` internals, importing private/crate-public items from `src/rasterizer/texture.rs`.
+
+**Blueprint:**
+1.  **Relocate:** Moved `src/tile_renderer.rs` to `src/rasterizer/tile.rs`.
+2.  **Encapsulate:** Exposed `TileRenderer` via `src/rasterizer/mod.rs` (`pub mod tile`), unifying it with other rasterization strategies (scanline, etc.).
+3.  **Refactor:** Updated imports in `src/scene.rs` and tests to use `abrash::rasterizer::TileRenderer`.
+
+**Result:** Improved cohesion within the `rasterizer` module. Reduced surface area of `src/lib.rs`. Stronger encapsulation of rasterizer internals.
