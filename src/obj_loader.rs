@@ -412,8 +412,7 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Heuristic: Estimate count based on file size.
     // Average line length ~40 bytes. Conservative estimate.
     // Clamp to MAX_VERTICES to prevent DoS via massive allocation.
-    let estimated_capacity =
-        (source.len() / ESTIMATED_LINE_LENGTH).clamp(1024, MAX_VERTICES);
+    let estimated_capacity = (source.len() / ESTIMATED_LINE_LENGTH).clamp(1024, MAX_VERTICES);
 
     let mut parser = ObjParser::new(estimated_capacity);
 

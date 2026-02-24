@@ -387,9 +387,7 @@ pub(crate) fn draw_span_nearest(
                 let v = v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
-                    unsafe {
-                        *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize))
-                    }
+                    unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
                 } else {
                     texture.get_pixel_texel(u, v)
                 }

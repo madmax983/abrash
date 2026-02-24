@@ -130,8 +130,10 @@ fn apply_rgb_split(
         let band_height = (rng.next_u32() % (height as u32 / 4)) as usize;
         let start_y = (rng.next_u32() as usize) % (height.saturating_sub(band_height).max(1));
 
-        let shift_r = (rng.next_f32_signed() * params.color_shift_amount as f32 * params.intensity) as i32;
-        let shift_b = (rng.next_f32_signed() * params.color_shift_amount as f32 * params.intensity) as i32;
+        let shift_r =
+            (rng.next_f32_signed() * params.color_shift_amount as f32 * params.intensity) as i32;
+        let shift_b =
+            (rng.next_f32_signed() * params.color_shift_amount as f32 * params.intensity) as i32;
 
         if shift_r == 0 && shift_b == 0 {
             continue;

@@ -811,8 +811,16 @@ impl Mat4 {
 
         #[cfg(debug_assertions)]
         {
-            assert_eq!(std::mem::size_of::<(Vec3, f32)>(), 16, "Layout mismatch: (Vec3, f32) size != 16");
-            assert_eq!(std::mem::align_of::<(Vec3, f32)>(), 4, "Layout mismatch: (Vec3, f32) align != 4");
+            assert_eq!(
+                std::mem::size_of::<(Vec3, f32)>(),
+                16,
+                "Layout mismatch: (Vec3, f32) size != 16"
+            );
+            assert_eq!(
+                std::mem::align_of::<(Vec3, f32)>(),
+                4,
+                "Layout mismatch: (Vec3, f32) align != 4"
+            );
             // Verify offsets
             let dummy: (Vec3, f32) = (Vec3::new(0.0, 0.0, 0.0), 0.0);
             let base = &dummy as *const _ as usize;
@@ -1589,7 +1597,11 @@ mod tests {
         let epsilon = 1e-3;
         assert!((p_view.x - 0.0).abs() < epsilon, "X mismatch: {}", p_view.x);
         assert!((p_view.y - 0.0).abs() < epsilon, "Y mismatch: {}", p_view.y);
-        assert!((p_view.z - (-10.0)).abs() < epsilon, "Z mismatch: {}", p_view.z);
+        assert!(
+            (p_view.z - (-10.0)).abs() < epsilon,
+            "Z mismatch: {}",
+            p_view.z
+        );
 
         // Point at eye should map to (0, 0, 0)
         let (p_eye, _) = view.transform_point(eye);
@@ -1726,16 +1738,24 @@ mod tests {
             let s_scalar = project_to_screen_optimized(v, w, half_width, half_height);
 
             // SIMD (Triangle)
-            let (s_tri_0, _, _) = project_triangle_to_screen(
-                v, w,
-                v, w,
-                v, w,
-                half_width, half_height
-            );
+            let (s_tri_0, _, _) =
+                project_triangle_to_screen(v, w, v, w, v, w, half_width, half_height);
 
             // Verify X and Y (allow off-by-one due to float precision + truncation)
-            assert!((i64::from(s_scalar.x) - i64::from(s_tri_0.x)).abs() <= 1, "X mismatch for case {}: {} vs {}", name, s_scalar.x, s_tri_0.x);
-            assert!((i64::from(s_scalar.y) - i64::from(s_tri_0.y)).abs() <= 1, "Y mismatch for case {}: {} vs {}", name, s_scalar.y, s_tri_0.y);
+            assert!(
+                (i64::from(s_scalar.x) - i64::from(s_tri_0.x)).abs() <= 1,
+                "X mismatch for case {}: {} vs {}",
+                name,
+                s_scalar.x,
+                s_tri_0.x
+            );
+            assert!(
+                (i64::from(s_scalar.y) - i64::from(s_tri_0.y)).abs() <= 1,
+                "Y mismatch for case {}: {} vs {}",
+                name,
+                s_scalar.y,
+                s_tri_0.y
+            );
 
             // Check z and inv_w with some tolerance
             let z_diff = (s_scalar.z - s_tri_0.z).abs();
@@ -1750,13 +1770,32 @@ mod tests {
             if s_scalar.z.is_nan() {
                 assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
             } else {
-                 assert!(z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()), "Z mismatch for {}: {} vs {} (diff: {})", name, s_scalar.z, s_tri_0.z, z_diff);
+                assert!(
+                    z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
+                    "Z mismatch for {}: {} vs {} (diff: {})",
+                    name,
+                    s_scalar.z,
+                    s_tri_0.z,
+                    z_diff
+                );
             }
 
             if s_scalar.inv_w.is_nan() {
-                 assert!(s_tri_0.inv_w.is_nan(), "InvW NaN mismatch for case: {}", name);
+                assert!(
+                    s_tri_0.inv_w.is_nan(),
+                    "InvW NaN mismatch for case: {}",
+                    name
+                );
             } else {
-                 assert!(inv_w_diff < tolerance || (s_scalar.inv_w.is_infinite() && s_tri_0.inv_w.is_infinite()), "InvW mismatch for {}: {} vs {} (diff: {})", name, s_scalar.inv_w, s_tri_0.inv_w, inv_w_diff);
+                assert!(
+                    inv_w_diff < tolerance
+                        || (s_scalar.inv_w.is_infinite() && s_tri_0.inv_w.is_infinite()),
+                    "InvW mismatch for {}: {} vs {} (diff: {})",
+                    name,
+                    s_scalar.inv_w,
+                    s_tri_0.inv_w,
+                    inv_w_diff
+                );
             }
         }
     }

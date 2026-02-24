@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
-use abrash::texture::Texture;
 use abrash::rasterizer::{TexturedClipTriangle, TileRenderer};
+use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 
 #[test]

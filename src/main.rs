@@ -3,6 +3,9 @@
 //! Provides a TUI interface to explore and launch demos.
 
 use clap::Parser;
+use comfy_table::{
+    Cell as ComfyCell, Color as ComfyColor, Table as ComfyTable, presets as ComfyPresets,
+};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -18,7 +21,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Row, Table},
 };
 use std::{error::Error, io, process::Command};
-use comfy_table::{Table as ComfyTable, presets as ComfyPresets, Cell as ComfyCell, Color as ComfyColor};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -194,11 +196,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut error_table = ComfyTable::new();
         error_table
             .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![ComfyCell::new("❌ Application Error")
-                .add_attribute(comfy_table::Attribute::Bold)
-                .fg(ComfyColor::Red)])
-            .add_row(vec![ComfyCell::new(format!("{err}"))
-                .fg(ComfyColor::Yellow)]);
+            .set_header(vec![
+                ComfyCell::new("❌ Application Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(ComfyColor::Red),
+            ])
+            .add_row(vec![
+                ComfyCell::new(format!("{err}")).fg(ComfyColor::Yellow),
+            ]);
 
         println!("\n{error_table}");
     }
@@ -208,15 +213,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn print_demo_list() {
     let mut table = ComfyTable::new();
-    table
-        .load_preset(ComfyPresets::UTF8_FULL)
-        .set_header(vec![
-            ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold),
-            ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold),
-            ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold),
-            ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold),
-            ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold),
-        ]);
+    table.load_preset(ComfyPresets::UTF8_FULL).set_header(vec![
+        ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold),
+        ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold),
+        ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold),
+        ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold),
+        ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold),
+    ]);
 
     for demo in DEMOS {
         table.add_row(vec![
@@ -343,7 +346,9 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                     Row::new(vec![
                         Span::styled(
                             "Description",
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
                         ),
                         Span::raw(demo.description),
                     ])
@@ -351,14 +356,18 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                     Row::new(vec![
                         Span::styled(
                             "Category",
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
                         ),
                         Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
                     ]),
                     Row::new(vec![
                         Span::styled(
                             "Instructions",
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
                         ),
                         Span::raw(demo.instructions),
                     ])
@@ -366,7 +375,9 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                     Row::new(vec![
                         Span::styled(
                             "Command",
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
                             demo_command(demo.example_name),
@@ -440,9 +451,11 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
-        .set_header(vec![ComfyCell::new("🚀 Launching Demo")
-            .add_attribute(comfy_table::Attribute::Bold)
-            .fg(ComfyColor::Cyan)])
+        .set_header(vec![
+            ComfyCell::new("🚀 Launching Demo")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Cyan),
+        ])
         .add_row(vec![ComfyCell::new(format!(
             "Preparing to launch '{}'...",
             name
@@ -483,11 +496,14 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
         let mut error_table = ComfyTable::new();
         error_table
             .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![ComfyCell::new("❌ Demo Crashed")
-                .add_attribute(comfy_table::Attribute::Bold)
-                .fg(ComfyColor::Red)])
-            .add_row(vec![ComfyCell::new(format!("Exit Status: {}", status))
-                .fg(ComfyColor::Yellow)]);
+            .set_header(vec![
+                ComfyCell::new("❌ Demo Crashed")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(ComfyColor::Red),
+            ])
+            .add_row(vec![
+                ComfyCell::new(format!("Exit Status: {}", status)).fg(ComfyColor::Yellow),
+            ]);
 
         println!("\n{error_table}");
 

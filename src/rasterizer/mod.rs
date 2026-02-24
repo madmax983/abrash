@@ -85,7 +85,9 @@ pub use self::texture::{
     fill_quad_textured, fill_triangle_normal_mapped, fill_triangle_textured,
     fill_triangle_textured_gouraud,
 };
-pub use self::tile::{ClipTriangle, TexturedClipTriangle, TileRenderer, should_use_tiled_rendering};
+pub use self::tile::{
+    ClipTriangle, TexturedClipTriangle, TileRenderer, should_use_tiled_rendering,
+};
 
 // Re-export internal helpers for experimental modules
 pub(crate) use self::core::{EdgeWalker, is_backface, sort_by_y};
