@@ -224,35 +224,53 @@ impl SoftBody {
 
     /// Recomputes vertex normals based on current face geometry.
     fn recompute_normals(&mut self) {
+        let len = self.mesh.vertices.len();
+
+        // Ensure normals vector is sized correctly
+        if self.mesh.normals.len() != len {
+            self.mesh.normals.resize(len, Vec3::default());
+        }
+
         // Zero out normals
-        let mut new_normals = vec![Vec3::default(); self.mesh.vertices.len()];
+        for n in &mut self.mesh.normals {
+            *n = Vec3::default();
+        }
+
+        // We need to split borrow self.mesh to access indices (read) and normals (write) simultaneously.
+        // This is safe because indices, vertices, and normals are distinct fields of Mesh.
+        let mesh = &mut self.mesh;
+        let indices = &mesh.indices;
+        let vertices = &mesh.vertices;
+        let normals = &mut mesh.normals;
 
         // Accumulate face normals
-        for tri in &self.mesh.indices {
+        for tri in indices {
             let i0 = tri[0];
             let i1 = tri[1];
             let i2 = tri[2];
 
-            let v0 = self.mesh.vertices[i0];
-            let v1 = self.mesh.vertices[i1];
-            let v2 = self.mesh.vertices[i2];
+            if i0 >= len || i1 >= len || i2 >= len {
+                continue;
+            }
+
+            let v0 = vertices[i0];
+            let v1 = vertices[i1];
+            let v2 = vertices[i2];
 
             let edge1 = v1 - v0;
             let edge2 = v2 - v0;
             // Cross product: (v1-v0) x (v2-v0)
             let normal = edge1.cross(edge2).normalize();
 
-            new_normals[i0] = new_normals[i0] + normal;
-            new_normals[i1] = new_normals[i1] + normal;
-            new_normals[i2] = new_normals[i2] + normal;
+            normals[i0] = normals[i0] + normal;
+            normals[i1] = normals[i1] + normal;
+            normals[i2] = normals[i2] + normal;
         }
 
         // Normalize
-        for n in &mut new_normals {
+        for n in normals {
             *n = n.normalize();
         }
-
-        self.mesh.normals = new_normals;
 
         // Should ideally recompute tangents too if used, but skipping for now as it's expensive.
     }
