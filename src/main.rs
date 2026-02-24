@@ -26,6 +26,10 @@ struct Args {
     /// Name of the demo to run directly
     #[arg(long, short)]
     demo: Option<String>,
+
+    /// List all available demos
+    #[arg(long, short)]
+    list: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -152,6 +156,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    if args.list {
+        print_demo_list();
+        return Ok(());
+    }
+
     // TUI Mode
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -182,10 +191,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\n{}", "👋 Thanks for using Abrash Engine!".bold().cyan());
 
     if let Err(err) = res {
-        println!("{err:?}");
+        let mut error_table = ComfyTable::new();
+        error_table
+            .load_preset(ComfyPresets::UTF8_FULL)
+            .set_header(vec![ComfyCell::new("❌ Application Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Red)])
+            .add_row(vec![ComfyCell::new(format!("{err}"))
+                .fg(ComfyColor::Yellow)]);
+
+        println!("\n{error_table}");
     }
 
     Ok(())
+}
+
+fn print_demo_list() {
+    let mut table = ComfyTable::new();
+    table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![
+            ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold),
+            ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold),
+            ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold),
+            ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold),
+            ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold),
+        ]);
+
+    for demo in DEMOS {
+        table.add_row(vec![
+            ComfyCell::new(demo.category.icon()),
+            ComfyCell::new(demo.name).fg(ComfyColor::Cyan),
+            ComfyCell::new(format!("{:?}", demo.category)).fg(ComfyColor::Yellow),
+            ComfyCell::new(demo.description),
+            ComfyCell::new(format!("abrash --demo {}", demo.example_name)).fg(ComfyColor::DarkGrey),
+        ]);
+    }
+
+    println!("{table}");
 }
 
 struct App {
