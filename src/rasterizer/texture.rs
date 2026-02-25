@@ -122,7 +122,9 @@ impl PerspectiveTextureGradients {
         let vv = v2 - v0;
 
         let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
+        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
+        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
@@ -280,36 +282,30 @@ pub(crate) fn draw_span_nearest(
     let len = fb_slice.len() as i32;
     let can_use_fast_path = if len > 0 {
         // Calculate range of u_fix and v_fix
+        let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
         let (u_min, u_max) = if du_fix >= 0 {
-            let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
             if u_end < u_fix {
                 (1, 0)
             } else {
                 (u_fix, u_end)
             } // Overflow check
+        } else if u_end > u_fix {
+            (1, 0)
         } else {
-            let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
-            if u_end > u_fix {
-                (1, 0)
-            } else {
-                (u_end, u_fix)
-            } // Underflow check
-        };
+            (u_end, u_fix)
+        }; // Underflow check
 
+        let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
         let (v_min, v_max) = if dv_fix >= 0 {
-            let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
             if v_end < v_fix {
                 (1, 0)
             } else {
                 (v_fix, v_end)
             }
+        } else if v_end > v_fix {
+            (1, 0)
         } else {
-            let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
-            if v_end > v_fix {
-                (1, 0)
-            } else {
-                (v_end, v_fix)
-            }
+            (v_end, v_fix)
         };
 
         // Check validity (min <= max) and bounds
@@ -528,6 +524,7 @@ pub(crate) fn draw_span_bilinear(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
+#[allow(clippy::wildcard_imports)]
 pub(crate) unsafe fn draw_span_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -570,7 +567,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
 
         let mask_ff = _mm256_set1_epi32(0xFF);
@@ -776,6 +773,7 @@ pub(crate) fn draw_span_trilinear(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
+#[allow(clippy::wildcard_imports)]
 pub(crate) unsafe fn draw_span_nearest_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -818,7 +816,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
         let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
         let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
 
         let is_pot = texture.width_shift < 32;
 
@@ -950,6 +948,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
+#[allow(clippy::wildcard_imports)]
 unsafe fn draw_scanline_textured_perspective_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -2284,7 +2283,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 let idx = if texture.width_shift < 32 {
                     let mask_x = _mm256_set1_epi32((texture.width - 1) as i32);
                     let mask_y = _mm256_set1_epi32((texture.height - 1) as i32);
-                    let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+                    let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
 
                     // wrap: u & (w-1)
                     let u_masked = _mm256_and_si256(u_i, mask_x);
@@ -2320,7 +2319,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
                         let idx_nm = if normal_map.width_shift < 32 {
                             let mask_x = _mm256_set1_epi32((normal_map.width - 1) as i32);
                             let mask_y = _mm256_set1_epi32((normal_map.height - 1) as i32);
-                            let shift_vec = _mm256_set1_epi32(normal_map.width_shift as i32);
+                            let shift_vec = _mm256_set1_epi32(i32::from(normal_map.width_shift));
                             let u_masked = _mm256_and_si256(u_i, mask_x);
                             let v_masked = _mm256_and_si256(v_i, mask_y);
                             _mm256_or_si256(_mm256_sllv_epi32(v_masked, shift_vec), u_masked)
@@ -2460,7 +2459,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 let nm_b = ((nm_color_u32 & 0xFF) as f32 / 255.0) * 2.0 - 1.0;
 
                 let len_sq = lx * lx + ly * ly + lz * lz;
-                let intensity = if len_sq > 0.0001 {
+                let intensity = if len_sq > 0.000_1 {
                     let inv_len = fast_inv_sqrt(len_sq);
                     (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
                 } else {
@@ -2482,6 +2481,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
+#[allow(clippy::wildcard_imports)]
 pub(crate) unsafe fn draw_span_trilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -2854,7 +2854,7 @@ fn draw_scanline_normal_mapped(
 
             // Light Vector in Tangent Space
             let len_sq = lx * lx + ly * ly + lz * lz;
-            let intensity = if len_sq > 0.0001 {
+            let intensity = if len_sq > 0.000_1 {
                 let inv_len = fast_inv_sqrt(len_sq);
                 // Dot product: normal . light
                 (nm_r * lx + nm_g * ly + nm_b * lz) * inv_len
@@ -3339,6 +3339,7 @@ pub struct TexturedGouraudSpanStart {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::wildcard_imports)]
 unsafe fn draw_span_textured_gouraud_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -3533,6 +3534,7 @@ unsafe fn draw_span_textured_gouraud_simd(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cast_ptr_alignment)]
 #[allow(clippy::ptr_as_ptr)]
+#[allow(clippy::wildcard_imports)]
 unsafe fn draw_span_textured_gouraud_bilinear_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
@@ -3593,7 +3595,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         let zero_i = _mm256_setzero_si256();
         let one_i = _mm256_set1_epi32(1);
 
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
 
         let mask_ff = _mm256_set1_epi32(0xFF);
@@ -3604,7 +3606,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
         // It uses intrinsics, so it must be unsafe block inside?
         // Actually, since we are inside `unsafe` block, we can call unsafe fns.
         let blend_swar_avx2 = |c0: __m256i, c1: __m256i, w: __m256i, inv_w: __m256i| -> __m256i {
-            let mask = _mm256_set1_epi32(0x00FF00FF);
+            let mask = _mm256_set1_epi32(0x00FF_00FF);
 
             let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
             let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
@@ -4632,5 +4634,88 @@ mod tests {
         // Check pixel (5, 5)
         let p = fb.get_pixel(5, 5).unwrap();
         assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
+    }
+}
+
+#[test]
+fn test_draw_scanline_trilinear() {
+    // 1. Setup Buffer
+    let mut fb = Framebuffer::new(10, 10).unwrap();
+    let mut zb = ZBuffer::new(10, 10).unwrap();
+
+    // 2. Setup Texture (2x2 Checkered)
+    let mut tex = Texture::new(2, 2).unwrap();
+    // Level 0:
+    // B W
+    // W B
+    tex.set_pixel(0, 0, 0xFF000000); // Black
+    tex.set_pixel(1, 0, 0xFFFFFFFF); // White
+    tex.set_pixel(0, 1, 0xFFFFFFFF); // White
+    tex.set_pixel(1, 1, 0xFF000000); // Black
+
+    tex.generate_mipmaps();
+    // Level 1 (1x1) should be Grey (approx 127/128)
+    // 0x7F7F7F...
+
+    tex.filter_mode = crate::texture::FilterMode::Trilinear;
+
+    // 3. Setup Span
+    // We want to sample at (0.5, 0.5) in texel space (Center of Top-Left pixel).
+    // Level 0 value at (0.5, 0.5) is Black.
+    // Level 1 value at (0.5, 0.5) is Grey.
+
+    // We control LOD via gradients.
+    // LOD = 0.5 * log2(rho^2).
+    // We want LOD = 0.5 -> rho = sqrt(2) approx 1.41421356.
+    // du_dx (texels) = 1.41421356.
+
+    let start = PerspectiveSpanStart {
+        z: 1.0,
+        q: 1.0, // w=1
+        u: 0.5, // u_tex = 0.5
+        v: 0.5, // v_tex = 0.5
+    };
+
+    let gradients = PerspectiveTextureGradients {
+        dz_dx: 0.0,
+        dq_dx: 0.0,
+        du_dx: 1.41421356, // This is du_tex/dx because q=1, u=0.5 (small)
+        dv_dx: 0.0,
+        dq_dy: 0.0,
+        du_dy: 0.0,
+        dv_dy: 0.0,
+    };
+
+    draw_scanline_textured_perspective(
+        &mut fb, &mut zb, &tex, 5, // y
+        0, // x_start
+        0, // x_end (single pixel)
+        start, &gradients,
+    );
+
+    let pixel = fb.get_pixel(0, 5).unwrap();
+    let r = (pixel >> 16) & 0xFF;
+
+    // Level 0 (Black) mixed with Level 1 (Grey ~127).
+    // 50/50 blend -> ~63.
+    // Allow range 55-75.
+    assert!((55..=75).contains(&r), "Expected ~64, got {}", r);
+}
+
+#[test]
+fn test_reciprocal_table_accuracy() {
+    for i in 1..RECIPROCAL_TABLE.len() {
+        let table_val = RECIPROCAL_TABLE[i];
+        let actual = 1.0 / (i as f32);
+        let diff = (table_val - actual).abs();
+
+        // Precision should be very high (f32 epsilon level)
+        assert!(
+            diff < 1e-6,
+            "Table index {} mismatch: table={}, actual={}",
+            i,
+            table_val,
+            actual
+        );
     }
 }
