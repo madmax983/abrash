@@ -325,6 +325,78 @@ impl Iterator for PreparedTexturedTrianglesIter {
     }
 }
 
+/// Flattened linked-list structure for tile binning.
+///
+/// Replaces `Vec<Vec<usize>>` to reduce heap allocations and improve cache locality.
+pub struct TileBins {
+    pub heads: Vec<u32>, // Index into nexts/tris. u32::MAX = None
+    pub tails: Vec<u32>, // Index into nexts/tris. u32::MAX = None
+    pub nexts: Vec<u32>, // Link to next node
+    pub tris: Vec<u32>,  // Triangle index
+}
+
+impl TileBins {
+    pub fn new(num_tiles: usize) -> Self {
+        Self {
+            heads: vec![u32::MAX; num_tiles],
+            tails: vec![u32::MAX; num_tiles],
+            nexts: Vec::with_capacity(1024),
+            tris: Vec::with_capacity(1024),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.heads.fill(u32::MAX);
+        self.tails.fill(u32::MAX);
+        self.nexts.clear();
+        self.tris.clear();
+    }
+
+    #[inline]
+    pub fn push(&mut self, tile_idx: usize, tri_idx: usize) {
+        let node_idx = self.tris.len() as u32;
+        self.tris.push(tri_idx as u32);
+        self.nexts.push(u32::MAX);
+
+        let head = self.heads[tile_idx];
+        if head == u32::MAX {
+            self.heads[tile_idx] = node_idx;
+        } else {
+            let tail = self.tails[tile_idx];
+            self.nexts[tail as usize] = node_idx;
+        }
+        self.tails[tile_idx] = node_idx;
+    }
+
+    pub fn iter(&self, tile_idx: usize) -> TileBinIter {
+        TileBinIter {
+            bins: self,
+            curr: self.heads[tile_idx],
+        }
+    }
+}
+
+pub struct TileBinIter<'a> {
+    bins: &'a TileBins,
+    curr: u32,
+}
+
+impl<'a> Iterator for TileBinIter<'a> {
+    type Item = usize;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.curr == u32::MAX {
+            None
+        } else {
+            let idx = self.curr as usize;
+            let tri_idx = self.bins.tris[idx] as usize;
+            self.curr = self.bins.nexts[idx];
+            Some(tri_idx)
+        }
+    }
+}
+
 /// Render a single tile: clear, rasterize triangles, and return tile buffers.
 /// Free function to enable parallel dispatch without `&mut self` borrows.
 #[inline(always)]
@@ -332,7 +404,7 @@ impl Iterator for PreparedTexturedTrianglesIter {
 fn render_single_tile(
     tx: u32,
     ty: u32,
-    tile_bins: &[Vec<usize>],
+    tile_bins: &TileBins,
     prepared: &[PreparedTriangle],
     tiles_x: u32,
     width: u32,
@@ -341,7 +413,7 @@ fn render_single_tile(
     tile_depths: &mut [f32],
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins[bin_idx].is_empty() {
+    if tile_bins.heads[bin_idx] == u32::MAX {
         return None;
     }
 
@@ -353,8 +425,8 @@ fn render_single_tile(
     // Compute Y range covered by triangles in this bin (partial tile clear)
     let mut clear_y_min = tile_y1;
     let mut clear_y_max = tile_y0;
-    let bin = &tile_bins[bin_idx];
-    for &tri_idx in bin {
+
+    for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
         clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
         clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
@@ -368,7 +440,7 @@ fn render_single_tile(
 
     // Render all triangles in bin
     let screen_w = width as i32;
-    for &tri_idx in bin {
+    for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
         render_triangle_in_tile(
             tile_pixels,
@@ -505,7 +577,7 @@ fn render_triangle_in_tile(
 fn render_single_tile_textured(
     tx: u32,
     ty: u32,
-    tile_bins: &[Vec<usize>],
+    tile_bins: &TileBins,
     prepared: &[PreparedTexturedTriangle],
     tiles_x: u32,
     width: u32,
@@ -515,7 +587,7 @@ fn render_single_tile_textured(
     tile_depths: &mut [f32],
 ) -> Option<(i32, i32)> {
     let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins[bin_idx].is_empty() {
+    if tile_bins.heads[bin_idx] == u32::MAX {
         return None;
     }
 
@@ -527,8 +599,8 @@ fn render_single_tile_textured(
     // Compute Y range covered by triangles in this bin (partial tile clear)
     let mut clear_y_min = tile_y1;
     let mut clear_y_max = tile_y0;
-    let bin = &tile_bins[bin_idx];
-    for &tri_idx in bin {
+
+    for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
         clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
         clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
@@ -542,7 +614,7 @@ fn render_single_tile_textured(
 
     // Render all triangles in bin
     let screen_w = width as i32;
-    for &tri_idx in bin {
+    for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
         render_triangle_in_tile_textured(
             tile_pixels,
@@ -1167,7 +1239,7 @@ pub struct TileRenderer {
     tiles_y: u32,
     width: u32,
     height: u32,
-    tile_bins: Vec<Vec<usize>>,
+    tile_bins: TileBins,
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
@@ -1204,7 +1276,7 @@ impl TileRenderer {
             tiles_y,
             width,
             height,
-            tile_bins: vec![Vec::new(); tile_count],
+            tile_bins: TileBins::new(tile_count),
             prepared: Vec::new(),
             prepared_textured: Vec::new(),
             hiz_buffer: None,
@@ -1324,9 +1396,7 @@ impl TileRenderer {
     pub fn begin_frame(&mut self) {
         self.prepared.clear();
         self.prepared_textured.clear();
-        for bin in &mut self.tile_bins {
-            bin.clear();
-        }
+        self.tile_bins.clear();
     }
 
     /// Submit a mesh for rendering.
@@ -1436,7 +1506,10 @@ impl TileRenderer {
                     match gpu.bin_triangles_two_level(
                         &self.prepared,
                         self.hiz_buffer.as_ref(),
-                        &mut self.tile_bins,
+                        &mut self.tile_bins.heads,
+                        &mut self.tile_bins.tails,
+                        &mut self.tile_bins.nexts,
+                        &mut self.tile_bins.tris,
                     ) {
                         Ok(_stats) => {
                             // Two-level binning succeeded
@@ -1448,7 +1521,13 @@ impl TileRenderer {
                     }
                 } else {
                     // Single-level GPU binning
-                    if let Err(e) = gpu.bin_triangles(&self.prepared, &mut self.tile_bins) {
+                    if let Err(e) = gpu.bin_triangles(
+                        &self.prepared,
+                        &mut self.tile_bins.heads,
+                        &mut self.tile_bins.tails,
+                        &mut self.tile_bins.nexts,
+                        &mut self.tile_bins.tris,
+                    ) {
                         eprintln!("GPU binning failed: {e}, falling back to CPU");
                         self.bin_triangles_cpu();
                     }
@@ -1700,9 +1779,7 @@ impl TileRenderer {
         );
 
         self.prepared_textured.clear();
-        for bin in &mut self.tile_bins {
-            bin.clear();
-        }
+        self.tile_bins.clear();
 
         // Phase 1: Prepare
         let tex_w = texture.width as f32;
@@ -2031,7 +2108,7 @@ impl TileRenderer {
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                self.tile_bins[bin_idx].push(tri_idx);
+                self.tile_bins.push(bin_idx, tri_idx);
             }
         }
     }
@@ -2243,7 +2320,7 @@ impl TileRenderer {
                         for ty in ty_start..=ty_end {
                             for tx in tx_start..=tx_end {
                                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                                self.tile_bins[bin_idx].push(i);
+                                self.tile_bins.push(bin_idx, i);
                             }
                         }
                     }
@@ -2264,7 +2341,7 @@ impl TileRenderer {
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                self.tile_bins[bin_idx].push(tri_idx);
+                self.tile_bins.push(bin_idx, tri_idx);
             }
         }
     }
@@ -2647,7 +2724,7 @@ mod tests {
         tr.bin_triangle(0);
 
         // Count how many tiles have this triangle
-        let binned_count: usize = tr.tile_bins.iter().filter(|b| !b.is_empty()).count();
+        let binned_count = tr.tile_bins.heads.iter().filter(|&&h| h != u32::MAX).count();
         assert_eq!(
             binned_count, 1,
             "Small triangle should bin to exactly 1 tile"
@@ -2669,7 +2746,7 @@ mod tests {
 
         tr.bin_triangle(0);
 
-        let binned_count: usize = tr.tile_bins.iter().filter(|b| !b.is_empty()).count();
+        let binned_count = tr.tile_bins.heads.iter().filter(|&&h| h != u32::MAX).count();
         assert!(
             binned_count > 1,
             "Large triangle should bin to multiple tiles, got {binned_count}"
