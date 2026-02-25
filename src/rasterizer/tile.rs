@@ -200,14 +200,13 @@ pub struct PreparedTriangle {
 }
 
 /// A textured triangle prepared for rasterization.
+///
+/// Optimized to fit in exactly 128 bytes (2 cache lines).
 #[derive(Clone, Copy)]
 pub struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    pub q0: f32,
-    pub q1: f32,
-    pub q2: f32,
     pub u0: f32,
     pub u1: f32,
     pub u2: f32,
@@ -483,7 +482,14 @@ fn render_triangle_in_tile_textured(
     let screen_x_max = screen_w - 1;
 
     let mut edge_a = PerspectiveTextureEdgeWalker::new(
-        tri.p0, tri.p2, tri.q0, tri.q2, tri.u0, tri.u2, tri.v0, tri.v2,
+        tri.p0,
+        tri.p2,
+        tri.p0.inv_w,
+        tri.p2.inv_w,
+        tri.u0,
+        tri.u2,
+        tri.v0,
+        tri.v2,
     );
     if y_start > tri.p0.y {
         edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
@@ -491,7 +497,14 @@ fn render_triangle_in_tile_textured(
 
     let mut edge_b = if y_start < tri.p1.y {
         let mut e = PerspectiveTextureEdgeWalker::new(
-            tri.p0, tri.p1, tri.q0, tri.q1, tri.u0, tri.u1, tri.v0, tri.v1,
+            tri.p0,
+            tri.p1,
+            tri.p0.inv_w,
+            tri.p1.inv_w,
+            tri.u0,
+            tri.u1,
+            tri.v0,
+            tri.v1,
         );
         if y_start > tri.p0.y {
             e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
@@ -499,7 +512,14 @@ fn render_triangle_in_tile_textured(
         e
     } else {
         let mut e = PerspectiveTextureEdgeWalker::new(
-            tri.p1, tri.p2, tri.q1, tri.q2, tri.u1, tri.u2, tri.v1, tri.v2,
+            tri.p1,
+            tri.p2,
+            tri.p1.inv_w,
+            tri.p2.inv_w,
+            tri.u1,
+            tri.u2,
+            tri.v1,
+            tri.v2,
         );
         if y_start > tri.p1.y {
             e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
@@ -510,7 +530,14 @@ fn render_triangle_in_tile_textured(
     for y in y_start..=y_end {
         if y == tri.p1.y && y != tri.p0.y {
             edge_b = PerspectiveTextureEdgeWalker::new(
-                tri.p1, tri.p2, tri.q1, tri.q2, tri.u1, tri.u2, tri.v1, tri.v2,
+                tri.p1,
+                tri.p2,
+                tri.p1.inv_w,
+                tri.p2.inv_w,
+                tri.u1,
+                tri.u2,
+                tri.v1,
+                tri.v2,
             );
         }
 
@@ -1705,9 +1732,6 @@ impl TileRenderer {
                 p0,
                 p1,
                 p2,
-                q0,
-                q1,
-                q2,
                 u0,
                 u1,
                 u2,
@@ -2846,6 +2870,20 @@ mod tests {
                 "Pixel mismatch at index {i} with fixed-point vertices"
             );
         }
+    }
+
+    #[test]
+    fn verify_prepared_textured_triangle_size() {
+        use std::mem::size_of;
+        // Optimization: Ensure PreparedTexturedTriangle fits in exactly 128 bytes (2 cache lines)
+        // 128 bytes = 3*16 (pts) + 3*4 (uv) + 7*4 (grads) + 1 (bool) + 3 (pad) + 4*4 (aabb) + 2*4 (depth) = 48+12+28+4+16+8 = 116 + padding?
+        // Wait, alignment.
+        // ScreenPoint (16 bytes, align 4).
+        // Gradients (28 bytes, align 4).
+        // It should definitely be <= 128.
+        assert!(size_of::<PreparedTexturedTriangle>() <= 128, "Struct grew beyond 128 bytes!");
+        // We assert equality to catch if we can shrink it further or if it regresses.
+        assert_eq!(size_of::<PreparedTexturedTriangle>(), 128);
     }
 
     #[test]
