@@ -347,3 +347,7 @@ harness = false
 name = "softbody_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "z_cull"
+harness = false
