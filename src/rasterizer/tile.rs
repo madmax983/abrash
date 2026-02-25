@@ -184,12 +184,33 @@ pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
 /// A clip-space triangle with three vertices `(position, w)` and UV coordinates.
 pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f32), Vec2);
 
+/// A compact screen point using i16 coordinates to save space.
+/// Suitable for resolutions up to 32k x 32k.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompactScreenPoint {
+    pub x: i16,
+    pub y: i16,
+    pub z: f32,
+}
+
+impl CompactScreenPoint {
+    #[inline(always)]
+    pub fn to_screen_point(self) -> ScreenPoint {
+        ScreenPoint {
+            x: i32::from(self.x),
+            y: i32::from(self.y),
+            z: self.z,
+            inv_w: 1.0,
+        }
+    }
+}
+
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
 #[derive(Clone, Copy)]
 pub struct PreparedTriangle {
-    pub p0: ScreenPoint,
-    pub p1: ScreenPoint,
-    pub p2: ScreenPoint,
+    pub p0: CompactScreenPoint,
+    pub p1: CompactScreenPoint,
+    pub p2: CompactScreenPoint,
     pub dz_dx: f32,
     pub long_edge_is_left: bool,
     pub color: u32,
@@ -398,8 +419,13 @@ fn render_triangle_in_tile(
     tile_y1: i32,
     screen_w: i32,
 ) {
-    let y_start = tri.p0.y.max(tile_y0);
-    let y_end = tri.p2.y.min(tile_y1 - 1);
+    // Unpack compact points to full ScreenPoints
+    let p0 = tri.p0.to_screen_point();
+    let p1 = tri.p1.to_screen_point();
+    let p2 = tri.p2.to_screen_point();
+
+    let y_start = p0.y.max(tile_y0);
+    let y_end = p2.y.min(tile_y1 - 1);
 
     if y_start > y_end {
         return;
@@ -408,22 +434,22 @@ fn render_triangle_in_tile(
     let screen_x_max = screen_w - 1;
 
     // Edge A: always p0→p2 (long edge)
-    let mut edge_a = EdgeWalker::new(tri.p0, tri.p2);
-    if y_start > tri.p0.y {
-        edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
+    let mut edge_a = EdgeWalker::new(p0, p2);
+    if y_start > p0.y {
+        edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
     }
 
     // Edge B: depends on whether y_start is above or below p1.y
-    let mut edge_b = if y_start < tri.p1.y {
-        let mut e = EdgeWalker::new(tri.p0, tri.p1);
-        if y_start > tri.p0.y {
-            e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
+    let mut edge_b = if y_start < p1.y {
+        let mut e = EdgeWalker::new(p0, p1);
+        if y_start > p0.y {
+            e.step_n(i64::from(y_start) - i64::from(p0.y));
         }
         e
     } else {
-        let mut e = EdgeWalker::new(tri.p1, tri.p2);
-        if y_start > tri.p1.y {
-            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
+        let mut e = EdgeWalker::new(p1, p2);
+        if y_start > p1.y {
+            e.step_n(i64::from(y_start) - i64::from(p1.y));
         }
         e
     };
@@ -432,8 +458,8 @@ fn render_triangle_in_tile(
     let color = tri.color;
 
     for y in y_start..=y_end {
-        if y == tri.p1.y && y != tri.p0.y {
-            edge_b = EdgeWalker::new(tri.p1, tri.p2);
+        if y == p1.y && y != p0.y {
+            edge_b = EdgeWalker::new(p1, p2);
         }
 
         let (x_start, x_end, z_left) = if tri.long_edge_is_left {
@@ -2122,10 +2148,17 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
+            // Convert to compact format for storage
+            let to_compact = |p: ScreenPoint| CompactScreenPoint {
+                x: p.x.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+                y: p.y.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+                z: p.z,
+            };
+
             results.push(PreparedTriangle {
-                p0,
-                p1,
-                p2,
+                p0: to_compact(p0),
+                p1: to_compact(p1),
+                p2: to_compact(p2),
                 dz_dx,
                 long_edge_is_left,
                 color,
@@ -2621,8 +2654,8 @@ mod tests {
         assert!(tri.aabb_max_x < 100);
         assert!(tri.aabb_max_y < 100);
         // And AABB should encompass the triangle
-        assert!(tri.aabb_min_x <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
-        assert!(tri.aabb_max_x >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
+        assert!(tri.aabb_min_x <= i32::from(tri.p0.x.min(tri.p1.x).min(tri.p2.x)));
+        assert!(tri.aabb_max_x >= i32::from(tri.p0.x.max(tri.p1.x).max(tri.p2.x)));
     }
 
     // --- Step 2: Binning ---
@@ -3212,4 +3245,18 @@ mod tests {
         );
     }
 
+}
+
+#[cfg(test)]
+mod size_tests {
+    use super::*;
+    use std::mem::size_of;
+
+    #[test]
+    fn test_prepared_triangle_size() {
+        // Assert that PreparedTriangle fits in 64 bytes (cache line friendly)
+        // 24 (points) + 4 (dz_dx) + 4 (color) + 1 (bool) + 3 (pad) + 16 (aabb) + 8 (depth) = 60 bytes.
+        // It might be 64 due to alignment padding at end.
+        assert!(size_of::<PreparedTriangle>() <= 64, "PreparedTriangle size {} > 64", size_of::<PreparedTriangle>());
+    }
 }
