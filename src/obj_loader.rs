@@ -35,6 +35,31 @@ const MAX_FACES: usize = 1_000_000;
 const SENTINEL: u64 = 0xF_FFFF;
 const ESTIMATED_LINE_LENGTH: usize = 40;
 
+/// A packed key for vertex deduplication.
+/// Layout:
+/// - Bits 0-19: Vertex Index (`v_idx`)
+/// - Bits 20-39: UV Index (`vt_idx`)
+/// - Bits 40-59: Normal Index (`vn_idx`)
+///
+/// Max index is ~1,000,000 (`0xF_FFFF`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct VertexKey(u64);
+
+impl VertexKey {
+    fn new(v_idx: usize, vt_idx: Option<usize>, vn_idx: Option<usize>) -> Self {
+        let k_v = v_idx as u64;
+        let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
+        let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
+
+        // Ensure indices fit in 20 bits (sanity check, though parser limits MAX_VERTICES)
+        debug_assert!(k_v <= SENTINEL);
+        debug_assert!(k_vt <= SENTINEL);
+        debug_assert!(k_vn <= SENTINEL);
+
+        Self(k_v | (k_vt << 20) | (k_vn << 40))
+    }
+}
+
 struct FastSplitter<'a> {
     bytes: &'a [u8],
     pos: usize,
@@ -62,7 +87,7 @@ impl<'a> FastSplitter<'a> {
     }
 }
 
-fn parse_next_f32(
+fn parse_float_component(
     parts: &mut std::str::SplitAsciiWhitespace,
     context: &str,
     line_num: usize,
@@ -89,7 +114,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<u64, usize>,
+    deduplicator: HashMap<VertexKey, usize>,
     face_indices: Vec<usize>,
 }
 
@@ -123,15 +148,13 @@ fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, St
         }
 
         // 3. Parse Normal Index (optional)
-        if let Some(vn_bytes) = splitter.next_part() {
-            if !vn_bytes.is_empty() {
-                let idx = fast_parse_usize(vn_bytes)
-                    .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
-                vn_idx = Some(
-                    idx.checked_sub(1)
-                        .ok_or_else(|| format!("Line {line_num}: Normal index 0 is invalid"))?,
-                );
-            }
+        if let Some(vn_bytes) = splitter.next_part().filter(|b| !b.is_empty()) {
+            let idx = fast_parse_usize(vn_bytes)
+                .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
+            vn_idx = Some(
+                idx.checked_sub(1)
+                    .ok_or_else(|| format!("Line {line_num}: Normal index 0 is invalid"))?,
+            );
         }
     }
 
@@ -162,9 +185,9 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let x = parse_next_f32(parts, "x", line_num)?;
-        let y = parse_next_f32(parts, "y", line_num)?;
-        let z = parse_next_f32(parts, "z", line_num)?;
+        let x = parse_float_component(parts, "x", line_num)?;
+        let y = parse_float_component(parts, "y", line_num)?;
+        let z = parse_float_component(parts, "z", line_num)?;
 
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return Err(format!("Line {line_num}: Coordinates must be finite"));
@@ -181,8 +204,8 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let u = parse_next_f32(parts, "u", line_num)?;
-        let v = parse_next_f32(parts, "v", line_num)?;
+        let u = parse_float_component(parts, "u", line_num)?;
+        let v = parse_float_component(parts, "v", line_num)?;
 
         if !u.is_finite() || !v.is_finite() {
             return Err(format!("Line {line_num}: UV coordinates must be finite"));
@@ -199,9 +222,9 @@ impl ObjParser {
         parts: &mut std::str::SplitAsciiWhitespace,
         line_num: usize,
     ) -> Result<(), String> {
-        let x = parse_next_f32(parts, "nx", line_num)?;
-        let y = parse_next_f32(parts, "ny", line_num)?;
-        let z = parse_next_f32(parts, "nz", line_num)?;
+        let x = parse_float_component(parts, "nx", line_num)?;
+        let y = parse_float_component(parts, "ny", line_num)?;
+        let z = parse_float_component(parts, "nz", line_num)?;
 
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return Err(format!(
@@ -215,7 +238,7 @@ impl ObjParser {
         Ok(())
     }
 
-    fn get_or_insert_vertex(
+    fn process_vertex_indices(
         &mut self,
         indices: ParsedIndices,
         line_num: usize,
@@ -232,14 +255,7 @@ impl ObjParser {
             ));
         }
 
-        // Use HashMap for full deduplication
-        // Pack keys into u64 to reduce hashing overhead and memory usage (8 bytes vs 24 bytes)
-        // Max index is 1,000,000, which fits in 20 bits (1,048,576).
-        let k_v = v_idx as u64;
-        let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
-        let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
-
-        let key = k_v | (k_vt << 20) | (k_vn << 40);
+        let key = VertexKey::new(v_idx, vt_idx, vn_idx);
 
         if let Some(&idx) = self.deduplicator.get(&key) {
             return Ok(idx);
@@ -275,13 +291,7 @@ impl ObjParser {
             }
             self.final_normals.push(self.raw_normals[ni]);
         } else {
-            // If we have some normals but not for this vertex, we should align
-            // Or just push a default?
-            // If final_normals is not empty, we should keep it aligned with final_vertices?
-            // Standard practice: if ANY normal is present in mesh, ALL vertices should have one.
-            // But here we build incrementally.
-            // If we start having normals, we push. If we missed some earlier, we are in trouble?
-            // For simplicity: If vn_idx is None, push Zero.
+            // Default normal to zero if missing
             self.final_normals.push(Vec3::new(0.0, 0.0, 0.0));
         }
 
@@ -297,7 +307,7 @@ impl ObjParser {
         self.face_indices.clear();
         for part in parts {
             let indices = parse_vertex_indices(part, line_num)?;
-            let final_idx = self.get_or_insert_vertex(indices, line_num)?;
+            let final_idx = self.process_vertex_indices(indices, line_num)?;
             self.face_indices.push(final_idx);
         }
 
