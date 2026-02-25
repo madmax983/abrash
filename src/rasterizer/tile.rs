@@ -81,6 +81,7 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
+use std::cmp::Ordering;
 use std::ops::{Deref, DerefMut};
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
@@ -122,12 +123,14 @@ unsafe impl<T> Send for SendPtr<T> {}
 #[cfg(feature = "parallel")]
 unsafe impl<T> Sync for SendPtr<T> {}
 
+#[cfg(not(feature = "parallel"))]
 struct AlignedBuffer<T> {
     _data: Vec<T>,
     ptr: *mut T,
     len: usize,
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T: Default + Copy> AlignedBuffer<T> {
     fn new(len: usize) -> Self {
         // We want 32-byte alignment.
@@ -157,6 +160,7 @@ impl<T: Default + Copy> AlignedBuffer<T> {
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T> Deref for AlignedBuffer<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
@@ -164,13 +168,16 @@ impl<T> Deref for AlignedBuffer<T> {
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T> DerefMut for AlignedBuffer<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 unsafe impl<T: Send> Send for AlignedBuffer<T> {}
+#[cfg(not(feature = "parallel"))]
 unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
@@ -231,7 +238,7 @@ pub struct PreparedTexturedTriangle {
 fn render_single_tile(
     tx: u32,
     ty: u32,
-    tile_bins: &[Vec<usize>],
+    tile_bins: &[Vec<(f32, u32)>],
     prepared: &[PreparedTriangle],
     tiles_x: u32,
     width: u32,
@@ -253,8 +260,8 @@ fn render_single_tile(
     let mut clear_y_min = tile_y1;
     let mut clear_y_max = tile_y0;
     let bin = &tile_bins[bin_idx];
-    for &tri_idx in bin {
-        let tri = &prepared[tri_idx];
+    for &(_depth, tri_idx) in bin {
+        let tri = &prepared[tri_idx as usize];
         clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
         clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
     }
@@ -267,8 +274,8 @@ fn render_single_tile(
 
     // Render all triangles in bin
     let screen_w = width as i32;
-    for &tri_idx in bin {
-        let tri = &prepared[tri_idx];
+    for &(_depth, tri_idx) in bin {
+        let tri = &prepared[tri_idx as usize];
         render_triangle_in_tile(
             tile_pixels,
             tile_depths,
@@ -404,7 +411,7 @@ fn render_triangle_in_tile(
 fn render_single_tile_textured(
     tx: u32,
     ty: u32,
-    tile_bins: &[Vec<usize>],
+    tile_bins: &[Vec<(f32, u32)>],
     prepared: &[PreparedTexturedTriangle],
     tiles_x: u32,
     width: u32,
@@ -427,8 +434,8 @@ fn render_single_tile_textured(
     let mut clear_y_min = tile_y1;
     let mut clear_y_max = tile_y0;
     let bin = &tile_bins[bin_idx];
-    for &tri_idx in bin {
-        let tri = &prepared[tri_idx];
+    for &(_depth, tri_idx) in bin {
+        let tri = &prepared[tri_idx as usize];
         clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
         clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
     }
@@ -441,8 +448,8 @@ fn render_single_tile_textured(
 
     // Render all triangles in bin
     let screen_w = width as i32;
-    for &tri_idx in bin {
-        let tri = &prepared[tri_idx];
+    for &(_depth, tri_idx) in bin {
+        let tri = &prepared[tri_idx as usize];
         render_triangle_in_tile_textured(
             tile_pixels,
             tile_depths,
@@ -1028,7 +1035,7 @@ pub struct TileRenderer {
     tiles_y: u32,
     width: u32,
     height: u32,
-    tile_bins: Vec<Vec<usize>>,
+    tile_bins: Vec<Vec<(f32, u32)>>,
     prepared: Vec<PreparedTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
@@ -1281,6 +1288,22 @@ impl TileRenderer {
             #[cfg(not(feature = "gpu-binning"))]
             self.bin_triangles_cpu();
 
+            // Sort bins by depth (front-to-back) to maximize early-Z culling efficiency.
+            // This global sort is more efficient than sorting per-tile during rendering.
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                self.tile_bins.par_iter_mut().for_each(|bin| {
+                    bin.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+                });
+            }
+            #[cfg(not(feature = "parallel"))]
+            {
+                for bin in &mut self.tile_bins {
+                    bin.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+                }
+            }
+
             // Phase 3+4: Render and merge each tile
             #[cfg(not(feature = "parallel"))]
             {
@@ -1506,6 +1529,21 @@ impl TileRenderer {
 
         // Phase 2: Bin (CPU only for now)
         self.bin_triangles_textured_cpu();
+
+        // Sort bins by depth (front-to-back)
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            self.tile_bins.par_iter_mut().for_each(|bin| {
+                bin.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+            });
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            for bin in &mut self.tile_bins {
+                bin.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+            }
+        }
 
         // Phase 3+4: Render and merge each tile
         #[cfg(not(feature = "parallel"))]
@@ -1760,7 +1798,7 @@ impl TileRenderer {
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                self.tile_bins[bin_idx].push(tri_idx);
+                self.tile_bins[bin_idx].push((tri.min_depth, tri_idx as u32));
             }
         }
     }
@@ -1945,7 +1983,7 @@ impl TileRenderer {
                         for ty in ty_start..=ty_end {
                             for tx in tx_start..=tx_end {
                                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                                self.tile_bins[bin_idx].push(i);
+                                self.tile_bins[bin_idx].push((tri.min_depth, i as u32));
                             }
                         }
                     }
@@ -1966,7 +2004,7 @@ impl TileRenderer {
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
                 let bin_idx = (ty * self.tiles_x + tx) as usize;
-                self.tile_bins[bin_idx].push(tri_idx);
+                self.tile_bins[bin_idx].push((tri.min_depth, tri_idx as u32));
             }
         }
     }
