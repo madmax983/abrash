@@ -94,6 +94,38 @@ pub struct Spring {
     pub rest_length: f32,
 }
 
+/// A collection of springs stored in Structure of Arrays (SoA) layout.
+/// Optimized for SIMD processing.
+#[derive(Debug, Clone)]
+pub struct SpringSoA {
+    /// Index of the first vertex (A).
+    pub index_a: Vec<u32>,
+    /// Index of the second vertex (B).
+    pub index_b: Vec<u32>,
+    /// Rest length of the spring.
+    pub rest_length: Vec<f32>,
+}
+
+impl SpringSoA {
+    pub fn new() -> Self {
+        Self {
+            index_a: Vec::new(),
+            index_b: Vec::new(),
+            rest_length: Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, index_a: usize, index_b: usize, rest_length: f32) {
+        self.index_a.push(index_a as u32);
+        self.index_b.push(index_b as u32);
+        self.rest_length.push(rest_length);
+    }
+
+    pub fn len(&self) -> usize {
+        self.index_a.len()
+    }
+}
+
 /// A soft-body object that can simulate physics.
 pub struct SoftBody {
     /// The visual mesh (updated every frame).
@@ -103,7 +135,7 @@ pub struct SoftBody {
     /// Accumulated forces on each vertex for the current frame.
     pub forces: Vec<Vec3>,
     /// List of springs connecting vertices.
-    pub springs: Vec<Spring>,
+    pub springs: SpringSoA,
     /// Mass of each vertex (uniform for now).
     pub mass: f32,
     /// Stiffness of springs (k).
@@ -136,7 +168,7 @@ impl SoftBody {
         }
 
         let mut edges = HashSet::new();
-        let mut springs = Vec::new();
+        let mut springs = SpringSoA::new();
 
         for tri in &mesh.indices {
             let idxs = [tri[0], tri[1], tri[2]];
@@ -154,11 +186,7 @@ impl SoftBody {
                     let p_b = mesh.vertices[b];
                     let dist = (p_b - p_a).length();
 
-                    springs.push(Spring {
-                        index_a: a,
-                        index_b: b,
-                        rest_length: dist,
-                    });
+                    springs.push(a, b, dist);
                 }
             }
         }
@@ -203,11 +231,15 @@ impl SoftBody {
         }
 
         // Spring Forces
-        for spring in &self.springs {
-            let p_a = self.mesh.vertices[spring.index_a];
-            let p_b = self.mesh.vertices[spring.index_b];
-            let v_a = self.velocities[spring.index_a];
-            let v_b = self.velocities[spring.index_b];
+        for i in 0..self.springs.len() {
+            let idx_a = self.springs.index_a[i] as usize;
+            let idx_b = self.springs.index_b[i] as usize;
+            let rest_len = self.springs.rest_length[i];
+
+            let p_a = self.mesh.vertices[idx_a];
+            let p_b = self.mesh.vertices[idx_b];
+            let v_a = self.velocities[idx_a];
+            let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
             let current_length = delta.length();
@@ -217,7 +249,7 @@ impl SoftBody {
                 let direction = delta * (1.0 / current_length);
 
                 // Hooke's Law: F = -k * (x - x0)
-                let displacement = current_length - spring.rest_length;
+                let displacement = current_length - rest_len;
                 let spring_force_mag = -self.stiffness * displacement;
 
                 // Damping Force: Fd = -d * (v_rel . dir)
@@ -227,8 +259,8 @@ impl SoftBody {
                 let total_force = direction * (spring_force_mag + damping_force_mag);
 
                 // Apply equal and opposite forces
-                self.forces[spring.index_a] = self.forces[spring.index_a] - total_force;
-                self.forces[spring.index_b] = self.forces[spring.index_b] + total_force;
+                self.forces[idx_a] = self.forces[idx_a] - total_force;
+                self.forces[idx_b] = self.forces[idx_b] + total_force;
             }
         }
 
@@ -296,20 +328,153 @@ impl SoftBody {
             i += 1;
         }
 
-        // 2. Spring Forces (Scalar fallback)
-        for spring in &self.springs {
-            let p_a = self.mesh.vertices[spring.index_a];
-            let p_b = self.mesh.vertices[spring.index_b];
-            let v_a = self.velocities[spring.index_a];
-            let v_b = self.velocities[spring.index_b];
+        // 2. Spring Forces (Vectorized)
+        let springs_len = self.springs.len();
+        let mut spring_idx = 0;
+
+        let stiffness_vec = _mm256_set1_ps(self.stiffness);
+        let damping_vec = _mm256_set1_ps(self.damping);
+        let epsilon = _mm256_set1_ps(0.0001);
+        let three_vec = _mm256_set1_epi32(3);
+        let one_vec = _mm256_set1_epi32(1);
+        let two_vec = _mm256_set1_epi32(2);
+
+        // Split borrows for safe concurrent access
+        let springs = &self.springs;
+        let forces = &mut self.forces;
+        let vertices = &self.mesh.vertices;
+        let velocities = &self.velocities;
+
+        let v_base = vertices.as_ptr() as *const f32;
+        let vel_base = velocities.as_ptr() as *const f32;
+
+        while spring_idx + 8 <= springs_len {
+            // Load indices
+            let idx_a_ptr = springs.index_a.as_ptr().add(spring_idx) as *const i32;
+            let idx_b_ptr = springs.index_b.as_ptr().add(spring_idx) as *const i32;
+            let idx_a = _mm256_loadu_si256(idx_a_ptr as *const _);
+            let idx_b = _mm256_loadu_si256(idx_b_ptr as *const _);
+
+            // Calculate byte offsets for Gather: idx * 3 * 4 (scale=4 handled by gather, so idx * 3)
+            let off_a_x = _mm256_mullo_epi32(idx_a, three_vec);
+            let off_a_y = _mm256_add_epi32(off_a_x, one_vec);
+            let off_a_z = _mm256_add_epi32(off_a_x, two_vec);
+
+            let off_b_x = _mm256_mullo_epi32(idx_b, three_vec);
+            let off_b_y = _mm256_add_epi32(off_b_x, one_vec);
+            let off_b_z = _mm256_add_epi32(off_b_x, two_vec);
+
+            // Gather Positions
+            let pax = _mm256_i32gather_ps(v_base, off_a_x, 4);
+            let pay = _mm256_i32gather_ps(v_base, off_a_y, 4);
+            let paz = _mm256_i32gather_ps(v_base, off_a_z, 4);
+
+            let pbx = _mm256_i32gather_ps(v_base, off_b_x, 4);
+            let pby = _mm256_i32gather_ps(v_base, off_b_y, 4);
+            let pbz = _mm256_i32gather_ps(v_base, off_b_z, 4);
+
+            // Gather Velocities
+            let vax = _mm256_i32gather_ps(vel_base, off_a_x, 4);
+            let vay = _mm256_i32gather_ps(vel_base, off_a_y, 4);
+            let vaz = _mm256_i32gather_ps(vel_base, off_a_z, 4);
+
+            let vbx = _mm256_i32gather_ps(vel_base, off_b_x, 4);
+            let vby = _mm256_i32gather_ps(vel_base, off_b_y, 4);
+            let vbz = _mm256_i32gather_ps(vel_base, off_b_z, 4);
+
+            // Gather Rest Lengths
+            let rest_len = _mm256_loadu_ps(springs.rest_length.as_ptr().add(spring_idx));
+
+            // Delta = Pb - Pa
+            let dx = _mm256_sub_ps(pbx, pax);
+            let dy = _mm256_sub_ps(pby, pay);
+            let dz = _mm256_sub_ps(pbz, paz);
+
+            // DistSq
+            let dist_sq = _mm256_add_ps(
+                _mm256_mul_ps(dx, dx),
+                _mm256_add_ps(_mm256_mul_ps(dy, dy), _mm256_mul_ps(dz, dz)),
+            );
+
+            // Dist (Approximate sqrt using rsqrt)
+            // rsqrt = 1 / sqrt(x)
+            let inv_dist = _mm256_rsqrt_ps(dist_sq);
+            // dist = x * (1/sqrt(x)) = sqrt(x)
+            let dist = _mm256_mul_ps(dist_sq, inv_dist);
+
+            // Mask: dist > 0.0001
+            let mask = _mm256_cmp_ps(dist, epsilon, _CMP_GT_OQ);
+
+            // Direction
+            let dir_x = _mm256_mul_ps(dx, inv_dist);
+            let dir_y = _mm256_mul_ps(dy, inv_dist);
+            let dir_z = _mm256_mul_ps(dz, inv_dist);
+
+            // Forces
+            let displacement = _mm256_sub_ps(dist, rest_len);
+            let spring_f_mag = _mm256_mul_ps(_mm256_sub_ps(zero, stiffness_vec), displacement);
+
+            let vrx = _mm256_sub_ps(vbx, vax);
+            let vry = _mm256_sub_ps(vby, vay);
+            let vrz = _mm256_sub_ps(vbz, vaz);
+
+            let dot = _mm256_add_ps(
+                _mm256_mul_ps(vrx, dir_x),
+                _mm256_add_ps(_mm256_mul_ps(vry, dir_y), _mm256_mul_ps(vrz, dir_z)),
+            );
+            let damp_f_mag = _mm256_mul_ps(_mm256_sub_ps(zero, damping_vec), dot);
+
+            let total_mag = _mm256_add_ps(spring_f_mag, damp_f_mag);
+            let total_mag = _mm256_and_ps(total_mag, mask);
+
+            let fx = _mm256_mul_ps(dir_x, total_mag);
+            let fy = _mm256_mul_ps(dir_y, total_mag);
+            let fz = _mm256_mul_ps(dir_z, total_mag);
+
+            // Scatter Add (Scalar)
+            let mut fx_arr = [0.0; 8];
+            let mut fy_arr = [0.0; 8];
+            let mut fz_arr = [0.0; 8];
+            _mm256_storeu_ps(fx_arr.as_mut_ptr(), fx);
+            _mm256_storeu_ps(fy_arr.as_mut_ptr(), fy);
+            _mm256_storeu_ps(fz_arr.as_mut_ptr(), fz);
+
+            for k in 0..8 {
+                let ia = springs.index_a[spring_idx + k] as usize;
+                let ib = springs.index_b[spring_idx + k] as usize;
+
+                // SAFETY: Indices are validated on creation and SpringSoA is only mutated via safe API.
+                let f_a = forces.get_unchecked_mut(ia);
+                f_a.x -= fx_arr[k];
+                f_a.y -= fy_arr[k];
+                f_a.z -= fz_arr[k];
+
+                let f_b = forces.get_unchecked_mut(ib);
+                f_b.x += fx_arr[k];
+                f_b.y += fy_arr[k];
+                f_b.z += fz_arr[k];
+            }
+
+            spring_idx += 8;
+        }
+
+        // Remainder
+        while spring_idx < springs_len {
+            let idx_a = springs.index_a[spring_idx] as usize;
+            let idx_b = springs.index_b[spring_idx] as usize;
+            let rest_len = springs.rest_length[spring_idx];
+
+            let p_a = vertices[idx_a];
+            let p_b = vertices[idx_b];
+            let v_a = velocities[idx_a];
+            let v_b = velocities[idx_b];
 
             let delta = p_b - p_a;
             let current_length = delta.length();
 
             if current_length > 0.0001 {
-                let direction = delta.normalize();
-
-                let displacement = current_length - spring.rest_length;
+                let direction = delta * (1.0 / current_length);
+                let displacement = current_length - rest_len;
                 let spring_force_mag = -self.stiffness * displacement;
 
                 let v_rel = v_b - v_a;
@@ -317,9 +482,10 @@ impl SoftBody {
 
                 let total_force = direction * (spring_force_mag + damping_force_mag);
 
-                self.forces[spring.index_a] = self.forces[spring.index_a] - total_force;
-                self.forces[spring.index_b] = self.forces[spring.index_b] + total_force;
+                forces[idx_a] = forces[idx_a] - total_force;
+                forces[idx_b] = forces[idx_b] + total_force;
             }
+            spring_idx += 1;
         }
 
         // 3. Integration
@@ -411,16 +577,20 @@ impl SoftBody {
         let mut stress = vec![0.0; self.mesh.vertices.len()];
         let mut counts = vec![0; self.mesh.vertices.len()];
 
-        for spring in &self.springs {
-            let p_a = self.mesh.vertices[spring.index_a];
-            let p_b = self.mesh.vertices[spring.index_b];
-            let len = (p_b - p_a).length();
-            let stretch = (len - spring.rest_length).abs() / spring.rest_length; // Strain
+        for i in 0..self.springs.len() {
+            let idx_a = self.springs.index_a[i] as usize;
+            let idx_b = self.springs.index_b[i] as usize;
+            let rest_len = self.springs.rest_length[i];
 
-            stress[spring.index_a] += stretch;
-            counts[spring.index_a] += 1;
-            stress[spring.index_b] += stretch;
-            counts[spring.index_b] += 1;
+            let p_a = self.mesh.vertices[idx_a];
+            let p_b = self.mesh.vertices[idx_b];
+            let len = (p_b - p_a).length();
+            let stretch = (len - rest_len).abs() / rest_len; // Strain
+
+            stress[idx_a] += stretch;
+            counts[idx_a] += 1;
+            stress[idx_b] += stretch;
+            counts[idx_b] += 1;
         }
 
         for i in 0..stress.len() {
