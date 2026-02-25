@@ -122,12 +122,14 @@ unsafe impl<T> Send for SendPtr<T> {}
 #[cfg(feature = "parallel")]
 unsafe impl<T> Sync for SendPtr<T> {}
 
+#[allow(dead_code)]
 struct AlignedBuffer<T> {
     _data: Vec<T>,
     ptr: *mut T,
     len: usize,
 }
 
+#[allow(dead_code)]
 impl<T: Default + Copy> AlignedBuffer<T> {
     fn new(len: usize) -> Self {
         // We want 32-byte alignment.
@@ -221,6 +223,106 @@ pub struct PreparedTexturedTriangle {
     pub aabb_max_y: i32,
     pub min_depth: f32,
     pub max_depth: f32,
+}
+
+use std::mem::MaybeUninit;
+
+pub struct PreparedTrianglesList {
+    pub tris: [MaybeUninit<PreparedTriangle>; 8],
+    pub count: usize,
+}
+
+impl PreparedTrianglesList {
+    pub fn new() -> Self {
+        Self {
+            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            count: 0,
+        }
+    }
+
+    pub fn push(&mut self, tri: PreparedTriangle) {
+        if self.count < 8 {
+            self.tris[self.count].write(tri);
+            self.count += 1;
+        }
+    }
+}
+
+impl IntoIterator for PreparedTrianglesList {
+    type Item = PreparedTriangle;
+    type IntoIter = PreparedTrianglesIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PreparedTrianglesIter { list: self, index: 0 }
+    }
+}
+
+pub struct PreparedTrianglesIter {
+    list: PreparedTrianglesList,
+    index: usize,
+}
+
+impl Iterator for PreparedTrianglesIter {
+    type Item = PreparedTriangle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.list.count {
+            let item = unsafe { self.list.tris[self.index].assume_init() };
+            self.index += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct PreparedTexturedTrianglesList {
+    pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
+    pub count: usize,
+}
+
+impl PreparedTexturedTrianglesList {
+    pub fn new() -> Self {
+        Self {
+            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            count: 0,
+        }
+    }
+
+    pub fn push(&mut self, tri: PreparedTexturedTriangle) {
+        if self.count < 8 {
+            self.tris[self.count].write(tri);
+            self.count += 1;
+        }
+    }
+}
+
+impl IntoIterator for PreparedTexturedTrianglesList {
+    type Item = PreparedTexturedTriangle;
+    type IntoIter = PreparedTexturedTrianglesIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PreparedTexturedTrianglesIter { list: self, index: 0 }
+    }
+}
+
+pub struct PreparedTexturedTrianglesIter {
+    list: PreparedTexturedTrianglesList,
+    index: usize,
+}
+
+impl Iterator for PreparedTexturedTrianglesIter {
+    type Item = PreparedTexturedTriangle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.list.count {
+            let item = unsafe { self.list.tris[self.index].assume_init() };
+            self.index += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
 }
 
 /// Render a single tile: clear, rasterize triangles, and return tile buffers.
@@ -1238,13 +1340,53 @@ impl TileRenderer {
     /// * `vertices` - A buffer of transformed vertices (position + w).
     /// * `color` - The flat color of the mesh.
     pub fn submit_mesh(&mut self, indices: &[[usize; 3]], vertices: &[(Vec3, f32)], color: u32) {
-        for &[i0, i1, i2] in indices {
-            // Using direct indexing which panics on out-of-bounds, ensuring safety
-            let v0 = vertices[i0];
-            let v1 = vertices[i1];
-            let v2 = vertices[i2];
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let width = self.width;
+            let height = self.height;
+            let half_width = self.half_width;
+            let half_height = self.half_height;
 
-            self.prepare_triangle(v0, v1, v2, color);
+            // Process triangles in parallel and collect prepared results
+            let results: Vec<PreparedTriangle> = indices
+                .par_iter()
+                .fold(Vec::new, |mut acc, &[i0, i1, i2]| {
+                    // Safety: We trust the indices are within bounds of the vertices slice.
+                    // The caller must ensure this or it will panic inside the thread.
+                    let v0 = vertices[i0];
+                    let v1 = vertices[i1];
+                    let v2 = vertices[i2];
+
+                    let tris = Self::prepare_triangle_static(
+                        v0,
+                        v1,
+                        v2,
+                        color,
+                        width,
+                        height,
+                        half_width,
+                        half_height,
+                    );
+                    acc.extend(tris);
+                    acc
+                })
+                .flatten()
+                .collect();
+
+            self.prepared.extend(results);
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for &[i0, i1, i2] in indices {
+                // Using direct indexing which panics on out-of-bounds, ensuring safety
+                let v0 = vertices[i0];
+                let v1 = vertices[i1];
+                let v2 = vertices[i2];
+
+                self.prepare_triangle(v0, v1, v2, color);
+            }
         }
     }
 
@@ -1483,9 +1625,44 @@ impl TileRenderer {
         triangles: &[ClipTriangle],
     ) {
         self.begin_frame();
-        for &(v0, v1, v2, color) in triangles {
-            self.prepare_triangle(v0, v1, v2, color);
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let width = self.width;
+            let height = self.height;
+            let half_width = self.half_width;
+            let half_height = self.half_height;
+
+            let results: Vec<PreparedTriangle> = triangles
+                .par_iter()
+                .fold(Vec::new, |mut acc, &(v0, v1, v2, color)| {
+                    let tris = Self::prepare_triangle_static(
+                        v0,
+                        v1,
+                        v2,
+                        color,
+                        width,
+                        height,
+                        half_width,
+                        half_height,
+                    );
+                    acc.extend(tris);
+                    acc
+                })
+                .flatten()
+                .collect();
+
+            self.prepared.extend(results);
         }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for &(v0, v1, v2, color) in triangles {
+                self.prepare_triangle(v0, v1, v2, color);
+            }
+        }
+
         self.end_frame(fb, zb);
     }
 
@@ -1530,8 +1707,43 @@ impl TileRenderer {
         // Phase 1: Prepare
         let tex_w = texture.width as f32;
         let tex_h = texture.height as f32;
-        for &(v0, uv0, v1, uv1, v2, uv2) in triangles {
-            self.prepare_triangle_textured((v0, uv0), (v1, uv1), (v2, uv2), tex_w, tex_h);
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let width = self.width;
+            let height = self.height;
+            let half_width = self.half_width;
+            let half_height = self.half_height;
+
+            let results: Vec<PreparedTexturedTriangle> = triangles
+                .par_iter()
+                .fold(Vec::new, |mut acc, &(v0, uv0, v1, uv1, v2, uv2)| {
+                    let tris = Self::prepare_triangle_textured_static(
+                        (v0, uv0),
+                        (v1, uv1),
+                        (v2, uv2),
+                        tex_w,
+                        tex_h,
+                        width,
+                        height,
+                        half_width,
+                        half_height,
+                    );
+                    acc.extend(tris);
+                    acc
+                })
+                .flatten()
+                .collect();
+
+            self.prepared_textured.extend(results);
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for &(v0, uv0, v1, uv1, v2, uv2) in triangles {
+                self.prepare_triangle_textured((v0, uv0), (v1, uv1), (v2, uv2), tex_w, tex_h);
+            }
         }
 
         // Build Hi-Z pyramid from previous frame (temporal coherence)
@@ -1651,6 +1863,7 @@ impl TileRenderer {
         }
     }
 
+    #[cfg_attr(feature = "parallel", allow(dead_code))]
     fn prepare_triangle_textured(
         &mut self,
         v0: ((Vec3, f32), Vec2),
@@ -1659,7 +1872,34 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
+        let results = Self::prepare_triangle_textured_static(
+            v0,
+            v1,
+            v2,
+            tex_w,
+            tex_h,
+            self.width,
+            self.height,
+            self.half_width,
+            self.half_height,
+        );
+        self.prepared_textured.extend(results);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_triangle_textured_static(
+        v0: ((Vec3, f32), Vec2),
+        v1: ((Vec3, f32), Vec2),
+        v2: ((Vec3, f32), Vec2),
+        tex_w: f32,
+        tex_h: f32,
+        width: u32,
+        height: u32,
+        half_width: f32,
+        half_height: f32,
+    ) -> PreparedTexturedTrianglesList {
         let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let mut results = PreparedTexturedTrianglesList::new();
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1674,8 +1914,8 @@ impl TileRenderer {
                 cv1.0.1,
                 cv2.0.0,
                 cv2.0.1,
-                self.half_width,
-                self.half_height,
+                half_width,
+                half_height,
             );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -1728,8 +1968,8 @@ impl TileRenderer {
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
             let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(self.width as i32 - 1);
-            let max_y = p2.y.min(self.height as i32 - 1);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(width as i32 - 1);
+            let max_y = p2.y.min(height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
                 continue;
@@ -1738,7 +1978,7 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            self.prepared_textured.push(PreparedTexturedTriangle {
+            results.push(PreparedTexturedTriangle {
                 p0,
                 p1,
                 p2,
@@ -1758,6 +1998,7 @@ impl TileRenderer {
                 max_depth,
             });
         }
+        results
     }
 
     fn bin_triangles_textured_cpu(&mut self) {
@@ -1799,8 +2040,34 @@ impl TileRenderer {
         }
     }
 
+    #[cfg_attr(feature = "parallel", allow(dead_code))]
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
+        let results = Self::prepare_triangle_static(
+            v0,
+            v1,
+            v2,
+            color,
+            self.width,
+            self.height,
+            self.half_width,
+            self.half_height,
+        );
+        self.prepared.extend(results);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_triangle_static(
+        v0: (Vec3, f32),
+        v1: (Vec3, f32),
+        v2: (Vec3, f32),
+        color: u32,
+        width: u32,
+        height: u32,
+        half_width: f32,
+        half_height: f32,
+    ) -> PreparedTrianglesList {
         let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
+        let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -1815,8 +2082,8 @@ impl TileRenderer {
                 cv1.1,
                 cv2.0,
                 cv2.1,
-                self.half_width,
-                self.half_height,
+                half_width,
+                half_height,
             );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -1848,8 +2115,8 @@ impl TileRenderer {
             // AABB clamped to screen
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
             let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(self.width as i32 - 1);
-            let max_y = p2.y.min(self.height as i32 - 1);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(width as i32 - 1);
+            let max_y = p2.y.min(height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
                 continue;
@@ -1859,7 +2126,7 @@ impl TileRenderer {
             let min_depth = p0.z.min(p1.z).min(p2.z);
             let max_depth = p0.z.max(p1.z).max(p2.z);
 
-            self.prepared.push(PreparedTriangle {
+            results.push(PreparedTriangle {
                 p0,
                 p1,
                 p2,
@@ -1874,6 +2141,7 @@ impl TileRenderer {
                 max_depth,
             });
         }
+        results
     }
 
     /// CPU binning path with optional Hi-Z occlusion culling
