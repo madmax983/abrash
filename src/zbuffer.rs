@@ -43,6 +43,12 @@ impl ZBuffer {
         self.depths.fill(f32::INFINITY);
     }
 
+    /// Clear the z-buffer to a specific value.
+    /// Useful for benchmarking occlusion culling.
+    pub fn clear_val(&mut self, val: f32) {
+        self.depths.fill(val);
+    }
+
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
     #[inline]
     pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {

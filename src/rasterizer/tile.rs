@@ -969,24 +969,34 @@ fn rasterize_scanline_simd(
 
             // Compare: depth < zbuffer (8 comparisons in parallel)
             let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
+            let mask_bits = _mm256_movemask_ps(mask);
 
-            // Conditional writes using blend + unconditional store (faster than maskstore)
+            if mask_bits == 0xFF {
+                // Fast path: All pixels passed Z-test.
+                // Store depths and colors directly, avoiding loads of old pixels and blending.
+                _mm256_storeu_ps(depths.as_mut_ptr().add(i), depths_vec);
 
-            // 1. Update depths
-            let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
-            _mm256_storeu_ps(depths.as_mut_ptr().add(i), blended_depths);
+                let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                _mm256_storeu_si256(pixels_ptr, color_vec);
+            } else if mask_bits != 0 {
+                // Partial write path
 
-            // 2. Update pixels
-            // Cast to/from float vectors to use blendv_ps (zero-cost on AVX2)
-            let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-            let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                // 1. Update depths
+                let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
+                _mm256_storeu_ps(depths.as_mut_ptr().add(i), blended_depths);
 
-            let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
-            let color_vec_ps = _mm256_castsi256_ps(color_vec);
+                // 2. Update pixels
+                // Cast to/from float vectors to use blendv_ps (zero-cost on AVX2)
+                let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
 
-            let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
+                let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
+                let color_vec_ps = _mm256_castsi256_ps(color_vec);
 
-            _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
+
+                _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+            }
 
             // Increment depths by stride (8*dz_dx) for next iteration
             depths_vec = _mm256_add_ps(depths_vec, stride_vec);
