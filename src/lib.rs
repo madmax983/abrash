@@ -82,6 +82,7 @@
 //! *   [`obj_loader`]: Wavefront OBJ parser.
 
 pub mod framebuffer;
+pub mod geometry;
 pub mod math;
 pub mod mesh;
 pub mod platform;
