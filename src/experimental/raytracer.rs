@@ -1,11 +1,46 @@
 //! Software Raytracer Module.
 //!
-//! Provides a CPU-based raytracer that supports triangles, spheres, and AABBs.
-//! Features:
-//! *   Recursive reflections
-//! *   Phong shading
-//! *   Hard shadows
-//! *   BVH (AABB) acceleration
+//! Provides a simple CPU-based recursive raytracer (Whitted-style) that supports triangles and AABBs.
+//!
+//! # Purpose
+//!
+//! This module serves as a **reference implementation** for scene verification. It is *not* intended
+//! for real-time rendering. It helps verify:
+//!
+//! 1.  **Coordinate Systems**: Ensuring that the Camera View matrix and World transformations are correct.
+//! 2.  **Geometry**: Verifying that meshes are loaded and transformed correctly without rasterization artifacts.
+//! 3.  **Lighting Reference**: Providing a ground truth for simple Phong shading to compare against rasterized shaders.
+//!
+//! # Features
+//!
+//! *   **Recursive Reflections**: Supports hard-coded reflection depth (default: 3 bounces).
+//! *   **Phong Shading**: Implements Ambient + Diffuse + Specular lighting.
+//! *   **Hard Shadows**: Single directional light source with ray-casted shadows.
+//! *   **BVH Acceleration**: Uses a simple Object-level AABB check to skip expensive mesh intersections.
+//! *   **Parallel Rendering**: Uses `rayon` (if enabled) to trace rays in parallel.
+//!
+//! # Usage
+//!
+//! ```no_run
+//! use abrash::experimental::raytracer::RayTracer;
+//! use abrash::scene::{Scene, Camera};
+//! use abrash::math::{Mat4, Vec3};
+//! use abrash::framebuffer::Framebuffer;
+//!
+//! // 1. Setup Scene
+//! let view = Mat4::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+//! let proj = Mat4::perspective(1.57, 1.33, 0.1, 100.0);
+//! let camera = Camera::new(view, proj);
+//! let scene = Scene::new(camera);
+//! // ... add objects to scene ...
+//!
+//! // 2. Setup Framebuffer
+//! let mut fb = Framebuffer::new(800, 600).unwrap();
+//!
+//! // 3. Render
+//! let tracer = RayTracer::new();
+//! tracer.render(&scene, &mut fb);
+//! ```
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec2, Vec3};
@@ -16,15 +51,25 @@ use crate::scene::{Scene, SceneObject};
 use rayon::prelude::*;
 
 /// A ray in 3D space, defined by an origin and a direction.
+///
+/// Used for intersection tests against scene geometry.
 #[derive(Debug, Clone, Copy)]
 pub struct Ray {
+    /// Starting point of the ray.
     pub origin: Vec3,
+    /// Normalized direction vector.
     pub direction: Vec3,
-    pub inv_direction: Vec3, // Pre-computed for AABB intersection
+    /// Reciprocal of direction (1.0 / direction), pre-computed for fast AABB intersection.
+    pub inv_direction: Vec3,
 }
 
 impl Ray {
     /// Creates a new ray.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position of the ray.
+    /// * `direction` - The direction vector (will be normalized).
     #[must_use]
     pub fn new(origin: Vec3, direction: Vec3) -> Self {
         let direction = direction.normalize();
@@ -36,14 +81,26 @@ impl Ray {
     }
 
     /// Returns the point at distance `t` along the ray.
+    ///
+    /// $$ P(t) = Origin + Direction \cdot t $$
     #[must_use]
     pub fn at(&self, t: f32) -> Vec3 {
         self.origin + self.direction * t
     }
 
     /// Intersects the ray with a triangle defined by vertices v0, v1, v2.
-    /// Returns `Some(Hit)` if intersection occurs, `None` otherwise.
-    /// Uses Möller–Trumbore algorithm.
+    ///
+    /// Uses the [Möller–Trumbore intersection algorithm](https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm).
+    ///
+    /// # Arguments
+    ///
+    /// * `v0`, `v1`, `v2` - Vertices of the triangle in World Space.
+    /// * `t_min`, `t_max` - Valid range for the intersection distance `t`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Hit)` if the ray intersects the triangle within the range `[t_min, t_max]`.
+    /// * `None` otherwise.
     pub fn intersect_triangle(
         &self,
         v0: Vec3,
@@ -84,7 +141,8 @@ impl Ray {
 
         // Compute normal
         let normal = edge1.cross(edge2).normalize();
-        // Correct normal orientation (should face the ray)
+        // Correct normal orientation (double-sided lighting)
+        // If the normal points away from the ray (dot > 0), flip it.
         let normal = if normal.dot(self.direction) > 0.0 {
             normal * -1.0
         } else {
@@ -100,8 +158,13 @@ impl Ray {
         })
     }
 
-    /// Intersects the ray with an Axis-Aligned Bounding Box.
-    /// Returns `true` if intersection occurs.
+    /// Intersects the ray with an Axis-Aligned Bounding Box (AABB).
+    ///
+    /// Uses the "Slab Method" optimization.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the ray intersects the AABB within `[t_min, t_max]`.
     pub fn intersect_aabb(&self, aabb: &AABB, t_min: f32, t_max: f32) -> bool {
         let tx1 = (aabb.min.x - self.origin.x) * self.inv_direction.x;
         let tx2 = (aabb.max.x - self.origin.x) * self.inv_direction.x;
@@ -128,16 +191,26 @@ impl Ray {
 /// Information about a ray-object intersection.
 #[derive(Debug, Clone, Copy)]
 pub struct Hit {
+    /// Distance from ray origin to intersection point.
     pub t: f32,
+    /// Intersection point in World Space.
     pub point: Vec3,
+    /// Surface normal at the intersection point.
     pub normal: Vec3,
+    /// Barycentric coordinates (u, v) of the hit.
     pub uv: Vec2,
+    /// Interpolated color at the hit (if supported).
     pub color: u32,
 }
 
-/// A simple raytracer.
+/// A simple recursive raytracer.
+///
+/// See the [module-level documentation](self) for usage.
+#[doc(alias = "PathTracer")]
 pub struct RayTracer {
+    /// Maximum number of reflection bounces (recursion depth).
     pub max_bounces: u32,
+    /// Color returned when a ray hits nothing (ARGB).
     pub background_color: u32,
 }
 
@@ -157,12 +230,24 @@ struct RenderObject<'a> {
 }
 
 impl RayTracer {
-    /// Creates a new RayTracer with default settings.
+    /// Creates a new RayTracer with default settings (3 bounces, dark grey background).
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Renders the scene to the framebuffer.
+    /// Renders the scene to the framebuffer using ray tracing.
+    ///
+    /// This method iterates over every pixel in the framebuffer, generating a primary ray
+    /// from the camera eye through the pixel on the image plane.
+    ///
+    /// # Performance
+    ///
+    /// This implementation performs a brute-force intersection against all triangles
+    /// in visible objects. It includes a basic optimization: objects are first checked
+    /// against their World AABB before testing triangles.
+    ///
+    /// If the `parallel` feature is enabled, this method uses `rayon` to trace rays
+    /// in parallel across multiple threads.
     pub fn render(&self, scene: &Scene, fb: &mut Framebuffer) {
         let width = fb.width();
         let height = fb.height();
@@ -178,19 +263,26 @@ impl RayTracer {
             })
             .collect();
 
-        // Reconstruct Camera
+        // Reconstruct Camera Vectors from View Matrix.
+        // View Matrix is R * T (Row-Major).
+        // The rotation submatrix R transforms World basis to View basis.
+        // The inverse R^T transforms View basis to World basis.
+        // So the columns of R are the World-Space Right, Up, and Back vectors.
         let view = scene.camera.view;
         let proj = scene.camera.proj;
 
-        let cam_right = Vec3::new(view.m[0][0], view.m[0][1], view.m[0][2]);
-        let cam_up = Vec3::new(view.m[1][0], view.m[1][1], view.m[1][2]);
-        let cam_back = Vec3::new(view.m[2][0], view.m[2][1], view.m[2][2]);
+        let cam_right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]); // Column 0
+        let cam_up    = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]); // Column 1
+        let cam_back  = Vec3::new(view.m[0][2], view.m[1][2], view.m[2][2]); // Column 2
         let cam_forward = cam_back * -1.0;
 
-        // Extract Eye position: Eye = -R^T * T
-        let tx = view.m[0][3];
-        let ty = view.m[1][3];
-        let tz = view.m[2][3];
+        // Extract Eye position.
+        // The translation row T (row 3) contains the dot products of -eye with the basis vectors.
+        // T = (-eye . Right, -eye . Up, -eye . Back)
+        // So eye = -(T.x * Right + T.y * Up + T.z * Back)
+        let tx = view.m[3][0];
+        let ty = view.m[3][1];
+        let tz = view.m[3][2];
 
         let eye = Vec3::new(
             -(cam_right.x * tx + cam_up.x * ty + cam_back.x * tz),
@@ -267,6 +359,7 @@ impl RayTracer {
 
         if let Some(hit) = closest_hit {
             // Lighting
+            // Light source: Directional light from top-left-front
             let light_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
             let light_color = Vec3::new(1.0, 1.0, 1.0);
             let ambient = Vec3::new(0.1, 0.1, 0.1);
@@ -279,24 +372,25 @@ impl RayTracer {
             let b = (base_color & 0xFF) as f32 / 255.0;
             let material_color = Vec3::new(r, g, b);
 
-            // Diffuse
+            // Diffuse (Lambert)
             let diff = hit.normal.dot(light_dir * -1.0).max(0.0);
             let diffuse = light_color * diff;
 
-            // Specular
+            // Specular (Phong)
             let view_dir = ray.direction * -1.0;
             let reflect_dir = reflect(light_dir, hit.normal).normalize();
             let spec = reflect_dir.dot(view_dir).max(0.0).powf(32.0);
             let specular = light_color * spec * 0.5;
 
-            // Shadow
+            // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
             let in_shadow = self.check_shadow(&shadow_ray, objects);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
 
-            // Reflection (Simple 30% mix)
+            // Reflection (Recursive)
+            // Mix 30% reflection with 70% base color
             let reflectivity = 0.3;
             let reflected_color = if depth < self.max_bounces {
                 let r_ray = Ray::new(
