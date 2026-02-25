@@ -205,9 +205,6 @@ pub struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
     pub p1: ScreenPoint,
     pub p2: ScreenPoint,
-    pub q0: f32,
-    pub q1: f32,
-    pub q2: f32,
     pub u0: f32,
     pub u1: f32,
     pub u2: f32,
@@ -483,7 +480,14 @@ fn render_triangle_in_tile_textured(
     let screen_x_max = screen_w - 1;
 
     let mut edge_a = PerspectiveTextureEdgeWalker::new(
-        tri.p0, tri.p2, tri.q0, tri.q2, tri.u0, tri.u2, tri.v0, tri.v2,
+        tri.p0,
+        tri.p2,
+        tri.p0.inv_w,
+        tri.p2.inv_w,
+        tri.u0,
+        tri.u2,
+        tri.v0,
+        tri.v2,
     );
     if y_start > tri.p0.y {
         edge_a.step_n(i64::from(y_start) - i64::from(tri.p0.y));
@@ -491,7 +495,14 @@ fn render_triangle_in_tile_textured(
 
     let mut edge_b = if y_start < tri.p1.y {
         let mut e = PerspectiveTextureEdgeWalker::new(
-            tri.p0, tri.p1, tri.q0, tri.q1, tri.u0, tri.u1, tri.v0, tri.v1,
+            tri.p0,
+            tri.p1,
+            tri.p0.inv_w,
+            tri.p1.inv_w,
+            tri.u0,
+            tri.u1,
+            tri.v0,
+            tri.v1,
         );
         if y_start > tri.p0.y {
             e.step_n(i64::from(y_start) - i64::from(tri.p0.y));
@@ -499,7 +510,14 @@ fn render_triangle_in_tile_textured(
         e
     } else {
         let mut e = PerspectiveTextureEdgeWalker::new(
-            tri.p1, tri.p2, tri.q1, tri.q2, tri.u1, tri.u2, tri.v1, tri.v2,
+            tri.p1,
+            tri.p2,
+            tri.p1.inv_w,
+            tri.p2.inv_w,
+            tri.u1,
+            tri.u2,
+            tri.v1,
+            tri.v2,
         );
         if y_start > tri.p1.y {
             e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
@@ -510,7 +528,14 @@ fn render_triangle_in_tile_textured(
     for y in y_start..=y_end {
         if y == tri.p1.y && y != tri.p0.y {
             edge_b = PerspectiveTextureEdgeWalker::new(
-                tri.p1, tri.p2, tri.q1, tri.q2, tri.u1, tri.u2, tri.v1, tri.v2,
+                tri.p1,
+                tri.p2,
+                tri.p1.inv_w,
+                tri.p2.inv_w,
+                tri.u1,
+                tri.u2,
+                tri.v1,
+                tri.v2,
             );
         }
 
@@ -1665,10 +1690,6 @@ impl TileRenderer {
             sort_by_y(&mut verts, |(p, _, _)| p.y);
             let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
 
-            let q0 = p0.inv_w;
-            let q1 = p1.inv_w;
-            let q2 = p2.inv_w;
-
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
                 continue;
@@ -1677,7 +1698,7 @@ impl TileRenderer {
             // Gradients
             let (gradients, long_edge_is_left) = {
                 let g = PerspectiveTextureGradients::new(
-                    p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+                    p0, p1, p2, p0.inv_w, p1.inv_w, p2.inv_w, u0, u1, u2, v0, v1, v2,
                 );
 
                 let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
@@ -1705,9 +1726,6 @@ impl TileRenderer {
                 p0,
                 p1,
                 p2,
-                q0,
-                q1,
-                q2,
                 u0,
                 u1,
                 u2,
