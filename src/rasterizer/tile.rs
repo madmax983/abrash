@@ -117,17 +117,19 @@ impl<T> SendPtr<T> {
 }
 
 #[cfg(feature = "parallel")]
-unsafe impl<T> Send for SendPtr<T> {}
+unsafe impl<T: Send> Send for SendPtr<T> {}
 
 #[cfg(feature = "parallel")]
-unsafe impl<T> Sync for SendPtr<T> {}
+unsafe impl<T: Send> Sync for SendPtr<T> {}
 
+#[cfg(not(feature = "parallel"))]
 struct AlignedBuffer<T> {
     _data: Vec<T>,
     ptr: *mut T,
     len: usize,
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T: Default + Copy> AlignedBuffer<T> {
     fn new(len: usize) -> Self {
         // We want 32-byte alignment.
@@ -157,6 +159,7 @@ impl<T: Default + Copy> AlignedBuffer<T> {
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T> Deref for AlignedBuffer<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
@@ -164,13 +167,16 @@ impl<T> Deref for AlignedBuffer<T> {
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T> DerefMut for AlignedBuffer<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 unsafe impl<T: Send> Send for AlignedBuffer<T> {}
+#[cfg(not(feature = "parallel"))]
 unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
