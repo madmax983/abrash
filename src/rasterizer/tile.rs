@@ -1942,10 +1942,6 @@ impl TileRenderer {
             sort_by_y(&mut verts, |(p, _, _)| p.y);
             let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
 
-            let q0 = p0.inv_w;
-            let q1 = p1.inv_w;
-            let q2 = p2.inv_w;
-
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
                 continue;
@@ -1954,7 +1950,7 @@ impl TileRenderer {
             // Gradients
             let (gradients, long_edge_is_left) = {
                 let g = PerspectiveTextureGradients::new(
-                    p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
+                    p0, p1, p2, p0.inv_w, p1.inv_w, p2.inv_w, u0, u1, u2, v0, v1, v2,
                 );
 
                 let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
