@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::{Vec3};
+use abrash::math::Vec3;
 use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
@@ -47,7 +47,10 @@ fn main() {
 
     let triangles = generate_overlapping_triangles(triangle_count);
 
-    println!("Benchmarking TileRenderer with {}x{} and {} triangles", width, height, triangle_count);
+    println!(
+        "Benchmarking TileRenderer with {}x{} and {} triangles",
+        width, height, triangle_count
+    );
 
     // Warmup
     for _ in 0..10 {
@@ -63,5 +66,9 @@ fn main() {
     }
     let duration = start.elapsed();
 
-    println!("Time per frame (avg over {} runs): {:.4} ms", iterations, duration.as_secs_f64() * 1000.0 / iterations as f64);
+    println!(
+        "Time per frame (avg over {} runs): {:.4} ms",
+        iterations,
+        duration.as_secs_f64() * 1000.0 / iterations as f64
+    );
 }
