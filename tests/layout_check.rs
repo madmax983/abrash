@@ -1,5 +1,5 @@
+use abrash::geometry::BoundingSphere;
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
-use abrash::mesh::BoundingSphere;
 use std::mem;
 
 #[test]

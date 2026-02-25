@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** `src/gpu` directory with only one file (`mod.rs`). `src/experimental` containing unused zombie modules (`ssao` duplicate, `dither`, `glitch`, `isosurface`, `procedural_mesh`, `volume`, `voxelizer`, `voxel_explosion`).
+**Cut:** Flattened `src/gpu/mod.rs` to `src/gpu.rs`. Deleted 8 unused experimental modules and associated tests. Fixed dependencies in `raytracer` and tests.
+**Saved:** 8 files (~1500 lines of dead code), 1 directory level (`src/gpu`), and removed duplication of SSAO logic.
