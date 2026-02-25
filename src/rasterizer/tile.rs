@@ -482,7 +482,7 @@ fn render_triangle_in_tile(
                     // - Adaptive threshold protects against regression on small triangles.
                     //
                     // See: benches/scanline_micro.rs results.
-                    if pixels.len() >= 32 {
+                    if pixels.len() >= 8 {
                         rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
                     } else {
                         rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
@@ -3215,4 +3215,5 @@ mod tests {
             pixels_changed
         );
     }
+
 }
