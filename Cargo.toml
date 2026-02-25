@@ -356,3 +356,8 @@ required-features = ["nova"]
 [[bench]]
 name = "z_cull"
 harness = false
+
+[[bench]]
+name = "cloth_bench"
+harness = false
+required-features = ["nova"]

@@ -5,7 +5,8 @@
 
 use crate::experimental::voxelizer::Voxelizer;
 use crate::math::Vec3;
-use crate::mesh::{AABB, Mesh};
+use crate::geometry::AABB;
+use crate::mesh::Mesh;
 use crate::particles::{Particle, ParticleSystem};
 use crate::texture::Texture;
 use crate::utils::XorShift32;
