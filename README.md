@@ -104,6 +104,17 @@ The engine follows a standard graphics pipeline architecture:
     *   Vectors are rows: `[x, y, z, w]`
     *   Multiplication order: `v_prime = v * Scale * Rotation * Translation`
 
+## Documentation 📖
+
+We believe that code is only as good as its explanation. All public APIs are fully documented with examples.
+
+To generate and view the documentation locally:
+```bash
+cargo doc --no-deps --open
+```
+
+This will open your browser to the local API reference, where you can explore modules like [`rasterizer`](src/rasterizer), [`math`](src/math), and [`geometry`](src/geometry).
+
 ## License
 
 MIT

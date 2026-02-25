@@ -1153,6 +1153,23 @@ pub struct ScreenPoint {
 /// Project a 3D point to screen coordinates using pre-calculated half-dimensions.
 ///
 /// This avoids repetitive integer-to-float conversions and divisions.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{project_to_screen_optimized, Vec3};
+///
+/// let point = Vec3::new(1.0, 1.0, 5.0);
+/// let w = 5.0; // Assume we already have w from projection
+/// let half_width = 400.0;
+/// let half_height = 300.0;
+///
+/// let screen_point = project_to_screen_optimized(point, w, half_width, half_height);
+///
+/// // NDC x = 1/5 = 0.2
+/// // Screen x = (0.2 + 1.0) * 400 = 480
+/// assert_eq!(screen_point.x, 480);
+/// ```
 #[must_use]
 #[inline]
 pub fn project_to_screen_optimized(
@@ -1806,6 +1823,15 @@ mod tests {
 /// In the rasterization pipeline, `Vec4` is used for:
 /// *   Homogeneous coordinates (x, y, z, w) where w is the perspective term.
 /// *   Tangent vectors in Normal Mapping, where w stores the handedness of the tangent basis.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec4;
+///
+/// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
+/// assert_eq!(v.x, 1.0);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {

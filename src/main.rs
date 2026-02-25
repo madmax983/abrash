@@ -1,6 +1,10 @@
 //! Abrash Engine - CLI Dashboard & Launcher
 //!
-//! Provides a TUI interface to explore and launch demos.
+//! Provides a TUI (Text User Interface) to explore and launch demos.
+//!
+//! This module uses `ratatui` for rendering the interface and `crossterm` for input handling.
+//! It scans the available demos defined in `DEMOS` constant and allows the user to
+//! select and launch them via `cargo run`.
 
 use clap::Parser;
 use comfy_table::{
@@ -253,6 +257,9 @@ fn print_demo_list() {
     println!("{table}");
 }
 
+/// Application state for the TUI dashboard.
+///
+/// Tracks the currently selected demo in the list.
 struct App {
     state: ListState,
 }
@@ -293,6 +300,10 @@ impl App {
     }
 }
 
+/// Runs the main event loop of the TUI dashboard.
+///
+/// Handles rendering the UI and processing keyboard input.
+/// Returns `Ok(())` when the user quits, or an error if something fails.
 fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
     let mut app = App::new();
 
