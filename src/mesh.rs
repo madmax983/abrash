@@ -15,6 +15,7 @@
 //! mesh.indices.push([0, 1, 2]);
 //! ```
 
+use crate::geometry::BoundingSphere;
 use crate::math::{Vec2, Vec3, Vec4};
 
 /// A 3D mesh with vertices and triangle indices
@@ -31,90 +32,6 @@ pub struct Mesh {
     pub normals: Vec<Vec3>,
     /// List of vertex tangents (xyz + handedness w).
     pub tangents: Vec<Vec4>,
-}
-
-/// A Bounding Sphere for object-level culling.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BoundingSphere {
-    pub center: Vec3,
-    pub radius: f32,
-}
-
-/// Axis-Aligned Bounding Box (AABB) for object-level culling.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct AABB {
-    pub min: Vec3,
-    pub pad0: f32, // Padding to align max to 16 bytes offset
-    pub max: Vec3,
-    pub pad1: f32, // Padding to make total size 32 bytes
-}
-
-impl AABB {
-    /// Create a new AABB from min and max points.
-    pub fn new(min: Vec3, max: Vec3) -> Self {
-        Self {
-            min,
-            pad0: 0.0,
-            max,
-            pad1: 0.0,
-        }
-    }
-
-    /// Calculate AABB from a list of points.
-    pub fn from_points(points: &[Vec3]) -> Self {
-        if points.is_empty() {
-            return Self {
-                min: Vec3::default(),
-                pad0: 0.0,
-                max: Vec3::default(),
-                pad1: 0.0,
-            };
-        }
-
-        let mut min = points[0];
-        let mut max = points[0];
-
-        for &p in points.iter().skip(1) {
-            if p.x < min.x {
-                min.x = p.x;
-            }
-            if p.y < min.y {
-                min.y = p.y;
-            }
-            if p.z < min.z {
-                min.z = p.z;
-            }
-
-            if p.x > max.x {
-                max.x = p.x;
-            }
-            if p.y > max.y {
-                max.y = p.y;
-            }
-            if p.z > max.z {
-                max.z = p.z;
-            }
-        }
-
-        Self {
-            min,
-            pad0: 0.0,
-            max,
-            pad1: 0.0,
-        }
-    }
-
-    /// Get the center of the AABB.
-    pub fn center(&self) -> Vec3 {
-        (self.min + self.max) * 0.5
-    }
-
-    /// Get the extents (half-size) of the AABB.
-    pub fn extents(&self) -> Vec3 {
-        (self.max - self.min) * 0.5
-    }
 }
 
 impl Mesh {
