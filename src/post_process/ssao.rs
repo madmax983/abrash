@@ -402,7 +402,8 @@ unsafe fn apply_ssao_avx2(
 
                     let existing_z_denom = _mm256_add_ps(existing_depth, p22);
                     // Use rcp for existing_view_z calculation as well
-                    let existing_view_z = _mm256_mul_ps(_mm256_sub_ps(zero, p32), _mm256_rcp_ps(existing_z_denom));
+                    let existing_view_z =
+                        _mm256_mul_ps(_mm256_sub_ps(zero, p32), _mm256_rcp_ps(existing_z_denom));
 
                     // Range check
                     let dist = _mm256_andnot_ps(minus_zero, _mm256_sub_ps(existing_view_z, samp_z));
@@ -584,8 +585,8 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
             // 16 floats per kernel (8 for X, 8 for Y)
             let base_idx = (ny * KERNEL_SIZE + k) * 16;
             for i in 0..8 {
-                buffer[base_idx + i] = rot_xs[i];       // X component
-                buffer[base_idx + 8 + i] = rot_ys[i];   // Y component
+                buffer[base_idx + i] = rot_xs[i]; // X component
+                buffer[base_idx + 8 + i] = rot_ys[i]; // Y component
             }
         }
     }
@@ -685,6 +686,10 @@ mod tests {
 
         println!("Max difference between scalar and SIMD SSAO: {}", max_diff);
         // Allow some difference due to floating point precision and rcp approximation
-        assert!(max_diff < 1e-4, "SSAO output mismatch too large: {}", max_diff);
+        assert!(
+            max_diff < 1e-4,
+            "SSAO output mismatch too large: {}",
+            max_diff
+        );
     }
 }

@@ -121,6 +121,11 @@ name = "cloth_demo"
 path = "examples/cloth_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "vision_demo"
+path = "examples/vision_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
