@@ -7,10 +7,10 @@
 //! *   Hard shadows
 //! *   BVH (AABB) acceleration
 
-use crate::math::{Vec3, Vec2};
+use crate::framebuffer::Framebuffer;
+use crate::math::{Vec2, Vec3};
 use crate::mesh::AABB;
 use crate::scene::{Scene, SceneObject};
-use crate::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -169,12 +169,14 @@ impl RayTracer {
         let aspect = width as f32 / height as f32;
 
         // Pre-calculate World AABBs
-        let render_objects: Vec<RenderObject> = scene.objects.iter().map(|obj| {
-            RenderObject {
+        let render_objects: Vec<RenderObject> = scene
+            .objects
+            .iter()
+            .map(|obj| RenderObject {
                 obj,
                 world_aabb: obj.calculate_world_aabb(),
-            }
-        }).collect();
+            })
+            .collect();
 
         // Reconstruct Camera
         let view = scene.camera.view;
@@ -297,7 +299,10 @@ impl RayTracer {
             // Reflection (Simple 30% mix)
             let reflectivity = 0.3;
             let reflected_color = if depth < self.max_bounces {
-                let r_ray = Ray::new(hit.point + hit.normal * 0.001, reflect(ray.direction, hit.normal));
+                let r_ray = Ray::new(
+                    hit.point + hit.normal * 0.001,
+                    reflect(ray.direction, hit.normal),
+                );
                 let r_col_u32 = self.trace_ray(&r_ray, objects, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
                 let rg = ((r_col_u32 >> 8) & 0xFF) as f32 / 255.0;
@@ -310,17 +315,17 @@ impl RayTracer {
             let mixed = final_color.lerp(reflected_color, reflectivity);
             let mixed = Vec3::new(mixed.x.min(1.0), mixed.y.min(1.0), mixed.z.min(1.0));
 
-            return 0xFF000000 |
-                   ((mixed.x * 255.0) as u32) << 16 |
-                   ((mixed.y * 255.0) as u32) << 8 |
-                   ((mixed.z * 255.0) as u32);
+            return 0xFF000000
+                | ((mixed.x * 255.0) as u32) << 16
+                | ((mixed.y * 255.0) as u32) << 8
+                | ((mixed.z * 255.0) as u32);
         }
 
         self.background_color
     }
 
     fn check_shadow(&self, ray: &Ray, objects: &[RenderObject]) -> bool {
-         for r_obj in objects {
+        for r_obj in objects {
             if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, 1000.0) {
                 continue;
             }
@@ -338,8 +343,8 @@ impl RayTracer {
                     return true;
                 }
             }
-         }
-         false
+        }
+        false
     }
 }
 

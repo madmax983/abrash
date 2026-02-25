@@ -4,10 +4,7 @@ use abrash::mesh::AABB;
 
 #[test]
 fn test_ray_triangle_intersection() {
-    let ray = Ray::new(
-        Vec3::new(0.0, 0.0, 5.0),
-        Vec3::new(0.0, 0.0, -1.0),
-    );
+    let ray = Ray::new(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, -1.0));
 
     let v0 = Vec3::new(-1.0, -1.0, 0.0);
     let v1 = Vec3::new(1.0, -1.0, 0.0);
@@ -19,15 +16,16 @@ fn test_ray_triangle_intersection() {
     assert!(hit.is_some(), "Should hit triangle");
     let hit = hit.unwrap();
     assert!((hit.t - 5.0).abs() < 1e-4, "t should be 5.0, got {}", hit.t);
-    assert!((hit.point.z - 0.0).abs() < 1e-4, "Point z should be 0.0, got {}", hit.point.z);
+    assert!(
+        (hit.point.z - 0.0).abs() < 1e-4,
+        "Point z should be 0.0, got {}",
+        hit.point.z
+    );
 }
 
 #[test]
 fn test_ray_aabb_intersection() {
-    let ray = Ray::new(
-        Vec3::new(0.0, 0.0, 5.0),
-        Vec3::new(0.0, 0.0, -1.0),
-    );
+    let ray = Ray::new(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, -1.0));
 
     let min = Vec3::new(-1.0, -1.0, -1.0);
     let max = Vec3::new(1.0, 1.0, 1.0);
@@ -37,9 +35,9 @@ fn test_ray_aabb_intersection() {
     assert!(ray.intersect_aabb(&aabb, 0.0, 100.0), "Should hit AABB");
 
     // Ray pointing away
-    let ray_away = Ray::new(
-        Vec3::new(0.0, 0.0, 5.0),
-        Vec3::new(0.0, 1.0, 0.0),
+    let ray_away = Ray::new(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 1.0, 0.0));
+    assert!(
+        !ray_away.intersect_aabb(&aabb, 0.0, 100.0),
+        "Should miss AABB"
     );
-    assert!(!ray_away.intersect_aabb(&aabb, 0.0, 100.0), "Should miss AABB");
 }
