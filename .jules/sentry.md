@@ -19,3 +19,7 @@
 **[SIMD Newton-Raphson & Infinity]**
 **Learning:** `_mm_rcp_ps` returns 0 for `Inf`, but the Newton-Raphson refinement `y0 * (2 - x * y0)` produces `0 * (2 - Inf * 0)` -> `0 * (2 - NaN)` -> `NaN` when `x` is `Inf`.
 **Action:** Clamp inputs to a large finite value (e.g., `1e30`) before `_mm_rcp_ps` if `Inf` is a possible input and exact precision isn't required for large values.
+
+**[Module Visibility Traps]**
+**Learning:** `mod tests` in a file cannot access private imports of the parent module (like `use crate::math::{Mat4, Vec3};`) unless explicitly re-imported or made public. `use super::*;` only brings in items *declared* in the parent.
+**Action:** Always explicitly import necessary types in `mod tests` or verify they are available via `super`.
