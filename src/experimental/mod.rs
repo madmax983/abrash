@@ -26,6 +26,7 @@
 //! ```
 
 pub mod arboretum;
+pub mod city;
 pub mod cloth;
 pub mod dither;
 pub mod glitch;
