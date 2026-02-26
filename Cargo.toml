@@ -356,3 +356,7 @@ required-features = ["nova"]
 [[bench]]
 name = "z_cull"
 harness = false
+
+[[bench]]
+name = "tile_rendering_sorting"
+harness = false

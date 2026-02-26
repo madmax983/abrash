@@ -1460,6 +1460,9 @@ impl TileRenderer {
             #[cfg(not(feature = "gpu-binning"))]
             self.bin_triangles_cpu();
 
+            // Sort triangles front-to-back for early-Z optimization
+            self.sort_bins_flat();
+
             // Phase 3+4: Render and merge each tile
             #[cfg(not(feature = "parallel"))]
             {
@@ -1755,6 +1758,9 @@ impl TileRenderer {
 
         // Phase 2: Bin (CPU only for now)
         self.bin_triangles_textured_cpu();
+
+        // Sort triangles front-to-back for early-Z optimization
+        self.sort_bins_textured();
 
         // Phase 3+4: Render and merge each tile
         #[cfg(not(feature = "parallel"))]
@@ -2265,6 +2271,80 @@ impl TileRenderer {
             for tx in tx_min..=tx_max {
                 let bin_idx = (ty * self.tiles_x + tx) as usize;
                 self.tile_bins[bin_idx].push(tri_idx);
+            }
+        }
+    }
+
+    /// Sorts flat triangles in each bin by depth.
+    fn sort_bins_flat(&mut self) {
+        let prepared = &self.prepared;
+        if prepared.is_empty() {
+            return;
+        }
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            self.tile_bins.par_iter_mut().for_each(|bin| {
+                bin.sort_unstable_by(|&a, &b| {
+                    // Safety: indices in bin are guaranteed to be within prepared bounds
+                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
+                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
+                    depth_a
+                        .partial_cmp(&depth_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for bin in &mut self.tile_bins {
+                bin.sort_unstable_by(|&a, &b| {
+                    // Safety: indices in bin are guaranteed to be within prepared bounds
+                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
+                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
+                    depth_a
+                        .partial_cmp(&depth_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+        }
+    }
+
+    /// Sorts textured triangles in each bin by depth.
+    fn sort_bins_textured(&mut self) {
+        let prepared_textured = &self.prepared_textured;
+        if prepared_textured.is_empty() {
+            return;
+        }
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            self.tile_bins.par_iter_mut().for_each(|bin| {
+                bin.sort_unstable_by(|&a, &b| {
+                    // Safety: indices in bin are guaranteed to be within prepared bounds
+                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
+                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
+                    depth_a
+                        .partial_cmp(&depth_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for bin in &mut self.tile_bins {
+                bin.sort_unstable_by(|&a, &b| {
+                    // Safety: indices in bin are guaranteed to be within prepared bounds
+                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
+                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
+                    depth_a
+                        .partial_cmp(&depth_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
             }
         }
     }
