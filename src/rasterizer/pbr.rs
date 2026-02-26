@@ -523,31 +523,12 @@ fn draw_scanline_pbr(
     let mut xs = x_start;
     let mut xe = x_end;
 
-    let mut z = start.z;
-    let mut nx = start.nx;
-    let mut ny = start.ny;
-    let mut nz = start.nz;
-    let mut wx = start.wx;
-    let mut wy = start.wy;
-    let mut wz = start.wz;
-
     if xs < 0 {
-        let diff = -i64::from(xs);
-        let diff_f = diff as f32;
-        z += diff_f * gradients.dz_dx;
-        nx += diff_f * gradients.dnx_dx;
-        ny += diff_f * gradients.dny_dx;
-        nz += diff_f * gradients.dnz_dx;
-        wx += diff_f * gradients.dwx_dx;
-        wy += diff_f * gradients.dwy_dx;
-        wz += diff_f * gradients.dwz_dx;
         xs = 0;
     }
-
     if xe >= width {
         xe = width - 1;
     }
-
     if xs > xe {
         return;
     }
@@ -561,19 +542,69 @@ fn draw_scanline_pbr(
     let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
     let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
 
+    // Interpolate start values to xs
+    let diff = (xs - x_start) as f32;
+    let z = start.z + diff * gradients.dz_dx;
+    let nx = start.nx + diff * gradients.dnx_dx;
+    let ny = start.ny + diff * gradients.dny_dx;
+    let nz = start.nz + diff * gradients.dnz_dx;
+    let wx = start.wx + diff * gradients.dwx_dx;
+    let wy = start.wy + diff * gradients.dwy_dx;
+    let wz = start.wz + diff * gradients.dwz_dx;
+
+    // Dispatch
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                draw_scanline_pbr_simd(
+                    fb_slice,
+                    zb_slice,
+                    z,
+                    nx,
+                    ny,
+                    nz,
+                    wx,
+                    wy,
+                    wz,
+                    gradients,
+                    constants,
+                );
+            }
+            return;
+        }
+    }
+
+    draw_scanline_pbr_scalar(
+        fb_slice, zb_slice, z, nx, ny, nz, wx, wy, wz, gradients, constants,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_scanline_pbr_scalar(
+    pixels: &mut [u32],
+    depths: &mut [f32],
+    mut z: f32,
+    mut nx: f32,
+    mut ny: f32,
+    mut nz: f32,
+    mut wx: f32,
+    mut wy: f32,
+    mut wz: f32,
+    gradients: &PbrGradients,
+    constants: &PbrConstants,
+) {
     let l = constants.neg_light_dir;
 
-    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+    for (pixel, depth_val) in pixels.iter_mut().zip(depths.iter_mut()) {
         if z < *depth_val {
             *depth_val = z;
 
             // Reconstruct vectors
-            // Normal needs normalization after interpolation
             let n = Vec3::new(nx, ny, nz).fast_normalize();
             let world_pos = Vec3::new(wx, wy, wz);
 
             let v = (constants.view_pos - world_pos).normalize();
-            // l is constant
             let h = (v + l).normalize();
 
             // Cook-Torrance BRDF
@@ -595,7 +626,6 @@ fn draw_scanline_pbr(
             let k_s = f;
             let k_d = (Vec3::ONE - k_s) * (1.0 - constants.metallic);
 
-            // lo = (k_d * albedo / PI + specular) * radiance * n_dot_l
             let diffuse = k_d * constants.albedo * (1.0 / PI);
             let lo = (diffuse + specular) * constants.light_color * n_dot_l;
 
@@ -603,11 +633,9 @@ fn draw_scanline_pbr(
             let color = ambient + lo;
 
             // Tone mapping (Reinhard)
-            // mapped = color / (color + 1.0)
             let denom = color + Vec3::ONE;
             let mapped = Vec3::new(color.x / denom.x, color.y / denom.y, color.z / denom.z);
-            // Gamma correction (Approximation Gamma 2.0 using sqrt)
-            // fast_inv_sqrt is for 1/sqrt. sqrt is fast.
+            // Gamma correction
             let corrected = Vec3::new(mapped.x.sqrt(), mapped.y.sqrt(), mapped.z.sqrt());
 
             *pixel = color_to_u32_scaled(corrected * 255.0);
@@ -620,5 +648,443 @@ fn draw_scanline_pbr(
         wx += gradients.dwx_dx;
         wy += gradients.dwy_dx;
         wz += gradients.dwz_dx;
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "simd"))]
+#[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
+unsafe fn draw_scanline_pbr_simd(
+    pixels: &mut [u32],
+    depths: &mut [f32],
+    mut z: f32,
+    mut nx: f32,
+    mut ny: f32,
+    mut nz: f32,
+    mut wx: f32,
+    mut wy: f32,
+    mut wz: f32,
+    gradients: &PbrGradients,
+    constants: &PbrConstants,
+) {
+    use std::arch::x86_64::{
+        __m256i, _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_ps, _mm256_castps_si256,
+        _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_cvtps_epi32, _mm256_div_ps, _mm256_loadu_ps,
+        _mm256_loadu_si256, _mm256_max_ps, _mm256_movemask_ps, _mm256_mul_ps, _mm256_or_si256,
+        _mm256_rcp_ps, _mm256_rsqrt_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_set_ps,
+        _mm256_setzero_ps, _mm256_slli_epi32, _mm256_sqrt_ps, _mm256_storeu_ps,
+        _mm256_storeu_si256, _mm256_sub_ps,
+    };
+
+    let len = pixels.len();
+    let mut i = 0;
+
+    // Constants
+    let one_f = _mm256_set1_ps(1.0);
+    let zero_f = _mm256_setzero_ps();
+    let epsilon = _mm256_set1_ps(0.0001);
+    let two_f = _mm256_set1_ps(2.0);
+    let four_f = _mm256_set1_ps(4.0);
+    let pi_inv = _mm256_set1_ps(1.0 / PI);
+    let ambient_factor = _mm256_set1_ps(0.03);
+    let scale_255 = _mm256_set1_ps(255.0);
+    let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+    // Light direction (negated)
+    let lx = _mm256_set1_ps(constants.neg_light_dir.x);
+    let ly = _mm256_set1_ps(constants.neg_light_dir.y);
+    let lz = _mm256_set1_ps(constants.neg_light_dir.z);
+
+    // View position
+    let vpx = _mm256_set1_ps(constants.view_pos.x);
+    let vpy = _mm256_set1_ps(constants.view_pos.y);
+    let vpz = _mm256_set1_ps(constants.view_pos.z);
+
+    // Material
+    let albedo_x = _mm256_set1_ps(constants.albedo.x);
+    let albedo_y = _mm256_set1_ps(constants.albedo.y);
+    let albedo_z = _mm256_set1_ps(constants.albedo.z);
+    let metallic = _mm256_set1_ps(constants.metallic);
+    let inv_metallic = _mm256_sub_ps(one_f, metallic);
+    let ao = _mm256_set1_ps(constants.ao);
+
+    // Precomputed PBR constants
+    let a2 = _mm256_set1_ps(constants.a2);
+    let a2_minus_1 = _mm256_set1_ps(constants.a2_minus_1);
+    let k = _mm256_set1_ps(constants.k);
+    let one_minus_k = _mm256_set1_ps(constants.one_minus_k);
+    let f0_x = _mm256_set1_ps(constants.f0.x);
+    let f0_y = _mm256_set1_ps(constants.f0.y);
+    let f0_z = _mm256_set1_ps(constants.f0.z);
+    let light_col_x = _mm256_set1_ps(constants.light_color.x);
+    let light_col_y = _mm256_set1_ps(constants.light_color.y);
+    let light_col_z = _mm256_set1_ps(constants.light_color.z);
+
+    // Vectorized gradients
+    let dz_vec = _mm256_set1_ps(gradients.dz_dx * 8.0);
+    let dnx_vec = _mm256_set1_ps(gradients.dnx_dx * 8.0);
+    let dny_vec = _mm256_set1_ps(gradients.dny_dx * 8.0);
+    let dnz_vec = _mm256_set1_ps(gradients.dnz_dx * 8.0);
+    let dwx_vec = _mm256_set1_ps(gradients.dwx_dx * 8.0);
+    let dwy_vec = _mm256_set1_ps(gradients.dwy_dx * 8.0);
+    let dwz_vec = _mm256_set1_ps(gradients.dwz_dx * 8.0);
+
+    // Offsets for initial load
+    let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
+    let mut z_curr = _mm256_add_ps(_mm256_set1_ps(z), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dz_dx)));
+    let mut nx_curr = _mm256_add_ps(_mm256_set1_ps(nx), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dnx_dx)));
+    let mut ny_curr = _mm256_add_ps(_mm256_set1_ps(ny), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dny_dx)));
+    let mut nz_curr = _mm256_add_ps(_mm256_set1_ps(nz), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dnz_dx)));
+    let mut wx_curr = _mm256_add_ps(_mm256_set1_ps(wx), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dwx_dx)));
+    let mut wy_curr = _mm256_add_ps(_mm256_set1_ps(wy), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dwy_dx)));
+    let mut wz_curr = _mm256_add_ps(_mm256_set1_ps(wz), _mm256_mul_ps(offsets, _mm256_set1_ps(gradients.dwz_dx)));
+
+    // Process 8 pixels at a time
+    while i + 8 <= len {
+        // Load depth buffer
+        let d_ptr = depths.as_mut_ptr().add(i);
+        let d_old = _mm256_loadu_ps(d_ptr);
+
+        // Z-Test
+        let mask = _mm256_cmp_ps(z_curr, d_old, _CMP_LT_OQ);
+        let mask_bits = _mm256_movemask_ps(mask);
+
+        if mask_bits != 0 {
+            // Update Z-Buffer
+            let d_new = _mm256_blendv_ps(d_old, z_curr, mask);
+            _mm256_storeu_ps(d_ptr, d_new);
+
+            // --- Normalize Normal (n) ---
+            // dot(n, n)
+            let n_dot = _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(nx_curr, nx_curr), _mm256_mul_ps(ny_curr, ny_curr)),
+                _mm256_mul_ps(nz_curr, nz_curr)
+            );
+            let n_inv_len = _mm256_rsqrt_ps(n_dot); // Fast approximation
+            let nx_n = _mm256_mul_ps(nx_curr, n_inv_len);
+            let ny_n = _mm256_mul_ps(ny_curr, n_inv_len);
+            let nz_n = _mm256_mul_ps(nz_curr, n_inv_len);
+
+            // --- View Vector (v) = view_pos - world_pos ---
+            let vx_raw = _mm256_sub_ps(vpx, wx_curr);
+            let vy_raw = _mm256_sub_ps(vpy, wy_curr);
+            let vz_raw = _mm256_sub_ps(vpz, wz_curr);
+            let v_dot = _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(vx_raw, vx_raw), _mm256_mul_ps(vy_raw, vy_raw)),
+                _mm256_mul_ps(vz_raw, vz_raw)
+            );
+            let v_inv_len = _mm256_rsqrt_ps(v_dot);
+            let vx_n = _mm256_mul_ps(vx_raw, v_inv_len);
+            let vy_n = _mm256_mul_ps(vy_raw, v_inv_len);
+            let vz_n = _mm256_mul_ps(vz_raw, v_inv_len);
+
+            // --- Half Vector (h) = normalize(v + l) ---
+            let hx_raw = _mm256_add_ps(vx_n, lx);
+            let hy_raw = _mm256_add_ps(vy_n, ly);
+            let hz_raw = _mm256_add_ps(vz_n, lz);
+            let h_dot = _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(hx_raw, hx_raw), _mm256_mul_ps(hy_raw, hy_raw)),
+                _mm256_mul_ps(hz_raw, hz_raw)
+            );
+            let h_inv_len = _mm256_rsqrt_ps(h_dot);
+            let hx_n = _mm256_mul_ps(hx_raw, h_inv_len);
+            let hy_n = _mm256_mul_ps(hy_raw, h_inv_len);
+            let hz_n = _mm256_mul_ps(hz_raw, h_inv_len);
+
+            // --- Dot Products ---
+            let n_dot_h = _mm256_max_ps(zero_f, _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(nx_n, hx_n), _mm256_mul_ps(ny_n, hy_n)),
+                _mm256_mul_ps(nz_n, hz_n)
+            ));
+            let n_dot_v = _mm256_max_ps(zero_f, _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(nx_n, vx_n), _mm256_mul_ps(ny_n, vy_n)),
+                _mm256_mul_ps(nz_n, vz_n)
+            ));
+            let n_dot_l = _mm256_max_ps(zero_f, _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(nx_n, lx), _mm256_mul_ps(ny_n, ly)),
+                _mm256_mul_ps(nz_n, lz)
+            ));
+            let h_dot_v = _mm256_max_ps(zero_f, _mm256_add_ps(
+                _mm256_add_ps(_mm256_mul_ps(hx_n, vx_n), _mm256_mul_ps(hy_n, vy_n)),
+                _mm256_mul_ps(hz_n, vz_n)
+            ));
+
+            // --- D: Distribution GGX ---
+            let n_dot_h2 = _mm256_mul_ps(n_dot_h, n_dot_h);
+            let d_denom_sqrt = _mm256_add_ps(_mm256_mul_ps(n_dot_h2, a2_minus_1), one_f);
+            let d_denom = _mm256_mul_ps(d_denom_sqrt, d_denom_sqrt); // denom^2
+            // PI is in scalar constant, but we need vector.
+            let d_denom_pi = _mm256_mul_ps(d_denom, _mm256_set1_ps(PI));
+            let ndf = _mm256_div_ps(a2, _mm256_max_ps(d_denom_pi, epsilon));
+
+            // --- G: Geometry Smith ---
+            // G_Schlick_GGX(n_dot_v)
+            let g1_denom = _mm256_add_ps(_mm256_mul_ps(n_dot_v, one_minus_k), k);
+            let g1 = _mm256_div_ps(n_dot_v, _mm256_max_ps(g1_denom, epsilon));
+            // G_Schlick_GGX(n_dot_l)
+            let g2_denom = _mm256_add_ps(_mm256_mul_ps(n_dot_l, one_minus_k), k);
+            let g2 = _mm256_div_ps(n_dot_l, _mm256_max_ps(g2_denom, epsilon));
+            let g = _mm256_mul_ps(g1, g2);
+
+            // --- F: Fresnel Schlick ---
+            let one_minus_cos = _mm256_sub_ps(one_f, h_dot_v);
+            let pow2 = _mm256_mul_ps(one_minus_cos, one_minus_cos);
+            let pow4 = _mm256_mul_ps(pow2, pow2);
+            let pow5 = _mm256_mul_ps(pow4, one_minus_cos);
+
+            // lerp(f0, 1.0, pow5) = f0 + (1.0 - f0) * pow5
+            let f_x = _mm256_add_ps(f0_x, _mm256_mul_ps(_mm256_sub_ps(one_f, f0_x), pow5));
+            let f_y = _mm256_add_ps(f0_y, _mm256_mul_ps(_mm256_sub_ps(one_f, f0_y), pow5));
+            let f_z = _mm256_add_ps(f0_z, _mm256_mul_ps(_mm256_sub_ps(one_f, f0_z), pow5));
+
+            // --- Specular ---
+            let numerator_x = _mm256_mul_ps(_mm256_mul_ps(f_x, ndf), g);
+            let numerator_y = _mm256_mul_ps(_mm256_mul_ps(f_y, ndf), g);
+            let numerator_z = _mm256_mul_ps(_mm256_mul_ps(f_z, ndf), g);
+
+            let denom_spec = _mm256_add_ps(_mm256_mul_ps(four_f, _mm256_mul_ps(n_dot_v, n_dot_l)), epsilon);
+            let inv_denom_spec = _mm256_rcp_ps(denom_spec); // Approximate division for speed? Or precise? rcp is fast.
+
+            let specular_x = _mm256_mul_ps(numerator_x, inv_denom_spec);
+            let specular_y = _mm256_mul_ps(numerator_y, inv_denom_spec);
+            let specular_z = _mm256_mul_ps(numerator_z, inv_denom_spec);
+
+            // --- Diffuse ---
+            // kS = F
+            let k_s_x = f_x;
+            let k_s_y = f_y;
+            let k_s_z = f_z;
+
+            // kD = (1.0 - kS) * (1.0 - metallic)
+            let k_d_x = _mm256_mul_ps(_mm256_sub_ps(one_f, k_s_x), inv_metallic);
+            let k_d_y = _mm256_mul_ps(_mm256_sub_ps(one_f, k_s_y), inv_metallic);
+            let k_d_z = _mm256_mul_ps(_mm256_sub_ps(one_f, k_s_z), inv_metallic);
+
+            let diffuse_x = _mm256_mul_ps(_mm256_mul_ps(k_d_x, albedo_x), pi_inv);
+            let diffuse_y = _mm256_mul_ps(_mm256_mul_ps(k_d_y, albedo_y), pi_inv);
+            let diffuse_z = _mm256_mul_ps(_mm256_mul_ps(k_d_z, albedo_z), pi_inv);
+
+            // lo = (diffuse + specular) * light_color * n_dot_l
+            let lo_x = _mm256_mul_ps(_mm256_mul_ps(_mm256_add_ps(diffuse_x, specular_x), light_col_x), n_dot_l);
+            let lo_y = _mm256_mul_ps(_mm256_mul_ps(_mm256_add_ps(diffuse_y, specular_y), light_col_y), n_dot_l);
+            let lo_z = _mm256_mul_ps(_mm256_mul_ps(_mm256_add_ps(diffuse_z, specular_z), light_col_z), n_dot_l);
+
+            // ambient = 0.03 * albedo * ao
+            let ambient_x = _mm256_mul_ps(_mm256_mul_ps(ambient_factor, albedo_x), ao);
+            let ambient_y = _mm256_mul_ps(_mm256_mul_ps(ambient_factor, albedo_y), ao);
+            let ambient_z = _mm256_mul_ps(_mm256_mul_ps(ambient_factor, albedo_z), ao);
+
+            let col_x = _mm256_add_ps(ambient_x, lo_x);
+            let col_y = _mm256_add_ps(ambient_y, lo_y);
+            let col_z = _mm256_add_ps(ambient_z, lo_z);
+
+            // --- Tone Mapping (Reinhard) ---
+            // mapped = col / (col + 1.0)
+            let mapped_x = _mm256_div_ps(col_x, _mm256_add_ps(col_x, one_f));
+            let mapped_y = _mm256_div_ps(col_y, _mm256_add_ps(col_y, one_f));
+            let mapped_z = _mm256_div_ps(col_z, _mm256_add_ps(col_z, one_f));
+
+            // --- Gamma Correction (Approx sqrt) ---
+            let final_x = _mm256_sqrt_ps(mapped_x);
+            let final_y = _mm256_sqrt_ps(mapped_y);
+            let final_z = _mm256_sqrt_ps(mapped_z);
+
+            // --- Pack to u32 ---
+            // Scale by 255
+            let r = _mm256_mul_ps(final_x, scale_255);
+            let g = _mm256_mul_ps(final_y, scale_255);
+            let b = _mm256_mul_ps(final_z, scale_255);
+
+            // Convert to i32
+            let r_i = _mm256_cvtps_epi32(r);
+            let g_i = _mm256_cvtps_epi32(g);
+            let b_i = _mm256_cvtps_epi32(b);
+
+            // Pack: A | R | G | B
+            // B is low byte. G is 2nd byte. R is 3rd byte.
+            // (r << 16) | (g << 8) | b
+            let r_sh = _mm256_slli_epi32(r_i, 16);
+            let g_sh = _mm256_slli_epi32(g_i, 8);
+            let rgb = _mm256_or_si256(r_sh, _mm256_or_si256(g_sh, b_i));
+            let final_px = _mm256_or_si256(rgb, alpha_mask);
+
+            // Store back if Z passed
+            // If all 8 passed, masked store is equivalent to store.
+            // If partial, need to load old pixels?
+            // Actually, we write new color. If mask bit is 0, we keep old.
+            let p_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+            let old_px = _mm256_loadu_si256(p_ptr);
+
+            // If mask is set (1), use final_px. Else old_px.
+            // blendv_epi8 works with bytes. blendv_ps works with floats.
+            // We can cast to float to use blendv_ps as it's cleaner on AVX2.
+            let res_ps = _mm256_blendv_ps(
+                _mm256_castsi256_ps(old_px),
+                _mm256_castsi256_ps(final_px),
+                mask
+            );
+            _mm256_storeu_si256(p_ptr, _mm256_castps_si256(res_ps));
+        }
+
+        // Increment
+        i += 8;
+        z_curr = _mm256_add_ps(z_curr, dz_vec);
+        nx_curr = _mm256_add_ps(nx_curr, dnx_vec);
+        ny_curr = _mm256_add_ps(ny_curr, dny_vec);
+        nz_curr = _mm256_add_ps(nz_curr, dnz_vec);
+        wx_curr = _mm256_add_ps(wx_curr, dwx_vec);
+        wy_curr = _mm256_add_ps(wy_curr, dwy_vec);
+        wz_curr = _mm256_add_ps(wz_curr, dwz_vec);
+    }
+
+    // Process tail
+    if i < len {
+        // Extract scalar values from vectors for fallback
+        // We know i increments by 8. So if we are at `i`, the scalar `z` would be
+        // `z_start + i * dz_dx`.
+        // The loop in `draw_scanline_pbr` computes these start values.
+        // We need to update the scalar variables z, nx... passed as arguments
+        // so that the tail call works correctly.
+        // But the arguments are local copies.
+        // We can just calculate the state at `i`.
+        let diff = i as f32;
+        z += diff * gradients.dz_dx;
+        nx += diff * gradients.dnx_dx;
+        ny += diff * gradients.dny_dx;
+        nz += diff * gradients.dnz_dx;
+        wx += diff * gradients.dwx_dx;
+        wy += diff * gradients.dwy_dx;
+        wz += diff * gradients.dwz_dx;
+
+        draw_scanline_pbr_scalar(
+            &mut pixels[i..],
+            &mut depths[i..],
+            z, nx, ny, nz, wx, wy, wz,
+            gradients, constants
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Vec3;
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_pbr_simd_matches_scalar() {
+        if !is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        // Setup common data
+        let width = 16;
+        let gradients = PbrGradients {
+            dz_dx: 0.1,
+            dnx_dx: 0.01,
+            dny_dx: 0.01,
+            dnz_dx: 0.01,
+            dwx_dx: 0.1,
+            dwy_dx: 0.1,
+            dwz_dx: 0.1,
+        };
+        let constants = PbrConstants {
+            a2: 0.5,
+            a2_minus_1: -0.5,
+            k: 0.5,
+            one_minus_k: 0.5,
+            f0: Vec3::new(0.04, 0.04, 0.04),
+            dielectric_f0: Vec3::new(0.04, 0.04, 0.04),
+            neg_light_dir: Vec3::new(0.0, 0.0, 1.0),
+            light_color: Vec3::new(1.0, 1.0, 1.0),
+            view_pos: Vec3::new(0.0, 0.0, 10.0),
+            albedo: Vec3::new(1.0, 0.0, 0.0),
+            metallic: 0.0,
+            ao: 1.0,
+        };
+
+        // Scalar buffer
+        let mut pixels_scalar = vec![0u32; width];
+        let mut depths_scalar = vec![1.0f32; width]; // Init with far depth
+
+        // SIMD buffer
+        let mut pixels_simd = vec![0u32; width];
+        let mut depths_simd = vec![1.0f32; width];
+
+        // Start values
+        let z = 0.5;
+        let nx = 0.0;
+        let ny = 0.0;
+        let nz = 1.0;
+        let wx = 0.0;
+        let wy = 0.0;
+        let wz = 0.0;
+
+        // Run Scalar
+        draw_scanline_pbr_scalar(
+            &mut pixels_scalar,
+            &mut depths_scalar,
+            z,
+            nx,
+            ny,
+            nz,
+            wx,
+            wy,
+            wz,
+            &gradients,
+            &constants,
+        );
+
+        // Run SIMD
+        unsafe {
+            draw_scanline_pbr_simd(
+                &mut pixels_simd,
+                &mut depths_simd,
+                z,
+                nx,
+                ny,
+                nz,
+                wx,
+                wy,
+                wz,
+                &gradients,
+                &constants,
+            );
+        }
+
+        // Compare
+        for i in 0..width {
+            let s_pixel = pixels_scalar[i];
+            let v_pixel = pixels_simd[i];
+
+            // Allow off-by-one per channel due to float precision differences (rsqrt approximation)
+            let s_r = (s_pixel >> 16) & 0xFF;
+            let s_g = (s_pixel >> 8) & 0xFF;
+            let s_b = s_pixel & 0xFF;
+
+            let v_r = (v_pixel >> 16) & 0xFF;
+            let v_g = (v_pixel >> 8) & 0xFF;
+            let v_b = v_pixel & 0xFF;
+
+            let diff_r = (s_r as i32 - v_r as i32).abs();
+            let diff_g = (s_g as i32 - v_g as i32).abs();
+            let diff_b = (s_b as i32 - v_b as i32).abs();
+
+            assert!(
+                diff_r <= 1 && diff_g <= 1 && diff_b <= 1,
+                "Pixel mismatch at {}: Scalar={:08X}, SIMD={:08X} (diff R={}, G={}, B={})",
+                i, s_pixel, v_pixel, diff_r, diff_g, diff_b
+            );
+
+            let s_depth = depths_scalar[i];
+            let v_depth = depths_simd[i];
+            assert!(
+                (s_depth - v_depth).abs() < 0.0001,
+                "Depth mismatch at {}: Scalar={}, SIMD={}",
+                i,
+                s_depth,
+                v_depth
+            );
+        }
     }
 }
