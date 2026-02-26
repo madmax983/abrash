@@ -1,6 +1,7 @@
+#![cfg(feature = "nova")]
 use abrash::experimental::raytracer::Ray;
+use abrash::geometry::AABB;
 use abrash::math::Vec3;
-use abrash::mesh::AABB;
 
 #[test]
 fn test_ray_triangle_intersection() {
@@ -29,7 +30,7 @@ fn test_ray_aabb_intersection() {
 
     let min = Vec3::new(-1.0, -1.0, -1.0);
     let max = Vec3::new(1.0, 1.0, 1.0);
-    let aabb = AABB::new(min, max);
+    let aabb = AABB { min, max };
 
     // Expect intersection
     assert!(ray.intersect_aabb(&aabb, 0.0, 100.0), "Should hit AABB");
