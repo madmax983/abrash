@@ -1049,16 +1049,60 @@ fn rasterize_scanline_simd(
     let len = pixels.len();
     let mut i = 0;
 
+    // --- Optimization Idea 1: Align the loop ---
+    // Handle the first few pixels (0-7) with scalar code until the pointer is 32-byte aligned.
+    // AVX2 loads/stores are faster when aligned to 32 bytes (256 bits).
+    // The depths buffer is allocated via AlignedBuffer so it's aligned, but `pixels`
+    // is a slice into that buffer, so it might start at an unaligned offset depending on x_start.
+    //
+    // Actually, `TileRenderer` slices `tile_pixels` based on `x - tile_x0`. Since `tile_x0`
+    // is always a multiple of 32, and `AlignedBuffer` is 32-byte aligned, the offset depends on `x`.
+    // We align based on the destination address of `pixels` (color buffer).
+    // Depths and pixels have the same alignment offset relative to 32 bytes because they are
+    // both accessed with the same index `i`.
+
+    let align_mask = 0x1F; // 32 bytes - 1
+    let addr = pixels.as_ptr() as usize;
+    let misalign = addr & align_mask;
+    let pre_simd_count = if misalign == 0 {
+        0
+    } else {
+        (32 - misalign) / 4 // 4 bytes per pixel
+    };
+
+    // Ensure we don't overrun the buffer if it's very small
+    let pre_simd_count = pre_simd_count.min(len);
+
+    let mut z = z_at_xs;
+
+    // Process initial unaligned pixels
+    for k in 0..pre_simd_count {
+        unsafe {
+            let d = depths.get_unchecked_mut(k);
+            if z < *d {
+                *d = z;
+                *pixels.get_unchecked_mut(k) = color;
+            }
+        }
+        z += dz_dx;
+    }
+
+    i += pre_simd_count;
+
+    // --- Main SIMD Loop (Aligned) ---
     unsafe {
+        use std::arch::x86_64::{
+            _mm256_cmp_ps, _mm256_store_ps, _mm256_store_si256, _CMP_GE_OQ,
+        };
+
         // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
         let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
 
         // Initialize depth vector using vector arithmetic:
-        // depths = z_at_xs + [0, 1, 2, 3, 4, 5, 6, 7] * dz_dx
-        // Note: set_ps takes arguments in reverse order (e7, e6, ..., e0)
+        // depths = z (current) + [0, 1, 2, 3, 4, 5, 6, 7] * dz_dx
         let offsets = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let dz_vec = _mm256_set1_ps(dz_dx);
-        let base = _mm256_set1_ps(z_at_xs);
+        let base = _mm256_set1_ps(z);
         let mut depths_vec = _mm256_add_ps(base, _mm256_mul_ps(offsets, dz_vec));
 
         let color_vec = _mm256_set1_epi32(color as i32);
@@ -1066,44 +1110,85 @@ fn rasterize_scanline_simd(
         // Process 8 pixels at a time with AVX2
         while i + 8 <= len {
             // Load zbuffer values for 8 pixels
-            let zb_ptr = depths.as_ptr().add(i);
+            // If we aligned correctly, this should be an aligned load for `pixels`.
+            // However, `depths` buffer is separate. `AlignedBuffer` ensures start is aligned.
+            // Since we advanced `i` to align `pixels`, `depths` at `i` is also aligned
+            // ONLY IF `tile_pixels` and `tile_depths` had same initial alignment modulo 32.
+            // `AlignedBuffer::new` ensures 32-byte alignment for start.
+            // Since we index both by the same `i` (relative to start of slice), and slices start
+            // at same offset relative to aligned base (same x_start), they are both aligned.
+            //
+            // Use aligned load/store intrinsics where possible.
+            // Note: `loadu` is still safe and fast on Haswell+ even if aligned.
+            // `store` (aligned) traps if unaligned, so we must be sure.
+            // We aligned based on `pixels`. `depths` should match.
+
+            let zb_ptr = depths.as_mut_ptr().add(i);
+            // We use loadu just to be safe in case of weird offsets, but stores will be aligned.
+            // Actually, let's use loadu for reads to be robust, and aligned stores because we calculated alignment.
             let zb_vals = _mm256_loadu_ps(zb_ptr);
 
-            // Compare: depth < zbuffer (8 comparisons in parallel)
-            let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
-            let mask_bits = _mm256_movemask_ps(mask);
+            // Optimization Idea 2: Early Out (Occlusion Culling)
+            // Check if ALL pixels fail the depth test (depth >= zbuffer)
+            // _CMP_GE_OQ: Greater-than or Equal (Ordered, Non-signaling)
+            let ge_mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_GE_OQ);
+            let ge_bits = _mm256_movemask_ps(ge_mask);
 
-            if mask_bits == 0xFF {
-                // Fast path: All pixels passed Z-test.
-                // Store depths and colors directly, avoiding loads of old pixels and blending.
-                _mm256_storeu_ps(depths.as_mut_ptr().add(i), depths_vec);
+            if ge_bits == 0xFF {
+                // All pixels occluded. Skip write.
+            } else {
+                // At least one pixel is visible.
+                // Compare: depth < zbuffer
+                let mask = _mm256_cmp_ps(depths_vec, zb_vals, _CMP_LT_OQ);
+                let mask_bits = _mm256_movemask_ps(mask);
 
-                let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-                _mm256_storeu_si256(pixels_ptr, color_vec);
-            } else if mask_bits != 0 {
-                // Partial write path
+                if mask_bits == 0xFF {
+                    // Fast path: All pixels visible.
+                    // Store depths and colors directly using Aligned Stores.
+                    _mm256_store_ps(zb_ptr, depths_vec);
 
-                // 1. Update depths
-                let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
-                _mm256_storeu_ps(depths.as_mut_ptr().add(i), blended_depths);
+                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    _mm256_store_si256(pixels_ptr, color_vec);
+                } else {
+                    // Partial write path
+                    // 1. Update depths
+                    let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
+                    // Use aligned store since we are aligned
+                    _mm256_store_ps(zb_ptr, blended_depths);
 
-                // 2. Update pixels
-                // Cast to/from float vectors to use blendv_ps (zero-cost on AVX2)
-                let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-                let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                    // 2. Update pixels
+                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    // Read old pixels (aligned load)
+                    let old_pixels = _mm256_load_si256(pixels_ptr as *const __m256i);
 
-                let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
-                let color_vec_ps = _mm256_castsi256_ps(color_vec);
+                    let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
+                    let color_vec_ps = _mm256_castsi256_ps(color_vec);
 
-                let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
+                    let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
 
-                _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                    // Aligned store
+                    _mm256_store_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                }
             }
 
             // Increment depths by stride (8*dz_dx) for next iteration
             depths_vec = _mm256_add_ps(depths_vec, stride_vec);
             i += 8;
         }
+
+        // Update the scalar z tracker for the tail loop
+        // z corresponds to depth at 'i' (start of this iteration block)
+        // But we incremented depths_vec already for the *next* block.
+        // We need to sync the scalar 'z' to the current 'i'.
+        // Actually, easiest is just to recalculate z from scratch or extract from vector.
+        // Or just maintain 'z' mathematically.
+        // We've processed `i` pixels (including pre-simd).
+        // `z` variable currently holds value at start of SIMD loop.
+        // We need z at `i` (current).
+        // Since we didn't update scalar `z` inside SIMD loop, we do it now.
+        // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
+        let simd_pixels = i - pre_simd_count;
+        z += (simd_pixels as f32) * dz_dx;
     }
 
     // Handle remaining pixels with scalar fallback

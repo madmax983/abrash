@@ -123,8 +123,6 @@ impl PerspectiveTextureGradients {
 
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
@@ -541,6 +539,88 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
+    // Align pixels buffer
+    let align_mask = 0x1F;
+    let addr = fb_slice.as_ptr() as usize;
+    let misalign = addr & align_mask;
+    let pre_simd_count = if misalign == 0 {
+        0
+    } else {
+        (32 - misalign) / 4
+    };
+    let pre_simd_count = pre_simd_count.min(len);
+
+    let mut z_curr = z_start;
+    let mut u_curr = u_fix_start;
+    let mut v_curr = v_fix_start;
+
+    // Scalar pre-loop
+    for k in 0..pre_simd_count {
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(k);
+            if z_curr < *depth_val {
+                // Inline scalar bilinear
+                let u_img_fixed = u_curr >> 8;
+                let v_img_fixed = v_curr >> 8;
+                let x0_raw = u_img_fixed >> 8;
+                let y0_raw = v_img_fixed >> 8;
+
+                let tex_w = texture.width;
+                let tex_h = texture.height;
+                let w_i32 = (tex_w as i32).wrapping_sub(1);
+                let h_i32 = (tex_h as i32).wrapping_sub(1);
+                let tex_w_usize = tex_w as usize;
+
+                let (c00, c10, c01, c11) = if (x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32) {
+                    let x0 = x0_raw as usize;
+                    let y0 = y0_raw as usize;
+                    let row0 = if texture.width_shift < 32 { y0 << texture.width_shift } else { y0 * tex_w_usize };
+                    let row1 = row0 + tex_w_usize;
+                    (
+                        *texture.pixels.get_unchecked(row0 + x0),
+                        *texture.pixels.get_unchecked(row0 + x0 + 1),
+                        *texture.pixels.get_unchecked(row1 + x0),
+                        *texture.pixels.get_unchecked(row1 + x0 + 1),
+                    )
+                } else {
+                    let x0 = x0_raw.clamp(0, w_i32) as usize;
+                    let y0 = y0_raw.clamp(0, h_i32) as usize;
+                    let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                    let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                    let row0 = if texture.width_shift < 32 { y0 << texture.width_shift } else { y0 * tex_w_usize };
+                    let row1 = if texture.width_shift < 32 { y1 << texture.width_shift } else { y1 * tex_w_usize };
+
+                    (
+                        *texture.pixels.get_unchecked(row0 + x0),
+                        *texture.pixels.get_unchecked(row0 + x1),
+                        *texture.pixels.get_unchecked(row1 + x0),
+                        *texture.pixels.get_unchecked(row1 + x1),
+                    )
+                };
+
+                let wx = (u_img_fixed & 0xFF) as u32;
+                let wy = (v_img_fixed & 0xFF) as u32;
+
+                let final_color = blend_four_way(c00, c10, c01, c11, wx, wy);
+                let alpha = (final_color >> 24) & 0xFF;
+
+                if alpha == 255 {
+                    *depth_val = z_curr;
+                    *fb_slice.get_unchecked_mut(k) = final_color;
+                } else if alpha > 0 {
+                    let dest = *fb_slice.get_unchecked(k);
+                    *fb_slice.get_unchecked_mut(k) = blend_swar(final_color, dest, 255 - alpha, alpha);
+                }
+            }
+        }
+        z_curr += dz_dx;
+        u_curr = u_curr.wrapping_add(du_fix);
+        v_curr = v_curr.wrapping_add(dv_fix);
+    }
+
+    i += pre_simd_count;
+
     unsafe {
         let dz_dx_vec = _mm256_set1_ps(dz_dx);
         let du_fix_vec = _mm256_set1_epi32(du_fix);
@@ -549,13 +629,13 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
 
-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
@@ -578,10 +658,16 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                     // Z-Test
                     let depth_ptr = zb_slice.as_mut_ptr().add(i);
                     let depth_val = _mm256_loadu_ps(depth_ptr);
-                    let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
 
-                    if _mm256_movemask_ps(mask_z) != 0 {
-                        // Bilinear Logic
+                    // Optimization: Early Out if fully occluded
+                    let ge_mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_GE_OQ);
+                    let ge_bits = _mm256_movemask_ps(ge_mask);
+
+                    if ge_bits != 0xFF {
+                        let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+                        if _mm256_movemask_ps(mask_z) != 0 {
+                            // Bilinear Logic
                         // u_fix is 16.16 offset by -0.5 (32768). Shift right 8 to get 24.8
                         let u_img = _mm256_srai_epi32(u_fix_vec, 8);
                         let v_img = _mm256_srai_epi32(v_fix_vec, 8);
@@ -658,10 +744,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                             _mm256_storeu_ps(depth_ptr, new_z);
 
                             let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                            let old_color = _mm256_loadu_si256(fb_ptr);
+                            let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                             let new_color =
                                 _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
-                            _mm256_storeu_si256(fb_ptr, new_color);
+                            _mm256_store_si256(fb_ptr, new_color); // Aligned store
                         }
 
                         // Translucent
@@ -674,14 +760,15 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
 
                         if trans_bits != 0 {
                             // Load current framebuffer (might have been updated by opaque write)
+                            // Aligned load/store for pixels
                             let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                            let current_dest = _mm256_loadu_si256(fb_ptr);
+                            let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                             // Alpha blending: src * alpha + dest * (1 - alpha)
-                            // blend_swar_simd(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
-                            // We want: src * alpha + dest * inv_alpha
-                            // So: c0 = src, inv_w = alpha
-                            //     c1 = dest, w = inv_alpha
+                            // blend_swar(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
+                            // So w = 255 - alpha, inv_w = alpha
+                            // We want src * alpha + dest * (1-alpha)
+                            // blend_swar_simd(src, dest, inv_alpha, alpha)
 
                             let alpha_src = a; // Already extracted: (final_color >> 24) & 0xFF
                             let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
@@ -696,9 +783,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                             // Only write where trans_mask is set.
                             // blendv_epi8(a, b, mask): if mask bit is 1, take b.
                             let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
-                            _mm256_storeu_si256(fb_ptr, result);
+                            _mm256_store_si256(fb_ptr, result); // Aligned store
                         }
                     }
+                    } // End early-out block
 
                     z_vec = _mm256_add_ps(z_vec, dz_step);
                     u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
@@ -717,18 +805,19 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
 
     // Scalar Tail
     if i < len {
-        let z_curr = z_start + (i as f32) * dz_dx;
-        let u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-        let v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+        // Recalculate currents based on i (which advanced)
+        let z_tail = z_start + (i as f32) * dz_dx;
+        let u_tail = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
+        let v_tail = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
 
         draw_span_bilinear(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_curr,
+            z_tail,
             dz_dx,
-            u_curr,
-            v_curr,
+            u_tail,
+            v_tail,
             du_fix,
             dv_fix,
         );
@@ -790,6 +879,58 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
+    // Align buffer
+    let align_mask = 0x1F;
+    let addr = fb_slice.as_ptr() as usize;
+    let misalign = addr & align_mask;
+    let pre_simd_count = if misalign == 0 {
+        0
+    } else {
+        (32 - misalign) / 4
+    };
+    let pre_simd_count = pre_simd_count.min(len);
+
+    let mut z_curr = z_start;
+    let mut u_curr = u_fix_start;
+    let mut v_curr = v_fix_start;
+
+    // Scalar pre-loop
+    for k in 0..pre_simd_count {
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(k);
+            if z_curr < *depth_val {
+                let u = u_curr >> 16;
+                let v = v_curr >> 16;
+                let tex_w = texture.width;
+                let tex_h = texture.height;
+                let color = if (u as u32) < tex_w && (v as u32) < tex_h {
+                    let shift = texture.width_shift;
+                    let idx = if shift < 32 {
+                        ((v as usize) << shift) + (u as usize)
+                    } else {
+                        (v as usize) * (tex_w as usize) + (u as usize)
+                    };
+                    *texture.pixels.get_unchecked(idx)
+                } else {
+                    texture.get_pixel_texel(u, v)
+                };
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z_curr;
+                    *fb_slice.get_unchecked_mut(k) = color;
+                } else if alpha > 0 {
+                    let dest = *fb_slice.get_unchecked(k);
+                    *fb_slice.get_unchecked_mut(k) = blend_swar(color, dest, 255 - alpha, alpha);
+                }
+            }
+        }
+        z_curr += dz_dx;
+        u_curr = u_curr.wrapping_add(du_fix);
+        v_curr = v_curr.wrapping_add(dv_fix);
+    }
+
+    i += pre_simd_count;
+
     unsafe {
         let dz_dx_vec = _mm256_set1_ps(dz_dx);
         let du_fix_vec = _mm256_set1_epi32(du_fix);
@@ -798,13 +939,13 @@ pub(crate) unsafe fn draw_span_nearest_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
 
-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
@@ -824,11 +965,17 @@ pub(crate) unsafe fn draw_span_nearest_simd(
             // Z-Test
             let depth_ptr = zb_slice.as_mut_ptr().add(i);
             let depth_val = _mm256_loadu_ps(depth_ptr);
-            let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
-            let mask_z_int = _mm256_castps_si256(mask_z);
 
-            if _mm256_movemask_ps(mask_z) != 0 {
-                // Calculate Indices
+            // Optimization: Early Out if fully occluded
+            let ge_mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_GE_OQ);
+            let ge_bits = _mm256_movemask_ps(ge_mask);
+
+            if ge_bits != 0xFF {
+                let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+                let mask_z_int = _mm256_castps_si256(mask_z);
+
+                if _mm256_movemask_ps(mask_z) != 0 {
+                    // Calculate Indices
                 let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
@@ -865,9 +1012,9 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     _mm256_storeu_ps(depth_ptr, new_z);
 
                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                     let new_color = _mm256_blendv_epi8(old_color, pixel_vals, write_opaque_mask);
-                    _mm256_storeu_si256(fb_ptr, new_color);
+                    _mm256_store_si256(fb_ptr, new_color); // Aligned store
                 }
 
                 // Translucent: (mask_z & !opaque & !zero)
@@ -877,7 +1024,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 
                 if trans_bits != 0 {
                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                    let current_dest = _mm256_loadu_si256(fb_ptr);
+                    let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                     let const_256 = _mm256_set1_epi32(256);
                     let alpha_src = _mm256_and_si256(alphas_shifted, ff_mask_shifted);
@@ -888,9 +1035,10 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                         blend_swar_simd(pixel_vals, current_dest, inv_alpha_src, alpha_src);
 
                     let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
-                    _mm256_storeu_si256(fb_ptr, result);
+                    _mm256_store_si256(fb_ptr, result); // Aligned store
                 }
-            }
+                } // End inner mask_z check
+            } // End early out
 
             z_vec = _mm256_add_ps(z_vec, dz_step);
             u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
@@ -2565,6 +2713,44 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     let len = fb_slice.len();
     let mut i = 0;
 
+    // Align buffer
+    let align_mask = 0x1F;
+    let addr = fb_slice.as_ptr() as usize;
+    let misalign = addr & align_mask;
+    let pre_simd_count = if misalign == 0 {
+        0
+    } else {
+        (32 - misalign) / 4
+    };
+    let pre_simd_count = pre_simd_count.min(len);
+
+    let mut z_curr = z_start;
+    let mut u_curr = u_fix_start;
+    let mut v_curr = v_fix_start;
+
+    // Scalar pre-loop
+    for k in 0..pre_simd_count {
+        unsafe {
+            let depth_val = zb_slice.get_unchecked_mut(k);
+            if z_curr < *depth_val {
+                let color = texture.get_pixel_trilinear_fixed(u_curr, v_curr, lod);
+                let alpha = (color >> 24) & 0xFF;
+                if alpha == 255 {
+                    *depth_val = z_curr;
+                    *fb_slice.get_unchecked_mut(k) = color;
+                } else if alpha > 0 {
+                    let dest = *fb_slice.get_unchecked(k);
+                    *fb_slice.get_unchecked_mut(k) = blend_swar(color, dest, 255 - alpha, alpha);
+                }
+            }
+        }
+        z_curr += dz_dx;
+        u_curr = u_curr.wrapping_add(du_fix);
+        v_curr = v_curr.wrapping_add(dv_fix);
+    }
+
+    i += pre_simd_count;
+
     unsafe {
         let dz_dx_vec = _mm256_set1_ps(dz_dx);
         let du_fix_vec = _mm256_set1_epi32(du_fix);
@@ -2573,13 +2759,13 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
         let offsets_f = _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0);
         let offsets_i = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 
-        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_start), _mm256_mul_ps(dz_dx_vec, offsets_f));
+        let mut z_vec = _mm256_add_ps(_mm256_set1_ps(z_curr), _mm256_mul_ps(dz_dx_vec, offsets_f));
 
         let du_off = _mm256_mullo_epi32(du_fix_vec, offsets_i);
         let dv_off = _mm256_mullo_epi32(dv_fix_vec, offsets_i);
 
-        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_fix_start), du_off);
-        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_fix_start), dv_off);
+        let mut u_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(u_curr), du_off);
+        let mut v_fix_vec = _mm256_add_epi32(_mm256_set1_epi32(v_curr), dv_off);
 
         let dz_step = _mm256_mul_ps(dz_dx_vec, _mm256_set1_ps(8.0));
         let du_step = _mm256_slli_epi32(du_fix_vec, 3);
@@ -2654,10 +2840,16 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
             // Z-Test
             let depth_ptr = zb_slice.as_mut_ptr().add(i);
             let depth_val = _mm256_loadu_ps(depth_ptr);
-            let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
 
-            if _mm256_movemask_ps(mask_z) != 0 {
-                // Apply half-pixel offset (-0.5 in 16.16 is 32768)
+            // Optimization: Early Out if fully occluded
+            let ge_mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_GE_OQ);
+            let ge_bits = _mm256_movemask_ps(ge_mask);
+
+            if ge_bits != 0xFF {
+                let mask_z = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+
+                if _mm256_movemask_ps(mask_z) != 0 {
+                    // Apply half-pixel offset (-0.5 in 16.16 is 32768)
                 let offset = _mm256_set1_epi32(32768);
                 let u_shifted = _mm256_sub_epi32(u_fix_vec, offset);
                 let v_shifted = _mm256_sub_epi32(v_fix_vec, offset);
@@ -2690,9 +2882,9 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
                     _mm256_storeu_ps(depth_ptr, new_z);
 
                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                    let old_color = _mm256_loadu_si256(fb_ptr);
+                    let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                     let new_color = _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
-                    _mm256_storeu_si256(fb_ptr, new_color);
+                    _mm256_store_si256(fb_ptr, new_color); // Aligned store
                 }
 
                 let zero_mask = _mm256_cmpeq_epi32(a, zero_i);
@@ -2702,7 +2894,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
 
                 if trans_bits != 0 {
                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
-                    let current_dest = _mm256_loadu_si256(fb_ptr);
+                    let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                     let alpha_src = a;
                     let inv_alpha_src = _mm256_sub_epi32(const_256, alpha_src);
@@ -2711,9 +2903,10 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
                         blend_swar_simd(final_color, current_dest, inv_alpha_src, alpha_src);
 
                     let result = _mm256_blendv_epi8(current_dest, blended, trans_mask);
-                    _mm256_storeu_si256(fb_ptr, result);
+                    _mm256_store_si256(fb_ptr, result); // Aligned store
                 }
-            }
+                } // End inner mask_z check
+            } // End early out
 
             z_vec = _mm256_add_ps(z_vec, dz_step);
             u_fix_vec = _mm256_add_epi32(u_fix_vec, du_step);
@@ -2723,18 +2916,18 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     }
     // Scalar Tail
     if i < len {
-        let z_curr = z_start + (i as f32) * dz_dx;
-        let u_curr = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
-        let v_curr = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
+        let z_tail = z_start + (i as f32) * dz_dx;
+        let u_tail = u_fix_start.wrapping_add(du_fix.wrapping_mul(i as i32));
+        let v_tail = v_fix_start.wrapping_add(dv_fix.wrapping_mul(i as i32));
 
         draw_span_trilinear(
             &mut fb_slice[i..],
             &mut zb_slice[i..],
             texture,
-            z_curr,
+            z_tail,
             dz_dx,
-            u_curr,
-            v_curr,
+            u_tail,
+            v_tail,
             du_fix,
             dv_fix,
             lod,
