@@ -15,6 +15,7 @@
 //! *   [`cloth`]: Cloth simulation using Verlet integration.
 //! *   [`sdf`]: Signed Distance Field rendering experiments.
 //! *   [`procedural_mesh`]: Procedural mesh generation (terrain, noise).
+//! *   [`fluid`]: Smoothed Particle Hydrodynamics (SPH) fluid simulation.
 //!
 //! ## Feature Flags
 //!
@@ -28,6 +29,7 @@
 pub mod arboretum;
 pub mod cloth;
 pub mod dither;
+pub mod fluid;
 pub mod glitch;
 pub mod isosurface;
 pub mod jelly;
