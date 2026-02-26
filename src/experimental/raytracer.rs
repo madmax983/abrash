@@ -43,8 +43,8 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+use crate::geometry::AABB;
 use crate::math::{Vec2, Vec3};
-use crate::mesh::AABB;
 use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
@@ -259,7 +259,7 @@ impl RayTracer {
             .iter()
             .map(|obj| RenderObject {
                 obj,
-                world_aabb: obj.calculate_world_aabb(),
+                world_aabb: obj.local_aabb.transform(&obj.transform),
             })
             .collect();
 
@@ -323,7 +323,10 @@ impl RayTracer {
     }
 
     fn trace_ray(&self, ray: &Ray, objects: &[RenderObject], depth: u32) -> u32 {
-        if depth > self.max_bounces {
+        // Enforce a hard limit on recursion depth to prevent stack overflow,
+        // regardless of the user-configured max_bounces.
+        const MAX_SAFE_RECURSION: u32 = 64;
+        if depth > self.max_bounces || depth > MAX_SAFE_RECURSION {
             return self.background_color;
         }
 
