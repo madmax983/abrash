@@ -43,8 +43,8 @@
 //! ```
 
 use crate::framebuffer::Framebuffer;
+use crate::geometry::AABB;
 use crate::math::{Vec2, Vec3};
-use crate::mesh::AABB;
 use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
@@ -259,7 +259,7 @@ impl RayTracer {
             .iter()
             .map(|obj| RenderObject {
                 obj,
-                world_aabb: obj.calculate_world_aabb(),
+                world_aabb: obj.local_aabb.transform(&obj.transform),
             })
             .collect();
 

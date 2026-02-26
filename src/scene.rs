@@ -96,6 +96,21 @@ pub struct SceneObject {
 impl SceneObject {
     /// Create a new scene object from a mesh and transform.
     /// Automatically calculates the local AABB.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::scene::SceneObject;
+    /// use abrash::mesh::Mesh;
+    /// use abrash::math::Mat4;
+    /// use std::sync::Arc;
+    ///
+    /// let mesh = Arc::new(Mesh::cube(1.0));
+    /// let transform = Mat4::translation(0.0, 5.0, 0.0);
+    /// let color = 0xFFFF0000; // Red
+    ///
+    /// let object = SceneObject::new(mesh, transform, color);
+    /// ```
     #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
