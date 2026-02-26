@@ -414,8 +414,51 @@ pub(crate) fn draw_span_bilinear(
     let h_i32 = (tex_h as i32).wrapping_sub(1);
     let tex_w_usize = tex_w as usize;
 
+    // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
+    let len = fb_slice.len() as i32;
+    let can_use_fast_path = if len > 0 {
+        // Calculate range of u_fix and v_fix
+        let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
+        let (u_min, u_max) = if du_fix >= 0 {
+            if u_end < u_fix {
+                (1, 0)
+            } else {
+                (u_fix, u_end)
+            } // Overflow check
+        } else if u_end > u_fix {
+            (1, 0)
+        } else {
+            (u_end, u_fix)
+        }; // Underflow check
+
+        let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
+        let (v_min, v_max) = if dv_fix >= 0 {
+            if v_end < v_fix {
+                (1, 0)
+            } else {
+                (v_fix, v_end)
+            }
+        } else if v_end > v_fix {
+            (1, 0)
+        } else {
+            (v_end, v_fix)
+        };
+
+        // Check validity (min <= max) and bounds for Bilinear (width-1)
+        // (val >> 16) is the integer coordinate x0.
+        // We need x0 < width - 1 (so x0+1 < width)
+        u_min <= u_max
+            && v_min <= v_max
+            && (u_min >> 16) >= 0
+            && (u_max >> 16) < w_i32
+            && (v_min >> 16) >= 0
+            && (v_max >> 16) < h_i32
+    } else {
+        false
+    };
+
     macro_rules! process_span_bilinear {
-        ($op:tt, $val:expr) => {
+        ($op:tt, $val:expr, $fast_path:literal) => {
             let mut cached_x0 = i32::MIN;
             let mut cached_y0 = i32::MIN;
             let mut c00 = 0;
@@ -436,7 +479,7 @@ pub(crate) fn draw_span_bilinear(
                         cached_y0 = y0_raw;
 
                         let (t00, t10, t01, t11) =
-                            if (x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32) {
+                            if $fast_path || ((x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32)) {
                                 let x0 = x0_raw as usize;
                                 let y0 = y0_raw as usize;
 
@@ -512,10 +555,18 @@ pub(crate) fn draw_span_bilinear(
         };
     }
 
-    if shift < 32 {
-        process_span_bilinear!(<<, shift);
+    if can_use_fast_path {
+        if shift < 32 {
+            process_span_bilinear!(<<, shift, true);
+        } else {
+            process_span_bilinear!(*, tex_w_usize, true);
+        }
     } else {
-        process_span_bilinear!(*, tex_w_usize);
+        if shift < 32 {
+            process_span_bilinear!(<<, shift, false);
+        } else {
+            process_span_bilinear!(*, tex_w_usize, false);
+        }
     }
 }
 
