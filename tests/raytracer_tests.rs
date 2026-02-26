@@ -1,6 +1,7 @@
+#![cfg(feature = "nova")]
 use abrash::experimental::raytracer::Ray;
 use abrash::math::Vec3;
-use abrash::mesh::AABB;
+use abrash::geometry::AABB;
 
 #[test]
 fn test_ray_triangle_intersection() {

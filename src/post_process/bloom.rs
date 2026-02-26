@@ -228,16 +228,20 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
 #[target_feature(enable = "avx2")]
 unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
     use std::arch::x86_64::{
-        _mm256_add_epi16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
-        _mm256_extracti128_si256, _mm256_loadu_si256, _mm256_mullo_epi16, _mm256_or_si256,
-        _mm256_packus_epi16, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32,
-        _mm256_srai_epi16, _mm256_storeu_si256,
+        _mm256_adds_epu16, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16,
+        _mm256_extracti128_si256, _mm256_loadu_si256, _mm256_min_epu16, _mm256_mulhi_epu16,
+        _mm256_mullo_epi16, _mm256_or_si256, _mm256_packus_epi16, _mm256_permute4x64_epi64,
+        _mm256_set1_epi16, _mm256_set1_epi32, _mm256_slli_epi16, _mm256_srli_epi16,
+        _mm256_storeu_si256,
     };
 
     unsafe {
-        let scale = (intensity * 256.0) as i16;
-        let scale_vec = _mm256_set1_epi16(scale);
+        // Clamp intensity to avoid u16 overflow (max ~255.0)
+        let intensity_clamped = intensity.clamp(0.0, 255.0);
+        let scale = (intensity_clamped * 256.0) as u16;
+        let scale_vec = _mm256_set1_epi16(scale as i16);
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let max_val = _mm256_set1_epi16(255);
 
         let len = dest.len();
         let mut d_ptr = dest.as_mut_ptr();
@@ -251,24 +255,41 @@ unsafe fn blend_additive_avx2(dest: &mut [u32], src: &[u32], intensity: f32) {
             // Preserve dest alpha
             let d_alpha = _mm256_and_si256(d_chunk, alpha_mask);
 
-            // Unpack to 16-bit
+            // Unpack to 16-bit (u8 -> i16, guaranteed positive 0..255)
             let s_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(s_chunk));
             let s_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(s_chunk, 1));
 
             let d_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(d_chunk));
             let d_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(d_chunk, 1));
 
-            // Multiply src * scale
-            let s_lo_scaled = _mm256_mullo_epi16(s_lo, scale_vec);
-            let s_hi_scaled = _mm256_mullo_epi16(s_hi, scale_vec);
+            // Multiply src * scale using 32-bit intermediate logic via mullo/mulhi
+            // Result = (src * scale) >> 8
+            // mullo gives low 16 bits of (src * scale)
+            // mulhi_epu16 gives high 16 bits of (src * scale), treating operands as unsigned
+            // Combined: ((hi << 16) | lo) >> 8  ==  (hi << 8) | (lo >> 8)
 
-            // Divide by 256
-            let s_lo_final = _mm256_srai_epi16(s_lo_scaled, 8);
-            let s_hi_final = _mm256_srai_epi16(s_hi_scaled, 8);
+            let s_lo_lo = _mm256_mullo_epi16(s_lo, scale_vec);
+            let s_lo_hi = _mm256_mulhi_epu16(s_lo, scale_vec);
+            // Combine: slli for hi (shift left 8), srli for lo (shift right logical 8)
+            let s_lo_final = _mm256_or_si256(
+                _mm256_slli_epi16(s_lo_hi, 8),
+                _mm256_srli_epi16(s_lo_lo, 8),
+            );
 
-            // Add dest
-            let res_lo = _mm256_add_epi16(d_lo, s_lo_final);
-            let res_hi = _mm256_add_epi16(d_hi, s_hi_final);
+            let s_hi_lo = _mm256_mullo_epi16(s_hi, scale_vec);
+            let s_hi_hi = _mm256_mulhi_epu16(s_hi, scale_vec);
+            let s_hi_final = _mm256_or_si256(
+                _mm256_slli_epi16(s_hi_hi, 8),
+                _mm256_srli_epi16(s_hi_lo, 8),
+            );
+
+            // Add dest using saturated add (unsigned) to avoid wrap-around
+            let sum_lo = _mm256_adds_epu16(d_lo, s_lo_final);
+            let sum_hi = _mm256_adds_epu16(d_hi, s_hi_final);
+
+            // Clamp to 255 to ensure values fit in positive i16 range for packus
+            let res_lo = _mm256_min_epu16(sum_lo, max_val);
+            let res_hi = _mm256_min_epu16(sum_hi, max_val);
 
             // Pack back to u8 (saturates)
             let packed = _mm256_packus_epi16(res_lo, res_hi);

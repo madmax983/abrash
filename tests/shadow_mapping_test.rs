@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use abrash::framebuffer::Framebuffer;
-    use abrash::math::{Mat4, Vec3, Vec4};
+    use abrash::math::{Mat4, Vec3};
     use abrash::rasterizer::{fill_triangle_3d, fill_triangle_phong_shadowed};
     use abrash::zbuffer::ZBuffer;
     use std::f32::consts::PI;

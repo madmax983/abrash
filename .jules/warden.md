@@ -25,3 +25,7 @@
 **2026-02-23 - [Harden Chromatic Aberration Buffer & Math Layout]**
 **Threat:** Uninitialized memory access in `apply_chromatic_aberration` due to `unsafe { set_len(width) }` usage on a reused thread-local buffer. Also, potential Undefined Behavior in `transform_points_avx2` if `(Vec3, f32)` tuple layout is not packed (16 bytes).
 **Defense:** Replaced `set_len` with safe `resize(width, 0)` in `filters.rs`. Added runtime `debug_assert!` in `math.rs` to enforce `(Vec3, f32)` layout assumptions (size 16, align 4) before unsafe SIMD operations.
+
+**2026-02-24 - [Fix Integer Overflow in SIMD Bloom Filter]**
+**Threat:** Integer overflow in `blend_additive_avx2` when `intensity >= 1.0`. The multiplication of pixel values (0-255) by scale factor (256+) caused overflow in signed 16-bit arithmetic, leading to incorrect colors (wrapping/clamping to 0 instead of saturation).
+**Defense:** Updated `blend_additive_avx2` to use `_mm256_mulhi_epu16` for correct 32-bit intermediate multiplication logic, and used `_mm256_adds_epu16` with explicit clamping to prevent wrap-around before packing. Also enforced clamping of intensity input.
