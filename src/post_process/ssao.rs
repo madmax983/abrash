@@ -87,7 +87,7 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
-        let precomputed_kernels = &ctx.precomputed_kernel_buffer;
+        let _precomputed_kernels = &ctx.precomputed_kernel_buffer;
 
         // Projection parameters
         // Flatten matrix for SIMD
@@ -112,7 +112,7 @@ pub fn apply_ssao(
                         &proj_flat,
                         kernel,
                         noise,
-                        precomputed_kernels,
+                        _precomputed_kernels,
                         radius,
                         bias,
                         half_width,
