@@ -100,18 +100,36 @@ use std::ops::{Deref, DerefMut};
 #[cfg(feature = "parallel")]
 /// Wrapper for raw pointers to enable thread-safe parallel writes to non-overlapping regions.
 ///
+/// Stores the pointer as a `usize` to avoid auto-trait issues with raw pointers in closures.
+///
 /// SAFETY: This is safe because each thread writes to a non-overlapping region determined
 /// by its tile coordinates (tx, ty). The tile renderer ensures that no two tiles overlap.
-struct SendPtr<T>(*mut T);
+#[derive(Clone, Copy)]
+struct SendPtr<T> {
+    ptr_addr: usize,
+    _phantom: std::marker::PhantomData<T>,
+}
 
 #[cfg(feature = "parallel")]
 impl<T> SendPtr<T> {
+    fn new(ptr: *mut T) -> Self {
+        Self {
+            ptr_addr: ptr as usize,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    #[inline]
+    fn as_ptr(&self) -> *mut T {
+        self.ptr_addr as *mut T
+    }
+
     /// SAFETY: Caller must ensure the index is within bounds and writes are to non-overlapping regions
     #[inline]
     unsafe fn write(&self, index: usize, value: T) {
         // SAFETY: Caller guarantees index is within bounds and writes are non-overlapping
         unsafe {
-            *self.0.add(index) = value;
+            *self.as_ptr().add(index) = value;
         }
     }
 }
@@ -389,6 +407,142 @@ impl TileBins {
         TileBinIter {
             bins: self,
             curr: self.heads[tile_idx],
+        }
+    }
+
+    /// Sorts all bins in-place using the provided comparator.
+    ///
+    /// This method rebuilds the linked lists for each bin after sorting the triangle indices.
+    /// It avoids allocations by reusing a thread-local temporary buffer.
+    pub fn sort_all_bins<F>(&mut self, compare: F)
+    where
+        F: Fn(u32, u32) -> std::cmp::Ordering + Sync + Send,
+    {
+        // Safety: We need to mutate disjoint parts of the struct in parallel.
+        // - `heads` and `tails` are mutated per-tile (disjoint).
+        // - `nexts` is mutated, but each tile owns a disjoint set of nodes in the linked list.
+        // However, `nexts` and `tris` are shared arrays.
+        // Since we are sorting, we are effectively re-linking the list.
+        // We can't easily prove to the compiler that tiles don't share nodes (though they don't by construction).
+        //
+        // Strategy:
+        // 1. For each tile, collect triangle indices into a temporary vector.
+        // 2. Sort the vector.
+        // 3. Rebuild the linked list for that tile in the `nexts` array.
+        //
+        // To do this in parallel without locking, we need raw pointers because multiple threads
+        // will access `nexts` (at different indices). To avoid UB from aliasing, we must ONLY
+        // use raw pointers inside the parallel closure for shared arrays we are mutating.
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+
+            // Convert slices to raw pointers to avoid capturing &mut self or &self in the closure
+            // while we are mutating via pointers.
+            // Safety: These pointers are valid for the duration of the sort.
+            let nexts_ptr = SendPtr::new(self.nexts.as_mut_ptr());
+            let heads_ptr = SendPtr::new(self.heads.as_mut_ptr());
+            let tails_ptr = SendPtr::new(self.tails.as_mut_ptr());
+
+            // `tris` is read-only.
+            let tris_ptr = SendPtr::new(self.tris.as_mut_ptr());
+
+            // We need the length of heads for iteration range
+            let len = self.heads.len();
+
+            // Iterate over all tiles
+            (0..len)
+                .into_par_iter()
+                .for_each_init(
+                    || Vec::with_capacity(64), // Thread-local buffer
+                    move |temp_indices, tile_idx| {
+                        // Safety:
+                        // 1. We only access indices belonging to `tile_idx`.
+                        // 2. Tile bins are disjoint (a node belongs to exactly one bin).
+                        // 3. Pointers are valid.
+                        unsafe {
+                            // Read head for this tile
+                            let head_ptr = heads_ptr.as_ptr().add(tile_idx);
+                            let mut curr = *head_ptr;
+
+                            if curr == u32::MAX {
+                                return; // Empty bin
+                            }
+
+                            // 1. Collect nodes and triangle indices
+                            temp_indices.clear();
+                            while curr != u32::MAX {
+                                // Read triangle index: tris[curr]
+                                let tri_idx = *tris_ptr.as_ptr().add(curr as usize);
+                                temp_indices.push((curr, tri_idx));
+
+                                // Read next node: nexts[curr]
+                                curr = *nexts_ptr.as_ptr().add(curr as usize);
+                            }
+
+                            // 2. Sort by triangle index using the user comparator
+                            temp_indices
+                                .sort_unstable_by(|&(_, tri_a), &(_, tri_b)| compare(tri_a, tri_b));
+
+                            // 3. Rebuild linked list
+                            if let Some(&(first_node, _)) = temp_indices.first() {
+                                // Update head
+                                *head_ptr = first_node;
+
+                                // Re-link nodes
+                                for i in 0..temp_indices.len() - 1 {
+                                    let (curr_node, _) = temp_indices[i];
+                                    let (next_node, _) = temp_indices[i + 1];
+                                    *nexts_ptr.as_ptr().add(curr_node as usize) = next_node;
+                                }
+
+                                // Terminate list and update tail
+                                let (last_node, _) = temp_indices.last().unwrap();
+                                *nexts_ptr.as_ptr().add(*last_node as usize) = u32::MAX;
+                                *tails_ptr.as_ptr().add(tile_idx) = *last_node;
+                            }
+                        }
+                    },
+                );
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            let mut temp_indices = Vec::with_capacity(64);
+            let nexts = &mut self.nexts;
+            let tris = &self.tris;
+
+            for tile_idx in 0..self.heads.len() {
+                let mut curr = self.heads[tile_idx];
+                if curr == u32::MAX {
+                    continue;
+                }
+
+                temp_indices.clear();
+                while curr != u32::MAX {
+                    let tri_idx = tris[curr as usize];
+                    temp_indices.push((curr, tri_idx));
+                    curr = nexts[curr as usize];
+                }
+
+                temp_indices
+                    .sort_unstable_by(|&(_, tri_a), &(_, tri_b)| compare(tri_a, tri_b));
+
+                if let Some(&(first_node, _)) = temp_indices.first() {
+                    self.heads[tile_idx] = first_node;
+
+                    for i in 0..temp_indices.len() - 1 {
+                        let (curr_node, _) = temp_indices[i];
+                        let (next_node, _) = temp_indices[i + 1];
+                        nexts[curr_node as usize] = next_node;
+                    }
+
+                    let (last_node, _) = temp_indices.last().unwrap();
+                    nexts[*last_node as usize] = u32::MAX;
+                    self.tails[tile_idx] = *last_node;
+                }
+            }
         }
     }
 }
@@ -1715,8 +1869,8 @@ impl TileRenderer {
 
                 // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
                 unsafe {
-                    let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                    let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                    let fb_ptr = SendPtr::new(fb.as_mut_slice().as_mut_ptr());
+                    let zb_ptr = SendPtr::new(zb.as_mut_slice().as_mut_ptr());
                     let width = self.width;
                     let height = self.height;
                     let tiles_x = self.tiles_x;
@@ -2012,8 +2166,8 @@ impl TileRenderer {
                 .collect();
 
             unsafe {
-                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                let fb_ptr = SendPtr::new(fb.as_mut_slice().as_mut_ptr());
+                let zb_ptr = SendPtr::new(zb.as_mut_slice().as_mut_ptr());
                 let width = self.width;
                 let height = self.height;
                 let tiles_x = self.tiles_x;
@@ -2489,34 +2643,18 @@ impl TileRenderer {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+        // We use sort_all_bins which abstracts away parallel vs sequential logic for the SoA structure.
+        self.tile_bins.sort_all_bins(|idx_a, idx_b| {
+            // Safety: indices in bin are guaranteed to be within prepared bounds
+            // because binning only adds valid indices from 0..prepared.len()
+            unsafe {
+                let depth_a = prepared.get_unchecked(idx_a as usize).min_depth;
+                let depth_b = prepared.get_unchecked(idx_b as usize).min_depth;
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             }
-        }
+        });
     }
 
     /// Sorts textured triangles in each bin by depth.
@@ -2526,34 +2664,16 @@ impl TileRenderer {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+        self.tile_bins.sort_all_bins(|idx_a, idx_b| {
+            // Safety: indices in bin are guaranteed to be within prepared bounds
+            unsafe {
+                let depth_a = prepared_textured.get_unchecked(idx_a as usize).min_depth;
+                let depth_b = prepared_textured.get_unchecked(idx_b as usize).min_depth;
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             }
-        }
+        });
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
