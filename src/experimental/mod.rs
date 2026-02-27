@@ -13,6 +13,7 @@
 //! *   [`raytracer`]: A simple CPU-based recursive raytracer (Whitted-style) used for validating scene correctness and generating reference images.
 //! *   [`jelly`]: Experimental Soft-Body physics simulation (Mass-Spring system).
 //! *   [`cloth`]: Cloth simulation using Verlet integration.
+//! *   [`hydro`]: Smoothed Particle Hydrodynamics (SPH) fluid simulation.
 //! *   [`sdf`]: Signed Distance Field rendering experiments.
 //! *   [`procedural_mesh`]: Procedural mesh generation (terrain, noise).
 //!
@@ -29,6 +30,7 @@ pub mod arboretum;
 pub mod cloth;
 pub mod dither;
 pub mod glitch;
+pub mod hydro;
 pub mod isosurface;
 pub mod jelly;
 pub mod procedural_mesh;

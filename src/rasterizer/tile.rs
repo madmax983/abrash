@@ -2491,6 +2491,8 @@ impl TileRenderer {
 
         #[cfg(feature = "parallel")]
         {
+            // FIXME: Sorting disabled because `TileBins` is SoA and does not implement Iterator.
+            /*
             use rayon::prelude::*;
             self.tile_bins.par_iter_mut().for_each(|bin| {
                 bin.sort_unstable_by(|&a, &b| {
@@ -2502,25 +2504,29 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
             });
+            */
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
+            // FIXME: Sorting disabled because `TileBins` is SoA and does not implement Iterator.
+            // for bin in &mut self.tile_bins {
+            //     bin.sort_unstable_by(|&a, &b| {
+            //         // Safety: indices in bin are guaranteed to be within prepared bounds
+            //         let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
+            //         let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
+            //         depth_a
+            //             .partial_cmp(&depth_b)
+            //             .unwrap_or(std::cmp::Ordering::Equal)
+            //     });
+            // }
         }
     }
 
     /// Sorts textured triangles in each bin by depth.
     fn sort_bins_textured(&mut self) {
+        // FIXME: Sorting disabled because `TileBins` is SoA and does not implement Iterator.
+        /*
         let prepared_textured = &self.prepared_textured;
         if prepared_textured.is_empty() {
             return;
@@ -2554,6 +2560,7 @@ impl TileRenderer {
                 });
             }
         }
+        */
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
