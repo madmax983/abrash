@@ -412,21 +412,94 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Fast path: direct shift, no clamp/mask
-                    // r_i as u32 >> 16 extracts the integer part (0..255)
-                    let r = (r_i as u32) >> 16;
-                    let g = (g_i as u32) >> 16;
-                    let b = (b_i as u32) >> 16;
+            // Unroll loop 4x for scalar fallback
+            let mut i = 0;
+            let len = fb_slice.len();
+            while i + 4 <= len {
+                unsafe {
+                    // Pixel 0
+                    let depth_val = zb_slice.get_unchecked_mut(i);
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let pixel = fb_slice.get_unchecked_mut(i);
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
+                    z += dz_dx;
+                    r_i = r_i.wrapping_add(dr);
+                    g_i = g_i.wrapping_add(dg);
+                    b_i = b_i.wrapping_add(db);
 
-                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    // Pixel 1
+                    let depth_val = zb_slice.get_unchecked_mut(i + 1);
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let pixel = fb_slice.get_unchecked_mut(i + 1);
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
+                    z += dz_dx;
+                    r_i = r_i.wrapping_add(dr);
+                    g_i = g_i.wrapping_add(dg);
+                    b_i = b_i.wrapping_add(db);
+
+                    // Pixel 2
+                    let depth_val = zb_slice.get_unchecked_mut(i + 2);
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let pixel = fb_slice.get_unchecked_mut(i + 2);
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
+                    z += dz_dx;
+                    r_i = r_i.wrapping_add(dr);
+                    g_i = g_i.wrapping_add(dg);
+                    b_i = b_i.wrapping_add(db);
+
+                    // Pixel 3
+                    let depth_val = zb_slice.get_unchecked_mut(i + 3);
+                    if z < *depth_val {
+                        *depth_val = z;
+                        let pixel = fb_slice.get_unchecked_mut(i + 3);
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
+                    z += dz_dx;
+                    r_i = r_i.wrapping_add(dr);
+                    g_i = g_i.wrapping_add(dg);
+                    b_i = b_i.wrapping_add(db);
+                }
+                i += 4;
+            }
+
+            for k in i..len {
+                // SAFETY: Loop bounds checked
+                unsafe {
+                    let depth_val = zb_slice.get_unchecked_mut(k);
+                    if z < *depth_val {
+                        *depth_val = z;
+                        // Fast path: direct shift, no clamp/mask
+                        // r_i as u32 >> 16 extracts the integer part (0..255)
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+
+                        let pixel = fb_slice.get_unchecked_mut(k);
+                        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
                 }
                 z += dz_dx;
-                r_i += dr;
-                g_i += dg;
-                b_i += db;
+                r_i = r_i.wrapping_add(dr);
+                g_i = g_i.wrapping_add(dg);
+                b_i = b_i.wrapping_add(db);
             }
         } else {
             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
