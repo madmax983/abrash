@@ -6,7 +6,7 @@
 #![allow(warnings)]
 
 use super::sdf::SdfScene;
-use crate::math::{Vec3, Vec4};
+use crate::math::{fast_inv_sqrt, Vec3, Vec4};
 use crate::mesh::Mesh;
 use std::collections::HashSet;
 
@@ -210,11 +210,13 @@ impl SoftBody {
             let v_b = self.velocities[spring.index_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            let len_sq = delta.length_sq();
 
-            if current_length > 0.0001 {
-                // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
-                let direction = delta * (1.0 / current_length);
+            if len_sq > 0.00000001 {
+                // Optimization: Use fast_inv_sqrt to avoid slow sqrt+div
+                let inv_len = fast_inv_sqrt(len_sq);
+                let current_length = len_sq * inv_len;
+                let direction = delta * inv_len;
 
                 // Hooke's Law: F = -k * (x - x0)
                 let displacement = current_length - spring.rest_length;
@@ -304,10 +306,12 @@ impl SoftBody {
             let v_b = self.velocities[spring.index_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            let len_sq = delta.length_sq();
 
-            if current_length > 0.0001 {
-                let direction = delta.normalize();
+            if len_sq > 0.00000001 {
+                let inv_len = fast_inv_sqrt(len_sq);
+                let current_length = len_sq * inv_len;
+                let direction = delta * inv_len;
 
                 let displacement = current_length - spring.rest_length;
                 let spring_force_mag = -self.stiffness * displacement;
