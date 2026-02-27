@@ -68,7 +68,7 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
@@ -235,7 +235,7 @@ pub struct PreparedGouraudTriangle {
     pub c0: (i32, i32, i32), // Fixed-point color at p0
     pub c1: (i32, i32, i32),
     pub c2: (i32, i32, i32),
-    pub gradients: GouraudGradients,
+    pub(crate) gradients: GouraudGradients,
     pub long_edge_is_left: bool,
     pub aabb_min_x: i16,
     pub aabb_min_y: i16,
@@ -4163,7 +4163,6 @@ fn render_triangle_in_tile_gouraud(
     screen_w: i32,
 ) {
     let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
     let p2_y = i32::from(tri.p2.y);
 
     let y_start = p0_y.max(tile_y0);

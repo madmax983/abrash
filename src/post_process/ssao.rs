@@ -605,11 +605,11 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::framebuffer::Framebuffer;
-    use crate::math::Mat4;
-    use crate::zbuffer::ZBuffer;
-    use std::f32::consts::PI;
+
+
+
+
+
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
