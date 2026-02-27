@@ -469,13 +469,14 @@ pub fn draw_scanline_gouraud_i32(
     }
 }
 
-struct GouraudGradients {
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
+#[derive(Clone, Copy)]
+pub(crate) struct GouraudGradients {
+    pub(crate) dz_dx: f32,
+    pub(crate) dc_dx: (i32, i32, i32),
 }
 
 impl GouraudGradients {
-    fn new(
+    pub(crate) fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -521,17 +522,17 @@ impl GouraudGradients {
     }
 }
 
-struct GouraudEdgeWalker {
-    x: i64,
-    z: f32,
-    c: (i32, i32, i32),
+pub(crate) struct GouraudEdgeWalker {
+    pub(crate) x: i64,
+    pub(crate) z: f32,
+    pub(crate) c: (i32, i32, i32),
     dx_dy: i64,
     dz_dy: f32,
     dc_dy: (i32, i32, i32),
 }
 
 impl GouraudEdgeWalker {
-    fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+    pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let (dx_dy, dz_dy, dc_dy) = if height == 0.0 {
             (0, 0.0, (0, 0, 0))
@@ -565,7 +566,7 @@ impl GouraudEdgeWalker {
         }
     }
 
-    fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.x += self.dx_dy;
         self.z += self.dz_dy;
         self.c.0 += self.dc_dy.0;
@@ -573,7 +574,7 @@ impl GouraudEdgeWalker {
         self.c.2 += self.dc_dy.2;
     }
 
-    fn step_n(&mut self, n: i64) {
+    pub(crate) fn step_n(&mut self, n: i64) {
         let n_f = n as f32;
         self.x = self.x.wrapping_add(self.dx_dy.wrapping_mul(n));
         self.z += self.dz_dy * n_f;
