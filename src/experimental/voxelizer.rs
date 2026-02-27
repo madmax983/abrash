@@ -3,8 +3,9 @@
 //! Converts a mesh into a voxel grid using stochastic sampling.
 //! Can also generate a mesh representation of the voxel grid (cubes).
 
+use crate::geometry::AABB;
 use crate::math::Vec3;
-use crate::mesh::{AABB, Mesh};
+use crate::mesh::Mesh;
 use crate::utils::XorShift32;
 
 /// A grid of voxels representing a 3D volume.
@@ -118,8 +119,10 @@ impl VoxelGrid {
         ];
 
         for tri in &indices {
-            mesh.indices
-                .push([base_idx + tri[0], base_idx + tri[1], base_idx + tri[2]]);
+            let i0 = base_idx + tri[0];
+            let i1 = base_idx + tri[1];
+            let i2 = base_idx + tri[2];
+            mesh.indices.push([i0, i1, i2]);
         }
     }
 }
@@ -225,8 +228,7 @@ mod tests {
         mesh.indices.push([0, 1, 2]);
         mesh.indices.push([0, 2, 3]);
 
-        let resolution = 10;
-        let grid = Voxelizer::voxelize(&mesh, resolution);
+        let grid = Voxelizer::voxelize(&mesh, 10);
 
         // Check dimensions
         assert!(grid.width > 0);
