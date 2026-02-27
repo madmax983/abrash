@@ -106,6 +106,12 @@ impl SceneObject {
             color,
         }
     }
+
+    /// Calculate the World Space AABB by transforming the Local AABB.
+    #[must_use]
+    pub fn calculate_world_aabb(&self) -> AABB {
+        self.local_aabb.transform(&self.transform)
+    }
 }
 
 /// A Camera defined by View and Projection matrices.

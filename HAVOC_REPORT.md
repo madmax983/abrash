@@ -51,8 +51,20 @@
 - It accesses `mesh.vertices[index]` without bounds checking (or rather, relying on Rust's bounds checking which panics).
 - **Outcome:** Panic (Crash).
 
-**The Fix:** Not fixed. Reproduction provided in `tests/havoc.rs`.
+**The Fix:** `SoftBody` now validates mesh integrity in `update()` and logs an error instead of panicking if a mismatch is detected.
+
+## 6. SoftBody Panic via Mesh Truncation
+**The Trigger:** Manually clearing `SoftBody.mesh.vertices` after creation.
+
+**The Mechanism:**
+- The internal physics state (`velocities`, `forces`) retains the old size.
+- `update()` loop iterates based on `mesh.vertices.len()`.
+- If truncated to 0, loop is skipped, but springs still hold old indices.
+- **Outcome:** `update` panics when accessing springs if not validated.
+
+**The Fix:** Added validation in `SoftBody::update` to ensure `mesh.vertices.len()` matches the internal physics state. If mismatched, the update is skipped gracefully.
 
 ## Other Findings
 - **Mat4 SIMD Robustness**: `Mat4::transform_points` withstands fuzzing with `NaN`s and `Infinity` using AVX2, matching scalar implementation behavior.
 - **Gouraud Rasterizer**: `src/rasterizer/gouraud.rs` contains numerous unnecessary `unsafe` blocks around safe SIMD intrinsics.
+- **OBJ Loader Robustness**: `proptest` fuzzing confirmed `load_obj` does not panic on random input strings, gracefully returning errors.

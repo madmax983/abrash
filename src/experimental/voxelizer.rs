@@ -4,7 +4,7 @@
 //! Can also generate a mesh representation of the voxel grid (cubes).
 
 use crate::math::Vec3;
-use crate::mesh::{AABB, Mesh};
+use crate::geometry::AABB; use crate::mesh::Mesh;
 use crate::utils::XorShift32;
 
 /// A grid of voxels representing a 3D volume.

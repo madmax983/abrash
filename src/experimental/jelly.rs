@@ -184,6 +184,19 @@ impl SoftBody {
 
     /// Updates the physics simulation by one time step.
     pub fn update(&mut self, dt: f32) {
+        // Validation: Ensure mesh topology is compatible with physics state
+        if self.mesh.vertices.len() != self.velocities.len()
+            || self.mesh.vertices.len() != self.forces.len()
+        {
+            eprintln!(
+                "SoftBody Error: Mesh vertex count ({}) mismatch with physics state (v:{}/f:{})",
+                self.mesh.vertices.len(),
+                self.velocities.len(),
+                self.forces.len()
+            );
+            return;
+        }
+
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         if is_x86_feature_detected!("avx2") {
             unsafe {

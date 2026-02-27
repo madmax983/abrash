@@ -44,7 +44,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec2, Vec3};
-use crate::mesh::AABB;
+use crate::geometry::AABB;
 use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
