@@ -94,7 +94,6 @@ pub mod zbuffer;
 pub mod ascii;
 pub mod clipping;
 pub mod culling;
-pub mod heat_vision;
 pub mod hiz_buffer;
 pub mod obj_loader;
 pub mod particles;
@@ -104,11 +103,20 @@ pub mod scene;
 pub mod skybox;
 pub mod texture;
 
+// Promoted from experimental
+pub mod arboretum;
+pub mod cloth;
+pub mod isosurface;
+pub mod softbody;
+pub mod procedural_mesh;
+pub mod raytracer;
+pub mod sdf;
+pub mod volume;
+pub mod voxel_explosion;
+pub mod voxelizer;
+
 #[cfg(feature = "gpu-binning")]
 pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
-
-#[cfg(feature = "nova")]
-pub mod experimental;

@@ -2,7 +2,7 @@
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
-use abrash::experimental::raytracer::RayTracer;
+use abrash::raytracer::RayTracer;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;

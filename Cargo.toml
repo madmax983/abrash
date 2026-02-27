@@ -6,7 +6,6 @@ autobenches = false
 
 [features]
 default = ["backend-win32"]
-nova = []
 simd = []
 parallel = ["dep:rayon"]
 gpu-binning = ["dep:windows", "backend-win32", "dep:abrash-gpu"]
@@ -119,12 +118,10 @@ path = "examples/reflection_demo.rs"
 [[example]]
 name = "cloth_demo"
 path = "examples/cloth_demo.rs"
-required-features = ["nova"]
 
 [[example]]
 name = "vision_demo"
 path = "examples/vision_demo.rs"
-required-features = ["nova"]
 
 [[bench]]
 name = "rasterization"
@@ -351,7 +348,6 @@ harness = false
 [[bench]]
 name = "softbody_bench"
 harness = false
-required-features = ["nova"]
 
 [[bench]]
 name = "z_cull"

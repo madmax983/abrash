@@ -1,11 +1,9 @@
 //! Cloth Simulation Demo
 //!
 //! Visualizes a mass-spring cloth simulation.
-//! Requires the `nova` feature.
 
-#[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::cloth::Cloth;
+    use abrash::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::platform::{Window, WindowBackend};
@@ -124,12 +122,6 @@ mod demo {
     }
 }
 
-#[cfg(not(feature = "nova"))]
-fn main() {
-    println!("Please run with --features nova");
-}
-
-#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo::run()
 }

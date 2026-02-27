@@ -1,4 +1,4 @@
-use abrash::experimental::jelly::SoftBody;
+use abrash::softbody::SoftBody;
 use abrash::math::Vec3;
 use abrash::mesh::Mesh;
 use criterion::{Criterion, criterion_group, criterion_main};

@@ -22,7 +22,7 @@
 //! # Usage
 //!
 //! ```no_run
-//! use abrash::experimental::raytracer::RayTracer;
+//! use abrash::raytracer::RayTracer;
 //! use abrash::scene::{Scene, Camera};
 //! use abrash::math::{Mat4, Vec3};
 //! use abrash::framebuffer::Framebuffer;
@@ -44,7 +44,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec2, Vec3};
-use crate::mesh::AABB;
+use crate::geometry::AABB;
 use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
@@ -259,7 +259,7 @@ impl RayTracer {
             .iter()
             .map(|obj| RenderObject {
                 obj,
-                world_aabb: obj.calculate_world_aabb(),
+                world_aabb: obj.local_aabb.transform(&obj.transform),
             })
             .collect();
 

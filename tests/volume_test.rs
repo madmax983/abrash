@@ -1,5 +1,4 @@
-#![cfg(feature = "nova")]
-use abrash::experimental::volume::Volume;
+use abrash::volume::Volume;
 use abrash::math::Vec3;
 use abrash::mesh::Mesh;
 

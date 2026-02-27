@@ -29,6 +29,14 @@
 //! *   **Function**: [`apply_bloom`]
 //! *   **Description**: Adds a glow to bright areas of the image.
 //!
+//! ### 5. Vision Effects ([`vision`], [`heat_vision`])
+//! *   **Function**: [`apply_vision`], [`apply_heat_vision`]
+//! *   **Description**: Simulates various vision modes like Night Vision, Thermal, and Sonar.
+//!
+//! ### 6. Glitch & Dither ([`glitch`], [`dither`])
+//! *   **Function**: [`apply_glitch`], [`apply_dither`]
+//! *   **Description**: Artistic effects for retro or digital distortion styles.
+//!
 //! ## Usage Example
 //!
 //! Here is how you might chain multiple effects to create a cinematic look:
@@ -66,12 +74,20 @@
 
 pub mod bloom;
 pub mod blur;
+pub mod dither;
+pub mod dof;
 pub mod filters;
+pub mod glitch;
+pub mod heat_vision;
 pub mod ssao;
+pub mod vision;
 
 pub use self::bloom::*;
 pub use self::blur::*;
-pub use self::filters::*;
-pub use self::ssao::*;
-pub mod dof;
+pub use self::dither::*;
 pub use self::dof::*;
+pub use self::filters::*;
+pub use self::glitch::*;
+pub use self::heat_vision::*;
+pub use self::ssao::*;
+pub use self::vision::*;

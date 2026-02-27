@@ -3,7 +3,7 @@
 //! Provides a `Volume` struct that wraps a `VoxelGrid` and supports real-time modification
 //! (carving, depositing) and optimized mesh generation (face culling).
 
-use crate::experimental::voxelizer::{VoxelGrid, Voxelizer};
+use crate::voxelizer::{VoxelGrid, Voxelizer};
 use crate::math::{Vec3, Vec4};
 use crate::mesh::Mesh;
 

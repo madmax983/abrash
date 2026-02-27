@@ -145,21 +145,9 @@ fn is_gpu_render_example(example_name: &str) -> bool {
     example_name.starts_with("gpu_")
 }
 
-fn is_nova_example(example_name: &str) -> bool {
-    example_name == "cloth_demo" || example_name == "raytracer_demo"
-}
-
 fn demo_command(example_name: &str) -> String {
     if is_gpu_render_example(example_name) {
         format!("cargo run --release --example {example_name} --features gpu-render")
-    } else if is_nova_example(example_name) {
-        if std::env::consts::OS == "windows" {
-            format!("cargo run --release --example {example_name} --features nova")
-        } else {
-            format!(
-                "cargo run --release --example {example_name} --no-default-features --features backend-tui,nova"
-            )
-        }
     } else if std::env::consts::OS == "windows" {
         format!("cargo run --release --example {example_name}")
     } else {
@@ -486,8 +474,6 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
 
     if is_gpu_render_example(name) {
         cmd.arg("--features").arg("gpu-render");
-    } else if is_nova_example(name) {
-        cmd.arg("--features").arg("nova");
     }
 
     // Smart Launch: On non-Windows systems, default to TUI backend to ensure

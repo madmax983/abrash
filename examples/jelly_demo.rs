@@ -2,10 +2,9 @@ use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 use std::error::Error;
 
-#[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
-    use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
+    use abrash::softbody::{SoftBody, Spring};
+    use abrash::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
@@ -192,22 +191,5 @@ fn print_banner() {
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 
-    #[cfg(feature = "nova")]
-    {
-        demo::run()
-    }
-    #[cfg(not(feature = "nova"))]
-    {
-        println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        println!(
-            "{}",
-            "This demo requires the 'nova' feature to run.".white()
-        );
-        println!("\nTry running with:");
-        println!(
-            "{}",
-            "cargo run --example jelly_demo --features nova".green()
-        );
-        Ok(())
-    }
+    demo::run()
 }

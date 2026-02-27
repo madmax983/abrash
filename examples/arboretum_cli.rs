@@ -1,11 +1,10 @@
 //! Arboretum CLI - A TUI dashboard for the Arboretum L-System Generator.
 //!
-//! This example demonstrates how to use the experimental `Arboretum` module
+//! This example demonstrates how to use the `Arboretum` module
 //! to generate procedural plants and visualize the process.
 
-#[cfg(feature = "nova")]
 mod app {
-    use abrash::experimental::arboretum::LSystem;
+    use abrash::arboretum::LSystem;
     use clap::Parser;
     use crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -276,16 +275,8 @@ mod app {
 }
 
 fn main() {
-    #[cfg(feature = "nova")]
-    {
-        if let Err(e) = app::run() {
-            eprintln!("Error: {}", e);
-            std::process::exit(1);
-        }
-    }
-    #[cfg(not(feature = "nova"))]
-    {
-        eprintln!("This example requires the 'nova' feature.");
-        eprintln!("Run with: cargo run --example arboretum_cli --features nova");
+    if let Err(e) = app::run() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
 }

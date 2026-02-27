@@ -731,12 +731,12 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
         // 1. RGB -> Luminance
         {
             let len = width * height;
-            let mut s_ptr = pixels.as_ptr();
-            let mut d_ptr = lum_buffer.as_mut_ptr();
+            let s_ptr = pixels.as_ptr();
+            let d_ptr = lum_buffer.as_mut_ptr();
 
             let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
             let perm_mask = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
-            let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+            let _alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
             let mut i = 0;
             while i + 32 <= len {

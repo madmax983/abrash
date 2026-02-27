@@ -3,9 +3,10 @@
 //! Converts a mesh into an exploding cloud of particles by voxelizing it.
 //! Each voxel becomes a particle that flies outward from the center.
 
-use crate::experimental::voxelizer::Voxelizer;
+use crate::voxelizer::Voxelizer;
 use crate::math::Vec3;
-use crate::mesh::{AABB, Mesh};
+use crate::geometry::AABB;
+use crate::mesh::Mesh;
 use crate::particles::{Particle, ParticleSystem};
 use crate::texture::Texture;
 use crate::utils::XorShift32;
