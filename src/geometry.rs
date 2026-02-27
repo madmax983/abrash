@@ -291,3 +291,153 @@ impl AABB {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::{Mat4, Vec3};
+    use std::f32::consts::PI;
+
+    #[test]
+    fn test_aabb_new() {
+        let min = Vec3::new(-1.0, -2.0, -3.0);
+        let max = Vec3::new(1.0, 2.0, 3.0);
+        let aabb = AABB::new(min, max);
+
+        assert_eq!(aabb.min, min);
+        assert_eq!(aabb.max, max);
+    }
+
+    #[test]
+    fn test_aabb_from_points_empty() {
+        let points = [];
+        let aabb = AABB::from_points(&points);
+
+        assert_eq!(aabb.min, Vec3::default());
+        assert_eq!(aabb.max, Vec3::default());
+    }
+
+    #[test]
+    fn test_aabb_from_points_single() {
+        let p = Vec3::new(5.0, -5.0, 10.0);
+        let points = [p];
+        let aabb = AABB::from_points(&points);
+
+        assert_eq!(aabb.min, p);
+        assert_eq!(aabb.max, p);
+    }
+
+    #[test]
+    fn test_aabb_from_points_multiple() {
+        let points = [
+            Vec3::new(1.0, 5.0, -2.0),
+            Vec3::new(-3.0, 0.0, 4.0),
+            Vec3::new(2.0, -1.0, 0.0),
+        ];
+        let aabb = AABB::from_points(&points);
+
+        // Expected min: (-3.0, -1.0, -2.0)
+        // Expected max: (2.0, 5.0, 4.0)
+        assert_eq!(aabb.min, Vec3::new(-3.0, -1.0, -2.0));
+        assert_eq!(aabb.max, Vec3::new(2.0, 5.0, 4.0));
+    }
+
+    #[test]
+    fn test_aabb_center_extents() {
+        let min = Vec3::new(0.0, 0.0, 0.0);
+        let max = Vec3::new(10.0, 20.0, 30.0);
+        let aabb = AABB::new(min, max);
+
+        let center = aabb.center();
+        let extents = aabb.extents();
+
+        assert_eq!(center, Vec3::new(5.0, 10.0, 15.0));
+        assert_eq!(extents, Vec3::new(5.0, 10.0, 15.0));
+    }
+
+    #[test]
+    fn test_aabb_transform_identity() {
+        let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+        let transformed = aabb.transform(&Mat4::identity());
+
+        assert_eq!(transformed.min, aabb.min);
+        assert_eq!(transformed.max, aabb.max);
+    }
+
+    #[test]
+    fn test_aabb_transform_translation() {
+        let aabb = AABB::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        let m = Mat4::translation(10.0, 5.0, -2.0);
+        let transformed = aabb.transform(&m);
+
+        assert_eq!(transformed.min, Vec3::new(10.0, 5.0, -2.0));
+        assert_eq!(transformed.max, Vec3::new(11.0, 6.0, -1.0));
+    }
+
+    #[test]
+    fn test_aabb_transform_scale() {
+        let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+        let m = Mat4::scale(2.0, 0.5, 3.0);
+        let transformed = aabb.transform(&m);
+
+        assert_eq!(transformed.min, Vec3::new(-2.0, -0.5, -3.0));
+        assert_eq!(transformed.max, Vec3::new(2.0, 0.5, 3.0));
+    }
+
+    #[test]
+    fn test_aabb_transform_rotation_90_y() {
+        // Rotate 90 deg around Y.
+        // Point (1, 0, 0) -> (0, 0, -1) (Right Hand Rule)
+        let aabb = AABB::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(2.0, 1.0, 1.0));
+        let m = Mat4::rotation_y(PI / 2.0);
+        let transformed = aabb.transform(&m);
+
+        // Original corners: (0,0,0) and (2,1,1)
+        // (0,0,0) -> (0,0,0)
+        // (2,1,1) -> (0.0, 1.0, -2.0) (approx)
+        //
+        // AABB of transformed points:
+        // x range: min(0,0) to max(0,0) ? No.
+        // Wait, Arvo's algorithm handles the extents.
+        // AABB covers the OBB.
+        //
+        // Vertices of AABB:
+        // (0,0,0) -> (0,0,0)
+        // (2,0,0) -> (0,0,-2)
+        // (0,1,0) -> (0,1,0)
+        // (0,0,1) -> (1,0,0) -- Wait.
+        // (2,1,1) -> (1,1,-2) ?
+        //
+        // Let's trace manually:
+        // Row 0 (Right): (0, 0, -1)  (approx cos=0, sin=1 => c, 0, -s => 0, 0, -1)
+        // Row 1 (Up):    (0, 1, 0)
+        // Row 2 (Back):  (1, 0, 0)  (s, 0, c => 1, 0, 0)
+        //
+        // xa = (0,0,-1) * min.x(0) = (0,0,0)
+        // xb = (0,0,-1) * max.x(2) = (0,0,-2)
+        //
+        // ya = (0,1,0) * min.y(0) = (0,0,0)
+        // yb = (0,1,0) * max.y(1) = (0,1,0)
+        //
+        // za = (1,0,0) * min.z(0) = (0,0,0)
+        // zb = (1,0,0) * max.z(1) = (1,0,0)
+        //
+        // min = sum(min(a,b)) = min(0,0,0, 0,0,-2) + min(0,0,0, 0,1,0) + min(0,0,0, 1,0,0)
+        //     = (0,0,-2) + (0,0,0) + (0,0,0) = (0, 0, -2)
+        //
+        // max = sum(max(a,b)) = max(0,0,0, 0,0,-2) + max(0,0,0, 0,1,0) + max(0,0,0, 1,0,0)
+        //     = (0,0,0) + (0,1,0) + (1,0,0) = (1, 1, 0)
+        //
+        // So expected New Min: (0, 0, -2), New Max: (1, 1, 0)
+
+        // Tolerance for float math
+        let expected_min = Vec3::new(0.0, 0.0, -2.0);
+        let expected_max = Vec3::new(1.0, 1.0, 0.0);
+
+        let diff_min = transformed.min - expected_min;
+        let diff_max = transformed.max - expected_max;
+
+        assert!(diff_min.length() < 0.001, "Min mismatch: {:?}", transformed.min);
+        assert!(diff_max.length() < 0.001, "Max mismatch: {:?}", transformed.max);
+    }
+}
