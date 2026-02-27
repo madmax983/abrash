@@ -50,6 +50,12 @@
 //! *   **Performance**: ⚡ (Heavy)
 //! *   **Function**: [`fill_triangle_normal_mapped`], [`fill_triangle_phong_shadowed`]
 //!
+//! ### 6. Physically Based Rendering (`pbr`)
+//! *   **Description**: The gold standard for realism. Simulates light interaction with micro-facets using the Cook-Torrance BRDF.
+//! *   **Use Case**: Metallic surfaces, realistic plastics, and cinema-quality assets.
+//! *   **Performance**: ⚡ (Heavy)
+//! *   **Function**: [`fill_triangle_pbr`]
+//!
 //! ## Implementation Details
 //!
 //! The rasterizer uses a **scanline** approach. It breaks the triangle into two segments (top-half and bottom-half)

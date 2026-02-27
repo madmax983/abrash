@@ -5,7 +5,7 @@
 //!
 //! *   **Vertex Processing**: Transformations, Clipping, and Projection.
 //! *   **Rasterization**: Scanline-based triangle filling with perspective-correct texture mapping.
-//! *   **Shading**: Flat, Gouraud, and Phong shading models.
+//! *   **Shading**: Flat, Gouraud, Phong, and Physically Based Rendering (PBR) shading models.
 //! *   **Post-Processing**: Screen-space effects like Sepia, Grayscale, and Scanlines.
 //!
 //! ## The Graphics Pipeline

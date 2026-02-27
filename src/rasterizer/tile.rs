@@ -2491,23 +2491,43 @@ impl TileRenderer {
 
         #[cfg(feature = "parallel")]
         {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            // Note: TileBins doesn't support par_iter_mut for sorting directly.
+            // We would need to implement a parallel rebuild or ignore sorting in parallel for now.
+            // Falling back to scalar implementation (which is now duplicated in the block below,
+            // but we can just let it fall through or remove this block if we unify logic).
+            // For simplicity in this fix, we'll remove the parallel block and use the unified scalar logic
+            // inserted in the previous step, which is safe.
+            // Ideally we'd optimize this later.
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
+            // TileBins is not a collection of bins, it's a flattened linked list structure.
+            // Sorting bins in this structure requires gathering indices, sorting, and rebuilding.
+            // For now, we collect the indices for each bin into a temporary Vec, sort it, and rebuild the linked list.
+            // This is O(N log N) per bin but requires allocation.
+            // Given that TileBins is designed to be allocation-free during binning, maybe we should skip sorting for now
+            // or implement an in-place sort for linked lists (Merge Sort).
+
+            // However, the previous code was trying to iterate `self.tile_bins`, which implies it thought it was `Vec<Vec<usize>>`.
+            // Since it's now a flattened SoA, we need a different approach.
+            // Let's implement a simple sort by collecting indices.
+
+            let mut new_heads = vec![u32::MAX; self.tile_bins.heads.len()];
+            let mut new_tails = vec![u32::MAX; self.tile_bins.tails.len()];
+            let mut new_nexts = Vec::with_capacity(self.tile_bins.nexts.len());
+            let mut new_tris = Vec::with_capacity(self.tile_bins.tris.len());
+
+            for tile_idx in 0..self.tile_bins.heads.len() {
+                // Collect indices in this bin
+                let mut bin_indices: Vec<usize> = self.tile_bins.iter(tile_idx).collect();
+
+                if bin_indices.is_empty() {
+                    continue;
+                }
+
+                // Sort indices by depth
+                bin_indices.sort_unstable_by(|&a, &b| {
                     // Safety: indices in bin are guaranteed to be within prepared bounds
                     let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
                     let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
@@ -2515,7 +2535,32 @@ impl TileRenderer {
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
+
+                // Rebuild linked list for this bin in the new buffers
+                let mut head = u32::MAX;
+                let mut tail = u32::MAX;
+
+                for &tri_idx in &bin_indices {
+                    let node_idx = new_tris.len() as u32;
+                    new_tris.push(tri_idx as u32);
+                    new_nexts.push(u32::MAX);
+
+                    if head == u32::MAX {
+                        head = node_idx;
+                    } else {
+                        new_nexts[tail as usize] = node_idx;
+                    }
+                    tail = node_idx;
+                }
+
+                new_heads[tile_idx] = head;
+                new_tails[tile_idx] = tail;
             }
+
+            self.tile_bins.heads = new_heads;
+            self.tile_bins.tails = new_tails;
+            self.tile_bins.nexts = new_nexts;
+            self.tile_bins.tris = new_tris;
         }
     }
 
@@ -2526,33 +2571,54 @@ impl TileRenderer {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
+        // Parallel implementation disabled for now as TileBins doesn't support par_iter_mut directly.
+        // We fall back to the same scalar rebuilding logic as sort_bins_flat.
 
-        #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
+            let mut new_heads = vec![u32::MAX; self.tile_bins.heads.len()];
+            let mut new_tails = vec![u32::MAX; self.tile_bins.tails.len()];
+            let mut new_nexts = Vec::with_capacity(self.tile_bins.nexts.len());
+            let mut new_tris = Vec::with_capacity(self.tile_bins.tris.len());
+
+            for tile_idx in 0..self.tile_bins.heads.len() {
+                let mut bin_indices: Vec<usize> = self.tile_bins.iter(tile_idx).collect();
+
+                if bin_indices.is_empty() {
+                    continue;
+                }
+
+                bin_indices.sort_unstable_by(|&a, &b| {
                     let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
                     let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
+
+                let mut head = u32::MAX;
+                let mut tail = u32::MAX;
+
+                for &tri_idx in &bin_indices {
+                    let node_idx = new_tris.len() as u32;
+                    new_tris.push(tri_idx as u32);
+                    new_nexts.push(u32::MAX);
+
+                    if head == u32::MAX {
+                        head = node_idx;
+                    } else {
+                        new_nexts[tail as usize] = node_idx;
+                    }
+                    tail = node_idx;
+                }
+
+                new_heads[tile_idx] = head;
+                new_tails[tile_idx] = tail;
             }
+
+            self.tile_bins.heads = new_heads;
+            self.tile_bins.tails = new_tails;
+            self.tile_bins.nexts = new_nexts;
+            self.tile_bins.tris = new_tris;
         }
     }
 

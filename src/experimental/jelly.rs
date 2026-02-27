@@ -95,6 +95,31 @@ pub struct Spring {
 }
 
 /// A soft-body object that can simulate physics.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::experimental::jelly::SoftBody;
+/// use abrash::mesh::Mesh;
+/// use abrash::math::Vec3;
+///
+/// // 1. Create a mesh (e.g. a Cube)
+/// let mesh = Mesh::cube(2.0);
+///
+/// // 2. Initialize SoftBody
+/// // Mass: 1.0 per vertex
+/// // Stiffness: 50.0 (Spring Strength)
+/// // Damping: 2.0 (Resistance)
+/// let mut jelly = SoftBody::new(mesh, 1.0, 50.0, 2.0).unwrap();
+///
+/// // 3. Simulate
+/// let dt = 0.016; // 60 FPS
+/// jelly.update(dt);
+///
+/// // 4. Access deformed vertices
+/// let p0 = jelly.mesh.vertices[0];
+/// println!("Deformed vertex 0: {:?}", p0);
+/// ```
 pub struct SoftBody {
     /// The visual mesh (updated every frame).
     pub mesh: Mesh,
