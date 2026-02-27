@@ -264,7 +264,10 @@ impl IntoIterator for PreparedTrianglesList {
     type IntoIter = PreparedTrianglesIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        PreparedTrianglesIter { list: self, index: 0 }
+        PreparedTrianglesIter {
+            list: self,
+            index: 0,
+        }
     }
 }
 
@@ -313,7 +316,10 @@ impl IntoIterator for PreparedTexturedTrianglesList {
     type IntoIter = PreparedTexturedTrianglesIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        PreparedTexturedTrianglesIter { list: self, index: 0 }
+        PreparedTexturedTrianglesIter {
+            list: self,
+            index: 0,
+        }
     }
 }
 
@@ -3351,7 +3357,10 @@ mod tests {
         // ScreenPoint (16 bytes, align 4).
         // Gradients (28 bytes, align 4).
         // It should definitely be <= 128.
-        assert!(size_of::<PreparedTexturedTriangle>() <= 128, "Struct grew beyond 128 bytes!");
+        assert!(
+            size_of::<PreparedTexturedTriangle>() <= 128,
+            "Struct grew beyond 128 bytes!"
+        );
         // We assert equality to catch if we can shrink it further or if it regresses.
         assert_eq!(size_of::<PreparedTexturedTriangle>(), 128);
     }
@@ -3417,5 +3426,4 @@ mod tests {
             pixels_changed
         );
     }
-
 }

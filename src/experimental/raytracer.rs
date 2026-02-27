@@ -272,8 +272,8 @@ impl RayTracer {
         let proj = scene.camera.proj;
 
         let cam_right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]); // Column 0
-        let cam_up    = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]); // Column 1
-        let cam_back  = Vec3::new(view.m[0][2], view.m[1][2], view.m[2][2]); // Column 2
+        let cam_up = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]); // Column 1
+        let cam_back = Vec3::new(view.m[0][2], view.m[1][2], view.m[2][2]); // Column 2
         let cam_forward = cam_back * -1.0;
 
         // Extract Eye position.

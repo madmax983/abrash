@@ -33,21 +33,22 @@ fn verify_textured_rendering_output() {
     let v2 = (Vec3::new(0.5, -0.5, 1.0), 1.0);
     let uv2 = Vec2::new(1.0, 1.0);
 
-    renderer.render_batch_textured(
-        &mut fb,
-        &mut zb,
-        &[(v0, uv0, v1, uv1, v2, uv2)],
-        &texture,
-    );
+    renderer.render_batch_textured(&mut fb, &mut zb, &[(v0, uv0, v1, uv1, v2, uv2)], &texture);
 
     // Check specific pixels
 
     // 1. Inside the triangle
     let p_in = fb.get_pixel(26, 37).unwrap();
-    assert_ne!(p_in, 0xFF000000, "Pixel inside triangle should not be black background");
+    assert_ne!(
+        p_in, 0xFF000000,
+        "Pixel inside triangle should not be black background"
+    );
 
     // 2. Outside the triangle
     // (0.5, 0.5) -> (48, 16) is definitely outside the triangle (top right quadrant)
     let p_out = fb.get_pixel(48, 16).unwrap();
-    assert_eq!(p_out, 0xFF000000, "Pixel outside triangle should be black opaque background");
+    assert_eq!(
+        p_out, 0xFF000000,
+        "Pixel outside triangle should be black opaque background"
+    );
 }
