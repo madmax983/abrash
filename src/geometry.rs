@@ -3,6 +3,20 @@
 use crate::math::{Mat4, Vec3};
 
 /// A Bounding Sphere for object-level culling.
+///
+/// used for coarse intersection tests before checking individual triangles.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::geometry::BoundingSphere;
+/// use abrash::math::Vec3;
+///
+/// let sphere = BoundingSphere {
+///     center: Vec3::new(0.0, 0.0, 0.0),
+///     radius: 1.0,
+/// };
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingSphere {
@@ -11,6 +25,21 @@ pub struct BoundingSphere {
 }
 
 /// Axis-Aligned Bounding Box (AABB) for object-level culling.
+///
+/// Represents a box aligned with the world axes that fully encloses an object.
+/// AABBs are faster to construct and test than Oriented Bounding Boxes (OBB),
+/// but may fit less tightly for rotated objects.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::geometry::AABB;
+/// use abrash::math::Vec3;
+///
+/// let min = Vec3::new(-1.0, -1.0, -1.0);
+/// let max = Vec3::new(1.0, 1.0, 1.0);
+/// let aabb = AABB::new(min, max);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AABB {
@@ -22,6 +51,15 @@ pub struct AABB {
 
 impl AABB {
     /// Create a new AABB from min and max points.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::geometry::AABB;
+    /// use abrash::math::Vec3;
+    ///
+    /// let aabb = AABB::new(Vec3::ZERO, Vec3::ONE);
+    /// ```
     #[must_use]
     pub fn new(min: Vec3, max: Vec3) -> Self {
         Self {
@@ -33,6 +71,24 @@ impl AABB {
     }
 
     /// Calculate AABB from a list of points.
+    ///
+    /// Returns a default zero-sized AABB if the input list is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::geometry::AABB;
+    /// use abrash::math::Vec3;
+    ///
+    /// let points = [
+    ///     Vec3::new(1.0, 0.0, 0.0),
+    ///     Vec3::new(-1.0, 2.0, 0.0),
+    /// ];
+    /// let aabb = AABB::from_points(&points);
+    ///
+    /// assert_eq!(aabb.min.x, -1.0);
+    /// assert_eq!(aabb.max.y, 2.0);
+    /// ```
     #[must_use]
     pub fn from_points(points: &[Vec3]) -> Self {
         if points.is_empty() {
@@ -96,6 +152,19 @@ impl AABB {
     ///
     /// Optimized using Arvo's algorithm (Transforming Center & Extents) to avoid
     /// transforming all 8 corners explicitly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::geometry::AABB;
+    /// use abrash::math::{Mat4, Vec3};
+    ///
+    /// let aabb = AABB::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+    /// let transform = Mat4::translation(10.0, 0.0, 0.0);
+    /// let transformed_aabb = aabb.transform(&transform);
+    ///
+    /// assert_eq!(transformed_aabb.min.x, 10.0);
+    /// ```
     #[must_use]
     pub fn transform(&self, transform: &Mat4) -> Self {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
