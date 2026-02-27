@@ -391,11 +391,14 @@ impl GpuBinner {
     ///
     /// # Arguments
     /// * `triangles` - Slice of PreparedTriangle structs to bin
-    /// * `tile_bins` - Output vector to populate with binned triangle indices
+    /// * `heads`, `tails`, `nexts`, `tris` - Output flattened linked list structure
     pub fn bin_triangles(
         &mut self,
         triangles: &[PreparedTriangleInput],
-        tile_bins: &mut Vec<Vec<usize>>,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
     ) -> Result<(), GpuError> {
         if triangles.is_empty() {
             return Ok(());
@@ -416,7 +419,7 @@ impl GpuBinner {
         self.dispatch_compute(triangles.len() as u32)?;
 
         // Readback results
-        self.readback_bins(tile_bins)?;
+        self.readback_bins(heads, tails, nexts, tris)?;
 
         Ok(())
     }
@@ -501,7 +504,10 @@ impl GpuBinner {
         &mut self,
         triangles: &[PreparedTriangleInput],
         hiz_buffer: Option<&dyn HiZOcclusion>,
-        tile_bins: &mut Vec<Vec<usize>>,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
     ) -> Result<TwoLevelBinningStats, GpuError> {
         if !self.two_level_enabled {
             return Err(GpuError::DeviceCreation(
@@ -528,7 +534,7 @@ impl GpuBinner {
         };
 
         // Phase 2c: Fine binning (GPU, visible bins only)
-        self.dispatch_fine_binning(&visible_bins, tile_bins)?;
+        self.dispatch_fine_binning(&visible_bins, heads, tails, nexts, tris)?;
 
         Ok(stats)
     }
@@ -714,13 +720,17 @@ impl GpuBinner {
     fn dispatch_fine_binning(
         &mut self,
         visible_bins: &[CoarseBinCpu],
-        tile_bins: &mut Vec<Vec<usize>>,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
     ) -> Result<(), GpuError> {
         if visible_bins.is_empty() {
             // No visible bins, clear all tile bins
-            for bin in tile_bins.iter_mut() {
-                bin.clear();
-            }
+            heads.fill(u32::MAX);
+            tails.fill(u32::MAX);
+            nexts.clear();
+            tris.clear();
             return Ok(());
         }
 
@@ -855,16 +865,35 @@ impl GpuBinner {
             // Step 11: Readback tile bins to CPU
             let ptr = self.bins_readback.map().map_err(GpuError::DeviceCreation)?;
 
+            heads.fill(u32::MAX);
+            tails.fill(u32::MAX);
+            nexts.clear();
+            tris.clear();
+
             let tile_count = (self.tiles_x * self.tiles_y) as usize;
             for tile_idx in 0..tile_count {
                 let offset = tile_idx * std::mem::size_of::<TileBinGpu>();
                 let tile_bin_ptr = ptr.add(offset) as *const TileBinGpu;
                 let tile_bin = &*tile_bin_ptr;
 
-                tile_bins[tile_idx].clear();
                 let count = tile_bin.count.min(256) as usize;
-                for i in 0..count {
-                    tile_bins[tile_idx].push(tile_bin.triangle_indices[i] as usize);
+                if count > 0 {
+                    for i in 0..count {
+                        let tri_idx = tile_bin.triangle_indices[i];
+
+                        let node_idx = tris.len() as u32;
+                        tris.push(tri_idx);
+                        nexts.push(u32::MAX);
+
+                        let head = heads[tile_idx];
+                        if head == u32::MAX {
+                            heads[tile_idx] = node_idx;
+                        } else {
+                            let tail = tails[tile_idx];
+                            nexts[tail as usize] = node_idx;
+                        }
+                        tails[tile_idx] = node_idx;
+                    }
                 }
             }
 
@@ -1014,18 +1043,42 @@ impl GpuBinner {
     }
 
     /// Readback binning results from GPU
-    fn readback_bins(&mut self, tile_bins: &mut Vec<Vec<usize>>) -> Result<(), GpuError> {
+    fn readback_bins(
+        &mut self,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
+    ) -> Result<(), GpuError> {
         unsafe {
             let ptr = self.bins_readback.map().map_err(GpuError::DeviceCreation)?;
-            let gpu_bins = std::slice::from_raw_parts(ptr as *const TileBinGpu, tile_bins.len());
+            let gpu_bins = std::slice::from_raw_parts(ptr as *const TileBinGpu, heads.len());
+
+            heads.fill(u32::MAX);
+            tails.fill(u32::MAX);
+            nexts.clear();
+            tris.clear();
 
             // Clear and populate tile bins
-            for (i, tile_bin) in tile_bins.iter_mut().enumerate() {
-                tile_bin.clear();
-                let gpu_bin = &gpu_bins[i];
+            for (tile_idx, gpu_bin) in gpu_bins.iter().enumerate() {
                 let count = gpu_bin.count.min(510) as usize;
-                for j in 0..count {
-                    tile_bin.push(gpu_bin.triangle_indices[j] as usize);
+                if count > 0 {
+                    for j in 0..count {
+                        let tri_idx = gpu_bin.triangle_indices[j];
+
+                        let node_idx = tris.len() as u32;
+                        tris.push(tri_idx);
+                        nexts.push(u32::MAX);
+
+                        let head = heads[tile_idx];
+                        if head == u32::MAX {
+                            heads[tile_idx] = node_idx;
+                        } else {
+                            let tail = tails[tile_idx];
+                            nexts[tail as usize] = node_idx;
+                        }
+                        tails[tile_idx] = node_idx;
+                    }
                 }
             }
 
