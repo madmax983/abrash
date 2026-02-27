@@ -36,7 +36,12 @@ fn bench_textured_transparency_transparent(c: &mut Criterion) {
         let mut zb = ZBuffer::new(800, 600).unwrap();
         // Fully transparent
         let mut tex = Texture::new(256, 256).unwrap();
-        tex.pixels.fill(0x0000_0000);
+        // Access pixels using set_pixel to avoid private field access issues
+        for y in 0..256 {
+            for x in 0..256 {
+                tex.set_pixel(x, y, 0x0000_0000);
+            }
+        }
 
         let v0 = ((Vec3::new(0.0, 0.9, 0.5), 1.0), Vec2::new(0.5, 0.0));
         let v1 = ((Vec3::new(-0.9, -0.9, 0.5), 1.0), Vec2::new(0.0, 1.0));
@@ -62,7 +67,12 @@ fn bench_textured_transparency_blended(c: &mut Criterion) {
         let mut zb = ZBuffer::new(800, 600).unwrap();
         // 50% Alpha (0x80)
         let mut tex = Texture::new(256, 256).unwrap();
-        tex.pixels.fill(0x80FF_FFFF);
+        // Access pixels using set_pixel to avoid private field access issues
+        for y in 0..256 {
+            for x in 0..256 {
+                tex.set_pixel(x, y, 0x80FF_FFFF);
+            }
+        }
 
         let v0 = ((Vec3::new(0.0, 0.9, 0.5), 1.0), Vec2::new(0.5, 0.0));
         let v1 = ((Vec3::new(-0.9, -0.9, 0.5), 1.0), Vec2::new(0.0, 1.0));

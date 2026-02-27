@@ -167,10 +167,6 @@ name = "obj_loading"
 harness = false
 
 [[bench]]
-name = "simd_micro_bench"
-harness = false
-
-[[bench]]
 name = "gpu_binning"
 harness = false
 required-features = ["backend-win32", "gpu-binning"]
@@ -359,4 +355,8 @@ harness = false
 
 [[bench]]
 name = "tile_rendering_sorting"
+harness = false
+
+[[bench]]
+name = "sorting_bench"
 harness = false

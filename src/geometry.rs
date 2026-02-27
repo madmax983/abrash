@@ -24,6 +24,34 @@ pub struct BoundingSphere {
     pub radius: f32,
 }
 
+impl BoundingSphere {
+    /// Transform this bounding sphere by a matrix.
+    ///
+    /// Applies the transformation to the center and scales the radius by the maximum scale factor
+    /// extracted from the matrix basis vectors.
+    pub fn transform(&mut self, transform: &Mat4) {
+        let (new_center, _) = transform.transform_point(self.center);
+        self.center = new_center;
+
+        // Extract scale from basis vectors (columns 0, 1, 2)
+        // We take the max scale to ensure the sphere fully encloses the transformed object
+        let sx = transform.col(0);
+        let sy = transform.col(1);
+        let sz = transform.col(2);
+
+        // Length of basis vectors = scale factor
+        let scale_x_sq = sx.x * sx.x + sx.y * sx.y + sx.z * sx.z;
+        let scale_y_sq = sy.x * sy.x + sy.y * sy.y + sy.z * sy.z;
+        let scale_z_sq = sz.x * sz.x + sz.y * sz.y + sz.z * sz.z;
+
+        let max_scale_sq = scale_x_sq.max(scale_y_sq).max(scale_z_sq);
+        // optimization: avoid sqrt if scale is 1.0
+        if (max_scale_sq - 1.0).abs() > 0.0001 {
+            self.radius *= max_scale_sq.sqrt();
+        }
+    }
+}
+
 /// Axis-Aligned Bounding Box (AABB) for object-level culling.
 ///
 /// Represents a box aligned with the world axes that fully encloses an object.
