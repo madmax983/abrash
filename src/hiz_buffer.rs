@@ -14,6 +14,9 @@
 /// against pyramid cells. Conservative: false positives OK, false negatives NOT OK.
 use crate::zbuffer::ZBuffer;
 
+#[cfg(feature = "gpu-binning")]
+use abrash_gpu::GpuError;
+
 /// 3D Axis-Aligned Bounding Box for occlusion queries
 #[derive(Debug, Clone, Copy)]
 pub struct AABB3D {
@@ -70,7 +73,7 @@ pub struct HiZBuffer {
     valid: bool,               // Pyramid needs rebuild after zbuffer writes
 
     #[cfg(feature = "gpu-binning")]
-    gpu_builder: Option<crate::gpu::GpuHiZBuilder>,
+    gpu_builder: Option<GpuHiZBuilder>,
 }
 
 impl HiZBuffer {
@@ -225,8 +228,8 @@ impl HiZBuffer {
     /// Creates a GPU compute shader pipeline for building the Hi-Z pyramid on the GPU.
     /// Falls back to CPU build if GPU initialization fails.
     #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_build(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_builder = Some(crate::gpu::GpuHiZBuilder::new(self.width, self.height)?);
+    pub fn enable_gpu_build(&mut self) -> Result<(), GpuError> {
+        self.gpu_builder = Some(GpuHiZBuilder::new(self.width, self.height)?);
         Ok(())
     }
 
@@ -539,6 +542,52 @@ impl HiZBuffer {
     #[cfg(feature = "gpu-binning")]
     pub fn mark_valid(&mut self) {
         self.valid = true;
+    }
+}
+
+/// GPU Hi-Z pyramid builder wrapper that writes directly into `HiZBuffer`.
+#[cfg(feature = "gpu-binning")]
+pub struct GpuHiZBuilder {
+    inner: abrash_gpu::GpuHiZBuilder,
+}
+
+#[cfg(feature = "gpu-binning")]
+impl GpuHiZBuilder {
+    /// Create a new GPU Hi-Z builder.
+    pub fn new(width: u32, height: u32) -> Result<Self, GpuError> {
+        Ok(Self {
+            inner: abrash_gpu::GpuHiZBuilder::new(width, height)?,
+        })
+    }
+
+    /// Upload a z-buffer to GPU memory.
+    pub fn upload_zbuffer(&mut self, zbuffer: &[f32]) -> Result<(), GpuError> {
+        self.inner.upload_zbuffer(zbuffer)
+    }
+
+    /// Build the Hi-Z pyramid on GPU.
+    pub fn build_pyramid(&mut self) -> Result<(), GpuError> {
+        self.inner.build_pyramid()
+    }
+
+    /// Download the GPU-built pyramid into `HiZBuffer`.
+    pub fn download_pyramid(&mut self, hiz_buffer: &mut HiZBuffer) -> Result<(), GpuError> {
+        let mut writer = HiZPyramidWriterAdapter(hiz_buffer);
+        self.inner.download_pyramid(&mut writer)
+    }
+}
+
+#[cfg(feature = "gpu-binning")]
+struct HiZPyramidWriterAdapter<'a>(&'a mut HiZBuffer);
+
+#[cfg(feature = "gpu-binning")]
+impl abrash_gpu::HiZPyramidWriter for HiZPyramidWriterAdapter<'_> {
+    fn write_level_data(&mut self, level: u32, data: &[f32]) {
+        self.0.write_level_data(level, data);
+    }
+
+    fn mark_valid(&mut self) {
+        self.0.mark_valid();
     }
 }
 

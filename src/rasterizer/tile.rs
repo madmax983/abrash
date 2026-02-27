@@ -391,6 +391,60 @@ impl TileBins {
             curr: self.heads[tile_idx],
         }
     }
+
+    /// Sorts triangles in each bin using the provided key extraction function.
+    /// This implementation rebuilds the linked lists in sorted order.
+    pub fn sort_bins<F, K>(&mut self, mut key_fn: F)
+    where
+        F: FnMut(usize) -> K,
+        K: PartialOrd,
+    {
+        // Temporary buffer to hold triangle indices for sorting
+        // We reuse this buffer for each bin to avoid allocations
+        let mut sort_buffer = Vec::with_capacity(128);
+
+        for bin_idx in 0..self.heads.len() {
+            let mut curr = self.heads[bin_idx];
+            if curr == u32::MAX {
+                continue;
+            }
+
+            // 1. Collect all triangle indices in this bin
+            sort_buffer.clear();
+            while curr != u32::MAX {
+                let node_idx = curr as usize;
+                let tri_idx = self.tris[node_idx] as usize;
+                sort_buffer.push((node_idx, tri_idx));
+                curr = self.nexts[node_idx];
+            }
+
+            // 2. Sort the collected indices based on depth (key_fn)
+            sort_buffer.sort_unstable_by(|&(_, tri_a), &(_, tri_b)| {
+                let depth_a = key_fn(tri_a);
+                let depth_b = key_fn(tri_b);
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // 3. Rebuild the linked list for this bin
+            // The node indices (locations in the arrays) remain the same, but we relink 'nexts'
+            // and update 'heads'/'tails' to reflect the new order.
+            // Note: We are reusing the existing node slots.
+            if let Some(&(first_node, _)) = sort_buffer.first() {
+                self.heads[bin_idx] = first_node as u32;
+                let mut prev_node = first_node;
+
+                for &(curr_node, _) in sort_buffer.iter().skip(1) {
+                    self.nexts[prev_node] = curr_node as u32;
+                    prev_node = curr_node;
+                }
+
+                self.tails[bin_idx] = prev_node as u32;
+                self.nexts[prev_node] = u32::MAX; // Terminate list
+            }
+        }
+    }
 }
 
 pub struct TileBinIter<'a> {
@@ -1371,7 +1425,7 @@ pub struct TileRenderer {
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
     #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
+    gpu_binner: Option<crate::rasterizer::gpu_binning::GpuBinner>,
     use_two_level_binning: bool,
     // Pre-calculated half dimensions for projection
     half_width: f32,
@@ -1466,7 +1520,7 @@ impl TileRenderer {
     /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
     #[cfg(feature = "gpu-binning")]
     pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
+        self.gpu_binner = Some(crate::rasterizer::gpu_binning::GpuBinner::new(
             self.width,
             self.height,
             TILE_SIZE,
@@ -2491,31 +2545,24 @@ impl TileRenderer {
 
         #[cfg(feature = "parallel")]
         {
+            // For parallel sort with SoA, we'll need a more complex implementation.
+            // For now, we skip parallel sorting on the new SoA structure or implement
+            // a bin-by-bin parallel iteration if TileBins supports it.
+            // Since TileBins is a single struct, par_iter_mut is not directly available.
+            // We can iterate over bin indices.
             use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            let bin_count = self.tile_bins.heads.len();
+            // We need UnsafeCell or similar to mutate disjoint parts of vectors in parallel,
+            // or we collect indices and sort locally.
+            // Given the complexity of SoA sorting in parallel without a specific iterator,
+            // we will fallback to sequential sort for this refactor step to ensure correctness first.
+            // A proper parallel SoA sorter would be a larger task.
+            self.tile_bins.sort_bins(|idx| unsafe { prepared.get_unchecked(idx).min_depth });
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
+            self.tile_bins.sort_bins(|idx| unsafe { prepared.get_unchecked(idx).min_depth });
         }
     }
 
@@ -2528,31 +2575,13 @@ impl TileRenderer {
 
         #[cfg(feature = "parallel")]
         {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            // Fallback to sequential sort for SoA correctness
+            self.tile_bins.sort_bins(|idx| unsafe { prepared_textured.get_unchecked(idx).min_depth });
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
+            self.tile_bins.sort_bins(|idx| unsafe { prepared_textured.get_unchecked(idx).min_depth });
         }
     }
 

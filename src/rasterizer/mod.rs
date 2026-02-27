@@ -69,6 +69,9 @@ pub mod reflection;
 pub mod texture;
 pub mod tile;
 
+#[cfg(feature = "gpu-binning")]
+pub mod gpu_binning;
+
 // Re-export public API
 pub use self::core::{FIXED_SCALE, color_to_u32};
 pub use self::flat::{draw_scanline_flat, draw_scanline_flat_blended, fill_triangle_3d};
