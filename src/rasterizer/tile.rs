@@ -1984,18 +1984,9 @@ impl TileRenderer {
             }
 
             // Gradients
-            let (gradients, long_edge_is_left) = {
-                let g = PerspectiveTextureGradients::new(
-                    p0, p1, p2, p0.inv_w, p1.inv_w, p2.inv_w, u0, u1, u2, v0, v1, v2,
-                );
-
-                let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-                let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-                let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-                let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-                let left = ux * vy - uy * vx > 0.0;
-                (g, left)
-            };
+            let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
+                p0, p1, p2, p0.inv_w, p1.inv_w, p2.inv_w, u0, u1, u2, v0, v1, v2,
+            );
 
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);

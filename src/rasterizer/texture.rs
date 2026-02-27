@@ -123,8 +123,6 @@ impl PerspectiveTextureGradients {
 
         let nz = ux * vy - uy * vx;
         let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
-        let inv_nz = if nz.abs() > 0.000_1 { -1.0 / nz } else { 0.0 };
 
         let nx_z = uy * vz - uz * vy;
         let dz_dx = nx_z * inv_nz;
