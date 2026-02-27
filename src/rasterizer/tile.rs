@@ -391,6 +391,66 @@ impl TileBins {
             curr: self.heads[tile_idx],
         }
     }
+
+    /// Sorts triangles in each bin by depth.
+    ///
+    /// This is an expensive operation that rebuilds the linked lists.
+    /// It should only be used when transparency requires strict back-to-front ordering.
+    pub fn sort_bins<T, F>(&mut self, items: &[T], depth_fn: F)
+    where
+        F: Fn(&T) -> f32,
+    {
+        // Allocate temporary vector for sorting to avoid repeated allocations
+        let mut temp_indices = Vec::with_capacity(64);
+
+        for tile_idx in 0..self.heads.len() {
+            let head = self.heads[tile_idx];
+            if head == u32::MAX {
+                continue;
+            }
+
+            // Collect indices for this bin
+            temp_indices.clear();
+            let mut curr = head;
+            while curr != u32::MAX {
+                let idx = curr as usize;
+                let tri_idx = self.tris[idx];
+                temp_indices.push((tri_idx, idx as u32));
+                curr = self.nexts[idx];
+            }
+
+            // If less than 2 items, no sort needed
+            if temp_indices.len() < 2 {
+                continue;
+            }
+
+            // Sort by depth (front-to-back for opacity, back-to-front for transparency)
+            // Here we assume front-to-back for Early-Z optimization
+            temp_indices.sort_unstable_by(|&(a, _), &(b, _)| {
+                let depth_a = depth_fn(&items[a as usize]);
+                let depth_b = depth_fn(&items[b as usize]);
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // Rebuild linked list
+            let mut new_head = u32::MAX;
+            let mut new_tail = u32::MAX;
+
+            for &(_tri_idx, node_idx) in &temp_indices {
+                if new_head == u32::MAX {
+                    new_head = node_idx;
+                } else {
+                    self.nexts[new_tail as usize] = node_idx;
+                }
+                new_tail = node_idx;
+            }
+            self.nexts[new_tail as usize] = u32::MAX;
+            self.heads[tile_idx] = new_head;
+            self.tails[tile_idx] = new_tail;
+        }
+    }
 }
 
 pub struct TileBinIter<'a> {
@@ -2489,34 +2549,11 @@ impl TileRenderer {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
-        }
+        // With SoA TileBins, we can't easily iterate over bins as independent mutable slices.
+        // Sorting linked lists in-place is hard and slow.
+        // Instead, we collect indices into a temporary vector, sort, and rebuild the list.
+        // This is done sequentially for now as TileBins structure doesn't support easy parallel iteration yet.
+        self.tile_bins.sort_bins(prepared, |t| t.min_depth);
     }
 
     /// Sorts textured triangles in each bin by depth.
@@ -2526,34 +2563,8 @@ impl TileRenderer {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
-        }
+        self.tile_bins
+            .sort_bins(prepared_textured, |t| t.min_depth);
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
