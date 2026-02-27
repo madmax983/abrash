@@ -139,7 +139,19 @@ impl<T: Default + Copy> AlignedBuffer<T> {
         // Worst case offset is align_bytes - 1. We need ceil((align_bytes)/elem_size) extra elements.
         let extra_elements = (align_bytes + elem_size - 1) / elem_size;
 
-        let mut data = vec![T::default(); len + extra_elements];
+        let allocation_size = len
+            .checked_add(extra_elements)
+            .expect("Allocation size overflow");
+
+        // Verify total byte size doesn't overflow isize::MAX (Vec limit)
+        if allocation_size
+            .checked_mul(elem_size)
+            .map_or(true, |bytes| bytes > isize::MAX as usize)
+        {
+            panic!("Allocation size exceeds isize::MAX bytes");
+        }
+
+        let mut data = vec![T::default(); allocation_size];
 
         let start_ptr = data.as_mut_ptr();
         let start_addr = start_ptr as usize;
@@ -389,6 +401,56 @@ impl TileBins {
         TileBinIter {
             bins: self,
             curr: self.heads[tile_idx],
+        }
+    }
+
+    /// Sorts the triangles in each bin based on the provided depth function.
+    ///
+    /// This method rebuilds the linked lists for each tile to respect the sort order.
+    pub fn sort_bins<F>(&mut self, num_tiles: usize, get_depth: F)
+    where
+        F: Fn(u32) -> f32,
+    {
+        // Reusable buffer for sorting indices within a bin
+        let mut nodes = Vec::with_capacity(64);
+
+        for tile_idx in 0..num_tiles {
+            let head = self.heads[tile_idx];
+            if head == u32::MAX {
+                continue;
+            }
+
+            // 1. Collect all nodes in this bin
+            nodes.clear();
+            let mut curr = head;
+            while curr != u32::MAX {
+                nodes.push(curr);
+                curr = self.nexts[curr as usize];
+            }
+
+            // 2. Sort nodes by depth
+            // We need to look up the triangle index for each node to get its depth
+            nodes.sort_unstable_by(|&a, &b| {
+                let tri_a = self.tris[a as usize];
+                let tri_b = self.tris[b as usize];
+                let depth_a = get_depth(tri_a);
+                let depth_b = get_depth(tri_b);
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // 3. Re-link the list
+            let new_head = nodes[0];
+            let mut prev = new_head;
+            for &node in &nodes[1..] {
+                self.nexts[prev as usize] = node;
+                prev = node;
+            }
+            self.nexts[prev as usize] = u32::MAX;
+
+            self.heads[tile_idx] = new_head;
+            self.tails[tile_idx] = prev;
         }
     }
 }
@@ -2484,76 +2546,32 @@ impl TileRenderer {
 
     /// Sorts flat triangles in each bin by depth.
     fn sort_bins_flat(&mut self) {
-        let prepared = &self.prepared;
-        if prepared.is_empty() {
+        if self.prepared.is_empty() {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
-        }
+        let tile_count = (self.tiles_x * self.tiles_y) as usize;
+        // The parallel feature for sorting TileBins linked-lists would require splitting TileBins
+        // or using UnsafeCell, as sort_bins takes &mut self.
+        // For now, we sort sequentially on the main thread.
+        // Since sort_bins handles linked list traversal, we pass the lookup closure.
+        let prepared = &self.prepared;
+        self.tile_bins.sort_bins(tile_count, |idx| unsafe {
+            prepared.get_unchecked(idx as usize).min_depth
+        });
     }
 
     /// Sorts textured triangles in each bin by depth.
     fn sort_bins_textured(&mut self) {
-        let prepared_textured = &self.prepared_textured;
-        if prepared_textured.is_empty() {
+        if self.prepared_textured.is_empty() {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            }
-        }
+        let tile_count = (self.tiles_x * self.tiles_y) as usize;
+        let prepared = &self.prepared_textured;
+        self.tile_bins.sort_bins(tile_count, |idx| unsafe {
+            prepared.get_unchecked(idx as usize).min_depth
+        });
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).

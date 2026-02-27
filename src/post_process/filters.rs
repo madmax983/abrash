@@ -713,6 +713,12 @@ mod simd {
         height: usize,
         offset: usize,
     ) {
+        // Defensive check: offset must be smaller than width to have any effect and avoid OOB logic issues
+        // (though current implementation handles it, explicit is safer for unsafe blocks)
+        if offset >= width {
+            return;
+        }
+
         CA_BUFFER.with(|buf| {
             let mut row_buffer = buf.borrow_mut();
             if row_buffer.len() < width {
