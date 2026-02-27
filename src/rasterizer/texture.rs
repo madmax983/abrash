@@ -106,7 +106,7 @@ impl PerspectiveTextureGradients {
         v0: f32,
         v1: f32,
         v2: f32,
-    ) -> (Self, bool) {
+    ) -> (Self, WindingOrder) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -146,6 +146,12 @@ impl PerspectiveTextureGradients {
         let ny_v = uv * vx - ux * vv;
         let dv_dy = ny_v * inv_nz;
 
+        let winding = if nz > 0.0 {
+            WindingOrder::CounterClockwise
+        } else {
+            WindingOrder::Clockwise
+        };
+
         (
             Self {
                 dz_dx,
@@ -156,8 +162,25 @@ impl PerspectiveTextureGradients {
                 du_dy,
                 dv_dy,
             },
-            nz > 0.0,
+            winding,
         )
+    }
+}
+
+/// Represents the winding order of a triangle (or polygon).
+///
+/// In a right-handed coordinate system (like standard OpenGL or this engine),
+/// *Counter-Clockwise (CCW)* vertices usually define the "front" face of a triangle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindingOrder {
+    Clockwise,
+    CounterClockwise,
+}
+
+impl WindingOrder {
+    /// Returns true if the winding is Counter-Clockwise (Front-facing in standard RH systems).
+    pub fn is_ccw(self) -> bool {
+        matches!(self, Self::CounterClockwise)
     }
 }
 
@@ -320,73 +343,120 @@ pub(crate) fn draw_span_nearest(
 
     let shift = texture.width_shift;
 
-    macro_rules! process_span_nearest {
-        ($fetch_block:block) => {
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    let color = $fetch_block;
-
-                    let alpha = (color >> 24) & 0xFF;
-                    if alpha == 255 {
-                        *depth_val = z;
-                        *pixel = color;
-                    } else if alpha > 0 {
-                        let dest = *pixel;
-                        // Correct blending: src * alpha + dest * (1 - alpha)
-                        // blend_swar(c0, c1, w, inv_w) -> c0 * inv_w + c1 * w
-                        // So w = 255 - alpha, inv_w = alpha
-                        *pixel = blend_swar(color, dest, 255 - alpha, alpha);
-                    }
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
-        };
-    }
-
     if can_use_fast_path {
         // FAST PATH: No bounds checks inside loop
+        // fetcher receives (u_fix, v_fix) but assumes valid range
         if shift < 32 {
-            process_span_nearest!({
-                let u = (u_fix >> 16) as usize;
-                let v = (v_fix >> 16) as usize;
-                // SAFETY: Verified entire span is within bounds.
-                unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
-            });
+            draw_span_nearest_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |u_fix, v_fix| {
+                    let u = (u_fix >> 16) as usize;
+                    let v = (v_fix >> 16) as usize;
+                    unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
+                },
+            );
         } else {
-            process_span_nearest!({
-                let u = (u_fix >> 16) as usize;
-                let v = (v_fix >> 16) as usize;
-                // SAFETY: Verified entire span is within bounds.
-                unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
-            });
+            draw_span_nearest_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |u_fix, v_fix| {
+                    let u = (u_fix >> 16) as usize;
+                    let v = (v_fix >> 16) as usize;
+                    unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
+                },
+            );
         }
     } else {
-        // SLOW PATH: Per-pixel bounds checks (handling repeat/clamp/overflow)
+        // SLOW PATH: Per-pixel bounds checks
         if shift < 32 {
-            process_span_nearest!({
-                let u = u_fix >> 16;
-                let v = v_fix >> 16;
-                if (u as u32) < tex_w && (v as u32) < tex_h {
-                    // SAFETY: Checked bounds
-                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
-                } else {
-                    texture.get_pixel_texel(u, v)
-                }
-            });
+            draw_span_nearest_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |u_fix, v_fix| {
+                    let u = u_fix >> 16;
+                    let v = v_fix >> 16;
+                    if (u as u32) < tex_w && (v as u32) < tex_h {
+                        unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                    } else {
+                        texture.get_pixel_texel(u, v)
+                    }
+                },
+            );
         } else {
-            process_span_nearest!({
-                let u = u_fix >> 16;
-                let v = v_fix >> 16;
-                if (u as u32) < tex_w && (v as u32) < tex_h {
-                    // SAFETY: Checked bounds
-                    unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
-                } else {
-                    texture.get_pixel_texel(u, v)
-                }
-            });
+            draw_span_nearest_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |u_fix, v_fix| {
+                    let u = u_fix >> 16;
+                    let v = v_fix >> 16;
+                    if (u as u32) < tex_w && (v as u32) < tex_h {
+                        unsafe {
+                            *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize))
+                        }
+                    } else {
+                        texture.get_pixel_texel(u, v)
+                    }
+                },
+            );
         }
+    }
+}
+
+#[inline(always)]
+fn draw_span_nearest_inner<F>(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    mut z: f32,
+    dz_dx: f32,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    mut fetch: F,
+) where
+    F: FnMut(i32, i32) -> u32,
+{
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            let color = fetch(u_fix, v_fix);
+
+            let alpha = (color >> 24) & 0xFF;
+            if alpha == 255 {
+                *depth_val = z;
+                *pixel = color;
+            } else if alpha > 0 {
+                let dest = *pixel;
+                *pixel = blend_swar(color, dest, 255 - alpha, alpha);
+            }
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
     }
 }
 
@@ -455,116 +525,194 @@ pub(crate) fn draw_span_bilinear(
         false
     };
 
-    macro_rules! process_span_bilinear {
-        ($op:tt, $val:expr, $fast_path:literal) => {
-            let mut cached_x0 = i32::MIN;
-            let mut cached_y0 = i32::MIN;
-            let mut c00 = 0;
-            let mut c10 = 0;
-            let mut c01 = 0;
-            let mut c11 = 0;
-
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    let u_img_fixed = u_fix >> 8;
-                    let v_img_fixed = v_fix >> 8;
-
-                    let x0_raw = u_img_fixed >> 8;
-                    let y0_raw = v_img_fixed >> 8;
-
-                    if x0_raw != cached_x0 || y0_raw != cached_y0 {
-                        cached_x0 = x0_raw;
-                        cached_y0 = y0_raw;
-
-                        let (t00, t10, t01, t11) =
-                            if $fast_path || ((x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32)) {
-                                let x0 = x0_raw as usize;
-                                let y0 = y0_raw as usize;
-
-                                let row0 = y0 $op $val;
-                                let row1 = row0 + tex_w_usize;
-
-                                unsafe {
-                                    #[cfg(target_endian = "little")]
-                                    {
-                                        let ptr = tex_pixels.as_ptr();
-                                        let row0_pair = ptr.add(row0 + x0).cast::<u64>().read_unaligned();
-                                        let row1_pair = ptr.add(row1 + x0).cast::<u64>().read_unaligned();
-
-                                        (
-                                            row0_pair as u32,
-                                            (row0_pair >> 32) as u32,
-                                            row1_pair as u32,
-                                            (row1_pair >> 32) as u32,
-                                        )
-                                    }
-                                    #[cfg(not(target_endian = "little"))]
-                                    {
-                                        (
-                                            *tex_pixels.get_unchecked(row0 + x0),
-                                            *tex_pixels.get_unchecked(row0 + x0 + 1),
-                                            *tex_pixels.get_unchecked(row1 + x0),
-                                            *tex_pixels.get_unchecked(row1 + x0 + 1),
-                                        )
-                                    }
-                                }
-                            } else {
-                                let x0 = x0_raw.clamp(0, w_i32) as usize;
-                                let y0 = y0_raw.clamp(0, h_i32) as usize;
-                                let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
-                                let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
-
-                                let row0 = y0 $op $val;
-                                let row1 = y1 $op $val;
-
-                                unsafe {
-                                    (
-                                        *tex_pixels.get_unchecked(row0 + x0),
-                                        *tex_pixels.get_unchecked(row0 + x1),
-                                        *tex_pixels.get_unchecked(row1 + x0),
-                                        *tex_pixels.get_unchecked(row1 + x1),
-                                    )
-                                }
-                            };
-                        c00 = t00;
-                        c10 = t10;
-                        c01 = t01;
-                        c11 = t11;
-                    }
-
-                    let wx = (u_img_fixed & 0xFF) as u32;
-                    let wy = (v_img_fixed & 0xFF) as u32;
-
-                    let final_color = blend_four_way(c00, c10, c01, c11, wx, wy);
-
-                    let alpha = (final_color >> 24) & 0xFF;
-                    if alpha == 255 {
-                        *depth_val = z;
-                        *pixel = final_color;
-                    } else if alpha > 0 {
-                        let dest = *pixel;
-                        *pixel = blend_swar(final_color, dest, 255 - alpha, alpha);
-                    }
-                }
-                z += dz_dx;
-                u_fix = u_fix.wrapping_add(du_fix);
-                v_fix = v_fix.wrapping_add(dv_fix);
-            }
-        };
-    }
-
     if can_use_fast_path {
         if shift < 32 {
-            process_span_bilinear!(<<, shift, true);
+            draw_span_bilinear_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |y0| y0 << shift,
+                tex_w_usize,
+                w_i32,
+                h_i32,
+                tex_pixels,
+                true,
+            );
         } else {
-            process_span_bilinear!(*, tex_w_usize, true);
+            draw_span_bilinear_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |y0| y0 * tex_w_usize,
+                tex_w_usize,
+                w_i32,
+                h_i32,
+                tex_pixels,
+                true,
+            );
         }
     } else {
         if shift < 32 {
-            process_span_bilinear!(<<, shift, false);
+            draw_span_bilinear_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |y0| y0 << shift,
+                tex_w_usize,
+                w_i32,
+                h_i32,
+                tex_pixels,
+                false,
+            );
         } else {
-            process_span_bilinear!(*, tex_w_usize, false);
+            draw_span_bilinear_inner(
+                fb_slice,
+                zb_slice,
+                z,
+                dz_dx,
+                u_fix,
+                v_fix,
+                du_fix,
+                dv_fix,
+                |y0| y0 * tex_w_usize,
+                tex_w_usize,
+                w_i32,
+                h_i32,
+                tex_pixels,
+                false,
+            );
         }
+    }
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn draw_span_bilinear_inner<F>(
+    fb_slice: &mut [u32],
+    zb_slice: &mut [f32],
+    mut z: f32,
+    dz_dx: f32,
+    mut u_fix: i32,
+    mut v_fix: i32,
+    du_fix: i32,
+    dv_fix: i32,
+    mut row_offset_fn: F,
+    tex_w_usize: usize,
+    w_i32: i32,
+    h_i32: i32,
+    tex_pixels: &[u32],
+    fast_path: bool,
+) where
+    F: FnMut(usize) -> usize,
+{
+    let mut cached_x0 = i32::MIN;
+    let mut cached_y0 = i32::MIN;
+    let mut c00 = 0;
+    let mut c10 = 0;
+    let mut c01 = 0;
+    let mut c11 = 0;
+
+    for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
+        if z < *depth_val {
+            let u_img_fixed = u_fix >> 8;
+            let v_img_fixed = v_fix >> 8;
+
+            let x0_raw = u_img_fixed >> 8;
+            let y0_raw = v_img_fixed >> 8;
+
+            if x0_raw != cached_x0 || y0_raw != cached_y0 {
+                cached_x0 = x0_raw;
+                cached_y0 = y0_raw;
+
+                let (t00, t10, t01, t11) = if fast_path
+                    || ((x0_raw as u32) < (w_i32 as u32) && (y0_raw as u32) < (h_i32 as u32))
+                {
+                    let x0 = x0_raw as usize;
+                    let y0 = y0_raw as usize;
+
+                    let row0 = row_offset_fn(y0);
+                    let row1 = row0 + tex_w_usize;
+
+                    unsafe {
+                        #[cfg(target_endian = "little")]
+                        {
+                            let ptr = tex_pixels.as_ptr();
+                            let row0_pair = ptr.add(row0 + x0).cast::<u64>().read_unaligned();
+                            let row1_pair = ptr.add(row1 + x0).cast::<u64>().read_unaligned();
+
+                            (
+                                row0_pair as u32,
+                                (row0_pair >> 32) as u32,
+                                row1_pair as u32,
+                                (row1_pair >> 32) as u32,
+                            )
+                        }
+                        #[cfg(not(target_endian = "little"))]
+                        {
+                            (
+                                *tex_pixels.get_unchecked(row0 + x0),
+                                *tex_pixels.get_unchecked(row0 + x0 + 1),
+                                *tex_pixels.get_unchecked(row1 + x0),
+                                *tex_pixels.get_unchecked(row1 + x0 + 1),
+                            )
+                        }
+                    }
+                } else {
+                    let x0 = x0_raw.clamp(0, w_i32) as usize;
+                    let y0 = y0_raw.clamp(0, h_i32) as usize;
+                    let x1 = (x0_raw + 1).clamp(0, w_i32) as usize;
+                    let y1 = (y0_raw + 1).clamp(0, h_i32) as usize;
+
+                    let row0 = row_offset_fn(y0);
+                    let row1 = row_offset_fn(y1);
+
+                    unsafe {
+                        (
+                            *tex_pixels.get_unchecked(row0 + x0),
+                            *tex_pixels.get_unchecked(row0 + x1),
+                            *tex_pixels.get_unchecked(row1 + x0),
+                            *tex_pixels.get_unchecked(row1 + x1),
+                        )
+                    }
+                };
+                c00 = t00;
+                c10 = t10;
+                c01 = t01;
+                c11 = t11;
+            }
+
+            let wx = (u_img_fixed & 0xFF) as u32;
+            let wy = (v_img_fixed & 0xFF) as u32;
+
+            let final_color = blend_four_way(c00, c10, c01, c11, wx, wy);
+
+            let alpha = (final_color >> 24) & 0xFF;
+            if alpha == 255 {
+                *depth_val = z;
+                *pixel = final_color;
+            } else if alpha > 0 {
+                let dest = *pixel;
+                *pixel = blend_swar(final_color, dest, 255 - alpha, alpha);
+            }
+        }
+        z += dz_dx;
+        u_fix = u_fix.wrapping_add(du_fix);
+        v_fix = v_fix.wrapping_add(dv_fix);
     }
 }
 
@@ -2157,11 +2305,11 @@ pub fn fill_quad_textured(
         let q2 = p2.inv_w;
 
         // Note argument order for gradients: u0, u1, u2, then v0, v1, v2
-        let (gradients, is_front_facing) = PerspectiveTextureGradients::new_with_winding(
+        let (gradients, winding) = PerspectiveTextureGradients::new_with_winding(
             p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_val, v1_val, v2_val,
         );
 
-        if !is_front_facing {
+        if !winding.is_ccw() {
             return;
         }
 
@@ -2213,7 +2361,7 @@ impl NormalMapGradients {
         l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
         l1: Vec3,
         l2: Vec3,
-    ) -> (Self, bool) {
+    ) -> (Self, WindingOrder) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -2258,6 +2406,12 @@ impl NormalMapGradients {
         let nx_lz = uy * vlz - ulz * vy;
         let dlz_dx = nx_lz * inv_nz;
 
+        let winding = if nz > 0.0 {
+            WindingOrder::CounterClockwise
+        } else {
+            WindingOrder::Clockwise
+        };
+
         (
             Self {
                 dz_dx,
@@ -2268,7 +2422,7 @@ impl NormalMapGradients {
                 dly_dx,
                 dlz_dx,
             },
-            nz > 0.0,
+            winding,
         )
     }
 }
@@ -3269,8 +3423,9 @@ pub fn fill_triangle_normal_mapped(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) =
+        let (gradients, winding) =
             NormalMapGradients::new(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2, l0, l1, l2);
+        let long_edge_is_left = winding.is_ccw();
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2, l0, l2);
         if y_start > p0.y {
@@ -3394,7 +3549,7 @@ impl TexturedGouraudGradients {
         c0: Vec3,
         c1: Vec3,
         c2: Vec3,
-    ) -> (Self, bool) {
+    ) -> (Self, WindingOrder) {
         let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
         let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
@@ -3458,6 +3613,12 @@ impl TexturedGouraudGradients {
         let ny_b = ub * vx - ux * vb;
         let db_dy = ny_b * inv_nz;
 
+        let winding = if nz > 0.0 {
+            WindingOrder::CounterClockwise
+        } else {
+            WindingOrder::Clockwise
+        };
+
         (
             Self {
                 dz_dx,
@@ -3474,7 +3635,7 @@ impl TexturedGouraudGradients {
                 dg_dy,
                 db_dy,
             },
-            nz > 0.0,
+            winding,
         )
     }
 }

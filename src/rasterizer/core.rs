@@ -251,8 +251,7 @@ impl EdgeWalker {
     }
 
     pub(crate) fn step(&mut self) {
-        self.x += self.dx_dy;
-        self.z += self.dz_dy;
+        self.step_n(1);
     }
 
     pub(crate) fn step_n(&mut self, n: i64) {

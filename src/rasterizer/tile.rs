@@ -2158,9 +2158,10 @@ impl TileRenderer {
             }
 
             // Gradients
-            let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
+            let (gradients, winding) = PerspectiveTextureGradients::new_with_winding(
                 p0, p1, p2, p0.inv_w, p1.inv_w, p2.inv_w, u0, u1, u2, v0, v1, v2,
             );
+            let long_edge_is_left = winding.is_ccw();
 
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
@@ -2489,32 +2490,59 @@ impl TileRenderer {
             return;
         }
 
+        let num_tiles = self.tile_bins.heads.len();
+
+        // Helper to sort a single bin
+        let sort_bin = |tile_idx: usize, bins: &mut TileBins| {
+            let mut indices = Vec::with_capacity(32);
+            let mut curr = bins.heads[tile_idx];
+            while curr != u32::MAX {
+                indices.push(curr);
+                curr = bins.nexts[curr as usize];
+            }
+
+            if indices.len() <= 1 {
+                return;
+            }
+
+            indices.sort_unstable_by(|&a, &b| {
+                // Safety: indices in bin are guaranteed to be within prepared bounds
+                let idx_a = bins.tris[a as usize] as usize;
+                let idx_b = bins.tris[b as usize] as usize;
+                let depth_a = unsafe { prepared.get_unchecked(idx_a).min_depth };
+                let depth_b = unsafe { prepared.get_unchecked(idx_b).min_depth };
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // Re-link
+            let head = indices[0];
+            bins.heads[tile_idx] = head;
+            let mut prev = head;
+            for &idx in &indices[1..] {
+                bins.nexts[prev as usize] = idx;
+                prev = idx;
+            }
+            bins.nexts[prev as usize] = u32::MAX;
+            bins.tails[tile_idx] = prev;
+        };
+
         #[cfg(feature = "parallel")]
         {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            // Parallel sort requires splitting TileBins, which is unsafe/hard with shared vectors.
+            // We'll fall back to sequential for this specific SoA layout or use a workaround.
+            // For safety and correctness now, we run sequential.
+            // Ideally we'd partition indices, but 'TileBins' owns the data.
+            for i in 0..num_tiles {
+                sort_bin(i, &mut self.tile_bins);
+            }
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+            for i in 0..num_tiles {
+                sort_bin(i, &mut self.tile_bins);
             }
         }
     }
@@ -2526,32 +2554,53 @@ impl TileRenderer {
             return;
         }
 
+        let num_tiles = self.tile_bins.heads.len();
+
+        let sort_bin = |tile_idx: usize, bins: &mut TileBins| {
+            let mut indices = Vec::with_capacity(32);
+            let mut curr = bins.heads[tile_idx];
+            while curr != u32::MAX {
+                indices.push(curr);
+                curr = bins.nexts[curr as usize];
+            }
+
+            if indices.len() <= 1 {
+                return;
+            }
+
+            indices.sort_unstable_by(|&a, &b| {
+                let idx_a = bins.tris[a as usize] as usize;
+                let idx_b = bins.tris[b as usize] as usize;
+                let depth_a = unsafe { prepared_textured.get_unchecked(idx_a).min_depth };
+                let depth_b = unsafe { prepared_textured.get_unchecked(idx_b).min_depth };
+                depth_a
+                    .partial_cmp(&depth_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // Re-link
+            let head = indices[0];
+            bins.heads[tile_idx] = head;
+            let mut prev = head;
+            for &idx in &indices[1..] {
+                bins.nexts[prev as usize] = idx;
+                prev = idx;
+            }
+            bins.nexts[prev as usize] = u32::MAX;
+            bins.tails[tile_idx] = prev;
+        };
+
         #[cfg(feature = "parallel")]
         {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            for i in 0..num_tiles {
+                sort_bin(i, &mut self.tile_bins);
+            }
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+            for i in 0..num_tiles {
+                sort_bin(i, &mut self.tile_bins);
             }
         }
     }

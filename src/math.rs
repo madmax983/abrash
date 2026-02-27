@@ -708,29 +708,7 @@ impl Mat4 {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         // SAFETY: Mat4 is 16-byte aligned, so _mm_load_ps is safe and optimal.
         unsafe {
-            use std::arch::x86_64::{
-                _mm_add_ps, _mm_load_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
-            };
-
-            let row0 = _mm_load_ps(self.m[0].as_ptr());
-            let row1 = _mm_load_ps(self.m[1].as_ptr());
-            let row2 = _mm_load_ps(self.m[2].as_ptr());
-            let row3 = _mm_load_ps(self.m[3].as_ptr());
-
-            let vx = _mm_set1_ps(v.x);
-            let vy = _mm_set1_ps(v.y);
-            let vz = _mm_set1_ps(v.z);
-
-            let t0 = _mm_mul_ps(vx, row0);
-            let t1 = _mm_mul_ps(vy, row1);
-            let t2 = _mm_mul_ps(vz, row2);
-
-            let res = _mm_add_ps(_mm_add_ps(t0, t1), _mm_add_ps(t2, row3));
-
-            let mut out = [0.0; 4];
-            _mm_storeu_ps(out.as_mut_ptr(), res);
-
-            (Vec3::new(out[0], out[1], out[2]), out[3])
+            return self.transform_point_simd(v);
         }
 
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
@@ -741,6 +719,34 @@ impl Mat4 {
             let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
             (Vec3::new(x, y, z), w)
         }
+    }
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    #[inline(always)]
+    unsafe fn transform_point_simd(&self, v: Vec3) -> (Vec3, f32) {
+        use std::arch::x86_64::{
+            _mm_add_ps, _mm_load_ps, _mm_mul_ps, _mm_set1_ps, _mm_storeu_ps,
+        };
+
+        let row0 = _mm_load_ps(self.m[0].as_ptr());
+        let row1 = _mm_load_ps(self.m[1].as_ptr());
+        let row2 = _mm_load_ps(self.m[2].as_ptr());
+        let row3 = _mm_load_ps(self.m[3].as_ptr());
+
+        let vx = _mm_set1_ps(v.x);
+        let vy = _mm_set1_ps(v.y);
+        let vz = _mm_set1_ps(v.z);
+
+        let t0 = _mm_mul_ps(vx, row0);
+        let t1 = _mm_mul_ps(vy, row1);
+        let t2 = _mm_mul_ps(vz, row2);
+
+        let res = _mm_add_ps(_mm_add_ps(t0, t1), _mm_add_ps(t2, row3));
+
+        let mut out = [0.0; 4];
+        _mm_storeu_ps(out.as_mut_ptr(), res);
+
+        (Vec3::new(out[0], out[1], out[2]), out[3])
     }
 
     /// Transforms multiple points by this matrix.
@@ -1188,8 +1194,8 @@ pub fn project_to_screen_optimized(
     // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
     // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
     // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
-    const MAX_VAL: f32 = 2_147_483_520.0;
-    const MIN_VAL: f32 = -2_147_483_520.0;
+    const MAX_SCREEN_COORD: f32 = 2_147_483_520.0;
+    const MIN_SCREEN_COORD: f32 = -2_147_483_520.0;
 
     let screen_x_f = (ndc_x + 1.0) * half_width;
     let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
@@ -1201,9 +1207,9 @@ pub fn project_to_screen_optimized(
     // Note: f32::clamp() returns NaN for NaN inputs, which makes casting to i32 undefined/zero.
     // We strictly want MIN_VAL behavior for NaNs here.
     #[allow(clippy::manual_clamp)]
-    let screen_x = screen_x_f.max(MIN_VAL).min(MAX_VAL) as i32;
+    let screen_x = screen_x_f.max(MIN_SCREEN_COORD).min(MAX_SCREEN_COORD) as i32;
     #[allow(clippy::manual_clamp)]
-    let screen_y = screen_y_f.max(MIN_VAL).min(MAX_VAL) as i32;
+    let screen_y = screen_y_f.max(MIN_SCREEN_COORD).min(MAX_SCREEN_COORD) as i32;
 
     ScreenPoint {
         x: screen_x,
