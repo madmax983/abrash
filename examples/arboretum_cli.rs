@@ -5,7 +5,7 @@
 
 #[cfg(feature = "nova")]
 mod app {
-    use abrash::experimental::arboretum::LSystem;
+    use abrash::arboretum::LSystem;
     use clap::Parser;
     use crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},

@@ -68,10 +68,13 @@ pub mod bloom;
 pub mod blur;
 pub mod filters;
 pub mod ssao;
+pub mod vision;
 
 pub use self::bloom::*;
 pub use self::blur::*;
 pub use self::filters::*;
 pub use self::ssao::*;
+pub use self::vision::*;
+
 pub mod dof;
 pub use self::dof::*;

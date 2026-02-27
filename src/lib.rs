@@ -91,16 +91,21 @@ pub mod time;
 pub mod utils;
 pub mod zbuffer;
 
+pub mod arboretum;
 pub mod ascii;
 pub mod clipping;
+pub mod cloth;
 pub mod culling;
 pub mod heat_vision;
 pub mod hiz_buffer;
+pub mod jelly;
 pub mod obj_loader;
 pub mod particles;
 pub mod post_process;
 pub mod procedural;
+pub mod raytracer;
 pub mod scene;
+pub mod sdf;
 pub mod skybox;
 pub mod texture;
 
@@ -109,6 +114,3 @@ pub mod gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
-
-#[cfg(feature = "nova")]
-pub mod experimental;

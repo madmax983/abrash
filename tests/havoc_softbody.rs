@@ -1,4 +1,4 @@
-use abrash::experimental::jelly::SoftBody;
+use abrash::jelly::SoftBody;
 use abrash::mesh::Mesh;
 use abrash::math::Vec3;
 

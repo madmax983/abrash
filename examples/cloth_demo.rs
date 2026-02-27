@@ -5,7 +5,7 @@
 
 #[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::cloth::Cloth;
+    use abrash::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::platform::{Window, WindowBackend};

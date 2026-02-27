@@ -1,5 +1,5 @@
 #![cfg(feature = "nova")]
-use abrash::experimental::raytracer::Ray;
+use abrash::raytracer::Ray;
 use abrash::geometry::AABB;
 use abrash::math::Vec3;
 
