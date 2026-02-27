@@ -4,6 +4,9 @@ use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use std::time::Instant;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {
     let mut tris = Vec::with_capacity(count);
     for i in 0..count {
@@ -28,6 +31,30 @@ fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {
     tris
 }
 
+fn print_banner(width: u32, height: u32, triangle_count: usize) {
+    println!("\n{}", "🚀 TileRenderer Benchmark".bold().cyan());
+    println!("{}", "=========================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Parameter").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Resolution"),
+            Cell::new(format!("{}x{}", width, height)).fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Triangles"),
+            Cell::new(triangle_count.to_string()).fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Configuration".bold());
+    println!("{table}");
+}
+
 fn main() {
     let width = 3840;
     let height = 2160;
@@ -45,30 +72,45 @@ fn main() {
     let mut zb = ZBuffer::new(width, height).unwrap();
     let mut tr = TileRenderer::new(width, height);
 
+    print_banner(width, height, triangle_count);
+
     let triangles = generate_overlapping_triangles(triangle_count);
 
-    println!(
-        "Benchmarking TileRenderer with {}x{} and {} triangles",
-        width, height, triangle_count
-    );
-
+    println!("\n{}", "🔥 Warming up (10 frames)...".yellow());
     // Warmup
     for _ in 0..10 {
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
 
-    let start = Instant::now();
     let iterations = 20;
+    println!("⏱️  Running benchmark ({} frames)...", iterations);
+    let start = Instant::now();
     for _ in 0..iterations {
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
     let duration = start.elapsed();
+    let avg_time = duration.as_secs_f64() * 1000.0 / iterations as f64;
 
-    println!(
-        "Time per frame (avg over {} runs): {:.4} ms",
-        iterations,
-        duration.as_secs_f64() * 1000.0 / iterations as f64
-    );
+    let mut results = Table::new();
+    results
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+             Cell::new("Metric").fg(Color::Cyan),
+             Cell::new("Result").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Total Time"),
+            Cell::new(format!("{:.4} s", duration.as_secs_f64())),
+        ])
+        .add_row(vec![
+            Cell::new("Avg Time / Frame").add_attribute(comfy_table::Attribute::Bold),
+            Cell::new(format!("{:.4} ms", avg_time))
+                .fg(Color::Green)
+                .add_attribute(comfy_table::Attribute::Bold),
+        ]);
+
+    println!("\n{}", "📊 Results".bold());
+    println!("{results}\n");
 }
