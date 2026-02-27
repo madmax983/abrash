@@ -360,3 +360,7 @@ harness = false
 [[bench]]
 name = "tile_rendering_sorting"
 harness = false
+
+[[bench]]
+name = "submit_mesh_alloc"
+harness = false
