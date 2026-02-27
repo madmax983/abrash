@@ -385,7 +385,7 @@ impl TileBins {
         self.tails[tile_idx] = node_idx;
     }
 
-    pub fn iter(&self, tile_idx: usize) -> TileBinIter {
+    pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
             curr: self.heads[tile_idx],
@@ -2482,7 +2482,7 @@ impl TileRenderer {
         }
     }
 
-    /// Sorts flat triangles in each bin by depth.
+    /// Sorts flat triangles in each bin by depth (Front-to-Back).
     fn sort_bins_flat(&mut self) {
         let prepared = &self.prepared;
         if prepared.is_empty() {
@@ -2492,34 +2492,113 @@ impl TileRenderer {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            // We need to mutate `heads`, `tails`, `nexts`, `tris` in parallel.
+            // Since bins are disjoint (each bin touches disjoint indices in `heads`/`tails`),
+            // but `nexts` and `tris` are shared pools, we can't easily sort in-place safely without unsafe.
+            //
+            // Strategy:
+            // 1. Collect nodes for each bin into a thread-local vector.
+            // 2. Sort the vector by depth.
+            // 3. Re-link the nodes in the sorted order.
+            //
+            // We use SendPtr to allow parallel access to the arrays.
+            // SAFETY: Each thread processes a unique `bin_idx`, so writes to `heads[bin_idx]` and `tails[bin_idx]` are safe.
+            // Reads from `nexts` and `tris` are safe (concurrent reads).
+            // Writes to `nexts` are safe because we only modify `nexts` of nodes belonging to the current bin.
+            // Since a node belongs to exactly one bin (at this moment in the linked list), no two threads will modify the same `next` index.
+
+            let num_bins = self.tile_bins.heads.len();
+            let heads_ptr = SendPtr(self.tile_bins.heads.as_mut_ptr());
+            let tails_ptr = SendPtr(self.tile_bins.tails.as_mut_ptr());
+            let nexts_ptr = SendPtr(self.tile_bins.nexts.as_mut_ptr());
+            let tris_ptr = self.tile_bins.tris.as_ptr(); // Read-only
+
+            (0..num_bins).into_par_iter().for_each_init(
+                || Vec::with_capacity(64), // Reusable buffer per thread
+                |nodes, bin_idx| {
+                    // 1. Collect nodes
+                    nodes.clear();
+                    let mut curr = unsafe { *heads_ptr.0.add(bin_idx) };
+                    if curr == u32::MAX {
+                        return;
+                    }
+
+                    while curr != u32::MAX {
+                        nodes.push(curr);
+                        curr = unsafe { *nexts_ptr.0.add(curr as usize) };
+                    }
+
+                    // 2. Sort nodes by depth
+                    nodes.sort_unstable_by(|&a, &b| {
+                        let tri_a = unsafe { *tris_ptr.add(a as usize) as usize };
+                        let tri_b = unsafe { *tris_ptr.add(b as usize) as usize };
+                        let depth_a = unsafe { prepared.get_unchecked(tri_a).min_depth };
+                        let depth_b = unsafe { prepared.get_unchecked(tri_b).min_depth };
+                        depth_a
+                            .partial_cmp(&depth_b)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    // 3. Re-link
+                    if let Some(&first) = nodes.first() {
+                        unsafe {
+                            heads_ptr.write(bin_idx, first);
+                            for w in nodes.windows(2) {
+                                nexts_ptr.write(w[0] as usize, w[1]);
+                            }
+                            let last = *nodes.last().unwrap();
+                            nexts_ptr.write(last as usize, u32::MAX);
+                            tails_ptr.write(bin_idx, last);
+                        }
+                    }
+                },
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(b).min_depth };
+            let mut nodes = Vec::with_capacity(64);
+            let num_bins = self.tile_bins.heads.len();
+
+            for bin_idx in 0..num_bins {
+                nodes.clear();
+                let mut curr = self.tile_bins.heads[bin_idx];
+                if curr == u32::MAX {
+                    continue;
+                }
+
+                // 1. Collect
+                while curr != u32::MAX {
+                    nodes.push(curr);
+                    curr = self.tile_bins.nexts[curr as usize];
+                }
+
+                // 2. Sort
+                nodes.sort_unstable_by(|&a, &b| {
+                    let tri_a = self.tile_bins.tris[a as usize] as usize;
+                    let tri_b = self.tile_bins.tris[b as usize] as usize;
+                    let depth_a = unsafe { prepared.get_unchecked(tri_a).min_depth };
+                    let depth_b = unsafe { prepared.get_unchecked(tri_b).min_depth };
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
+
+                // 3. Re-link
+                if let Some(&first) = nodes.first() {
+                    self.tile_bins.heads[bin_idx] = first;
+                    for w in nodes.windows(2) {
+                        self.tile_bins.nexts[w[0] as usize] = w[1];
+                    }
+                    let last = *nodes.last().unwrap();
+                    self.tile_bins.nexts[last as usize] = u32::MAX;
+                    self.tile_bins.tails[bin_idx] = last;
+                }
             }
         }
     }
 
-    /// Sorts textured triangles in each bin by depth.
+    /// Sorts textured triangles in each bin by depth (Front-to-Back).
     fn sort_bins_textured(&mut self) {
         let prepared_textured = &self.prepared_textured;
         if prepared_textured.is_empty() {
@@ -2529,29 +2608,87 @@ impl TileRenderer {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
+            let num_bins = self.tile_bins.heads.len();
+            let heads_ptr = SendPtr(self.tile_bins.heads.as_mut_ptr());
+            let tails_ptr = SendPtr(self.tile_bins.tails.as_mut_ptr());
+            let nexts_ptr = SendPtr(self.tile_bins.nexts.as_mut_ptr());
+            let tris_ptr = self.tile_bins.tris.as_ptr();
+
+            (0..num_bins).into_par_iter().for_each_init(
+                || Vec::with_capacity(64),
+                |nodes, bin_idx| {
+                    nodes.clear();
+                    let mut curr = unsafe { *heads_ptr.0.add(bin_idx) };
+                    if curr == u32::MAX {
+                        return;
+                    }
+
+                    while curr != u32::MAX {
+                        nodes.push(curr);
+                        curr = unsafe { *nexts_ptr.0.add(curr as usize) };
+                    }
+
+                    nodes.sort_unstable_by(|&a, &b| {
+                        let tri_a = unsafe { *tris_ptr.add(a as usize) as usize };
+                        let tri_b = unsafe { *tris_ptr.add(b as usize) as usize };
+                        let depth_a = unsafe { prepared_textured.get_unchecked(tri_a).min_depth };
+                        let depth_b = unsafe { prepared_textured.get_unchecked(tri_b).min_depth };
+                        depth_a
+                            .partial_cmp(&depth_b)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    if let Some(&first) = nodes.first() {
+                        unsafe {
+                            heads_ptr.write(bin_idx, first);
+                            for w in nodes.windows(2) {
+                                nexts_ptr.write(w[0] as usize, w[1]);
+                            }
+                            let last = *nodes.last().unwrap();
+                            nexts_ptr.write(last as usize, u32::MAX);
+                            tails_ptr.write(bin_idx, last);
+                        }
+                    }
+                },
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    // Safety: indices in bin are guaranteed to be within prepared bounds
-                    let depth_a = unsafe { prepared_textured.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(b).min_depth };
+            let mut nodes = Vec::with_capacity(64);
+            let num_bins = self.tile_bins.heads.len();
+
+            for bin_idx in 0..num_bins {
+                nodes.clear();
+                let mut curr = self.tile_bins.heads[bin_idx];
+                if curr == u32::MAX {
+                    continue;
+                }
+
+                while curr != u32::MAX {
+                    nodes.push(curr);
+                    curr = self.tile_bins.nexts[curr as usize];
+                }
+
+                nodes.sort_unstable_by(|&a, &b| {
+                    let tri_a = self.tile_bins.tris[a as usize] as usize;
+                    let tri_b = self.tile_bins.tris[b as usize] as usize;
+                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_a).min_depth };
+                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_b).min_depth };
                     depth_a
                         .partial_cmp(&depth_b)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
+
+                if let Some(&first) = nodes.first() {
+                    self.tile_bins.heads[bin_idx] = first;
+                    for w in nodes.windows(2) {
+                        self.tile_bins.nexts[w[0] as usize] = w[1];
+                    }
+                    let last = *nodes.last().unwrap();
+                    self.tile_bins.nexts[last as usize] = u32::MAX;
+                    self.tile_bins.tails[bin_idx] = last;
+                }
             }
         }
     }
