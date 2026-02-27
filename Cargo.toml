@@ -126,6 +126,11 @@ name = "vision_demo"
 path = "examples/vision_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "pixel_sort_demo"
+path = "examples/pixel_sort_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
