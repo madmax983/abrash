@@ -2,6 +2,19 @@ use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 use std::cell::RefCell;
 
+// Sepia weights (scaled by 1024)
+const SEPIA_R_R: u32 = 402;
+const SEPIA_R_G: u32 = 787;
+const SEPIA_R_B: u32 = 194;
+
+const SEPIA_G_R: u32 = 357;
+const SEPIA_G_G: u32 = 702;
+const SEPIA_G_B: u32 = 172;
+
+const SEPIA_B_R: u32 = 279;
+const SEPIA_B_G: u32 = 547;
+const SEPIA_B_B: u32 = 134;
+
 thread_local! {
     static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -36,41 +49,468 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
         if std::is_x86_feature_detected!("avx2") {
             let len = pixels.len();
             let simd_len = len & !7;
-            unsafe { apply_grayscale_avx2(&mut pixels[..simd_len]) };
+            unsafe { simd::apply_grayscale_avx2(&mut pixels[..simd_len]) };
 
-            // Tail
-            for pixel in pixels[simd_len..].iter_mut() {
-                let p = *pixel;
-                let luminance = u32::from(pixel_luminance(p));
-                *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
-            }
+            // Process tail with scalar logic
+            apply_grayscale_scalar(&mut pixels[simd_len..]);
             return;
         }
     }
 
-    for pixel in pixels.iter_mut() {
-        // Format: 0xAARRGGBB
+    apply_grayscale_scalar(pixels);
+}
+
+fn apply_grayscale_scalar(pixels: &mut [u32]) {
+    pixels.iter_mut().for_each(|pixel| {
         let p = *pixel;
-
-        // Fixed-point luminance calculation
         let luminance = u32::from(pixel_luminance(p));
-
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
+    });
+}
+
+/// Simulates CRT scanlines by darkening every odd row.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_scanlines;
+///
+/// let mut fb = Framebuffer::new(1, 2).unwrap();
+/// fb.clear(0xFFFFFFFF); // White
+/// apply_scanlines(&mut fb);
+///
+/// // Row 0 is untouched
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF);
+///
+/// // Row 1 is darkened (halved)
+/// // 0xFF >> 1 = 0x7F
+/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
+/// ```
+pub fn apply_scanlines(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    let _height = fb.height() as usize;
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { simd::apply_scanlines_avx2(pixels, width, _height) };
+            return;
+        }
+    }
+
+    // Process pairs of rows: even row (kept), odd row (darkened)
+    // chunks_exact_mut(width * 2) gives us 2 rows at a time.
+    pixels
+        .chunks_exact_mut(width * 2)
+        .for_each(|rows| {
+            // Second half is the odd row
+            let odd_row = &mut rows[width..];
+            for pixel in odd_row {
+                let p = *pixel;
+                // Halve RGB components: (color >> 1) & mask
+                // Preserve Alpha: (p & 0xFF00_0000)
+                *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+            }
+        });
+
+    // Handle remaining odd row if height is odd
+    // If height is odd, chunks_exact_mut leaves exactly one row remainder?
+    // Wait, width*2 chunks. If height=3. 2 rows processed. 1 row remainder (even).
+    // If height=2. 2 rows processed. 0 remainder.
+    // If height=1. 0 processed. 1 row remainder.
+    // Scanlines affect ODD rows (index 1, 3, 5).
+    // So if remainder exists, it's an even row (index height-1 where height-1 is even).
+    // We only darken odd rows. So we are good.
+}
+
+/// Inverts the colors of the framebuffer in-place.
+///
+/// This effect negates the RGB channels while preserving the Alpha channel.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_invert;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF000000); // Black
+/// apply_invert(&mut fb);
+///
+/// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF); // White
+/// ```
+pub fn apply_invert(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { simd::apply_invert_avx2(pixels) };
+            return;
+        }
+    }
+
+    pixels.iter_mut().for_each(|pixel| {
+        *pixel ^= 0x00FF_FFFF;
+    });
+}
+
+/// Applies a sepia tone effect to the framebuffer in-place.
+///
+/// Converts the image to sepia using standard luminance weights and tinting.
+///
+/// Formula:
+/// ```text
+/// NewR = (0.393 * R + 0.769 * G + 0.189 * B)
+/// NewG = (0.349 * R + 0.686 * G + 0.168 * B)
+/// NewB = (0.272 * R + 0.534 * G + 0.131 * B)
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_sepia;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
+/// apply_sepia(&mut fb);
+/// // Result is tinted yellowish-brown.
+/// ```
+pub fn apply_sepia(fb: &mut Framebuffer) {
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            let len = pixels.len();
+            let simd_len = len & !7;
+
+            // Process multiple of 8 with AVX2
+            // SAFETY: We checked feature detection and pass a valid mutable slice.
+            unsafe { simd::apply_sepia_avx2(&mut pixels[..simd_len]) };
+
+            // Process the tail with scalar
+            apply_sepia_scalar(&mut pixels[simd_len..]);
+            return;
+        }
+    }
+
+    // Scalar fallback
+    apply_sepia_scalar(pixels);
+}
+
+fn apply_sepia_scalar(pixels: &mut [u32]) {
+    pixels.iter_mut().for_each(|pixel| {
+        let p = *pixel;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        // Fixed-point arithmetic (scaled by 1024)
+        let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
+        let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
+        let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
+
+        let new_r = new_r.min(255);
+        let new_g = new_g.min(255);
+        let new_b = new_b.min(255);
+
+        *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+    });
+}
+
+/// Applies chromatic aberration by shifting Red and Blue channels.
+///
+/// *   Red channel is shifted left by `offset`.
+/// *   Blue channel is shifted right by `offset`.
+/// *   Green channel remains unchanged.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_chromatic_aberration;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
+/// apply_chromatic_aberration(&mut fb, 5);
+/// ```
+pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
+    if offset == 0 {
+        return;
+    }
+    let width = fb.width() as usize;
+    let _height = fb.height() as usize;
+    let offset = offset as usize;
+
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe { simd::apply_chromatic_aberration_avx2(pixels, width, _height, offset) };
+            return;
+        }
+    }
+
+    CA_BUFFER.with(|buf| {
+        let mut row_buffer = buf.borrow_mut();
+        if row_buffer.len() < width {
+            row_buffer.resize(width, 0);
+        }
+
+        let row_scratch = &mut row_buffer[..width];
+
+        // Process each row
+        // chunks_exact_mut gives us rows directly
+        pixels.chunks_exact_mut(width).for_each(|row_pixels| {
+            // Copy current row to scratch buffer
+            row_scratch.copy_from_slice(row_pixels);
+
+            // Scalar implementation: Iterate x
+            for (x, dest_pixel) in row_pixels.iter_mut().enumerate() {
+                // Green (G) from current pixel
+                let g = (row_scratch[x] >> 8) & 0xFF;
+                // Alpha (A) from current pixel
+                let a = (row_scratch[x] >> 24) & 0xFF;
+
+                // Red (R) from left (x - offset)
+                let r = if x >= offset {
+                    (row_scratch[x - offset] >> 16) & 0xFF
+                } else {
+                    0
+                };
+
+                // Blue (B) from right (x + offset)
+                let b = if x + offset < width {
+                    row_scratch[x + offset] & 0xFF
+                } else {
+                    0
+                };
+
+                *dest_pixel = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        });
+    });
+}
+
+/// Applies a Sobel edge detection filter to the framebuffer in-place.
+///
+/// Detects edges by calculating the gradient magnitude of the image luminance.
+/// The result is a grayscale image where brighter pixels represent stronger edges.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_sobel;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// // Draw something...
+/// apply_sobel(&mut fb);
+/// ```
+pub fn apply_sobel(fb: &mut Framebuffer) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let pixels = fb.as_mut_slice();
+    let needed_size = width * height;
+
+    // Use SOBEL_BUFFER for luminance data
+    // We need 32 bytes padding for SIMD later.
+    let buffer_size = needed_size + 32;
+
+    SOBEL_BUFFER.with(|buf| {
+        let mut lum_buffer = buf.borrow_mut();
+        if lum_buffer.len() < buffer_size {
+            lum_buffer.resize(buffer_size, 0);
+        }
+
+        let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
+
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                unsafe { simd::apply_sobel_avx2(pixels, lum_slice, width, height) };
+                return;
+            }
+        }
+
+        // 1. Convert to Luminance (Scalar)
+        for (i, p) in pixels.iter().enumerate() {
+            lum_slice[i] = pixel_luminance(*p);
+        }
+
+        // 2. Apply Sobel
+        // We skip the 1-pixel border.
+        // Iterate over valid interior rows.
+        for y in 1..height - 1 {
+            let row_offset = y * width;
+            let prev_row_offset = row_offset - width;
+            let next_row_offset = row_offset + width;
+
+            for x in 1..width - 1 {
+                // Neighborhood indices
+                // TL T TR
+                //  L C  R
+                // BL B BR
+                let tl = i32::from(lum_slice[prev_row_offset + x - 1]);
+                let t  = i32::from(lum_slice[prev_row_offset + x]);
+                let tr = i32::from(lum_slice[prev_row_offset + x + 1]);
+                let l  = i32::from(lum_slice[row_offset + x - 1]);
+                let r  = i32::from(lum_slice[row_offset + x + 1]);
+                let bl = i32::from(lum_slice[next_row_offset + x - 1]);
+                let b  = i32::from(lum_slice[next_row_offset + x]);
+                let br = i32::from(lum_slice[next_row_offset + x + 1]);
+
+                // Gx Kernel
+                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+
+                // Gy Kernel
+                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+
+                // Magnitude
+                let mag = (gx.abs() + gy.abs()).min(255) as u32;
+
+                // Write back (Gray + Alpha)
+                // Use index relative to pixel buffer
+                let idx = row_offset + x;
+                let original_alpha = pixels[idx] & 0xFF00_0000;
+                pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
+            }
+        }
+
+        // Zero out borders (Top/Bottom rows, Left/Right columns)
+        // Top and Bottom rows
+        for x in 0..width {
+            pixels[x] &= 0xFF00_0000;
+            pixels[(height - 1) * width + x] &= 0xFF00_0000;
+        }
+        // Left and Right columns (excluding corners handled above, but fine to redo)
+        for y in 0..height {
+            pixels[y * width] &= 0xFF00_0000;
+            pixels[y * width + width - 1] &= 0xFF00_0000;
+        }
+    });
+}
+
+/// Applies a vignette effect to the framebuffer in-place.
+///
+/// Darkens the corners of the image to draw attention to the center.
+///
+/// # Arguments
+///
+/// *   `intensity` - Strength of the darkening (0.0 to 1.0).
+/// *   `roundness` - Controls the falloff curve (currently unused in scalar implementation).
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_vignette;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.clear(0xFFFFFFFF); // White
+/// // Apply vignette
+/// apply_vignette(&mut fb, 0.5, 0.5);
+/// ```
+pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
+    let width = fb.width();
+    let height = fb.height();
+
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                simd::apply_vignette_avx2(
+                    pixels,
+                    width as usize,
+                    height as usize,
+                    intensity,
+                    roundness,
+                )
+            };
+            return;
+        }
+    }
+
+    apply_vignette_scalar(
+        pixels,
+        width as usize,
+        height as usize,
+        intensity,
+        roundness,
+    );
+}
+
+fn apply_vignette_scalar(
+    pixels: &mut [u32],
+    width: usize,
+    height: usize,
+    intensity: f32,
+    _roundness: f32,
+) {
+    let width_f = width as f32;
+    let height_f = height as f32;
+    let center_x = width_f * 0.5;
+    let center_y = height_f * 0.5;
+
+    let max_dist_sq = center_x * center_x + center_y * center_y;
+    let inv_max_dist_sq = if max_dist_sq > 0.0 {
+        1.0 / max_dist_sq
+    } else {
+        0.0
+    };
+
+    for y in 0..height {
+        let row_offset = y * width;
+        let dy = y as f32 - center_y;
+        let dy_sq = dy * dy;
+
+        for x in 0..width {
+            let dx = x as f32 - center_x;
+            let dist_sq = dx * dx + dy_sq;
+
+            // Normalize distance squared: 0.0 at center, 1.0 at corner
+            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
+
+            // Quadratic falloff
+            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+
+            // Fixed point approximation to match SIMD precision (8.8 fixed point)
+            let factor_fixed = (factor * 256.0) as u32;
+
+            let idx = row_offset + x;
+            let p = pixels[idx];
+
+            let a = p & 0xFF00_0000;
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            // Note: This truncating division matches SIMD _mm256_mullo_epi16 followed by _mm256_srli_epi16
+            let new_r = (r * factor_fixed) >> 8;
+            let new_g = (g * factor_fixed) >> 8;
+            let new_b = (b * factor_fixed) >> 8;
+
+            pixels[idx] = a | (new_r << 16) | (new_g << 8) | new_b;
+        }
     }
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
-    use std::arch::x86_64::{
-        _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
-        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_or_si256,
-        _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_slli_epi32,
-        _mm256_srai_epi32, _mm256_storeu_si256,
-    };
+mod simd {
+    use super::*;
+    use std::arch::x86_64::*;
 
-    unsafe {
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
         // Weights: B=29, G=150, R=77, A=0
         // Memory layout: B G R A
         // Pair 1: B, G -> Weights 29, 150
@@ -137,63 +577,9 @@ unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
             ptr = ptr.add(8);
         }
     }
-}
 
-/// Simulates CRT scanlines by darkening every odd row.
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_scanlines;
-///
-/// let mut fb = Framebuffer::new(1, 2).unwrap();
-/// fb.clear(0xFFFFFFFF); // White
-/// apply_scanlines(&mut fb);
-///
-/// // Row 0 is untouched
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF);
-///
-/// // Row 1 is darkened (halved)
-/// // 0xFF >> 1 = 0x7F
-/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
-/// ```
-pub fn apply_scanlines(fb: &mut Framebuffer) {
-    let width = fb.width() as usize;
-    let height = fb.height() as usize;
-    let pixels = fb.as_mut_slice();
-
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            unsafe { apply_scanlines_avx2(pixels, width, height) };
-            return;
-        }
-    }
-
-    // Iterate over odd rows only
-    for y in (1..height).step_by(2) {
-        let start = y * width;
-        let end = start + width;
-        let row = &mut pixels[start..end];
-        for pixel in row.iter_mut() {
-            let p = *pixel;
-            // Halve RGB components: (color >> 1) & mask
-            // Preserve Alpha: (p & 0xFF00_0000)
-            *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
-        }
-    }
-}
-
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) {
-    use std::arch::x86_64::{
-        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
-        _mm256_srli_epi32, _mm256_storeu_si256,
-    };
-
-    unsafe {
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) {
         let mask_val = _mm256_set1_epi32(0x7F7F_7F7F);
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
@@ -227,82 +613,16 @@ unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) 
             }
         }
     }
-}
 
-/// Inverts the colors of the framebuffer in-place.
-///
-/// This effect negates the RGB channels while preserving the Alpha channel.
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_invert;
-///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF000000); // Black
-/// apply_invert(&mut fb);
-///
-/// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF); // White
-/// ```
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_invert_avx2(pixels: &mut [u32]) {
-    for pixel in pixels.iter_mut() {
-        *pixel ^= 0x00FF_FFFF;
-    }
-}
-
-pub fn apply_invert(fb: &mut Framebuffer) {
-    let pixels = fb.as_mut_slice();
-
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            unsafe { apply_invert_avx2(pixels) };
-            return;
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_invert_avx2(pixels: &mut [u32]) {
+        for pixel in pixels.iter_mut() {
+            *pixel ^= 0x00FF_FFFF;
         }
     }
 
-    for pixel in pixels.iter_mut() {
-        *pixel ^= 0x00FF_FFFF;
-    }
-}
-
-/// Applies a sepia tone effect to the framebuffer in-place.
-///
-/// Converts the image to sepia using standard luminance weights and tinting.
-///
-/// Formula:
-/// ```text
-/// NewR = (0.393 * R + 0.769 * G + 0.189 * B)
-/// NewG = (0.349 * R + 0.686 * G + 0.168 * B)
-/// NewB = (0.272 * R + 0.534 * G + 0.131 * B)
-/// ```
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_sepia;
-///
-/// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
-/// apply_sepia(&mut fb);
-/// // Result is tinted yellowish-brown.
-/// ```
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
-    use std::arch::x86_64::{
-        _mm256_and_si256, _mm256_castsi256_si128, _mm256_cvtepu8_epi16, _mm256_extracti128_si256,
-        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_min_epi32,
-        _mm256_or_si256, _mm256_permute4x64_epi64, _mm256_set1_epi32, _mm256_set1_epi64x,
-        _mm256_slli_epi32, _mm256_srai_epi32, _mm256_storeu_si256,
-    };
-
-    unsafe {
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
         // Weights for Sepia
         // NewR = (402 * R + 787 * G + 194 * B) >> 10
         // NewG = (357 * R + 702 * G + 172 * B) >> 10
@@ -385,349 +705,137 @@ unsafe fn apply_sepia_avx2(pixels: &mut [u32]) {
             ptr = ptr.add(8);
         }
     }
-}
 
-fn apply_sepia_scalar(pixels: &mut [u32]) {
-    for pixel in pixels.iter_mut() {
-        let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
-
-        // Fixed-point arithmetic (scaled by 1024)
-        let new_r = (402 * r + 787 * g + 194 * b) >> 10;
-        let new_g = (357 * r + 702 * g + 172 * b) >> 10;
-        let new_b = (279 * r + 547 * g + 134 * b) >> 10;
-
-        let new_r = new_r.min(255);
-        let new_g = new_g.min(255);
-        let new_b = new_b.min(255);
-
-        *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
-    }
-}
-
-pub fn apply_sepia(fb: &mut Framebuffer) {
-    let pixels = fb.as_mut_slice();
-
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            let len = pixels.len();
-            let simd_len = len & !7;
-
-            // Process multiple of 8 with AVX2
-            // SAFETY: We checked feature detection and pass a valid mutable slice.
-            unsafe { apply_sepia_avx2(&mut pixels[..simd_len]) };
-
-            // Process the tail with scalar
-            apply_sepia_scalar(&mut pixels[simd_len..]);
-            return;
-        }
-    }
-
-    // Scalar fallback
-    apply_sepia_scalar(pixels);
-}
-
-/// Applies chromatic aberration by shifting Red and Blue channels.
-///
-/// *   Red channel is shifted left by `offset`.
-/// *   Blue channel is shifted right by `offset`.
-/// *   Green channel remains unchanged.
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_chromatic_aberration;
-///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
-/// apply_chromatic_aberration(&mut fb, 5);
-/// ```
-pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
-    if offset == 0 {
-        return;
-    }
-    let width = fb.width() as usize;
-    let height = fb.height() as usize;
-    let offset = offset as usize;
-
-    let pixels = fb.as_mut_slice();
-
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            unsafe { apply_chromatic_aberration_avx2(pixels, width, height, offset) };
-            return;
-        }
-    }
-
-    CA_BUFFER.with(|buf| {
-        let mut row_buffer = buf.borrow_mut();
-        if row_buffer.len() < width {
-            row_buffer.resize(width, 0);
-        }
-
-        for y in 0..height {
-            let row_start = y * width;
-            let row_end = row_start + width;
-            let row_pixels = &mut pixels[row_start..row_end];
-
-            // Copy current row to scratch buffer
-            // We only need the first `width` elements.
-            row_buffer[..width].copy_from_slice(row_pixels);
-
-            for x in 0..width {
-                // Green (G) from current pixel
-                let g = (row_buffer[x] >> 8) & 0xFF;
-                // Alpha (A) from current pixel
-                let a = (row_buffer[x] >> 24) & 0xFF;
-
-                // Red (R) from left (x - offset)
-                let r = if x >= offset {
-                    (row_buffer[x - offset] >> 16) & 0xFF
-                } else {
-                    0
-                };
-
-                // Blue (B) from right (x + offset)
-                let b = if x + offset < width {
-                    row_buffer[x + offset] & 0xFF
-                } else {
-                    0
-                };
-
-                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_chromatic_aberration_avx2(
+        pixels: &mut [u32],
+        width: usize,
+        height: usize,
+        offset: usize,
+    ) {
+        CA_BUFFER.with(|buf| {
+            let mut row_buffer = buf.borrow_mut();
+            if row_buffer.len() < width {
+                row_buffer.resize(width, 0);
             }
-        }
-    });
-}
 
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_chromatic_aberration_avx2(
-    pixels: &mut [u32],
-    width: usize,
-    height: usize,
-    offset: usize,
-) {
-    use std::arch::x86_64::{
-        _mm256_and_si256, _mm256_loadu_si256, _mm256_or_si256, _mm256_set1_epi32,
-        _mm256_storeu_si256,
-    };
+            let mask_r = _mm256_set1_epi32(0x00FF_0000);
+            let mask_b = _mm256_set1_epi32(0x0000_00FF);
+            // Precompute masks combined for center: G | A
+            // G: 0x0000FF00, A: 0xFF000000
+            let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
 
-    CA_BUFFER.with(|buf| {
-        let mut row_buffer = buf.borrow_mut();
-        if row_buffer.len() < width {
-            row_buffer.resize(width, 0);
-        }
+            unsafe {
+                for y in 0..height {
+                    let row_start = y * width;
+                    let row_end = row_start + width;
+                    let row_pixels = &mut pixels[row_start..row_end];
 
-        let mask_r = _mm256_set1_epi32(0x00FF_0000);
-        let mask_b = _mm256_set1_epi32(0x0000_00FF);
-        // Precompute masks combined for center: G | A
-        // G: 0x0000FF00, A: 0xFF000000
-        let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
+                    // Copy to scratch
+                    row_buffer[..width].copy_from_slice(row_pixels);
+                    let src_ptr = row_buffer.as_ptr();
+                    let dst_ptr = row_pixels.as_mut_ptr();
 
-        unsafe {
-            for y in 0..height {
-                let row_start = y * width;
-                let row_end = row_start + width;
-                let row_pixels = &mut pixels[row_start..row_end];
+                    let mut x = 0;
 
-                // Copy to scratch
-                row_buffer[..width].copy_from_slice(row_pixels);
-                let src_ptr = row_buffer.as_ptr();
-                let dst_ptr = row_pixels.as_mut_ptr();
+                    // 1. Left Edge (Scalar)
+                    while x < offset && x < width {
+                        let p_center = *src_ptr.add(x);
+                        let g = (p_center >> 8) & 0xFF;
+                        let a = (p_center >> 24) & 0xFF;
 
-                let mut x = 0;
+                        // R is 0 (OOB)
+                        let r = 0;
 
-                // 1. Left Edge (Scalar)
-                while x < offset && x < width {
-                    let p_center = *src_ptr.add(x);
-                    let g = (p_center >> 8) & 0xFF;
-                    let a = (p_center >> 24) & 0xFF;
+                        // B from x+offset (might be OOB)
+                        let b = if x + offset < width {
+                            *src_ptr.add(x + offset) & 0xFF
+                        } else {
+                            0
+                        };
 
-                    // R is 0 (OOB)
-                    let r = 0;
+                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                        x += 1;
+                    }
 
-                    // B from x+offset (might be OOB)
-                    let b = if x + offset < width {
-                        *src_ptr.add(x + offset) & 0xFF
-                    } else {
-                        0
-                    };
+                    // 2. SIMD Loop
+                    if offset + 32 <= width {
+                        let simd_limit_unrolled = width - offset - 32;
+                        while x <= simd_limit_unrolled {
+                            // Unroll 4x
+                            let process_block = |off: usize| {
+                                let v_center = _mm256_loadu_si256(src_ptr.add(x + off).cast());
+                                let v_left =
+                                    _mm256_loadu_si256(src_ptr.add(x + off - offset).cast());
+                                let v_right =
+                                    _mm256_loadu_si256(src_ptr.add(x + off + offset).cast());
 
-                    *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
-                    x += 1;
-                }
+                                let ga = _mm256_and_si256(v_center, mask_ga);
+                                let r = _mm256_and_si256(v_left, mask_r);
+                                let b = _mm256_and_si256(v_right, mask_b);
 
-                // 2. SIMD Loop
-                if offset + 32 <= width {
-                    let simd_limit_unrolled = width - offset - 32;
-                    while x <= simd_limit_unrolled {
-                        // Unroll 4x
-                        let process_block = |off: usize| {
-                            let v_center = _mm256_loadu_si256(src_ptr.add(x + off).cast());
-                            let v_left = _mm256_loadu_si256(src_ptr.add(x + off - offset).cast());
-                            let v_right = _mm256_loadu_si256(src_ptr.add(x + off + offset).cast());
+                                let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
+                                _mm256_storeu_si256(dst_ptr.add(x + off).cast(), res);
+                            };
+
+                            process_block(0);
+                            process_block(8);
+                            process_block(16);
+                            process_block(24);
+
+                            x += 32;
+                        }
+                    }
+
+                    if offset + 8 <= width {
+                        let simd_limit = width - offset - 8;
+                        while x <= simd_limit {
+                            let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
+                            let v_left = _mm256_loadu_si256(src_ptr.add(x - offset).cast());
+                            let v_right = _mm256_loadu_si256(src_ptr.add(x + offset).cast());
 
                             let ga = _mm256_and_si256(v_center, mask_ga);
                             let r = _mm256_and_si256(v_left, mask_r);
                             let b = _mm256_and_si256(v_right, mask_b);
 
                             let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
-                            _mm256_storeu_si256(dst_ptr.add(x + off).cast(), res);
+
+                            _mm256_storeu_si256(dst_ptr.add(x).cast(), res);
+                            x += 8;
+                        }
+                    }
+
+                    // 3. Right Edge (Scalar)
+                    while x < width {
+                        let p_center = *src_ptr.add(x);
+                        let g = (p_center >> 8) & 0xFF;
+                        let a = (p_center >> 24) & 0xFF;
+
+                        // R from x-offset
+                        let r = if x >= offset {
+                            (*src_ptr.add(x - offset) >> 16) & 0xFF
+                        } else {
+                            0
                         };
 
-                        process_block(0);
-                        process_block(8);
-                        process_block(16);
-                        process_block(24);
+                        // B is 0 (OOB)
+                        let b = 0;
 
-                        x += 32;
+                        *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
+                        x += 1;
                     }
                 }
-
-                if offset + 8 <= width {
-                    let simd_limit = width - offset - 8;
-                    while x <= simd_limit {
-                        let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
-                        let v_left = _mm256_loadu_si256(src_ptr.add(x - offset).cast());
-                        let v_right = _mm256_loadu_si256(src_ptr.add(x + offset).cast());
-
-                        let ga = _mm256_and_si256(v_center, mask_ga);
-                        let r = _mm256_and_si256(v_left, mask_r);
-                        let b = _mm256_and_si256(v_right, mask_b);
-
-                        let res = _mm256_or_si256(ga, _mm256_or_si256(r, b));
-
-                        _mm256_storeu_si256(dst_ptr.add(x).cast(), res);
-                        x += 8;
-                    }
-                }
-
-                // 3. Right Edge (Scalar)
-                while x < width {
-                    let p_center = *src_ptr.add(x);
-                    let g = (p_center >> 8) & 0xFF;
-                    let a = (p_center >> 24) & 0xFF;
-
-                    // R from x-offset
-                    let r = if x >= offset {
-                        (*src_ptr.add(x - offset) >> 16) & 0xFF
-                    } else {
-                        0
-                    };
-
-                    // B is 0 (OOB)
-                    let b = 0;
-
-                    *dst_ptr.add(x) = (a << 24) | (r << 16) | (g << 8) | b;
-                    x += 1;
-                }
             }
-        }
-    });
-}
+        });
+    }
 
-/// Applies a Sobel edge detection filter to the framebuffer in-place.
-///
-/// Detects edges by calculating the gradient magnitude of the image luminance.
-/// The result is a grayscale image where brighter pixels represent stronger edges.
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_sobel;
-///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// // Draw something...
-/// apply_sobel(&mut fb);
-/// ```
-pub fn apply_sobel(fb: &mut Framebuffer) {
-    let width = fb.width() as usize;
-    let height = fb.height() as usize;
-    let pixels = fb.as_mut_slice();
-    let needed_size = width * height;
-
-    // Use SOBEL_BUFFER for luminance data
-    // We need 32 bytes padding for SIMD later.
-    let buffer_size = needed_size + 32;
-
-    SOBEL_BUFFER.with(|buf| {
-        let mut lum_buffer = buf.borrow_mut();
-        if lum_buffer.len() < buffer_size {
-            lum_buffer.resize(buffer_size, 0);
-        }
-
-        let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
-
-        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        {
-            if std::is_x86_feature_detected!("avx2") {
-                unsafe { apply_sobel_avx2(pixels, lum_slice, width, height) };
-                return;
-            }
-        }
-
-        // 1. Convert to Luminance (Scalar)
-        for (i, p) in pixels.iter().enumerate() {
-            lum_slice[i] = pixel_luminance(*p);
-        }
-
-        // 2. Apply Sobel
-        // We skip the 1-pixel border
-        for y in 1..height - 1 {
-            let row_offset = y * width;
-            for x in 1..width - 1 {
-                let idx = row_offset + x;
-
-                // Neighborhood
-                let tl = i32::from(lum_slice[idx - width - 1]);
-                let t = i32::from(lum_slice[idx - width]);
-                let tr = i32::from(lum_slice[idx - width + 1]);
-                let l = i32::from(lum_slice[idx - 1]);
-                let r = i32::from(lum_slice[idx + 1]);
-                let bl = i32::from(lum_slice[idx + width - 1]);
-                let b = i32::from(lum_slice[idx + width]);
-                let br = i32::from(lum_slice[idx + width + 1]);
-
-                // Gx Kernel
-                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-
-                // Gy Kernel
-                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
-
-                // Magnitude
-                let mag = (gx.abs() + gy.abs()).min(255) as u32;
-
-                // Write back (Gray + Alpha)
-                let original_alpha = pixels[idx] & 0xFF00_0000;
-                pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
-            }
-        }
-
-        // Zero out borders
-        for x in 0..width {
-            pixels[x] &= 0xFF00_0000;
-            pixels[(height - 1) * width + x] &= 0xFF00_0000;
-        }
-        for y in 0..height {
-            pixels[y * width] &= 0xFF00_0000;
-            pixels[y * width + width - 1] &= 0xFF00_0000;
-        }
-    });
-}
-
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usize, height: usize) {
-    use std::arch::x86_64::*;
-
-    unsafe {
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_sobel_avx2(
+        pixels: &mut [u32],
+        lum_buffer: &mut [u8],
+        width: usize,
+        height: usize,
+    ) {
         // 1. RGB -> Luminance
         {
             let len = width * height;
@@ -736,7 +844,7 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
 
             let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
             let perm_mask = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
-            let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+            let _alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
             let mut i = 0;
             while i + 32 <= len {
@@ -746,10 +854,7 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                 let p2 = _mm256_loadu_si256(s_ptr.add(i + 16).cast());
                 let p3 = _mm256_loadu_si256(s_ptr.add(i + 24).cast());
 
-                // Helper closure for luma calc (returns 8 i32s)
-                // Can't use closure with target_feature in unsafe fn easily in Rust versions
-                // So inline it or use macro. Inlining manually.
-
+                // Manually inline luma calculation to avoid closure/target_feature issues.
                 // Luma 0
                 let l0 = {
                     let lo_128 = _mm256_castsi256_si128(p0);
@@ -830,12 +935,6 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
 
                 let mut x = 1;
                 while x + 16 < width - 1 {
-                    // Load neighborhood (16 pixels)
-                    // We need TL, T, TR etc.
-                    // TL starts at x-1. T starts at x. TR starts at x+1.
-                    // We load 16 bytes at once from x-1, x, x+1?
-                    // Actually, just load u8s and convert to i16.
-
                     // Helper to load 16 bytes and convert to 16 i16s
                     let load_i16 = |ptr: *const u8, offset: usize| {
                         let v8 = _mm_loadu_si128(ptr.add(offset).cast());
@@ -849,7 +948,6 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                     let tr = load_i16(ptr, top_offset + x + 1);
 
                     let l = load_i16(ptr, mid_offset + x - 1);
-                    // let c  = load_i16(ptr, mid_offset + x); // Center unused
                     let r = load_i16(ptr, mid_offset + x + 1);
 
                     let bl = load_i16(ptr, bot_offset + x - 1);
@@ -874,13 +972,7 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                     let gx_abs = _mm256_abs_epi16(gx);
                     let gy_abs = _mm256_abs_epi16(gy);
                     let mag = _mm256_add_epi16(gx_abs, gy_abs); // i16
-                    // Saturating pack to u8
-                    // packus_epi16 packs 2 256-bit vecs to 1 256-bit vec.
-                    // We have 1 256-bit vec (mag).
-                    // We can use zero for the second argument?
-                    // result = packus(mag, zero).
-                    // Output: [mag_lo, zero_lo, mag_hi, zero_hi] (128-bit lanes).
-                    // We need to permute to get [mag_lo, mag_hi, zero_lo, zero_hi].
+
                     let zero = _mm256_setzero_si256();
                     let packed = _mm256_packus_epi16(mag, zero);
                     let perm = _mm256_permute4x64_epi64(packed, 0xD8);
@@ -888,10 +980,6 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                     let mag_u8 = _mm256_castsi256_si128(perm);
 
                     // Expand to u32 pixels
-                    // mag_u8 contains 16 magnitude values.
-                    // We need to expand to 16 u32 pixels.
-                    // 16 pixels = 2 YMM registers (8 each).
-
                     // Low 8 bytes -> YMM 0
                     let mag_lo = _mm256_cvtepu8_epi32(mag_u8);
                     // High 8 bytes -> YMM 1
@@ -925,7 +1013,8 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
                     x += 16;
                 }
 
-                // Tail
+                // Tail (Scalar fallback for edges handled by main function's scalar logic for inner loop?)
+                // The SIMD loop handles [1..width-17]. Tail needs to handle [x..width-1].
                 for cx in x..width - 1 {
                     let idx = mid_offset + cx;
                     let tl = i32::from(lum_buffer[top_offset + cx - 1]);
@@ -947,20 +1036,15 @@ unsafe fn apply_sobel_avx2(pixels: &mut [u32], lum_buffer: &mut [u8], width: usi
             }
         }
     }
-}
 
-#[cfg(all(target_arch = "x86_64", feature = "simd"))]
-#[target_feature(enable = "avx2")]
-unsafe fn apply_vignette_avx2(
-    pixels: &mut [u32],
-    width: usize,
-    height: usize,
-    intensity: f32,
-    _roundness: f32,
-) {
-    unsafe {
-        use std::arch::x86_64::*;
-
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_vignette_avx2(
+        pixels: &mut [u32],
+        width: usize,
+        height: usize,
+        intensity: f32,
+        _roundness: f32,
+    ) {
         let width_f = width as f32;
         let height_f = height as f32;
         let center_x = width_f * 0.5;
@@ -1073,112 +1157,6 @@ unsafe fn apply_vignette_avx2(
     }
 }
 
-/// Applies a vignette effect to the framebuffer in-place.
-///
-/// Darkens the corners of the image to draw attention to the center.
-///
-/// # Arguments
-///
-/// *   `intensity` - Strength of the darkening (0.0 to 1.0).
-/// *   `roundness` - Controls the falloff curve (currently unused in scalar implementation).
-///
-/// # Examples
-///
-/// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_vignette;
-///
-/// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.clear(0xFFFFFFFF); // White
-/// // Apply vignette
-/// apply_vignette(&mut fb, 0.5, 0.5);
-/// ```
-pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
-    let width = fb.width();
-    let height = fb.height();
-
-    let pixels = fb.as_mut_slice();
-
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            unsafe {
-                apply_vignette_avx2(
-                    pixels,
-                    width as usize,
-                    height as usize,
-                    intensity,
-                    roundness,
-                )
-            };
-            return;
-        }
-    }
-
-    apply_vignette_scalar(
-        pixels,
-        width as usize,
-        height as usize,
-        intensity,
-        roundness,
-    );
-}
-
-fn apply_vignette_scalar(
-    pixels: &mut [u32],
-    width: usize,
-    height: usize,
-    intensity: f32,
-    _roundness: f32,
-) {
-    let width_f = width as f32;
-    let height_f = height as f32;
-    let center_x = width_f * 0.5;
-    let center_y = height_f * 0.5;
-
-    let max_dist_sq = center_x * center_x + center_y * center_y;
-    let inv_max_dist_sq = if max_dist_sq > 0.0 {
-        1.0 / max_dist_sq
-    } else {
-        0.0
-    };
-
-    for y in 0..height {
-        let row_offset = y * width;
-        let dy = y as f32 - center_y;
-        let dy_sq = dy * dy;
-
-        for x in 0..width {
-            let dx = x as f32 - center_x;
-            let dist_sq = dx * dx + dy_sq;
-
-            // Normalize distance squared: 0.0 at center, 1.0 at corner
-            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
-
-            // Quadratic falloff
-            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
-
-            // Fixed point approximation to match SIMD precision (8.8 fixed point)
-            let factor_fixed = (factor * 256.0) as u32;
-
-            let idx = row_offset + x;
-            let p = pixels[idx];
-
-            let a = p & 0xFF00_0000;
-            let r = (p >> 16) & 0xFF;
-            let g = (p >> 8) & 0xFF;
-            let b = p & 0xFF;
-
-            // Note: This truncating division matches SIMD _mm256_mullo_epi16 followed by _mm256_srli_epi16
-            let new_r = (r * factor_fixed) >> 8;
-            let new_g = (g * factor_fixed) >> 8;
-            let new_b = (b * factor_fixed) >> 8;
-
-            pixels[idx] = a | (new_r << 16) | (new_g << 8) | new_b;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1216,7 +1194,7 @@ mod tests {
 
         // Run SIMD
         unsafe {
-            apply_vignette_avx2(
+            simd::apply_vignette_avx2(
                 fb_simd.as_mut_slice(),
                 width as usize,
                 height as usize,
@@ -1234,27 +1212,6 @@ mod tests {
             let p_avx = pixels_simd[i];
 
             if p_s != p_avx {
-                // Allow small difference due to float precision/rounding?
-                // Scalar: f32 -> u32 (truncation/floor usually, 'as u32' is truncation)
-                // SIMD: cvtps_epi32 (rounding to nearest even usually!)
-
-                // _mm256_cvtps_epi32 rounds to nearest integer.
-                // Rust 'as u32' truncates toward zero.
-
-                // This will cause differences!
-                // I should probably fix the SIMD implementation to truncate to match scalar,
-                // or accept +-1 difference.
-                // _mm256_cvttps_epi32 (truncated) exists!
-
-                // Let's check `apply_vignette_avx2` code.
-                // `_mm256_cvtps_epi32(factor_256)`. This is Round to Nearest.
-                // Scalar: `(r * factor) as u32`. This is Truncation.
-
-                // I should update SIMD to use `_mm256_cvttps_epi32` (Truncate).
-                // But wait, the previous code uses `cvtps` (Round).
-
-                // Let's assert with tolerance.
-
                 let r_s = (p_s >> 16) & 0xFF;
                 let g_s = (p_s >> 8) & 0xFF;
                 let b_s = p_s & 0xFF;
@@ -1428,7 +1385,7 @@ mod tests {
 
         // Run SIMD path
         unsafe {
-            apply_chromatic_aberration_avx2(
+            simd::apply_chromatic_aberration_avx2(
                 fb_simd.as_mut_slice(),
                 width as usize,
                 height as usize,
