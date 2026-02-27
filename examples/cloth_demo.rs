@@ -11,13 +11,63 @@ mod demo {
     use abrash::platform::{Window, WindowBackend};
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
+    use comfy_table::{Cell, Color, Table, presets};
+    use crossterm::style::Stylize;
     use std::f32::consts::PI;
     use std::time::Instant;
 
     const WIDTH: usize = 800;
     const HEIGHT: usize = 600;
 
+    fn print_banner() {
+        println!("\n{}", "🧣 Cloth Simulation".bold().magenta());
+        println!("{}", "=====================".dark_grey());
+
+        let mut table = Table::new();
+        table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("Property").fg(Color::Cyan),
+                Cell::new("Value").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("Grid Size"),
+                Cell::new("20x20 Mass Points").fg(Color::Green),
+            ])
+            .add_row(vec![
+                Cell::new("Forces"),
+                Cell::new("Gravity + Dynamic Wind").fg(Color::Yellow),
+            ])
+            .add_row(vec![
+                Cell::new("Integration"),
+                Cell::new("Verlet (Stability)").fg(Color::Magenta),
+            ]);
+
+        println!("\n{}", "⚙️  Info".bold());
+        println!("{table}");
+
+        println!("\n{}", "🎮 Controls".bold());
+        let mut controls = Table::new();
+        controls
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("Input").fg(Color::Cyan),
+                Cell::new("Action").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("Mouse"),
+                Cell::new("None"),
+            ])
+            .add_row(vec![
+                Cell::new("Keyboard"),
+                Cell::new("Close Window to Exit"),
+            ]);
+        println!("{controls}\n");
+    }
+
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        print_banner();
+
         let mut window = Window::new("Abrash - Cloth Simulation", WIDTH as u32, HEIGHT as u32)?;
         let mut fb = Framebuffer::new(WIDTH as u32, HEIGHT as u32)?;
         let mut zb = ZBuffer::new(WIDTH as u32, HEIGHT as u32)?;
