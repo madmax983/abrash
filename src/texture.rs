@@ -678,4 +678,57 @@ mod tests {
             "LOD 0.0 should sample from Level 0 (Black)"
         );
     }
+
+    #[test]
+    fn test_blend_swar_property_based() {
+        // Iterate over a range of inputs to verify correctness against floating point reference
+        // We test a subset of the full space (2^32 * 2^32 * 256 is too large)
+        // Focus on channel independence and weight interpolation.
+
+        // Test colors: Black, White, Red, Blue, Random mix
+        let colors = [
+            0xFF00_0000,
+            0xFFFF_FFFF,
+            0xFFFF_0000,
+            0xFF00_00FF,
+            0xFF80_4020,
+        ];
+
+        for &c0 in &colors {
+            for &c1 in &colors {
+                // Test all weights 0..256 with step 16
+                for w in (0..=256).step_by(16) {
+                    let inv_w = 256 - w;
+                    let result = blend_swar(c0, c1, w as u32, inv_w as u32);
+
+                    // Decompose channels
+                    let r0 = (c0 >> 16) & 0xFF;
+                    let g0 = (c0 >> 8) & 0xFF;
+                    let b0 = c0 & 0xFF;
+                    let a0 = (c0 >> 24) & 0xFF;
+
+                    let r1 = (c1 >> 16) & 0xFF;
+                    let g1 = (c1 >> 8) & 0xFF;
+                    let b1 = c1 & 0xFF;
+                    let a1 = (c1 >> 24) & 0xFF;
+
+                    let rr = (result >> 16) & 0xFF;
+                    let rg = (result >> 8) & 0xFF;
+                    let rb = result & 0xFF;
+                    let ra = (result >> 24) & 0xFF;
+
+                    // Reference calculation: (v0 * inv_w + v1 * w) >> 8
+                    let expected_r = ((r0 * inv_w + r1 * w) >> 8) & 0xFF;
+                    let expected_g = ((g0 * inv_w + g1 * w) >> 8) & 0xFF;
+                    let expected_b = ((b0 * inv_w + b1 * w) >> 8) & 0xFF;
+                    let expected_a = ((a0 * inv_w + a1 * w) >> 8) & 0xFF;
+
+                    assert_eq!(rr, expected_r, "Red channel mismatch c0={:x} c1={:x} w={}", c0, c1, w);
+                    assert_eq!(rg, expected_g, "Green channel mismatch c0={:x} c1={:x} w={}", c0, c1, w);
+                    assert_eq!(rb, expected_b, "Blue channel mismatch c0={:x} c1={:x} w={}", c0, c1, w);
+                    assert_eq!(ra, expected_a, "Alpha channel mismatch c0={:x} c1={:x} w={}", c0, c1, w);
+                }
+            }
+        }
+    }
 }

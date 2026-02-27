@@ -46,17 +46,17 @@ const ESTIMATED_LINE_LENGTH: usize = 40;
 struct VertexKey(u64);
 
 impl VertexKey {
-    fn new(v_idx: usize, vt_idx: Option<usize>, vn_idx: Option<usize>) -> Self {
+    fn new(v_idx: usize, vt_idx: Option<usize>, vn_idx: Option<usize>) -> Option<Self> {
         let k_v = v_idx as u64;
         let k_vt = vt_idx.map_or(SENTINEL, |i| i as u64);
         let k_vn = vn_idx.map_or(SENTINEL, |i| i as u64);
 
-        // Ensure indices fit in 20 bits (sanity check, though parser limits MAX_VERTICES)
-        debug_assert!(k_v <= SENTINEL);
-        debug_assert!(k_vt <= SENTINEL);
-        debug_assert!(k_vn <= SENTINEL);
+        // Ensure indices fit in 20 bits
+        if k_v > SENTINEL || k_vt > SENTINEL || k_vn > SENTINEL {
+            return None;
+        }
 
-        Self(k_v | (k_vt << 20) | (k_vn << 40))
+        Some(Self(k_v | (k_vt << 20) | (k_vn << 40)))
     }
 }
 
@@ -255,7 +255,8 @@ impl ObjParser {
             ));
         }
 
-        let key = VertexKey::new(v_idx, vt_idx, vn_idx);
+        let key = VertexKey::new(v_idx, vt_idx, vn_idx)
+            .ok_or_else(|| format!("Line {line_num}: Indices exceed implementation limit"))?;
 
         if let Some(&idx) = self.deduplicator.get(&key) {
             return Ok(idx);
