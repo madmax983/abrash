@@ -29,6 +29,7 @@ dependencies = [
  "comfy-table",
  "criterion",
  "crossterm",
+ "foldhash 0.2.0",
  "fyrox",
  "proptest",
  "rand 0.8.5",
