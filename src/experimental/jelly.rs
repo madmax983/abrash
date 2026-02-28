@@ -225,6 +225,13 @@ impl SoftBody {
         }
     }
 
+    /// Adds a custom spring to the soft body simulation.
+    pub fn add_spring(&mut self, index_a: usize, index_b: usize, rest_length: f32) {
+        self.spring_indices_a.push(index_a);
+        self.spring_indices_b.push(index_b);
+        self.spring_rest_lengths.push(rest_length);
+    }
+
     /// Updates the physics simulation by one time step.
     pub fn update(&mut self, dt: f32) {
         // Validation: Ensure mesh topology is compatible with physics state
@@ -274,11 +281,12 @@ impl SoftBody {
             let v_b = self.velocities[idx_b];
 
             let delta = p_b - p_a;
-            let current_length = delta.length();
+            let len_sq = delta.length_sq();
 
-            if current_length > 0.0001 {
-                // Optimization: reuse current_length to normalize, avoiding rsqrt/sqrt
-                let direction = delta * (1.0 / current_length);
+            if len_sq > 0.0001 {
+                let inv_len = crate::math::fast_inv_sqrt(len_sq);
+                let current_length = len_sq * inv_len;
+                let direction = delta * inv_len;
 
                 // Hooke's Law: F = -k * (x - x0)
                 let displacement = current_length - rest_len;
@@ -443,7 +451,7 @@ impl SoftBody {
             // Length sq = dx*dx + dy*dy + dz*dz
             let len_sq = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dx, dx), _mm256_mul_ps(dy, dy)),
-                _mm256_mul_ps(dz, dz)
+                _mm256_mul_ps(dz, dz),
             );
 
             // Mask for length > epsilon
@@ -477,7 +485,7 @@ impl SoftBody {
             // v_rel . dir
             let v_dot_dir = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dv_x, dir_x), _mm256_mul_ps(dv_y, dir_y)),
-                _mm256_mul_ps(dv_z, dir_z)
+                _mm256_mul_ps(dv_z, dir_z),
             );
 
             // damping = -d * dot
