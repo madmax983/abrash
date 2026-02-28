@@ -24,3 +24,7 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+## [Reduction]
+**Bloat:** [Structure of Arrays direct manipulation in demo, unused variables and imports, formatting issues]
+**Cut:** [Added `add_spring` helper, prefixed unused vars with _, removed unused imports, ran cargo fmt]
+**Saved:** [Better encapsulation, cleaner code, no warnings]

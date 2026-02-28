@@ -605,15 +605,15 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::framebuffer::Framebuffer;
-    use crate::math::Mat4;
-    use crate::zbuffer::ZBuffer;
-    use std::f32::consts::PI;
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     fn test_ssao_simd_vs_scalar() {
+        use super::*;
+        use crate::framebuffer::Framebuffer;
+        use crate::math::Mat4;
+        use crate::zbuffer::ZBuffer;
+        use std::f32::consts::PI;
         if !std::is_x86_feature_detected!("avx2") {
             return;
         }

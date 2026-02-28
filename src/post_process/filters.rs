@@ -103,18 +103,16 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 
     // Process pairs of rows: even row (kept), odd row (darkened)
     // chunks_exact_mut(width * 2) gives us 2 rows at a time.
-    pixels
-        .chunks_exact_mut(width * 2)
-        .for_each(|rows| {
-            // Second half is the odd row
-            let odd_row = &mut rows[width..];
-            for pixel in odd_row {
-                let p = *pixel;
-                // Halve RGB components: (color >> 1) & mask
-                // Preserve Alpha: (p & 0xFF00_0000)
-                *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
-            }
-        });
+    pixels.chunks_exact_mut(width * 2).for_each(|rows| {
+        // Second half is the odd row
+        let odd_row = &mut rows[width..];
+        for pixel in odd_row {
+            let p = *pixel;
+            // Halve RGB components: (color >> 1) & mask
+            // Preserve Alpha: (p & 0xFF00_0000)
+            *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+        }
+    });
 
     // Handle remaining odd row if height is odd
     // If height is odd, chunks_exact_mut leaves exactly one row remainder?
@@ -359,12 +357,12 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
                 //  L C  R
                 // BL B BR
                 let tl = i32::from(lum_slice[prev_row_offset + x - 1]);
-                let t  = i32::from(lum_slice[prev_row_offset + x]);
+                let t = i32::from(lum_slice[prev_row_offset + x]);
                 let tr = i32::from(lum_slice[prev_row_offset + x + 1]);
-                let l  = i32::from(lum_slice[row_offset + x - 1]);
-                let r  = i32::from(lum_slice[row_offset + x + 1]);
+                let l = i32::from(lum_slice[row_offset + x - 1]);
+                let r = i32::from(lum_slice[row_offset + x + 1]);
                 let bl = i32::from(lum_slice[next_row_offset + x - 1]);
-                let b  = i32::from(lum_slice[next_row_offset + x]);
+                let b = i32::from(lum_slice[next_row_offset + x]);
                 let br = i32::from(lum_slice[next_row_offset + x + 1]);
 
                 // Gx Kernel
