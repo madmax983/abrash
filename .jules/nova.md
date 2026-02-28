@@ -37,3 +37,8 @@
 **Concept:** A system to convert mathematical Signed Distance Fields (SDFs) into renderable triangle meshes using the Marching Tetrahedra algorithm.
 **Fate:** Merged
 **Lesson:** Standard Marching Cubes tables found online often use different vertex/edge ordering conventions; deriving the 16 cases of Marching Tetrahedra manually is more reliable and ensures topological correctness.
+
+## [Magic Eye]
+**Concept:** Generates Single Image Random Dot Stereograms (SIRDS) directly from the depth buffer.
+**Fate:** Merged
+**Lesson:** Converting depths into horizontal pixel shifts using a disjoint-set (union-find) array simplifies maintaining the repeating noise pattern across varying depth discontinuities.

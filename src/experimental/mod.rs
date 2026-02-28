@@ -15,6 +15,7 @@
 //! *   [`cloth`]: Cloth simulation using Verlet integration.
 //! *   [`sdf`]: Signed Distance Field rendering experiments.
 //! *   [`procedural_mesh`]: Procedural mesh generation (terrain, noise).
+//! *   [`magic_eye`]: Magic Eye (Autostereogram) generation.
 //!
 //! ## Feature Flags
 //!
@@ -31,6 +32,7 @@ pub mod dither;
 pub mod glitch;
 pub mod isosurface;
 pub mod jelly;
+pub mod magic_eye;
 pub mod procedural_mesh;
 pub mod raytracer;
 pub mod sdf;
