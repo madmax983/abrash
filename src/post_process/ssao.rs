@@ -87,7 +87,6 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
-        let _precomputed_kernels = &ctx.precomputed_kernel_buffer;
 
         // Projection parameters
         // Flatten matrix for SIMD
@@ -126,10 +125,12 @@ pub fn apply_ssao(
                     proj,
                     kernel,
                     noise,
-                    width,
-                    height,
-                    radius,
-                    bias,
+                    &SsaoConfig {
+                        width,
+                        height,
+                        radius,
+                        bias,
+                    },
                 );
             }
         }
@@ -140,10 +141,12 @@ pub fn apply_ssao(
             proj,
             kernel,
             noise,
-            width,
-            height,
-            radius,
-            bias,
+            &SsaoConfig {
+                width,
+                height,
+                radius,
+                bias,
+            },
         );
 
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
@@ -167,16 +170,20 @@ pub fn apply_ssao(
     });
 }
 
+struct SsaoConfig {
+    width: usize,
+    height: usize,
+    radius: f32,
+    bias: f32,
+}
+
 fn apply_ssao_scalar(
     occlusion_buffer: &mut [f32],
     zb: &ZBuffer,
     proj: &Mat4,
     kernel: &[Vec3],
     noise: &[Vec3],
-    width: usize,
-    height: usize,
-    radius: f32,
-    bias: f32,
+    config: &SsaoConfig,
 ) {
     // Projection parameters
     let p00 = proj.m[0][0];
@@ -184,12 +191,12 @@ fn apply_ssao_scalar(
     let p22 = proj.m[2][2];
     let p32 = proj.m[3][2];
 
-    let half_width = width as f32 * 0.5;
-    let half_height = height as f32 * 0.5;
+    let half_width = config.width as f32 * 0.5;
+    let half_height = config.height as f32 * 0.5;
 
-    for y in 0..height {
+    for y in 0..config.height {
         let noise_y = y % NOISE_SIZE;
-        for x in 0..width {
+        for x in 0..config.width {
             let noise_x = x % NOISE_SIZE;
             let noise_idx = noise_y * NOISE_SIZE + noise_x;
             let random_vec = noise[noise_idx];
@@ -197,7 +204,7 @@ fn apply_ssao_scalar(
             let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
             if depth_val >= 1.0 {
-                occlusion_buffer[y * width + x] = 0.0;
+                occlusion_buffer[y * config.width + x] = 0.0;
                 continue;
             }
 
@@ -217,7 +224,7 @@ fn apply_ssao_scalar(
             for s in kernel.iter().take(KERNEL_SIZE) {
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
-                let sample_pos = pos_view + rotated_sample * radius;
+                let sample_pos = pos_view + rotated_sample * config.radius;
                 let (sample_clip, sample_w) = proj.transform_point(sample_pos);
 
                 if sample_w > 0.0 {
@@ -229,23 +236,23 @@ fn apply_ssao_scalar(
                     let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
 
                     if s_screen_x >= 0
-                        && s_screen_x < width as i32
+                        && s_screen_x < config.width as i32
                         && s_screen_y >= 0
-                        && s_screen_y < height as i32
+                        && s_screen_y < config.height as i32
                     {
                         let existing_depth = zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
                         let existing_view_z = -p32 / (existing_depth + p22);
                         let sample_view_z = sample_pos.z;
-                        let range_check = (existing_view_z - sample_view_z).abs() < radius;
+                        let range_check = (existing_view_z - sample_view_z).abs() < config.radius;
 
-                        if existing_view_z >= sample_view_z + bias && range_check {
+                        if existing_view_z >= sample_view_z + config.bias && range_check {
                             occlusion += 1.0;
                         }
                     }
                 }
             }
 
-            occlusion_buffer[y * width + x] = occlusion;
+            occlusion_buffer[y * config.width + x] = occlusion;
         }
     }
 }
@@ -554,9 +561,7 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
     let mut buffer = vec![0.0; NOISE_SIZE * KERNEL_SIZE * 2 * 8];
 
     for ny in 0..NOISE_SIZE {
-        for k in 0..KERNEL_SIZE {
-            let s = kernel[k];
-
+        for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
             // For each of the 8 SIMD lanes, we have a different x => different noise_x
             // Lane i corresponds to pixel x_base + i.
             // noise_x = (x_base + i) % NOISE_SIZE.
@@ -652,10 +657,12 @@ mod tests {
             &proj,
             &kernel,
             &noise,
-            width as usize,
-            height as usize,
-            1.0,
-            0.001,
+            &SsaoConfig {
+                width: width as usize,
+                height: height as usize,
+                radius: 1.0,
+                bias: 0.001,
+            },
         );
 
         unsafe {

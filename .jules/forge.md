@@ -12,3 +12,4 @@
 **[Rasterizer God Module]**
 **Learning:** `src/rasterizer.rs` has grown to include texture management, multiple rasterization algorithms (flat, gouraud, textured), and interpolation helpers in a single file > 800 lines. This makes it hard to navigate and refactor isolated parts.
 **Action:** Future refactors should prioritize splitting `rasterizer.rs` into submodules: `texture.rs`, `rasterizer/mod.rs` (traits?), and algorithm-specific implementations.
+**SSAO Context Refactor**\n**Learning:** Extracting long parameter lists into config structs like `SsaoConfig` significantly improves function readability and call-site clarity.\n**Action:** Use configuration structs for algorithms with numerous tuning parameters.

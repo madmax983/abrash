@@ -68,9 +68,9 @@
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
 //! ```
 
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -1290,9 +1290,7 @@ fn rasterize_scanline_simd(
 
     // --- Main SIMD Loop (Aligned) ---
     unsafe {
-        use std::arch::x86_64::{
-            _mm256_cmp_ps, _mm256_store_ps, _mm256_store_si256, _CMP_GE_OQ,
-        };
+        use std::arch::x86_64::{_CMP_GE_OQ, _mm256_cmp_ps, _mm256_store_ps, _mm256_store_si256};
 
         // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
         let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
@@ -2170,7 +2168,11 @@ impl TileRenderer {
         &mut self,
         fb: &mut Framebuffer,
         zb: &mut ZBuffer,
-        triangles: &[(((Vec3, f32), Vec3), ((Vec3, f32), Vec3), ((Vec3, f32), Vec3))],
+        triangles: &[(
+            ((Vec3, f32), Vec3),
+            ((Vec3, f32), Vec3),
+            ((Vec3, f32), Vec3),
+        )],
     ) {
         assert_eq!(fb.width(), self.width);
         assert_eq!(fb.height(), self.height);
@@ -2317,14 +2319,10 @@ impl TileRenderer {
                                 let fb_start = row as usize * width as usize + tile_x0 as usize;
 
                                 for col in 0..tile_cols {
-                                    fb_ptr.write(
-                                        fb_start + col,
-                                        tile_pixels[tile_row_offset + col],
-                                    );
-                                    zb_ptr.write(
-                                        fb_start + col,
-                                        tile_depths[tile_row_offset + col],
-                                    );
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         }
@@ -2440,9 +2438,21 @@ impl TileRenderer {
             );
 
             results.push(PreparedGouraudTriangle {
-                p0: CompactScreenPoint { x: p0.x as i16, y: p0.y as i16, z: p0.z },
-                p1: CompactScreenPoint { x: p1.x as i16, y: p1.y as i16, z: p1.z },
-                p2: CompactScreenPoint { x: p2.x as i16, y: p2.y as i16, z: p2.z },
+                p0: CompactScreenPoint {
+                    x: p0.x as i16,
+                    y: p0.y as i16,
+                    z: p0.z,
+                },
+                p1: CompactScreenPoint {
+                    x: p1.x as i16,
+                    y: p1.y as i16,
+                    z: p1.z,
+                },
+                p2: CompactScreenPoint {
+                    x: p2.x as i16,
+                    y: p2.y as i16,
+                    z: p2.z,
+                },
                 c0: c0_fixed,
                 c1: c1_fixed,
                 c2: c2_fixed,
@@ -2499,7 +2509,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&mut self) {
+    fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -2871,8 +2881,10 @@ impl TileRenderer {
             // Calculate triangle bounds in tile coordinates
             let tx_min_tri = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
             let ty_min_tri = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
-            let tx_max_tri = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
-            let ty_max_tri = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+            let tx_max_tri =
+                ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+            let ty_max_tri =
+                ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
             // Calculate bounds in coarse bin coordinates
             let cx_min = tx_min_tri / coarse_size;
@@ -2942,7 +2954,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&mut self) {
+    fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3088,7 +3100,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&mut self) {
+    fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;
@@ -3510,7 +3522,12 @@ mod tests {
         tr.bin_triangle(0);
 
         // Count how many tiles have this triangle
-        let binned_count = tr.tile_bins.heads.iter().filter(|&&h| h != u32::MAX).count();
+        let binned_count = tr
+            .tile_bins
+            .heads
+            .iter()
+            .filter(|&&h| h != u32::MAX)
+            .count();
         assert_eq!(
             binned_count, 1,
             "Small triangle should bin to exactly 1 tile"
@@ -3532,7 +3549,12 @@ mod tests {
 
         tr.bin_triangle(0);
 
-        let binned_count = tr.tile_bins.heads.iter().filter(|&&h| h != u32::MAX).count();
+        let binned_count = tr
+            .tile_bins
+            .heads
+            .iter()
+            .filter(|&&h| h != u32::MAX)
+            .count();
         assert!(
             binned_count > 1,
             "Large triangle should bin to multiple tiles, got {binned_count}"
@@ -4032,7 +4054,10 @@ mod tests {
         // Optimization: PreparedTriangle should fit in 64 bytes (1 cache line).
         // Original size: 84 bytes (with ScreenPoint and i32 AABBs).
         // New size: ~52 bytes (with CompactScreenPoint and i16 AABBs).
-        assert!(size_of::<PreparedTriangle>() <= 64, "PreparedTriangle should fit in a cache line");
+        assert!(
+            size_of::<PreparedTriangle>() <= 64,
+            "PreparedTriangle should fit in a cache line"
+        );
         println!("PreparedTriangle size: {}", size_of::<PreparedTriangle>());
     }
 
@@ -4163,7 +4188,7 @@ fn render_triangle_in_tile_gouraud(
     screen_w: i32,
 ) {
     let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
+    let _p1_y = i32::from(tri.p1.y);
     let p2_y = i32::from(tri.p2.y);
 
     let y_start = p0_y.max(tile_y0);
@@ -4194,9 +4219,21 @@ fn render_triangle_in_tile_gouraud(
 
     // Reconstruction from vertices:
     // We need Vec3 colors.
-    let c0 = Vec3::new(tri.c0.0 as f32 / 65536.0, tri.c0.1 as f32 / 65536.0, tri.c0.2 as f32 / 65536.0);
-    let c1 = Vec3::new(tri.c1.0 as f32 / 65536.0, tri.c1.1 as f32 / 65536.0, tri.c1.2 as f32 / 65536.0);
-    let c2 = Vec3::new(tri.c2.0 as f32 / 65536.0, tri.c2.1 as f32 / 65536.0, tri.c2.2 as f32 / 65536.0);
+    let c0 = Vec3::new(
+        tri.c0.0 as f32 / 65536.0,
+        tri.c0.1 as f32 / 65536.0,
+        tri.c0.2 as f32 / 65536.0,
+    );
+    let c1 = Vec3::new(
+        tri.c1.0 as f32 / 65536.0,
+        tri.c1.1 as f32 / 65536.0,
+        tri.c1.2 as f32 / 65536.0,
+    );
+    let c2 = Vec3::new(
+        tri.c2.0 as f32 / 65536.0,
+        tri.c2.1 as f32 / 65536.0,
+        tri.c2.2 as f32 / 65536.0,
+    );
 
     let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
     if y_start > p0.y {
@@ -4226,9 +4263,19 @@ fn render_triangle_in_tile_gouraud(
         }
 
         let (x_start, x_end, z_left, c_left) = if tri.long_edge_is_left {
-            ((edge_a.x >> 16) as i32, (edge_b.x >> 16) as i32, edge_a.z, edge_a.c)
+            (
+                (edge_a.x >> 16) as i32,
+                (edge_b.x >> 16) as i32,
+                edge_a.z,
+                edge_a.c,
+            )
         } else {
-            ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z, edge_b.c)
+            (
+                (edge_b.x >> 16) as i32,
+                (edge_a.x >> 16) as i32,
+                edge_b.z,
+                edge_b.c,
+            )
         };
 
         let dx = i64::from(x_end) - i64::from(x_start);
@@ -4279,10 +4326,14 @@ fn render_triangle_in_tile_gouraud(
                 {
                     if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
                         unsafe {
-                            draw_scanline_gouraud_simd_fast(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                            draw_scanline_gouraud_simd_fast(
+                                pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
+                            );
                         }
                     } else {
-                        draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                        draw_scanline_gouraud_i32_tile(
+                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
+                        );
                     }
                 }
                 #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]

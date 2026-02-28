@@ -20,12 +20,14 @@ pub struct Cubemap {
 
 impl Cubemap {
     /// Create a new Cubemap from 6 textures.
-    pub fn new(faces: [Texture; 6]) -> Self {
+    #[must_use]
+    pub const fn new(faces: [Texture; 6]) -> Self {
         Self { faces }
     }
 
     /// Sample the cubemap using a direction vector.
     /// Used for CPU-side ray tracing or reference.
+    #[must_use]
     pub fn sample(&self, dir: Vec3) -> u32 {
         let abs_x = dir.x.abs();
         let abs_y = dir.y.abs();

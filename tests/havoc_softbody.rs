@@ -1,6 +1,6 @@
 use abrash::experimental::jelly::SoftBody;
-use abrash::mesh::Mesh;
 use abrash::math::Vec3;
+use abrash::mesh::Mesh;
 
 #[test]
 fn test_truncated_mesh_resilience() {
