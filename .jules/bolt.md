@@ -7,3 +7,7 @@
 **[Optimization Trap: Intrinsics vs Inlining]**
 **Learning:** Attempting to optimize `Vec3::normalize` with `unsafe` SIMD intrinsics (`rsqrtss`) caused precision regressions in tests and violated safety policies. However, simply adding `#[inline]` to `Vec3::length` provided a ~50% speedup (11.3ns -> 5.7ns), matching the performance of the unsafe intrinsic version without the downsides.
 **Action:** Always profile function call overhead and inlining (`#[inline]`) before resorting to `unsafe` intrinsics. Precision loss from fast-math approximations can break regression tests.
+
+**[Performance Optimization: Rayon Collection Allocations]**
+**Learning:** Using `.fold(Vec::new, ...).flatten().collect()` in Rayon parallel iterators creates an intermediate heap-allocated `Vec` for each thread/chunk, generating high allocation overhead.
+**Action:** Replace this pattern with `.flat_map_iter(...)` or `.flat_map(...)` which returns an iterator of values. This avoids all intermediate `Vec` allocations and correctly fuses into a single allocation during `.collect()`, maintaining zero-cost abstractions for data parallel operations.
