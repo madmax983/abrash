@@ -97,8 +97,8 @@ fn main() {
     results
         .load_preset(presets::UTF8_FULL)
         .set_header(vec![
-             Cell::new("Metric").fg(Color::Cyan),
-             Cell::new("Result").fg(Color::Cyan),
+            Cell::new("Metric").fg(Color::Cyan),
+            Cell::new("Result").fg(Color::Cyan),
         ])
         .add_row(vec![
             Cell::new("Total Time"),
