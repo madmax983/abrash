@@ -1,4 +1,4 @@
-use abrash::math::{ScreenPoint, Vec3, project_to_screen_optimized, project_triangle_to_screen};
+use abrash::math::{Vec3, project_to_screen_optimized, project_triangle_to_screen};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 pub fn criterion_benchmark(c: &mut Criterion) {

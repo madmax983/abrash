@@ -10,7 +10,7 @@ fn bench_aabb_transform(c: &mut Criterion) {
 
     group.bench_function("transform", |b| {
         b.iter(|| {
-            aabb.transform(&transform);
+            let _ = aabb.transform(&transform);
         })
     });
 

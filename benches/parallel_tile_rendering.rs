@@ -1,30 +1,8 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
+use abrash::math::Vec3;
 use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-
-/// Setup a cube's transformed vertices and MVP for consistent benchmarks
-fn setup_cube(aspect: f32) -> (Mesh, Vec<(Vec3, f32)>) {
-    let mesh = Mesh::cube(2.0);
-    let model = Mat4::rotation_x(0.5) * Mat4::rotation_y(0.5);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 0.0, -5.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
-    let projection = Mat4::perspective(1.57, aspect, 0.1, 100.0);
-    let mvp = model * view * projection;
-
-    let transformed: Vec<(Vec3, f32)> = mesh
-        .vertices
-        .iter()
-        .map(|v| mvp.transform_point(*v))
-        .collect();
-
-    (mesh, transformed)
-}
 
 /// Generate overlapping triangles that all hit roughly the same screen region.
 fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {

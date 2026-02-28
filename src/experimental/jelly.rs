@@ -225,6 +225,13 @@ impl SoftBody {
         }
     }
 
+    /// Adds a custom spring between two vertices.
+    pub fn add_spring(&mut self, index_a: usize, index_b: usize, rest_length: f32) {
+        self.spring_indices_a.push(index_a);
+        self.spring_indices_b.push(index_b);
+        self.spring_rest_lengths.push(rest_length);
+    }
+
     /// Updates the physics simulation by one time step.
     pub fn update(&mut self, dt: f32) {
         // Validation: Ensure mesh topology is compatible with physics state

@@ -4,7 +4,7 @@ use std::error::Error;
 
 #[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
+    use abrash::experimental::jelly::SoftBody;
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
@@ -51,26 +51,10 @@ mod demo {
 
         // Add internal cross-bracing springs for stability
         let diag_len = (jelly.mesh.vertices[0] - jelly.mesh.vertices[6]).length();
-        jelly.springs.push(Spring {
-            index_a: 0,
-            index_b: 6,
-            rest_length: diag_len,
-        });
-        jelly.springs.push(Spring {
-            index_a: 1,
-            index_b: 7,
-            rest_length: diag_len,
-        });
-        jelly.springs.push(Spring {
-            index_a: 2,
-            index_b: 4,
-            rest_length: diag_len,
-        });
-        jelly.springs.push(Spring {
-            index_a: 3,
-            index_b: 5,
-            rest_length: diag_len,
-        });
+        jelly.add_spring(0, 6, diag_len);
+        jelly.add_spring(1, 7, diag_len);
+        jelly.add_spring(2, 4, diag_len);
+        jelly.add_spring(3, 5, diag_len);
 
         // Camera
         let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 100.0);
