@@ -35,3 +35,8 @@
 3.  **Refactor:** Updated imports in `src/scene.rs` and tests to use `abrash::rasterizer::TileRenderer`.
 
 **Result:** Improved cohesion within the `rasterizer` module. Reduced surface area of `src/lib.rs`. Stronger encapsulation of rasterizer internals.
+
+## [Encapsulate SoftBody SoA Layout]
+**Tangle:** The `SoftBody` struct's Structure-of-Arrays (SoA) memory layout (`spring_indices_a`, `spring_indices_b`, `spring_rest_lengths`) was leaky, requiring consumers (like `examples/jelly_demo.rs`) to directly mutate internal properties, which broke when trying to treat the object as having a list of "spring" objects.
+**Blueprint:** Added a new public method `add_spring` to `SoftBody`, maintaining the underlying SoA storage for SIMD logic while safely exposing the desired functionality through a clean public interface.
+**Stability:** Internal SoA structure details hidden behind proper abstraction.
