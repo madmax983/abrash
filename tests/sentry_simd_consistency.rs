@@ -104,9 +104,9 @@ proptest! {
             // Helper to check closeness
             let check = |a: f32, b: f32, name: &str| {
                 if a.is_nan() {
-                    assert!(b.is_nan(), "{} mismatch: SIMD=NaN, Scalar={}", name, b);
+                    assert!(b.is_nan(), "{name} mismatch: SIMD=NaN, Scalar={b}");
                 } else if a.is_infinite() {
-                    assert_eq!(a, b, "{} mismatch: SIMD={}, Scalar={}", name, a, b);
+                    assert_eq!(a, b, "{name} mismatch: SIMD={a}, Scalar={b}");
                 } else {
                     let diff = (a - b).abs();
                     // Relative error for large numbers
@@ -114,7 +114,7 @@ proptest! {
                     if max_abs > 1.0 {
                          assert!(diff / max_abs < eps, "{} mismatch: {} vs {} (rel diff {})", name, a, b, diff/max_abs);
                     } else {
-                         assert!(diff < eps, "{} mismatch: {} vs {}", name, a, b);
+                         assert!(diff < eps, "{name} mismatch: {a} vs {b}");
                     }
                 }
             };

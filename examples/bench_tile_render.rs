@@ -44,7 +44,7 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
         ])
         .add_row(vec![
             Cell::new("Resolution"),
-            Cell::new(format!("{}x{}", width, height)).fg(Color::Yellow),
+            Cell::new(format!("{width}x{height}")).fg(Color::Yellow),
         ])
         .add_row(vec![
             Cell::new("Triangles"),
@@ -84,21 +84,21 @@ fn main() {
     }
 
     let iterations = 20;
-    println!("⏱️  Running benchmark ({} frames)...", iterations);
+    println!("⏱️  Running benchmark ({iterations} frames)...");
     let start = Instant::now();
     for _ in 0..iterations {
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
     let duration = start.elapsed();
-    let avg_time = duration.as_secs_f64() * 1000.0 / iterations as f64;
+    let avg_time = duration.as_secs_f64() * 1000.0 / f64::from(iterations);
 
     let mut results = Table::new();
     results
         .load_preset(presets::UTF8_FULL)
         .set_header(vec![
-             Cell::new("Metric").fg(Color::Cyan),
-             Cell::new("Result").fg(Color::Cyan),
+            Cell::new("Metric").fg(Color::Cyan),
+            Cell::new("Result").fg(Color::Cyan),
         ])
         .add_row(vec![
             Cell::new("Total Time"),
@@ -106,7 +106,7 @@ fn main() {
         ])
         .add_row(vec![
             Cell::new("Avg Time / Frame").add_attribute(comfy_table::Attribute::Bold),
-            Cell::new(format!("{:.4} ms", avg_time))
+            Cell::new(format!("{avg_time:.4} ms"))
                 .fg(Color::Green)
                 .add_attribute(comfy_table::Attribute::Bold),
         ]);

@@ -32,7 +32,7 @@ fn bench_overdraw_sorting(c: &mut Criterion) {
             fb.clear(0xFF000000);
             zb.clear();
             renderer.render_batch(&mut fb, &mut zb, &triangles);
-        })
+        });
     });
 }
 
