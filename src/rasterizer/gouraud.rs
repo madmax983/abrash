@@ -532,7 +532,12 @@ pub(crate) struct GouraudEdgeWalker {
 }
 
 impl GouraudEdgeWalker {
-    pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+    pub(crate) fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        c_start: Vec3,
+        c_end: Vec3,
+    ) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let (dx_dy, dz_dy, dc_dy) = if height == 0.0 {
             (0, 0.0, (0, 0, 0))
