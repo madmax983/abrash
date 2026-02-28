@@ -31,6 +31,7 @@ pub mod dither;
 pub mod glitch;
 pub mod isosurface;
 pub mod jelly;
+pub mod pixel_sort;
 pub mod procedural_mesh;
 pub mod raytracer;
 pub mod sdf;
