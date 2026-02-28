@@ -30,7 +30,35 @@ impl Plane {
     }
 
     /// Signed distance from a point to the plane.
-    /// Positive if on the side of the normal.
+    ///
+    /// The distance is positive if the point is on the side of the plane
+    /// towards which the normal points (the "front" or "inside"), and negative if it's on the
+    /// opposite side.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    /// use abrash::culling::Plane;
+    ///
+    /// // A plane facing "up" along the Y axis, passing through the origin.
+    /// let plane = Plane {
+    ///     normal: Vec3::new(0.0, 1.0, 0.0),
+    ///     distance: 0.0,
+    /// };
+    ///
+    /// // A point exactly on the plane
+    /// let p_on = Vec3::new(5.0, 0.0, -3.0);
+    /// assert_eq!(plane.distance_to_point(p_on), 0.0);
+    ///
+    /// // A point above the plane (in the direction of the normal)
+    /// let p_above = Vec3::new(0.0, 10.0, 0.0);
+    /// assert_eq!(plane.distance_to_point(p_above), 10.0);
+    ///
+    /// // A point below the plane
+    /// let p_below = Vec3::new(0.0, -5.0, 0.0);
+    /// assert_eq!(plane.distance_to_point(p_below), -5.0);
+    /// ```
     #[must_use]
     pub fn distance_to_point(&self, point: Vec3) -> f32 {
         self.normal.dot(point) + self.distance

@@ -218,6 +218,32 @@ impl SoftBody {
         })
     }
 
+    /// Connects two vertices with a physical spring.
+    ///
+    /// This is useful for adding internal cross-bracing to a soft body, which prevents
+    /// it from collapsing in on itself (since a mesh only defines surface edges by default).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::experimental::jelly::SoftBody;
+    /// use abrash::mesh::Mesh;
+    /// use abrash::math::Vec3;
+    ///
+    /// let mut mesh = Mesh::cube(1.0);
+    /// let mut jelly = SoftBody::new(mesh, 1.0, 100.0, 1.0).unwrap();
+    ///
+    /// // Add a diagonal cross-brace spring between opposite corners
+    /// let p0 = jelly.mesh.vertices[0];
+    /// let p6 = jelly.mesh.vertices[6];
+    /// jelly.add_spring(0, 6, (p0 - p6).length());
+    /// ```
+    pub fn add_spring(&mut self, index_a: usize, index_b: usize, rest_length: f32) {
+        self.spring_indices_a.push(index_a);
+        self.spring_indices_b.push(index_b);
+        self.spring_rest_lengths.push(rest_length);
+    }
+
     /// Applies an external force to a specific vertex.
     pub fn apply_force(&mut self, index: usize, force: Vec3) {
         if index < self.forces.len() {
@@ -443,7 +469,7 @@ impl SoftBody {
             // Length sq = dx*dx + dy*dy + dz*dz
             let len_sq = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dx, dx), _mm256_mul_ps(dy, dy)),
-                _mm256_mul_ps(dz, dz)
+                _mm256_mul_ps(dz, dz),
             );
 
             // Mask for length > epsilon
@@ -477,7 +503,7 @@ impl SoftBody {
             // v_rel . dir
             let v_dot_dir = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dv_x, dir_x), _mm256_mul_ps(dv_y, dir_y)),
-                _mm256_mul_ps(dv_z, dir_z)
+                _mm256_mul_ps(dv_z, dir_z),
             );
 
             // damping = -d * dot

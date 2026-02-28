@@ -469,14 +469,42 @@ pub fn draw_scanline_gouraud_i32(
     }
 }
 
+/// Gradients for Gouraud (per-vertex) color interpolation across a triangle.
+///
+/// This struct holds the per-pixel rate of change for the Z-depth and the
+/// RGB color channels (in fixed-point format) to efficiently interpolate
+/// values along scanlines.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::{ScreenPoint, Vec3};
+/// use abrash::rasterizer::gouraud::GouraudGradients;
+///
+/// let p0 = ScreenPoint { x: 0, y: 0, z: 1.0, inv_w: 1.0 };
+/// let p1 = ScreenPoint { x: 10, y: 0, z: 1.0, inv_w: 1.0 };
+/// let p2 = ScreenPoint { x: 0, y: 10, z: 1.0, inv_w: 1.0 };
+///
+/// let c0 = Vec3::new(1.0, 0.0, 0.0);
+/// let c1 = Vec3::new(0.0, 1.0, 0.0);
+/// let c2 = Vec3::new(0.0, 0.0, 1.0);
+///
+/// let (gradients, is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
+/// ```
 #[derive(Clone, Copy)]
-pub(crate) struct GouraudGradients {
-    pub(crate) dz_dx: f32,
-    pub(crate) dc_dx: (i32, i32, i32),
+pub struct GouraudGradients {
+    /// Change in depth (Z) per X pixel.
+    pub dz_dx: f32,
+    /// Change in Color (R, G, B) per X pixel in 16.16 fixed-point format.
+    pub dc_dx: (i32, i32, i32),
 }
 
 impl GouraudGradients {
-    pub(crate) fn new(
+    /// Calculates the gradients for a given triangle and its vertex colors.
+    ///
+    /// Returns the calculated gradients and a boolean indicating the winding order
+    /// (`true` if the long edge is on the left side of the triangle, relative to `p0`->`p2`).
+    pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -532,7 +560,12 @@ pub(crate) struct GouraudEdgeWalker {
 }
 
 impl GouraudEdgeWalker {
-    pub(crate) fn new(p_start: ScreenPoint, p_end: ScreenPoint, c_start: Vec3, c_end: Vec3) -> Self {
+    pub(crate) fn new(
+        p_start: ScreenPoint,
+        p_end: ScreenPoint,
+        c_start: Vec3,
+        c_end: Vec3,
+    ) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let (dx_dy, dz_dy, dc_dy) = if height == 0.0 {
             (0, 0.0, (0, 0, 0))
