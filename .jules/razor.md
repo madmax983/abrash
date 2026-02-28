@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** Seven unused experimental modules (`dither`, `glitch`, `isosurface`, `procedural_mesh`, `voxel_explosion`, `voxelizer`, `volume`) and the unused `Spring` struct in `jelly.rs`.
+**Cut:** Deleted all seven unused experimental modules. Removed the `Spring` struct from `SoftBody` since it utilizes a Structure-of-Arrays (SoA) layout instead.
+**Saved:** 7 files (~600 lines of dead code) and 1 struct definition, further minimizing the codebase.

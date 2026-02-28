@@ -123,14 +123,6 @@ unsafe fn gather_vec3s_avx(
     (vx, vy, vz)
 }
 
-/// A spring connecting two vertices.
-#[derive(Debug, Clone, Copy)]
-pub struct Spring {
-    pub index_a: usize,
-    pub index_b: usize,
-    pub rest_length: f32,
-}
-
 /// A soft-body object that can simulate physics.
 pub struct SoftBody {
     /// The visual mesh (updated every frame).
@@ -443,7 +435,7 @@ impl SoftBody {
             // Length sq = dx*dx + dy*dy + dz*dz
             let len_sq = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dx, dx), _mm256_mul_ps(dy, dy)),
-                _mm256_mul_ps(dz, dz)
+                _mm256_mul_ps(dz, dz),
             );
 
             // Mask for length > epsilon
@@ -477,7 +469,7 @@ impl SoftBody {
             // v_rel . dir
             let v_dot_dir = _mm256_add_ps(
                 _mm256_add_ps(_mm256_mul_ps(dv_x, dir_x), _mm256_mul_ps(dv_y, dir_y)),
-                _mm256_mul_ps(dv_z, dir_z)
+                _mm256_mul_ps(dv_z, dir_z),
             );
 
             // damping = -d * dot
