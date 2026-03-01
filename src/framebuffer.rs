@@ -182,8 +182,11 @@ impl Framebuffer {
 
         let x1 = x;
         let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+
+        // Prevent overflow using saturating add, but cap at i32::MAX.
+        // Convert width to i64 to avoid overflow when adding to x
+        let x2 = (x as i64 + width as i64).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+        let y2 = (y as i64 + height as i64).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
 
         let start_x = x1.clamp(0, self.width as i32) as u32;
         let start_y = y1.clamp(0, self.height as i32) as u32;
@@ -193,7 +196,9 @@ impl Framebuffer {
         for row in start_y..end_y {
             let start = (row * self.width + start_x) as usize;
             let end = (row * self.width + end_x) as usize;
-            self.pixels[start..end].fill(color);
+            if start <= end && end <= self.pixels.len() {
+                self.pixels[start..end].fill(color);
+            }
         }
     }
 }

@@ -1,5 +1,4 @@
 use abrash::post_process::blur::{box_blur_horizontal, box_blur_vertical};
-use proptest::prelude::*;
 
 #[test]
 fn test_box_blur_horizontal_large_radius() {

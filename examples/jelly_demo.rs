@@ -4,7 +4,7 @@ use std::error::Error;
 
 #[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
+    use abrash::experimental::jelly::SoftBody;
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};

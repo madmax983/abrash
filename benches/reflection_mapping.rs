@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::{Mat4, Vec2, Vec3};
+use abrash::math::{Vec2, Vec3};
 use abrash::rasterizer::fill_triangle_textured;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
