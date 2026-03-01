@@ -16,6 +16,10 @@ pub fn box_blur_f32(
     width: usize,
     height: usize,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = 2; // 5x5 kernel
 
     // 1. Horizontal pass: src -> dest
@@ -236,6 +240,10 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = radius.min((width.max(height)) as u32);
     let radius = radius as usize;
     // Window size (kernel width)
@@ -336,6 +344,10 @@ pub fn box_blur_vertical(
     height: usize,
     radius: u32,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = radius.min((width.max(height)) as u32);
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {

@@ -182,13 +182,14 @@ impl Framebuffer {
 
         let x1 = x;
         let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+
+        let x2 = (x as i64 + width as i64).clamp(0, self.width as i64) as u32;
+        let y2 = (y as i64 + height as i64).clamp(0, self.height as i64) as u32;
 
         let start_x = x1.clamp(0, self.width as i32) as u32;
         let start_y = y1.clamp(0, self.height as i32) as u32;
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
+        let end_x = x2;
+        let end_y = y2;
 
         for row in start_y..end_y {
             let start = (row * self.width + start_x) as usize;
