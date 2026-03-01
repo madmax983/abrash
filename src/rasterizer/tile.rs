@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -1834,11 +1834,6 @@ impl TileRenderer {
                 // Parallel rendering using Rayon
                 use rayon::prelude::*;
 
-                // Collect tile coordinates
-                let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                    .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .collect();
-
                 // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
                 unsafe {
                     let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
@@ -1848,13 +1843,12 @@ impl TileRenderer {
                     let tiles_x = self.tiles_x;
                     let tile_bins = &self.tile_bins;
                     let prepared = &self.prepared;
-
-                    tiles.par_iter().for_each_init(
+                    (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
                         || {
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                             (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
                         },
-                        |buffers, &(tx, ty)| {
+                        |buffers, (tx, ty)| {
                             let (tile_pixels, tile_depths) = &mut *buffers;
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile(
                                 tx,
@@ -2149,11 +2143,6 @@ impl TileRenderer {
             // Parallel rendering using Rayon
             use rayon::prelude::*;
 
-            // Collect tile coordinates
-            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                .collect();
-
             unsafe {
                 let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
                 let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
@@ -2162,13 +2151,12 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_textured;
-
-                tiles.par_iter().for_each_init(
+                (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
                     || {
                         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                         (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
                     },
-                    |buffers, &(tx, ty)| {
+                    |buffers, (tx, ty)| {
                         let (tile_pixels, tile_depths) = &mut *buffers;
                         if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
                             tx,
@@ -2326,11 +2314,6 @@ impl TileRenderer {
             // Parallel rendering using Rayon
             use rayon::prelude::*;
 
-            // Collect tile coordinates
-            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                .collect();
-
             unsafe {
                 let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
                 let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
@@ -2339,13 +2322,12 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_gouraud;
-
-                tiles.par_iter().for_each_init(
+                (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
                     || {
                         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
                         (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
                     },
-                    |buffers, &(tx, ty)| {
+                    |buffers, (tx, ty)| {
                         let (tile_pixels, tile_depths) = &mut *buffers;
                         if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
                             tx,
@@ -4243,7 +4225,7 @@ fn render_triangle_in_tile_gouraud(
     screen_w: i32,
 ) {
     let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
+    let _p1_y = i32::from(tri.p1.y);
     let p2_y = i32::from(tri.p2.y);
 
     let y_start = p0_y.max(tile_y0);
