@@ -132,6 +132,11 @@ name = "pixel_sort_demo"
 path = "examples/pixel_sort_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "god_rays_demo"
+path = "examples/god_rays_demo.rs"
+required-features = ["nova", "backend-tui"]
+
 [[bench]]
 name = "rasterization"
 harness = false
