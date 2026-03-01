@@ -37,6 +37,24 @@
 use std::mem::MaybeUninit;
 use std::ops::{Add, Mul, Sub};
 
+/// Approximates the reciprocal square root ($1 / \sqrt{x}$).
+///
+/// This uses the hardware-accelerated AVX/SSE intrinsic if available, which offers
+/// excellent performance (around 4 cycles) at the cost of a small precision error.
+/// If AVX/SSE is not available, it falls back to a standard `sqrt().recip()`, which
+/// is typically faster on modern generic x86_64 CPUs than the legacy "Quake III bit-hack".
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::fast_inv_sqrt;
+///
+/// let x = 4.0;
+/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
+///
+/// // Assert with a small tolerance due to approximation
+/// assert!((inv_sqrt - 0.5).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {

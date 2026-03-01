@@ -1,3 +1,28 @@
+//! # 3D View Frustum Clipping ✂️
+//!
+//! This module ensures we only render what the camera can actually see.
+//!
+//! Without clipping, vertices behind the camera (where $Z < 0$ or $W < 0$) would project
+//! incorrectly onto the screen, causing bizarre mirroring and infinite lines. Furthermore,
+//! rasterizing geometry that falls far outside the screen bounds wastes precious CPU cycles.
+//!
+//! ## The Sutherland-Hodgman Algorithm
+//!
+//! We employ the Sutherland-Hodgman algorithm in Homogeneous Clip Space. The space is defined
+//! by six planes: Left, Right, Top, Bottom, Near, and Far.
+//!
+//! For each plane, the algorithm checks if a vertex is "inside" or "outside":
+//! *   **Left Plane**: $x \ge -w$
+//! *   **Right Plane**: $x \le w$
+//! *   **Top Plane**: $y \le w$
+//! *   **Bottom Plane**: $y \ge -w$
+//! *   **Near Plane**: $z \ge -w$
+//! *   **Far Plane**: $z \le w$
+//!
+//! When an edge crosses a plane, we compute the exact intersection point using linear interpolation
+//! (see the [`Lerp`] trait) and insert a new vertex. This turns a single triangle into a convex polygon
+//! with up to 9 vertices, which is then fan-triangulated back into a list of triangles.
+
 use std::mem::MaybeUninit;
 use std::ops::Index;
 
@@ -156,11 +181,33 @@ const NEAR: f32 = 0.001;
 /// 1.  Start with the input triangle.
 /// 2.  Clip against Plane 1. Output is a polygon (triangle or quad).
 /// 3.  Clip that polygon against Plane 2. Output is a polygon...
-/// ...
+///     ...
 /// 7.  Clip against Plane 6.
 ///
 /// The final result is a convex polygon (potentially with many vertices), which is then
 /// triangulated into a triangle fan for rasterization.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::clipping::clip_triangle_to_frustum;
+/// use abrash::math::Vec3;
+///
+/// // Create a triangle where one vertex is behind the Near Plane (z < -w)
+/// let w = 1.0;
+/// // Inside
+/// let v0 = (Vec3::new(0.0, 0.0, 0.5), w);
+/// // Inside
+/// let v1 = (Vec3::new(0.5, 0.5, 0.5), w);
+/// // Outside Near Plane! (z = -2.0 < -1.0)
+/// let v2 = (Vec3::new(0.0, 0.0, -2.0), w);
+///
+/// let get_pos = |v: &(Vec3, f32)| *v;
+/// let result = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+///
+/// // The triangle is clipped into a quad, which is triangulated into 2 triangles.
+/// assert_eq!(result.count, 2);
+/// ```
 pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
     v0: V,
     v1: V,
@@ -493,6 +540,28 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
 /// Clip a line segment against the view frustum (6 planes) in Homogeneous Clip Space.
 ///
 /// Returns `Some((v0, v1))` if the line is partially or fully visible, `None` if fully culled.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::clipping::clip_line_to_frustum;
+/// use abrash::math::Vec3;
+///
+/// let w = 10.0;
+/// // Start point is inside
+/// let v0 = (Vec3::new(5.0, 0.0, 0.0), w);
+/// // End point is outside the Right Plane (x > w)
+/// let v1 = (Vec3::new(15.0, 0.0, 0.0), w);
+///
+/// let get_pos = |v: &(Vec3, f32)| *v;
+/// let clipped = clip_line_to_frustum(v0, v1, get_pos).unwrap();
+///
+/// // The start point remains the same
+/// assert_eq!(clipped.0, v0);
+///
+/// // The end point is clipped exactly to the Right Plane (x = w = 10.0)
+/// assert_eq!((clipped.1).0.x, 10.0);
+/// ```
 pub fn clip_line_to_frustum<V: Lerp + Copy>(
     v0: V,
     v1: V,

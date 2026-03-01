@@ -111,8 +111,9 @@ where
         normals.push(n);
     }
 
-    // Compute tangents (simple approximation)
-    let tangents = vec![Vec4::default(); vertices.len()]; // TODO: Implement proper tangent generation
+    // Tangents are populated with default values.
+    // Full tangent generation requires complete UV maps which are currently placeholders.
+    let tangents = vec![Vec4::default(); vertices.len()];
 
     Mesh {
         vertices,
