@@ -1959,6 +1959,27 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height must match TileRenderer height"
+        );
+
         self.begin_frame();
 
         #[cfg(feature = "parallel")]
