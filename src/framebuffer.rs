@@ -180,10 +180,15 @@ impl Framebuffer {
             return;
         }
 
+        // Prevent overflow when width is very large (near u32::MAX)
+        let x_end = i64::from(x) + i64::from(width);
+        let y_end = i64::from(y) + i64::from(height);
+
         let x1 = x;
         let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+        // Clamp to i32 max just to be safe, though clamp below handles it
+        let x2 = x_end.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+        let y2 = y_end.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
 
         let start_x = x1.clamp(0, self.width as i32) as u32;
         let start_y = y1.clamp(0, self.height as i32) as u32;

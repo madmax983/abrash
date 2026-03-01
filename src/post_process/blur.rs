@@ -236,6 +236,10 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = radius.min((width.max(height)) as u32);
     let radius = radius as usize;
     // Window size (kernel width)
