@@ -27,33 +27,86 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let lum_threshold = (threshold.clamp(0.0, 1.0) * 255.0) as u8;
 
-    if vertical {
-        // Vertical sorting
-        // We need to extract columns, sort them, and put them back.
-        // Doing this in-place with strided access is tricky in Rust,
-        // so we'll use a temporary buffer for each column.
-        let mut col_buffer = vec![0u32; height];
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
 
-        for x in 0..width {
-            // Extract column
-            for y in 0..height {
-                col_buffer[y] = pixels[y * width + x];
-            }
+        if vertical {
+            // Vertical sorting
+            // We need to extract columns, sort them, and put them back.
+            // Using Rayon, we can process columns in parallel. We wrap the raw pointer
+            // to bypass the borrow checker since columns represent disjoint memory locations.
+            #[derive(Clone, Copy)]
+            struct SendPtr(*mut u32);
+            unsafe impl Send for SendPtr {}
+            unsafe impl Sync for SendPtr {}
 
-            // Sort segments in column
-            sort_segments(&mut col_buffer, lum_threshold, reverse);
+            let pixels_ptr = SendPtr(pixels.as_mut_ptr());
 
-            // Put column back
-            for y in 0..height {
-                pixels[y * width + x] = col_buffer[y];
-            }
+            (0..width).into_par_iter().for_each_init(
+                || vec![0u32; height],
+                |col_buffer, x| {
+                    // Accessing the SendPtr instead of the raw pointer allows it to cross the boundary
+                    // and then we extract the inner raw pointer.
+                    let ptr = pixels_ptr;
+
+                    // Extract column
+                    for y in 0..height {
+                        unsafe {
+                            col_buffer[y] = *ptr.0.add(y * width + x);
+                        }
+                    }
+
+                    // Sort segments in column
+                    sort_segments(col_buffer, lum_threshold, reverse);
+
+                    // Put column back
+                    for y in 0..height {
+                        unsafe {
+                            *ptr.0.add(y * width + x) = col_buffer[y];
+                        }
+                    }
+                },
+            );
+        } else {
+            // Horizontal sorting
+            // We can operate directly on contiguous chunks (rows)
+            pixels.par_chunks_exact_mut(width).for_each(|row| {
+                sort_segments(row, lum_threshold, reverse);
+            });
         }
-    } else {
-        // Horizontal sorting
-        // We can operate directly on contiguous chunks (rows)
-        pixels.chunks_exact_mut(width).for_each(|row| {
-            sort_segments(row, lum_threshold, reverse);
-        });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        if vertical {
+            // Vertical sorting
+            // We need to extract columns, sort them, and put them back.
+            // Doing this in-place with strided access is tricky in Rust,
+            // so we'll use a temporary buffer for each column.
+            let mut col_buffer = vec![0u32; height];
+
+            for x in 0..width {
+                // Extract column
+                for y in 0..height {
+                    col_buffer[y] = pixels[y * width + x];
+                }
+
+                // Sort segments in column
+                sort_segments(&mut col_buffer, lum_threshold, reverse);
+
+                // Put column back
+                for y in 0..height {
+                    pixels[y * width + x] = col_buffer[y];
+                }
+            }
+        } else {
+            // Horizontal sorting
+            // We can operate directly on contiguous chunks (rows)
+            pixels.chunks_exact_mut(width).for_each(|row| {
+                sort_segments(row, lum_threshold, reverse);
+            });
+        }
     }
 }
 
