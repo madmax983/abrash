@@ -3,6 +3,10 @@
 //! Visualizes a mass-spring cloth simulation.
 //! Requires the `nova` feature.
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+use std::error::Error;
+
 #[cfg(feature = "nova")]
 mod demo {
     use abrash::experimental::cloth::Cloth;
@@ -124,12 +128,62 @@ mod demo {
     }
 }
 
-#[cfg(not(feature = "nova"))]
-fn main() {
-    println!("Please run with --features nova");
+fn print_banner() {
+    println!("\n{}", "👗 Cloth Simulation Demo".bold().magenta());
+    println!("{}", "========================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Feature").fg(Color::Cyan),
+            Cell::new("Description").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Soft Body"),
+            Cell::new("Mass-Spring System").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Physics"),
+            Cell::new("Wind Simulation").fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Rendering"),
+            Cell::new("Software Rasterizer + Flat Shading").fg(Color::Blue),
+        ]);
+
+    println!("\n{}", "⚙️  System Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Mouse"),
+            Cell::new("None (Passive Simulation)"),
+        ])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Q / Esc to Quit")]);
+    println!("{controls}\n");
 }
 
-#[cfg(feature = "nova")]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    demo::run()
+fn main() -> Result<(), Box<dyn Error>> {
+    print_banner();
+
+    #[cfg(feature = "nova")]
+    {
+        demo::run()
+    }
+    #[cfg(not(feature = "nova"))]
+    {
+        println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
+        println!("{}", "This demo requires the 'nova' feature to run.".white());
+        println!("\nTry running with:");
+        println!("{}", "cargo run --example cloth_demo --features nova".green());
+        Ok(())
+    }
 }
