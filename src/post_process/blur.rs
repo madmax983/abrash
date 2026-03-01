@@ -16,6 +16,10 @@ pub fn box_blur_f32(
     width: usize,
     height: usize,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = 2; // 5x5 kernel
 
     // 1. Horizontal pass: src -> dest
@@ -236,6 +240,10 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = radius.min((width.max(height)) as u32);
     let radius = radius as usize;
     // Window size (kernel width)
@@ -336,6 +344,10 @@ pub fn box_blur_vertical(
     height: usize,
     radius: u32,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = radius.min((width.max(height)) as u32);
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
@@ -683,6 +695,20 @@ unsafe fn box_blur_vertical_avx2(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_box_blur_zero_dimensions() {
+        let mut f32_src: Vec<f32> = vec![];
+        let mut f32_dest: Vec<f32> = vec![];
+        let mut f32_acc: Vec<f32> = vec![];
+        box_blur_f32(&mut f32_src, &mut f32_dest, &mut f32_acc, 0, 0);
+
+        let mut u32_src: Vec<u32> = vec![];
+        let mut u32_dest: Vec<u32> = vec![];
+        let mut i32_acc: Vec<i32> = vec![];
+        box_blur_horizontal(&u32_src, &mut u32_dest, 0, 0, 5);
+        box_blur_vertical(&u32_src, &mut u32_dest, &mut i32_acc, 0, 0, 5);
+    }
 
     #[test]
     fn test_box_blur_f32_correctness() {
