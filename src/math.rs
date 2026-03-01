@@ -1016,6 +1016,12 @@ impl Mat4 {
 
         #[cfg(feature = "parallel")]
         {
+            // Fallback to scalar for small inputs to avoid Rayon overhead
+            if points.len() < 1024 {
+                self.transform_points_uninit(points, output);
+                return;
+            }
+
             use rayon::prelude::*;
             // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
             // implementation fed with enough data to be efficient.
@@ -1497,6 +1503,22 @@ mod tests {
         assert!(diff.x.abs() < 0.001);
         assert!(diff.y.abs() < 0.001);
         assert!(diff.z.abs() < 0.001);
+    }
+
+    #[test]
+    fn test_transform_points_parallel_threshold() {
+        // Test parallel implementation properly falls back and maintains correctness
+        let points = vec![Vec3::new(1.0, 2.0, 3.0); 100];
+        let mut output = vec![(Vec3::default(), 0.0); 100];
+        let m = Mat4::translation(5.0, 5.0, 5.0);
+
+        m.transform_points_parallel(&points, &mut output);
+
+        for (p, _) in output {
+            assert!((p.x - 6.0).abs() < 0.001);
+            assert!((p.y - 7.0).abs() < 0.001);
+            assert!((p.z - 8.0).abs() < 0.001);
+        }
     }
 
     #[test]

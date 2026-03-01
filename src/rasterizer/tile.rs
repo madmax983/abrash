@@ -4277,7 +4277,7 @@ fn render_triangle_in_tile_gouraud(
         edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
     }
 
-    let mut edge_b = if y_start < p1.y {
+    let mut edge_b = if y_start < tri.p1.y as i32 {
         let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
         if y_start > p0.y {
             e.step_n(i64::from(y_start) - i64::from(p0.y));
@@ -4285,8 +4285,8 @@ fn render_triangle_in_tile_gouraud(
         e
     } else {
         let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        if y_start > p1.y {
-            e.step_n(i64::from(y_start) - i64::from(p1.y));
+        if y_start > tri.p1.y as i32 {
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
         }
         e
     };
@@ -4295,7 +4295,7 @@ fn render_triangle_in_tile_gouraud(
     let dc_dx = tri.gradients.dc_dx;
 
     for y in y_start..=y_end {
-        if y == p1.y && y != p0.y {
+        if y == tri.p1.y as i32 && y != p0_y {
             edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
         }
 
