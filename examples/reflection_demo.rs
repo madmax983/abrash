@@ -67,12 +67,12 @@ fn main() {
     for i in 0..frames {
         let angle = (i as f32) * 0.05;
         let model = Mat4::rotation_y(angle) * Mat4::rotation_x(angle * 0.5);
-        let mvp = model * view_proj;
+        let _mvp = model * view_proj;
 
         fb.clear(0xFF333333);
         zb.clear();
 
-        for (i, chunk) in indices.chunks(3).enumerate() {
+        for (_i, chunk) in indices.chunks(3).enumerate() {
             let i0 = chunk[0];
             let i1 = chunk[1];
             let i2 = chunk[2];

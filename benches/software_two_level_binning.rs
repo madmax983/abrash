@@ -63,7 +63,7 @@ fn bench_software_binning_comparison(c: &mut Criterion) {
 
     // Helper to setup checkerboard occlusion
     let setup_occluded_scene = |width: u32, height: u32| {
-        let mut fb = Framebuffer::new(width, height).unwrap();
+        let fb = Framebuffer::new(width, height).unwrap();
         let mut zb = ZBuffer::new(width, height).unwrap();
         let slice = zb.as_mut_slice();
         for y in 0..height {

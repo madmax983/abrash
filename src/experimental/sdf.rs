@@ -62,8 +62,8 @@ impl SdfObject {
                 center,
             } => {
                 let p = p - center;
-                let q = Vec2::new(Vec2::new(p.x, p.z).length() - major_radius, p.y);
-                q.length() - minor_radius
+                let q = Vec2::new(p.x.hypot(p.z) - major_radius, p.y);
+                q.x.hypot(q.y) - minor_radius
             }
             SdfPrimitive::Plane { normal, distance } => p.dot(normal) + distance,
             SdfPrimitive::Capsule { start, end, radius } => {
@@ -83,16 +83,6 @@ fn vec3_abs(v: Vec3) -> Vec3 {
 
 fn vec3_max(v: Vec3, val: f32) -> Vec3 {
     Vec3::new(v.x.max(val), v.y.max(val), v.z.max(val))
-}
-
-trait Vec2Ext {
-    fn length(self) -> f32;
-}
-
-impl Vec2Ext for Vec2 {
-    fn length(self) -> f32 {
-        self.x.hypot(self.y)
-    }
 }
 
 /// A scene containing SDF objects.

@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -4222,7 +4222,7 @@ fn render_triangle_in_tile_gouraud(
     screen_w: i32,
 ) {
     let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
+    let _p1_y = i32::from(tri.p1.y);
     let p2_y = i32::from(tri.p2.y);
 
     let y_start = p0_y.max(tile_y0);
