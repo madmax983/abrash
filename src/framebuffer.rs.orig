@@ -284,13 +284,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {}, {}", x, y);
             }
         }
     }
@@ -309,13 +303,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {}, {}", x, y);
             }
         }
     }
@@ -334,13 +322,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {}, {}", x, y);
             }
         }
     }
