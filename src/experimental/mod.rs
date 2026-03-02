@@ -39,6 +39,7 @@ pub mod pixelate;
 pub mod procedural_mesh;
 pub mod raytracer;
 pub mod sdf;
+pub mod sharpen;
 pub mod ssao;
 pub mod vision;
 pub mod volume;
