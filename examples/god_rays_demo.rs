@@ -2,8 +2,8 @@
 
 use abrash::experimental::crepuscular::apply_god_rays;
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::tui::TuiWindow;
 use abrash::platform::WindowBackend;
+use abrash::platform::tui::TuiWindow;
 use abrash::zbuffer::ZBuffer;
 use crossterm::event::{self, Event, KeyCode};
 use std::time::Duration;
@@ -75,10 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // 3. Apply God Rays
         apply_god_rays(
-            &mut fb,
-            light_x,
-            light_y,
-            1.0,  // density
+            &mut fb, light_x, light_y, 1.0,  // density
             0.05, // weight
             0.98, // decay
             1.2,  // exposure

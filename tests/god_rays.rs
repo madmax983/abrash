@@ -16,16 +16,7 @@ fn test_apply_god_rays() {
     }
 
     // Apply effect radiating from the center
-    apply_god_rays(
-        &mut fb,
-        16.0,
-        16.0,
-        1.0,
-        0.1,
-        0.9,
-        1.0,
-        10,
-    );
+    apply_god_rays(&mut fb, 16.0, 16.0, 1.0, 0.1, 0.9, 1.0, 10);
 
     // After the radial blur, pixels outside the sun should no longer be purely black
     // if they are on a line radiating from the center.

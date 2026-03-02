@@ -226,6 +226,27 @@ fn benchmark_vignette(c: &mut Criterion) {
     });
 }
 
+fn benchmark_color_adjust(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    for y in 0..height {
+        for x in 0..width {
+            let r = (x * 4) as u32 % 256;
+            let g = (y * 4) as u32 % 256;
+            let b = ((x + y) * 2) as u32 % 256;
+            let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_color_adjust 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_color_adjust(black_box(&mut fb), black_box(10), black_box(1.2));
+        });
+    });
+}
+
 #[cfg(feature = "nova")]
 fn benchmark_pixel_sort(c: &mut Criterion) {
     let width = 1920;
@@ -245,13 +266,23 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
 
     c.bench_function("apply_pixel_sort 1080p horizontal", |b| {
         b.iter(|| {
-            abrash::experimental::pixel_sort::apply_pixel_sort(black_box(&mut fb), black_box(0.5), black_box(false), black_box(false));
+            abrash::experimental::pixel_sort::apply_pixel_sort(
+                black_box(&mut fb),
+                black_box(0.5),
+                black_box(false),
+                black_box(false),
+            );
         })
     });
 
     c.bench_function("apply_pixel_sort 1080p vertical", |b| {
         b.iter(|| {
-            abrash::experimental::pixel_sort::apply_pixel_sort(black_box(&mut fb), black_box(0.5), black_box(true), black_box(false));
+            abrash::experimental::pixel_sort::apply_pixel_sort(
+                black_box(&mut fb),
+                black_box(0.5),
+                black_box(true),
+                black_box(false),
+            );
         })
     });
 }
@@ -271,6 +302,7 @@ criterion_group!(
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
+    benchmark_color_adjust,
     benchmark_pixel_sort,
 );
 
@@ -289,5 +321,6 @@ criterion_group!(
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
+    benchmark_color_adjust,
 );
 criterion_main!(benches);
