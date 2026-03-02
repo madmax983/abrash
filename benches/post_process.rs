@@ -226,6 +226,55 @@ fn benchmark_vignette(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "nova")]
+fn benchmark_pixel_sort(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    // Fill with a pattern
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_pixel_sort 1080p horizontal", |b| {
+        b.iter(|| {
+            abrash::experimental::pixel_sort::apply_pixel_sort(black_box(&mut fb), black_box(0.5), black_box(false), black_box(false));
+        })
+    });
+
+    c.bench_function("apply_pixel_sort 1080p vertical", |b| {
+        b.iter(|| {
+            abrash::experimental::pixel_sort::apply_pixel_sort(black_box(&mut fb), black_box(0.5), black_box(true), black_box(false));
+        })
+    });
+}
+
+#[cfg(feature = "nova")]
+criterion_group!(
+    benches,
+    benchmark_grayscale,
+    benchmark_scanlines,
+    benchmark_invert,
+    benchmark_sepia,
+    benchmark_chromatic_aberration,
+    benchmark_bloom,
+    benchmark_ssao,
+    benchmark_box_blur_f32,
+    benchmark_box_blur_horizontal,
+    benchmark_sobel,
+    benchmark_dof,
+    benchmark_vignette,
+    benchmark_pixel_sort,
+);
+
+#[cfg(not(feature = "nova"))]
 criterion_group!(
     benches,
     benchmark_grayscale,
