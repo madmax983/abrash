@@ -48,10 +48,7 @@ fn print_banner() {
             Cell::new("Arrow Keys"),
             Cell::new("Move the light source"),
         ])
-        .add_row(vec![
-            Cell::new("Q / Esc"),
-            Cell::new("Quit Demo"),
-        ]);
+        .add_row(vec![Cell::new("Q / Esc"), Cell::new("Quit Demo")]);
     println!("{controls}\n");
 }
 

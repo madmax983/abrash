@@ -376,3 +376,8 @@ harness = false
 name = "pixelate_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "crt_bench"
+harness = false
+required-features = ["nova"]
