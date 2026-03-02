@@ -22,16 +22,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut time: f32 = 0.0;
 
     loop {
-        if event::poll(Duration::from_millis(16))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => break,
-                    KeyCode::Up => light_y -= 2.0,
-                    KeyCode::Down => light_y += 2.0,
-                    KeyCode::Left => light_x -= 2.0,
-                    KeyCode::Right => light_x += 2.0,
-                    _ => {}
-                }
+        if event::poll(Duration::from_millis(16))?
+            && let Event::Key(key) = event::read()?
+        {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => break,
+                KeyCode::Up => light_y -= 2.0,
+                KeyCode::Down => light_y += 2.0,
+                KeyCode::Left => light_x -= 2.0,
+                KeyCode::Right => light_x += 2.0,
+                _ => {}
             }
         }
 

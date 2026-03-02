@@ -10,7 +10,7 @@ fn benchmark_pixelate(c: &mut Criterion) {
     // Fill with a gradient pattern to ensure memory is somewhat dirty
     for y in 0..height {
         for x in 0..width {
-            let color = 0xFF000000 | (x as u32 & 0xFF) << 16 | (y as u32 & 0xFF) << 8;
+            let color = 0xFF000000 | (x & 0xFF) << 16 | (y & 0xFF) << 8;
             fb.set_pixel(x as i32, y as i32, color);
         }
     }
@@ -18,13 +18,13 @@ fn benchmark_pixelate(c: &mut Criterion) {
     c.bench_function("apply_pixelate 1080p (block_size=8)", |b| {
         b.iter(|| {
             apply_pixelate(black_box(&mut fb), black_box(8));
-        })
+        });
     });
 
     c.bench_function("apply_pixelate 1080p (block_size=16)", |b| {
         b.iter(|| {
             apply_pixelate(black_box(&mut fb), black_box(16));
-        })
+        });
     });
 }
 

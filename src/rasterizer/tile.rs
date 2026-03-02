@@ -2553,7 +2553,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&mut self) {
+    fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -2998,7 +2998,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&mut self) {
+    fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3144,7 +3144,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&mut self) {
+    fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;
