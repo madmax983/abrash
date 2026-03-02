@@ -11,7 +11,7 @@ proptest! {
         dest_len in 0..1000000usize,
         acc_len in 0..1000000usize,
     ) {
-        let mut src = vec![0u32; src_len];
+        let src = vec![0u32; src_len];
         let mut dest = vec![0u32; dest_len];
         let mut acc = vec![0i32; acc_len];
 

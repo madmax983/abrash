@@ -15,7 +15,7 @@ fn benchmark_grayscale(c: &mut Criterion) {
     c.bench_function("apply_grayscale 1080p", |b| {
         b.iter(|| {
             post_process::apply_grayscale(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -28,7 +28,7 @@ fn benchmark_scanlines(c: &mut Criterion) {
     c.bench_function("apply_scanlines 1080p", |b| {
         b.iter(|| {
             post_process::apply_scanlines(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -41,7 +41,7 @@ fn benchmark_invert(c: &mut Criterion) {
     c.bench_function("apply_invert 1080p", |b| {
         b.iter(|| {
             post_process::apply_invert(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -54,7 +54,7 @@ fn benchmark_sepia(c: &mut Criterion) {
     c.bench_function("apply_sepia 1080p", |b| {
         b.iter(|| {
             post_process::apply_sepia(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -67,7 +67,7 @@ fn benchmark_chromatic_aberration(c: &mut Criterion) {
     c.bench_function("apply_chromatic_aberration 1080p", |b| {
         b.iter(|| {
             post_process::apply_chromatic_aberration(black_box(&mut fb), black_box(5));
-        })
+        });
     });
 }
 
@@ -85,7 +85,7 @@ fn benchmark_bloom(c: &mut Criterion) {
                 black_box(10),
                 black_box(0.8),
             );
-        })
+        });
     });
 }
 
@@ -116,7 +116,7 @@ fn benchmark_ssao(c: &mut Criterion) {
                 black_box(0.001),
                 black_box(2.0),
             );
-        })
+        });
     });
 }
 
@@ -137,7 +137,7 @@ fn benchmark_box_blur_f32(c: &mut Criterion) {
                 black_box(width),
                 black_box(height),
             );
-        })
+        });
     });
 }
 
@@ -157,7 +157,7 @@ fn benchmark_box_blur_horizontal(c: &mut Criterion) {
                 black_box(height),
                 black_box(10), // radius
             );
-        })
+        });
     });
 }
 
@@ -180,7 +180,7 @@ fn benchmark_sobel(c: &mut Criterion) {
     c.bench_function("apply_sobel 1080p", |b| {
         b.iter(|| {
             post_process::apply_sobel(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -209,7 +209,7 @@ fn benchmark_dof(c: &mut Criterion) {
                 black_box(0.1),
                 black_box(5),
             );
-        })
+        });
     });
 }
 
@@ -222,7 +222,7 @@ fn benchmark_vignette(c: &mut Criterion) {
     c.bench_function("apply_vignette 1080p", |b| {
         b.iter(|| {
             post_process::apply_vignette(black_box(&mut fb), black_box(0.5), black_box(0.5));
-        })
+        });
     });
 }
 

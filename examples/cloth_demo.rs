@@ -181,9 +181,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(not(feature = "nova"))]
     {
         println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        println!("{}", "This demo requires the 'nova' feature to run.".white());
+        println!(
+            "{}",
+            "This demo requires the 'nova' feature to run.".white()
+        );
         println!("\nTry running with:");
-        println!("{}", "cargo run --example cloth_demo --features nova".green());
+        println!(
+            "{}",
+            "cargo run --example cloth_demo --features nova".green()
+        );
         Ok(())
     }
 }

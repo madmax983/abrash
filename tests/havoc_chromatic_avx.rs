@@ -1,5 +1,3 @@
-use abrash::post_process::filters;
-
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[test]
 fn test_chromatic_aberration_simd_bounds() {

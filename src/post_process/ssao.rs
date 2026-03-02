@@ -605,10 +605,15 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
+    #[allow(unused_imports)]
     use crate::framebuffer::Framebuffer;
+    #[allow(unused_imports)]
     use crate::math::Mat4;
+    #[allow(unused_imports)]
     use crate::zbuffer::ZBuffer;
+    #[allow(unused_imports)]
     use std::f32::consts::PI;
 
     #[test]
