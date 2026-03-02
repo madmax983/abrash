@@ -29,6 +29,7 @@ pub mod arboretum;
 pub mod cloth;
 pub mod crepuscular;
 pub mod dither;
+pub mod pixelate;
 pub mod glitch;
 pub mod isosurface;
 pub mod jelly;
