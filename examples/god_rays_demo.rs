@@ -5,13 +5,58 @@ use abrash::framebuffer::Framebuffer;
 use abrash::platform::WindowBackend;
 use abrash::platform::tui::TuiWindow;
 use abrash::zbuffer::ZBuffer;
+use comfy_table::{Cell, Color, Table, presets};
 use crossterm::event::{self, Event, KeyCode};
+use crossterm::style::Stylize;
 use std::time::Duration;
 
 const WIDTH: u32 = 160;
 const HEIGHT: u32 = 60;
 
+fn print_banner() {
+    println!("\n{}", "☀️  God Rays Demo".bold().cyan());
+    println!("{}", "=======================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Volumetric light scattering effect").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Effect"),
+            Cell::new("Post-process screen-space god rays").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Arrow Keys"),
+            Cell::new("Move the light source"),
+        ])
+        .add_row(vec![
+            Cell::new("Q / Esc"),
+            Cell::new("Quit Demo"),
+        ]);
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
     let mut window = TuiWindow::new("God Rays Demo", WIDTH, HEIGHT)?;
     let mut fb = Framebuffer::new(WIDTH, HEIGHT)?;
     let mut zb = ZBuffer::new(WIDTH, HEIGHT)?;
