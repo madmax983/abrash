@@ -38,6 +38,7 @@ pub fn box_blur_f32(
     box_blur_f32_vertical_scalar(dest, src, acc_buffer, width, height, radius);
 }
 
+#[inline]
 fn box_blur_f32_horizontal_scalar(
     src: &[f32],
     dest: &mut [f32],
@@ -111,6 +112,7 @@ fn box_blur_f32_horizontal_scalar(
     }
 }
 
+#[inline]
 fn box_blur_f32_vertical_scalar(
     src: &[f32],
     dest: &mut [f32],
@@ -362,6 +364,7 @@ pub fn box_blur_vertical(
     box_blur_vertical_scalar(src, dest, acc_buffer, width, height, radius);
 }
 
+#[inline]
 fn box_blur_vertical_scalar(
     src: &[u32],
     dest: &mut [u32],

@@ -226,6 +226,28 @@ fn benchmark_vignette(c: &mut Criterion) {
     });
 }
 
+fn benchmark_edge_glow(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_edge_glow 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_edge_glow(black_box(&mut fb), black_box(5), black_box(100));
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -240,5 +262,6 @@ criterion_group!(
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
+    benchmark_edge_glow,
 );
 criterion_main!(benches);

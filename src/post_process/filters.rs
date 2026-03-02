@@ -416,6 +416,90 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 /// // Apply vignette
 /// apply_vignette(&mut fb, 0.5, 0.5);
 /// ```
+/// Applies an edge glow effect to the framebuffer in-place.
+///
+/// This first detects edges, and then applies a horizontal + vertical box blur
+/// to create a glowing effect around them.
+pub fn apply_edge_glow(fb: &mut Framebuffer, radius: u32, threshold: u32) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    let len = width * height;
+    if len == 0 || radius == 0 {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                simd::apply_edge_glow_avx2(pixels, width, height, radius, threshold);
+            }
+            return;
+        }
+    }
+
+    apply_edge_glow_scalar(pixels, width, height, radius, threshold);
+}
+
+fn apply_edge_glow_scalar(
+    pixels: &mut [u32],
+    width: usize,
+    height: usize,
+    radius: u32,
+    threshold: u32,
+) {
+    let len = width * height;
+    // 1. Edge Detection (Simple Luminance Difference)
+    let mut edges = vec![0u32; len];
+    for y in 1..height - 1 {
+        let row_offset = y * width;
+        for x in 1..width - 1 {
+            let idx = row_offset + x;
+            let current = pixel_luminance(pixels[idx]) as i32;
+            let right = pixel_luminance(pixels[idx + 1]) as i32;
+            let bottom = pixel_luminance(pixels[idx + width]) as i32;
+
+            let diff = (current - right).abs() + (current - bottom).abs();
+            if diff > threshold as i32 {
+                // Strong edge: pure white glow source
+                edges[idx] = 0xFFFFFFFF;
+            } else {
+                edges[idx] = 0xFF000000;
+            }
+        }
+    }
+
+    // 2. Blur the edges
+    let mut blurred_edges = vec![0u32; len];
+    crate::post_process::blur::box_blur_horizontal(&edges, &mut blurred_edges, width, height, radius);
+    let mut final_glow = vec![0u32; len];
+    let mut acc_buffer = vec![0i32; width * 3];
+    crate::post_process::blur::box_blur_vertical(&blurred_edges, &mut final_glow, &mut acc_buffer, width, height, radius);
+
+    // 3. Add glow to original image
+    for i in 0..len {
+        let p = pixels[i];
+        let g = final_glow[i];
+
+        let orig_r = (p >> 16) & 0xFF;
+        let orig_g = (p >> 8) & 0xFF;
+        let orig_b = p & 0xFF;
+
+        let glow_r = (g >> 16) & 0xFF;
+        let glow_g = (g >> 8) & 0xFF;
+        let glow_b = g & 0xFF;
+
+        // Additive blending with saturation
+        let final_r = (orig_r + glow_r).min(255);
+        let final_g = (orig_g + glow_g).min(255);
+        let final_b = (orig_b + glow_b).min(255);
+
+        pixels[i] = (p & 0xFF00_0000) | (final_r << 16) | (final_g << 8) | final_b;
+    }
+}
+
 pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
     let width = fb.width();
     let height = fb.height();
@@ -1036,6 +1120,99 @@ mod simd {
     }
 
     #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_edge_glow_avx2(
+        pixels: &mut [u32],
+        width: usize,
+        height: usize,
+        radius: u32,
+        threshold: u32,
+    ) {
+        let len = width * height;
+        let mut edges = vec![0u32; len];
+
+        let thresh_vec = _mm256_set1_epi32(threshold as i32);
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+
+        // Edge Detection
+        // Use the SOBEL_BUFFER for fast luminance calculation if we want, or just scalar.
+        // For simplicity, do scalar edge detect, then rely on optimized blur.
+        for y in 1..height - 1 {
+            let row_offset = y * width;
+            let next_offset = row_offset + width;
+
+            for x in 1..width - 1 {
+                let current = super::pixel_luminance(pixels[row_offset + x]) as i32;
+                let right = super::pixel_luminance(pixels[row_offset + x + 1]) as i32;
+                let bottom = super::pixel_luminance(pixels[next_offset + x]) as i32;
+
+                let diff = (current - right).abs() + (current - bottom).abs();
+                if diff > threshold as i32 {
+                    edges[row_offset + x] = 0xFFFFFFFF;
+                } else {
+                    edges[row_offset + x] = 0xFF000000;
+                }
+            }
+        }
+
+        // Blur
+        let mut blurred_edges = vec![0u32; len];
+        crate::post_process::blur::box_blur_horizontal(&edges, &mut blurred_edges, width, height, radius);
+        let mut final_glow = vec![0u32; len];
+        let mut acc_buffer = vec![0i32; width * 3];
+        crate::post_process::blur::box_blur_vertical(&blurred_edges, &mut final_glow, &mut acc_buffer, width, height, radius);
+
+        // Additive Blend
+        let mut i = 0;
+        let max_val = _mm256_set1_epi32(255);
+
+        while i + 8 <= len {
+            let p = _mm256_loadu_si256(pixels.as_ptr().add(i).cast());
+            let g = _mm256_loadu_si256(final_glow.as_ptr().add(i).cast());
+
+            // Extract channels
+            let p_r = _mm256_and_si256(_mm256_srli_epi32(p, 16), _mm256_set1_epi32(0xFF));
+            let p_g = _mm256_and_si256(_mm256_srli_epi32(p, 8), _mm256_set1_epi32(0xFF));
+            let p_b = _mm256_and_si256(p, _mm256_set1_epi32(0xFF));
+
+            let g_r = _mm256_and_si256(_mm256_srli_epi32(g, 16), _mm256_set1_epi32(0xFF));
+            let g_g = _mm256_and_si256(_mm256_srli_epi32(g, 8), _mm256_set1_epi32(0xFF));
+            let g_b = _mm256_and_si256(g, _mm256_set1_epi32(0xFF));
+
+            let sum_r = _mm256_min_epi32(_mm256_add_epi32(p_r, g_r), max_val);
+            let sum_g = _mm256_min_epi32(_mm256_add_epi32(p_g, g_g), max_val);
+            let sum_b = _mm256_min_epi32(_mm256_add_epi32(p_b, g_b), max_val);
+
+            let res_r = _mm256_slli_epi32(sum_r, 16);
+            let res_g = _mm256_slli_epi32(sum_g, 8);
+            let orig_alpha = _mm256_and_si256(p, alpha_mask);
+
+            let result = _mm256_or_si256(orig_alpha, _mm256_or_si256(res_r, _mm256_or_si256(res_g, sum_b)));
+
+            _mm256_storeu_si256(pixels.as_mut_ptr().add(i).cast(), result);
+            i += 8;
+        }
+
+        for j in i..len {
+            let p = pixels[j];
+            let g = final_glow[j];
+
+            let orig_r = (p >> 16) & 0xFF;
+            let orig_g = (p >> 8) & 0xFF;
+            let orig_b = p & 0xFF;
+
+            let glow_r = (g >> 16) & 0xFF;
+            let glow_g = (g >> 8) & 0xFF;
+            let glow_b = g & 0xFF;
+
+            let final_r = (orig_r + glow_r).min(255);
+            let final_g = (orig_g + glow_g).min(255);
+            let final_b = (orig_b + glow_b).min(255);
+
+            pixels[j] = (p & 0xFF00_0000) | (final_r << 16) | (final_g << 8) | final_b;
+        }
+    }
+
+    #[target_feature(enable = "avx2")]
     pub unsafe fn apply_vignette_avx2(
         pixels: &mut [u32],
         width: usize,
@@ -1158,6 +1335,25 @@ mod simd {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_edge_glow() {
+        let width = 5;
+        let height = 5;
+        let mut fb = Framebuffer::new(width, height).unwrap();
+
+        // A single bright white pixel in the center
+        fb.set_pixel(2, 2, 0xFFFFFFFF);
+
+        apply_edge_glow(&mut fb, 1, 100);
+
+        // After applying edge glow, the center pixel should not be bright,
+        // but the surrounding pixels should be glowing.
+        let p = fb.get_pixel(1, 2).unwrap();
+        let r = (p >> 16) & 0xFF;
+
+        assert!(r > 0, "Edge glow should spread brightness to adjacent pixels");
+    }
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
