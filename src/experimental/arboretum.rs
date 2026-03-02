@@ -128,7 +128,10 @@ impl LSystem {
     /// Generates a Mesh from the expanded L-System string.
     pub fn generate_mesh(&self, iterations: u32) -> Mesh {
         let instructions = self.expand(iterations);
-        let mut mesh = Mesh::new();
+
+        let num_segments = instructions.chars().filter(|&c| c == 'F').count();
+        let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 8);
+
         let mut stack: Vec<Turtle> = Vec::new();
         let mut turtle = Turtle::new(self.step_length, self.radius);
 

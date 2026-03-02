@@ -55,6 +55,30 @@ impl Mesh {
         }
     }
 
+    /// Creates a new empty mesh with pre-allocated capacity.
+    ///
+    /// Pre-allocating capacity avoids reallocations during mesh construction
+    /// which improves performance when building large meshes procedurally.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::mesh::Mesh;
+    /// let mesh = Mesh::with_capacity(100, 200);
+    /// assert_eq!(mesh.vertices.capacity(), 100);
+    /// assert_eq!(mesh.indices.capacity(), 200);
+    /// ```
+    #[must_use]
+    pub fn with_capacity(vertex_capacity: usize, index_capacity: usize) -> Self {
+        Self {
+            vertices: Vec::with_capacity(vertex_capacity),
+            indices: Vec::with_capacity(index_capacity),
+            uvs: Vec::with_capacity(vertex_capacity),
+            normals: Vec::with_capacity(vertex_capacity),
+            tangents: Vec::with_capacity(vertex_capacity),
+        }
+    }
+
     /// Create a cube centered at origin with side length `size`.
     ///
     /// The cube has 8 vertices and 12 triangles (2 per face).
