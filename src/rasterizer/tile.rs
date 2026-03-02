@@ -1384,21 +1384,21 @@ fn rasterize_scanline_simd(
                 if mask_bits == 0xFF {
                     // Fast path: All pixels visible.
                     // Store depths and colors directly using Aligned Stores.
-                    _mm256_store_ps(zb_ptr, depths_vec);
+                    _mm256_storeu_ps(zb_ptr, depths_vec);
 
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-                    _mm256_store_si256(pixels_ptr, color_vec);
+                    _mm256_storeu_si256(pixels_ptr, color_vec);
                 } else {
                     // Partial write path
                     // 1. Update depths
                     let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
                     // Use aligned store since we are aligned
-                    _mm256_store_ps(zb_ptr, blended_depths);
+                    _mm256_storeu_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_load_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
@@ -1406,7 +1406,7 @@ fn rasterize_scanline_simd(
                     let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
 
                     // Aligned store
-                    _mm256_store_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                    _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
                 }
             }
 

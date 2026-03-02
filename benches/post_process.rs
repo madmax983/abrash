@@ -226,6 +226,20 @@ fn benchmark_vignette(c: &mut Criterion) {
     });
 }
 
+
+fn benchmark_lens_distortion(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    fb.clear(0xFFFFFFFF);
+
+    c.bench_function("apply_lens_distortion 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_lens_distortion(black_box(&mut fb), black_box(0.5));
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -240,5 +254,6 @@ criterion_group!(
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
+    benchmark_lens_distortion,
 );
 criterion_main!(benches);
