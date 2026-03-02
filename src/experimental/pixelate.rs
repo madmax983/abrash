@@ -20,34 +20,75 @@ pub fn apply_pixelate(fb: &mut Framebuffer, block_size: u32) {
     }
 
     let width = fb.width() as usize;
+    if width == 0 {
+        return;
+    }
+
     let height = fb.height() as usize;
+    if height == 0 {
+        return;
+    }
+
     let b_size = block_size as usize;
     let pixels = fb.as_mut_slice();
 
-    for y in (0..height).step_by(b_size) {
-        let block_height = std::cmp::min(b_size, height - y);
-        let row_start = y * width;
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
 
-        // Process each block in the row
-        for x in (0..width).step_by(b_size) {
-            let block_width = std::cmp::min(b_size, width - x);
+        let chunk_size = width * b_size;
 
-            // The upper-left pixel of this block
-            let color = pixels[row_start + x];
+        pixels.par_chunks_mut(chunk_size).for_each(|block_rows| {
+            let block_height = block_rows.len() / width;
+            if block_height == 0 {
+                return;
+            }
 
-            // Fill the first row of this block
-            let first_row_start = row_start + x;
-            pixels[first_row_start..first_row_start + block_width].fill(color);
-        }
+            // Process the first row
+            for x in (0..width).step_by(b_size) {
+                let block_width = std::cmp::min(b_size, width - x);
+                let color = block_rows[x];
+                block_rows[x..x + block_width].fill(color);
+            }
 
-        // Now that the first row is fully populated with block colors,
-        // we can efficiently copy this entire row to the rest of the block rows.
-        if block_height > 1 {
-            let (first_row_region, rest) = pixels[row_start..].split_at_mut(width);
+            // Copy the first row to the rest of the block rows
+            if block_height > 1 {
+                let (first_row_region, rest) = block_rows.split_at_mut(width);
+                for by in 1..block_height {
+                    let dest_start = (by - 1) * width;
+                    rest[dest_start..dest_start + width].copy_from_slice(first_row_region);
+                }
+            }
+        });
+    }
 
-            for by in 1..block_height {
-                let dest_start = (by - 1) * width;
-                rest[dest_start..dest_start + width].copy_from_slice(first_row_region);
+    #[cfg(not(feature = "parallel"))]
+    {
+        for y in (0..height).step_by(b_size) {
+            let block_height = std::cmp::min(b_size, height - y);
+            let row_start = y * width;
+
+            // Process each block in the row
+            for x in (0..width).step_by(b_size) {
+                let block_width = std::cmp::min(b_size, width - x);
+
+                // The upper-left pixel of this block
+                let color = pixels[row_start + x];
+
+                // Fill the first row of this block
+                let first_row_start = row_start + x;
+                pixels[first_row_start..first_row_start + block_width].fill(color);
+            }
+
+            // Now that the first row is fully populated with block colors,
+            // we can efficiently copy this entire row to the rest of the block rows.
+            if block_height > 1 {
+                let (first_row_region, rest) = pixels[row_start..].split_at_mut(width);
+
+                for by in 1..block_height {
+                    let dest_start = (by - 1) * width;
+                    rest[dest_start..dest_start + width].copy_from_slice(first_row_region);
+                }
             }
         }
     }
