@@ -222,18 +222,14 @@ impl Cloth {
     /// Converts the cloth to a Mesh.
     #[must_use]
     pub fn to_mesh(&self) -> Mesh {
-        let mut mesh = Mesh::new();
-        mesh.vertices.reserve(self.particles.len());
-        mesh.uvs.reserve(self.particles.len());
+        let mut mesh = Mesh::with_capacity(self.particles.len(), self.indices.len());
         mesh.indices.clone_from(&self.indices);
 
         for p in &self.particles {
             mesh.vertices.push(p.pos);
             mesh.uvs.push(p.uv);
+            mesh.normals.push(Vec3::default());
         }
-
-        // Compute normals
-        mesh.normals = vec![Vec3::default(); mesh.vertices.len()];
 
         for tri in &mesh.indices {
             let i0 = tri[0];
