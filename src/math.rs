@@ -194,7 +194,11 @@ impl Mat2 {
     /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        vertices.iter().map(|&v| self.transform(v)).collect()
+        let mut result = Vec::with_capacity(vertices.len());
+        for v in vertices {
+            result.push(self.transform(*v));
+        }
+        result
     }
 
     /// Transform vertices in place.
