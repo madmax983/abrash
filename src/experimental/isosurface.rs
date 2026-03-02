@@ -245,8 +245,8 @@ mod tests {
 
         let mesh = extract_isosurface(sphere_sdf, min, max, resolution);
 
-        assert!(mesh.vertices.len() > 0, "Should generate vertices");
-        assert!(mesh.indices.len() > 0, "Should generate triangles");
+        assert!(!mesh.vertices.is_empty(), "Should generate vertices");
+        assert!(!mesh.indices.is_empty(), "Should generate triangles");
         assert!(
             mesh.normals.len() == mesh.vertices.len(),
             "Should have normals"

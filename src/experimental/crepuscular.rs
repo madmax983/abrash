@@ -89,7 +89,7 @@ pub fn apply_god_rays(
                 current_v -= delta_v;
 
                 // Clamp UVs to screen bounds
-                if current_u < 0.0 || current_u >= 1.0 || current_v < 0.0 || current_v >= 1.0 {
+                if !(0.0..1.0).contains(&current_u) || !(0.0..1.0).contains(&current_v) {
                     continue; // Skip out-of-bounds samples
                 }
 

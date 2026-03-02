@@ -51,9 +51,9 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
                     let ptr = pixels_ptr;
 
                     // Extract column
-                    for y in 0..height {
+                    for (y, item) in col_buffer.iter_mut().enumerate().take(height) {
                         unsafe {
-                            col_buffer[y] = *ptr.0.add(y * width + x);
+                            *item = *ptr.0.add(y * width + x);
                         }
                     }
 
@@ -61,9 +61,9 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
                     sort_segments(col_buffer, lum_threshold, reverse);
 
                     // Put column back
-                    for y in 0..height {
+                    for (y, item) in col_buffer.iter().enumerate().take(height) {
                         unsafe {
-                            *ptr.0.add(y * width + x) = col_buffer[y];
+                            *ptr.0.add(y * width + x) = *item;
                         }
                     }
                 },

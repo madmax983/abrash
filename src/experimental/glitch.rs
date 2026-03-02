@@ -109,9 +109,9 @@ fn apply_scanline_jitter(
         let mut temp_row = vec![0u32; width];
         temp_row.copy_from_slice(row);
 
-        for x in 0..width {
+        for (x, item) in row.iter_mut().enumerate().take(width) {
             let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
-            row[x] = temp_row[src_x];
+            *item = temp_row[src_x];
         }
     }
 }
@@ -284,11 +284,11 @@ mod tests {
         // Check if the line is still perfectly vertical
         let mut perfect = true;
         for y in 0..20 {
-            if let Some(p) = fb.get_pixel(10, y) {
-                if p != 0xFF000000 {
-                    perfect = false;
-                    break;
-                }
+            if let Some(p) = fb.get_pixel(10, y)
+                && p != 0xFF000000
+            {
+                perfect = false;
+                break;
             }
         }
 

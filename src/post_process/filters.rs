@@ -1454,7 +1454,7 @@ mod tests {
 
         assert_eq!(r, 255, "Red channel mismatch");
         assert_eq!(g, 255, "Green channel mismatch");
-        assert!(b >= 235 && b <= 240, "Blue channel mismatch, got {}", b);
+        assert!((235..=240).contains(&b), "Blue channel mismatch, got {b}");
 
         // Test with Red (255, 0, 0)
         fb.set_pixel(0, 0, 0xFFFF0000);
@@ -1469,18 +1469,15 @@ mod tests {
 
         assert!(
             (r as i32 - 100).abs() <= 2,
-            "Red mismatch for red pixel, got {}",
-            r
+            "Red mismatch for red pixel, got {r}",
         );
         assert!(
             (g as i32 - 89).abs() <= 2,
-            "Green mismatch for red pixel, got {}",
-            g
+            "Green mismatch for red pixel, got {g}",
         );
         assert!(
             (b as i32 - 69).abs() <= 2,
-            "Blue mismatch for red pixel, got {}",
-            b
+            "Blue mismatch for red pixel, got {b}",
         );
     }
 
@@ -1584,9 +1581,9 @@ mod tests {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
-        assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
-        assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
+        assert_eq!(r, 20, "Red mismatch at x=2. Got {r}");
+        assert_eq!(g, 40, "Green mismatch at x=2. Got {g}");
+        assert_eq!(b, 60, "Blue mismatch at x=2. Got {b}");
 
         // Edge case: x=0 (offset 1)
         // R: from x-1 (out of bounds) -> 0

@@ -120,7 +120,6 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 }
 
 fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConfig) {
-    let _ = _config; // Unused for now
     let _width = fb.width() as usize;
     let _height = fb.height() as usize;
     let pixels = fb.as_mut_slice();

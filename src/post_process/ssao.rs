@@ -342,7 +342,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = _mm256_setzero_ps();
 
-                for k in 0..KERNEL_SIZE {
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let sz = _mm256_set1_ps(s.z);
 
@@ -454,7 +454,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = 0.0;
 
-                for k in 0..KERNEL_SIZE {
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
                     let sample_pos = pos_view + rotated_sample * radius;
@@ -554,9 +554,7 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
     let mut buffer = vec![0.0; NOISE_SIZE * KERNEL_SIZE * 2 * 8];
 
     for ny in 0..NOISE_SIZE {
-        for k in 0..KERNEL_SIZE {
-            let s = kernel[k];
-
+        for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
             // For each of the 8 SIMD lanes, we have a different x => different noise_x
             // Lane i corresponds to pixel x_base + i.
             // noise_x = (x_base + i) % NOISE_SIZE.

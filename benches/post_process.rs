@@ -232,9 +232,9 @@ fn benchmark_color_adjust(c: &mut Criterion) {
     let mut fb = Framebuffer::new(width, height).unwrap();
     for y in 0..height {
         for x in 0..width {
-            let r = (x * 4) as u32 % 256;
-            let g = (y * 4) as u32 % 256;
-            let b = ((x + y) * 2) as u32 % 256;
+            let r = (x * 4) % 256;
+            let g = (y * 4) % 256;
+            let b = ((x + y) * 2) % 256;
             let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             fb.set_pixel(x as i32, y as i32, color);
         }
@@ -272,7 +272,7 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
                 black_box(false),
                 black_box(false),
             );
-        })
+        });
     });
 
     c.bench_function("apply_pixel_sort 1080p vertical", |b| {
@@ -283,7 +283,7 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
                 black_box(true),
                 black_box(false),
             );
-        })
+        });
     });
 }
 
