@@ -15,7 +15,7 @@ fn bench_scanline_lengths(c: &mut Criterion) {
     // Fill with pattern
     for y in 0..256 {
         for x in 0..256 {
-            tex.set_pixel(x, y, (x ^ y) as u32 | 0xFF000000);
+            tex.set_pixel(x, y, (x ^ y) | 0xFF000000);
         }
     }
     // Use Bilinear to stress the SIMD path more (if it supports it)
@@ -47,7 +47,7 @@ fn bench_scanline_lengths(c: &mut Criterion) {
     let mut group = c.benchmark_group("scanline_perspective_bilinear");
 
     for &len in &lengths {
-        group.bench_function(format!("len_{}", len), |b| {
+        group.bench_function(format!("len_{len}"), |b| {
             b.iter(|| {
                 let x_end = x_start + len;
                 // Clear Z-buffer slice

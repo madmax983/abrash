@@ -2,7 +2,7 @@ use abrash::post_process::blur::box_blur_horizontal;
 
 #[test]
 fn test_box_blur_zero_width() {
-    let mut src = vec![0u32; 10];
+    let src = vec![0u32; 10];
     let mut dest = vec![0u32; 10];
     let width = 0;
     let height = 10;

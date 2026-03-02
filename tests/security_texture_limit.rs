@@ -9,13 +9,13 @@ fn test_texture_size_limit_i32_overflow() {
     let height = 46341;
 
     // Ensure our test constants are correct
-    let total_pixels: u64 = (width as u64) * (height as u64);
+    let total_pixels: u64 = u64::from(width) * u64::from(height);
     assert!(
         total_pixels > i32::MAX as u64,
         "Test case must exceed i32::MAX pixels"
     );
     assert!(
-        total_pixels < u32::MAX as u64,
+        total_pixels < u64::from(u32::MAX),
         "Test case must fit in u32 pixels (to pass u32 check)"
     );
 

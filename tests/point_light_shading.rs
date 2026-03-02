@@ -75,24 +75,15 @@ fn test_point_light_attenuation() {
     let brightness_left = (pixel_left & 0xFF) as i32;
     let brightness_right = (pixel_right & 0xFF) as i32;
 
-    println!(
-        "Left brightness (at {},{}): {}",
-        x_left, y_sample, brightness_left
-    );
-    println!(
-        "Right brightness (at {},{}): {}",
-        x_right, y_sample, brightness_right
-    );
+    println!("Left brightness (at {x_left},{y_sample}): {brightness_left}");
+    println!("Right brightness (at {x_right},{y_sample}): {brightness_right}");
 
     // Also check center
     let pixel_center = fb
         .get_pixel(100, y_sample)
         .expect("Pixel center should be drawn");
     let brightness_center = (pixel_center & 0xFF) as i32;
-    println!(
-        "Center brightness (at 100,{}): {}",
-        y_sample, brightness_center
-    );
+    println!("Center brightness (at 100,{y_sample}): {brightness_center}");
 
     assert!(brightness_left > 0, "Left side should be lit");
     assert!(brightness_right > 0, "Right side should be lit");

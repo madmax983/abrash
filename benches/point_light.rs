@@ -57,7 +57,7 @@ fn bench_fill_triangle_point_lit(c: &mut Criterion) {
                 black_box(light_color),
                 black_box(attenuation),
             );
-        })
+        });
     });
 }
 

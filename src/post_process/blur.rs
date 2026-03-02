@@ -703,7 +703,7 @@ mod tests {
         let mut f32_acc: Vec<f32> = vec![];
         box_blur_f32(&mut f32_src, &mut f32_dest, &mut f32_acc, 0, 0);
 
-        let mut u32_src: Vec<u32> = vec![];
+        let u32_src: Vec<u32> = vec![];
         let mut u32_dest: Vec<u32> = vec![];
         let mut i32_acc: Vec<i32> = vec![];
         box_blur_horizontal(&u32_src, &mut u32_dest, 0, 0, 5);

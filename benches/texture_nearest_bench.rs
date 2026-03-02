@@ -40,8 +40,8 @@ fn bench_texture_nearest(c: &mut Criterion) {
                 black_box(v1),
                 black_box(v2),
                 black_box(&texture),
-            )
-        })
+            );
+        });
     });
 }
 

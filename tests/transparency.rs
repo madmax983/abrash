@@ -39,7 +39,7 @@ fn test_transparency_blending() {
     // Check center pixel
     let center_pixel = fb.get_pixel(50, 50).unwrap();
 
-    println!("Center pixel: 0x{:08X}", center_pixel);
+    println!("Center pixel: 0x{center_pixel:08X}");
 
     // With current implementation (overwrite), it will be 0x80FF0000 (Red=255, Blue=0)
     // With proper implementation, it should be blended.
@@ -50,13 +50,11 @@ fn test_transparency_blending() {
 
     assert!(
         r > 100 && r < 150,
-        "Red channel should be blended (expected ~127, got {})",
-        r
+        "Red channel should be blended (expected ~127, got {r})"
     );
     assert_eq!(g, 0, "Green channel should be 0");
     assert!(
         b > 100 && b < 150,
-        "Blue channel should be blended (expected ~127, got {})",
-        b
+        "Blue channel should be blended (expected ~127, got {b})"
     );
 }

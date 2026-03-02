@@ -31,7 +31,7 @@ proptest! {
             assert!((actual_v.x - expected_v.x).abs() < epsilon, "Index {}: X mismatch: {} vs {}", i, actual_v.x, expected_v.x);
             assert!((actual_v.y - expected_v.y).abs() < epsilon, "Index {}: Y mismatch: {} vs {}", i, actual_v.y, expected_v.y);
             assert!((actual_v.z - expected_v.z).abs() < epsilon, "Index {}: Z mismatch: {} vs {}", i, actual_v.z, expected_v.z);
-            assert!((actual_w - expected_w).abs() < epsilon, "Index {}: W mismatch: {} vs {}", i, actual_w, expected_w);
+            assert!((actual_w - expected_w).abs() < epsilon, "Index {i}: W mismatch: {actual_w} vs {expected_w}");
         }
     }
 }

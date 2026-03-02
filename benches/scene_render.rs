@@ -72,7 +72,7 @@ fn bench_scene_render(c: &mut Criterion) {
             fb.clear(0xFF000000);
             zb.clear();
             scene.render(&mut renderer, &mut fb, &mut zb);
-        })
+        });
     });
 }
 

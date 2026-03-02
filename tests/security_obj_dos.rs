@@ -16,14 +16,14 @@ mod tests {
             let idx1 = i * 3 + 1;
             let idx2 = i * 3 + 2;
             let idx3 = i * 3 + 3;
-            obj.push_str(&format!("f 1/{} 1/{} 1/{}\n", idx1, idx2, idx3));
+            obj.push_str(&format!("f 1/{idx1} 1/{idx2} 1/{idx3}\n"));
         }
 
         let start = Instant::now();
         let _ = load_obj(&obj).unwrap();
         let duration = start.elapsed();
 
-        println!("Loaded {} vertices in {:?}", n, duration);
+        println!("Loaded {n} vertices in {duration:?}");
 
         // Fail if too slow (e.g. > 2 seconds for 20k is suspicious)
         // 20k linear should be instant (< 100ms).
