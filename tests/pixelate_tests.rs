@@ -1,5 +1,5 @@
-use abrash::framebuffer::Framebuffer;
 use abrash::experimental::pixelate::apply_pixelate;
+use abrash::framebuffer::Framebuffer;
 
 #[test]
 fn test_apply_pixelate_basic() {
