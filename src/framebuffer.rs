@@ -180,21 +180,29 @@ impl Framebuffer {
             return;
         }
 
-        // To prevent `width as i32` or `height as i32` from wrapping or overflowing
-        // we use i64 for intermediate calculations
-        let x1 = x as i64;
-        let y1 = y as i64;
-        let x2 = x1.saturating_add(width as i64);
-        let y2 = y1.saturating_add(height as i64);
+        let x1 = x;
+        let y1 = y;
 
-        let start_x = x1.clamp(0, self.width as i64) as u32;
-        let start_y = y1.clamp(0, self.height as i64) as u32;
-        let end_x = x2.clamp(0, self.width as i64) as u32;
-        let end_y = y2.clamp(0, self.height as i64) as u32;
+        // Prevent overflow when adding width to x
+        // Use i64 for intermediate calculation to avoid wrapping
+        let x2_i64 = (x as i64) + (width as i64);
+        let y2_i64 = (y as i64) + (height as i64);
 
-        if start_x >= end_x || start_y >= end_y {
-            return;
-        }
+        let x2 = if x2_i64 > i32::MAX as i64 {
+            i32::MAX
+        } else {
+            x2_i64 as i32
+        };
+        let y2 = if y2_i64 > i32::MAX as i64 {
+            i32::MAX
+        } else {
+            y2_i64 as i32
+        };
+
+        let start_x = x1.clamp(0, self.width as i32) as u32;
+        let start_y = y1.clamp(0, self.height as i32) as u32;
+        let end_x = x2.clamp(0, self.width as i32) as u32;
+        let end_y = y2.clamp(0, self.height as i32) as u32;
 
         for row in start_y..end_y {
             let start = (row * self.width + start_x) as usize;
