@@ -12,6 +12,6 @@
 **Learning:** In heavily looping setup functions like `Cloth::new`, using `Vec::new()` causes multiple reallocations which hurts performance and causes fragmentation. By mathematically calculating the exact capacity needed upfront, we can use `Vec::with_capacity()` to achieve zero-cost allocation on setup.
 **Action:** Always calculate and use exact capacities for predictable, nested loops generating data.
 
-**[Optimization Attempt: Iterator versus Allocation in Math Loops]**
-**Learning:** I attempted to optimize `Mesh::compute_face_normals` (in `src/mesh.rs`) by replacing `.iter().map().collect::<Vec<_>>()` with a manual imperative loop and `Vec::with_capacity()`. Surprisingly, testing on large vertex inputs revealed a massive ~40% speedup! (84µs down to 48µs). While `.collect()` is usually optimal, Rust's iterators struggle to pre-estimate bounds efficiently for `Vec` collections involving nested arrays (`&[i0, i1, i2]`), mapping over a slice lookup, and complex Math operations (`Vec3::cross`).
-**Action:** When working on extremely hot math-heavy loops that generate data from slices of arrays, avoid `.collect()` and instead initialize arrays directly with `Vec::with_capacity()` and `.push()` logic.
+## SIMD Batched Frustum Culling
+**Learning:** Checking AABBs individually against the frustum incurs high loop overhead and misses out on vectorization opportunities.
+**Action:** When working with collections of geometric primitives or bounding volumes (like AABBs), process them in batches (e.g., using a pre-allocated `Vec` in a thread-local context) to leverage SIMD-optimized routines (like `cull_aabbs_prealloc`), minimizing branching and maximizing throughput.
