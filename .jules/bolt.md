@@ -7,6 +7,7 @@
 **[Optimization Trap: Intrinsics vs Inlining]**
 **Learning:** Attempting to optimize `Vec3::normalize` with `unsafe` SIMD intrinsics (`rsqrtss`) caused precision regressions in tests and violated safety policies. However, simply adding `#[inline]` to `Vec3::length` provided a ~50% speedup (11.3ns -> 5.7ns), matching the performance of the unsafe intrinsic version without the downsides.
 **Action:** Always profile function call overhead and inlining (`#[inline]`) before resorting to `unsafe` intrinsics. Precision loss from fast-math approximations can break regression tests.
-**Pre-allocate Vectors in Benchmarks/Tests**
-**Learning:** When generating large datasets for benchmarks or tests, dynamic heap allocations via `Vec::new()` and `.push()` can skew performance measurements and create unnecessary overhead. Pre-calculating exact capacities and using `Vec::with_capacity(n)` is a critical zero-cost abstraction.
-**Action:** Always use `Vec::with_capacity(n)` for predictable loops generating data, even in benchmark and test setup code.
+
+**[Performance Optimization: Rayon fold to flat_map_iter]**
+**Learning:** Replacing `.fold(Vec::new, ...).flatten().collect()` with `.flat_map_iter(...)` in Rayon iterator chains eliminates intermediate `Vec` allocations per chunk. This reduces heap allocations significantly in parallel processing pipelines like the tile rasterizer (`submit_mesh`, `render_batch` paths).
+**Action:** Always prefer `flat_map_iter` when flattening iterator results in Rayon to keep data on the stack (via returned Iterators or arrays) and avoid heap-allocating intermediate collections.

@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -1674,8 +1674,10 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Process triangles in parallel and collect prepared results
-            self.prepared
-                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
+            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
+            let results: Vec<PreparedTriangle> = indices
+                .par_iter()
+                .flat_map_iter(|&[i0, i1, i2]| {
                     // Safety: We trust the indices are within bounds of the vertices slice.
                     // The caller must ensure this or it will panic inside the thread.
                     let v0 = vertices[i0];
@@ -1693,7 +1695,10 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                }));
+                })
+                .collect();
+
+            self.prepared.extend(results);
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1985,8 +1990,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            self.prepared
-                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
+            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
+            let results: Vec<PreparedTriangle> = triangles
+                .par_iter()
+                .flat_map_iter(|&(v0, v1, v2, color)| {
                     let tris = Self::prepare_triangle_static(
                         v0,
                         v1,
@@ -1998,7 +2005,10 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                }));
+                })
+                .collect();
+
+            self.prepared.extend(results);
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2059,25 +2069,26 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            self.prepared_textured
-                .par_extend(
-                    triangles
-                        .par_iter()
-                        .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                            let tris = Self::prepare_triangle_textured_static(
-                                (v0, uv0),
-                                (v1, uv1),
-                                (v2, uv2),
-                                tex_w,
-                                tex_h,
-                                width,
-                                height,
-                                half_width,
-                                half_height,
-                            );
-                            tris
-                        }),
-                );
+            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
+            let results: Vec<PreparedTexturedTriangle> = triangles
+                .par_iter()
+                .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                    let tris = Self::prepare_triangle_textured_static(
+                        (v0, uv0),
+                        (v1, uv1),
+                        (v2, uv2),
+                        tex_w,
+                        tex_h,
+                        width,
+                        height,
+                        half_width,
+                        half_height,
+                    );
+                    tris
+                })
+                .collect();
+
+            self.prepared_textured.extend(results);
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2240,8 +2251,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            self.prepared_gouraud
-                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
+            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
+            let results: Vec<PreparedGouraudTriangle> = triangles
+                .par_iter()
+                .flat_map_iter(|&(v0, v1, v2)| {
                     let tris = Self::prepare_triangle_gouraud_static(
                         v0,
                         v1,
@@ -2252,7 +2265,10 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                }));
+                })
+                .collect();
+
+            self.prepared_gouraud.extend(results);
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2349,25 +2365,44 @@ impl TileRenderer {
                                 let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
                                 let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                                let row_end = (clear_y_max as u32 + 1)
-                                    .min(tile_y0 + TILE_SIZE)
-                                    .min(height);
+                tiles.par_iter().for_each_init(
+                    || {
+                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                    },
+                    |buffers, &(tx, ty)| {
+                        let (tile_pixels, tile_depths) = &mut *buffers;
+                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
+                            tx,
+                            ty,
+                            tile_bins,
+                            prepared,
+                            tiles_x,
+                            width,
+                            height,
+                            tile_pixels,
+                            tile_depths,
+                        ) {
+                            // Merge tile into framebuffer/zbuffer
+                            let tile_x0 = tx * TILE_SIZE;
+                            let tile_y0 = ty * TILE_SIZE;
+                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                            let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                                for row in row_begin..row_end {
-                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
+                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                            let row_end = (clear_y_max as u32 + 1)
+                                .min(tile_y0 + TILE_SIZE)
+                                .min(height);
 
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(
-                                            fb_start + col,
-                                            tile_pixels[tile_row_offset + col],
-                                        );
-                                        zb_ptr.write(
-                                            fb_start + col,
-                                            tile_depths[tile_row_offset + col],
-                                        );
-                                    }
+                            for row in row_begin..row_end {
+                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                let fb_start = row as usize * width as usize + tile_x0 as usize;
+
+                                for col in 0..tile_cols {
+                                    fb_ptr
+                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
+                                    zb_ptr
+                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
                         },
@@ -2483,18 +2518,18 @@ impl TileRenderer {
 
             results.push(PreparedGouraudTriangle {
                 p0: CompactScreenPoint {
-                    x: p0.x,
-                    y: p0.y,
+                    x: p0.x as i16,
+                    y: p0.y as i16,
                     z: p0.z,
                 },
                 p1: CompactScreenPoint {
-                    x: p1.x,
-                    y: p1.y,
+                    x: p1.x as i16,
+                    y: p1.y as i16,
                     z: p1.z,
                 },
                 p2: CompactScreenPoint {
-                    x: p2.x,
-                    y: p2.y,
+                    x: p2.x as i16,
+                    y: p2.y as i16,
                     z: p2.z,
                 },
                 c0: c0_fixed,
@@ -2923,12 +2958,12 @@ impl TileRenderer {
             let tile_size_i32 = TILE_SIZE as i32;
 
             // Calculate triangle bounds in tile coordinates
-            let tx_min_tri = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
-            let ty_min_tri = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
+            let tx_min_tri = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
+            let ty_min_tri = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
             let tx_max_tri =
-                (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
+                ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
             let ty_max_tri =
-                (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
+                ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
             // Calculate bounds in coarse bin coordinates
             let cx_min = tx_min_tri / coarse_size;
@@ -4097,7 +4132,7 @@ mod tests {
         use std::mem::size_of;
         // Optimization: PreparedTriangle should fit in 64 bytes (1 cache line).
         // Original size: 84 bytes (with ScreenPoint and i32 AABBs).
-        // New size: exactly 64 bytes (with CompactScreenPoint using i32, and AABB using u16).
+        // New size: ~52 bytes (with CompactScreenPoint and i16 AABBs).
         assert!(
             size_of::<PreparedTriangle>() <= 64,
             "PreparedTriangle should fit in a cache line"
