@@ -28,6 +28,29 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
+
+/// A simple, fast, non-cryptographic hash for integer keys.
+/// OBJ deduplication keys are `(usize, usize, usize)`, which don't need strong mixing.
+#[derive(Default)]
+struct FnvHasher(u64);
+
+impl std::hash::Hasher for FnvHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 ^= byte as u64;
+            self.0 = self.0.wrapping_mul(0x100000001b3);
+        }
+    }
+}
+
+type FastHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FnvHasher>>;
 
 /// Optimized integer parser for OBJ indices.
 /// Replaces generic `str::parse::<usize>` to avoid overhead.
@@ -97,7 +120,8 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
     // Deduplication structure:
     // Key: (v_idx, vt_idx, vn_idx). vt/vn use NO_INDEX for None to save space/time.
     // Value: index in final_vertices.
-    let mut deduplicator: HashMap<(usize, usize, usize), usize> = HashMap::with_capacity(1024);
+    let mut deduplicator: FastHashMap<(usize, usize, usize), usize> =
+        FastHashMap::with_capacity_and_hasher(1024, BuildHasherDefault::default());
 
     let mut final_vertices = Vec::with_capacity(1024);
     let mut final_uvs = Vec::with_capacity(1024);

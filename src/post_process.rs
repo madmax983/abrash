@@ -324,17 +324,13 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
         return;
     }
     let width = fb.width() as usize;
-    let height = fb.height() as usize;
     let offset = offset as usize;
 
+    // Optimization: Allocate the scratch buffer once instead of per-row or creating it inside the loop
     let mut row_buffer = vec![0u32; width];
     let pixels = fb.as_mut_slice();
 
-    for y in 0..height {
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row_pixels = &mut pixels[row_start..row_end];
-
+    for row_pixels in pixels.chunks_exact_mut(width) {
         // Copy current row to scratch buffer
         row_buffer.copy_from_slice(row_pixels);
 

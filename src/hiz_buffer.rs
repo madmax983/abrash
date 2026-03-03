@@ -200,10 +200,12 @@ impl HiZBuffer {
 
             // Build subsequent levels from previous levels
             for level_idx in 2..self.level_count {
-                // Clone the previous level's depths to avoid borrowing issues
-                let prev_width = self.levels[(level_idx - 1) as usize].width;
-                let prev_depths = self.levels[(level_idx - 1) as usize].depths.clone();
-                self.build_level(level_idx, &prev_depths, prev_width);
+                // Optimization: Avoid cloning the previous level's depths by using split_at_mut
+                let (prev_levels, current_levels) = self.levels.split_at_mut(level_idx as usize);
+                let prev_level = &prev_levels[(level_idx - 1) as usize];
+                let current_level = &mut current_levels[0];
+
+                Self::build_level_internal(current_level, &prev_level.depths, prev_level.width);
             }
         }
 
@@ -222,44 +224,24 @@ impl HiZBuffer {
 
     /// Build a single pyramid level via 2×2 min-reduction
     fn build_level(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
+        Self::build_level_internal(&mut self.levels[level_idx as usize], source, source_width);
+    }
+
+    /// Internal method to build a level without requiring mutable access to the entire HiZBuffer
+    fn build_level_internal(current_level: &mut PyramidLevel, source: &[f32], source_width: u32) {
         // SIMD disabled after extensive profiling and optimization (2026-02-06)
-        //
-        // **History:**
-        // - Initial AVX2 SIMD: 2.7× slower than scalar (6 shuffles per 4 pixels)
-        // - Optimized version: 1.9× slower (5 shuffles per 8 pixels, 58% reduction)
-        // - Added adaptive threshold: Still 1.9× slower at 1080p and 4K
-        //
-        // **Root causes:**
-        // 1. Memory bandwidth saturation: 4× unaligned loads per 2×2 reduction
-        //    - Scalar: 2.16 cycles/pixel
-        //    - SIMD: 4.12 cycles/pixel (1.9× overhead)
-        // 2. Excessive shuffle operations: Even optimized 5-shuffle pattern too slow
-        //    - Horizontal min-reduction requires complex shuffle patterns
-        //    - Each shuffle: 1-3 cycles latency, overhead exceeds benefit
-        // 3. Small pyramid levels: Upper levels (<64 pixels) too small to amortize setup cost
-        // 4. Unaligned loads: _mm256_loadu_ps is 2-3× slower than aligned loads
-        //
-        // **Attempts:**
-        // - ✅ Reduced shuffles from 6→5 per 8 pixels (58% reduction)
-        // - ✅ Added width threshold (skip SIMD for levels <16 pixels)
-        // - ❌ Still 1.9× slower than scalar baseline
-        //
-        // **Conclusion:**
-        // Hi-Z pyramid is fundamentally unsuited for SIMD due to:
-        // - Small working set (most levels <128 pixels wide)
-        // - Memory-bound (4× loads per output pixel)
-        // - Complex shuffle patterns (horizontal reductions are expensive)
-        //
-        // Scalar implementation is optimal for this workload.
-        // See: SIMD_PROFILING_ANALYSIS.md for full profiling data
-        self.build_level_scalar(level_idx, source, source_width);
+        Self::build_level_scalar_internal(current_level, source, source_width);
     }
 
     /// Scalar 2×2 min-reduction implementation
-    fn build_level_scalar(&mut self, level_idx: u32, source: &[f32], source_width: u32) {
-        let level_width = self.levels[level_idx as usize].width;
-        let level_height = self.levels[level_idx as usize].height;
-        let dest = &mut self.levels[level_idx as usize].depths;
+    fn build_level_scalar_internal(
+        current_level: &mut PyramidLevel,
+        source: &[f32],
+        source_width: u32,
+    ) {
+        let level_width = current_level.width;
+        let level_height = current_level.height;
+        let dest = &mut current_level.depths;
 
         let sw = source_width as usize;
         let sh = source.len() / sw;
