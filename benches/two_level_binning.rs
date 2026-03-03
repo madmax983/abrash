@@ -41,7 +41,7 @@ fn generate_triangle_grid(count: usize, depth: f32) -> Vec<ClipTriangle> {
 /// Generate overlapping layers of triangles at different depths
 /// to test Hi-Z culling effectiveness
 fn generate_layered_scene(triangles_per_layer: usize, layer_count: usize) -> Vec<ClipTriangle> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(triangles_per_layer * layer_count);
 
     // Front-to-back layers (optimal for Hi-Z)
     for layer in 0..layer_count {

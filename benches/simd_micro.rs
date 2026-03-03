@@ -222,7 +222,7 @@ fn generate_horizontal_triangles(
     scanline_len: u32,
     count: usize,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
     let width = scanline_len as f32;
 
     for i in 0..count {
@@ -248,7 +248,7 @@ fn generate_scattered_triangles(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
         // Pseudo-random scattering using prime number modulo
@@ -274,7 +274,7 @@ fn generate_test_scene(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
         let x = ((i % 20) as f32) * (width as f32 / 20.0);
