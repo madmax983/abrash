@@ -1760,6 +1760,86 @@ mod tests {
     }
 
     #[test]
+    fn test_mat2_rotation() {
+        use std::f32::consts::FRAC_PI_2;
+        let m = Mat2::rotation(FRAC_PI_2);
+        // cos(90) is approx 0, sin(90) is 1
+        assert!(m.m[0][0].abs() < 1e-6);
+        assert!((m.m[0][1] - (-1.0)).abs() < 1e-6);
+        assert!((m.m[1][0] - 1.0).abs() < 1e-6);
+        assert!(m.m[1][1].abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform() {
+        use std::f32::consts::FRAC_PI_2;
+        let m = Mat2::rotation(FRAC_PI_2);
+        let v = Vec2::new(1.0, 0.0);
+        let result = m.transform(v);
+        // (1, 0) rotated 90 deg -> (0, 1)
+        assert!(result.x.abs() < 1e-6);
+        assert!((result.y - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform_batch() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+        let result = m.transform_batch(&vertices);
+        // Rotate 180 degrees -> (-x, -y)
+        assert!((result[0].x - (-1.0)).abs() < 1e-6);
+        assert!(result[0].y.abs() < 1e-6);
+        assert!(result[1].x.abs() < 1e-6);
+        assert!((result[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform_in_place() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let mut vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+        m.transform_in_place(&mut vertices);
+        // Rotate 180 degrees -> (-x, -y)
+        assert!((vertices[0].x - (-1.0)).abs() < 1e-6);
+        assert!(vertices[0].y.abs() < 1e-6);
+        assert!(vertices[1].x.abs() < 1e-6);
+        assert!((vertices[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec4_new() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        assert_eq!(v.x, 1.0);
+        assert_eq!(v.y, 2.0);
+        assert_eq!(v.z, 3.0);
+        assert_eq!(v.w, 4.0);
+    }
+
+    #[test]
+    fn test_vec4_add() {
+        let v1 = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let v2 = Vec4::new(5.0, 6.0, 7.0, 8.0);
+        let result = v1 + v2;
+        assert_eq!(result, Vec4::new(6.0, 8.0, 10.0, 12.0));
+    }
+
+    #[test]
+    fn test_vec4_sub() {
+        let v1 = Vec4::new(5.0, 6.0, 7.0, 8.0);
+        let v2 = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let result = v1 - v2;
+        assert_eq!(result, Vec4::new(4.0, 4.0, 4.0, 4.0));
+    }
+
+    #[test]
+    fn test_vec4_mul_scalar() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let result = v * 2.5;
+        assert_eq!(result, Vec4::new(2.5, 5.0, 7.5, 10.0));
+    }
+
+    #[test]
     fn test_vec3_min_max() {
         let a = Vec3::new(1.0, 5.0, -2.0);
         let b = Vec3::new(3.0, 2.0, -1.0);
