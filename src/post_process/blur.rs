@@ -244,7 +244,7 @@ pub fn box_blur_horizontal(
         return;
     }
 
-    let radius = radius.min((width.max(height)) as u32);
+    let radius = radius.min((width.max(height)) as u32).min(100_000);
     let radius = radius as usize;
     // Window size (kernel width)
     let kernel_size = (2 * radius + 1) as u64;
@@ -348,7 +348,7 @@ pub fn box_blur_vertical(
         return;
     }
 
-    let radius = radius.min((width.max(height)) as u32);
+    let radius = radius.min((width.max(height)) as u32).min(100_000);
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
