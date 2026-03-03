@@ -31,9 +31,16 @@ where
     let height = (size.y / step).ceil() as usize + 1;
     let depth = (size.z / step).ceil() as usize + 1;
 
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
-    let mut normals = Vec::new();
+    // Estimate capacity based on grid volume. A reasonable heuristic is that
+    // the surface intersects roughly a fraction of the total cells (e.g., area vs volume).
+    // Assuming surface area grows with N^2 and volume with N^3.
+    // For small grids, preallocate a small percentage of total possible tetrahedra.
+    let total_cells = width * height * depth;
+    let estimated_tris = (total_cells as f32).powf(0.66).ceil() as usize * 12; // heuristic
+
+    let mut vertices = Vec::with_capacity(estimated_tris * 3);
+    let mut indices = Vec::with_capacity(estimated_tris * 3);
+    let mut normals = Vec::with_capacity(estimated_tris * 3);
 
     // Cache SDF values to avoid recomputing
     // Index: z * height * width + y * width + x
@@ -257,8 +264,7 @@ mod tests {
             let dist = v.length();
             assert!(
                 (dist - 1.0).abs() < 0.2,
-                "Vertex should be near surface, got dist {}",
-                dist
+                "Vertex should be near surface, got dist {dist}"
             );
         }
     }

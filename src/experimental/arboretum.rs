@@ -237,9 +237,10 @@ impl LSystem {
         let instructions = self.expand(iterations);
 
         let num_segments = instructions.chars().filter(|&c| c == 'F').count();
+        let num_pushes = instructions.chars().filter(|&c| c == '[').count();
         let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 8);
 
-        let mut stack: Vec<Turtle> = Vec::new();
+        let mut stack: Vec<Turtle> = Vec::with_capacity(num_pushes);
         let mut turtle = Turtle::new(self.step_length, self.radius);
 
         for c in instructions.chars() {
