@@ -229,9 +229,6 @@ impl Default for RayTracer {
 struct RenderObject<'a> {
     obj: &'a SceneObject,
     world_aabb: AABB,
-    /// Pre-transformed world space vertices hoisted out of the innermost ray intersection loop.
-    ///
-    /// This optimization reduces matrix transformations from O(rays * triangles) down to O(vertices).
     world_vertices: Vec<Vec3>,
 }
 
@@ -264,12 +261,16 @@ impl RayTracer {
         let render_objects: Vec<RenderObject> = scene
             .objects
             .iter()
-            .map(|obj| RenderObject {
-                obj,
-                world_aabb: obj.calculate_world_aabb(),
-                world_vertices: obj.mesh.vertices.iter()
-                    .map(|&v| obj.transform.transform_point(v).0)
-                    .collect(),
+            .map(|obj| {
+                let mut world_vertices = Vec::with_capacity(obj.mesh.vertices.len());
+                for &v in &obj.mesh.vertices {
+                    world_vertices.push(obj.transform.transform_point(v).0);
+                }
+                RenderObject {
+                    obj,
+                    world_aabb: obj.calculate_world_aabb(),
+                    world_vertices,
+                }
             })
             .collect();
 
