@@ -120,31 +120,11 @@ pub fn apply_ssao(
                     );
                 }
             } else {
-                apply_ssao_scalar(
-                    occlusion_buffer,
-                    zb,
-                    proj,
-                    kernel,
-                    noise,
-                    width,
-                    height,
-                    radius,
-                    bias,
-                );
+                apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
             }
         }
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        apply_ssao_scalar(
-            occlusion_buffer,
-            zb,
-            proj,
-            kernel,
-            noise,
-            width,
-            height,
-            radius,
-            bias,
-        );
+        apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
 
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
@@ -173,11 +153,12 @@ fn apply_ssao_scalar(
     proj: &Mat4,
     kernel: &[Vec3],
     noise: &[Vec3],
-    width: usize,
-    height: usize,
     radius: f32,
     bias: f32,
 ) {
+    let width = zb.width() as usize;
+    let height = zb.height() as usize;
+
     // Projection parameters
     let p00 = proj.m[0][0];
     let p11 = proj.m[1][1];
@@ -649,17 +630,7 @@ mod tests {
             }
         }
 
-        apply_ssao_scalar(
-            &mut occ_scalar,
-            &zb,
-            &proj,
-            &kernel,
-            &noise,
-            width as usize,
-            height as usize,
-            1.0,
-            0.001,
-        );
+        apply_ssao_scalar(&mut occ_scalar, &zb, &proj, &kernel, &noise, 1.0, 0.001);
 
         unsafe {
             apply_ssao_avx2(
