@@ -50,7 +50,7 @@ fn bench_phong_scanline_performance(c: &mut Criterion) {
                 black_box(light_color),
                 black_box(ambient),
             );
-        })
+        });
     });
 }
 

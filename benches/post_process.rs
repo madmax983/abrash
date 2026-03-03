@@ -15,7 +15,7 @@ fn benchmark_grayscale(c: &mut Criterion) {
     c.bench_function("apply_grayscale 1080p", |b| {
         b.iter(|| {
             post_process::apply_grayscale(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -28,7 +28,7 @@ fn benchmark_scanlines(c: &mut Criterion) {
     c.bench_function("apply_scanlines 1080p", |b| {
         b.iter(|| {
             post_process::apply_scanlines(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -41,7 +41,7 @@ fn benchmark_invert(c: &mut Criterion) {
     c.bench_function("apply_invert 1080p", |b| {
         b.iter(|| {
             post_process::apply_invert(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -54,7 +54,7 @@ fn benchmark_sepia(c: &mut Criterion) {
     c.bench_function("apply_sepia 1080p", |b| {
         b.iter(|| {
             post_process::apply_sepia(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -67,7 +67,7 @@ fn benchmark_chromatic_aberration(c: &mut Criterion) {
     c.bench_function("apply_chromatic_aberration 1080p", |b| {
         b.iter(|| {
             post_process::apply_chromatic_aberration(black_box(&mut fb), black_box(5));
-        })
+        });
     });
 }
 
@@ -85,7 +85,7 @@ fn benchmark_bloom(c: &mut Criterion) {
                 black_box(10),
                 black_box(0.8),
             );
-        })
+        });
     });
 }
 
@@ -116,7 +116,7 @@ fn benchmark_ssao(c: &mut Criterion) {
                 black_box(0.001),
                 black_box(2.0),
             );
-        })
+        });
     });
 }
 
@@ -137,7 +137,7 @@ fn benchmark_box_blur_f32(c: &mut Criterion) {
                 black_box(width),
                 black_box(height),
             );
-        })
+        });
     });
 }
 
@@ -157,7 +157,7 @@ fn benchmark_box_blur_horizontal(c: &mut Criterion) {
                 black_box(height),
                 black_box(10), // radius
             );
-        })
+        });
     });
 }
 
@@ -180,7 +180,7 @@ fn benchmark_sobel(c: &mut Criterion) {
     c.bench_function("apply_sobel 1080p", |b| {
         b.iter(|| {
             post_process::apply_sobel(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -209,7 +209,7 @@ fn benchmark_dof(c: &mut Criterion) {
                 black_box(0.1),
                 black_box(5),
             );
-        })
+        });
     });
 }
 
@@ -222,10 +222,100 @@ fn benchmark_vignette(c: &mut Criterion) {
     c.bench_function("apply_vignette 1080p", |b| {
         b.iter(|| {
             post_process::apply_vignette(black_box(&mut fb), black_box(0.5), black_box(0.5));
-        })
+        });
     });
 }
 
+fn benchmark_color_adjust(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    for y in 0..height {
+        for x in 0..width {
+            let r = (x * 4) % 256;
+            let g = (y * 4) % 256;
+            let b = ((x + y) * 2) % 256;
+            let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_color_adjust 1080p", |b| {
+        b.iter(|| {
+            post_process::apply_color_adjust(black_box(&mut fb), black_box(10), black_box(1.2));
+        });
+    });
+}
+
+#[cfg(feature = "nova")]
+fn benchmark_pixel_sort(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    // Fill with a pattern
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_pixel_sort 1080p horizontal", |b| {
+        b.iter(|| {
+            abrash::experimental::pixel_sort::apply_pixel_sort(
+                black_box(&mut fb),
+                black_box(0.5),
+                black_box(false),
+                black_box(false),
+            );
+        });
+    });
+
+    c.bench_function("apply_pixel_sort 1080p vertical", |b| {
+        b.iter(|| {
+            abrash::experimental::pixel_sort::apply_pixel_sort(
+                black_box(&mut fb),
+                black_box(0.5),
+                black_box(true),
+                black_box(false),
+            );
+        });
+    });
+}
+
+#[cfg(feature = "nova")]
+fn benchmark_halftone(c: &mut Criterion) {
+    let width = 1920;
+    let height = 1080;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    // Fill with a pattern
+    for y in 0..height {
+        for x in 0..width {
+            let color = if (x / 50 + y / 50) % 2 == 0 {
+                0xFFFFFFFF
+            } else {
+                0xFF000000
+            };
+            fb.set_pixel(x as i32, y as i32, color);
+        }
+    }
+
+    c.bench_function("apply_halftone 1080p", |b| {
+        b.iter(|| {
+            abrash::experimental::halftone::apply_halftone(
+                black_box(&mut fb),
+                black_box(5.0),
+                black_box(0.785398),
+            );
+        });
+    });
+}
+
+#[cfg(feature = "nova")]
 criterion_group!(
     benches,
     benchmark_grayscale,
@@ -240,5 +330,26 @@ criterion_group!(
     benchmark_sobel,
     benchmark_dof,
     benchmark_vignette,
+    benchmark_color_adjust,
+    benchmark_pixel_sort,
+    benchmark_halftone,
+);
+
+#[cfg(not(feature = "nova"))]
+criterion_group!(
+    benches,
+    benchmark_grayscale,
+    benchmark_scanlines,
+    benchmark_invert,
+    benchmark_sepia,
+    benchmark_chromatic_aberration,
+    benchmark_bloom,
+    benchmark_ssao,
+    benchmark_box_blur_f32,
+    benchmark_box_blur_horizontal,
+    benchmark_sobel,
+    benchmark_dof,
+    benchmark_vignette,
+    benchmark_color_adjust,
 );
 criterion_main!(benches);

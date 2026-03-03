@@ -28,6 +28,7 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
+use std::hash::{BuildHasher, Hasher};
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -57,6 +58,52 @@ impl VertexKey {
         debug_assert!(k_vn <= SENTINEL);
 
         Self(k_v | (k_vt << 20) | (k_vn << 40))
+    }
+}
+
+/// A fast hasher for `VertexKey` which only hashes a single `u64`.
+/// Avoids the overhead of the default `SipHash`.
+#[derive(Default)]
+struct FastU64Hasher(u64);
+
+impl Hasher for FastU64Hasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        // Fallback for completeness, though `VertexKey` only hashes `u64` via `write_u64`
+        let mut x = self.0;
+        for &b in bytes {
+            x = x.rotate_left(5) ^ u64::from(b);
+        }
+        self.0 = x;
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        // Simple fast mix (similar to wyhash/murmur)
+        let mut x = i;
+        x ^= x >> 33;
+        x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+        x ^= x >> 33;
+        x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+        x ^= x >> 33;
+        self.0 = x;
+    }
+}
+
+#[derive(Default, Clone)]
+struct FastU64BuildHasher;
+
+impl BuildHasher for FastU64BuildHasher {
+    type Hasher = FastU64Hasher;
+
+    #[inline]
+    fn build_hasher(&self) -> Self::Hasher {
+        FastU64Hasher(0)
     }
 }
 
@@ -114,7 +161,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize>,
+    deduplicator: HashMap<VertexKey, usize, FastU64BuildHasher>,
     face_indices: Vec<usize>,
 }
 
@@ -175,7 +222,7 @@ impl ObjParser {
             final_uvs: Vec::with_capacity(estimated_capacity),
             final_normals: Vec::with_capacity(estimated_capacity),
             final_indices: Vec::with_capacity(estimated_capacity),
-            deduplicator: HashMap::with_capacity(estimated_capacity),
+            deduplicator: HashMap::with_capacity_and_hasher(estimated_capacity, FastU64BuildHasher),
             face_indices: Vec::with_capacity(4),
         }
     }
@@ -450,12 +497,13 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         parser.final_normals.clear();
     }
 
+    let vertex_count = parser.final_vertices.len();
     Ok(Mesh {
         vertices: parser.final_vertices,
         indices: parser.final_indices,
         uvs: parser.final_uvs,
         normals: parser.final_normals,
-        tangents: Vec::new(), // Tangents must be computed explicitly
+        tangents: Vec::with_capacity(vertex_count), // Tangents must be computed explicitly
     })
 }
 

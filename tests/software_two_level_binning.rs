@@ -11,7 +11,7 @@ use abrash::{
 };
 
 /// Helper to create a clip-space vertex
-fn make_clip_vertex(x: f32, y: f32, z: f32, w: f32) -> (Vec3, f32) {
+const fn make_clip_vertex(x: f32, y: f32, z: f32, w: f32) -> (Vec3, f32) {
     (Vec3::new(x, y, z), w)
 }
 

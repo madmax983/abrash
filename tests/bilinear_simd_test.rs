@@ -17,7 +17,7 @@ fn test_bilinear_scanline_output() {
     // (0,0)=0, (3,0)=255, (0,3)=0, (3,3)=255
     for y in 0..4 {
         for x in 0..4 {
-            let val = (x * 85) as u32; // 0, 85, 170, 255
+            let val = x * 85; // 0, 85, 170, 255
             let color = 0xFF000000 | val; // Blue channel gradient
             tex.set_pixel(x, y, color);
         }
@@ -62,7 +62,7 @@ fn test_bilinear_scanline_output() {
     for x in x_start..=x_end {
         let pixel = buffer[y_offset + x as usize];
         let blue = pixel & 0xFF;
-        println!("x={}: blue={}", x, blue);
+        println!("x={x}: blue={blue}");
 
         // Expected behavior: monotonic increase
         if x > x_start {

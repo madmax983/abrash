@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -1674,9 +1674,8 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Process triangles in parallel and collect prepared results
-            let results: Vec<PreparedTriangle> = indices
-                .par_iter()
-                .flat_map_iter(|&[i0, i1, i2]| {
+            self.prepared
+                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
                     // Safety: We trust the indices are within bounds of the vertices slice.
                     // The caller must ensure this or it will panic inside the thread.
                     let v0 = vertices[i0];
@@ -1694,10 +1693,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1834,11 +1830,6 @@ impl TileRenderer {
                 // Parallel rendering using Rayon
                 use rayon::prelude::*;
 
-                // Collect tile coordinates
-                let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                    .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .collect();
-
                 // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
                 unsafe {
                     let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
@@ -1848,54 +1839,58 @@ impl TileRenderer {
                     let tiles_x = self.tiles_x;
                     let tile_bins = &self.tile_bins;
                     let prepared = &self.prepared;
+                    (0..self.tiles_y)
+                        .into_par_iter()
+                        .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                        .for_each_init(
+                            || {
+                                let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                                (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                            },
+                            |buffers, (tx, ty)| {
+                                let (tile_pixels, tile_depths) = &mut *buffers;
+                                if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                                    tx,
+                                    ty,
+                                    tile_bins,
+                                    prepared,
+                                    tiles_x,
+                                    width,
+                                    height,
+                                    tile_pixels,
+                                    tile_depths,
+                                ) {
+                                    // Merge tile into framebuffer/zbuffer
+                                    let tile_x0 = tx * TILE_SIZE;
+                                    let tile_y0 = ty * TILE_SIZE;
+                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                    let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                    tiles.par_iter().for_each_init(
-                        || {
-                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, &(tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
-                            if let Some((clear_y_min, clear_y_max)) = render_single_tile(
-                                tx,
-                                ty,
-                                tile_bins,
-                                prepared,
-                                tiles_x,
-                                width,
-                                height,
-                                tile_pixels,
-                                tile_depths,
-                            ) {
-                                // Merge tile into framebuffer/zbuffer
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
+                                    let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                    let row_end = (clear_y_max as u32 + 1)
+                                        .min(tile_y0 + TILE_SIZE)
+                                        .min(height);
 
-                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                                let row_end = (clear_y_max as u32 + 1)
-                                    .min(tile_y0 + TILE_SIZE)
-                                    .min(height);
+                                    for row in row_begin..row_end {
+                                        let tile_row_offset =
+                                            ((row - tile_y0) * TILE_SIZE) as usize;
+                                        let fb_start =
+                                            row as usize * width as usize + tile_x0 as usize;
 
-                                for row in row_begin..row_end {
-                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(
-                                            fb_start + col,
-                                            tile_pixels[tile_row_offset + col],
-                                        );
-                                        zb_ptr.write(
-                                            fb_start + col,
-                                            tile_depths[tile_row_offset + col],
-                                        );
+                                        for col in 0..tile_cols {
+                                            fb_ptr.write(
+                                                fb_start + col,
+                                                tile_pixels[tile_row_offset + col],
+                                            );
+                                            zb_ptr.write(
+                                                fb_start + col,
+                                                tile_depths[tile_row_offset + col],
+                                            );
+                                        }
                                     }
                                 }
-                            }
-                        },
-                    );
+                            },
+                        );
                 }
             }
         }
@@ -1959,6 +1954,27 @@ impl TileRenderer {
         zb: &mut ZBuffer,
         triangles: &[ClipTriangle],
     ) {
+        assert_eq!(
+            fb.width(),
+            self.width,
+            "Framebuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            fb.height(),
+            self.height,
+            "Framebuffer height must match TileRenderer height"
+        );
+        assert_eq!(
+            zb.width(),
+            self.width,
+            "ZBuffer width must match TileRenderer width"
+        );
+        assert_eq!(
+            zb.height(),
+            self.height,
+            "ZBuffer height must match TileRenderer height"
+        );
+
         self.begin_frame();
 
         #[cfg(feature = "parallel")]
@@ -1969,9 +1985,8 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2, color)| {
+            self.prepared
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
                     let tris = Self::prepare_triangle_static(
                         v0,
                         v1,
@@ -1983,10 +1998,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2047,25 +2059,25 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedTexturedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                    let tris = Self::prepare_triangle_textured_static(
-                        (v0, uv0),
-                        (v1, uv1),
-                        (v2, uv2),
-                        tex_w,
-                        tex_h,
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared_textured.extend(results);
+            self.prepared_textured
+                .par_extend(
+                    triangles
+                        .par_iter()
+                        .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                            let tris = Self::prepare_triangle_textured_static(
+                                (v0, uv0),
+                                (v1, uv1),
+                                (v2, uv2),
+                                tex_w,
+                                tex_h,
+                                width,
+                                height,
+                                half_width,
+                                half_height,
+                            );
+                            tris
+                        }),
+                );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2128,11 +2140,6 @@ impl TileRenderer {
             // Parallel rendering using Rayon
             use rayon::prelude::*;
 
-            // Collect tile coordinates
-            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                .collect();
-
             unsafe {
                 let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
                 let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
@@ -2141,51 +2148,57 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_textured;
+                (0..self.tiles_y)
+                    .into_par_iter()
+                    .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                    .for_each_init(
+                        || {
+                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                        },
+                        |buffers, (tx, ty)| {
+                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
+                                tx,
+                                ty,
+                                tile_bins,
+                                prepared,
+                                tiles_x,
+                                width,
+                                height,
+                                texture,
+                                tile_pixels,
+                                tile_depths,
+                            ) {
+                                // Merge tile into framebuffer/zbuffer
+                                let tile_x0 = tx * TILE_SIZE;
+                                let tile_y0 = ty * TILE_SIZE;
+                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                tiles.par_iter().for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, &(tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            texture,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
 
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    for col in 0..tile_cols {
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
+                                    }
                                 }
                             }
-                        }
-                    },
-                );
+                        },
+                    );
             }
         }
 
@@ -2227,9 +2240,8 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedGouraudTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2)| {
+            self.prepared_gouraud
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
                     let tris = Self::prepare_triangle_gouraud_static(
                         v0,
                         v1,
@@ -2240,10 +2252,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared_gouraud.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2305,11 +2314,6 @@ impl TileRenderer {
             // Parallel rendering using Rayon
             use rayon::prelude::*;
 
-            // Collect tile coordinates
-            let tiles: Vec<(u32, u32)> = (0..self.tiles_y)
-                .flat_map(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                .collect();
-
             unsafe {
                 let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
                 let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
@@ -2318,50 +2322,56 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_gouraud;
+                (0..self.tiles_y)
+                    .into_par_iter()
+                    .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                    .for_each_init(
+                        || {
+                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                        },
+                        |buffers, (tx, ty)| {
+                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
+                                tx,
+                                ty,
+                                tile_bins,
+                                prepared,
+                                tiles_x,
+                                width,
+                                height,
+                                tile_pixels,
+                                tile_depths,
+                            ) {
+                                // Merge tile into framebuffer/zbuffer
+                                let tile_x0 = tx * TILE_SIZE;
+                                let tile_y0 = ty * TILE_SIZE;
+                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                tiles.par_iter().for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, &(tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
 
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    for col in 0..tile_cols {
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
+                                    }
                                 }
                             }
-                        }
-                    },
-                );
+                        },
+                    );
             }
         }
 
@@ -2543,7 +2553,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&mut self) {
+    fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -2988,7 +2998,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&mut self) {
+    fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3134,7 +3144,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&mut self) {
+    fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;
@@ -4274,7 +4284,7 @@ fn render_triangle_in_tile_gouraud(
         edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
     }
 
-    let mut edge_b = if y_start < p1.y {
+    let mut edge_b = if y_start < tri.p1.y as i32 {
         let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
         if y_start > p0.y {
             e.step_n(i64::from(y_start) - i64::from(p0.y));
@@ -4282,8 +4292,8 @@ fn render_triangle_in_tile_gouraud(
         e
     } else {
         let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        if y_start > p1.y {
-            e.step_n(i64::from(y_start) - i64::from(p1.y));
+        if y_start > tri.p1.y as i32 {
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
         }
         e
     };
@@ -4292,7 +4302,7 @@ fn render_triangle_in_tile_gouraud(
     let dc_dx = tri.gradients.dc_dx;
 
     for y in y_start..=y_end {
-        if y == p1.y && y != p0.y {
+        if y == tri.p1.y as i32 && y != p0_y {
             edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
         }
 

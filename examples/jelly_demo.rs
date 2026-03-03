@@ -4,7 +4,7 @@ use std::error::Error;
 
 #[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
+    use abrash::experimental::jelly::SoftBody;
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
@@ -130,7 +130,7 @@ mod demo {
                 let t = (s * 10.0).clamp(0.0, 1.0);
                 let r = (t * 255.0) as u32;
                 let g = ((1.0 - t) * 255.0) as u32;
-                let color = 0xFF000000 | (r << 16) | (g << 8) | 0x00;
+                let color = 0xFF000000 | (r << 16) | (g << 8);
 
                 fill_triangle_3d(&mut fb, &mut zb, (c0, w0), (c1, w1), (c2, w2), color);
             }

@@ -8,7 +8,7 @@ fn test_vec2_layout() {
     assert_eq!(mem::size_of::<Vec2>(), 8);
     assert_eq!(mem::align_of::<Vec2>(), 4);
     let v = Vec2 { x: 1.0, y: 2.0 };
-    let ptr = &v as *const Vec2 as *const f32;
+    let ptr = (&raw const v).cast::<f32>();
     unsafe {
         assert_eq!(*ptr.add(0), 1.0);
         assert_eq!(*ptr.add(1), 2.0);
@@ -25,7 +25,7 @@ fn test_vec3_layout() {
         y: 2.0,
         z: 3.0,
     };
-    let ptr = &v as *const Vec3 as *const f32;
+    let ptr = (&raw const v).cast::<f32>();
     unsafe {
         assert_eq!(*ptr.add(0), 1.0);
         assert_eq!(*ptr.add(1), 2.0);
@@ -44,7 +44,7 @@ fn test_vec4_layout() {
         z: 3.0,
         w: 4.0,
     };
-    let ptr = &v as *const Vec4 as *const f32;
+    let ptr = (&raw const v).cast::<f32>();
     unsafe {
         assert_eq!(*ptr.add(0), 1.0);
         assert_eq!(*ptr.add(1), 2.0);
@@ -68,7 +68,7 @@ fn test_mat4_layout() {
             [12.0, 13.0, 14.0, 15.0],
         ],
     };
-    let ptr = &m as *const Mat4 as *const f32;
+    let ptr = (&raw const m).cast::<f32>();
     unsafe {
         for i in 0..16 {
             assert_eq!(*ptr.add(i), i as f32);
@@ -92,7 +92,7 @@ fn test_bounding_sphere_layout() {
         },
         radius: 4.0,
     };
-    let ptr = &s as *const BoundingSphere as *const f32;
+    let ptr = (&raw const s).cast::<f32>();
 
     // Critical assertion: The memory layout MUST be x, y, z, r packed.
     // The AVX culling code depends on this to load 8 spheres into vector registers.

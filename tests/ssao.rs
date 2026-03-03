@@ -53,7 +53,7 @@ fn test_apply_ssao_darkens_occluded_pixels() {
     // Post in the center
     for y in 40..60 {
         for x in 40..60 {
-            zb.test_and_set(x as i32, y as i32, post_depth);
+            zb.test_and_set(x, y, post_depth);
         }
     }
 
@@ -72,9 +72,7 @@ fn test_apply_ssao_darkens_occluded_pixels() {
 
     assert!(
         lum_occluded < lum_unoccluded,
-        "Pixel near post should be darker (got {} vs {})",
-        lum_occluded,
-        lum_unoccluded
+        "Pixel near post should be darker (got {lum_occluded} vs {lum_unoccluded})"
     );
 
     // Also ensure it didn't turn black (sanity check)
