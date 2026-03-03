@@ -18,15 +18,22 @@ use crate::zbuffer::ZBuffer;
 /// A single particle in the system.
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
+    /// The current 3D position of the particle.
     pub position: Vec3,
+    /// The current 3D velocity of the particle.
     pub velocity: Vec3,
+    /// The remaining life of the particle in seconds.
     pub life: f32,
+    /// The initial maximum life of the particle in seconds.
     pub max_life: f32,
+    /// The visual size of the particle.
     pub size: f32,
+    /// The color of the particle.
     pub color: u32,
 }
 
 impl Particle {
+    /// Creates a new particle with the given properties.
     #[must_use]
     pub const fn new(position: Vec3, velocity: Vec3, life: f32, size: f32, color: u32) -> Self {
         Self {
@@ -114,16 +121,24 @@ mod tests {
 
 /// A particle emitter and manager.
 pub struct ParticleSystem {
+    /// The active particles in the system.
     pub particles: Vec<Particle>,
+    /// The 3D position of the emitter in world space.
     pub position: Vec3,
-    pub emission_rate: f32, // Particles per second
+    /// The number of particles emitted per second.
+    pub emission_rate: f32,
+    /// The global gravity vector applied to all particles.
     pub gravity: Vec3,
+    /// The texture applied to each particle sprite.
     pub texture: Texture,
 
-    // Emitter properties
+    /// Initial speed of emitted particles.
     pub start_speed: f32,
+    /// Initial life of emitted particles.
     pub start_life: f32,
+    /// Initial size of emitted particles.
     pub start_size: f32,
+    /// Randomness applied to initial particle direction.
     pub spread: f32,
 
     // Internal state

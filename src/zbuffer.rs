@@ -117,10 +117,12 @@ impl ZBuffer {
         }
     }
 
+    /// Returns the width of the depth buffer in pixels.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
+    /// Returns the height of the depth buffer in pixels.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height

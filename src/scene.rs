@@ -166,7 +166,9 @@ struct SceneRenderContext {
 ///
 /// See the [module-level documentation](self) for usage examples.
 pub struct Scene {
+    /// The collection of renderable objects in the scene.
     pub objects: Vec<SceneObject>,
+    /// The camera used to view the scene.
     pub camera: Camera,
 }
 

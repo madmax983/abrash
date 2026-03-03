@@ -17,12 +17,18 @@ use crate::zbuffer::ZBuffer;
 /// 3D Axis-Aligned Bounding Box for occlusion queries
 #[derive(Debug, Clone, Copy)]
 pub struct AABB3D {
+    /// Minimum X coordinate in screen space
     pub min_x: i32,
+    /// Maximum X coordinate in screen space
     pub max_x: i32,
+    /// Minimum Y coordinate in screen space
     pub min_y: i32,
+    /// Maximum Y coordinate in screen space
     pub max_y: i32,
-    pub min_depth: f32, // Closest point of AABB
-    pub max_depth: f32, // Farthest point of AABB
+    /// Minimum depth value (closest point to camera)
+    pub min_depth: f32,
+    /// Maximum depth value (farthest point from camera)
+    pub max_depth: f32,
 }
 
 /// Single level in the depth pyramid
