@@ -232,6 +232,7 @@ impl Mesh {
         }
 
         let mut tan1 = vec![Vec3::default(); self.vertices.len()];
+
         let mut tan2 = vec![Vec3::default(); self.vertices.len()];
 
         for &[i0, i1, i2] in &self.indices {
@@ -276,7 +277,8 @@ impl Mesh {
             tan2[i2] = tan2[i2] + tdir;
         }
 
-        self.tangents = vec![Vec4::default(); self.vertices.len()];
+        self.tangents.clear();
+        self.tangents.resize(self.vertices.len(), Vec4::default());
         for i in 0..self.vertices.len() {
             let n = self.normals[i];
             let t = tan1[i];
