@@ -14,7 +14,13 @@ use crate::framebuffer::Framebuffer;
 /// * `cy` - The Y coordinate of the blur center.
 /// * `strength` - The intensity of the blur. 0.0 means no blur.
 /// * `samples` - The number of samples to take along the blur vector. 0 or 1 means no blur.
-pub fn apply_radial_blur(fb: &mut Framebuffer, cx: usize, cy: usize, strength: f32, samples: usize) {
+pub fn apply_radial_blur(
+    fb: &mut Framebuffer,
+    cx: usize,
+    cy: usize,
+    strength: f32,
+    samples: usize,
+) {
     if strength == 0.0 || samples <= 1 {
         return;
     }
@@ -43,35 +49,38 @@ pub fn apply_radial_blur(fb: &mut Framebuffer, cx: usize, cy: usize, strength: f
     {
         use rayon::prelude::*;
 
-        dest_pixels.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
-            for (x, pixel) in row.iter_mut().enumerate() {
-                let dx = x as f32 - cx as f32;
-                let dy = y as f32 - cy as f32;
+        dest_pixels
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (x, pixel) in row.iter_mut().enumerate() {
+                    let dx = x as f32 - cx as f32;
+                    let dy = y as f32 - cy as f32;
 
-                let mut r_acc = 0;
-                let mut g_acc = 0;
-                let mut b_acc = 0;
+                    let mut r_acc = 0;
+                    let mut g_acc = 0;
+                    let mut b_acc = 0;
 
-                for &scale in &scales {
-                    let sample_x = (cx as f32 + dx * scale) as i32;
-                    let sample_y = (cy as f32 + dy * scale) as i32;
+                    for &scale in &scales {
+                        let sample_x = (cx as f32 + dx * scale) as i32;
+                        let sample_y = (cy as f32 + dy * scale) as i32;
 
-                    let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
-                    let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
+                        let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
+                        let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
 
-                    let color = src_fb[clamped_y * width + clamped_x];
-                    r_acc += (color >> 16) & 0xFF;
-                    g_acc += (color >> 8) & 0xFF;
-                    b_acc += color & 0xFF;
+                        let color = src_fb[clamped_y * width + clamped_x];
+                        r_acc += (color >> 16) & 0xFF;
+                        g_acc += (color >> 8) & 0xFF;
+                        b_acc += color & 0xFF;
+                    }
+
+                    let r = (r_acc / samples as u32) & 0xFF;
+                    let g = (g_acc / samples as u32) & 0xFF;
+                    let b = (b_acc / samples as u32) & 0xFF;
+
+                    *pixel = (r << 16) | (g << 8) | b;
                 }
-
-                let r = (r_acc / samples as u32) & 0xFF;
-                let g = (g_acc / samples as u32) & 0xFF;
-                let b = (b_acc / samples as u32) & 0xFF;
-
-                *pixel = (r << 16) | (g << 8) | b;
-            }
-        });
+            });
     }
 
     #[cfg(not(feature = "parallel"))]

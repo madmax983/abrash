@@ -69,7 +69,7 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
                     }
 
                     if is_ink {
-                    *pixel = original_alpha; // Black
+                        *pixel = original_alpha; // Black
                     } else {
                         *pixel = original_alpha | 0x00FF_FFFF; // White
                     }
