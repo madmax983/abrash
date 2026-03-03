@@ -24,3 +24,18 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** Abstract `WindowBackend` trait with only platform-specific backend usages.
+**Cut:** Removed `WindowBackend` trait, mapped function calls directly to inherent `pub` implementations on `Win32Window` and `TuiWindow`.
+**Saved:** ~25 lines of interface boilerplate and redundant code, improving code navigability.
+
+## [Reduction]
+**Bloat:** Isolated `Vec2Ext` trait only providing `.length()` for `Vec2` used entirely in `sdf.rs`.
+**Cut:** Removed trait; implemented `length()` directly onto `Vec2` structurally via `src/math.rs`.
+**Saved:** ~10 lines, reducing fragmentation and unifying math extensions.
+
+## [Reduction]
+**Bloat:** `TerrainGenerator` code for generating meshes and processing noise, isolated in `experimental/procedural_mesh.rs`.
+**Cut:** Deleted the module completely since it's unused zombie code per YAGNI protocol.
+**Saved:** ~180 lines.

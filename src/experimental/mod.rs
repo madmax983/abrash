@@ -36,7 +36,6 @@ pub mod jelly;
 pub mod kuwahara;
 pub mod pixel_sort;
 pub mod pixelate;
-pub mod procedural_mesh;
 pub mod raytracer;
 pub mod sdf;
 pub mod ssao;
