@@ -46,7 +46,7 @@ fn generate_large_triangle(depth: f32) -> Vec<ClipTriangle> {
 
 /// Generate overlapping layers of triangles at different depths
 fn generate_layered_scene(triangles_per_layer: usize, layer_count: usize) -> Vec<ClipTriangle> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(triangles_per_layer * layer_count);
     for layer in 0..layer_count {
         let depth = 0.5 + (layer as f32 * 0.1);
         triangles.extend(generate_triangle_grid(triangles_per_layer, depth));

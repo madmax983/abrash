@@ -166,18 +166,17 @@ impl Mesh {
     /// ```
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
-        self.indices
-            .iter()
-            .map(|[i0, i1, i2]| {
-                let v0 = self.vertices[*i0];
-                let v1 = self.vertices[*i1];
-                let v2 = self.vertices[*i2];
+        let mut normals = Vec::with_capacity(self.indices.len());
+        for &[i0, i1, i2] in &self.indices {
+            let v0 = self.vertices[i0];
+            let v1 = self.vertices[i1];
+            let v2 = self.vertices[i2];
 
-                let edge1 = v1 - v0;
-                let edge2 = v2 - v0;
-                edge1.cross(edge2).normalize()
-            })
-            .collect()
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            normals.push(edge1.cross(edge2).normalize());
+        }
+        normals
     }
 
     /// Calculates the bounding sphere of the mesh.
@@ -206,15 +205,13 @@ impl Mesh {
         }
 
         let center = (min + max) * 0.5;
-        let mut max_dist_sq = 0.0;
-
-        for v in &self.vertices {
+        // Optimization: `f32::max` avoids branchy component-wise checks and utilizes
+        // underlying fast float max instructions.
+        let max_dist_sq = self.vertices.iter().fold(0.0_f32, |max_sq, v| {
             let d = *v - center;
             let dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-            if dist_sq > max_dist_sq {
-                max_dist_sq = dist_sq;
-            }
-        }
+            max_sq.max(dist_sq)
+        });
 
         BoundingSphere {
             center,
@@ -232,6 +229,7 @@ impl Mesh {
         }
 
         let mut tan1 = vec![Vec3::default(); self.vertices.len()];
+
         let mut tan2 = vec![Vec3::default(); self.vertices.len()];
 
         for &[i0, i1, i2] in &self.indices {
@@ -276,7 +274,8 @@ impl Mesh {
             tan2[i2] = tan2[i2] + tdir;
         }
 
-        self.tangents = vec![Vec4::default(); self.vertices.len()];
+        self.tangents.clear();
+        self.tangents.resize(self.vertices.len(), Vec4::default());
         for i in 0..self.vertices.len() {
             let n = self.normals[i];
             let t = tan1[i];

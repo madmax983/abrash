@@ -61,9 +61,8 @@ impl VertexKey {
     }
 }
 
-/// A fast hasher for `VertexKey` which only hashes a single `u64`.
-/// Avoids the overhead of the default `SipHash`.
-#[derive(Default)]
+/// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
+/// This avoids the overhead of SipHash for simple vertex deduplication lookups.
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -74,31 +73,32 @@ impl Hasher for FastU64Hasher {
 
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
-        // Fallback for completeness, though `VertexKey` only hashes `u64` via `write_u64`
+        // Fallback for completeness, though our key uses write_u64 directly
         let mut x = self.0;
         for &b in bytes {
-            x = x.rotate_left(5) ^ u64::from(b);
+            x = x.rotate_left(8) ^ (b as u64);
+            x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
         }
         self.0 = x;
     }
 
     #[inline]
     fn write_u64(&mut self, i: u64) {
-        // Simple fast mix (similar to wyhash/murmur)
+        // Quick avalanche to spread the bits
         let mut x = i;
-        x ^= x >> 33;
-        x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
-        x ^= x >> 33;
-        x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
-        x ^= x >> 33;
+        x ^= x >> 30;
+        x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        x ^= x >> 27;
+        x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
+        x ^= x >> 31;
         self.0 = x;
     }
 }
 
-#[derive(Default, Clone)]
-struct FastU64BuildHasher;
+#[derive(Default)]
+struct FastU64Builder;
 
-impl BuildHasher for FastU64BuildHasher {
+impl BuildHasher for FastU64Builder {
     type Hasher = FastU64Hasher;
 
     #[inline]
@@ -161,7 +161,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize, FastU64BuildHasher>,
+    deduplicator: HashMap<VertexKey, usize, FastU64Builder>,
     face_indices: Vec<usize>,
 }
 
@@ -222,7 +222,10 @@ impl ObjParser {
             final_uvs: Vec::with_capacity(estimated_capacity),
             final_normals: Vec::with_capacity(estimated_capacity),
             final_indices: Vec::with_capacity(estimated_capacity),
-            deduplicator: HashMap::with_capacity_and_hasher(estimated_capacity, FastU64BuildHasher),
+            deduplicator: HashMap::with_capacity_and_hasher(
+                estimated_capacity,
+                FastU64Builder::default(),
+            ),
             face_indices: Vec::with_capacity(4),
         }
     }
@@ -497,12 +500,13 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         parser.final_normals.clear();
     }
 
+    let vertex_count = parser.final_vertices.len();
     Ok(Mesh {
         vertices: parser.final_vertices,
         indices: parser.final_indices,
         uvs: parser.final_uvs,
         normals: parser.final_normals,
-        tangents: Vec::new(), // Tangents must be computed explicitly
+        tangents: Vec::with_capacity(vertex_count), // Tangents must be computed explicitly
     })
 }
 

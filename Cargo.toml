@@ -396,3 +396,8 @@ required-features = ["nova"]
 name = "crt_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "kaleidoscope_bench"
+harness = false
+required-features = ["nova"]

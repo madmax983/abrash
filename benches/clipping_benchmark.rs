@@ -13,8 +13,8 @@ fn bench_clipping_grid(c: &mut Criterion) {
     // Generate a 50x50 grid of quads (5000 triangles)
     // Centered at 0,0, extending from -25 to +25 in X and Y
     let grid_size = 50;
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
+    let mut vertices = Vec::with_capacity((grid_size + 1) * (grid_size + 1));
+    let mut indices = Vec::with_capacity(grid_size * grid_size * 2);
 
     for y in 0..=grid_size {
         for x in 0..=grid_size {

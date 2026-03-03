@@ -1,6 +1,6 @@
 use abrash::experimental::radial_blur::apply_radial_blur;
 use abrash::framebuffer::Framebuffer;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_radial_blur(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1024, 1024).unwrap();
