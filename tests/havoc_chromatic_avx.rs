@@ -1,4 +1,3 @@
-use abrash::post_process::filters;
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[test]

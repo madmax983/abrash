@@ -4,7 +4,7 @@
 
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_normal_mapped;
 use abrash::texture::Texture;
 use abrash::time::FixedTimestep;

@@ -182,8 +182,8 @@ impl Framebuffer {
 
         let x1 = x;
         let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+        let x2 = x.saturating_add(width.try_into().unwrap_or(i32::MAX));
+        let y2 = y.saturating_add(height.try_into().unwrap_or(i32::MAX));
 
         let start_x = x1.clamp(0, self.width as i32) as u32;
         let start_y = y1.clamp(0, self.height as i32) as u32;

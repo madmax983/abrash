@@ -8,7 +8,7 @@ mod demo {
     use abrash::experimental::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
-    use abrash::platform::{Window, WindowBackend};
+    use abrash::platform::Window;
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
     use std::f32::consts::PI;
