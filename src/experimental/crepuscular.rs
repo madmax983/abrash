@@ -25,6 +25,7 @@ use crate::framebuffer::Framebuffer;
 /// * `decay` - Falloff factor per sample (0.0 to 1.0). High values (>0.9) mean longer rays.
 /// * `exposure` - Final brightness multiplier for the accumulated light.
 /// * `num_samples` - Number of samples to take along the ray. Higher is smoother but slower (e.g., 32-100).
+#[allow(clippy::too_many_arguments)]
 pub fn apply_god_rays(
     fb: &mut Framebuffer,
     light_x: f32,

@@ -24,3 +24,8 @@
 **Bloat:** `src/experimental` directory containing mixed used and unused modules. `pixel_sort`, `reflection`, `svg_renderer`, `terrain`, `text`, `vhs` were unused or dead code.
 **Cut:** Deleted unused modules. Moved used modules (`ascii`, `heat_vision`, `particles`, `procedural`, `skybox`) to `src/` root. Deleted `src/experimental` directory.
 **Saved:** 6 files (~1000 lines of dead code), 1 directory level, and flattened module hierarchy.
+
+## [Reduction]
+**Bloat:** `Vec2Ext` trait with single method `length` and `WindowBackend` trait with only conditionally-compiled concrete implementations.
+**Cut:** Deleted `Vec2Ext`, moved `length()` to `Vec2` struct. Deleted `WindowBackend` trait, converted `impl WindowBackend` blocks to inherent `impl` blocks.
+**Saved:** ~50 lines of code, reduced abstraction layers, and enforced KISS.

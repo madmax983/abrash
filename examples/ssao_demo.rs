@@ -9,7 +9,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::post_process::apply_ssao;
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
