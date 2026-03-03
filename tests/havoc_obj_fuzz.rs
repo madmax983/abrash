@@ -31,7 +31,7 @@ proptest! {
         // Generate strings that look like "f 1/1/1" but with huge numbers
         idx in "[0-9]{20,50}"
     ) {
-        let s = format!("f {}/{}/{}", idx, idx, idx);
+        let s = format!("f {idx}/{idx}/{idx}");
         let _ = load_obj(&s);
     }
 }

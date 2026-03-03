@@ -1,0 +1,33 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.60s
+     Running `target/debug/examples/gpu_obj`
+
+[38;5;14m[1m🎨 Abrash GPU Loader[0m
+[38;5;8m=====================[39m
+
+[1m📦 Mesh Information[0m
+┌───────────┬──────────────────────┐
+│ Property  ┆ Value                │
+╞═══════════╪══════════════════════╡
+│ Source    ┆ Built-in Spacerocket │
+├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Vertices  ┆ 6                    │
+├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Triangles ┆ 8                    │
+├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Status    ┆ ✅ Loaded (CPU)      │
+└───────────┴──────────────────────┘
+
+[1m💾 GPU Upload[0m
+┌───────────────┬──────────┬──────────────┐
+│ Buffer        ┆ Count    ┆ Size (Bytes) │
+╞═══════════════╪══════════╪══════════════╡
+│ Vertex Buffer ┆ 6        ┆ 144          │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Index Buffer  ┆ 24       ┆ 48           │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Status        ┆ ✅ Ready ┆ -            │
+└───────────────┴──────────┴──────────────┘
+
+[38;5;10m[1m🚀 Launching GPU Demo...[0m
+Error: "Failed to create event loop: os error at /home/jules/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.29.15/src/platform_impl/linux/mod.rs:786: neither WAYLAND_DISPLAY nor WAYLAND_SOCKET nor DISPLAY is set."

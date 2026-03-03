@@ -108,18 +108,9 @@ fn compare_vertices(v1: &[(Vec3, f32)], v2: &[(Vec3, f32)]) {
 
         assert!(
             diff.x.abs() < eps && diff.y.abs() < eps && diff.z.abs() < eps,
-            "Vertex {} pos mismatch: {:?} vs {:?}",
-            i,
-            pa,
-            pb
+            "Vertex {i} pos mismatch: {pa:?} vs {pb:?}"
         );
-        assert!(
-            (wa - wb).abs() < eps,
-            "Vertex {} w mismatch: {} vs {}",
-            i,
-            wa,
-            wb
-        );
+        assert!((wa - wb).abs() < eps, "Vertex {i} w mismatch: {wa} vs {wb}");
     }
 }
 

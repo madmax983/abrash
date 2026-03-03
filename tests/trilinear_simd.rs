@@ -18,7 +18,7 @@ fn test_trilinear_simd_correctness() {
         for x in 0..64 {
             let r = (x * 4) as u8;
             let g = (y * 4) as u8;
-            let color = 0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8);
+            let color = 0xFF000000 | (u32::from(r) << 16) | (u32::from(g) << 8);
             tex.set_pixel(x, y, color);
         }
     }
@@ -71,7 +71,7 @@ fn test_trilinear_simd_correctness() {
 
     let p0 = fb.get_pixel(0, 0).unwrap();
     let r0 = (p0 >> 16) & 0xFF;
-    assert!(r0 < 10, "Pixel 0 should be dark (close to 0,0). Got {}", r0);
+    assert!(r0 < 10, "Pixel 0 should be dark (close to 0,0). Got {r0}");
 
     let p32 = fb.get_pixel(32, 0).unwrap();
     let r32 = (p32 >> 16) & 0xFF;
@@ -81,5 +81,5 @@ fn test_trilinear_simd_correctness() {
     // But due to blending, it should be consistent.
 
     // We mainly want to ensure no crash and no garbage (e.g. all black or random).
-    assert!(r32 > 100, "Pixel 32 should be bright. Got {}", r32);
+    assert!(r32 > 100, "Pixel 32 should be bright. Got {r32}");
 }

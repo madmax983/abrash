@@ -40,8 +40,7 @@ fn test_alpha_discontinuity() {
     // Should be Blue
     assert_eq!(
         pixel_255, 0xFF0000FF,
-        "Alpha 255 should be opaque Blue. Got {:08X}",
-        pixel_255
+        "Alpha 255 should be opaque Blue. Got {pixel_255:08X}"
     );
 
     // Case 2: Alpha 254 (Almost Opaque Blue)
@@ -55,15 +54,13 @@ fn test_alpha_discontinuity() {
     let r = (pixel_254 >> 16) & 0xFF;
     let b = pixel_254 & 0xFF;
 
-    println!("Alpha 254 result: R={} B={} (Hex {:08X})", r, b, pixel_254);
+    println!("Alpha 254 result: R={r} B={b} (Hex {pixel_254:08X})");
 
     // With bug: Alpha 254 -> dest weight 254 -> Mostly Red.
     // If bug exists, R will be high (close to 255).
 
-    if r > 200 {
-        panic!(
-            "BUG CONFIRMED: Alpha 254 resulted in R={}, expected < 50 (Mostly Blue)",
-            r
-        );
-    }
+    assert!(
+        r <= 200,
+        "BUG CONFIRMED: Alpha 254 resulted in R={r}, expected < 50 (Mostly Blue)"
+    );
 }

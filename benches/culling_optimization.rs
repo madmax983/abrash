@@ -10,8 +10,8 @@ fn bench_aabb_transform(c: &mut Criterion) {
 
     group.bench_function("transform", |b| {
         b.iter(|| {
-            aabb.transform(&transform);
-        })
+            let _ = aabb.transform(&transform);
+        });
     });
 
     group.finish();
@@ -29,7 +29,7 @@ fn bench_sphere_transform(c: &mut Criterion) {
     group.bench_function("transform", |b| {
         b.iter(|| {
             sphere.transform(&transform);
-        })
+        });
     });
 
     group.finish();

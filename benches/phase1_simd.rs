@@ -10,7 +10,7 @@ fn generate_test_scene(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
-    let mut triangles = Vec::new();
+    let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
         let x = ((i % 20) as f32) * (width as f32 / 20.0);

@@ -19,7 +19,7 @@ mod tests {
         assert_eq!(size, 16, "(Vec3, f32) size should be 16 bytes");
         assert_eq!(align, 4, "(Vec3, f32) align should be 4 bytes");
 
-        let ptr = &tuple as *const (Vec3, f32) as *const f32;
+        let ptr = (&raw const tuple).cast::<f32>();
         unsafe {
             assert_eq!(*ptr.add(0), 1.0);
             assert_eq!(*ptr.add(1), 2.0);

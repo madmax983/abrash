@@ -8,7 +8,7 @@ fn bench_vec3_ops(c: &mut Criterion) {
     c.bench_function("vec3_dot", |b| b.iter(|| black_box(v1).dot(black_box(v2))));
 
     c.bench_function("vec3_cross", |b| {
-        b.iter(|| black_box(v1).cross(black_box(v2)))
+        b.iter(|| black_box(v1).cross(black_box(v2)));
     });
 
     c.bench_function("vec3_normalize", |b| b.iter(|| black_box(v1).normalize()));

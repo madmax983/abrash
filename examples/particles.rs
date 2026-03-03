@@ -53,13 +53,13 @@ fn create_particle_texture() -> Texture {
         for x in 0..size {
             let dx = x as f32 - center;
             let dy = y as f32 - center;
-            let dist = (dx * dx + dy * dy).sqrt();
+            let dist = dx.hypot(dy);
 
             if dist > max_dist {
                 // Fully transparent
                 // In Abrash engine (currently), 0 is skipped (transparent),
                 // but 254 is also transparent in blending path.
-                tex.set_pixel(x as u32, y as u32, 0x0000_0000);
+                tex.set_pixel(x, y, 0x0000_0000);
             } else {
                 // Smooth falloff
                 let t = dist / max_dist; // 0.0 (center) to 1.0 (edge)
@@ -79,8 +79,9 @@ fn create_particle_texture() -> Texture {
                 let g = ((1.0 - t) * 200.0) as u8; // Redder at edge
                 let b = 0;
 
-                let color = ((alpha_u8 as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | b;
-                tex.set_pixel(x as u32, y as u32, color);
+                let color =
+                    (u32::from(alpha_u8) << 24) | ((r as u32) << 16) | (u32::from(g) << 8) | b;
+                tex.set_pixel(x, y, color);
             }
         }
     }

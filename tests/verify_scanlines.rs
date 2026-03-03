@@ -27,8 +27,7 @@ fn test_verify_scanlines_correctness() {
         assert_eq!(
             fb.get_pixel(x as i32, 0).unwrap(),
             0xFFFFFFFF,
-            "Row 0 pixel {} modified",
-            x
+            "Row 0 pixel {x} modified"
         );
     }
 
@@ -39,8 +38,7 @@ fn test_verify_scanlines_correctness() {
         assert_eq!(
             fb.get_pixel(x as i32, 1).unwrap(),
             0xFF7F7F7F,
-            "Row 1 pixel {} incorrect",
-            x
+            "Row 1 pixel {x} incorrect"
         );
     }
 
@@ -49,8 +47,7 @@ fn test_verify_scanlines_correctness() {
         assert_eq!(
             fb.get_pixel(x as i32, 2).unwrap(),
             0xFFFF0000,
-            "Row 2 pixel {} modified",
-            x
+            "Row 2 pixel {x} modified"
         );
     }
 
@@ -66,8 +63,7 @@ fn test_verify_scanlines_correctness() {
         assert_eq!(
             fb.get_pixel(x as i32, 3).unwrap(),
             0xC0007F00,
-            "Row 3 pixel {} incorrect (alpha check)",
-            x
+            "Row 3 pixel {x} incorrect (alpha check)"
         );
     }
 }

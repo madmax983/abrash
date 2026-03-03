@@ -27,13 +27,23 @@
 
 pub mod arboretum;
 pub mod cloth;
+pub mod crepuscular;
+pub mod crosshatch;
+pub mod crt;
 pub mod dither;
 pub mod glitch;
+pub mod halftone;
 pub mod isosurface;
 pub mod jelly;
+pub mod kaleidoscope;
+pub mod kuwahara;
+pub mod pixel_sort;
+pub mod pixelate;
 pub mod procedural_mesh;
+pub mod radial_blur;
 pub mod raytracer;
 pub mod sdf;
+pub mod sharpen;
 pub mod ssao;
 pub mod vision;
 pub mod volume;

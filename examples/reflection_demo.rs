@@ -4,9 +4,48 @@ use abrash::rasterizer::fill_triangle_reflection;
 use abrash::skybox::Cubemap;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 use std::time::Instant;
 
+fn print_banner() {
+    println!("\n{}", "🪞 Reflection Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Environment mapping reflections").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Texture"),
+            Cell::new("Cubemap").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Auto"), Cell::new("Renders 100 frames")]);
+    println!("{controls}\n");
+}
+
 fn main() {
+    print_banner();
+
     let width = 800;
     let height = 600;
     let mut fb = Framebuffer::new(width, height).unwrap();
@@ -67,12 +106,11 @@ fn main() {
     for i in 0..frames {
         let angle = (i as f32) * 0.05;
         let model = Mat4::rotation_y(angle) * Mat4::rotation_x(angle * 0.5);
-        let mvp = model * view_proj;
 
         fb.clear(0xFF333333);
         zb.clear();
 
-        for (i, chunk) in indices.chunks(3).enumerate() {
+        for chunk in indices.chunks(3) {
             let i0 = chunk[0];
             let i1 = chunk[1];
             let i2 = chunk[2];
@@ -127,6 +165,29 @@ fn main() {
     }
 
     let duration = start.elapsed();
-    println!("Rendered {} frames in {:?}", frames, duration);
-    println!("FPS: {:.2}", frames as f64 / duration.as_secs_f64());
+
+    let mut results = Table::new();
+    results
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Metric").fg(Color::Cyan),
+            Cell::new("Result").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Total Frames"),
+            Cell::new(frames.to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Total Time"),
+            Cell::new(format!("{:.4} s", duration.as_secs_f64())),
+        ])
+        .add_row(vec![
+            Cell::new("Average FPS").add_attribute(comfy_table::Attribute::Bold),
+            Cell::new(format!("{:.2}", f64::from(frames) / duration.as_secs_f64()))
+                .fg(Color::Green)
+                .add_attribute(comfy_table::Attribute::Bold),
+        ]);
+
+    println!("\n{}", "📊 Results".bold());
+    println!("{results}\n");
 }
