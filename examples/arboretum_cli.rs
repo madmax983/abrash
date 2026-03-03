@@ -48,10 +48,10 @@ mod app {
         // Parse rules
         let mut parsed_rules = HashMap::new();
         for rule in args.rules.split(',') {
-            if let Some((input, output)) = rule.split_once('=') {
-                if let Some(c) = input.chars().next() {
-                    parsed_rules.insert(c, output.to_string());
-                }
+            if let Some((input, output)) = rule.split_once('=')
+                && let Some(c) = input.chars().next()
+            {
+                parsed_rules.insert(c, output.to_string());
             }
         }
 
@@ -174,7 +174,7 @@ mod app {
                     ]),
                     Line::from(vec![
                         Span::styled("Generation Time: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(format!("{:.2?}", duration)),
+                        Span::raw(format!("{duration:.2?}")),
                     ]),
                     Line::from(""),
                     Line::from(Span::styled(
@@ -263,12 +263,12 @@ mod app {
                 f.render_widget(help, chunks[3]);
             })?;
 
-            if event::poll(Duration::from_millis(100))? {
-                if let Event::Key(key) = event::read()? {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                        _ => {}
-                    }
+            if event::poll(Duration::from_millis(100))?
+                && let Event::Key(key) = event::read()?
+            {
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                    _ => {}
                 }
             }
         }
@@ -279,7 +279,7 @@ fn main() {
     #[cfg(feature = "nova")]
     {
         if let Err(e) = app::run() {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             std::process::exit(1);
         }
     }

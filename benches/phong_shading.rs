@@ -35,7 +35,7 @@ fn bench_fill_triangle_phong(c: &mut Criterion) {
                 black_box(light_color),
                 black_box(ambient),
             );
-        })
+        });
     });
 }
 

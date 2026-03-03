@@ -37,7 +37,8 @@ fn measure_cycles<F: FnMut()>(mut f: F) -> u64 {
     let iterations = 1000;
     let start = read_tsc();
     for _ in 0..iterations {
-        black_box(f());
+        f();
+        black_box(());
     }
     let end = read_tsc();
 
@@ -53,13 +54,13 @@ fn measure_cycles<F: FnMut()>(_f: F) -> u64 {
 fn bench_hiz_reduction_cycles(c: &mut Criterion) {
     let mut group = c.benchmark_group("hiz_reduction_cycles");
 
-    for resolution in [(1920, 1080), (3840, 2160)].iter() {
+    for resolution in &[(1920, 1080), (3840, 2160)] {
         let (width, height) = *resolution;
         let zb = ZBuffer::new(width, height).unwrap();
         let mut hiz = HiZBuffer::new(width, height);
 
         group.bench_with_input(
-            BenchmarkId::new("pyramid_build", format!("{}x{}", width, height)),
+            BenchmarkId::new("pyramid_build", format!("{width}x{height}")),
             resolution,
             |b, _| {
                 b.iter(|| {
@@ -76,10 +77,9 @@ fn bench_hiz_reduction_cycles(c: &mut Criterion) {
                 hiz_test.build_pyramid(&zb);
             });
             let pixels = width * height;
-            let cycles_per_pixel = cycles as f64 / pixels as f64;
+            let cycles_per_pixel = cycles as f64 / f64::from(pixels);
             eprintln!(
-                "Hi-Z {}×{}: {} cycles/build ({:.2} cycles/pixel)",
-                width, height, cycles, cycles_per_pixel
+                "Hi-Z {width}×{height}: {cycles} cycles/build ({cycles_per_pixel:.2} cycles/pixel)"
             );
         }
     }
@@ -92,11 +92,11 @@ fn bench_scanline_rasterization_cycles(c: &mut Criterion) {
     let mut group = c.benchmark_group("scanline_rasterization_cycles");
 
     // Test different scanline lengths to measure SIMD effectiveness
-    for scanline_len in [4, 8, 16, 32, 64, 128].iter() {
+    for scanline_len in &[4, 8, 16, 32, 64, 128] {
         let triangles = generate_horizontal_triangles(*scanline_len, 10);
 
         group.bench_with_input(
-            BenchmarkId::new("scanline", format!("{}_pixels", scanline_len)),
+            BenchmarkId::new("scanline", format!("{scanline_len}_pixels")),
             scanline_len,
             |b, _| {
                 let mut fb = Framebuffer::new(1920, 1080).unwrap();
@@ -131,8 +131,7 @@ fn bench_scanline_rasterization_cycles(c: &mut Criterion) {
             let pixels_drawn = (*scanline_len as usize) * 5 * triangles.len(); // ~5 pixels height per triangle
             let cycles_per_pixel = cycles as f64 / pixels_drawn as f64;
             eprintln!(
-                "Scanline length {}: {} cycles/frame ({:.2} cycles/pixel)",
-                scanline_len, cycles, cycles_per_pixel
+                "Scanline length {scanline_len}: {cycles} cycles/frame ({cycles_per_pixel:.2} cycles/pixel)"
             );
         }
     }

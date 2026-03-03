@@ -41,21 +41,21 @@ impl Cloth {
     /// * `width` - Number of particles in X direction.
     /// * `height` - Number of particles in Y direction.
     /// * `spacing` - Distance between particles.
+    ///
+    /// ⚡ Bolt Optimization: Pre-allocates internal vectors (`particles`, `constraints`, `indices`)
+    /// with exact capacities to prevent intermediate heap allocations and memory fragmentation
+    /// during the initialization loops.
     #[must_use]
     pub fn new(width: usize, height: usize, spacing: f32) -> Self {
         let mut particles = Vec::with_capacity(width * height);
 
-        // Optimization: Exact capacity calculation prevents heap fragmentation and reallocations
-        // Horizontal constraints: (width - 1) * height
-        // Vertical constraints: width * (height - 1)
-        // Shear constraints: 2 * (width - 1) * (height - 1)
-        let num_constraints = (width.saturating_sub(1)) * height
-            + width * (height.saturating_sub(1))
-            + 2 * (width.saturating_sub(1)) * (height.saturating_sub(1));
-        let mut constraints = Vec::with_capacity(num_constraints);
+        let horizontal_constraints = (width.saturating_sub(1)) * height;
+        let vertical_constraints = width * (height.saturating_sub(1));
+        let shear_constraints = 2 * (width.saturating_sub(1)) * (height.saturating_sub(1));
+        let num_constraints = horizontal_constraints + vertical_constraints + shear_constraints;
+        let num_indices = 2 * (width.saturating_sub(1)) * (height.saturating_sub(1));
 
-        // 2 triangles per quad
-        let num_indices = (width.saturating_sub(1)) * (height.saturating_sub(1)) * 2;
+        let mut constraints = Vec::with_capacity(num_constraints);
         let mut indices = Vec::with_capacity(num_indices);
 
         // 1. Create Particles
@@ -222,18 +222,14 @@ impl Cloth {
     /// Converts the cloth to a Mesh.
     #[must_use]
     pub fn to_mesh(&self) -> Mesh {
-        let mut mesh = Mesh::new();
-        mesh.vertices.reserve(self.particles.len());
-        mesh.uvs.reserve(self.particles.len());
+        let mut mesh = Mesh::with_capacity(self.particles.len(), self.indices.len());
         mesh.indices.clone_from(&self.indices);
 
         for p in &self.particles {
             mesh.vertices.push(p.pos);
             mesh.uvs.push(p.uv);
+            mesh.normals.push(Vec3::default());
         }
-
-        // Compute normals
-        mesh.normals = vec![Vec3::default(); mesh.vertices.len()];
 
         for tri in &mesh.indices {
             let i0 = tri[0];

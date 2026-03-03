@@ -63,7 +63,7 @@ fn bench_software_binning_comparison(c: &mut Criterion) {
 
     // Helper to setup checkerboard occlusion
     let setup_occluded_scene = |width: u32, height: u32| {
-        let mut fb = Framebuffer::new(width, height).unwrap();
+        let fb = Framebuffer::new(width, height).unwrap();
         let mut zb = ZBuffer::new(width, height).unwrap();
         let slice = zb.as_mut_slice();
         for y in 0..height {
@@ -111,7 +111,8 @@ fn bench_software_binning_comparison(c: &mut Criterion) {
     let height = 1080;
     let triangles_per_layer = 100;
 
-    for &layer_count in &[10] {
+    {
+        let &layer_count = &10;
         let total_tris = triangles_per_layer * layer_count;
         group.throughput(Throughput::Elements(total_tris as u64));
 

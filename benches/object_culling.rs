@@ -69,7 +69,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
             }
 
             renderer.render_batch(&mut fb, &mut zb, &triangles);
-        })
+        });
     });
 
     // Optimized rendering: use Scene with Culling
@@ -86,7 +86,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
             fb.clear(0xFF000000);
             zb.clear();
             scene.render(&mut renderer, &mut fb, &mut zb);
-        })
+        });
     });
 }
 

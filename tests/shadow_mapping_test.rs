@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use abrash::framebuffer::Framebuffer;
-    use abrash::math::{Mat4, Vec3, Vec4};
+    use abrash::math::{Mat4, Vec3};
     use abrash::rasterizer::{fill_triangle_3d, fill_triangle_phong_shadowed};
     use abrash::zbuffer::ZBuffer;
     use std::f32::consts::PI;
@@ -47,9 +47,9 @@ mod tests {
 
         // Check if shadow map has content at center
         let sm_center = shadow_fb.get_pixel(128, 128);
-        println!("Shadow Map Center Pixel: {:?}", sm_center);
+        println!("Shadow Map Center Pixel: {sm_center:?}");
         let sm_depth = shadow_zb.get_depth(128, 128);
-        println!("Shadow Map Center Depth: {:?}", sm_depth);
+        println!("Shadow Map Center Depth: {sm_depth:?}");
 
         // 2. Setup Main Camera
         let cam_pos = Vec3::new(0.0, 10.0, 10.0);
@@ -124,8 +124,8 @@ mod tests {
         let (far_clip, far_w) = cam_vp.transform_point(Vec3::new(3.0, 0.0, 3.0));
         let far_screen = abrash::math::project_to_screen(far_clip, far_w, width, height);
 
-        println!("Center Screen: {:?}", center_screen);
-        println!("Far Screen: {:?}", far_screen);
+        println!("Center Screen: {center_screen:?}");
+        println!("Far Screen: {far_screen:?}");
 
         let center_pixel = main_fb
             .get_pixel(center_screen.x, center_screen.y)
@@ -139,8 +139,8 @@ mod tests {
         let far_brightness =
             (far_pixel & 0xFF) + ((far_pixel >> 8) & 0xFF) + ((far_pixel >> 16) & 0xFF);
 
-        println!("Center Brightness: {}", center_brightness);
-        println!("Far Brightness: {}", far_brightness);
+        println!("Center Brightness: {center_brightness}");
+        println!("Far Brightness: {far_brightness}");
 
         // Expectation:
         // With standard Phong: Center ~= Far (roughly, based on angle)

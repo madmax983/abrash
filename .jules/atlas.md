@@ -35,3 +35,11 @@
 3.  **Refactor:** Updated imports in `src/scene.rs` and tests to use `abrash::rasterizer::TileRenderer`.
 
 **Result:** Improved cohesion within the `rasterizer` module. Reduced surface area of `src/lib.rs`. Stronger encapsulation of rasterizer internals.
+## [Config Structs for Effect Parameterization]
+**Tangle:** The `apply_ssao_scalar` and `apply_god_rays` functions were suffering from the "Argument Jungle" anti-pattern. `apply_ssao_scalar` took 9 arguments, including redundant `width` and `height` that could be extracted from existing arguments. `apply_god_rays` took 8 arguments, making it difficult to maintain and read.
+
+**Blueprint:**
+1.  **Eliminate Redundancy:** Removed `width` and `height` from `apply_ssao_scalar`, fetching them internally from `ZBuffer::width()` and `ZBuffer::height()`.
+2.  **Config Struct:** Created `GodRaysConfig` struct to group 7 parameter arguments into a single cohesive configuration block.
+
+**Stability:** Improved clarity and lowered argument count below the cognitive (and linter) limit of 7. Highly cohesive configurations make these effects easier to call in examples.

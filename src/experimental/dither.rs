@@ -148,9 +148,9 @@ fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
             let g_old = buffer[idx + 1];
             let b_old = buffer[idx + 2];
 
-            let r_new = quantize(r_old, depth) as f32;
-            let g_new = quantize(g_old, depth) as f32;
-            let b_new = quantize(b_old, depth) as f32;
+            let r_new = f32::from(quantize(r_old, depth));
+            let g_new = f32::from(quantize(g_old, depth));
+            let b_new = f32::from(quantize(b_old, depth));
 
             // Write back quantized pixel immediately
             let p_idx = y * width + x;

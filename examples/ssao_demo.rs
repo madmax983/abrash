@@ -165,7 +165,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Vec3::new(0.0, 1.0, 0.0), // Stacked on center (bottom at 0.5, sits on top of center cube)
         ];
 
-        for pos in cube_positions.iter() {
+        for pos in &cube_positions {
             let model = Mat4::translation(pos.x, pos.y, pos.z);
             let mvp = projection * (view * model);
             let normal_mat = model;
