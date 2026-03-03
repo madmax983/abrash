@@ -1843,53 +1843,58 @@ impl TileRenderer {
                     let tiles_x = self.tiles_x;
                     let tile_bins = &self.tile_bins;
                     let prepared = &self.prepared;
-                    (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
-                        || {
-                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
-                            if let Some((clear_y_min, clear_y_max)) = render_single_tile(
-                                tx,
-                                ty,
-                                tile_bins,
-                                prepared,
-                                tiles_x,
-                                width,
-                                height,
-                                tile_pixels,
-                                tile_depths,
-                            ) {
-                                // Merge tile into framebuffer/zbuffer
-                                let tile_x0 = tx * TILE_SIZE;
-                                let tile_y0 = ty * TILE_SIZE;
-                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                                let tile_cols = (tile_x_end - tile_x0) as usize;
+                    (0..self.tiles_y)
+                        .into_par_iter()
+                        .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                        .for_each_init(
+                            || {
+                                let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                                (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                            },
+                            |buffers, (tx, ty)| {
+                                let (tile_pixels, tile_depths) = &mut *buffers;
+                                if let Some((clear_y_min, clear_y_max)) = render_single_tile(
+                                    tx,
+                                    ty,
+                                    tile_bins,
+                                    prepared,
+                                    tiles_x,
+                                    width,
+                                    height,
+                                    tile_pixels,
+                                    tile_depths,
+                                ) {
+                                    // Merge tile into framebuffer/zbuffer
+                                    let tile_x0 = tx * TILE_SIZE;
+                                    let tile_y0 = ty * TILE_SIZE;
+                                    let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                    let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                                let row_end = (clear_y_max as u32 + 1)
-                                    .min(tile_y0 + TILE_SIZE)
-                                    .min(height);
+                                    let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                    let row_end = (clear_y_max as u32 + 1)
+                                        .min(tile_y0 + TILE_SIZE)
+                                        .min(height);
 
-                                for row in row_begin..row_end {
-                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
+                                    for row in row_begin..row_end {
+                                        let tile_row_offset =
+                                            ((row - tile_y0) * TILE_SIZE) as usize;
+                                        let fb_start =
+                                            row as usize * width as usize + tile_x0 as usize;
 
-                                    for col in 0..tile_cols {
-                                        fb_ptr.write(
-                                            fb_start + col,
-                                            tile_pixels[tile_row_offset + col],
-                                        );
-                                        zb_ptr.write(
-                                            fb_start + col,
-                                            tile_depths[tile_row_offset + col],
-                                        );
+                                        for col in 0..tile_cols {
+                                            fb_ptr.write(
+                                                fb_start + col,
+                                                tile_pixels[tile_row_offset + col],
+                                            );
+                                            zb_ptr.write(
+                                                fb_start + col,
+                                                tile_depths[tile_row_offset + col],
+                                            );
+                                        }
                                     }
                                 }
-                            }
-                        },
-                    );
+                            },
+                        );
                 }
             }
         }
@@ -2151,50 +2156,57 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_textured;
-                (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, (tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            texture,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
+                (0..self.tiles_y)
+                    .into_par_iter()
+                    .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                    .for_each_init(
+                        || {
+                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                        },
+                        |buffers, (tx, ty)| {
+                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
+                                tx,
+                                ty,
+                                tile_bins,
+                                prepared,
+                                tiles_x,
+                                width,
+                                height,
+                                texture,
+                                tile_pixels,
+                                tile_depths,
+                            ) {
+                                // Merge tile into framebuffer/zbuffer
+                                let tile_x0 = tx * TILE_SIZE;
+                                let tile_y0 = ty * TILE_SIZE;
+                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
 
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    for col in 0..tile_cols {
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
+                                    }
                                 }
                             }
-                        }
-                    },
-                );
+                        },
+                    );
             }
         }
 
@@ -2322,49 +2334,56 @@ impl TileRenderer {
                 let tiles_x = self.tiles_x;
                 let tile_bins = &self.tile_bins;
                 let prepared = &self.prepared_gouraud;
-                (0..self.tiles_y).into_par_iter().flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty))).for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, (tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
+                (0..self.tiles_y)
+                    .into_par_iter()
+                    .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
+                    .for_each_init(
+                        || {
+                            let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                        },
+                        |buffers, (tx, ty)| {
+                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
+                                tx,
+                                ty,
+                                tile_bins,
+                                prepared,
+                                tiles_x,
+                                width,
+                                height,
+                                tile_pixels,
+                                tile_depths,
+                            ) {
+                                // Merge tile into framebuffer/zbuffer
+                                let tile_x0 = tx * TILE_SIZE;
+                                let tile_y0 = ty * TILE_SIZE;
+                                let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+                                let tile_cols = (tile_x_end - tile_x0) as usize;
 
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
 
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    for col in 0..tile_cols {
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
+                                    }
                                 }
                             }
-                        }
-                    },
-                );
+                        },
+                    );
             }
         }
 
