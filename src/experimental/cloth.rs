@@ -44,8 +44,19 @@ impl Cloth {
     #[must_use]
     pub fn new(width: usize, height: usize, spacing: f32) -> Self {
         let mut particles = Vec::with_capacity(width * height);
-        let mut constraints = Vec::new();
-        let mut indices = Vec::new();
+
+        // Optimization: Exact capacity calculation prevents heap fragmentation and reallocations
+        // Horizontal constraints: (width - 1) * height
+        // Vertical constraints: width * (height - 1)
+        // Shear constraints: 2 * (width - 1) * (height - 1)
+        let num_constraints = (width.saturating_sub(1)) * height
+            + width * (height.saturating_sub(1))
+            + 2 * (width.saturating_sub(1)) * (height.saturating_sub(1));
+        let mut constraints = Vec::with_capacity(num_constraints);
+
+        // 2 triangles per quad
+        let num_indices = (width.saturating_sub(1)) * (height.saturating_sub(1)) * 2;
+        let mut indices = Vec::with_capacity(num_indices);
 
         // 1. Create Particles
         for y in 0..height {
