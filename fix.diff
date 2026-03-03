@@ -1,47 +1,20 @@
-<<<<<<< SEARCH
-    /// Clear a rectangular region
-    pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
-        if width == 0 || height == 0 {
-            return;
-        }
+--- src/post_process/blur.rs
++++ src/post_process/blur.rs
+@@ -244,7 +244,7 @@
+         return;
+     }
 
-        let x1 = x;
-        let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+-    let radius = radius.min((width.max(height)) as u32);
++    let radius = radius.min((width.max(height)) as u32).min(100_000);
+     let radius = radius as usize;
+     // Window size (kernel width)
+     let kernel_size = (2 * radius + 1) as u64;
+@@ -348,7 +348,7 @@
+         return;
+     }
 
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
-
-        for row in start_y..end_y {
-            let start = (row * self.width + start_x) as usize;
-            let end = (row * self.width + end_x) as usize;
-            self.pixels[start..end].fill(color);
-        }
-    }
-=======
-    /// Clear a rectangular region
-    pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
-        if width == 0 || height == 0 {
-            return;
-        }
-
-        let x1 = x;
-        let y1 = y;
-        let x2 = x.saturating_add_unsigned(width);
-        let y2 = y.saturating_add_unsigned(height);
-
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
-
-        for row in start_y..end_y {
-            let start = (row * self.width + start_x) as usize;
-            let end = (row * self.width + end_x) as usize;
-            self.pixels[start..end].fill(color);
-        }
-    }
->>>>>>> REPLACE
+-    let radius = radius.min((width.max(height)) as u32);
++    let radius = radius.min((width.max(height)) as u32).min(100_000);
+     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+     {
+         if std::is_x86_feature_detected!("avx2") {
