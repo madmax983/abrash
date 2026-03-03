@@ -31,16 +31,16 @@ where
     let height = (size.y / step).ceil() as usize + 1;
     let depth = (size.z / step).ceil() as usize + 1;
 
-    // Estimate capacity based on grid volume. A reasonable heuristic is that
-    // the surface intersects roughly a fraction of the total cells (e.g., area vs volume).
-    // Assuming surface area grows with N^2 and volume with N^3.
-    // For small grids, preallocate a small percentage of total possible tetrahedra.
+    // Optimization: Preallocate vectors using a surface-area heuristic.
+    // The number of surface cells is typically proportional to the surface area,
+    // which scales as the 2/3 power of the total volume (total_cells).
     let total_cells = width * height * depth;
-    let estimated_tris = (total_cells as f32).powf(0.66).ceil() as usize * 12; // heuristic
+    let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
+    let estimated_indices = estimated_vertices * 2; // Rough estimate of triangles from vertices
 
-    let mut vertices = Vec::with_capacity(estimated_tris * 3);
-    let mut indices = Vec::with_capacity(estimated_tris * 3);
-    let mut normals = Vec::with_capacity(estimated_tris * 3);
+    let mut vertices = Vec::with_capacity(estimated_vertices);
+    let mut indices = Vec::with_capacity(estimated_indices);
+    let mut normals = Vec::with_capacity(estimated_vertices);
 
     // Cache SDF values to avoid recomputing
     // Index: z * height * width + y * width + x
