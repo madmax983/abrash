@@ -31,9 +31,16 @@ where
     let height = (size.y / step).ceil() as usize + 1;
     let depth = (size.z / step).ceil() as usize + 1;
 
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
-    let mut normals = Vec::new();
+    // Optimization: Preallocate vectors using a surface-area heuristic.
+    // The number of surface cells is typically proportional to the surface area,
+    // which scales as the 2/3 power of the total volume (total_cells).
+    let total_cells = width * height * depth;
+    let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
+    let estimated_indices = estimated_vertices * 2; // Rough estimate of triangles from vertices
+
+    let mut vertices = Vec::with_capacity(estimated_vertices);
+    let mut indices = Vec::with_capacity(estimated_indices);
+    let mut normals = Vec::with_capacity(estimated_vertices);
 
     // Cache SDF values to avoid recomputing
     // Index: z * height * width + y * width + x
@@ -257,8 +264,7 @@ mod tests {
             let dist = v.length();
             assert!(
                 (dist - 1.0).abs() < 0.2,
-                "Vertex should be near surface, got dist {}",
-                dist
+                "Vertex should be near surface, got dist {dist}"
             );
         }
     }
