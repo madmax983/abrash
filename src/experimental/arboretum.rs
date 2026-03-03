@@ -107,13 +107,120 @@ impl LSystem {
     }
 
     /// Expands the axiom string by `iterations`.
+    /// Expands the axiom string by `iterations`.
+    ///
+    /// # Performance Optimization
+    /// This method includes a fast-path for purely ASCII strings. It avoids the overhead of
+    /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
+    /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
     pub fn expand(&self, iterations: u32) -> String {
         let mut current = self.axiom.clone();
 
+        if iterations == 0 {
+            return current;
+        }
+
+        // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
+        let mut is_pure_ascii = self.axiom.is_ascii();
+        if is_pure_ascii {
+            for v in self.rules.values() {
+                if !v.is_ascii() {
+                    is_pure_ascii = false;
+                    break;
+                }
+            }
+            if is_pure_ascii {
+                for k in self.rules.keys() {
+                    if !k.is_ascii() {
+                        is_pure_ascii = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if is_pure_ascii {
+            // Setup lookup table for ASCII
+            let mut rules_array: [Option<&[u8]>; 128] = [None; 128];
+            for (k, v) in &self.rules {
+                rules_array[(*k as usize) & 127] = Some(v.as_bytes());
+            }
+            let mut rules_len_array = [0; 128];
+            for u in 0..128 {
+                if let Some(s) = rules_array[u] {
+                    rules_len_array[u] = s.len();
+                }
+            }
+
+            let mut current_bytes = self.axiom.clone().into_bytes();
+            for _ in 0..iterations {
+                let mut exact_len = 0;
+                for &b in &current_bytes {
+                    let u = (b as usize) & 127;
+                    if rules_array[u].is_some() {
+                        exact_len += rules_len_array[u];
+                    } else {
+                        exact_len += 1;
+                    }
+                }
+
+                let mut next_bytes = Vec::with_capacity(exact_len);
+                for b in current_bytes {
+                    let u = (b as usize) & 127;
+                    if let Some(replacement) = rules_array[u] {
+                        next_bytes.extend_from_slice(replacement);
+                    } else {
+                        next_bytes.push(b);
+                    }
+                }
+                current_bytes = next_bytes;
+            }
+
+            return String::from_utf8(current_bytes).unwrap();
+        }
+
+        // Fallback for unicode
+        let mut rules_array: [Option<&String>; 128] = [None; 128];
+        for (k, v) in &self.rules {
+            if (*k as usize) < 128 {
+                rules_array[*k as usize] = Some(v);
+            }
+        }
+
+        let mut rules_len_array = [0; 128];
+        for u in 0..128 {
+            if let Some(s) = rules_array[u] {
+                rules_len_array[u] = s.len();
+            }
+        }
+
         for _ in 0..iterations {
-            let mut next = String::with_capacity(current.len() * 2);
+            let mut exact_len = 0;
             for c in current.chars() {
-                if let Some(replacement) = self.rules.get(&c) {
+                let u = c as usize;
+                if u < 128 {
+                    if rules_array[u].is_some() {
+                        exact_len += rules_len_array[u];
+                    } else {
+                        exact_len += c.len_utf8();
+                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
+                    exact_len += replacement.len();
+                } else {
+                    exact_len += c.len_utf8();
+                }
+            }
+
+            let mut next = String::with_capacity(exact_len);
+            for c in current.chars() {
+                let u = c as usize;
+                if u < 128 {
+                    if let Some(replacement) = rules_array[u] {
+                        next.push_str(replacement);
+                    } else {
+                        next.push(c);
+                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
                     next.push_str(replacement);
                 } else {
                     next.push(c);
