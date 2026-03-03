@@ -26,10 +26,10 @@ proptest! {
             let (actual_v, actual_w) = output[i];
 
             let epsilon = 0.0001;
-            assert!((actual_v.x - expected_v.x).abs() < epsilon, "Index {}: X mismatch", i);
-            assert!((actual_v.y - expected_v.y).abs() < epsilon, "Index {}: Y mismatch", i);
-            assert!((actual_v.z - expected_v.z).abs() < epsilon, "Index {}: Z mismatch", i);
-            assert!((actual_w - expected_w).abs() < epsilon, "Index {}: W mismatch", i);
+            assert!((actual_v.x - expected_v.x).abs() < epsilon, "Index {i}: X mismatch");
+            assert!((actual_v.y - expected_v.y).abs() < epsilon, "Index {i}: Y mismatch");
+            assert!((actual_v.z - expected_v.z).abs() < epsilon, "Index {i}: Z mismatch");
+            assert!((actual_w - expected_w).abs() < epsilon, "Index {i}: W mismatch");
         }
     }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec2, Vec3};
 use abrash::mesh::Mesh;

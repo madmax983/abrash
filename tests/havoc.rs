@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::clipping::clip_triangle_to_frustum;
 use abrash::math::Vec3;
 use abrash::obj_loader::load_obj;

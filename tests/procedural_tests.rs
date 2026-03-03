@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::experimental::procedural::*;
 
 #[test]

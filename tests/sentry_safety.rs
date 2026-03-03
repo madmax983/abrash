@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal, clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use abrash::framebuffer::Framebuffer;

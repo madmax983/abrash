@@ -1,3 +1,8 @@
+#![allow(
+    clippy::unreadable_literal,
+    clippy::needless_pass_by_value,
+    clippy::float_cmp
+)]
 //! 2D Rasterization primitives.
 //!
 //! Software rendering functions for 3D triangles (flat, gouraud, textured, lit).
@@ -1734,12 +1739,7 @@ struct PhongEdgeWalker {
 
 impl PhongEdgeWalker {
     #[allow(clippy::too_many_arguments)]
-    fn new(
-        p_start: ScreenPoint,
-        p_end: ScreenPoint,
-        n_start: Vec3,
-        n_end: Vec3,
-    ) -> Self {
+    fn new(p_start: ScreenPoint, p_end: ScreenPoint, n_start: Vec3, n_end: Vec3) -> Self {
         let height = (i64::from(p_end.y) - i64::from(p_start.y)) as f32;
         let inv_h = if height == 0.0 { 0.0 } else { 1.0 / height };
 
@@ -1916,11 +1916,7 @@ pub fn fill_triangle_phong(
         let n1 = v1.1 * inv_w1;
         let n2 = v2.1 * inv_w2;
 
-        let mut verts = [
-            (p0_orig, n0),
-            (p1_orig, n1),
-            (p2_orig, n2),
-        ];
+        let mut verts = [(p0_orig, n0), (p1_orig, n1), (p2_orig, n2)];
         sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, n0), (p1, n1), (p2, n2)] = verts;
 
@@ -2226,6 +2222,6 @@ mod tests {
         // This should not panic
         let result = is_backface(p0, p1, p2);
 
-        assert_eq!(result, true);
+        assert!(result);
     }
 }

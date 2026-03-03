@@ -1,3 +1,10 @@
+#![allow(unsafe_op_in_unsafe_fn, clippy::unreadable_literal, clippy::ptr_as_ptr, clippy::cast_ptr_alignment)]
+#![allow(unsafe_op_in_unsafe_fn, clippy::unreadable_literal, clippy::ptr_as_ptr, clippy::cast_ptr_alignment)]
+#![allow(unsafe_op_in_unsafe_fn, clippy::unreadable_literal, clippy::ptr_as_ptr, clippy::cast_ptr_alignment)]
+#![allow(unsafe_op_in_unsafe_fn, clippy::unreadable_literal, clippy::ptr_as_ptr, clippy::cast_ptr_alignment)]
+#![allow(unsafe_op_in_unsafe_fn, clippy::unreadable_literal, clippy::ptr_as_ptr, clippy::cast_ptr_alignment)]
+#![allow(unsafe_op_in_unsafe_fn)]
+#![allow(clippy::unreadable_literal)]
 // Micro-benchmarks for SIMD masked store vs blend+store approaches
 //
 // Tests to answer key questions:
@@ -30,10 +37,10 @@ fn bench_cast_cost(c: &mut Criterion) {
 
     group.bench_function("simd_blend", |b| {
         b.iter_batched(
-            || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
+            || (vec![f32::INFINITY; 32], vec![0u32; 32]),
             |(mut depths, mut pixels)| {
                 unsafe {
-                    run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
+                    run_float_blend_store(run_float_blend_store(&mut depths, &mut pixels, color, 32);mut depths, run_float_blend_store(&mut depths, &mut pixels, color, 32);mut pixels, 0xFFFFFFFF, 32);
                 }
                 black_box((depths, pixels));
             },
@@ -43,10 +50,10 @@ fn bench_cast_cost(c: &mut Criterion) {
 
     group.bench_function("simd_blend", |b| {
         b.iter_batched(
-            || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
+            || (vec![f32::INFINITY; 32], vec![0u32; 32]),
             |(mut depths, mut pixels)| {
                 unsafe {
-                    run_float_blend_store(&mut depths, &mut pixels, color, SMALL_SIZE);
+                    run_float_blend_store(run_float_blend_store(&mut depths, &mut pixels, color, 32);mut depths, run_float_blend_store(&mut depths, &mut pixels, color, 32);mut pixels, 0xFFFFFFFF, 32);
                 }
                 black_box((depths, pixels));
             },
@@ -254,16 +261,16 @@ fn bench_small_scanlines(c: &mut Criterion) {
     let mut group = c.benchmark_group("small_scanlines_32px");
     let color = 0xFFFF0000u32;
     // Simulate typical scanline length (32 pixels)
-    const SMALL_SIZE: usize = 32;
+
 
     group.bench_function("scalar", |b| {
         b.iter_batched(
-            || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
+            || (vec![f32::INFINITY; 32], vec![0u32; 32]),
             |(mut depths, mut pixels)| {
                 // Inline scalar loop for 32 pixels
                 let mut z = 0.5f32;
                 let dz = 0.001f32;
-                for i in 0..SMALL_SIZE {
+                for i in 0..32 {
                     if z < depths[i] {
                         depths[i] = z;
                         pixels[i] = color;
@@ -278,10 +285,10 @@ fn bench_small_scanlines(c: &mut Criterion) {
 
     group.bench_function("simd_maskstore", |b| {
         b.iter_batched(
-            || (vec![f32::INFINITY; SMALL_SIZE], vec![0u32; SMALL_SIZE]),
+            || (vec![f32::INFINITY; 32], vec![0u32; 32]),
             |(mut depths, mut pixels)| {
                 unsafe {
-                    run_float_maskstore(&mut depths, &mut pixels, color, SMALL_SIZE);
+                    run_float_maskstore(&mut depths, &mut pixels, color, 32);
                 }
                 black_box((depths, pixels));
             },

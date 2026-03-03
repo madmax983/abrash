@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 //! Post-processing effects.
 //!
 //! Functions to apply full-screen effects to a `Framebuffer`.
@@ -289,8 +290,7 @@ mod tests {
             let r = (p >> 16) & 0xFF;
             assert_eq!(
                 r, expected_gray,
-                "Pixel {} mismatch. Got {}, expected {}",
-                x, r, expected_gray
+                "Pixel {x} mismatch. Got {r}, expected {expected_gray}"
             );
         }
     }

@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
 use abrash::rasterizer::fill_triangle_textured;
-use abrash::texture::{FilterMode, Texture};
+use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 

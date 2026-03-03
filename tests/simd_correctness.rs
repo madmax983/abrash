@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use abrash::math::{Mat4, Vec3};
 use proptest::prelude::*;
 

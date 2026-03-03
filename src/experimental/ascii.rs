@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 //! ASCII Art Converter.
 //!
 //! Converts a [`Framebuffer`] into ASCII art for terminal output or TUI rendering.
@@ -178,7 +179,7 @@ mod tests {
         assert_eq!(charset.map(255), '@');
         // Mid-grey -> somewhere in middle
         let mid = charset.map(128);
-        assert!(mid == '+' || mid == '=' || mid == '*', "Got {}", mid);
+        assert!(mid == '+' || mid == '=' || mid == '*', "Got {mid}");
     }
 
     #[test]
@@ -204,6 +205,6 @@ mod tests {
         let s = converter.to_string();
 
         // Should use one of the middle block characters
-        assert!(s.contains('▒') || s.contains('▓'), "Got {}", s);
+        assert!(s.contains('▒') || s.contains('▓'), "Got {s}");
     }
 }

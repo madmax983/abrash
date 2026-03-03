@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::framebuffer::Framebuffer;
 use abrash::post_process;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
@@ -12,7 +13,7 @@ fn benchmark_grayscale(c: &mut Criterion) {
     c.bench_function("apply_grayscale 1080p", |b| {
         b.iter(|| {
             post_process::apply_grayscale(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -25,7 +26,7 @@ fn benchmark_scanlines(c: &mut Criterion) {
     c.bench_function("apply_scanlines 1080p", |b| {
         b.iter(|| {
             post_process::apply_scanlines(black_box(&mut fb));
-        })
+        });
     });
 }
 
@@ -38,7 +39,7 @@ fn benchmark_invert(c: &mut Criterion) {
     c.bench_function("apply_invert 1080p", |b| {
         b.iter(|| {
             post_process::apply_invert(black_box(&mut fb));
-        })
+        });
     });
 }
 

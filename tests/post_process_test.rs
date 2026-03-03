@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::framebuffer::Framebuffer;
 use abrash::post_process;
 
@@ -20,7 +21,7 @@ fn test_apply_grayscale() {
 
     assert_eq!(r, g);
     assert_eq!(g, b);
-    assert_eq!(r, 76, "Expected grayscale value 76 for pure red, got {}", r);
+    assert_eq!(r, 76, "Expected grayscale value 76 for pure red, got {r}");
 }
 
 #[test]

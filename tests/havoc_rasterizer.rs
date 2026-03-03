@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::rasterizer::fill_triangle_3d;

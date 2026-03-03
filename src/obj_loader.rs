@@ -1,3 +1,4 @@
+#![allow(clippy::manual_range_contains, clippy::needless_range_loop)]
 //! Wavefront OBJ file loader.
 //!
 //! This module provides a simple parser for `.obj` files.

@@ -1,7 +1,8 @@
+#![allow(clippy::unreadable_literal)]
 /// Integration tests for Hi-Z buffer with tile renderer
 ///
 /// These tests verify that:
-/// 1. TileRenderer with Hi-Z produces identical output to without Hi-Z
+/// 1. `TileRenderer` with Hi-Z produces identical output to without Hi-Z
 /// 2. Hi-Z actually culls occluded triangles
 /// 3. Occlusion queries are correct (no false negatives)
 use abrash::framebuffer::Framebuffer;
@@ -86,11 +87,7 @@ fn hiz_produces_identical_output() {
 
             assert!(
                 (d1 - d2).abs() < 0.0001,
-                "Depth mismatch at ({}, {}): with Hi-Z = {}, without Hi-Z = {}",
-                x,
-                y,
-                d1,
-                d2
+                "Depth mismatch at ({x}, {y}): with Hi-Z = {d1}, without Hi-Z = {d2}"
             );
         }
     }
@@ -129,8 +126,7 @@ fn hiz_no_false_negatives() {
     // Triangle should have drawn something
     assert!(
         drawn_pixels > 0,
-        "Hi-Z incorrectly culled a visible triangle (drew {} pixels)",
-        drawn_pixels
+        "Hi-Z incorrectly culled a visible triangle (drew {drawn_pixels} pixels)"
     );
 
     // Verify specific center pixel is red
@@ -140,8 +136,7 @@ fn hiz_no_false_negatives() {
     assert_eq!(
         center_pixel & 0x00FFFFFF,
         0x000000FF, // Blue component only (BGRA format)
-        "Center pixel should be red, got 0x{:08X}",
-        center_pixel
+        "Center pixel should be red, got 0x{center_pixel:08X}"
     );
 }
 
@@ -203,8 +198,7 @@ fn hiz_culls_occluded_geometry_across_frames() {
     // In the center overlap region, there should be no green pixels (fully occluded)
     assert_eq!(
         green_pixels, 0,
-        "Found {} green pixels in overlap region, expected 0 (occlusion failed)",
-        green_pixels
+        "Found {green_pixels} green pixels in overlap region, expected 0 (occlusion failed)"
     );
 }
 

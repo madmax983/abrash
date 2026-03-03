@@ -13,8 +13,14 @@ fn test_phong_shading_compiles_and_runs() {
     // Triangle covering most of the screen
     // Vertices: ((Pos, W), Normal)
     let v0 = ((Vec3::new(0.0, 0.9, 5.0), 5.0), Vec3::new(0.0, 1.0, 0.0));
-    let v1 = ((Vec3::new(-0.9, -0.9, 5.0), 5.0), Vec3::new(-0.7, -0.7, 0.7).normalize());
-    let v2 = ((Vec3::new(0.9, -0.9, 5.0), 5.0), Vec3::new(0.7, -0.7, 0.7).normalize());
+    let v1 = (
+        (Vec3::new(-0.9, -0.9, 5.0), 5.0),
+        Vec3::new(-0.7, -0.7, 0.7).normalize(),
+    );
+    let v2 = (
+        (Vec3::new(0.9, -0.9, 5.0), 5.0),
+        Vec3::new(0.7, -0.7, 0.7).normalize(),
+    );
 
     let light_dir = Vec3::new(0.0, 0.0, -1.0).normalize(); // Light from camera
     let light_color = Vec3::new(1.0, 1.0, 1.0);
@@ -94,5 +100,8 @@ fn test_phong_shading_gradient() {
     let top_g = (top_pixel >> 8) & 0xFF;
     let bottom_g = (bottom_left >> 8) & 0xFF;
 
-    assert!(top_g > bottom_g, "Top pixel should be brighter than bottom pixel ({} vs {})", top_g, bottom_g);
+    assert!(
+        top_g > bottom_g,
+        "Top pixel should be brighter than bottom pixel ({top_g} vs {bottom_g})"
+    );
 }

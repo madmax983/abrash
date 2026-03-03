@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 //! 2D Texture representation and sampling.
 //!
 //! Moving texture logic here allows multiple rasterizers to share it without depending on each other.
@@ -531,7 +532,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // Allow some tolerance for integer arithmetic
-        assert!(r >= 60 && r <= 66, "Expected ~63 (0x3F), got {}", r);
+        assert!((60..=66).contains(&r), "Expected ~63 (0x3F), got {r}");
     }
 
     #[test]
