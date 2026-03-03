@@ -6,7 +6,7 @@ use crate::clipping::clip_triangle_to_frustum;
 use crate::experimental::skybox::Cubemap;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
-use crate::rasterizer::{FIXED_SCALE, is_backface, sort_by_y};
+use crate::rasterizer::{FIXED_SCALE, sort_by_y};
 #[cfg(test)]
 use crate::math::Mat4;
 use crate::zbuffer::ZBuffer;
@@ -397,7 +397,13 @@ pub fn fill_triangle_reflection(
         );
 
         // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
+        let ux_orig = i64::from(p1_orig.x) - i64::from(p0_orig.x);
+        let uy_orig = i64::from(p1_orig.y) - i64::from(p0_orig.y);
+        let vx_orig = i64::from(p2_orig.x) - i64::from(p0_orig.x);
+        let vy_orig = i64::from(p2_orig.y) - i64::from(p0_orig.y);
+        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
+
+        if nz_orig >= 0 {
             continue;
         }
 
@@ -417,7 +423,7 @@ pub fn fill_triangle_reflection(
         let w2 = v2.2 * inv_w2;
 
         let mut verts = [(p0_orig, n0, w0), (p1_orig, n1, w1), (p2_orig, n2, w2)];
-        sort_by_y(&mut verts, |(p, ..)| p.y);
+        let parity = sort_by_y(&mut verts, |(p, ..)| p.y);
         let [(p0, n0, w0), (p1, n1, w1), (p2, n2, w2)] = verts;
 
         let q0 = p0.inv_w;
@@ -439,8 +445,10 @@ pub fn fill_triangle_reflection(
         }
 
         // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) =
+        let (gradients, _) =
             ReflectionGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
+
+        let long_edge_is_left = parity;
 
         let mut edge_a = ReflectionEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
         if y_start > p0.y {

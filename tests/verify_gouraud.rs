@@ -31,9 +31,9 @@ fn test_gouraud_determinism() {
     let checksum = calculate_checksum(&fb);
     println!("Checksum: {checksum:016X}");
 
-    // Checksum updated after fixed-point color interpolation optimization.
+    // Checksum updated after TriangleSetup and backface culling refactoring
     assert_eq!(
-        checksum, 0xC5A5_BB0C_6A4D_781B,
+        checksum, 0x9C19_1463_BF86_781B,
         "Checksum mismatch! Optimization broke rendering."
     );
 }

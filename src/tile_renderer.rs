@@ -74,7 +74,7 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_to_screen};
 use crate::rasterizer::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
-    RECIPROCAL_TABLE, is_backface, sort_by_y,
+    TriangleSetup, RECIPROCAL_TABLE, sort_by_y,
 };
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
@@ -1510,9 +1510,14 @@ impl TileRenderer {
             let p1_orig = project_to_screen(cv1.0.0, cv1.0.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0.0, cv2.0.1, self.width, self.height);
 
-            if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
-            }
+            // Backface culling and setup
+            let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+            };
 
             // Optimization: Reuse inv_w from projection
             let inv_w0 = p0_orig.inv_w;
@@ -1526,36 +1531,33 @@ impl TileRenderer {
             let u2 = cv2.1.x * tex_w * inv_w2;
             let v2_val = cv2.1.y * tex_h * inv_w2;
 
-            let mut verts = [
-                (p0_orig, u0, v0_val),
-                (p1_orig, u1, v1_val),
-                (p2_orig, u2, v2_val),
-            ];
-            sort_by_y(&mut verts, |(p, _, _)| p.y);
-            let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
+            let q0_orig = p0_orig.inv_w;
+            let q1_orig = p1_orig.inv_w;
+            let q2_orig = p2_orig.inv_w;
 
-            let q0 = p0.inv_w;
-            let q1 = p1.inv_w;
-            let q2 = p2.inv_w;
+            // Calculate gradients using unsorted vertices (matching setup)
+            let gradients = PerspectiveTextureGradients::new(
+                &setup,
+                p0_orig, p1_orig, p2_orig,
+                q0_orig, q1_orig, q2_orig,
+                u0, u1, u2,
+                v0_val, v1_val, v2_val,
+            );
+
+            let mut verts = [
+                (p0_orig, u0, v0_val, q0_orig),
+                (p1_orig, u1, v1_val, q1_orig),
+                (p2_orig, u2, v2_val, q2_orig),
+            ];
+            let parity = sort_by_y(&mut verts, |(p, _, _, _)| p.y);
+            let [(p0, u0, v0, q0), (p1, u1, v1, q1), (p2, u2, v2, q2)] = verts;
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
             if total_height == 0.0 {
                 continue;
             }
 
-            // Gradients
-            let (gradients, long_edge_is_left) = {
-                let g = PerspectiveTextureGradients::new(
-                    p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
-                );
-
-                let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-                let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-                let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-                let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-                let left = ux * vy - uy * vx > 0.0;
-                (g, left)
-            };
+            let long_edge_is_left = parity;
 
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
@@ -1654,12 +1656,17 @@ impl TileRenderer {
             let p1_orig = project_to_screen(cv1.0, cv1.1, self.width, self.height);
             let p2_orig = project_to_screen(cv2.0, cv2.1, self.width, self.height);
 
-            if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
-            }
+            // Backface culling and setup
+            let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+            };
 
             let mut verts = [p0_orig, p1_orig, p2_orig];
-            sort_by_y(&mut verts, |p| p.y);
+            let parity = sort_by_y(&mut verts, |p| p.y);
             let [p0, p1, p2] = verts;
 
             let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
@@ -1667,18 +1674,14 @@ impl TileRenderer {
                 continue;
             }
 
-            // Compute dz/dx
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let uz = p1.z - p0.z;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let vz = p2.z - p0.z;
-            let nx = uy * vz - uz * vy;
-            let nz = ux * vy - uy * vx;
+            // Compute dz/dx from setup (unsorted)
+            // dz_dx is constant for the triangle, so (p0_orig, p1_orig, p2_orig) produces same plane as sorted.
+            let uz = p1_orig.z - p0_orig.z;
+            let vz = p2_orig.z - p0_orig.z;
+            let nx = setup.uy * vz - uz * setup.vy;
+            let dz_dx = nx * setup.inv_nz;
 
-            let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
-            let long_edge_is_left = nz > 0.0;
+            let long_edge_is_left = parity;
 
             // AABB clamped to screen
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);

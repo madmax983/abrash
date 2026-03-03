@@ -123,8 +123,8 @@ fn prepare_scanline<'a>(
     let mut xe = x_end;
 
     if xs < 0 {
-        let diff = -xs as f32;
-        z += diff * dz_dx;
+        let diff = -i64::from(xs);
+        z += (diff as f32) * dz_dx;
         xs = 0;
     }
 
@@ -153,39 +153,73 @@ fn prepare_scanline<'a>(
 
 /// Helper to sort 3 vertices by Y coordinate
 ///
+/// Returns `true` if an odd number of swaps were performed (parity).
+/// This can be used to determine the winding order change.
+///
 /// Optimization: Uses a manual sorting network to avoid the heap allocation
 /// incurred by `slice::sort_by_key` for small arrays.
-pub(crate) fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F)
+pub(crate) fn sort_by_y<T, F>(verts: &mut [T; 3], get_y: F) -> bool
 where
     F: Fn(&T) -> i32,
 {
+    let mut swapped = false;
     // Manual 3-step sort to avoid allocation
     if get_y(&verts[0]) > get_y(&verts[1]) {
         verts.swap(0, 1);
+        swapped = !swapped;
     }
     if get_y(&verts[1]) > get_y(&verts[2]) {
         verts.swap(1, 2);
+        swapped = !swapped;
     }
     if get_y(&verts[0]) > get_y(&verts[1]) {
         verts.swap(0, 1);
+        swapped = !swapped;
+    }
+    swapped
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TriangleSetup {
+    pub(crate) ux: f32,
+    pub(crate) uy: f32,
+    pub(crate) vx: f32,
+    pub(crate) vy: f32,
+    pub(crate) inv_nz: f32,
+}
+
+impl TriangleSetup {
+    /// Setup triangle geometry and perform backface culling.
+    /// Returns None if the triangle is backfacing or degenerate.
+    #[inline(always)]
+    pub(crate) fn new(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> Option<Self> {
+        let ux_i64 = i64::from(p1.x) - i64::from(p0.x);
+        let uy_i64 = i64::from(p1.y) - i64::from(p0.y);
+        let vx_i64 = i64::from(p2.x) - i64::from(p0.x);
+        let vy_i64 = i64::from(p2.y) - i64::from(p0.y);
+
+        // Robust integer cross product for culling
+        // i64 is sufficient as long as viewport width < 3e9, which is enforced by Framebuffer::new.
+        let nz_i64 = ux_i64 * vy_i64 - uy_i64 * vx_i64;
+
+        if nz_i64 >= 0 {
+            return None;
+        }
+
+        // Convert to f32 for gradients
+        let nz = nz_i64 as f32;
+        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+
+        Some(Self {
+            ux: ux_i64 as f32,
+            uy: uy_i64 as f32,
+            vx: vx_i64 as f32,
+            vy: vy_i64 as f32,
+            inv_nz,
+        })
     }
 }
 
-/// Checks if a triangle is backfacing (or degenerate)
-///
-/// Uses the 2D cross product of the screen-space edges.
-/// Returns true if the triangle should be culled (ccw winding for front faces).
-#[inline(always)]
-pub(crate) fn is_backface(p0: ScreenPoint, p1: ScreenPoint, p2: ScreenPoint) -> bool {
-    let ux = i64::from(p1.x) - i64::from(p0.x);
-    let uy = i64::from(p1.y) - i64::from(p0.y);
-    let vx = i64::from(p2.x) - i64::from(p0.x);
-    let vy = i64::from(p2.y) - i64::from(p0.y);
-    // Use i64 for cross product.
-    // i64 is sufficient as long as viewport width < 3e9, which is enforced by Framebuffer::new.
-    let nz = ux * vy - uy * vx;
-    nz >= 0
-}
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
@@ -540,14 +574,14 @@ pub fn fill_triangle_3d(
         let (p0_orig, p1_orig, p2_orig) =
             project_triangle_to_screen(v0.0, v0.1, v1.0, v1.1, v2.0, v2.1, half_width, half_height);
 
-        // Backface Culling (on original unsorted vertices)
-        if is_backface(p0_orig, p1_orig, p2_orig) {
+        // Backface Culling & Setup
+        let Some(setup) = TriangleSetup::new(p0_orig, p1_orig, p2_orig) else {
             continue;
-        }
+        };
 
         // Sort by y
         let mut verts = [p0_orig, p1_orig, p2_orig];
-        sort_by_y(&mut verts, |p| p.y);
+        let parity = sort_by_y(&mut verts, |p| p.y);
         let [p0, p1, p2] = verts;
 
         // Prevent overflow when p2.y is i32::MAX and p0.y is i32::MIN
@@ -567,29 +601,15 @@ pub fn fill_triangle_3d(
         }
 
         // Optimization: Pre-calculate dz/dx constant for the whole triangle
-        // Plane equation: Ax + By + Cz + D = 0
-        // vectors p0->p1 and p0->p2
-        // Use i64 for coordinate differences to prevent overflow with extreme coordinates
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-        let uz = p1.z - p0.z;
+        // Use pre-computed setup values (from unsorted vertices)
+        // dz/dx is invariant under vertex permutation as it represents the plane slope
+        let uz = p1_orig.z - p0_orig.z;
+        let vz = p2_orig.z - p0_orig.z;
+        let nx = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx * setup.inv_nz;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-        let vz = p2.z - p0.z;
-
-        // Cross product to get normal (A, B, C)
-        let nx = uy * vz - uz * vy;
-        // let ny = uz * vx - ux * vz;
-        let nz = ux * vy - uy * vx; // This is actually 2D cross product of XY (area) of SORTED triangle
-
-        // dz/dx = -A/C = -nx/nz
-        let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
-
-        // Determine if long edge is on the left or right
-        // Optimization: Use the sign of the cross product (nz) to determine winding
-        // If nz > 0, p1 is to the right of p0->p2, so long edge (p0->p2) is Left.
-        let long_edge_is_left = nz > 0.0;
+        // Determine if long edge is on the left or right using parity.
+        let long_edge_is_left = parity;
 
         let mut edge_a = EdgeWalker::new(p0, p2);
         if y_start > p0.y {
@@ -1255,29 +1275,50 @@ pub fn fill_triangle_point_lit(
             half_height,
         );
 
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
-
         // Prepare attributes
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
         // Normal * inv_w
-        let n0 = v0.1 * inv_w0;
-        let n1 = v1.1 * inv_w1;
-        let n2 = v2.1 * inv_w2;
+        let n0_orig = v0.1 * inv_w0;
+        let n1_orig = v1.1 * inv_w1;
+        let n2_orig = v2.1 * inv_w2;
 
         // WorldPos * inv_w
-        let w0 = v0.2 * inv_w0;
-        let w1 = v1.2 * inv_w1;
-        let w2 = v2.2 * inv_w2;
+        let w0_orig = v0.2 * inv_w0;
+        let w1_orig = v1.2 * inv_w1;
+        let w2_orig = v2.2 * inv_w2;
 
-        let mut verts = [(p0_orig, n0, w0), (p1_orig, n1, w1), (p2_orig, n2, w2)];
-        sort_by_y(&mut verts, |(p, ..)| p.y);
-        let [(p0, n0, w0), (p1, n1, w1), (p2, n2, w2)] = verts;
+        let q0_orig = p0_orig.inv_w;
+        let q1_orig = p1_orig.inv_w;
+        let q2_orig = p2_orig.inv_w;
+
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Reuse ShadowPhongGradients for Point Lit (same layout)
+        let gradients = ShadowPhongGradients::new(
+            &setup,
+            p0_orig, p1_orig, p2_orig,
+            q0_orig, q1_orig, q2_orig,
+            n0_orig, n1_orig, n2_orig,
+            w0_orig, w1_orig, w2_orig,
+        );
+
+        let mut verts = [
+            (p0_orig, n0_orig, w0_orig, q0_orig),
+            (p1_orig, n1_orig, w1_orig, q1_orig),
+            (p2_orig, n2_orig, w2_orig, q2_orig),
+        ];
+        let parity = sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, n0, w0, _q0), (p1, n1, w1, _q1), (p2, n2, w2, _q2)] = verts;
 
         let q0 = p0.inv_w;
         let q1 = p1.inv_w;
@@ -1297,10 +1338,7 @@ pub fn fill_triangle_point_lit(
             continue;
         }
 
-        // Gradients and Edge Walking
-        // Reuse ShadowPhongGradients/Walker as they match the ((Clip,W), N, World) layout
-        let (gradients, long_edge_is_left) =
-            ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
+        let long_edge_is_left = parity;
 
         let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
         if y_start > p0.y {
@@ -1503,29 +1541,50 @@ pub fn fill_triangle_phong_shadowed(
             half_height,
         );
 
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
-
         // Prepare attributes
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
         // Normal * inv_w
-        let n0 = v0.1 * inv_w0;
-        let n1 = v1.1 * inv_w1;
-        let n2 = v2.1 * inv_w2;
+        let n0_orig = v0.1 * inv_w0;
+        let n1_orig = v1.1 * inv_w1;
+        let n2_orig = v2.1 * inv_w2;
 
         // WorldPos * inv_w
-        let w0 = v0.2 * inv_w0;
-        let w1 = v1.2 * inv_w1;
-        let w2 = v2.2 * inv_w2;
+        let w0_orig = v0.2 * inv_w0;
+        let w1_orig = v1.2 * inv_w1;
+        let w2_orig = v2.2 * inv_w2;
 
-        let mut verts = [(p0_orig, n0, w0), (p1_orig, n1, w1), (p2_orig, n2, w2)];
-        sort_by_y(&mut verts, |(p, ..)| p.y);
-        let [(p0, n0, w0), (p1, n1, w1), (p2, n2, w2)] = verts;
+        let q0_orig = p0_orig.inv_w;
+        let q1_orig = p1_orig.inv_w;
+        let q2_orig = p2_orig.inv_w;
+
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Calculate Gradients
+        let gradients = ShadowPhongGradients::new(
+            &setup,
+            p0_orig, p1_orig, p2_orig,
+            q0_orig, q1_orig, q2_orig,
+            n0_orig, n1_orig, n2_orig,
+            w0_orig, w1_orig, w2_orig
+        );
+
+        let mut verts = [
+            (p0_orig, n0_orig, w0_orig, q0_orig),
+            (p1_orig, n1_orig, w1_orig, q1_orig),
+            (p2_orig, n2_orig, w2_orig, q2_orig),
+        ];
+        let parity = sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, n0, w0, _q0), (p1, n1, w1, _q1), (p2, n2, w2, _q2)] = verts;
 
         let q0 = p0.inv_w;
         let q1 = p1.inv_w;
@@ -1545,9 +1604,7 @@ pub fn fill_triangle_phong_shadowed(
             continue;
         }
 
-        // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) =
-            ShadowPhongGradients::new(p0, p1, p2, q0, q1, q2, n0, n1, n2, w0, w1, w2);
+        let long_edge_is_left = parity;
 
         let mut edge_a = ShadowPhongEdgeWalker::new(p0, p2, q0, q2, n0, n2, w0, w2);
         if y_start > p0.y {
@@ -2032,48 +2089,39 @@ struct GouraudGradients {
 
 impl GouraudGradients {
     fn new(
+        setup: &TriangleSetup,
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
         c0: Vec3,
         c1: Vec3,
         c2: Vec3,
-    ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    ) -> Self {
         let uz = p1.z - p0.z;
         let uc = c1 - c0;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vc = c2 - c0;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx_z * setup.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_r = setup.uy * vc.x - uc.x * setup.vy;
+        let nx_g = setup.uy * vc.y - uc.y * setup.vy;
+        let nx_b = setup.uy * vc.z - uc.z * setup.vy;
 
-        let nx_r = uy * vc.x - uc.x * vy;
-        let nx_g = uy * vc.y - uc.y * vy;
-        let nx_b = uy * vc.z - uc.z * vy;
-
-        let dr = nx_r * inv_nz;
-        let dg = nx_g * inv_nz;
-        let db = nx_b * inv_nz;
+        let dr = nx_r * setup.inv_nz;
+        let dg = nx_g * setup.inv_nz;
+        let db = nx_b * setup.inv_nz;
 
         let dr_i = (dr * FIXED_SCALE) as i32;
         let dg_i = (dg * FIXED_SCALE) as i32;
         let db_i = (db * FIXED_SCALE) as i32;
 
-        (
-            Self {
-                dz_dx,
-                dc_dx: (dr_i, dg_i, db_i),
-            },
-            nz > 0.0,
-        )
+        Self {
+            dz_dx,
+            dc_dx: (dr_i, dg_i, db_i),
+        }
     }
 }
 
@@ -2219,20 +2267,26 @@ pub fn fill_triangle_gouraud(
             half_height,
         );
 
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
-
-        // Optimization: Pre-scale colors to 0..255 for faster interpolation and packing
-        // allowing us to skip clamp/mul per pixel
+        // Optimization: Pre-scale colors to 0..255
         let c0 = v0.1 * 255.0;
         let c1 = v1.1 * 255.0;
         let c2 = v2.1 * 255.0;
 
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Calculate gradients
+        let gradients = GouraudGradients::new(&setup, p0_orig, p1_orig, p2_orig, c0, c1, c2);
+
         // Sort by y
         let mut verts = [(p0_orig, c0), (p1_orig, c1), (p2_orig, c2)];
-        sort_by_y(&mut verts, |(p, _)| p.y);
+        let parity = sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, c0), (p1, c1), (p2, c2)] = verts;
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
@@ -2249,8 +2303,8 @@ pub fn fill_triangle_gouraud(
             continue;
         }
 
-        // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = GouraudGradients::new(p0, p1, p2, c0, c1, c2);
+        // If visible (nz < 0), parity determines winding relative to sorted order.
+        let long_edge_is_left = parity;
 
         let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
         if y_start > p0.y {
@@ -2371,7 +2425,8 @@ pub struct PerspectiveTextureGradients {
 impl PerspectiveTextureGradients {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
-    pub fn new(
+    pub(crate) fn new(
+        setup: &TriangleSetup,
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -2385,76 +2440,47 @@ impl PerspectiveTextureGradients {
         v1: f32,
         v2: f32,
     ) -> Self {
-        Self::new_with_winding(p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2).0
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    #[must_use]
-    pub fn new_with_winding(
-        p0: ScreenPoint,
-        p1: ScreenPoint,
-        p2: ScreenPoint,
-        q0: f32,
-        q1: f32,
-        q2: f32,
-        u0: f32,
-        u1: f32,
-        u2: f32,
-        v0: f32,
-        v1: f32,
-        v2: f32,
-    ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
         let uz = p1.z - p0.z;
         let uq = q1 - q0;
         let uu = u1 - u0;
         let uv = v1 - v0;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
         let vv = v2 - v0;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx_z * setup.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_q = setup.uy * vq - uq * setup.vy;
+        let dq_dx = nx_q * setup.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
+        let nx_u = setup.uy * vu - uu * setup.vy;
+        let du_dx = nx_u * setup.inv_nz;
 
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
-
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
+        let nx_v = setup.uy * vv - uv * setup.vy;
+        let dv_dx = nx_v * setup.inv_nz;
 
         // Calculate Y gradients
-        let ny_q = uq * vx - ux * vq;
-        let dq_dy = ny_q * inv_nz;
+        let ny_q = uq * setup.vx - setup.ux * vq;
+        let dq_dy = ny_q * setup.inv_nz;
 
-        let ny_u = uu * vx - ux * vu;
-        let du_dy = ny_u * inv_nz;
+        let ny_u = uu * setup.vx - setup.ux * vu;
+        let du_dy = ny_u * setup.inv_nz;
 
-        let ny_v = uv * vx - ux * vv;
-        let dv_dy = ny_v * inv_nz;
+        let ny_v = uv * setup.vx - setup.ux * vv;
+        let dv_dy = ny_v * setup.inv_nz;
 
-        (
-            Self {
-                dz_dx,
-                dq_dx,
-                du_dx,
-                dv_dx,
-                dq_dy,
-                du_dy,
-                dv_dy,
-            },
-            nz > 0.0,
-        )
+        Self {
+            dz_dx,
+            dq_dx,
+            du_dx,
+            dv_dx,
+            dq_dy,
+            du_dy,
+            dv_dy,
+        }
     }
 }
 
@@ -3064,17 +3090,6 @@ pub fn fill_triangle_textured(
             half_height,
         );
 
-        // Backface Culling
-        let ux_orig = (i64::from(p1_orig.x) - i64::from(p0_orig.x)) as f32;
-        let uy_orig = (i64::from(p1_orig.y) - i64::from(p0_orig.y)) as f32;
-        let vx_orig = (i64::from(p2_orig.x) - i64::from(p0_orig.x)) as f32;
-        let vy_orig = (i64::from(p2_orig.y) - i64::from(p0_orig.y)) as f32;
-        let nz_orig = ux_orig * vy_orig - uy_orig * vx_orig;
-
-        if nz_orig >= 0.0 {
-            continue;
-        }
-
         // Prepare perspective attributes: q=1/w, u/w, v/w
         // Note: We multiply UV by texture dimensions here so interpolation happens in texel space
 
@@ -3083,24 +3098,46 @@ pub fn fill_triangle_textured(
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        let u0 = v0.1.x * texture.width as f32 * inv_w0;
-        let v0_val = v0.1.y * texture.height as f32 * inv_w0;
+        let u0_scaled = v0.1.x * texture.width as f32 * inv_w0;
+        let v0_scaled = v0.1.y * texture.height as f32 * inv_w0;
 
-        let u1 = v1.1.x * texture.width as f32 * inv_w1;
-        let v1_val = v1.1.y * texture.height as f32 * inv_w1;
+        let u1_scaled = v1.1.x * texture.width as f32 * inv_w1;
+        let v1_scaled = v1.1.y * texture.height as f32 * inv_w1;
 
-        let u2 = v2.1.x * texture.width as f32 * inv_w2;
-        let v2_val = v2.1.y * texture.height as f32 * inv_w2;
+        let u2_scaled = v2.1.x * texture.width as f32 * inv_w2;
+        let v2_scaled = v2.1.y * texture.height as f32 * inv_w2;
+
+        let q0_orig = p0_orig.inv_w;
+        let q1_orig = p1_orig.inv_w;
+        let q2_orig = p2_orig.inv_w;
+
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Calculate gradients
+        let gradients = PerspectiveTextureGradients::new(
+            &setup,
+            p0_orig, p1_orig, p2_orig,
+            q0_orig, q1_orig, q2_orig,
+            u0_scaled, u1_scaled, u2_scaled,
+            v0_scaled, v1_scaled, v2_scaled,
+        );
 
         // Sort by y
-        // We need to keep track of all attributes (p, u, v) - q is inside p
+        // Shadowing v0..v2 locals to avoid confusion with function args
         let mut verts = [
-            (p0_orig, u0, v0_val),
-            (p1_orig, u1, v1_val),
-            (p2_orig, u2, v2_val),
+            (p0_orig, u0_scaled, v0_scaled),
+            (p1_orig, u1_scaled, v1_scaled),
+            (p2_orig, u2_scaled, v2_scaled),
         ];
-        sort_by_y(&mut verts, |(p, _, _)| p.y);
-        let [(p0, u0, v0), (p1, u1, v1), (p2, u2, v2)] = verts;
+        let parity = sort_by_y(&mut verts, |(p, _, _)| p.y);
+        let [(p0, u0, v0_val), (p1, u1, v1_val), (p2, u2, v2_val)] = verts;
 
         let q0 = p0.inv_w;
         let q1 = p1.inv_w;
@@ -3120,10 +3157,12 @@ pub fn fill_triangle_textured(
             continue;
         }
 
-        // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = PerspectiveTextureGradients::new_with_winding(
-            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0, v1, v2,
-        );
+        let long_edge_is_left = parity;
+
+        // Map sorted locals back to names used by EdgeWalker
+        let v0 = v0_val;
+        let v1 = v1_val;
+        let v2 = v2_val;
 
         let mut edge_a = PerspectiveTextureEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0, v2);
         if y_start > p0.y {
@@ -3269,51 +3308,42 @@ struct PhongGradients {
 impl PhongGradients {
     #[allow(clippy::too_many_arguments)]
     fn new(
+        setup: &TriangleSetup,
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
         n0: Vec3,
         n1: Vec3,
         n2: Vec3,
-    ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    ) -> Self {
         let uz = p1.z - p0.z;
         let unx = n1.x - n0.x;
         let uny = n1.y - n0.y;
         let unz = n1.z - n0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vnx = n2.x - n0.x;
         let vny = n2.y - n0.y;
         let vnz = n2.z - n0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx_z * setup.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_nx = setup.uy * vnx - unx * setup.vy;
+        let dnx_dx = nx_nx * setup.inv_nz;
 
-        let nx_nx = uy * vnx - unx * vy;
-        let dnx_dx = nx_nx * inv_nz;
+        let nx_ny = setup.uy * vny - uny * setup.vy;
+        let dny_dx = nx_ny * setup.inv_nz;
 
-        let nx_ny = uy * vny - uny * vy;
-        let dny_dx = nx_ny * inv_nz;
+        let nx_nz = setup.uy * vnz - unz * setup.vy;
+        let dnz_dx = nx_nz * setup.inv_nz;
 
-        let nx_nz = uy * vnz - unz * vy;
-        let dnz_dx = nx_nz * inv_nz;
-
-        (
-            Self {
-                dz_dx,
-                dnx_dx,
-                dny_dx,
-                dnz_dx,
-            },
-            nz > 0.0,
-        )
+        Self {
+            dz_dx,
+            dnx_dx,
+            dny_dx,
+            dnz_dx,
+        }
     }
 }
 
@@ -3389,6 +3419,7 @@ struct ShadowPhongGradients {
 impl ShadowPhongGradients {
     #[allow(clippy::too_many_arguments)]
     fn new(
+        setup: &TriangleSetup,
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -3401,9 +3432,7 @@ impl ShadowPhongGradients {
         w0: Vec3,
         w1: Vec3,
         w2: Vec3,
-    ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    ) -> Self {
         let uz = p1.z - p0.z;
         let uq = q1 - q0;
         let unx = n1.x - n0.x;
@@ -3413,8 +3442,6 @@ impl ShadowPhongGradients {
         let uwy = w1.y - w0.y;
         let uwz = w1.z - w0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vnx = n2.x - n0.x;
@@ -3424,46 +3451,40 @@ impl ShadowPhongGradients {
         let vwy = w2.y - w0.y;
         let vwz = w2.z - w0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx_z * setup.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_q = setup.uy * vq - uq * setup.vy;
+        let dq_dx = nx_q * setup.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
+        let nx_nx = setup.uy * vnx - unx * setup.vy;
+        let dnx_dx = nx_nx * setup.inv_nz;
 
-        let nx_nx = uy * vnx - unx * vy;
-        let dnx_dx = nx_nx * inv_nz;
+        let nx_ny = setup.uy * vny - uny * setup.vy;
+        let dny_dx = nx_ny * setup.inv_nz;
 
-        let nx_ny = uy * vny - uny * vy;
-        let dny_dx = nx_ny * inv_nz;
+        let nx_nz = setup.uy * vnz - unz * setup.vy;
+        let dnz_dx = nx_nz * setup.inv_nz;
 
-        let nx_nz = uy * vnz - unz * vy;
-        let dnz_dx = nx_nz * inv_nz;
+        let nx_wx = setup.uy * vwx - uwx * setup.vy;
+        let dwx_dx = nx_wx * setup.inv_nz;
 
-        let nx_wx = uy * vwx - uwx * vy;
-        let dwx_dx = nx_wx * inv_nz;
+        let nx_wy = setup.uy * vwy - uwy * setup.vy;
+        let dwy_dx = nx_wy * setup.inv_nz;
 
-        let nx_wy = uy * vwy - uwy * vy;
-        let dwy_dx = nx_wy * inv_nz;
+        let nx_wz = setup.uy * vwz - uwz * setup.vy;
+        let dwz_dx = nx_wz * setup.inv_nz;
 
-        let nx_wz = uy * vwz - uwz * vy;
-        let dwz_dx = nx_wz * inv_nz;
-
-        (
-            Self {
-                dz_dx,
-                dq_dx,
-                dnx_dx,
-                dny_dx,
-                dnz_dx,
-                dwx_dx,
-                dwy_dx,
-                dwz_dx,
-            },
-            nz > 0.0,
-        )
+        Self {
+            dz_dx,
+            dq_dx,
+            dnx_dx,
+            dny_dx,
+            dnz_dx,
+            dwx_dx,
+            dwy_dx,
+            dwz_dx,
+        }
     }
 }
 
@@ -3671,20 +3692,22 @@ unsafe fn draw_scanline_phong_shadowed_simd(
     let amb_b = _mm256_set1_ps(ambient_255.z);
     let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
     let scale_255 = _mm256_set1_ps(255.0);
-    let one_ninth = _mm256_set1_ps(1.0 / 9.0);
+    let _one_ninth = _mm256_set1_ps(1.0 / 9.0);
 
     let sm_ptr = shadow_map.as_slice().as_ptr();
 
     while i + 8 <= len {
-        let depth_ptr = zb_slice.as_mut_ptr().add(i);
-        let depth_val = _mm256_loadu_ps(depth_ptr);
-        let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
+        // SAFETY: Bounds checked by loop condition
+        unsafe {
+            let depth_ptr = zb_slice.as_mut_ptr().add(i);
+            let depth_val = _mm256_loadu_ps(depth_ptr);
+            let mask = _mm256_cmp_ps(z_vec, depth_val, _CMP_LT_OQ);
 
-        if _mm256_movemask_ps(mask) != 0 {
-            // Update Z
-            let old_z = _mm256_loadu_ps(depth_ptr);
-            let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
-            _mm256_storeu_ps(depth_ptr, new_z);
+            if _mm256_movemask_ps(mask) != 0 {
+                // Update Z
+                let old_z = _mm256_loadu_ps(depth_ptr);
+                let new_z = _mm256_blendv_ps(old_z, z_vec, mask);
+                _mm256_storeu_ps(depth_ptr, new_z);
 
             // Perspective recover
             let q_valid = _mm256_cmp_ps(_mm256_andnot_ps(_mm256_set1_ps(-0.0), q_vec), _mm256_set1_ps(1e-6), _CMP_GT_OQ);
@@ -3835,18 +3858,19 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let old_color = _mm256_loadu_si256(fb_ptr);
             let new_color = _mm256_blendv_epi8(old_color, pixel_val, _mm256_castps_si256(mask));
             _mm256_storeu_si256(fb_ptr, new_color);
+            }
+
+            z_vec = _mm256_add_ps(z_vec, dz_step);
+            q_vec = _mm256_add_ps(q_vec, dq_step);
+            nx_vec = _mm256_add_ps(nx_vec, dnx_step);
+            ny_vec = _mm256_add_ps(ny_vec, dny_step);
+            nz_vec = _mm256_add_ps(nz_vec, dnz_step);
+            wx_vec = _mm256_add_ps(wx_vec, dwx_step);
+            wy_vec = _mm256_add_ps(wy_vec, dwy_step);
+            wz_vec = _mm256_add_ps(wz_vec, dwz_step);
+
+            i += 8;
         }
-
-        z_vec = _mm256_add_ps(z_vec, dz_step);
-        q_vec = _mm256_add_ps(q_vec, dq_step);
-        nx_vec = _mm256_add_ps(nx_vec, dnx_step);
-        ny_vec = _mm256_add_ps(ny_vec, dny_step);
-        nz_vec = _mm256_add_ps(nz_vec, dnz_step);
-        wx_vec = _mm256_add_ps(wx_vec, dwx_step);
-        wy_vec = _mm256_add_ps(wy_vec, dwy_step);
-        wz_vec = _mm256_add_ps(wz_vec, dwz_step);
-
-        i += 8;
     }
 
     // Scalar Tail
@@ -4312,22 +4336,30 @@ pub fn fill_triangle_phong(
             half_height,
         );
 
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
-
         // Prepare attributes: q=1/w, n/w
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        let n0 = v0.1 * inv_w0;
-        let n1 = v1.1 * inv_w1;
-        let n2 = v2.1 * inv_w2;
+        let n0_orig = v0.1 * inv_w0;
+        let n1_orig = v1.1 * inv_w1;
+        let n2_orig = v2.1 * inv_w2;
 
-        let mut verts = [(p0_orig, n0), (p1_orig, n1), (p2_orig, n2)];
-        sort_by_y(&mut verts, |(p, _)| p.y);
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Gradients
+        let gradients =
+            PhongGradients::new(&setup, p0_orig, p1_orig, p2_orig, n0_orig, n1_orig, n2_orig);
+
+        let mut verts = [(p0_orig, n0_orig), (p1_orig, n1_orig), (p2_orig, n2_orig)];
+        let parity = sort_by_y(&mut verts, |(p, _)| p.y);
         let [(p0, n0), (p1, n1), (p2, n2)] = verts;
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
@@ -4344,8 +4376,7 @@ pub fn fill_triangle_phong(
             continue;
         }
 
-        // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = PhongGradients::new(p0, p1, p2, n0, n1, n2);
+        let long_edge_is_left = parity;
 
         let mut edge_a = PhongEdgeWalker::new(p0, p2, n0, n2);
         if y_start > p0.y {
@@ -4439,6 +4470,7 @@ struct NormalMapGradients {
 impl NormalMapGradients {
     #[allow(clippy::too_many_arguments)]
     fn new(
+        setup: &TriangleSetup,
         p0: ScreenPoint,
         p1: ScreenPoint,
         p2: ScreenPoint,
@@ -4454,9 +4486,7 @@ impl NormalMapGradients {
         l0: Vec3, // Tangent Space Light Vectors (pre-scaled by q)
         l1: Vec3,
         l2: Vec3,
-    ) -> (Self, bool) {
-        let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-        let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+    ) -> Self {
         let uz = p1.z - p0.z;
         let uq = q1 - q0;
         let uu = u1 - u0;
@@ -4465,8 +4495,6 @@ impl NormalMapGradients {
         let uly = l1.y - l0.y;
         let ulz = l1.z - l0.z;
 
-        let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-        let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         let vz = p2.z - p0.z;
         let vq = q2 - q0;
         let vu = u2 - u0;
@@ -4475,42 +4503,36 @@ impl NormalMapGradients {
         let vly = l2.y - l0.y;
         let vlz = l2.z - l0.z;
 
-        let nz = ux * vy - uy * vx;
-        let inv_nz = if nz.abs() > 0.0001 { -1.0 / nz } else { 0.0 };
+        let nx_z = setup.uy * vz - uz * setup.vy;
+        let dz_dx = nx_z * setup.inv_nz;
 
-        let nx_z = uy * vz - uz * vy;
-        let dz_dx = nx_z * inv_nz;
+        let nx_q = setup.uy * vq - uq * setup.vy;
+        let dq_dx = nx_q * setup.inv_nz;
 
-        let nx_q = uy * vq - uq * vy;
-        let dq_dx = nx_q * inv_nz;
+        let nx_u = setup.uy * vu - uu * setup.vy;
+        let du_dx = nx_u * setup.inv_nz;
 
-        let nx_u = uy * vu - uu * vy;
-        let du_dx = nx_u * inv_nz;
+        let nx_v = setup.uy * vv - uv * setup.vy;
+        let dv_dx = nx_v * setup.inv_nz;
 
-        let nx_v = uy * vv - uv * vy;
-        let dv_dx = nx_v * inv_nz;
+        let nx_lx = setup.uy * vlx - ulx * setup.vy;
+        let dlx_dx = nx_lx * setup.inv_nz;
 
-        let nx_lx = uy * vlx - ulx * vy;
-        let dlx_dx = nx_lx * inv_nz;
+        let nx_ly = setup.uy * vly - uly * setup.vy;
+        let dly_dx = nx_ly * setup.inv_nz;
 
-        let nx_ly = uy * vly - uly * vy;
-        let dly_dx = nx_ly * inv_nz;
+        let nx_lz = setup.uy * vlz - ulz * setup.vy;
+        let dlz_dx = nx_lz * setup.inv_nz;
 
-        let nx_lz = uy * vlz - ulz * vy;
-        let dlz_dx = nx_lz * inv_nz;
-
-        (
-            Self {
-                dz_dx,
-                dq_dx,
-                du_dx,
-                dv_dx,
-                dlx_dx,
-                dly_dx,
-                dlz_dx,
-            },
-            nz > 0.0,
-        )
+        Self {
+            dz_dx,
+            dq_dx,
+            du_dx,
+            dv_dx,
+            dlx_dx,
+            dly_dx,
+            dlz_dx,
+        }
     }
 }
 
@@ -5171,27 +5193,21 @@ pub fn fill_triangle_normal_mapped(
             half_height,
         );
 
-        // Backface Culling
-        if is_backface(p0_orig, p1_orig, p2_orig) {
-            continue;
-        }
-
         // Prepare attributes
         let inv_w0 = p0_orig.inv_w;
         let inv_w1 = p1_orig.inv_w;
         let inv_w2 = p2_orig.inv_w;
 
-        // Scale UV by texture size (assuming both maps match size or using one size for ratio)
-        // Usually, UVs are 0..1, we multiply by size to get texel coords
+        // Scale UV by texture size
         let w = texture.width as f32;
         let h = texture.height as f32;
 
-        let u0 = v0.1.x * w * inv_w0;
-        let v0_val = v0.1.y * h * inv_w0;
-        let u1 = v1.1.x * w * inv_w1;
-        let v1_val = v1.1.y * h * inv_w1;
-        let u2 = v2.1.x * w * inv_w2;
-        let v2_val = v2.1.y * h * inv_w2;
+        let u0_scaled = v0.1.x * w * inv_w0;
+        let v0_scaled = v0.1.y * h * inv_w0;
+        let u1_scaled = v1.1.x * w * inv_w1;
+        let v1_scaled = v1.1.y * h * inv_w1;
+        let u2_scaled = v2.1.x * w * inv_w2;
+        let v2_scaled = v2.1.y * h * inv_w2;
 
         // Compute Tangent Space Light Vectors
         let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
@@ -5202,8 +5218,6 @@ pub fn fill_triangle_normal_mapped(
             let b_ortho = n_norm.cross(t_ortho) * t.w;
 
             // Transform LightDir to Tangent Space.
-            // LightDir passed in is direction of light (sun).
-            // We want vector TO light, so -light_dir.
             let l_world = light_dir * -1.0;
 
             // TS_L = TBN^T * L_world
@@ -5215,26 +5229,41 @@ pub fn fill_triangle_normal_mapped(
         };
 
         // Use true normals/tangents (v0.2, v0.3) not scaled by inv_w
-        let l0_ts = calculate_ts_light(v0.2, v0.3);
-        let l1_ts = calculate_ts_light(v1.2, v1.3);
-        let l2_ts = calculate_ts_light(v2.2, v2.3);
+        // Pre-multiply by inv_w for interpolation
+        let l0_ts = calculate_ts_light(v0.2, v0.3) * inv_w0;
+        let l1_ts = calculate_ts_light(v1.2, v1.3) * inv_w1;
+        let l2_ts = calculate_ts_light(v2.2, v2.3) * inv_w2;
 
-        // Prepare for interpolation
-        let l0 = l0_ts * inv_w0;
-        let l1 = l1_ts * inv_w1;
-        let l2 = l2_ts * inv_w2;
+        let q0_orig = p0_orig.inv_w;
+        let q1_orig = p1_orig.inv_w;
+        let q2_orig = p2_orig.inv_w;
+
+        // Setup & Culling
+        let setup = match TriangleSetup::new(p0_orig, p1_orig, p2_orig) {
+            Some(s) => s,
+            None => continue,
+
+
+
+        };
+
+        // Calculate Gradients
+        let gradients = NormalMapGradients::new(
+            &setup,
+            p0_orig, p1_orig, p2_orig,
+            q0_orig, q1_orig, q2_orig,
+            u0_scaled, u1_scaled, u2_scaled,
+            v0_scaled, v1_scaled, v2_scaled,
+            l0_ts, l1_ts, l2_ts
+        );
 
         let mut verts = [
-            (p0_orig, u0, v0_val, l0),
-            (p1_orig, u1, v1_val, l1),
-            (p2_orig, u2, v2_val, l2),
+            (p0_orig, u0_scaled, v0_scaled, q0_orig, l0_ts),
+            (p1_orig, u1_scaled, v1_scaled, q1_orig, l1_ts),
+            (p2_orig, u2_scaled, v2_scaled, q2_orig, l2_ts),
         ];
-        sort_by_y(&mut verts, |(p, ..)| p.y);
-        let [(p0, u0, v0_v, l0), (p1, u1, v1_v, l1), (p2, u2, v2_v, l2)] = verts;
-
-        let q0 = p0.inv_w;
-        let q1 = p1.inv_w;
-        let q2 = p2.inv_w;
+        let parity = sort_by_y(&mut verts, |(p, ..)| p.y);
+        let [(p0, u0, v0_v, q0, l0), (p1, u1, v1_v, q1, l1), (p2, u2, v2_v, q2, l2)] = verts;
 
         let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
         if total_height == 0.0 {
@@ -5250,10 +5279,7 @@ pub fn fill_triangle_normal_mapped(
             continue;
         }
 
-        // Gradients and Edge Walking
-        let (gradients, long_edge_is_left) = NormalMapGradients::new(
-            p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_v, v1_v, v2_v, l0, l1, l2,
-        );
+        let long_edge_is_left = parity;
 
         let mut edge_a = NormalMapEdgeWalker::new(p0, p2, q0, q2, u0, u2, v0_v, v2_v, l0, l2);
         if y_start > p0.y {
@@ -5618,39 +5644,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_is_backface_overflow_safe() {
-        // Construct points with large coordinates that fit within i64 product.
-        // Framebuffer::new limits width/height to i32::MAX, so max difference is roughly 2e9.
-        // 2e9 * 2e9 = 4e18, which is < i64::MAX (9e18).
-
-        // p0 at (0, 0)
-        let p0 = ScreenPoint {
-            x: 0,
-            y: 0,
-            z: 0.0,
-            inv_w: 1.0,
-        };
-        // p1 at (2e9, 0)
-        let p1 = ScreenPoint {
-            x: 2_000_000_000,
-            y: 0,
-            z: 0.0,
-            inv_w: 1.0,
-        };
-        // p2 at (0, 2e9)
-        let p2 = ScreenPoint {
-            x: 0,
-            y: 2_000_000_000,
-            z: 0.0,
-            inv_w: 1.0,
-        };
-
-        // nz = 2e9 * 2e9 = 4e18. Should not panic and return true.
-        let result = is_backface(p0, p1, p2);
-
-        assert!(result);
-    }
 
     #[test]
     fn draw_scanline_gouraud_interpolation() {
