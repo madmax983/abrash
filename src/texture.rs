@@ -100,6 +100,7 @@ pub struct Texture {
     pub(crate) pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
     pub(crate) mips: Vec<Vec<u32>>,
+    /// The filtering mode to use when sampling the texture.
     pub filter_mode: FilterMode,
 }
 
@@ -527,6 +528,8 @@ impl Texture {
         }
     }
 
+    /// Gets the raw color of a texel at (x, y) without any filtering.
+    /// Returns 0 (transparent black) if coordinates are out of bounds.
     #[must_use]
     #[inline]
     pub fn get_pixel_texel(&self, x: i32, y: i32) -> u32 {

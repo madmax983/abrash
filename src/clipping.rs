@@ -137,7 +137,8 @@ impl Lerp for ((Vec3, f32), Vec3, Vec2) {
 /// is Undefined Behavior. The implementation of `Index` performs bounds checking to ensure safety.
 pub struct ClippedTriangles<V> {
     tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
-    pub count: usize,           // Number of triangles
+    /// Number of triangles currently in the list
+    pub count: usize,
 }
 
 impl<V> ClippedTriangles<V> {

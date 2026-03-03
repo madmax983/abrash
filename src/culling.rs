@@ -14,7 +14,9 @@ use std::arch::x86_64::{
 /// Equation: `normal . point + distance = 0`
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {
+    /// The normal vector of the plane.
     pub normal: Vec3,
+    /// The distance from the origin to the plane along its normal.
     pub distance: f32,
 }
 
@@ -40,6 +42,7 @@ impl Plane {
 /// A View Frustum defined by 6 planes.
 /// Used for object-level culling.
 pub struct Frustum {
+    /// The 6 planes that define the view frustum (Left, Right, Bottom, Top, Near, Far).
     pub planes: [Plane; 6],
 }
 
