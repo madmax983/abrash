@@ -497,12 +497,13 @@ pub fn load_obj(source: &str) -> Result<Mesh, String> {
         parser.final_normals.clear();
     }
 
+    let vertex_count = parser.final_vertices.len();
     Ok(Mesh {
         vertices: parser.final_vertices,
         indices: parser.final_indices,
         uvs: parser.final_uvs,
         normals: parser.final_normals,
-        tangents: Vec::new(), // Tangents must be computed explicitly
+        tangents: Vec::with_capacity(vertex_count), // Tangents must be computed explicitly
     })
 }
 

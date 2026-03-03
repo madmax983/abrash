@@ -25,17 +25,27 @@ use crate::framebuffer::Framebuffer;
 /// * `decay` - Falloff factor per sample (0.0 to 1.0). High values (>0.9) mean longer rays.
 /// * `exposure` - Final brightness multiplier for the accumulated light.
 /// * `num_samples` - Number of samples to take along the ray. Higher is smoother but slower (e.g., 32-100).
-pub fn apply_god_rays(
-    fb: &mut Framebuffer,
-    light_x: f32,
-    light_y: f32,
-    density: f32,
-    weight: f32,
-    decay: f32,
-    exposure: f32,
-    num_samples: u32,
-) {
-    if num_samples == 0 || weight <= 0.0 || exposure <= 0.0 {
+/// Configuration parameters for the God Rays (Crepuscular Rays) effect.
+#[derive(Debug, Clone, Copy)]
+pub struct GodRaysConfig {
+    /// Screen-space X coordinate of the light source (can be outside the screen).
+    pub light_x: f32,
+    /// Screen-space Y coordinate of the light source.
+    pub light_y: f32,
+    /// Distance between samples. Usually around 1.0.
+    pub density: f32,
+    /// Intensity of each sample. Usually around 0.01 - 0.1.
+    pub weight: f32,
+    /// Falloff factor per sample (0.0 to 1.0). High values (>0.9) mean longer rays.
+    pub decay: f32,
+    /// Final brightness multiplier for the accumulated light.
+    pub exposure: f32,
+    /// Number of samples to take along the ray. Higher is smoother but slower (e.g., 32-100).
+    pub num_samples: u32,
+}
+
+pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
+    if config.num_samples == 0 || config.weight <= 0.0 || config.exposure <= 0.0 {
         return;
     }
 
@@ -51,8 +61,8 @@ pub fn apply_god_rays(
     let inv_height = 1.0 / height as f32;
 
     // Normalized light position (0.0 to 1.0)
-    let light_u = light_x * inv_width;
-    let light_v = light_y * inv_height;
+    let light_u = config.light_x * inv_width;
+    let light_v = config.light_y * inv_height;
 
     for y in 0..height {
         let v = y as f32 * inv_height;
@@ -64,8 +74,8 @@ pub fn apply_god_rays(
             let mut delta_v = v - light_v;
 
             // Scale delta by density
-            delta_u *= density / num_samples as f32;
-            delta_v *= density / num_samples as f32;
+            delta_u *= config.density / config.num_samples as f32;
+            delta_v *= config.density / config.num_samples as f32;
 
             let mut current_u = u;
             let mut current_v = v;
@@ -84,7 +94,7 @@ pub fn apply_god_rays(
             let mut accum_b = base_b;
 
             // Sample along the ray towards the light
-            for _ in 0..num_samples {
+            for _ in 0..config.num_samples {
                 current_u -= delta_u;
                 current_v -= delta_v;
 
@@ -104,17 +114,17 @@ pub fn apply_god_rays(
                 let sample_b = (sample_color & 0xFF) as f32;
 
                 // Accumulate scaled by weight and decay
-                accum_r += sample_r * illumination_decay * weight;
-                accum_g += sample_g * illumination_decay * weight;
-                accum_b += sample_b * illumination_decay * weight;
+                accum_r += sample_r * illumination_decay * config.weight;
+                accum_g += sample_g * illumination_decay * config.weight;
+                accum_b += sample_b * illumination_decay * config.weight;
 
-                illumination_decay *= decay;
+                illumination_decay *= config.decay;
             }
 
             // Apply exposure and clamp to 0-255
-            let final_r = (accum_r * exposure).clamp(0.0, 255.0) as u32;
-            let final_g = (accum_g * exposure).clamp(0.0, 255.0) as u32;
-            let final_b = (accum_b * exposure).clamp(0.0, 255.0) as u32;
+            let final_r = (accum_r * config.exposure).clamp(0.0, 255.0) as u32;
+            let final_g = (accum_g * config.exposure).clamp(0.0, 255.0) as u32;
+            let final_b = (accum_b * config.exposure).clamp(0.0, 255.0) as u32;
 
             pixels[base_idx] = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }

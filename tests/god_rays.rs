@@ -1,6 +1,6 @@
 #![cfg(feature = "nova")]
 
-use abrash::experimental::crepuscular::apply_god_rays;
+use abrash::experimental::crepuscular::{GodRaysConfig, apply_god_rays};
 use abrash::framebuffer::Framebuffer;
 
 #[test]
@@ -16,7 +16,16 @@ fn test_apply_god_rays() {
     }
 
     // Apply effect radiating from the center
-    apply_god_rays(&mut fb, 16.0, 16.0, 1.0, 0.1, 0.9, 1.0, 10);
+    let config = GodRaysConfig {
+        light_x: 16.0,
+        light_y: 16.0,
+        density: 1.0,
+        weight: 0.1,
+        decay: 0.9,
+        exposure: 1.0,
+        num_samples: 10,
+    };
+    apply_god_rays(&mut fb, &config);
 
     // After the radial blur, pixels outside the sun should no longer be purely black
     // if they are on a line radiating from the center.

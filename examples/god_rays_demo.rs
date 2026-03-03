@@ -1,6 +1,6 @@
 #![cfg(all(feature = "nova", feature = "backend-tui"))]
 
-use abrash::experimental::crepuscular::apply_god_rays;
+use abrash::experimental::crepuscular::{GodRaysConfig, apply_god_rays};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::WindowBackend;
 use abrash::platform::tui::TuiWindow;
@@ -116,13 +116,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // 3. Apply God Rays
-        apply_god_rays(
-            &mut fb, light_x, light_y, 1.0,  // density
-            0.05, // weight
-            0.98, // decay
-            1.2,  // exposure
-            64,   // samples
-        );
+        let config = GodRaysConfig {
+            light_x,
+            light_y,
+            density: 1.0,
+            weight: 0.05,
+            decay: 0.98,
+            exposure: 1.2,
+            num_samples: 64,
+        };
+
+        apply_god_rays(&mut fb, &config);
 
         window.blit_framebuffer(&fb);
         time += 0.05;

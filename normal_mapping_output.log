@@ -1,0 +1,19 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.66s
+     Running `target/debug/examples/normal_mapping_demo`
+
+[38;5;12m[1m🧱 Normal Mapping Demo[0m
+[38;5;8m======================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬─────────────────────────────────────┐
+│ Property    ┆ Value                               │
+╞═════════════╪═════════════════════════════════════╡
+│ Description ┆ Per-pixel lighting with normal maps │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Technique   ┆ Tangent space calculation           │
+└─────────────┴─────────────────────────────────────┘
+
+[1m🎮 Controls[0m
+ • Mouse: None
+ • Keyboard: Auto-rotating light source
