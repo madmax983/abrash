@@ -193,8 +193,8 @@ pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f3
 /// and omitting unused `inv_w` for flat shading.
 #[derive(Clone, Copy, Debug)]
 pub struct CompactScreenPoint {
-    pub x: i16,
-    pub y: i16,
+    pub x: i32,
+    pub y: i32,
     pub z: f32,
 }
 
@@ -218,10 +218,10 @@ pub struct PreparedTriangle {
     pub dz_dx: f32,
     pub long_edge_is_left: bool,
     pub color: u32,
-    pub aabb_min_x: i16,
-    pub aabb_min_y: i16,
-    pub aabb_max_x: i16,
-    pub aabb_max_y: i16,
+    pub aabb_min_x: u16,
+    pub aabb_min_y: u16,
+    pub aabb_max_x: u16,
+    pub aabb_max_y: u16,
     pub min_depth: f32, // Minimum depth across triangle
     pub max_depth: f32, // Maximum depth across triangle
 }
@@ -237,10 +237,10 @@ pub struct PreparedGouraudTriangle {
     pub c2: (i32, i32, i32),
     pub gradients: GouraudGradients,
     pub long_edge_is_left: bool,
-    pub aabb_min_x: i16,
-    pub aabb_min_y: i16,
-    pub aabb_max_x: i16,
-    pub aabb_max_y: i16,
+    pub aabb_min_x: u16,
+    pub aabb_min_y: u16,
+    pub aabb_max_x: u16,
+    pub aabb_max_y: u16,
     pub min_depth: f32,
     pub max_depth: f32,
 }
@@ -572,8 +572,8 @@ fn render_single_tile(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min(i32::from(tri.aabb_min_y).max(tile_y0));
-        clear_y_max = clear_y_max.max(i32::from(tri.aabb_max_y).min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
+        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
@@ -614,9 +614,9 @@ fn render_triangle_in_tile(
     tile_y1: i32,
     screen_w: i32,
 ) {
-    let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
-    let p2_y = i32::from(tri.p2.y);
+    let p0_y = tri.p0.y;
+    let p1_y = tri.p1.y;
+    let p2_y = tri.p2.y;
 
     let y_start = p0_y.max(tile_y0);
     let y_end = p2_y.min(tile_y1 - 1);
@@ -629,19 +629,19 @@ fn render_triangle_in_tile(
 
     // Reconstruct ScreenPoint for EdgeWalker (inv_w unused for flat shading)
     let p0 = ScreenPoint {
-        x: i32::from(tri.p0.x),
+        x: tri.p0.x,
         y: p0_y,
         z: tri.p0.z,
         inv_w: 1.0,
     };
     let p1 = ScreenPoint {
-        x: i32::from(tri.p1.x),
+        x: tri.p1.x,
         y: p1_y,
         z: tri.p1.z,
         inv_w: 1.0,
     };
     let p2 = ScreenPoint {
-        x: i32::from(tri.p2.x),
+        x: tri.p2.x,
         y: p2_y,
         z: tri.p2.z,
         inv_w: 1.0,
@@ -770,8 +770,8 @@ fn render_single_tile_textured(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min(tri.aabb_min_y.max(tile_y0));
-        clear_y_max = clear_y_max.max(tri.aabb_max_y.min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
+        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
@@ -2473,18 +2473,18 @@ impl TileRenderer {
 
             results.push(PreparedGouraudTriangle {
                 p0: CompactScreenPoint {
-                    x: p0.x as i16,
-                    y: p0.y as i16,
+                    x: p0.x,
+                    y: p0.y,
                     z: p0.z,
                 },
                 p1: CompactScreenPoint {
-                    x: p1.x as i16,
-                    y: p1.y as i16,
+                    x: p1.x,
+                    y: p1.y,
                     z: p1.z,
                 },
                 p2: CompactScreenPoint {
-                    x: p2.x as i16,
-                    y: p2.y as i16,
+                    x: p2.x,
+                    y: p2.y,
                     z: p2.z,
                 },
                 c0: c0_fixed,
@@ -2492,10 +2492,10 @@ impl TileRenderer {
                 c2: c2_fixed,
                 gradients,
                 long_edge_is_left,
-                aabb_min_x: min_x as i16,
-                aabb_min_y: min_y as i16,
-                aabb_max_x: max_x as i16,
-                aabb_max_y: max_y as i16,
+                aabb_min_x: min_x.clamp(0, 65535) as u16,
+                aabb_min_y: min_y.clamp(0, 65535) as u16,
+                aabb_max_x: max_x.clamp(0, 65535) as u16,
+                aabb_max_y: max_y.clamp(0, 65535) as u16,
                 min_depth,
                 max_depth,
             });
@@ -2509,10 +2509,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared_gouraud[i];
                 let aabb = AABB3D {
-                    min_x: i32::from(tri.aabb_min_x),
-                    max_x: i32::from(tri.aabb_max_x),
-                    min_y: i32::from(tri.aabb_min_y),
-                    max_y: i32::from(tri.aabb_max_y),
+                    min_x: (tri.aabb_min_x as i32),
+                    max_x: (tri.aabb_max_x as i32),
+                    min_y: (tri.aabb_min_y as i32),
+                    max_y: (tri.aabb_max_y as i32),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2529,10 +2529,10 @@ impl TileRenderer {
         let tri = &self.prepared_gouraud[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
-        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
-        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
+        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
+        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -2828,27 +2828,27 @@ impl TileRenderer {
 
             results.push(PreparedTriangle {
                 p0: CompactScreenPoint {
-                    x: p0.x as i16,
-                    y: p0.y as i16,
+                    x: p0.x,
+                    y: p0.y,
                     z: p0.z,
                 },
                 p1: CompactScreenPoint {
-                    x: p1.x as i16,
-                    y: p1.y as i16,
+                    x: p1.x,
+                    y: p1.y,
                     z: p1.z,
                 },
                 p2: CompactScreenPoint {
-                    x: p2.x as i16,
-                    y: p2.y as i16,
+                    x: p2.x,
+                    y: p2.y,
                     z: p2.z,
                 },
                 dz_dx,
                 long_edge_is_left,
                 color,
-                aabb_min_x: min_x as i16,
-                aabb_min_y: min_y as i16,
-                aabb_max_x: max_x as i16,
-                aabb_max_y: max_y as i16,
+                aabb_min_x: min_x.clamp(0, 65535) as u16,
+                aabb_min_y: min_y.clamp(0, 65535) as u16,
+                aabb_max_x: max_x.clamp(0, 65535) as u16,
+                aabb_max_y: max_y.clamp(0, 65535) as u16,
                 min_depth,
                 max_depth,
             });
@@ -2869,10 +2869,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared[i];
                 let aabb = AABB3D {
-                    min_x: i32::from(tri.aabb_min_x),
-                    max_x: i32::from(tri.aabb_max_x),
-                    min_y: i32::from(tri.aabb_min_y),
-                    max_y: i32::from(tri.aabb_max_y),
+                    min_x: (tri.aabb_min_x as i32),
+                    max_x: (tri.aabb_max_x as i32),
+                    min_y: (tri.aabb_min_y as i32),
+                    max_y: (tri.aabb_max_y as i32),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2897,10 +2897,10 @@ impl TileRenderer {
             // First, check if the whole triangle is occluded (fast rejection)
             if let Some(ref hiz) = self.hiz_buffer {
                 let aabb = AABB3D {
-                    min_x: i32::from(tri.aabb_min_x),
-                    max_x: i32::from(tri.aabb_max_x),
-                    min_y: i32::from(tri.aabb_min_y),
-                    max_y: i32::from(tri.aabb_max_y),
+                    min_x: (tri.aabb_min_x as i32),
+                    max_x: (tri.aabb_max_x as i32),
+                    min_y: (tri.aabb_min_y as i32),
+                    max_y: (tri.aabb_max_y as i32),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2913,12 +2913,12 @@ impl TileRenderer {
             let tile_size_i32 = TILE_SIZE as i32;
 
             // Calculate triangle bounds in tile coordinates
-            let tx_min_tri = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
-            let ty_min_tri = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
+            let tx_min_tri = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
+            let ty_min_tri = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
             let tx_max_tri =
-                ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+                (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
             let ty_max_tri =
-                ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+                (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
             // Calculate bounds in coarse bin coordinates
             let cx_min = tx_min_tri / coarse_size;
@@ -2974,10 +2974,10 @@ impl TileRenderer {
         let tri = &self.prepared[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
-        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
-        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
+        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
+        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -3530,8 +3530,8 @@ mod tests {
         assert!(tri.aabb_max_x < 100);
         assert!(tri.aabb_max_y < 100);
         // And AABB should encompass the triangle
-        assert!(tri.aabb_min_x <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
-        assert!(tri.aabb_max_x >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
+        assert!((tri.aabb_min_x as i32) <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
+        assert!((tri.aabb_max_x as i32) >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
     }
 
     // --- Step 2: Binning ---
@@ -4087,7 +4087,7 @@ mod tests {
         use std::mem::size_of;
         // Optimization: PreparedTriangle should fit in 64 bytes (1 cache line).
         // Original size: 84 bytes (with ScreenPoint and i32 AABBs).
-        // New size: ~52 bytes (with CompactScreenPoint and i16 AABBs).
+        // New size: exactly 64 bytes (with CompactScreenPoint using i32, and AABB using u16).
         assert!(
             size_of::<PreparedTriangle>() <= 64,
             "PreparedTriangle should fit in a cache line"
@@ -4179,8 +4179,8 @@ fn render_single_tile_gouraud(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min(i32::from(tri.aabb_min_y).max(tile_y0));
-        clear_y_max = clear_y_max.max(i32::from(tri.aabb_max_y).min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
+        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
@@ -4221,9 +4221,9 @@ fn render_triangle_in_tile_gouraud(
     tile_y1: i32,
     screen_w: i32,
 ) {
-    let p0_y = i32::from(tri.p0.y);
-    let p1_y = i32::from(tri.p1.y);
-    let p2_y = i32::from(tri.p2.y);
+    let p0_y = tri.p0.y;
+    let p1_y = tri.p1.y;
+    let p2_y = tri.p2.y;
 
     let y_start = p0_y.max(tile_y0);
     let y_end = p2_y.min(tile_y1 - 1);
