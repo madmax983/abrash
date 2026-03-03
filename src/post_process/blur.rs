@@ -734,8 +734,7 @@ mod tests {
         let val = src[0];
         assert!(
             (val - 1.0).abs() < 1e-4,
-            "Corner pixel mismatch. Got {}, expected 1.0",
-            val
+            "Corner pixel mismatch. Got {val}, expected 1.0",
         );
     }
 }
