@@ -309,7 +309,7 @@ fn benchmark_halftone(c: &mut Criterion) {
             abrash::experimental::halftone::apply_halftone(
                 black_box(&mut fb),
                 black_box(5.0),
-                black_box(0.785398),
+                black_box(std::f32::consts::FRAC_PI_4),
             );
         });
     });

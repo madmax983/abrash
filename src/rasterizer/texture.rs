@@ -4943,7 +4943,7 @@ fn test_draw_scanline_trilinear() {
     let gradients = PerspectiveTextureGradients {
         dz_dx: 0.0,
         dq_dx: 0.0,
-        du_dx: 1.41421356, // This is du_tex/dx because q=1, u=0.5 (small)
+        du_dx: std::f32::consts::SQRT_2, // This is du_tex/dx because q=1, u=0.5 (small)
         dv_dx: 0.0,
         dq_dy: 0.0,
         du_dy: 0.0,
