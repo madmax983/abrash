@@ -81,19 +81,19 @@ proptest! {
             let check = |a: f32, b: f32, name: &str| -> Result<(), TestCaseError> {
                  if a.is_nan() {
                      if !b.is_nan() {
-                         return Err(TestCaseError::fail(format!("{} mismatch: NaN vs {}", name, b)));
+                         return Err(TestCaseError::fail(format!("{name} mismatch: NaN vs {b}")));
                      }
                  } else if a.is_infinite() {
                      if a != b {
-                         return Err(TestCaseError::fail(format!("{} mismatch: Inf vs {}", name, b)));
+                         return Err(TestCaseError::fail(format!("{name} mismatch: Inf vs {b}")));
                      }
                  } else {
                      if b.is_nan() {
-                          return Err(TestCaseError::fail(format!("{} mismatch: {} vs NaN", name, a)));
+                          return Err(TestCaseError::fail(format!("{name} mismatch: {a} vs NaN")));
                      }
                      let diff = (a - b).abs();
                      if diff > 1.0 && diff > a.abs() * 0.1 {
-                          return Err(TestCaseError::fail(format!("{} mismatch: {} vs {} (diff {})", name, a, b, diff)));
+                          return Err(TestCaseError::fail(format!("{name} mismatch: {a} vs {b} (diff {diff})")));
                      }
                  }
                  Ok(())

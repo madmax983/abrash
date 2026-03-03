@@ -182,7 +182,7 @@ mod tests {
         // Checkerboard
         for y in 0..height {
             for x in 0..width {
-                if (x as u32 + y as u32) % 2 == 0 {
+                if (x + y).is_multiple_of(2) {
                     fb.set_pixel(x as i32, y as i32, 0xFF000000);
                 }
             }

@@ -101,6 +101,7 @@ impl Ray {
     ///
     /// * `Some(Hit)` if the ray intersects the triangle within the range `[t_min, t_max]`.
     /// * `None` otherwise.
+    #[must_use]
     pub fn intersect_triangle(
         &self,
         v0: Vec3,
@@ -165,6 +166,7 @@ impl Ray {
     /// # Returns
     ///
     /// * `true` if the ray intersects the AABB within `[t_min, t_max]`.
+    #[must_use]
     pub fn intersect_aabb(&self, aabb: &AABB, t_min: f32, t_max: f32) -> bool {
         let tx1 = (aabb.min.x - self.origin.x) * self.inv_direction.x;
         let tx2 = (aabb.max.x - self.origin.x) * self.inv_direction.x;
@@ -230,7 +232,8 @@ struct RenderObject<'a> {
 }
 
 impl RayTracer {
-    /// Creates a new RayTracer with default settings (3 bounces, dark grey background).
+    /// Creates a new `RayTracer` with default settings (3 bounces, dark grey background).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -348,11 +351,9 @@ impl RayTracer {
                 let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
-                    if hit.t < closest_t {
-                        closest_t = hit.t;
-                        closest_hit = Some(hit);
-                        hit_obj = Some(r_obj.obj);
-                    }
+                    closest_t = hit.t;
+                    closest_hit = Some(hit);
+                    hit_obj = Some(r_obj.obj);
                 }
             }
         }
@@ -384,7 +385,7 @@ impl RayTracer {
 
             // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
-            let in_shadow = self.check_shadow(&shadow_ray, objects);
+            let in_shadow = Self::check_shadow(&shadow_ray, objects);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
@@ -418,7 +419,7 @@ impl RayTracer {
         self.background_color
     }
 
-    fn check_shadow(&self, ray: &Ray, objects: &[RenderObject]) -> bool {
+    fn check_shadow(ray: &Ray, objects: &[RenderObject]) -> bool {
         for r_obj in objects {
             if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, 1000.0) {
                 continue;

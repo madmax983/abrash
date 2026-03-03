@@ -50,7 +50,7 @@ fn test_gouraud_quad_rendering() {
     let b = (pixel & 0xFF) as f32 / 255.0;
 
     let epsilon = 0.05;
-    assert!((r - 0.8).abs() < epsilon, "Red: expected 0.8, got {}", r);
-    assert!((g - 0.2).abs() < epsilon, "Green: expected 0.2, got {}", g);
-    assert!((b - 0.0).abs() < epsilon, "Blue: expected 0.0, got {}", b);
+    assert!((r - 0.8).abs() < epsilon, "Red: expected 0.8, got {r}");
+    assert!((g - 0.2).abs() < epsilon, "Green: expected 0.2, got {g}");
+    assert!((b - 0.0).abs() < epsilon, "Blue: expected 0.0, got {b}");
 }

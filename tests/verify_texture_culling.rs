@@ -102,5 +102,5 @@ fn verify_texture_culling() {
         fill_triangle_textured(&mut fb, &mut zb, v0, v1_cw, v2_cw, &texture);
     }
     let duration = start.elapsed();
-    println!("10k Backface Culls took: {:?}", duration);
+    println!("10k Backface Culls took: {duration:?}");
 }
