@@ -4231,9 +4231,9 @@ fn render_triangle_in_tile_gouraud(
     tile_y1: i32,
     screen_w: i32,
 ) {
-    let p0_y = tri.p0.y;
-    let p1_y = tri.p1.y;
-    let p2_y = tri.p2.y;
+    let p0_y = i32::from(tri.p0.y);
+    let _p1_y = i32::from(tri.p1.y);
+    let p2_y = i32::from(tri.p2.y);
 
     let y_start = p0_y.max(tile_y0);
     let y_end = p2_y.min(tile_y1 - 1);
