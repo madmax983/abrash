@@ -465,7 +465,15 @@ mod tests {
         let diff_min = transformed.min - expected_min;
         let diff_max = transformed.max - expected_max;
 
-        assert!(diff_min.length() < 0.001, "Min mismatch: {:?}", transformed.min);
-        assert!(diff_max.length() < 0.001, "Max mismatch: {:?}", transformed.max);
+        assert!(
+            diff_min.length() < 0.001,
+            "Min mismatch: {:?}",
+            transformed.min
+        );
+        assert!(
+            diff_max.length() < 0.001,
+            "Max mismatch: {:?}",
+            transformed.max
+        );
     }
 }
