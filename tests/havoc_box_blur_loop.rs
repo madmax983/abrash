@@ -4,7 +4,7 @@ use abrash::post_process::blur::box_blur_horizontal;
 fn test_box_blur_horizontal_large_radius() {
     let width = 5;
     let height = 5;
-    let mut src = vec![0u32; width * height];
+    let src = vec![0u32; width * height];
     let mut dest = vec![0u32; width * height];
     let radius = 20u32;
 
@@ -21,7 +21,7 @@ fn test_box_blur_horizontal_large_radius() {
 fn test_box_blur_vertical_large_radius() {
     let width = 5;
     let height = 5;
-    let mut src = vec![0u32; width * height];
+    let src = vec![0u32; width * height];
     let mut dest = vec![0u32; width * height];
     let mut acc = vec![0i32; width * 3];
     let radius = 20u32;

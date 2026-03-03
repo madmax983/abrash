@@ -1,4 +1,4 @@
-use abrash::post_process::blur::{box_blur_horizontal, box_blur_vertical};
+use abrash::post_process::blur::box_blur_horizontal;
 use proptest::prelude::*;
 
 proptest! {
@@ -10,7 +10,7 @@ proptest! {
         src_len in 0..1000000usize,
         dest_len in 0..1000000usize,
     ) {
-        let mut src = vec![0u32; src_len];
+        let src = vec![0u32; src_len];
         let mut dest = vec![0u32; dest_len];
 
         // This should either run cleanly or panic (which we catch)

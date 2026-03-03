@@ -104,27 +104,27 @@ impl Volume {
                     // Check neighbors
                     // Left (-X)
                     if x == 0 || !self.grid.get(x - 1, y, z) {
-                        self.add_face(&mut mesh, center, h, Face::Left);
+                        Self::add_face(&mut mesh, center, h, Face::Left);
                     }
                     // Right (+X)
                     if x == self.grid.width - 1 || !self.grid.get(x + 1, y, z) {
-                        self.add_face(&mut mesh, center, h, Face::Right);
+                        Self::add_face(&mut mesh, center, h, Face::Right);
                     }
                     // Bottom (-Y)
                     if y == 0 || !self.grid.get(x, y - 1, z) {
-                        self.add_face(&mut mesh, center, h, Face::Bottom);
+                        Self::add_face(&mut mesh, center, h, Face::Bottom);
                     }
                     // Top (+Y)
                     if y == self.grid.height - 1 || !self.grid.get(x, y + 1, z) {
-                        self.add_face(&mut mesh, center, h, Face::Top);
+                        Self::add_face(&mut mesh, center, h, Face::Top);
                     }
                     // Back (-Z)
                     if z == 0 || !self.grid.get(x, y, z - 1) {
-                        self.add_face(&mut mesh, center, h, Face::Back);
+                        Self::add_face(&mut mesh, center, h, Face::Back);
                     }
                     // Front (+Z)
                     if z == self.grid.depth - 1 || !self.grid.get(x, y, z + 1) {
-                        self.add_face(&mut mesh, center, h, Face::Front);
+                        Self::add_face(&mut mesh, center, h, Face::Front);
                     }
                 }
             }
@@ -135,7 +135,7 @@ impl Volume {
         mesh
     }
 
-    fn add_face(&self, mesh: &mut Mesh, c: Vec3, h: f32, face: Face) {
+    fn add_face(mesh: &mut Mesh, c: Vec3, h: f32, face: Face) {
         let base_idx = mesh.vertices.len();
 
         let (v0, v1, v2, v3, normal) = match face {
@@ -206,6 +206,7 @@ impl Volume {
     }
 }
 
+#[derive(Clone, Copy)]
 enum Face {
     Left,
     Right,

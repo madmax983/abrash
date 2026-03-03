@@ -1674,9 +1674,8 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Process triangles in parallel and collect prepared results
-            let results: Vec<PreparedTriangle> = indices
-                .par_iter()
-                .flat_map_iter(|&[i0, i1, i2]| {
+            self.prepared
+                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
                     // Safety: We trust the indices are within bounds of the vertices slice.
                     // The caller must ensure this or it will panic inside the thread.
                     let v0 = vertices[i0];
@@ -1694,10 +1693,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1989,9 +1985,8 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2, color)| {
+            self.prepared
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
                     let tris = Self::prepare_triangle_static(
                         v0,
                         v1,
@@ -2003,10 +1998,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2067,25 +2059,25 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedTexturedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                    let tris = Self::prepare_triangle_textured_static(
-                        (v0, uv0),
-                        (v1, uv1),
-                        (v2, uv2),
-                        tex_w,
-                        tex_h,
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared_textured.extend(results);
+            self.prepared_textured
+                .par_extend(
+                    triangles
+                        .par_iter()
+                        .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                            let tris = Self::prepare_triangle_textured_static(
+                                (v0, uv0),
+                                (v1, uv1),
+                                (v2, uv2),
+                                tex_w,
+                                tex_h,
+                                width,
+                                height,
+                                half_width,
+                                half_height,
+                            );
+                            tris
+                        }),
+                );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2248,9 +2240,8 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            let results: Vec<PreparedGouraudTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2)| {
+            self.prepared_gouraud
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
                     let tris = Self::prepare_triangle_gouraud_static(
                         v0,
                         v1,
@@ -2261,10 +2252,7 @@ impl TileRenderer {
                         half_height,
                     );
                     tris
-                })
-                .collect();
-
-            self.prepared_gouraud.extend(results);
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2565,7 +2553,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&mut self) {
+    fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -3010,7 +2998,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&mut self) {
+    fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3156,7 +3144,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&mut self) {
+    fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;

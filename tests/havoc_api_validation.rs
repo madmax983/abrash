@@ -1,5 +1,3 @@
-use abrash::math::Vec3;
-use abrash::mesh::Mesh;
 use abrash::post_process::blur::box_blur_horizontal;
 
 #[test]
