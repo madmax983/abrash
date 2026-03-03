@@ -14,7 +14,7 @@ fn test_obj_dos_quadratic_blowup() {
     }
 
     // Generate a single face with many vertices, all using v index 1 but unique vt indices
-    obj_source.push_str("f");
+    obj_source.push('f');
     for i in 0..num_verts {
         obj_source.push_str(&format!(" 1/{}", i + 1));
     }
@@ -24,12 +24,11 @@ fn test_obj_dos_quadratic_blowup() {
     let _mesh = load_obj(&obj_source).unwrap();
     let duration = start.elapsed();
 
-    println!("Loaded {} vertices in {:?}", num_verts, duration);
+    println!("Loaded {num_verts} vertices in {duration:?}");
 
     // If it takes more than 1 second, it's likely quadratic
     assert!(
         duration.as_secs_f32() < 1.0,
-        "OBJ loading took too long: {:?}",
-        duration
+        "OBJ loading took too long: {duration:?}"
     );
 }

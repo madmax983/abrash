@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for x in 0..256 {
             let dx = (x as f32 - 128.0) / 128.0;
             let dy = (y as f32 - 128.0) / 128.0;
-            let dist = (dx * dx + dy * dy).sqrt();
+            let dist = dx.hypot(dy);
 
             if dist < 0.8 {
                 // Sphere/Hemisphere normal

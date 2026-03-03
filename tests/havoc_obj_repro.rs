@@ -4,7 +4,7 @@ fn test_havoc_obj_huge_input() {
     // The user said "Input string with length 0xFFFFFF caused buffer overflow."
     // Let's try to make it a single token.
     let huge_token = "a".repeat(0xFFFFFF);
-    let obj_source = format!("v {}", huge_token);
+    let obj_source = format!("v {huge_token}");
 
     // This should just fail to parse as f32, but not crash/overflow.
     let res = abrash::obj_loader::load_obj(&obj_source);
@@ -36,7 +36,7 @@ fn test_havoc_obj_huge_face() {
     // f 1 2 3 4 ...
 
     let mut obj_source = String::from("v 0 0 0\n");
-    obj_source.push_str("f");
+    obj_source.push('f');
 
     // We need indices. " 1" is 2 chars.
     // 0xFFFFFF / 2 = 8 million indices.

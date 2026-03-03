@@ -2,7 +2,7 @@ use abrash::post_process::blur::box_blur_horizontal;
 
 #[test]
 fn test_box_blur_oom() {
-    let mut src = vec![0u32; 1];
+    let src = vec![0u32; 1];
     let mut dest = vec![0u32; 1];
 
     // Pass enormous width/height -> multiplication might overflow or loop might take forever?

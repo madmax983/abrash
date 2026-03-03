@@ -183,7 +183,7 @@ fn main() {
         ])
         .add_row(vec![
             Cell::new("Average FPS").add_attribute(comfy_table::Attribute::Bold),
-            Cell::new(format!("{:.2}", frames as f64 / duration.as_secs_f64()))
+            Cell::new(format!("{:.2}", f64::from(frames) / duration.as_secs_f64()))
                 .fg(Color::Green)
                 .add_attribute(comfy_table::Attribute::Bold),
         ]);

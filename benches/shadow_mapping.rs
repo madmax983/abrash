@@ -50,7 +50,7 @@ fn bench_shadow_mapping(c: &mut Criterion) {
                 black_box(light_color),
                 black_box(ambient),
             );
-        })
+        });
     });
 
     group.bench_function("phong_shadowed_pcf", |b| {
@@ -70,7 +70,7 @@ fn bench_shadow_mapping(c: &mut Criterion) {
                 black_box(&shadow_map),
                 black_box(light_vp),
             );
-        })
+        });
     });
 
     group.finish();

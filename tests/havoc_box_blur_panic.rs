@@ -4,7 +4,7 @@ use abrash::post_process::blur::box_blur_horizontal;
 #[should_panic]
 fn test_box_blur_zero_width_height() {
     // Zero width/height with large radius
-    let mut src = vec![];
+    let src = vec![];
     let mut dest = vec![];
     let width = 0;
     let height = 0;

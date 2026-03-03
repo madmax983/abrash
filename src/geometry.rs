@@ -117,6 +117,13 @@ impl AABB {
     /// assert_eq!(aabb.min.x, -1.0);
     /// assert_eq!(aabb.max.y, 2.0);
     /// ```
+    /// Calculate AABB from a list of points.
+    ///
+    /// Returns a default zero-sized AABB if the input list is empty.
+    ///
+    /// Optimization: Uses `Vec3::min` and `Vec3::max` to leverage underlying fast
+    /// floating point operations (`minss`/`maxss`) instead of branchy component-wise checks.
+    /// This provides a small but measurable speedup for bounding box calculations on large meshes.
     #[must_use]
     pub fn from_points(points: &[Vec3]) -> Self {
         if points.is_empty() {
@@ -132,25 +139,8 @@ impl AABB {
         let mut max = points[0];
 
         for &p in points.iter().skip(1) {
-            if p.x < min.x {
-                min.x = p.x;
-            }
-            if p.y < min.y {
-                min.y = p.y;
-            }
-            if p.z < min.z {
-                min.z = p.z;
-            }
-
-            if p.x > max.x {
-                max.x = p.x;
-            }
-            if p.y > max.y {
-                max.y = p.y;
-            }
-            if p.z > max.z {
-                max.z = p.z;
-            }
+            min = min.min(p);
+            max = max.max(p);
         }
 
         Self {
@@ -195,6 +185,14 @@ impl AABB {
     /// ```
     #[must_use]
     pub fn transform(&self, transform: &Mat4) -> Self {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            // SAFETY: We checked feature detection.
+            unsafe {
+                return self.transform_avx2(transform);
+            }
+        }
+
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         if is_x86_feature_detected!("sse2") {
             // SAFETY: We checked feature detection.
@@ -230,6 +228,115 @@ impl AABB {
         let world_max = translation + xa.max(xb) + ya.max(yb) + za.max(zb);
 
         Self::new(world_min, world_max)
+    }
+
+    /// AVX2-optimized implementation of Arvo's algorithm.
+    ///
+    /// Using AVX2 256-bit registers allows processing min and max calculations
+    /// completely in parallel within a single register.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn transform_avx2(&self, transform: &Mat4) -> Self {
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::{
+            _mm256_add_ps, _mm256_max_ps,
+            _mm256_min_ps, _mm256_mul_ps, _mm256_permute_ps, _mm256_set_m128, _mm256_storeu_ps,
+            _mm_load_ps, _mm_set_ps, _mm256_permute2f128_ps,
+        };
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::{
+            _mm256_add_ps, _mm256_max_ps,
+            _mm256_min_ps, _mm256_mul_ps, _mm256_permute_ps, _mm256_set_m128, _mm256_storeu_ps,
+            _mm_load_ps, _mm_set_ps, _mm256_permute2f128_ps,
+        };
+
+        unsafe {
+            let m = &transform.m;
+
+            // Load transformation matrix rows
+            let r_128 = _mm_load_ps(m[0].as_ptr());
+            let u_128 = _mm_load_ps(m[1].as_ptr());
+            let b_128 = _mm_load_ps(m[2].as_ptr());
+            let t_128 = _mm_load_ps(m[3].as_ptr());
+
+            // Duplicate 128-bit lanes to 256-bit registers: [R | R], [U | U], [B | B], [T | T]
+            let r = _mm256_set_m128(r_128, r_128);
+            let u = _mm256_set_m128(u_128, u_128);
+            let b = _mm256_set_m128(b_128, b_128);
+            let t = _mm256_set_m128(t_128, t_128);
+
+            // Load min/max. Vec3 is x, y, z. Pad w with 0.0.
+            let min_v = _mm_set_ps(0.0, self.min.z, self.min.y, self.min.x);
+            let max_v = _mm_set_ps(0.0, self.max.z, self.max.y, self.max.x);
+
+            // Combine into a single 256-bit register: [max | min]
+            let bounds = _mm256_set_m128(max_v, min_v);
+
+            // Broadcast x, y, z to all lanes for both min and max
+            // _MM_SHUFFLE(0, 0, 0, 0) = 0x00
+            let bounds_x = _mm256_permute_ps(bounds, 0x00); // [max.x, max.x, max.x, max.x | min.x, min.x, min.x, min.x]
+
+            // _MM_SHUFFLE(1, 1, 1, 1) = 0x55
+            let bounds_y = _mm256_permute_ps(bounds, 0x55); // [max.y, max.y, max.y, max.y | min.y, min.y, min.y, min.y]
+
+            // _MM_SHUFFLE(2, 2, 2, 2) = 0xAA
+            let bounds_z = _mm256_permute_ps(bounds, 0xAA); // [max.z, max.z, max.z, max.z | min.z, min.z, min.z, min.z]
+
+            // Calculate multiplied terms
+            let term_x = _mm256_mul_ps(r, bounds_x); // [r * max.x | r * min.x]
+            let term_y = _mm256_mul_ps(u, bounds_y); // [u * max.y | u * min.y]
+            let term_z = _mm256_mul_ps(b, bounds_z); // [b * max.z | b * min.z]
+
+            // Now, we need to extract the min and max for each component.
+            // Arvo's algorithm: new_min = trans + sum(min(r*min.x, r*max.x), min(u*min.y, u*max.y), min(b*min.z, b*max.z))
+            // The `term_x` register holds both `r * max.x` (high 128) and `r * min.x` (low 128).
+            // We want to perform min/max across the 128-bit lanes.
+
+            // We can do this by swapping the 128-bit lanes and then applying min/max.
+            // Swap high and low 128-bit lanes:
+            // _mm256_permute2f128_ps(a, a, 1) -> swaps the 128-bit lanes of a.
+
+            let term_x_swapped = _mm256_permute2f128_ps(term_x, term_x, 1);
+            let min_term_x = _mm256_min_ps(term_x, term_x_swapped);
+            let max_term_x = _mm256_max_ps(term_x, term_x_swapped);
+
+            let term_y_swapped = _mm256_permute2f128_ps(term_y, term_y, 1);
+            let min_term_y = _mm256_min_ps(term_y, term_y_swapped);
+            let max_term_y = _mm256_max_ps(term_y, term_y_swapped);
+
+            let term_z_swapped = _mm256_permute2f128_ps(term_z, term_z, 1);
+            let min_term_z = _mm256_min_ps(term_z, term_z_swapped);
+            let max_term_z = _mm256_max_ps(term_z, term_z_swapped);
+
+            // Both high and low 128-bit lanes of `min_term_x` now hold the min value.
+            // But we only need to sum them up. We can just use the low 128-bit lane for min and high for max?
+            // Actually, `min_term_x` has `min(a, b)` in both low and high lanes.
+            // We want to add them together with translation `t`.
+            // sum_min = min_x + min_y + min_z + t
+            let sum_min = _mm256_add_ps(
+                min_term_x,
+                _mm256_add_ps(min_term_y, _mm256_add_ps(min_term_z, t)),
+            );
+
+            let sum_max = _mm256_add_ps(
+                max_term_x,
+                _mm256_add_ps(max_term_y, _mm256_add_ps(max_term_z, t)),
+            );
+
+            // Now, sum_min has the new min in both low and high lanes.
+            // sum_max has the new max in both low and high lanes.
+
+            let mut min_arr = [0.0; 8];
+            let mut max_arr = [0.0; 8];
+
+            _mm256_storeu_ps(min_arr.as_mut_ptr(), sum_min);
+            _mm256_storeu_ps(max_arr.as_mut_ptr(), sum_max);
+
+            Self::new(
+                Vec3::new(min_arr[0], min_arr[1], min_arr[2]),
+                Vec3::new(max_arr[0], max_arr[1], max_arr[2]),
+            )
+        }
     }
 
     /// SIMD-optimized implementation of Arvo's algorithm using SSE.
@@ -475,5 +582,60 @@ mod tests {
             "Max mismatch: {:?}",
             transformed.max
         );
+    }
+
+    #[test]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn test_aabb_transform_avx2_matches_scalar() {
+        if !is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let aabb = AABB::new(Vec3::new(-1.5, 0.5, -3.0), Vec3::new(2.5, 4.5, 1.0));
+
+        let transforms = [
+            Mat4::identity(),
+            Mat4::translation(10.0, -5.0, 3.14),
+            Mat4::scale(2.0, 0.5, 1.5),
+            Mat4::rotation_y(PI / 4.0),
+            Mat4::rotation_x(PI / 3.0) * Mat4::translation(1.0, 2.0, 3.0) * Mat4::scale(2.0, 2.0, 2.0),
+        ];
+
+        for m in &transforms {
+            // Scalar transform logic
+            let right = Vec3::new(m.m[0][0], m.m[0][1], m.m[0][2]);
+            let up = Vec3::new(m.m[1][0], m.m[1][1], m.m[1][2]);
+            let back = Vec3::new(m.m[2][0], m.m[2][1], m.m[2][2]);
+            let translation = Vec3::new(m.m[3][0], m.m[3][1], m.m[3][2]);
+
+            let xa = right * aabb.min.x;
+            let xb = right * aabb.max.x;
+
+            let ya = up * aabb.min.y;
+            let yb = up * aabb.max.y;
+
+            let za = back * aabb.min.z;
+            let zb = back * aabb.max.z;
+
+            let expected_min = translation + xa.min(xb) + ya.min(yb) + za.min(zb);
+            let expected_max = translation + xa.max(xb) + ya.max(yb) + za.max(zb);
+
+            // SIMD transform
+            let transformed = unsafe { aabb.transform_avx2(m) };
+
+            let diff_min = transformed.min - expected_min;
+            let diff_max = transformed.max - expected_max;
+
+            assert!(
+                diff_min.length() < 0.0001,
+                "Min mismatch for transform {:?}: expected {:?}, got {:?}",
+                m, expected_min, transformed.min
+            );
+            assert!(
+                diff_max.length() < 0.0001,
+                "Max mismatch for transform {:?}: expected {:?}, got {:?}",
+                m, expected_max, transformed.max
+            );
+        }
     }
 }

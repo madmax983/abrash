@@ -42,3 +42,21 @@
 **Concept:** A glitch art effect that sorts pixels along rows or columns based on luminance thresholds, creating a melting or tearing aesthetic.
 **Fate:** Implemented
 **Lesson:** Applying 1D sorting algorithms directly on segmented arrays using Rust's slice grouping capabilities creates compelling visual chaos with surprisingly few lines of code.
+## [Kuwahara Filter]\n**Concept:** A non-photorealistic post-processing filter that calculates the mean and variance of colors in four overlapping regions around each pixel, assigning the mean color of the region with the lowest variance. This creates a painterly, oil-painting-like aesthetic while preserving hard edges.\n**Fate:** Implemented\n**Lesson:** The Kuwahara filter provides a great example of an algorithm that operates on overlapping regions to smooth out noise without destroying edges. It effectively brings an artistic "painting" effect to retro rendering.
+
+## [Pixelate Filter]
+**Concept:** A retro post-processing effect that downsamples the framebuffer resolution, filling square blocks with the color of their top-left pixel to create a chunky, low-resolution aesthetic.
+**Fate:** Implemented
+**Lesson:** Iterating over `x` and `y` and calling `set_pixel` per-pixel is slow due to bounds checking and function overhead. Replacing this with slice methods `fill()` for the first row of a block and `copy_from_slice()` to duplicate the row vertically provided nearly a 10x performance speedup.
+
+## Merged Experiments
+* **CRT Monitor Filter**: Implemented a retro CRT monitor barrel distortion effect as a post-processing filter.
+  * **Location**: `src/experimental/crt.rs`
+  * **Optimization**: Used Rayon `par_chunks_mut()` across rows to parallelize the distortion algorithm. Eliminated `round()` cast in favor of `as i32` fast-cast to save overhead inside the innermost loop. Replaced `for x in 0..width { row[x] = ... }` with `row.iter_mut()` enumeration for better bounds checking optimization. Benchmark at 1080p is ~9ms.
+\n### Halftone Stylization Filter\n- **Idea**: A stylization filter that converts an image to a pattern of variable-sized black dots on a rotated grid based on pixel luminance (comic book / newspaper effect).\n- **Fate**: Merged\n- **Lessons Learned**: Converting pixel locations into rotated coordinates effectively enables the angled grid look. Using Rayon's `par_chunks_mut` with `enumerate` significantly speeds up row-based image transformations since independent pixels can be calculated efficiently using isolated trigonometric maths.
+- Implemented Radial Blur post-processing effect.
+
+## [Kaleidoscope Filter]
+**Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.

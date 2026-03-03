@@ -20,20 +20,18 @@ fn test_apply_vignette_darkens_corners() {
     let center_lum = center_pixel & 0xFF; // Blue channel (grayscale)
     let corner_lum = corner_pixel & 0xFF;
 
-    println!("Center: {:X}, Corner: {:X}", center_pixel, corner_pixel);
+    println!("Center: {center_pixel:X}, Corner: {corner_pixel:X}");
 
     // Center should be bright (close to 255)
     assert!(
         center_lum > 240,
-        "Center pixel should be bright, got {}",
-        center_lum
+        "Center pixel should be bright, got {center_lum}"
     );
 
     // Corner should be significantly darker
     assert!(
         corner_lum < 200,
-        "Corner pixel should be dark, got {}",
-        corner_lum
+        "Corner pixel should be dark, got {corner_lum}"
     );
     assert!(
         corner_lum < center_lum,

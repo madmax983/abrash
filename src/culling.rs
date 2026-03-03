@@ -526,7 +526,7 @@ mod tests {
 
         // Create random spheres
         // We use deterministic loop to avoid randomness dependency in test
-        let mut spheres = Vec::new();
+        let mut spheres = Vec::with_capacity(101); // 100 random + 1 definitely outside
         for i in 0..100 {
             let x = ((i % 20) as f32) - 10.0;
             let y = ((i / 20) as f32) - 2.0;
@@ -547,7 +547,7 @@ mod tests {
         let simd_results = frustum.cull_spheres(&spheres);
 
         // Run Scalar manually
-        let mut scalar_results = Vec::new();
+        let mut scalar_results = Vec::with_capacity(spheres.len());
         for sphere in &spheres {
             scalar_results.push(frustum.intersects(sphere));
         }
@@ -675,7 +675,7 @@ mod tests {
             (rng_seed as f32) / (u32::MAX as f32)
         };
 
-        let mut aabbs = Vec::new();
+        let mut aabbs = Vec::with_capacity(205); // 200 random + 5 edge cases
         for _ in 0..200 {
             // Random position in [-20, 20]
             let x = rand_f32() * 40.0 - 20.0;
@@ -724,7 +724,7 @@ mod tests {
         frustum.cull_aabbs_prealloc(&aabbs, &mut simd_results);
 
         // Run Scalar manually
-        let mut scalar_results = Vec::new();
+        let mut scalar_results = Vec::with_capacity(aabbs.len());
         for aabb in &aabbs {
             scalar_results.push(frustum.intersects_aabb(aabb));
         }

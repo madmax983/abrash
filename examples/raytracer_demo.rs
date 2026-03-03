@@ -100,11 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Mirror Cube (White/Bright)
     let mirror_transform = Mat4::translation(0.0, 0.0, 2.5) * Mat4::scale(0.5, 0.5, 0.5);
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        mirror_transform,
-        0xFFFFFFFF,
-    ));
+    scene.add_object(SceneObject::new(cube_mesh, mirror_transform, 0xFFFFFFFF));
 
     let mut timestep = FixedTimestep::new(60);
     let mut time = 0.0f32;

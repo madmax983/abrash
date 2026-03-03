@@ -1,0 +1,26 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.45s
+     Running `target/debug/examples/cloth_demo`
+
+[38;5;13m[1m👗 Cloth Simulation Demo[0m
+[38;5;8m========================[39m
+
+[1m⚙️  System Info[0m
+┌───────────┬────────────────────────────────────┐
+│ Feature   ┆ Description                        │
+╞═══════════╪════════════════════════════════════╡
+│ Soft Body ┆ Mass-Spring System                 │
+├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Physics   ┆ Wind Simulation                    │
+├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Rendering ┆ Software Rasterizer + Flat Shading │
+└───────────┴────────────────────────────────────┘
+
+[1m🎮 Controls[0m
+┌──────────┬───────────────────────────┐
+│ Input    ┆ Action                    │
+╞══════════╪═══════════════════════════╡
+│ Mouse    ┆ None (Passive Simulation) │
+├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Keyboard ┆ Q / Esc to Quit           │
+└──────────┴───────────────────────────┘
