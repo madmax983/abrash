@@ -487,8 +487,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
                 .fg(ComfyColor::Cyan),
         ])
         .add_row(vec![ComfyCell::new(format!(
-            "Preparing to launch '{}'...",
-            name
+            "Preparing to launch '{name}'..."
         ))]);
     println!("\n{table}");
 
@@ -534,7 +533,7 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
                     .fg(ComfyColor::Red),
             ])
             .add_row(vec![
-                ComfyCell::new(format!("Exit Status: {}", status)).fg(ComfyColor::Yellow),
+                ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
             ]);
 
         println!("\n{error_table}");

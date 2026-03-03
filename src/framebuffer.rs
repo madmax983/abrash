@@ -182,8 +182,22 @@ impl Framebuffer {
 
         let x1 = x;
         let y1 = y;
-        let x2 = x.saturating_add(width as i32);
-        let y2 = y.saturating_add(height as i32);
+
+        // Prevent overflow when adding width to x
+        // Use i64 for intermediate calculation to avoid wrapping
+        let x2_i64 = (x as i64) + (width as i64);
+        let y2_i64 = (y as i64) + (height as i64);
+
+        let x2 = if x2_i64 > i32::MAX as i64 {
+            i32::MAX
+        } else {
+            x2_i64 as i32
+        };
+        let y2 = if y2_i64 > i32::MAX as i64 {
+            i32::MAX
+        } else {
+            y2_i64 as i32
+        };
 
         let start_x = x1.clamp(0, self.width as i32) as u32;
         let start_y = y1.clamp(0, self.height as i32) as u32;
