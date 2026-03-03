@@ -31,6 +31,7 @@ pub mod crepuscular;
 pub mod crt;
 pub mod dither;
 pub mod glitch;
+pub mod halftone;
 pub mod isosurface;
 pub mod jelly;
 pub mod kuwahara;
