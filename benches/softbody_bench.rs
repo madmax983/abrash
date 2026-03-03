@@ -38,7 +38,7 @@ fn bench_softbody_update(c: &mut Criterion) {
         b.iter(|| {
             // Update step (0.016s = ~60fps)
             softbody.update(0.016);
-        })
+        });
     });
     group.finish();
 }

@@ -6,6 +6,7 @@ use abrash::zbuffer::ZBuffer;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 /// Setup a cube's transformed vertices and MVP for consistent benchmarks
+#[allow(dead_code)]
 fn setup_cube(aspect: f32) -> (Mesh, Vec<(Vec3, f32)>) {
     let mesh = Mesh::cube(2.0);
     let model = Mat4::rotation_x(0.5) * Mat4::rotation_y(0.5);

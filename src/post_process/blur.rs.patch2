@@ -1,0 +1,10 @@
+--- src/post_process/blur.rs	2024-06-25 15:00:00.000000000 -0400
++++ src/post_process/blur.rs	2024-06-25 15:00:00.000000000 -0400
+@@ -316,6 +316,7 @@
+     height: usize,
+     radius: u32,
+ ) {
++    let radius = radius.min((width.max(height)) as u32);
+     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+     {
+         if std::is_x86_feature_detected!("avx2") {

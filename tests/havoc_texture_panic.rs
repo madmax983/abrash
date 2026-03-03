@@ -11,9 +11,10 @@ fn havoc_large_texture_panic_repro() {
     let res = Texture::new(width, height);
 
     // It should be an error now
-    if let Ok(_) = res {
-        panic!("Texture::new should have rejected width > i32::MAX");
-    }
+    assert!(
+        res.is_err(),
+        "Texture::new should have rejected width > i32::MAX"
+    );
 }
 
 proptest! {

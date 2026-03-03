@@ -29,7 +29,7 @@ fn test_softbody_physics_step() {
     let y1 = softbody.mesh.vertices[0].y;
 
     // Gravity should pull it down
-    assert!(y1 < y0, "Vertex 0 should fall: {} < {}", y1, y0);
+    assert!(y1 < y0, "Vertex 0 should fall: {y1} < {y0}");
 
     // Check forces are reset
     for f in &softbody.forces {
@@ -56,7 +56,7 @@ fn test_softbody_spring_force() {
     let v1 = softbody.velocities[1];
 
     // Vertex 0 should be pulled towards Vertex 1 (positive X)
-    assert!(v0.x > 0.0, "Vertex 0 should be pulled right: {:?}", v0);
+    assert!(v0.x > 0.0, "Vertex 0 should be pulled right: {v0:?}");
     // Vertex 1 should be pulled towards Vertex 0 (negative X)
-    assert!(v1.x < 0.0, "Vertex 1 should be pulled left: {:?}", v1);
+    assert!(v1.x < 0.0, "Vertex 1 should be pulled left: {v1:?}");
 }

@@ -120,31 +120,11 @@ pub fn apply_ssao(
                     );
                 }
             } else {
-                apply_ssao_scalar(
-                    occlusion_buffer,
-                    zb,
-                    proj,
-                    kernel,
-                    noise,
-                    width,
-                    height,
-                    radius,
-                    bias,
-                );
+                apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
             }
         }
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        apply_ssao_scalar(
-            occlusion_buffer,
-            zb,
-            proj,
-            kernel,
-            noise,
-            width,
-            height,
-            radius,
-            bias,
-        );
+        apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
 
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
@@ -173,11 +153,12 @@ fn apply_ssao_scalar(
     proj: &Mat4,
     kernel: &[Vec3],
     noise: &[Vec3],
-    width: usize,
-    height: usize,
     radius: f32,
     bias: f32,
 ) {
+    let width = zb.width() as usize;
+    let height = zb.height() as usize;
+
     // Projection parameters
     let p00 = proj.m[0][0];
     let p11 = proj.m[1][1];
@@ -342,7 +323,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = _mm256_setzero_ps();
 
-                for k in 0..KERNEL_SIZE {
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let sz = _mm256_set1_ps(s.z);
 
@@ -454,7 +435,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = 0.0;
 
-                for k in 0..KERNEL_SIZE {
+                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
                     let sample_pos = pos_view + rotated_sample * radius;
@@ -554,9 +535,7 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
     let mut buffer = vec![0.0; NOISE_SIZE * KERNEL_SIZE * 2 * 8];
 
     for ny in 0..NOISE_SIZE {
-        for k in 0..KERNEL_SIZE {
-            let s = kernel[k];
-
+        for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
             // For each of the 8 SIMD lanes, we have a different x => different noise_x
             // Lane i corresponds to pixel x_base + i.
             // noise_x = (x_base + i) % NOISE_SIZE.
@@ -605,10 +584,15 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
+    #[allow(unused_imports)]
     use crate::framebuffer::Framebuffer;
+    #[allow(unused_imports)]
     use crate::math::Mat4;
+    #[allow(unused_imports)]
     use crate::zbuffer::ZBuffer;
+    #[allow(unused_imports)]
     use std::f32::consts::PI;
 
     #[test]
@@ -646,17 +630,7 @@ mod tests {
             }
         }
 
-        apply_ssao_scalar(
-            &mut occ_scalar,
-            &zb,
-            &proj,
-            &kernel,
-            &noise,
-            width as usize,
-            height as usize,
-            1.0,
-            0.001,
-        );
+        apply_ssao_scalar(&mut occ_scalar, &zb, &proj, &kernel, &noise, 1.0, 0.001);
 
         unsafe {
             apply_ssao_avx2(

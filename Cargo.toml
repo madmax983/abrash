@@ -47,6 +47,7 @@ windows = { version = "0.59", optional = true, features = [
     "Win32_System_Threading",
 ] }
 comfy-table = "7.1"
+foldhash = "0.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = "1"
@@ -131,6 +132,11 @@ name = "pixel_sort_demo"
 path = "examples/pixel_sort_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "god_rays_demo"
+path = "examples/god_rays_demo.rs"
+required-features = ["nova", "backend-tui"]
+
 [[bench]]
 name = "rasterization"
 harness = false
@@ -193,6 +199,11 @@ harness = false
 [[bin]]
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"
+
+[[bench]]
+name = "radial_blur_bench"
+harness = false
+path = "benches/radial_blur_bench.rs"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -365,3 +376,28 @@ harness = false
 [[bench]]
 name = "sorting_bench"
 harness = false
+
+[[bench]]
+name = "pixelate_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "crosshatch_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "sharpen_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "crt_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "kaleidoscope_bench"
+harness = false
+required-features = ["nova"]

@@ -136,7 +136,7 @@ mod tests {
         let sys = create_explosion(&mesh, resolution, texture, config);
 
         // Should have particles
-        assert!(sys.particles.len() > 0, "No particles generated!");
+        assert!(!sys.particles.is_empty(), "No particles generated!");
 
         // Check first particle properties
         let p = sys.particles[0];

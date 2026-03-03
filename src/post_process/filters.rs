@@ -285,7 +285,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
                 };
 
                 // Blue (B) from right (x + offset)
-                let b = if x + offset < width {
+                let b = if x.saturating_add(offset) < width {
                     row_scratch[x + offset] & 0xFF
                 } else {
                     0
@@ -445,6 +445,67 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
         intensity,
         roundness,
     );
+}
+
+/// Adjusts the brightness and contrast of the framebuffer in-place.
+///
+/// *   `brightness`: Integer offset added to each color channel (typically -255 to 255).
+/// *   `contrast`: Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
+///
+/// Formula per channel: `new_color = (old_color - 128) * contrast + 128 + brightness`
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_color_adjust;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+///
+/// // Increase brightness by 20, keep contrast neutral
+/// apply_color_adjust(&mut fb, 20, 1.0);
+///
+/// // Result should be 128 + 20 = 148
+/// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
+/// ```
+pub fn apply_color_adjust(fb: &mut Framebuffer, brightness: i32, contrast: f32) {
+    let pixels = fb.as_mut_slice();
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                simd::apply_color_adjust_avx2(pixels, brightness, contrast);
+            };
+            return;
+        }
+    }
+
+    apply_color_adjust_scalar(pixels, brightness, contrast);
+}
+
+fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32) {
+    // contrast fixed point (8.8)
+    let contrast_fixed = (contrast * 256.0) as i32;
+
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let a = p & 0xFF00_0000;
+        let r = ((p >> 16) & 0xFF) as i32;
+        let g = ((p >> 8) & 0xFF) as i32;
+        let b = (p & 0xFF) as i32;
+
+        let new_r = (((r - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        let new_g = (((g - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        let new_b = (((b - 128) * contrast_fixed) >> 8) + 128 + brightness;
+
+        let r_clamped = new_r.clamp(0, 255) as u32;
+        let g_clamped = new_g.clamp(0, 255) as u32;
+        let b_clamped = new_b.clamp(0, 255) as u32;
+
+        *pixel = a | (r_clamped << 16) | (g_clamped << 8) | b_clamped;
+    }
 }
 
 fn apply_vignette_scalar(
@@ -746,7 +807,7 @@ mod simd {
                         let r = 0;
 
                         // B from x+offset (might be OOB)
-                        let b = if x + offset < width {
+                        let b = if x.saturating_add(offset) < width {
                             *src_ptr.add(x + offset) & 0xFF
                         } else {
                             0
@@ -757,7 +818,7 @@ mod simd {
                     }
 
                     // 2. SIMD Loop
-                    if offset + 32 <= width {
+                    if offset.saturating_add(32) <= width {
                         let simd_limit_unrolled = width - offset - 32;
                         while x <= simd_limit_unrolled {
                             // Unroll 4x
@@ -785,7 +846,7 @@ mod simd {
                         }
                     }
 
-                    if offset + 8 <= width {
+                    if offset.saturating_add(8) <= width {
                         let simd_limit = width - offset - 8;
                         while x <= simd_limit {
                             let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
@@ -1033,6 +1094,69 @@ mod simd {
                 }
             }
         }
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_color_adjust_avx2(pixels: &mut [u32], brightness: i32, contrast: f32) {
+        let contrast_fixed = (contrast * 256.0) as i32;
+
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let c128 = _mm256_set1_epi32(128);
+        let c_brightness = _mm256_set1_epi32(128 + brightness);
+        let c_contrast = _mm256_set1_epi32(contrast_fixed);
+        let zero = _mm256_setzero_si256();
+        let max_val = _mm256_set1_epi32(255);
+
+        let len = pixels.len();
+        let simd_len = len & !7;
+        let mut ptr = pixels.as_mut_ptr();
+        let end_ptr = ptr.add(simd_len);
+
+        while ptr < end_ptr {
+            let chunk = _mm256_loadu_si256(ptr.cast());
+            let alphas = _mm256_and_si256(chunk, alpha_mask);
+
+            // Extract R, G, B using bitwise AND and shifts, then do math in 32-bit.
+
+            // Channel B
+            let b_raw = _mm256_and_si256(chunk, max_val);
+            let b_sub = _mm256_sub_epi32(b_raw, c128);
+            let b_mul = _mm256_mullo_epi32(b_sub, c_contrast);
+            let b_sra = _mm256_srai_epi32(b_mul, 8);
+            let b_add = _mm256_add_epi32(b_sra, c_brightness);
+            let b_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(b_add, max_val));
+
+            // Channel G
+            let g_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 8), max_val);
+            let g_sub = _mm256_sub_epi32(g_raw, c128);
+            let g_mul = _mm256_mullo_epi32(g_sub, c_contrast);
+            let g_sra = _mm256_srai_epi32(g_mul, 8);
+            let g_add = _mm256_add_epi32(g_sra, c_brightness);
+            let g_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(g_add, max_val));
+
+            // Channel R
+            let r_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 16), max_val);
+            let r_sub = _mm256_sub_epi32(r_raw, c128);
+            let r_mul = _mm256_mullo_epi32(r_sub, c_contrast);
+            let r_sra = _mm256_srai_epi32(r_mul, 8);
+            let r_add = _mm256_add_epi32(r_sra, c_brightness);
+            let r_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(r_add, max_val));
+
+            let g_shift = _mm256_slli_epi32(g_clamped, 8);
+            let r_shift = _mm256_slli_epi32(r_clamped, 16);
+
+            let res = _mm256_or_si256(
+                alphas,
+                _mm256_or_si256(r_shift, _mm256_or_si256(g_shift, b_clamped)),
+            );
+
+            _mm256_storeu_si256(ptr.cast(), res);
+            ptr = ptr.add(8);
+        }
+
+        // Tail
+        let tail_slice = std::slice::from_raw_parts_mut(ptr, len - simd_len);
+        apply_color_adjust_scalar(tail_slice, brightness, contrast);
     }
 
     #[target_feature(enable = "avx2")]
@@ -1330,7 +1454,7 @@ mod tests {
 
         assert_eq!(r, 255, "Red channel mismatch");
         assert_eq!(g, 255, "Green channel mismatch");
-        assert!(b >= 235 && b <= 240, "Blue channel mismatch, got {}", b);
+        assert!((235..=240).contains(&b), "Blue channel mismatch, got {b}");
 
         // Test with Red (255, 0, 0)
         fb.set_pixel(0, 0, 0xFFFF0000);
@@ -1345,18 +1469,15 @@ mod tests {
 
         assert!(
             (r as i32 - 100).abs() <= 2,
-            "Red mismatch for red pixel, got {}",
-            r
+            "Red mismatch for red pixel, got {r}",
         );
         assert!(
             (g as i32 - 89).abs() <= 2,
-            "Green mismatch for red pixel, got {}",
-            g
+            "Green mismatch for red pixel, got {g}",
         );
         assert!(
             (b as i32 - 69).abs() <= 2,
-            "Blue mismatch for red pixel, got {}",
-            b
+            "Blue mismatch for red pixel, got {b}",
         );
     }
 
@@ -1460,9 +1581,9 @@ mod tests {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
-        assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
-        assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
+        assert_eq!(r, 20, "Red mismatch at x=2. Got {r}");
+        assert_eq!(g, 40, "Green mismatch at x=2. Got {g}");
+        assert_eq!(b, 60, "Blue mismatch at x=2. Got {b}");
 
         // Edge case: x=0 (offset 1)
         // R: from x-1 (out of bounds) -> 0
@@ -1483,5 +1604,113 @@ mod tests {
         assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+    }
+
+    #[test]
+    fn test_apply_color_adjust() {
+        let mut fb = Framebuffer::new(3, 1).unwrap();
+        // Base pixels
+        fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+        fb.set_pixel(1, 0, 0xFF404040); // Dark Gray (64)
+        fb.set_pixel(2, 0, 0xFFC0C0C0); // Light Gray (192)
+
+        let mut fb1 = Framebuffer::new(3, 1).unwrap();
+        fb1.as_mut_slice().copy_from_slice(fb.as_slice());
+
+        // Case 1: Brightness + 10, Contrast 1.0
+        apply_color_adjust(&mut fb1, 10, 1.0);
+        assert_eq!(fb1.get_pixel(0, 0).unwrap() & 0xFF, 138); // 128 + 10
+        assert_eq!(fb1.get_pixel(1, 0).unwrap() & 0xFF, 74); // 64 + 10
+
+        // Case 2: Brightness 0, Contrast 2.0
+        // (128 - 128) * 2.0 + 128 = 128
+        // (64 - 128) * 2.0 + 128 = -64 + 128 = 0
+        // (192 - 128) * 2.0 + 128 = 128 + 128 = 256 -> 255
+        let mut fb2 = Framebuffer::new(3, 1).unwrap();
+        fb2.as_mut_slice().copy_from_slice(fb.as_slice());
+        apply_color_adjust(&mut fb2, 0, 2.0);
+        assert_eq!(fb2.get_pixel(0, 0).unwrap() & 0xFF, 128);
+        assert_eq!(fb2.get_pixel(1, 0).unwrap() & 0xFF, 0);
+        assert_eq!(fb2.get_pixel(2, 0).unwrap() & 0xFF, 255);
+
+        // Case 3: Brightness -20, Contrast 0.5
+        // (128 - 128) * 0.5 + 128 - 20 = 108
+        // (64 - 128) * 0.5 + 128 - 20 = -32 + 108 = 76
+        // (192 - 128) * 0.5 + 128 - 20 = 32 + 108 = 140
+        let mut fb3 = Framebuffer::new(3, 1).unwrap();
+        fb3.as_mut_slice().copy_from_slice(fb.as_slice());
+        apply_color_adjust(&mut fb3, -20, 0.5);
+        assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
+        assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
+        assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_apply_color_adjust_simd_vs_scalar() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let width = 64;
+        let height = 64;
+        let brightness = -15;
+        let contrast = 1.25;
+
+        let mut fb_scalar = Framebuffer::new(width, height).unwrap();
+        let mut fb_simd = Framebuffer::new(width, height).unwrap();
+
+        // Fill with a gradient pattern to cover many color ranges
+        for y in 0..height {
+            for x in 0..width {
+                let r = (x * 4) as u32 % 256;
+                let g = (y * 4) as u32 % 256;
+                let b = ((x + y) * 2) as u32 % 256;
+                let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                fb_scalar.set_pixel(x as i32, y as i32, color);
+                fb_simd.set_pixel(x as i32, y as i32, color);
+            }
+        }
+
+        // Apply scalar
+        apply_color_adjust_scalar(fb_scalar.as_mut_slice(), brightness, contrast);
+
+        // Apply SIMD
+        unsafe {
+            simd::apply_color_adjust_avx2(fb_simd.as_mut_slice(), brightness, contrast);
+        }
+
+        // Compare
+        let pixels_scalar = fb_scalar.as_slice();
+        let pixels_simd = fb_simd.as_slice();
+
+        for i in 0..pixels_scalar.len() {
+            let p_s = pixels_scalar[i];
+            let p_avx = pixels_simd[i];
+
+            if p_s != p_avx {
+                let r_s = (p_s >> 16) & 0xFF;
+                let g_s = (p_s >> 8) & 0xFF;
+                let b_s = p_s & 0xFF;
+
+                let r_a = (p_avx >> 16) & 0xFF;
+                let g_a = (p_avx >> 8) & 0xFF;
+                let b_a = p_avx & 0xFF;
+
+                // Because of floating point approximations, allow a difference of +/- 1
+                assert!(
+                    (r_s as i32 - r_a as i32).abs() <= 1,
+                    "Red mismatch at {i}: {r_s} vs {r_a}"
+                );
+                assert!(
+                    (g_s as i32 - g_a as i32).abs() <= 1,
+                    "Green mismatch at {i}: {g_s} vs {g_a}"
+                );
+                assert!(
+                    (b_s as i32 - b_a as i32).abs() <= 1,
+                    "Blue mismatch at {i}: {b_s} vs {b_a}"
+                );
+            }
+        }
     }
 }

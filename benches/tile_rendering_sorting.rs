@@ -55,7 +55,7 @@ fn bench_sorting_impact(c: &mut Criterion) {
     tris_b2f.sort_by(|a, b| b.0.0.z.partial_cmp(&a.0.0.z).unwrap());
 
     // 3. Random Shuffle (Typical case)
-    let mut tris_random = raw_tris.clone();
+    let mut tris_random = raw_tris;
     let mut rng = thread_rng();
     tris_random.shuffle(&mut rng);
 

@@ -176,20 +176,203 @@ impl Framebuffer {
 
     /// Clear a rectangular region
     pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
-        let x = x.max(0) as u32;
-        let y = y.max(0) as u32;
-
-        if x >= self.width || y >= self.height {
+        if width == 0 || height == 0 {
             return;
         }
 
-        let x_end = x.saturating_add(width).min(self.width);
-        let y_end = y.saturating_add(height).min(self.height);
+        // To prevent `width as i32` or `height as i32` from wrapping or overflowing
+        // we use i64 for intermediate calculations
+        let x1 = x as i64;
+        let y1 = y as i64;
+        let x2 = x1.saturating_add(width as i64);
+        let y2 = y1.saturating_add(height as i64);
 
-        for row in y..y_end {
-            let start = (row * self.width + x) as usize;
-            let end = (row * self.width + x_end) as usize;
+        let start_x = x1.clamp(0, self.width as i64) as u32;
+        let start_y = y1.clamp(0, self.height as i64) as u32;
+        let end_x = x2.clamp(0, self.width as i64) as u32;
+        let end_y = y2.clamp(0, self.height as i64) as u32;
+
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
+
+        for row in start_y..end_y {
+            let start = (row * self.width + start_x) as usize;
+            let end = (row * self.width + end_x) as usize;
             self.pixels[start..end].fill(color);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_valid() {
+        let fb = Framebuffer::new(100, 200).expect("Should create valid buffer");
+        assert_eq!(fb.width(), 100);
+        assert_eq!(fb.height(), 200);
+        assert_eq!(fb.as_slice().len(), 20000);
+        // Initial state should be black with full alpha
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
+    }
+
+    #[test]
+    fn test_new_overflow_dimensions() {
+        assert!(Framebuffer::new(i32::MAX as u32 + 1, 10).is_err());
+        assert!(Framebuffer::new(10, i32::MAX as u32 + 1).is_err());
+        // 65536 * 65536 = 4294967296 (exceeds u32::MAX by 1)
+        assert!(Framebuffer::new(65536, 65536).is_err());
+    }
+
+    #[test]
+    fn test_set_get_pixel_in_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Default color
+        assert_eq!(fb.get_pixel(5, 5), Some(0xFF00_0000));
+
+        // Set and get
+        fb.set_pixel(5, 5, 0xAABBCCDD);
+        assert_eq!(fb.get_pixel(5, 5), Some(0xAABBCCDD));
+
+        // Other pixels remain unchanged
+        assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
+    }
+
+    #[test]
+    fn test_set_get_pixel_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Should return None, no panic
+        assert_eq!(fb.get_pixel(-1, 5), None);
+        assert_eq!(fb.get_pixel(5, -1), None);
+        assert_eq!(fb.get_pixel(10, 5), None);
+        assert_eq!(fb.get_pixel(5, 10), None);
+
+        // Setting out of bounds should be a no-op, no panic
+        fb.set_pixel(-1, 5, 0xFFFFFFFF);
+        fb.set_pixel(5, -1, 0xFFFFFFFF);
+        fb.set_pixel(10, 5, 0xFFFFFFFF);
+        fb.set_pixel(5, 10, 0xFFFFFFFF);
+
+        // Everything should still be default
+        for y in 0..10 {
+            for x in 0..10 {
+                assert_eq!(fb.get_pixel(x, y), Some(0xFF00_0000));
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_entire_buffer() {
+        let mut fb = Framebuffer::new(5, 5).unwrap();
+        fb.clear(0x12345678);
+
+        for y in 0..5 {
+            for x in 0..5 {
+                assert_eq!(fb.get_pixel(x, y), Some(0x12345678));
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_within_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        fb.clear_rect(2, 2, 3, 3, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let expected = if x >= 2 && x < 5 && y >= 2 && y < 5 {
+                    0xFFFFFFFF
+                } else {
+                    0xFF00_0000
+                };
+                assert_eq!(
+                    fb.get_pixel(x, y),
+                    Some(expected),
+                    "Mismatch at {}, {}",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_partial_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Start inside, extend outside
+        fb.clear_rect(8, 8, 5, 5, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let expected = if x >= 8 && y >= 8 {
+                    0xFFFFFFFF
+                } else {
+                    0xFF00_0000
+                };
+                assert_eq!(
+                    fb.get_pixel(x, y),
+                    Some(expected),
+                    "Mismatch at {}, {}",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_negative_coordinates() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Start outside (negative), extend inside
+        fb.clear_rect(-2, -2, 5, 5, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let expected = if x < 3 && y < 3 {
+                    0xFFFFFFFF
+                } else {
+                    0xFF00_0000
+                };
+                assert_eq!(
+                    fb.get_pixel(x, y),
+                    Some(expected),
+                    "Mismatch at {}, {}",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_fully_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Completely outside
+        fb.clear_rect(15, 15, 5, 5, 0xFFFFFFFF);
+        fb.clear_rect(-10, -10, 5, 5, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                assert_eq!(fb.get_pixel(x, y), Some(0xFF00_0000));
+            }
+        }
+    }
+
+    #[test]
+    fn test_unsafe_set_get_pixel() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        unsafe {
+            fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
+            assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
         }
     }
 }
