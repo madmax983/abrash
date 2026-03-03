@@ -200,6 +200,11 @@ harness = false
 name = "simd_profiling"
 path = "benches/simd_profiling.rs"
 
+[[bench]]
+name = "radial_blur_bench"
+harness = false
+path = "benches/radial_blur_bench.rs"
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
