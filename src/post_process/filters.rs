@@ -285,7 +285,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
                 };
 
                 // Blue (B) from right (x + offset)
-                let b = if x + offset < width {
+                let b = if x.saturating_add(offset) < width {
                     row_scratch[x + offset] & 0xFF
                 } else {
                     0
@@ -807,7 +807,7 @@ mod simd {
                         let r = 0;
 
                         // B from x+offset (might be OOB)
-                        let b = if x + offset < width {
+                        let b = if x.saturating_add(offset) < width {
                             *src_ptr.add(x + offset) & 0xFF
                         } else {
                             0
@@ -818,7 +818,7 @@ mod simd {
                     }
 
                     // 2. SIMD Loop
-                    if offset + 32 <= width {
+                    if offset.saturating_add(32) <= width {
                         let simd_limit_unrolled = width - offset - 32;
                         while x <= simd_limit_unrolled {
                             // Unroll 4x
@@ -846,7 +846,7 @@ mod simd {
                         }
                     }
 
-                    if offset + 8 <= width {
+                    if offset.saturating_add(8) <= width {
                         let simd_limit = width - offset - 8;
                         while x <= simd_limit {
                             let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
