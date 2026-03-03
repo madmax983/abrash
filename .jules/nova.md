@@ -54,3 +54,8 @@
   * **Location**: `src/experimental/crt.rs`
   * **Optimization**: Used Rayon `par_chunks_mut()` across rows to parallelize the distortion algorithm. Eliminated `round()` cast in favor of `as i32` fast-cast to save overhead inside the innermost loop. Replaced `for x in 0..width { row[x] = ... }` with `row.iter_mut()` enumeration for better bounds checking optimization. Benchmark at 1080p is ~9ms.
 \n### Halftone Stylization Filter\n- **Idea**: A stylization filter that converts an image to a pattern of variable-sized black dots on a rotated grid based on pixel luminance (comic book / newspaper effect).\n- **Fate**: Merged\n- **Lessons Learned**: Converting pixel locations into rotated coordinates effectively enables the angled grid look. Using Rayon's `par_chunks_mut` with `enumerate` significantly speeds up row-based image transformations since independent pixels can be calculated efficiently using isolated trigonometric maths.
+
+## [Kaleidoscope Filter]
+**Concept:** A retro kaleidoscope post-processing effect that maps Cartesian pixels to polar coordinates, applies a modulo operator to the angle, and maps back, mirroring the image into symmetrical geometric slices (like a hexagon or octagon).
+**Fate:** Merged
+**Lesson:** Iterating across pixels and modifying their read coordinates using `atan2` and `sqrt` correctly folds the view. Ensuring the reading framebuffer is a copy prevents race conditions in Rayon parallel processing chunks.

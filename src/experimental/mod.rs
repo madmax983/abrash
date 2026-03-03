@@ -34,6 +34,7 @@ pub mod glitch;
 pub mod halftone;
 pub mod isosurface;
 pub mod jelly;
+pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod pixel_sort;
 pub mod pixelate;
