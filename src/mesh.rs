@@ -206,15 +206,13 @@ impl Mesh {
         }
 
         let center = (min + max) * 0.5;
-        let mut max_dist_sq = 0.0;
-
-        for v in &self.vertices {
+        // Optimization: `f32::max` avoids branchy component-wise checks and utilizes
+        // underlying fast float max instructions.
+        let max_dist_sq = self.vertices.iter().fold(0.0_f32, |max_sq, v| {
             let d = *v - center;
             let dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-            if dist_sq > max_dist_sq {
-                max_dist_sq = dist_sq;
-            }
-        }
+            max_sq.max(dist_sq)
+        });
 
         BoundingSphere {
             center,
