@@ -11,3 +11,7 @@
 **[Performance Optimization: Pre-allocation in loops]**
 **Learning:** In heavily looping setup functions like `Cloth::new`, using `Vec::new()` causes multiple reallocations which hurts performance and causes fragmentation. By mathematically calculating the exact capacity needed upfront, we can use `Vec::with_capacity()` to achieve zero-cost allocation on setup.
 **Action:** Always calculate and use exact capacities for predictable, nested loops generating data.
+
+## SIMD Batched Frustum Culling
+**Learning:** Checking AABBs individually against the frustum incurs high loop overhead and misses out on vectorization opportunities.
+**Action:** When working with collections of geometric primitives or bounding volumes (like AABBs), process them in batches (e.g., using a pre-allocated `Vec` in a thread-local context) to leverage SIMD-optimized routines (like `cull_aabbs_prealloc`), minimizing branching and maximizing throughput.

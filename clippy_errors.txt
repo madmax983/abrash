@@ -1,0 +1,2101 @@
+   Compiling abrash v0.1.0 (/app)
+error: long literal lacking separators
+   --> src/math.rs:333:21
+    |
+333 |         if len_sq > 0.00000001 {
+    |                     ^^^^^^^^^^ help: consider: `0.000_000_01`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+    = note: `-D clippy::unreadable-literal` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unreadable_literal)]`
+
+error: long literal lacking separators
+   --> src/rasterizer/core.rs:181:34
+    |
+181 |     let mask = _mm256_set1_epi32(0x00FF00FF);
+    |                                  ^^^^^^^^^^ help: consider: `0x00FF_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/rasterizer/pbr.rs:284:30
+    |
+284 |     constants.a2 / denom.max(0.0000001)
+    |                              ^^^^^^^^^ help: consider: `0.000_000_1`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/rasterizer/pbr.rs:291:21
+    |
+291 |     nom / denom.max(0.0000001)
+    |                     ^^^^^^^^^ help: consider: `0.000_000_1`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/tile.rs:4354:45
+     |
+4354 |                     tile_pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+     |                                             ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/tile.rs:4429:22
+     |
+4429 |             *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
+     |                      ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/heat_vision.rs:57:18
+   |
+57 |             *p = 0xFF000020; // Dark Blue
+   |                  ^^^^^^^^^^ help: consider: `0xFF00_0020`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/heat_vision.rs:68:22
+   |
+68 |             *pixel = 0xFF000010; // Very Dark Blue Background
+   |                      ^^^^^^^^^^ help: consider: `0xFF00_0010`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:103:18
+    |
+103 |         *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+    |                  ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:517:20
+    |
+517 |     let mut seed = 123456789;
+    |                    ^^^^^^^^^ help: consider: `123_456_789`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:540:20
+    |
+540 |     let mut seed = 987654321;
+    |                    ^^^^^^^^^ help: consider: `987_654_321`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:598:31
+    |
+598 |     *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+    |                               ^^^^^^^ help: consider: `1_664_525`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:598:53
+    |
+598 |     *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+    |                                                     ^^^^^^^^^^ help: consider: `1_013_904_223`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:599:27
+    |
+599 |     (*seed >> 9) as f32 / 8388607.0
+    |                           ^^^^^^^^^ help: consider: `8_388_607.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/skybox.rs:59:20
+   |
+59 |             return 0xFF000000;
+   |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:237:22
+    |
+237 |             0 => p ^ 0x00FFFFFF, // Invert color
+    |                      ^^^^^^^^^^ help: consider: `0x00FF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:238:22
+    |
+238 |             1 => p | 0x00FF0000, // Red tint
+    |                      ^^^^^^^^^^ help: consider: `0x00FF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:239:22
+    |
+239 |             2 => p & 0xFF00FF00, // Mask out Red and Blue (Green only)
+    |                      ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: this sequence of operators looks suspiciously like a bug
+  --> src/experimental/kuwahara.rs:85:53
+   |
+85 |                     let var_r = (sum_r2 / count) - (mean_r * mean_r);
+   |                                                     ^^^^^^^^^^^^^^^ help: did you mean: `sum_r2 * mean_r`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#suspicious_operation_groupings
+   = note: `-D clippy::suspicious-operation-groupings` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::suspicious_operation_groupings)]`
+
+error: this sequence of operators looks suspiciously like a bug
+  --> src/experimental/kuwahara.rs:86:53
+   |
+86 |                     let var_g = (sum_g2 / count) - (mean_g * mean_g);
+   |                                                     ^^^^^^^^^^^^^^^ help: did you mean: `sum_g2 * mean_g`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+  --> src/experimental/kuwahara.rs:87:53
+   |
+87 |                     let var_b = (sum_b2 / count) - (mean_b * mean_b);
+   |                                                     ^^^^^^^^^^^^^^^ help: did you mean: `sum_b2 * mean_b`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#suspicious_operation_groupings
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:157:20
+    |
+157 |             color: 0xFFFFFFFF,
+    |                    ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:221:31
+    |
+221 |             background_color: 0xFF101010, // Dark Grey
+    |                               ^^^^^^^^^^ help: consider: `0xFF10_1010`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:412:20
+    |
+412 |             return 0xFF000000
+    |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/vision.rs:50:35
+   |
+50 |             state: if seed == 0 { 0xDEADBEEF } else { seed },
+   |                                   ^^^^^^^^^^ help: consider: `0xDEAD_BEEF`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/vision.rs:65:41
+   |
+65 |         (self.next_u32() >> 8) as f32 / 16777216.0
+   |                                         ^^^^^^^^^^ help: consider: `16_777_216.0`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:117:17
+    |
+117 |                 0xFF000000 | ((val_clamped / 5) << 16) | (val_clamped << 8) | (val_clamped / 5);
+    |                 ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:131:25
+    |
+131 |             pixels[i] = 0xFF000000; // Background is black (Coldest)
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:184:5
+    |
+184 |     0xFF000000 | (r_byte << 16) | (g_byte << 8) | b_byte
+    |     ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:202:25
+    |
+202 |             pixels[i] = 0xFF000010; // Very dim blue background
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0010`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:212:25
+    |
+212 |             pixels[i] = 0xFF000000 | (val << 8) | val; // Cyan/Greenish
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:219:25
+    |
+219 |             pixels[i] = 0xFF000000 | (base << 8) | (base + 20);
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/voxel_explosion.rs:103:25
+    |
+103 |                         0xFFFFFFFF, // White by default
+    |                         ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unreadable_literal
+
+error: casts from `i32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:185:18
+    |
+185 |         let x1 = x as i64;
+    |                  ^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+    = note: `-D clippy::cast-lossless` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::cast_lossless)]`
+help: use `i64::from` instead
+    |
+185 -         let x1 = x as i64;
+185 +         let x1 = i64::from(x);
+    |
+
+error: casts from `i32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:186:18
+    |
+186 |         let y1 = y as i64;
+    |                  ^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+186 -         let y1 = y as i64;
+186 +         let y1 = i64::from(y);
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:187:36
+    |
+187 |         let x2 = x1.saturating_add(width as i64);
+    |                                    ^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+187 -         let x2 = x1.saturating_add(width as i64);
+187 +         let x2 = x1.saturating_add(i64::from(width));
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:188:36
+    |
+188 |         let y2 = y1.saturating_add(height as i64);
+    |                                    ^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+188 -         let y2 = y1.saturating_add(height as i64);
+188 +         let y2 = y1.saturating_add(i64::from(height));
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:190:35
+    |
+190 |         let start_x = x1.clamp(0, self.width as i64) as u32;
+    |                                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+190 -         let start_x = x1.clamp(0, self.width as i64) as u32;
+190 +         let start_x = x1.clamp(0, i64::from(self.width)) as u32;
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:191:35
+    |
+191 |         let start_y = y1.clamp(0, self.height as i64) as u32;
+    |                                   ^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+191 -         let start_y = y1.clamp(0, self.height as i64) as u32;
+191 +         let start_y = y1.clamp(0, i64::from(self.height)) as u32;
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:192:33
+    |
+192 |         let end_x = x2.clamp(0, self.width as i64) as u32;
+    |                                 ^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+192 -         let end_x = x2.clamp(0, self.width as i64) as u32;
+192 +         let end_x = x2.clamp(0, i64::from(self.width)) as u32;
+    |
+
+error: casts from `u32` to `i64` can be expressed infallibly using `From`
+   --> src/framebuffer.rs:193:33
+    |
+193 |         let end_y = y2.clamp(0, self.height as i64) as u32;
+    |                                 ^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i64::from` instead
+    |
+193 -         let end_y = y2.clamp(0, self.height as i64) as u32;
+193 +         let end_y = y2.clamp(0, i64::from(self.height)) as u32;
+    |
+
+error: this could be a `const fn`
+  --> src/geometry.rs:92:5
+   |
+92 | /     pub fn new(min: Vec3, max: Vec3) -> Self {
+93 | |         Self {
+94 | |             min,
+95 | |             pad0: 0.0,
+...  |
+99 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+   = note: `-D clippy::missing-const-for-fn` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+   |
+92 |     pub const fn new(min: Vec3, max: Vec3) -> Self {
+   |         +++++
+
+error: item in documentation is missing backticks
+  --> src/math.rs:45:43
+   |
+45 | /// is typically faster on modern generic x86_64 CPUs than the legacy "Quake III bit-hack".
+   |                                           ^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+   = note: `-D clippy::doc-markdown` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::doc_markdown)]`
+help: try
+   |
+45 - /// is typically faster on modern generic x86_64 CPUs than the legacy "Quake III bit-hack".
+45 + /// is typically faster on modern generic `x86_64` CPUs than the legacy "Quake III bit-hack".
+   |
+
+error: this could be a `const fn`
+   --> src/math.rs:391:5
+    |
+391 | /     pub fn min(&self, other: Self) -> Self {
+392 | |         Self {
+393 | |             x: self.x.min(other.x),
+394 | |             y: self.y.min(other.y),
+...   |
+397 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+391 |     pub const fn min(&self, other: Self) -> Self {
+    |         +++++
+
+error: this could be a `const fn`
+   --> src/math.rs:402:5
+    |
+402 | /     pub fn max(&self, other: Self) -> Self {
+403 | |         Self {
+404 | |             x: self.x.max(other.x),
+405 | |             y: self.y.max(other.y),
+...   |
+408 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+402 |     pub const fn max(&self, other: Self) -> Self {
+    |         +++++
+
+error: borrow as raw pointer
+   --> src/math.rs:844:24
+    |
+844 |             let base = &dummy as *const _ as usize;
+    |                        ^^^^^^^^^^^^^^^^^^ help: try: `&raw const dummy`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#borrow_as_ptr
+    = note: `-D clippy::borrow-as-ptr` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::borrow_as_ptr)]`
+
+error: borrow as raw pointer
+   --> src/math.rs:845:25
+    |
+845 |             let x_ptr = &dummy.0.x as *const _ as usize;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^ help: try: `&raw const dummy.0.x`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#borrow_as_ptr
+
+error: borrow as raw pointer
+   --> src/math.rs:846:25
+    |
+846 |             let w_ptr = &dummy.1 as *const _ as usize;
+    |                         ^^^^^^^^^^^^^^^^^^^^ help: try: `&raw const dummy.1`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#borrow_as_ptr
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1043:13
+     |
+1043 |             use rayon::prelude::*;
+     |             ^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#items_after_statements
+     = note: `-D clippy::items-after-statements` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::items_after_statements)]`
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1046:13
+     |
+1046 |             const CHUNK_SIZE: usize = 4096;
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1215:5
+     |
+1215 |     const MAX_VAL: f32 = 2_147_483_520.0;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1216:5
+     |
+1216 |     const MIN_VAL: f32 = -2_147_483_520.0;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#items_after_statements
+
+error: this function has too many arguments (8/7)
+    --> src/math.rs:1244:1
+     |
+1244 | / pub fn project_triangle_to_screen(
+1245 | |     v0: Vec3,
+1246 | |     w0: f32,
+1247 | |     v1: Vec3,
+...    |
+1252 | |     half_height: f32,
+1253 | | ) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
+     | |____________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#too_many_arguments
+     = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+error: usage of wildcard import
+    --> src/math.rs:1255:13
+     |
+1255 |         use std::arch::x86_64::*;
+     |             ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm_set_ps, _mm_set1_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_or_ps, _mm_and_ps, _mm_min_ps, _mm_rcp_ps, _mm_mul_ps, _mm_sub_ps, _mm_add_ps, _mm_max_ps, _mm_cvttps_epi32, _mm_storeu_si128, __m128i, _mm_storeu_ps}`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+     = note: `-D clippy::wildcard-imports` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::wildcard_imports)]`
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1324:26
+     |
+1324 |         _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+     = note: `-D clippy::cast-ptr-alignment` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::cast_ptr_alignment)]`
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/math.rs:1324:26
+     |
+1324 |         _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `x_arr.as_mut_ptr().cast::<__m128i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+     = note: `-D clippy::ptr-as-ptr` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::ptr_as_ptr)]`
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1325:26
+     |
+1325 |         _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/math.rs:1325:26
+     |
+1325 |         _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `y_arr.as_mut_ptr().cast::<__m128i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+    --> src/math.rs:1371:13
+     |
+1371 |         use std::arch::x86_64::*;
+     |             ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm_set_ps, _mm_set1_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_or_ps, _mm_and_ps, _mm_min_ps, _mm_rcp_ps, _mm_mul_ps, _mm_sub_ps, _mm_add_ps, _mm_max_ps, _mm_cvttps_epi32, _mm_storeu_si128, __m128i, _mm_storeu_ps}`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1421:26
+     |
+1421 |         _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/math.rs:1421:26
+     |
+1421 |         _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `x_arr.as_mut_ptr().cast::<__m128i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1422:26
+     |
+1422 |         _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/math.rs:1422:26
+     |
+1422 |         _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `y_arr.as_mut_ptr().cast::<__m128i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: this function could have a `#[must_use]` attribute
+   --> src/rasterizer/core.rs:149:14
+    |
+149 | pub const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
+    |              ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+    = note: `-D clippy::must-use-candidate` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::must_use_candidate)]`
+help: add the attribute
+    |
+149 + #[must_use]
+150 | pub const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
+    |
+
+error: this function could have a `#[must_use]` attribute
+   --> src/rasterizer/core.rs:155:8
+    |
+155 | pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
+    |        ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+155 + #[must_use]
+156 | pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
+    |
+
+error: this function could have a `#[must_use]` attribute
+   --> src/rasterizer/core.rs:164:8
+    |
+164 | pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
+    |        ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+164 + #[must_use]
+165 | pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
+    |
+
+error: unsafe function's docs are missing a `# Safety` section
+   --> src/rasterizer/core.rs:174:1
+    |
+174 | / pub unsafe fn blend_swar_simd(
+175 | |     c0: std::arch::x86_64::__m256i,
+176 | |     c1: std::arch::x86_64::__m256i,
+177 | |     w: std::arch::x86_64::__m256i,
+178 | |     inv_w: std::arch::x86_64::__m256i,
+179 | | ) -> std::arch::x86_64::__m256i {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_safety_doc
+    = note: `-D clippy::missing-safety-doc` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::missing_safety_doc)]`
+
+error: this function could have a `#[must_use]` attribute
+   --> src/rasterizer/core.rs:174:15
+    |
+174 | pub unsafe fn blend_swar_simd(
+    |               ^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+174 + #[must_use]
+175 | pub unsafe fn blend_swar_simd(
+    |
+
+error: usage of wildcard import
+   --> src/rasterizer/core.rs:180:9
+    |
+180 |     use std::arch::x86_64::*;
+    |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_epi32, _mm256_or_si256, _mm256_slli_epi32, _mm256_and_si256, _mm256_srli_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16}`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: usage of wildcard import
+  --> src/rasterizer/flat.rs:18:9
+   |
+18 |     use std::arch::x86_64::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set1_epi32, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, __m256i, _mm256_loadu_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+  --> src/rasterizer/flat.rs:48:30
+   |
+48 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+  --> src/rasterizer/flat.rs:48:30
+   |
+48 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+   --> src/rasterizer/flat.rs:118:9
+    |
+118 |     use std::arch::x86_64::*;
+    |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set1_epi32, _mm256_set1_epi16, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_movemask_ps, __m256i, _mm256_loadu_si256, _mm256_and_si256, _mm256_srli_epi32, _mm256_mullo_epi16, _mm256_add_epi32, _mm256_or_si256, _mm256_slli_epi32, _mm256_blendv_epi8, _mm256_storeu_si256}`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/flat.rs:157:30
+    |
+157 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+   --> src/rasterizer/flat.rs:157:30
+    |
+157 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: it looks like you're trying to convert a tuple to an array
+   --> src/rasterizer/flat.rs:380:25
+    |
+380 |         let mut verts = [p0_orig, p1_orig, p2_orig];
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `.into()` instead, or `<[T; N]>::from` if type annotations are needed
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#tuple_array_conversions
+    = note: `-D clippy::tuple-array-conversions` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::tuple_array_conversions)]`
+
+error: usage of wildcard import
+  --> src/rasterizer/gouraud.rs:20:9
+   |
+20 |     use std::arch::x86_64::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set1_epi32, _mm256_set_ps, _mm256_set_epi32, _mm256_add_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_add_epi32, _mm256_slli_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_and_si256, _mm256_srli_epi32, _mm256_or_si256, __m256i, _mm256_loadu_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+  --> src/rasterizer/gouraud.rs:92:30
+   |
+92 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+  --> src/rasterizer/gouraud.rs:92:30
+   |
+92 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+   --> src/rasterizer/gouraud.rs:150:9
+    |
+150 |     use std::arch::x86_64::*;
+    |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set1_epi32, _mm256_set_ps, _mm256_set_epi32, _mm256_add_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_add_epi32, _mm256_slli_epi32, _mm256_setzero_si256, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_min_epi32, _mm256_max_epi32, _mm256_and_si256, _mm256_srli_epi32, _mm256_or_si256, __m256i, _mm256_loadu_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/gouraud.rs:230:30
+    |
+230 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+   --> src/rasterizer/gouraud.rs:230:30
+    |
+230 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+  --> src/rasterizer/phong.rs:36:9
+   |
+36 |     use std::arch::x86_64::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_and_ps, _CMP_LE_OQ, _CMP_GE_OQ, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpgt_epi32, _mm256_max_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_sub_epi32, _mm256_mullo_epi32, _mm256_i32gather_ps, _mm256_castsi256_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_blendv_epi8, _mm256_castps_si256, _mm256_storeu_si256, _mm256_cvtss_f32}`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/phong.rs:289:30
+    |
+289 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+   --> src/rasterizer/phong.rs:289:30
+    |
+289 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: this function has too many arguments (15/7)
+   --> src/rasterizer/phong.rs:386:1
+    |
+386 | / unsafe fn draw_scanline_point_lit_simd(
+387 | |     fb_slice: &mut [u32],
+388 | |     zb_slice: &mut [f32],
+389 | |     z: f32,
+...   |
+401 | |     attenuation: Vec3,
+402 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#too_many_arguments
+
+error: usage of wildcard import
+   --> src/rasterizer/phong.rs:403:9
+    |
+403 |     use std::arch::x86_64::*;
+    |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_sqrt_ps, _mm256_max_ps, _mm256_rsqrt_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/phong.rs:537:30
+    |
+537 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+   --> src/rasterizer/phong.rs:537:30
+    |
+537 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+    --> src/rasterizer/phong.rs:1509:13
+     |
+1509 |         use std::arch::x86_64::*;
+     |             ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_castps_si256, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _CMP_GT_OQ, _mm256_rsqrt_ps, _mm256_sub_ps, _mm256_max_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/phong.rs:1633:30
+     |
+1633 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/rasterizer/phong.rs:1633:30
+     |
+1633 |                 let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: usage of wildcard import
+  --> src/rasterizer/reflection.rs:32:9
+   |
+32 |     use std::arch::x86_64::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_rsqrt_ps}`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: this `else { if .. }` block can be collapsed
+   --> src/rasterizer/texture.rs:562:12
+    |
+562 |       } else {
+    |  ____________^
+563 | |         if shift < 32 {
+564 | |             process_span_bilinear!(<<, shift, false);
+565 | |         } else {
+...   |
+568 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#collapsible_else_if
+    = note: `-D clippy::collapsible-else-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_else_if)]`
+help: collapse nested if block
+    |
+562 ~     } else if shift < 32 {
+563 +         process_span_bilinear!(<<, shift, false);
+564 +     } else {
+565 +         process_span_bilinear!(*, tex_w_usize, false);
+566 +     }
+    |
+
+error: all if blocks contain the same code at the start
+    --> src/rasterizer/texture.rs:1047:21
+     |
+1047 | /                     let idx = if is_pot {
+...    |
+1052 | |                         let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+1053 | |                         let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+     | |_________________________________________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#branches_sharing_code
+     = note: `-D clippy::branches-sharing-code` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::branches_sharing_code)]`
+help: consider moving these statements before the if
+     |
+1047 ~                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+1048 +                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+1049 +                     let idx = if is_pot {
+     |
+
+error: usage of wildcard import
+    --> src/rasterizer/texture.rs:2416:13
+     |
+2416 |         use std::arch::x86_64::*;
+     |             ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256}`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: this method could have a `#[must_use]` attribute
+    --> src/rasterizer/texture.rs:3401:12
+     |
+3401 |     pub fn new(
+     |            ^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3401 ~     #[must_use]
+3402 ~     pub fn new(
+     |
+
+error: casts from `u8` to `i32` can be expressed infallibly using `From`
+    --> src/rasterizer/texture.rs:3665:43
+     |
+3665 |         let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+     |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: an `as` cast can become silently lossy if the types change in the future
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i32::from` instead
+     |
+3665 -         let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+3665 +         let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
+     |
+
+error: all if blocks contain the same code at the start
+    --> src/rasterizer/texture.rs:3680:17
+     |
+3680 | /                 let idx = if is_pot {
+3681 | |                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+3682 | |                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+     | |_____________________________________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#branches_sharing_code
+help: consider moving these statements before the if
+     |
+3680 ~                 let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+3681 +                 let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+3682 +                 let idx = if is_pot {
+     |
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/rasterizer/texture.rs:3691:44
+     |
+3691 |                     _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+     |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `texture.pixels.as_ptr().cast::<i32>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/texture.rs:3735:34
+     |
+3735 |                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/rasterizer/texture.rs:3735:34
+     |
+3735 |                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/texture.rs:3747:34
+     |
+3747 |                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_ptr_alignment
+
+error: `as` casting between raw pointers without changing their constness
+    --> src/rasterizer/texture.rs:3747:34
+     |
+3747 |                     let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try `pointer::cast`, a safer alternative: `fb_slice.as_mut_ptr().add(i).cast::<__m256i>()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#ptr_as_ptr
+
+error: casting to the same type is unnecessary (`u32` -> `u32`)
+    --> src/rasterizer/texture.rs:4081:22
+     |
+4081 |                     ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+     |                      ^^^^^^^^^^^^^^ help: try: `tex_a`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unnecessary_cast
+     = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
+
+error: casting to the same type is unnecessary (`u32` -> `u32`)
+    --> src/rasterizer/texture.rs:4165:32
+     |
+4165 |             let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+     |                                ^^^^^^^^^^^^^^ help: try: `tex_a`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unnecessary_cast
+
+error: casting to the same type is unnecessary (`u32` -> `u32`)
+    --> src/rasterizer/texture.rs:4419:34
+     |
+4419 | ...                   ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+     |                        ^^^^^^^^^^^^^^ help: try: `tex_a`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unnecessary_cast
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src/rasterizer/texture.rs:4696:17
+     |
+4696 |                 &gradients,
+     |                 ^^^^^^^^^^ help: change this to: `gradients`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_borrow
+     = note: `-D clippy::needless-borrow` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::needless_borrow)]`
+
+error: doc list item without indentation
+   --> src/rasterizer/tile.rs:104:5
+    |
+104 | /// Wrapper for raw pointers to enable thread-safe parallel writes to non-overlapping regions.
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_lazy_continuation
+    = note: `-D clippy::doc-lazy-continuation` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::doc_lazy_continuation)]`
+help: indent this line
+    |
+104 | ///   Wrapper for raw pointers to enable thread-safe parallel writes to non-overlapping regions.
+    |     ++
+
+error: manually reimplementing `div_ceil`
+   --> src/rasterizer/tile.rs:143:30
+    |
+143 |         let extra_elements = (align_bytes + elem_size - 1) / elem_size;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `align_bytes.div_ceil(elem_size)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#manual_div_ceil
+    = note: `-D clippy::manual-div-ceil` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_div_ceil)]`
+
+error: you should consider adding a `Default` implementation for `PreparedGouraudTrianglesList`
+   --> src/rasterizer/tile.rs:280:5
+    |
+280 | /     pub fn new() -> Self {
+281 | |         Self {
+282 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+283 | |             count: 0,
+284 | |         }
+285 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#new_without_default
+    = note: `-D clippy::new-without-default` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::new_without_default)]`
+help: try adding this
+    |
+279 + impl Default for PreparedGouraudTrianglesList {
+280 +     fn default() -> Self {
+281 +         Self::new()
+282 +     }
+283 + }
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/rasterizer/tile.rs:280:12
+    |
+280 |     pub fn new() -> Self {
+    |            ^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+280 ~     #[must_use]
+281 ~     pub fn new() -> Self {
+    |
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:280:5
+    |
+280 | /     pub fn new() -> Self {
+281 | |         Self {
+282 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+283 | |             count: 0,
+284 | |         }
+285 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+280 |     pub const fn new() -> Self {
+    |         +++++
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:287:5
+    |
+287 | /     pub fn push(&mut self, tri: PreparedGouraudTriangle) {
+288 | |         if self.count < 8 {
+289 | |             self.tris[self.count].write(tri);
+290 | |             self.count += 1;
+291 | |         }
+292 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+287 |     pub const fn push(&mut self, tri: PreparedGouraudTriangle) {
+    |         +++++
+
+error: you should consider adding a `Default` implementation for `PreparedTrianglesList`
+   --> src/rasterizer/tile.rs:332:5
+    |
+332 | /     pub fn new() -> Self {
+333 | |         Self {
+334 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+335 | |             count: 0,
+336 | |         }
+337 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#new_without_default
+help: try adding this
+    |
+331 + impl Default for PreparedTrianglesList {
+332 +     fn default() -> Self {
+333 +         Self::new()
+334 +     }
+335 + }
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/rasterizer/tile.rs:332:12
+    |
+332 |     pub fn new() -> Self {
+    |            ^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+332 ~     #[must_use]
+333 ~     pub fn new() -> Self {
+    |
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:332:5
+    |
+332 | /     pub fn new() -> Self {
+333 | |         Self {
+334 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+335 | |             count: 0,
+336 | |         }
+337 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+332 |     pub const fn new() -> Self {
+    |         +++++
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:339:5
+    |
+339 | /     pub fn push(&mut self, tri: PreparedTriangle) {
+340 | |         if self.count < 8 {
+341 | |             self.tris[self.count].write(tri);
+342 | |             self.count += 1;
+343 | |         }
+344 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+339 |     pub const fn push(&mut self, tri: PreparedTriangle) {
+    |         +++++
+
+error: you should consider adding a `Default` implementation for `PreparedTexturedTrianglesList`
+   --> src/rasterizer/tile.rs:426:5
+    |
+426 | /     pub fn new() -> Self {
+427 | |         Self {
+428 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+429 | |             count: 0,
+430 | |         }
+431 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#new_without_default
+help: try adding this
+    |
+425 + impl Default for PreparedTexturedTrianglesList {
+426 +     fn default() -> Self {
+427 +         Self::new()
+428 +     }
+429 + }
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/rasterizer/tile.rs:426:12
+    |
+426 |     pub fn new() -> Self {
+    |            ^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+426 ~     #[must_use]
+427 ~     pub fn new() -> Self {
+    |
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:426:5
+    |
+426 | /     pub fn new() -> Self {
+427 | |         Self {
+428 | |             tris: unsafe { MaybeUninit::uninit().assume_init() },
+429 | |             count: 0,
+430 | |         }
+431 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+426 |     pub const fn new() -> Self {
+    |         +++++
+
+error: this could be a `const fn`
+   --> src/rasterizer/tile.rs:433:5
+    |
+433 | /     pub fn push(&mut self, tri: PreparedTexturedTriangle) {
+434 | |         if self.count < 8 {
+435 | |             self.tris[self.count].write(tri);
+436 | |             self.count += 1;
+437 | |         }
+438 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+433 |     pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
+    |         +++++
+
+error: this method could have a `#[must_use]` attribute
+   --> src/rasterizer/tile.rs:483:12
+    |
+483 |     pub fn new(num_tiles: usize) -> Self {
+    |            ^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+483 ~     #[must_use]
+484 ~     pub fn new(num_tiles: usize) -> Self {
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/rasterizer/tile.rs:515:12
+    |
+515 |     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
+    |            ^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+515 ~     #[must_use]
+516 ~     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
+    |
+
+error: the following explicit lifetimes could be elided: 'a
+   --> src/rasterizer/tile.rs:528:6
+    |
+528 | impl<'a> Iterator for TileBinIter<'a> {
+    |      ^^                           ^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#elidable_lifetime_names
+    = note: `-D clippy::elidable-lifetime-names` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::elidable_lifetime_names)]`
+help: elide the lifetimes
+    |
+528 - impl<'a> Iterator for TileBinIter<'a> {
+528 + impl Iterator for TileBinIter<'_> {
+    |
+
+error: returning the result of a `let` binding from a block
+    --> src/rasterizer/tile.rs:1696:21
+     |
+1686 | /                     let tris = Self::prepare_triangle_static(
+1687 | |                         v0,
+1688 | |                         v1,
+1689 | |                         v2,
+...    |
+1694 | |                         half_height,
+1695 | |                     );
+     | |______________________- unnecessary `let` binding
+1696 |                       tris
+     |                       ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#let_and_return
+     = note: `-D clippy::let-and-return` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::let_and_return)]`
+help: return the expression directly
+     |
+1686 ~
+1687 ~                     Self::prepare_triangle_static(
+1688 +                         v0,
+1689 +                         v1,
+1690 +                         v2,
+1691 +                         color,
+1692 +                         width,
+1693 +                         height,
+1694 +                         half_width,
+1695 +                         half_height,
+1696 +                     )
+     |
+
+error: returning the result of a `let` binding from a block
+    --> src/rasterizer/tile.rs:2005:21
+     |
+1995 | /                     let tris = Self::prepare_triangle_static(
+1996 | |                         v0,
+1997 | |                         v1,
+1998 | |                         v2,
+...    |
+2003 | |                         half_height,
+2004 | |                     );
+     | |______________________- unnecessary `let` binding
+2005 |                       tris
+     |                       ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#let_and_return
+help: return the expression directly
+     |
+1995 ~
+1996 ~                     Self::prepare_triangle_static(
+1997 +                         v0,
+1998 +                         v1,
+1999 +                         v2,
+2000 +                         color,
+2001 +                         width,
+2002 +                         height,
+2003 +                         half_width,
+2004 +                         half_height,
+2005 +                     )
+     |
+
+error: returning the result of a `let` binding from a block
+    --> src/rasterizer/tile.rs:2084:21
+     |
+2073 | /                     let tris = Self::prepare_triangle_textured_static(
+2074 | |                         (v0, uv0),
+2075 | |                         (v1, uv1),
+2076 | |                         (v2, uv2),
+...    |
+2082 | |                         half_height,
+2083 | |                     );
+     | |______________________- unnecessary `let` binding
+2084 |                       tris
+     |                       ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#let_and_return
+help: return the expression directly
+     |
+2073 ~
+2074 ~                     Self::prepare_triangle_textured_static(
+2075 +                         (v0, uv0),
+2076 +                         (v1, uv1),
+2077 +                         (v2, uv2),
+2078 +                         tex_w,
+2079 +                         tex_h,
+2080 +                         width,
+2081 +                         height,
+2082 +                         half_width,
+2083 +                         half_height,
+2084 +                     )
+     |
+
+error: very complex type used. Consider factoring parts into `type` definitions
+    --> src/rasterizer/tile.rs:2228:20
+     |
+2228 |           triangles: &[(
+     |  ____________________^
+2229 | |             ((Vec3, f32), Vec3),
+2230 | |             ((Vec3, f32), Vec3),
+2231 | |             ((Vec3, f32), Vec3),
+2232 | |         )],
+     | |__________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#type_complexity
+     = note: `-D clippy::type-complexity` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::type_complexity)]`
+
+error: returning the result of a `let` binding from a block
+    --> src/rasterizer/tile.rs:2263:21
+     |
+2254 | /                     let tris = Self::prepare_triangle_gouraud_static(
+2255 | |                         v0,
+2256 | |                         v1,
+2257 | |                         v2,
+...    |
+2261 | |                         half_height,
+2262 | |                     );
+     | |______________________- unnecessary `let` binding
+2263 |                       tris
+     |                       ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#let_and_return
+help: return the expression directly
+     |
+2254 ~
+2255 ~                     Self::prepare_triangle_gouraud_static(
+2256 +                         v0,
+2257 +                         v1,
+2258 +                         v2,
+2259 +                         width,
+2260 +                         height,
+2261 +                         half_width,
+2262 +                         half_height,
+2263 +                     )
+     |
+
+error: unused `self` argument
+    --> src/rasterizer/tile.rs:2568:26
+     |
+2568 |     fn sort_bins_gouraud(&mut self) {
+     |                          ^^^^^^^^^
+     |
+     = help: consider refactoring to an associated function
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unused_self
+     = note: `-D clippy::unused-self` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::unused_self)]`
+
+error: this could be a `const fn`
+    --> src/rasterizer/tile.rs:2568:5
+     |
+2568 | /     fn sort_bins_gouraud(&mut self) {
+2569 | |         // FIXME: Sorting disabled
+2570 | |         /*
+2571 | |         let prepared_gouraud = &self.prepared_gouraud;
+...    |
+2598 | |         */
+2599 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2568 |     const fn sort_bins_gouraud(&mut self) {
+     |     +++++
+
+error: it looks like you're trying to convert a tuple to an array
+    --> src/rasterizer/tile.rs:2815:29
+     |
+2815 |             let mut verts = [p0_orig, p1_orig, p2_orig];
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `.into()` instead, or `<[T; N]>::from` if type annotations are needed
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#tuple_array_conversions
+
+error: unused `self` argument
+    --> src/rasterizer/tile.rs:3013:23
+     |
+3013 |     fn sort_bins_flat(&mut self) {
+     |                       ^^^^^^^^^
+     |
+     = help: consider refactoring to an associated function
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unused_self
+
+error: this could be a `const fn`
+    --> src/rasterizer/tile.rs:3013:5
+     |
+3013 | /     fn sort_bins_flat(&mut self) {
+3014 | |         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
+3015 | |         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
+3016 | |         /*
+...    |
+3155 | |         */
+3156 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+3013 |     const fn sort_bins_flat(&mut self) {
+     |     +++++
+
+error: unused `self` argument
+    --> src/rasterizer/tile.rs:3159:27
+     |
+3159 |     fn sort_bins_textured(&mut self) {
+     |                           ^^^^^^^^^
+     |
+     = help: consider refactoring to an associated function
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unused_self
+
+error: this could be a `const fn`
+    --> src/rasterizer/tile.rs:3159:5
+     |
+3159 | /     fn sort_bins_textured(&mut self) {
+3160 | |         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
+3161 | |         /*
+3162 | |         let prepared_textured = &self.prepared_textured;
+...    |
+3200 | |         */
+3201 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+3159 |     const fn sort_bins_textured(&mut self) {
+     |     +++++
+
+error: casts from `i16` to `i32` can be expressed infallibly using `From`
+    --> src/rasterizer/tile.rs:4299:35
+     |
+4299 |     let mut edge_b = if y_start < tri.p1.y as i32 {
+     |                                   ^^^^^^^^^^^^^^^
+     |
+     = help: an `as` cast can become silently lossy if the types change in the future
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i32::from` instead
+     |
+4299 -     let mut edge_b = if y_start < tri.p1.y as i32 {
+4299 +     let mut edge_b = if y_start < i32::from(tri.p1.y) {
+     |
+
+error: casts from `i16` to `i32` can be expressed infallibly using `From`
+    --> src/rasterizer/tile.rs:4307:22
+     |
+4307 |         if y_start > tri.p1.y as i32 {
+     |                      ^^^^^^^^^^^^^^^
+     |
+     = help: an `as` cast can become silently lossy if the types change in the future
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i32::from` instead
+     |
+4307 -         if y_start > tri.p1.y as i32 {
+4307 +         if y_start > i32::from(tri.p1.y) {
+     |
+
+error: casts from `i16` to `i32` can be expressed infallibly using `From`
+    --> src/rasterizer/tile.rs:4317:17
+     |
+4317 |         if y == tri.p1.y as i32 && y != p0_y {
+     |                 ^^^^^^^^^^^^^^^
+     |
+     = help: an `as` cast can become silently lossy if the types change in the future
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `i32::from` instead
+     |
+4317 -         if y == tri.p1.y as i32 && y != p0_y {
+4317 +         if y == i32::from(tri.p1.y) && y != p0_y {
+     |
+
+error: this could be a `const fn`
+  --> src/utils.rs:28:5
+   |
+28 | /     pub fn next_u32(&mut self) -> u32 {
+29 | |         let mut x = self.state;
+30 | |         x ^= x << 13;
+31 | |         x ^= x >> 17;
+...  |
+34 | |         x
+35 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+28 |     pub const fn next_u32(&mut self) -> u32 {
+   |         +++++
+
+error: this method could have a `#[must_use]` attribute
+  --> src/ascii.rs:60:12
+   |
+60 |     pub fn map(self, luminance: u8) -> char {
+   |            ^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+   |
+60 ~     #[must_use]
+61 ~     pub fn map(self, luminance: u8) -> char {
+   |
+
+error: this could be a `const fn`
+   --> src/clipping.rs:145:5
+    |
+145 | /     fn new_uninit() -> Self {
+146 | |         Self {
+147 | |             // SAFETY: An array of MaybeUninit is safe to be uninitialized.
+148 | |             tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },
+...   |
+151 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+145 |     const fn new_uninit() -> Self {
+    |     +++++
+
+error: usage of wildcard import
+   --> src/clipping.rs:227:13
+    |
+227 |         use std::arch::x86_64::*;
+    |             ^^^^^^^^^^^^^^^^^^^^ help: try: `std::arch::x86_64::{_mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmpge_ps, _mm_cmple_ps, _mm_and_ps, _mm_movemask_ps}`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#wildcard_imports
+
+error: item in documentation is missing backticks
+   --> src/hiz_buffer.rs:238:13
+    |
+238 |     /// See SIMD_PROFILING_ANALYSIS.md for details.
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+238 -     /// See SIMD_PROFILING_ANALYSIS.md for details.
+238 +     /// See `SIMD_PROFILING_ANALYSIS.md` for details.
+    |
+
+error: needless use of `for_each`
+  --> src/post_process/filters.rs:64:5
+   |
+64 | /     pixels.iter_mut().for_each(|pixel| {
+65 | |         let p = *pixel;
+66 | |         let luminance = u32::from(pixel_luminance(p));
+...  |
+69 | |     });
+   | |_______^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_for_each
+   = note: `-D clippy::needless-for-each` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::needless_for_each)]`
+help: try
+   |
+64 ~     for pixel in pixels.iter_mut() {
+65 +         let p = *pixel;
+66 +         let luminance = u32::from(pixel_luminance(p));
+67 +         // Preserve Alpha, set RGB to luminance
+68 +         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
+69 +     }
+   |
+
+error: needless use of `for_each`
+   --> src/post_process/filters.rs:155:5
+    |
+155 | /     pixels.iter_mut().for_each(|pixel| {
+156 | |         *pixel ^= 0x00FF_FFFF;
+157 | |     });
+    | |_______^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_for_each
+help: try
+    |
+155 ~     for pixel in pixels.iter_mut() {
+156 +         *pixel ^= 0x00FF_FFFF;
+157 +     }
+    |
+
+error: needless use of `for_each`
+   --> src/post_process/filters.rs:206:5
+    |
+206 | /     pixels.iter_mut().for_each(|pixel| {
+207 | |         let p = *pixel;
+208 | |         let r = (p >> 16) & 0xFF;
+209 | |         let g = (p >> 8) & 0xFF;
+...   |
+221 | |         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+222 | |     });
+    | |_______^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_for_each
+help: try
+    |
+206 ~     for pixel in pixels.iter_mut() {
+207 +         let p = *pixel;
+208 +         let r = (p >> 16) & 0xFF;
+209 +         let g = (p >> 8) & 0xFF;
+210 +         let b = p & 0xFF;
+211 +
+212 +         // Fixed-point arithmetic (scaled by 1024)
+213 +         let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
+214 +         let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
+215 +         let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
+216 +
+217 +         let new_r = new_r.min(255);
+218 +         let new_g = new_g.min(255);
+219 +         let new_b = new_b.min(255);
+220 +
+221 +         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+222 +     }
+    |
+
+error: binding to `_` prefixed variable with no side-effect
+  --> src/post_process/ssao.rs:90:13
+   |
+90 |         let _precomputed_kernels = &ctx.precomputed_kernel_buffer;
+   |             ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#no_effect_underscore_binding
+   = note: `-D clippy::no-effect-underscore-binding` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::no_effect_underscore_binding)]`
+
+error: this function has too many arguments (9/7)
+   --> src/post_process/ssao.rs:170:1
+    |
+170 | / fn apply_ssao_scalar(
+171 | |     occlusion_buffer: &mut [f32],
+172 | |     zb: &ZBuffer,
+173 | |     proj: &Mat4,
+...   |
+179 | |     bias: f32,
+180 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#too_many_arguments
+
+error: the loop variable `k` is used to index `kernel`
+   --> src/post_process/ssao.rs:557:18
+    |
+557 |         for k in 0..KERNEL_SIZE {
+    |                  ^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_range_loop
+    = note: `-D clippy::needless-range-loop` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_range_loop)]`
+help: consider using an iterator and enumerate()
+    |
+557 -         for k in 0..KERNEL_SIZE {
+557 +         for (k, <item>) in kernel.iter().enumerate().take(KERNEL_SIZE) {
+    |
+
+error: this method could have a `#[must_use]` attribute
+  --> src/skybox.rs:23:12
+   |
+23 |     pub fn new(faces: [Texture; 6]) -> Self {
+   |            ^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+   |
+23 ~     #[must_use]
+24 ~     pub fn new(faces: [Texture; 6]) -> Self {
+   |
+
+error: this could be a `const fn`
+  --> src/skybox.rs:23:5
+   |
+23 | /     pub fn new(faces: [Texture; 6]) -> Self {
+24 | |         Self { faces }
+25 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+23 |     pub const fn new(faces: [Texture; 6]) -> Self {
+   |         +++++
+
+error: this method could have a `#[must_use]` attribute
+  --> src/skybox.rs:29:12
+   |
+29 |     pub fn sample(&self, dir: Vec3) -> u32 {
+   |            ^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+   |
+29 ~     #[must_use]
+30 ~     pub fn sample(&self, dir: Vec3) -> u32 {
+   |
+
+error: item in documentation is missing backticks
+   --> src/texture.rs:193:28
+    |
+193 |     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |                            ^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+193 -     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+193 +     /// $$ P_{L+1}(x,y) = \`frac{P_L(2x,2y)` + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |
+
+error: item in documentation is missing backticks
+   --> src/texture.rs:193:46
+    |
+193 |     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |                                              ^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+193 -     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+193 +     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + `P_L(2x+1,2y)` + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |
+
+error: item in documentation is missing backticks
+   --> src/texture.rs:193:61
+    |
+193 |     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |                                                             ^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+193 -     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+193 +     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + `P_L(2x,2y+1)` + P_L(2x+1,2y+1)}{4} $$
+    |
+
+error: item in documentation is missing backticks
+   --> src/texture.rs:193:76
+    |
+193 |     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    |                                                                            ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+193 -     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+193 +     /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + `P_L(2x+1,2y+1)}{4`} $$
+    |
+
+error: casts from `u8` to `f32` can be expressed infallibly using `From`
+   --> src/experimental/dither.rs:102:29
+    |
+102 |             let bayer_val = matrix[(y % size) * size + (x % size)] as f32;
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `f32::from` instead
+    |
+102 -             let bayer_val = matrix[(y % size) * size + (x % size)] as f32;
+102 +             let bayer_val = f32::from(matrix[(y % size) * size + (x % size)]);
+    |
+
+error: casts from `u8` to `f32` can be expressed infallibly using `From`
+   --> src/experimental/dither.rs:151:25
+    |
+151 |             let r_new = quantize(r_old, depth) as f32;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `f32::from` instead
+    |
+151 -             let r_new = quantize(r_old, depth) as f32;
+151 +             let r_new = f32::from(quantize(r_old, depth));
+    |
+
+error: casts from `u8` to `f32` can be expressed infallibly using `From`
+   --> src/experimental/dither.rs:152:25
+    |
+152 |             let g_new = quantize(g_old, depth) as f32;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `f32::from` instead
+    |
+152 -             let g_new = quantize(g_old, depth) as f32;
+152 +             let g_new = f32::from(quantize(g_old, depth));
+    |
+
+error: casts from `u8` to `f32` can be expressed infallibly using `From`
+   --> src/experimental/dither.rs:153:25
+    |
+153 |             let b_new = quantize(b_old, depth) as f32;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#cast_lossless
+help: use `f32::from` instead
+    |
+153 -             let b_new = quantize(b_old, depth) as f32;
+153 +             let b_new = f32::from(quantize(b_old, depth));
+    |
+
+error: the loop variable `x` is used to index `row`
+   --> src/experimental/glitch.rs:112:18
+    |
+112 |         for x in 0..width {
+    |                  ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_range_loop
+help: consider using an iterator and enumerate()
+    |
+112 -         for x in 0..width {
+112 +         for (x, <item>) in row.iter_mut().enumerate().take(width) {
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/experimental/raytracer.rs:104:12
+    |
+104 |     pub fn intersect_triangle(
+    |            ^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+104 ~     #[must_use]
+105 ~     pub fn intersect_triangle(
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/experimental/raytracer.rs:168:12
+    |
+168 |     pub fn intersect_aabb(&self, aabb: &AABB, t_min: f32, t_max: f32) -> bool {
+    |            ^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+168 ~     #[must_use]
+169 ~     pub fn intersect_aabb(&self, aabb: &AABB, t_min: f32, t_max: f32) -> bool {
+    |
+
+error: item in documentation is missing backticks
+   --> src/experimental/raytracer.rs:233:23
+    |
+233 |     /// Creates a new RayTracer with default settings (3 bounces, dark grey background).
+    |                       ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#doc_markdown
+help: try
+    |
+233 -     /// Creates a new RayTracer with default settings (3 bounces, dark grey background).
+233 +     /// Creates a new `RayTracer` with default settings (3 bounces, dark grey background).
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> src/experimental/raytracer.rs:234:12
+    |
+234 |     pub fn new() -> Self {
+    |            ^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#must_use_candidate
+help: add the attribute
+    |
+234 ~     #[must_use]
+235 ~     pub fn new() -> Self {
+    |
+
+error: this `if` statement can be collapsed
+   --> src/experimental/raytracer.rs:350:17
+    |
+350 | /                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
+351 | |                     if hit.t < closest_t {
+352 | |                         closest_t = hit.t;
+353 | |                         closest_hit = Some(hit);
+...   |
+356 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+350 ~                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t)
+351 ~                     && hit.t < closest_t {
+352 |                         closest_t = hit.t;
+353 |                         closest_hit = Some(hit);
+354 |                         hit_obj = Some(r_obj.obj);
+355 ~                     }
+    |
+
+error: unused `self` argument
+   --> src/experimental/raytracer.rs:421:21
+    |
+421 |     fn check_shadow(&self, ray: &Ray, objects: &[RenderObject]) -> bool {
+    |                     ^^^^^
+    |
+    = help: consider refactoring to an associated function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unused_self
+
+error: used underscore-prefixed binding
+   --> src/experimental/vision.rs:123:13
+    |
+123 |     let _ = _config; // Unused for now
+    |             ^^^^^^^
+    |
+note: binding is defined here
+   --> src/experimental/vision.rs:122:61
+    |
+122 | fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConfig) {
+    |                                                             ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#used_underscore_binding
+    = note: `-D clippy::used-underscore-binding` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::used_underscore_binding)]`
+
+error: unused `self` argument
+   --> src/experimental/volume.rs:138:17
+    |
+138 |     fn add_face(&self, mesh: &mut Mesh, c: Vec3, h: f32, face: Face) {
+    |                 ^^^^^
+    |
+    = help: consider refactoring to an associated function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#unused_self
+
+error: this argument is passed by value, but not consumed in the function body
+   --> src/experimental/volume.rs:138:64
+    |
+138 |     fn add_face(&self, mesh: &mut Mesh, c: Vec3, h: f32, face: Face) {
+    |                                                                ^^^^
+    |
+help: or consider marking this type as `Copy`
+   --> src/experimental/volume.rs:209:1
+    |
+209 | enum Face {
+    | ^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_pass_by_value
+    = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
+help: consider taking a reference instead
+    |
+138 |     fn add_face(&self, mesh: &mut Mesh, c: Vec3, h: f32, face: &Face) {
+    |                                                                +
+
+error: this argument is a mutable reference, but not used mutably
+    --> src/rasterizer/tile.rs:2568:26
+     |
+2568 |     fn sort_bins_gouraud(&mut self) {
+     |                          ^^^^^^^^^ help: consider changing to: `&self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_pass_by_ref_mut
+     = note: `-D clippy::needless-pass-by-ref-mut` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_ref_mut)]`
+
+error: this argument is a mutable reference, but not used mutably
+    --> src/rasterizer/tile.rs:3013:23
+     |
+3013 |     fn sort_bins_flat(&mut self) {
+     |                       ^^^^^^^^^ help: consider changing to: `&self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_pass_by_ref_mut
+
+error: this argument is a mutable reference, but not used mutably
+    --> src/rasterizer/tile.rs:3159:27
+     |
+3159 |     fn sort_bins_textured(&mut self) {
+     |                           ^^^^^^^^^ help: consider changing to: `&self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_pass_by_ref_mut
+
+error: could not compile `abrash` (lib) due to 175 previous errors
