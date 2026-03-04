@@ -1,7 +1,7 @@
 use abrash::culling::Frustum;
 use abrash::geometry::{AABB, BoundingSphere};
 use abrash::math::{Mat4, Vec3};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_culling(c: &mut Criterion) {
     let view = Mat4::look_at(
@@ -41,7 +41,8 @@ fn bench_culling(c: &mut Criterion) {
     }
 
     let mut results = vec![false; aabbs.len()];
-    let transform = Mat4::translation(1.0, 2.0, 3.0) * Mat4::rotation_y(0.5) * Mat4::scale(2.0, 2.0, 2.0);
+    let transform =
+        Mat4::translation(1.0, 2.0, 3.0) * Mat4::rotation_y(0.5) * Mat4::scale(2.0, 2.0, 2.0);
 
     let mut group = c.benchmark_group("culling");
 
@@ -50,13 +51,13 @@ fn bench_culling(c: &mut Criterion) {
             for (i, aabb) in aabbs.iter().enumerate() {
                 results[i] = frustum.intersects_aabb(aabb);
             }
-        })
+        });
     });
 
     group.bench_function("frustum_cull_10k_aabbs_simd", |b| {
         b.iter(|| {
             frustum.cull_aabbs_prealloc(&aabbs, &mut results);
-        })
+        });
     });
 
     group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
@@ -64,13 +65,13 @@ fn bench_culling(c: &mut Criterion) {
             for (i, sphere) in spheres.iter().enumerate() {
                 results[i] = frustum.intersects(sphere);
             }
-        })
+        });
     });
 
     group.bench_function("frustum_cull_10k_spheres_simd", |b| {
         b.iter(|| {
             frustum.cull_spheres_prealloc(&spheres, &mut results);
-        })
+        });
     });
 
     group.bench_function("aabb_transform", |b| {
@@ -78,7 +79,7 @@ fn bench_culling(c: &mut Criterion) {
             for aabb in &aabbs {
                 let _ = aabb.transform(&transform);
             }
-        })
+        });
     });
 
     group.finish();
