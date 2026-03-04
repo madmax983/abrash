@@ -49,9 +49,7 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
                     }
                     if lum < 150 {
                         // T3: Medium Light - Top-right to bottom-left hatch
-                        if x >= y && (x - y) % spacing == 0 {
-                            is_ink = true;
-                        } else if y > x && (y - x) % spacing == 0 {
+                        if x.abs_diff(y) % spacing == 0 {
                             is_ink = true;
                         }
                     }
@@ -92,9 +90,7 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
                     }
                 }
                 if lum < 150 {
-                    if x >= y && (x - y) % spacing == 0 {
-                        is_ink = true;
-                    } else if y > x && (y - x) % spacing == 0 {
+                    if x.abs_diff(y) % spacing == 0 {
                         is_ink = true;
                     }
                 }
