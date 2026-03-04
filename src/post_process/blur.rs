@@ -47,12 +47,20 @@ fn box_blur_f32_horizontal_scalar(
 ) {
     let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
 
+    if width == 0 {
+        return;
+    }
+
     // If width is too small, fallback to checked loop
     if width <= 2 * radius + 1 {
-        for y in 0..height {
+        #[cfg(feature = "parallel")]
+        let iter = dest.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = dest.chunks_exact_mut(width).enumerate();
+
+        iter.for_each(|(y, dest_row)| {
             let row_start = y * width;
             let src_row = &src[row_start..row_start + width];
-            let dest_row = &mut dest[row_start..row_start + width];
 
             let mut acc = 0.0;
             let first = src_row[0];
@@ -70,14 +78,18 @@ fn box_blur_f32_horizontal_scalar(
                 acc -= src_row[out_idx];
                 acc += src_row[in_idx];
             }
-        }
+        });
         return;
     }
 
-    for y in 0..height {
+    #[cfg(feature = "parallel")]
+    let iter = dest.par_chunks_exact_mut(width).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = dest.chunks_exact_mut(width).enumerate();
+
+    iter.for_each(|(y, dest_row)| {
         let row_start = y * width;
         let src_row = &src[row_start..row_start + width];
-        let dest_row = &mut dest[row_start..row_start + width];
 
         let mut acc = 0.0;
 
@@ -108,7 +120,7 @@ fn box_blur_f32_horizontal_scalar(
             acc -= src_row[x - radius];
             acc += last;
         }
-    }
+    });
 }
 
 fn box_blur_f32_vertical_scalar(
