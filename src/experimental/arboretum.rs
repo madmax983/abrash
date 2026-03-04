@@ -114,11 +114,11 @@ impl LSystem {
     /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
     /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
     pub fn expand(&self, iterations: u32) -> String {
-        let mut current = self.axiom.clone();
-
         if iterations == 0 {
-            return current;
+            return self.axiom.clone();
         }
+
+        let mut current = self.axiom.clone();
 
         // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
         let mut is_pure_ascii = self.axiom.is_ascii();
@@ -145,20 +145,13 @@ impl LSystem {
             for (k, v) in &self.rules {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
-            let mut rules_len_array = [0; 128];
-            for u in 0..128 {
-                if let Some(s) = rules_array[u] {
-                    rules_len_array[u] = s.len();
-                }
-            }
-
-            let mut current_bytes = self.axiom.clone().into_bytes();
+            let mut current_bytes = self.axiom.as_bytes().to_vec();
             for _ in 0..iterations {
+                // Determine capacity and write directly
                 let mut exact_len = 0;
                 for &b in &current_bytes {
-                    let u = (b as usize) & 127;
-                    if rules_array[u].is_some() {
-                        exact_len += rules_len_array[u];
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
+                        exact_len += replacement.len();
                     } else {
                         exact_len += 1;
                     }
@@ -166,8 +159,7 @@ impl LSystem {
 
                 let mut next_bytes = Vec::with_capacity(exact_len);
                 for b in current_bytes {
-                    let u = (b as usize) & 127;
-                    if let Some(replacement) = rules_array[u] {
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
                         next_bytes.extend_from_slice(replacement);
                     } else {
                         next_bytes.push(b);
@@ -176,42 +168,22 @@ impl LSystem {
                 current_bytes = next_bytes;
             }
 
-            return String::from_utf8(current_bytes).unwrap();
+            // SAFETY: We checked is_ascii() for axiom and all rules, so bytes are guaranteed to be valid UTF-8.
+            return unsafe { String::from_utf8_unchecked(current_bytes) };
         }
 
         // Fallback for unicode
-        let mut rules_array: [Option<&String>; 128] = [None; 128];
+        let mut rules_array: [Option<&str>; 128] = [None; 128];
         for (k, v) in &self.rules {
             if (*k as usize) < 128 {
-                rules_array[*k as usize] = Some(v);
-            }
-        }
-
-        let mut rules_len_array = [0; 128];
-        for u in 0..128 {
-            if let Some(s) = rules_array[u] {
-                rules_len_array[u] = s.len();
+                rules_array[*k as usize] = Some(v.as_str());
             }
         }
 
         for _ in 0..iterations {
-            let mut exact_len = 0;
-            for c in current.chars() {
-                let u = c as usize;
-                if u < 128 {
-                    if rules_array[u].is_some() {
-                        exact_len += rules_len_array[u];
-                    } else {
-                        exact_len += c.len_utf8();
-                    }
-                } else if let Some(replacement) = self.rules.get(&c) {
-                    exact_len += replacement.len();
-                } else {
-                    exact_len += c.len_utf8();
-                }
-            }
-
-            let mut next = String::with_capacity(exact_len);
+            // Estimate capacity: a bit larger than current to avoid multiple reallocations,
+            // but not requiring a full pre-pass loop over the string.
+            let mut next = String::with_capacity(current.len() * 2);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {
@@ -236,16 +208,17 @@ impl LSystem {
     pub fn generate_mesh(&self, iterations: u32) -> Mesh {
         let instructions = self.expand(iterations);
 
-        let num_segments = instructions.chars().filter(|&c| c == 'F').count();
-        let num_pushes = instructions.chars().filter(|&c| c == '[').count();
+        // Estimate capacities from total length without needing a second O(N) pass
+        let num_segments = instructions.len() / 2;
         let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 8);
 
-        let mut stack: Vec<Turtle> = Vec::with_capacity(num_pushes);
+        let mut stack: Vec<Turtle> = Vec::with_capacity(instructions.len() / 8);
         let mut turtle = Turtle::new(self.step_length, self.radius);
 
-        for c in instructions.chars() {
-            match c {
-                'F' => {
+        // F, f, +, -, &, ^, \, /, |, [, ] are all 1-byte ascii characters in UTF-8
+        for &b in instructions.as_bytes() {
+            match b {
+                b'F' => {
                     // Draw segment
                     let start = turtle.position;
                     let end = start + turtle.heading * turtle.step_length;
@@ -254,53 +227,53 @@ impl LSystem {
 
                     turtle.position = end;
                 }
-                'f' => {
+                b'f' => {
                     // Move without drawing
                     turtle.position = turtle.position + turtle.heading * turtle.step_length;
                 }
-                '+' => {
+                b'+' => {
                     // Yaw Left (around Up)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '-' => {
+                b'-' => {
                     // Yaw Right (around Up)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '&' => {
+                b'&' => {
                     // Pitch Down (around Left)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
-                '^' => {
+                b'^' => {
                     // Pitch Up (around Left)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
-                '\\' => {
+                b'\\' => {
                     // Roll Left (around Heading)
                     turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '/' => {
+                b'/' => {
                     // Roll Right (around Heading)
                     turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '|' => {
+                b'|' => {
                     // Turn 180 (around Up)
                     turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '[' => {
+                b'[' => {
                     stack.push(turtle.clone());
                 }
-                ']' => {
+                b']' => {
                     if let Some(state) = stack.pop() {
                         turtle = state;
                     }
