@@ -407,6 +407,11 @@ name = "directional_blur_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "emboss_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "directional_blur_demo"
 path = "examples/directional_blur_demo.rs"
