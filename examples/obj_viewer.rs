@@ -203,7 +203,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let content = match fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("❌ Failed to read file '{}': {}", path.display(), e);
+                    let mut error_table = Table::new();
+                    error_table
+                        .load_preset(presets::UTF8_FULL)
+                        .set_header(vec![
+                            Cell::new("❌ Error Reading File")
+                                .add_attribute(comfy_table::Attribute::Bold)
+                                .fg(Color::Red),
+                        ])
+                        .add_row(vec![
+                            Cell::new(format!("File '{}': {}", path.display(), e))
+                                .fg(Color::Yellow),
+                        ]);
+                    eprintln!("\n{error_table}");
                     std::process::exit(1);
                 }
             };
@@ -243,7 +255,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             m
         }
         Err(e) => {
-            eprintln!("❌ Failed to parse OBJ: {e}");
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .set_header(vec![
+                    Cell::new("❌ Error Parsing OBJ")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![Cell::new(format!("{e}")).fg(Color::Yellow)]);
+            eprintln!("\n{error_table}");
             std::process::exit(1);
         }
     };
