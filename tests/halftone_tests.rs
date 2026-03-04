@@ -32,10 +32,7 @@ fn test_halftone_filter() {
             // Halftone should output either pure black or pure white
             assert!(
                 (r == 0 && g == 0 && b == 0) || (r == 255 && g == 255 && b == 255),
-                "Pixel at ({}, {}) is not black or white: 0x{:08X}",
-                x,
-                y,
-                pixel
+                "Pixel at ({x}, {y}) is not black or white: 0x{pixel:08X}"
             );
         }
     }

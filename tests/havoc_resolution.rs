@@ -11,9 +11,8 @@ fn test_havoc_resolution_no_overflow() {
     let v1 = (Vec3::new(0.9, -0.831, 1.0), 1.0);
     let v2 = (Vec3::new(0.831, -0.9, 1.0), 1.0);
 
-    let (_p0, p1, p2) = project_triangle_to_screen(
-        v0.0, v0.1, v1.0, v1.1, v2.0, v2.1, half_width, half_height
-    );
+    let (_p0, p1, p2) =
+        project_triangle_to_screen(v0.0, v0.1, v1.0, v1.1, v2.0, v2.1, half_width, half_height);
 
     assert!(p1.x > 32767, "Projection is not over i16::MAX");
     assert!(p2.y > 32767, "Projection is not over i16::MAX");

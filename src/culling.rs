@@ -491,8 +491,8 @@ mod tests {
         let mut results = vec![false; 2]; // Initialize with false to ensure it writes true
         frustum.cull_spheres_prealloc(&spheres, &mut results);
 
-        assert_eq!(results[0], true);
-        assert_eq!(results[1], false);
+        assert!(results[0]);
+        assert!(!results[1]);
     }
 
     #[test]

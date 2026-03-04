@@ -38,9 +38,9 @@ fn test_apply_sharpen_basic() {
     let g = (center_pixel >> 8) & 0xFF;
     let b = center_pixel & 0xFF;
 
-    assert_eq!(r, 0, "Center pixel R channel should be 0, got {}", r);
-    assert_eq!(g, 0, "Center pixel G channel should be 0, got {}", g);
-    assert_eq!(b, 0, "Center pixel B channel should be 0, got {}", b);
+    assert_eq!(r, 0, "Center pixel R channel should be 0, got {r}");
+    assert_eq!(g, 0, "Center pixel G channel should be 0, got {g}");
+    assert_eq!(b, 0, "Center pixel B channel should be 0, got {b}");
 
     // Test that the border remains unmodified
     let border_pixel = fb2.get_pixel(0, 0).unwrap();

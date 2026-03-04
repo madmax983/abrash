@@ -21,8 +21,8 @@ fn bench_radial_blur(c: &mut Criterion) {
                 black_box(512),
                 black_box(0.5),
                 black_box(16),
-            )
-        })
+            );
+        });
     });
 }
 

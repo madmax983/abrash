@@ -237,17 +237,15 @@ impl AABB {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[target_feature(enable = "avx2")]
     pub unsafe fn transform_avx2(&self, transform: &Mat4) -> Self {
-        #[cfg(target_arch = "x86_64")]
-        use std::arch::x86_64::{
-            _mm256_add_ps, _mm256_max_ps,
-            _mm256_min_ps, _mm256_mul_ps, _mm256_permute_ps, _mm256_set_m128, _mm256_storeu_ps,
-            _mm_load_ps, _mm_set_ps, _mm256_permute2f128_ps,
-        };
         #[cfg(target_arch = "x86")]
         use std::arch::x86::{
-            _mm256_add_ps, _mm256_max_ps,
-            _mm256_min_ps, _mm256_mul_ps, _mm256_permute_ps, _mm256_set_m128, _mm256_storeu_ps,
-            _mm_load_ps, _mm_set_ps, _mm256_permute2f128_ps,
+            _mm_load_ps, _mm_set_ps, _mm256_add_ps, _mm256_max_ps, _mm256_min_ps, _mm256_mul_ps,
+            _mm256_permute_ps, _mm256_permute2f128_ps, _mm256_set_m128, _mm256_storeu_ps,
+        };
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::{
+            _mm_load_ps, _mm_set_ps, _mm256_add_ps, _mm256_max_ps, _mm256_min_ps, _mm256_mul_ps,
+            _mm256_permute_ps, _mm256_permute2f128_ps, _mm256_set_m128, _mm256_storeu_ps,
         };
 
         unsafe {

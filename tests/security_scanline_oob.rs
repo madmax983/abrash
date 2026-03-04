@@ -4,7 +4,6 @@ use abrash::rasterizer::texture::{
 };
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
-use abrash::math::ScreenPoint;
 
 #[test]
 fn test_draw_scanline_textured_perspective_oob() {
@@ -31,10 +30,14 @@ fn test_draw_scanline_textured_perspective_oob() {
 
     // Extreme negative x_start should cause diff to overflow i32 if not handled properly.
     draw_scanline_textured_perspective(
-        &mut fb, &mut zb, &tex, 5, // y
+        &mut fb,
+        &mut zb,
+        &tex,
+        5,             // y
         std::i32::MIN, // x_start
-        50, // x_end
-        start, &gradients,
+        50,            // x_end
+        start,
+        &gradients,
     );
 }
 
@@ -46,11 +49,13 @@ fn test_draw_scanline_flat_oob() {
 
     // Extreme negative x_start should cause diff to overflow i32 if not handled properly.
     draw_scanline_flat(
-        &mut fb, &mut zb, 5, // y
+        &mut fb,
+        &mut zb,
+        5,             // y
         std::i32::MIN, // x_start
-        50, // x_end
-        1.0, // z_start
-        0.0, // dz_dx
-        0xFFFFFFFF, // color
+        50,            // x_end
+        1.0,           // z_start
+        0.0,           // dz_dx
+        0xFFFFFFFF,    // color
     );
 }
