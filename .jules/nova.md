@@ -60,3 +60,8 @@
 **Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.
+
+## [The Exporter]
+**Concept:** Added an `ImageExporter` utility to save framebuffers without huge external dependencies (like the `image` crate). It features an interesting mashup combining `Framebuffer` and `AsciiConverter` to save rendered frames as `.ans` (ANSI colored text) files, viewable directly via `cat`.
+**Fate:** Implemented
+**Lesson:** Simple, raw image formats like PPM and TGA are extremely easy to construct from raw buffer data. Mashing up existing features (ASCII rendering) with standard I/O provides a surprisingly cool debug/viewing method directly in modern terminals.
