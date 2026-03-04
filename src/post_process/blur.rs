@@ -42,7 +42,7 @@ fn box_blur_f32_horizontal_scalar(
     src: &[f32],
     dest: &mut [f32],
     width: usize,
-    height: usize,
+    _height: usize,
     radius: usize,
 ) {
     let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
