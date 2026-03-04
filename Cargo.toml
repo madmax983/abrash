@@ -401,3 +401,13 @@ required-features = ["nova"]
 name = "kaleidoscope_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "directional_blur_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "directional_blur_demo"
+path = "examples/directional_blur_demo.rs"
+required-features = ["nova"]
