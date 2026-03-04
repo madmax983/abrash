@@ -4,6 +4,9 @@ use crate::math::{Mat4, Vec3};
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 thread_local! {
     static SSAO_CONTEXT: RefCell<SsaoContext> = RefCell::new(SsaoContext::default());
 }
@@ -165,10 +168,19 @@ fn apply_ssao_scalar(
     let p22 = proj.m[2][2];
     let p32 = proj.m[3][2];
 
+    if width == 0 {
+        return;
+    }
+
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for y in 0..height {
+    #[cfg(feature = "parallel")]
+    let iter = occlusion_buffer.par_chunks_exact_mut(width).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = occlusion_buffer.chunks_exact_mut(width).enumerate();
+
+    iter.for_each(|(y, row)| {
         let noise_y = y % NOISE_SIZE;
         for x in 0..width {
             let noise_x = x % NOISE_SIZE;
@@ -178,7 +190,7 @@ fn apply_ssao_scalar(
             let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
             if depth_val >= 1.0 {
-                occlusion_buffer[y * width + x] = 0.0;
+                row[x] = 0.0;
                 continue;
             }
 
@@ -226,9 +238,9 @@ fn apply_ssao_scalar(
                 }
             }
 
-            occlusion_buffer[y * width + x] = occlusion;
+            row[x] = occlusion;
         }
-    }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -273,9 +285,18 @@ unsafe fn apply_ssao_avx2(
         let height_i = _mm256_set1_epi32(height as i32);
         let minus_one_i = _mm256_set1_epi32(-1);
 
+        if width == 0 {
+            return;
+        }
+
         let zb_data = zb.as_slice();
 
-        for y in 0..height {
+        #[cfg(feature = "parallel")]
+        let iter = occlusion_buffer.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = occlusion_buffer.chunks_exact_mut(width).enumerate();
+
+        iter.for_each(|(y, row)| {
             let y_idx = y * width;
             let mut x = 0;
 
@@ -289,7 +310,7 @@ unsafe fn apply_ssao_avx2(
                 let mask_valid = _mm256_cmp_ps(depth_val, one, _CMP_LT_OQ);
 
                 if _mm256_movemask_ps(mask_valid) == 0 {
-                    _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), zero);
+                    _mm256_storeu_ps(row.as_mut_ptr().add(x), zero);
                     x += 8;
                     continue;
                 }
@@ -403,7 +424,7 @@ unsafe fn apply_ssao_avx2(
                 }
 
                 let final_occ = _mm256_and_ps(occlusion, mask_valid);
-                _mm256_storeu_ps(occlusion_buffer.as_mut_ptr().add(y_idx + x), final_occ);
+                _mm256_storeu_ps(row.as_mut_ptr().add(x), final_occ);
 
                 x += 8;
             }
@@ -417,7 +438,7 @@ unsafe fn apply_ssao_avx2(
                 let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
                 if depth_val >= 1.0 {
-                    occlusion_buffer[y * width + x] = 0.0;
+                    row[x] = 0.0;
                     x += 1;
                     continue;
                 }
@@ -485,10 +506,10 @@ unsafe fn apply_ssao_avx2(
                         }
                     }
                 }
-                occlusion_buffer[y * width + x] = occlusion;
+                row[x] = occlusion;
                 x += 1;
             }
-        }
+        });
     }
 }
 

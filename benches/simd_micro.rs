@@ -57,7 +57,7 @@ fn bench_hiz_reduction_cycles(c: &mut Criterion) {
     for resolution in &[(1920, 1080), (3840, 2160)] {
         let (width, height) = *resolution;
         let zb = ZBuffer::new(width, height).unwrap();
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
 
         group.bench_with_input(
             BenchmarkId::new("pyramid_build", format!("{width}x{height}")),
@@ -72,7 +72,7 @@ fn bench_hiz_reduction_cycles(c: &mut Criterion) {
         // Report cycles per pixel
         #[cfg(target_arch = "x86_64")]
         {
-            let mut hiz_test = HiZBuffer::new(width, height);
+            let mut hiz_test = HiZBuffer::new(width, height).unwrap();
             let cycles = measure_cycles(|| {
                 hiz_test.build_pyramid(&zb);
             });

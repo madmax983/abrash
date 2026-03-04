@@ -134,7 +134,7 @@ fn bench_hiz_pyramid_build(c: &mut Criterion) {
     // 1080p
     group.bench_function("1080p", |b| {
         let zb = ZBuffer::new(1920, 1080).unwrap();
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
 
         b.iter(|| {
             hiz.build_pyramid(black_box(&zb));
@@ -144,7 +144,7 @@ fn bench_hiz_pyramid_build(c: &mut Criterion) {
     // 4K
     group.bench_function("4k", |b| {
         let zb = ZBuffer::new(3840, 2160).unwrap();
-        let mut hiz = HiZBuffer::new(3840, 2160);
+        let mut hiz = HiZBuffer::new(3840, 2160).unwrap();
 
         b.iter(|| {
             hiz.build_pyramid(black_box(&zb));

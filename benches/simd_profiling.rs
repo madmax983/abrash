@@ -146,7 +146,7 @@ fn profile_hiz_pyramid() {
 
     for &(width, height, name) in &resolutions {
         let zb = ZBuffer::new(width, height).unwrap();
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
 
         // Warmup
         for _ in 0..10 {

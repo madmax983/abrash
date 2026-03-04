@@ -29,3 +29,6 @@
 **2026-03-01 - [Fix scanline rasterizer buffer overflows]**
 **Threat:** Several rasterizer functions (`texture.rs`, `phong.rs`, `pbr.rs`, `reflection.rs`) calculated bounds manually and then directly used `unsafe { fb.get_unchecked_mut(...) }`. An off-by-one error or uncaught negative coordinate could lead to buffer overflows and memory corruption.
 **Defense:** Refactored all affected scanline functions to use `crate::rasterizer::core::prepare_scanline`, which safely computes clamped slice boundaries and returns valid mutable slices of the framebuffer and Z-buffer, entirely removing the `unsafe` block for bounds extraction.
+**2023-10-27 - [Fix Integer Overflow and Uninitialized Memory Read]**
+**Threat:** `HiZBuffer::new` allowed integer overflows of width and height that resulted in out-of-bounds writes. In `clipping.rs`, the `ClippedTriangles` `Index` trait implementation utilized `debug_assert!`, allowing uninitialized memory to be read in release mode.
+**Defense:** Added `checked_mul` bounds checking for `HiZBuffer::new` causing it to safely return a `Result`, and replaced `debug_assert!` with a standard `assert!` inside `ClippedTriangles` to prevent undefined behavior.

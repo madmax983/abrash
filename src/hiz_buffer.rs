@@ -39,13 +39,17 @@ struct PyramidLevel {
 }
 
 impl PyramidLevel {
-    fn new(width: u32, height: u32) -> Self {
-        let size = (width * height) as usize;
-        Self {
+    fn new(width: u32, height: u32) -> Result<Self, &'static str> {
+        let size = u64::from(width)
+            .checked_mul(u64::from(height))
+            .filter(|&s| u32::try_from(s).is_ok())
+            .ok_or("PyramidLevel size overflow")? as usize;
+
+        Ok(Self {
             width,
             height,
             depths: vec![f32::INFINITY; size],
-        }
+        })
     }
 }
 
@@ -60,7 +64,7 @@ impl PyramidLevel {
 /// let width = 800;
 /// let height = 600;
 /// let mut zb = ZBuffer::new(width, height).unwrap();
-/// let mut hiz = HiZBuffer::new(width, height);
+/// let mut hiz = HiZBuffer::new(width, height).unwrap();
 ///
 /// // After rendering a frame, build the pyramid
 /// hiz.build_pyramid(&zb);
@@ -93,12 +97,17 @@ impl HiZBuffer {
     /// ```
     /// use abrash::hiz_buffer::HiZBuffer;
     ///
-    /// let hiz = HiZBuffer::new(1920, 1080);
+    /// let hiz = HiZBuffer::new(1920, 1080).unwrap();
     /// assert_eq!(hiz.level_count(), 12); // ceil(log2(1920)) + 1 = 11 + 1 = 12
     /// ```
     #[must_use]
-    pub fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && height > 0, "Dimensions must be positive");
+    pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
+        if width == 0 || height == 0 {
+            return Err("Dimensions must be positive");
+        }
+        if width > i32::MAX as u32 || height > i32::MAX as u32 {
+            return Err("Buffer dimensions too large (max i32::MAX)");
+        }
 
         // Calculate level count: ceil(log2(max(width, height))) + 1
         // This gives us levels 0..level_count where level 0 is full resolution
@@ -107,16 +116,16 @@ impl HiZBuffer {
 
         // Create pyramid levels (skip level 0 since it references zbuffer)
         let mut levels = Vec::with_capacity(level_count as usize);
-        levels.push(PyramidLevel::new(width, height)); // Level 0 placeholder
+        levels.push(PyramidLevel::new(width, height)?); // Level 0 placeholder
 
         for level_idx in 1..level_count {
             let scale = 1u32 << level_idx; // 2^level_idx
             let level_width = width.div_ceil(scale);
             let level_height = height.div_ceil(scale);
-            levels.push(PyramidLevel::new(level_width, level_height));
+            levels.push(PyramidLevel::new(level_width, level_height)?);
         }
 
-        Self {
+        Ok(Self {
             width,
             height,
             level_count,
@@ -125,7 +134,7 @@ impl HiZBuffer {
 
             #[cfg(feature = "gpu-binning")]
             gpu_builder: None,
-        }
+        })
     }
 
     /// Get the number of pyramid levels
@@ -431,7 +440,7 @@ impl HiZBuffer {
     /// use abrash::hiz_buffer::{HiZBuffer, AABB3D};
     /// use abrash::zbuffer::ZBuffer;
     ///
-    /// let mut hiz = HiZBuffer::new(1920, 1080);
+    /// let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
     /// let zb = ZBuffer::new(1920, 1080).unwrap();
     /// hiz.build_pyramid(&zb);
     ///
@@ -555,25 +564,25 @@ mod tests {
     #[test]
     fn test_level_count_computation() {
         // 1024×1024 → ceil(log2(1024)) + 1 = 10 + 1 = 11 levels
-        let hiz = HiZBuffer::new(1024, 1024);
+        let hiz = HiZBuffer::new(1024, 1024).unwrap();
         assert_eq!(hiz.level_count(), 11);
 
         // 1920×1080 → ceil(log2(1920)) + 1 = 11 + 1 = 12 levels
-        let hiz = HiZBuffer::new(1920, 1080);
+        let hiz = HiZBuffer::new(1920, 1080).unwrap();
         assert_eq!(hiz.level_count(), 12);
 
         // 800×600 → ceil(log2(800)) + 1 = 10 + 1 = 11 levels
-        let hiz = HiZBuffer::new(800, 600);
+        let hiz = HiZBuffer::new(800, 600).unwrap();
         assert_eq!(hiz.level_count(), 11);
 
         // 512×512 → ceil(log2(512)) + 1 = 9 + 1 = 10 levels
-        let hiz = HiZBuffer::new(512, 512);
+        let hiz = HiZBuffer::new(512, 512).unwrap();
         assert_eq!(hiz.level_count(), 10);
     }
 
     #[test]
     fn test_level_dimensions() {
-        let hiz = HiZBuffer::new(1920, 1080);
+        let hiz = HiZBuffer::new(1920, 1080).unwrap();
 
         // Level 0: full resolution
         assert_eq!(hiz.level_dimensions(0), Some((1920, 1080)));
@@ -596,13 +605,13 @@ mod tests {
 
     #[test]
     fn test_pyramid_initially_invalid() {
-        let hiz = HiZBuffer::new(800, 600);
+        let hiz = HiZBuffer::new(800, 600).unwrap();
         assert!(!hiz.is_valid());
     }
 
     #[test]
     fn test_pyramid_valid_after_build() {
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         let zb = ZBuffer::new(800, 600).unwrap();
 
         hiz.build_pyramid(&zb);
@@ -611,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_pyramid_invalidate() {
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         let zb = ZBuffer::new(800, 600).unwrap();
 
         hiz.build_pyramid(&zb);
@@ -636,7 +645,7 @@ mod tests {
             *d = (i + 1) as f32;
         }
 
-        let mut hiz = HiZBuffer::new(4, 4);
+        let mut hiz = HiZBuffer::new(4, 4).unwrap();
         hiz.build_pyramid(&zb);
 
         // Level 1 should be 2×2 with mins of each 2×2 quad:
@@ -665,7 +674,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(4, 4);
+        let mut hiz = HiZBuffer::new(4, 4).unwrap();
         hiz.build_pyramid(&zb);
 
         // Level 2 should be 1×1 with global minimum
@@ -688,7 +697,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
         // All pyramid levels should have depth 5.0 (constant propagation)
@@ -702,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_offscreen_aabb_returns_false() {
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         let zb = ZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
@@ -743,7 +752,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
         // Query AABB with min_depth=10.0 (farther than zbuffer)
@@ -771,7 +780,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
         // Query AABB with min_depth=5.0 (closer than zbuffer)
@@ -803,7 +812,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
         // Query AABB that overlaps both regions
@@ -837,7 +846,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(800, 600);
+        let mut hiz = HiZBuffer::new(800, 600).unwrap();
         hiz.build_pyramid(&zb);
 
         // Query AABB that overlaps the closer region
@@ -857,7 +866,7 @@ mod tests {
 
     #[test]
     fn test_invalid_pyramid_assumes_visible() {
-        let hiz = HiZBuffer::new(800, 600);
+        let hiz = HiZBuffer::new(800, 600).unwrap();
         // Don't build pyramid, leave it invalid
 
         let aabb = AABB3D {
@@ -881,7 +890,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         slice.fill(10.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test coarse bin (128×128) with min_depth=5.0 (closer than zbuffer)
@@ -906,7 +915,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         slice.fill(5.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test coarse bin (128×128) with min_depth=10.0 (farther than zbuffer)
@@ -929,7 +938,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         slice.fill(10.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Bin completely offscreen (negative coords)
@@ -973,7 +982,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test coarse bin that overlaps the closer region
@@ -1001,7 +1010,7 @@ mod tests {
         slice.fill(10.0);
         slice.fill(10.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Verify level 2 exists and has correct dimensions
@@ -1024,7 +1033,7 @@ mod tests {
 
     #[test]
     fn test_coarse_bin_invalid_pyramid_assumes_visible() {
-        let hiz = HiZBuffer::new(1920, 1080);
+        let hiz = HiZBuffer::new(1920, 1080).unwrap();
         // Don't build pyramid, leave it invalid
 
         let bin_aabb = AABB3D {
@@ -1056,7 +1065,7 @@ mod tests {
             }
         }
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test bin in an even tile (depth 5.0)
@@ -1088,7 +1097,7 @@ mod tests {
         let slice = zb.as_mut_slice();
         slice.fill(10.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test bin at screen edges (clamping behavior)
@@ -1115,7 +1124,7 @@ mod tests {
         slice.fill(10.0);
         slice.fill(10.0);
 
-        let mut hiz = HiZBuffer::new(1920, 1080);
+        let mut hiz = HiZBuffer::new(1920, 1080).unwrap();
         hiz.build_pyramid(&zb);
 
         // Test bin with min_depth exactly equal to zbuffer depth

@@ -30,6 +30,7 @@ pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
+pub mod directional_blur;
 pub mod dither;
 pub mod glitch;
 pub mod halftone;

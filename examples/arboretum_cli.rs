@@ -94,7 +94,19 @@ mod app {
         terminal.show_cursor()?;
 
         if let Err(err) = res {
-            eprintln!("TUI Error: {err:?}");
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ TUI Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{err:?}")).fg(comfy_table::Color::Yellow),
+                ]);
+
+            eprintln!("\n{error_table}");
         }
 
         Ok(())
@@ -279,13 +291,35 @@ fn main() {
     #[cfg(feature = "nova")]
     {
         if let Err(e) = app::run() {
-            eprintln!("Error: {e}");
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ Application Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{e}")).fg(comfy_table::Color::Yellow),
+                ]);
+
+            eprintln!("\n{error_table}");
             std::process::exit(1);
         }
     }
     #[cfg(not(feature = "nova"))]
     {
-        eprintln!("This example requires the 'nova' feature.");
-        eprintln!("Run with: cargo run --example arboretum_cli --features nova");
+        use crossterm::style::Stylize;
+        eprintln!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
+        eprintln!(
+            "{}",
+            "This example requires the 'nova' feature to run.".white()
+        );
+        eprintln!("\nTry running with:");
+        eprintln!(
+            "{}",
+            "cargo run --example arboretum_cli --features nova".green()
+        );
+        std::process::exit(1);
     }
 }

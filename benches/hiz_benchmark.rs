@@ -15,7 +15,7 @@ fn bench_hiz_build(c: &mut Criterion) {
         *depth = rng.gen_range(0.0..1.0);
     }
 
-    let mut hiz = HiZBuffer::new(width, height);
+    let mut hiz = HiZBuffer::new(width, height).unwrap();
 
     c.bench_function("hiz_build_1080p", |b| {
         b.iter(|| {
@@ -35,7 +35,7 @@ fn bench_hiz_query(c: &mut Criterion) {
         *depth = rng.gen_range(0.0..1.0);
     }
 
-    let mut hiz = HiZBuffer::new(width, height);
+    let mut hiz = HiZBuffer::new(width, height).unwrap();
     hiz.build_pyramid(&zb);
 
     // Generate some random AABBs

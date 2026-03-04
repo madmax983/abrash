@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -1554,7 +1554,7 @@ impl TileRenderer {
     /// - Overhead: 1-2ms pyramid build at 1080p, 4-8ms at 4K
     /// - Culling rate: 30-70% in typical scenes with occlusion
     pub fn enable_hiz(&mut self) {
-        self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height));
+        self.hiz_buffer = Some(HiZBuffer::new(self.width, self.height).unwrap());
     }
 
     /// Enable software-based two-level hierarchical binning.
@@ -2364,45 +2364,25 @@ impl TileRenderer {
                                 let tile_y0 = ty * TILE_SIZE;
                                 let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
                                 let tile_cols = (tile_x_end - tile_x0) as usize;
+                                let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
+                                let row_end = (clear_y_max as u32 + 1)
+                                    .min(tile_y0 + TILE_SIZE)
+                                    .min(height);
 
-                tiles.par_iter().for_each_init(
-                    || {
-                        let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                        (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                    },
-                    |buffers, &(tx, ty)| {
-                        let (tile_pixels, tile_depths) = &mut *buffers;
-                        if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
-                            tx,
-                            ty,
-                            tile_bins,
-                            prepared,
-                            tiles_x,
-                            width,
-                            height,
-                            tile_pixels,
-                            tile_depths,
-                        ) {
-                            // Merge tile into framebuffer/zbuffer
-                            let tile_x0 = tx * TILE_SIZE;
-                            let tile_y0 = ty * TILE_SIZE;
-                            let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
-                            let tile_cols = (tile_x_end - tile_x0) as usize;
+                                for row in row_begin..row_end {
+                                    let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
+                                    let fb_start = row as usize * width as usize + tile_x0 as usize;
 
-                            let row_begin = clear_y_min.max(tile_y0 as i32) as u32;
-                            let row_end = (clear_y_max as u32 + 1)
-                                .min(tile_y0 + TILE_SIZE)
-                                .min(height);
-
-                            for row in row_begin..row_end {
-                                let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;
-                                let fb_start = row as usize * width as usize + tile_x0 as usize;
-
-                                for col in 0..tile_cols {
-                                    fb_ptr
-                                        .write(fb_start + col, tile_pixels[tile_row_offset + col]);
-                                    zb_ptr
-                                        .write(fb_start + col, tile_depths[tile_row_offset + col]);
+                                    for col in 0..tile_cols {
+                                        fb_ptr.write(
+                                            fb_start + col,
+                                            tile_pixels[tile_row_offset + col],
+                                        );
+                                        zb_ptr.write(
+                                            fb_start + col,
+                                            tile_depths[tile_row_offset + col],
+                                        );
+                                    }
                                 }
                             }
                         },
@@ -2415,7 +2395,6 @@ impl TileRenderer {
             hiz.invalidate();
         }
     }
-
     #[cfg_attr(feature = "parallel", allow(dead_code))]
     fn prepare_triangle_gouraud(
         &mut self,
@@ -2518,18 +2497,18 @@ impl TileRenderer {
 
             results.push(PreparedGouraudTriangle {
                 p0: CompactScreenPoint {
-                    x: p0.x as i16,
-                    y: p0.y as i16,
+                    x: p0.x,
+                    y: p0.y,
                     z: p0.z,
                 },
                 p1: CompactScreenPoint {
-                    x: p1.x as i16,
-                    y: p1.y as i16,
+                    x: p1.x,
+                    y: p1.y,
                     z: p1.z,
                 },
                 p2: CompactScreenPoint {
-                    x: p2.x as i16,
-                    y: p2.y as i16,
+                    x: p2.x,
+                    y: p2.y,
                     z: p2.z,
                 },
                 c0: c0_fixed,
@@ -3570,8 +3549,8 @@ mod tests {
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
         let tri = &tr.prepared[0];
         // AABB should be within screen bounds
-        assert!(tri.aabb_min_x >= 0);
-        assert!(tri.aabb_min_y >= 0);
+        assert!(true); // tri.aabb_min_x is u16 so it's always >= 0
+        assert!(true); // tri.aabb_min_y is u16 so it's always >= 0
         assert!(tri.aabb_max_x < 100);
         assert!(tri.aabb_max_y < 100);
         // And AABB should encompass the triangle

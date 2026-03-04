@@ -1,8 +1,8 @@
-use abrash::experimental::radial_blur::apply_radial_blur;
+use abrash::experimental::directional_blur::apply_directional_blur;
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-fn bench_radial_blur(c: &mut Criterion) {
+fn bench_directional_blur(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1024, 1024).unwrap();
 
     // Fill with a checkerboard pattern
@@ -13,18 +13,17 @@ fn bench_radial_blur(c: &mut Criterion) {
         }
     }
 
-    c.bench_function("radial_blur_1024x1024", |b| {
+    c.bench_function("directional_blur_1024x1024", |b| {
         b.iter(|| {
-            apply_radial_blur(
+            apply_directional_blur(
                 black_box(&mut fb),
-                black_box(512),
-                black_box(512),
-                black_box(0.5),
+                black_box(20.0),
+                black_box(20.0),
                 black_box(16),
             );
         });
     });
 }
 
-criterion_group!(benches, bench_radial_blur);
+criterion_group!(benches, bench_directional_blur);
 criterion_main!(benches);

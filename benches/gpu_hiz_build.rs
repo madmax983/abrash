@@ -232,7 +232,7 @@ fn bench_gpu_varying_patterns(c: &mut Criterion) {
     }
 
     group.bench_function("uniform", |b| {
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
         hiz.enable_gpu_build()
             .expect("Failed to enable GPU pyramid build");
 
@@ -253,7 +253,7 @@ fn bench_gpu_varying_patterns(c: &mut Criterion) {
     }
 
     group.bench_function("gradient", |b| {
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
         hiz.enable_gpu_build()
             .expect("Failed to enable GPU pyramid build");
 
@@ -275,7 +275,7 @@ fn bench_gpu_varying_patterns(c: &mut Criterion) {
     }
 
     group.bench_function("checkerboard", |b| {
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
         hiz.enable_gpu_build()
             .expect("Failed to enable GPU pyramid build");
 
@@ -288,7 +288,7 @@ fn bench_gpu_varying_patterns(c: &mut Criterion) {
     let zb_random = setup_zbuffer(width, height);
 
     group.bench_function("random", |b| {
-        let mut hiz = HiZBuffer::new(width, height);
+        let mut hiz = HiZBuffer::new(width, height).unwrap();
         hiz.enable_gpu_build()
             .expect("Failed to enable GPU pyramid build");
 
@@ -318,7 +318,7 @@ fn bench_gpu_resolution_scaling(c: &mut Criterion) {
         let zb = setup_zbuffer(width, height);
 
         group.bench_with_input(BenchmarkId::from_parameter(name), &zb, |b, zb| {
-            let mut hiz = HiZBuffer::new(width, height);
+            let mut hiz = HiZBuffer::new(width, height).unwrap();
             hiz.enable_gpu_build()
                 .expect("Failed to enable GPU pyramid build");
 
