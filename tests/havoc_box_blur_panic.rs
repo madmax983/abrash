@@ -1,9 +1,8 @@
 use abrash::post_process::blur::box_blur_horizontal;
 
 #[test]
-#[should_panic]
 fn test_box_blur_zero_width_height() {
-    // Zero width/height with large radius
+    // Zero width/height with large radius should gracefully return instead of panicking
     let src = vec![];
     let mut dest = vec![];
     let width = 0;
