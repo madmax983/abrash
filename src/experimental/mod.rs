@@ -26,6 +26,7 @@
 //! ```
 
 pub mod arboretum;
+pub mod boids;
 pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
