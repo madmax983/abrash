@@ -90,24 +90,30 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                     }
 
                     if count > 0 {
-                        let count_f = count as f32;
-                        let mean_r = sum_r as f32 / count_f;
-                        let mean_g = sum_g as f32 / count_f;
-                        let mean_b = sum_b as f32 / count_f;
+                        // Use integer math for variance to avoid per-pixel f32 casts
+                        // Var = (sum(x^2)/n) - (sum(x)/n)^2
+                        // Scaled_Var = n * sum(x^2) - sum(x)^2  (which equals n^2 * Var)
+                        let count_u64 = u64::from(count);
+                        let sum_r_sq = u64::from(sum_r) * u64::from(sum_r);
+                        let sum_g_sq = u64::from(sum_g) * u64::from(sum_g);
+                        let sum_b_sq = u64::from(sum_b) * u64::from(sum_b);
 
-                        let var_r = (sum_r2 as f32 / count_f) - (mean_r * mean_r);
-                        let var_g = (sum_g2 as f32 / count_f) - (mean_g * mean_g);
-                        let var_b = (sum_b2 as f32 / count_f) - (mean_b * mean_b);
+                        let scaled_var_r = count_u64 * u64::from(sum_r2) - sum_r_sq;
+                        let scaled_var_g = count_u64 * u64::from(sum_g2) - sum_g_sq;
+                        let scaled_var_b = count_u64 * u64::from(sum_b2) - sum_b_sq;
 
                         // Total variance (luminance could also be used here, but sum of channel variances is simple)
-                        let total_variance = var_r + var_g + var_b;
+                        // Convert to f32 once per region to compare across potentially different count sizes near edges
+                        let total_variance = (scaled_var_r + scaled_var_g + scaled_var_b) as f32
+                            / (count_u64 * count_u64) as f32;
 
                         if total_variance < min_variance {
                             min_variance = total_variance;
 
-                            let out_r = mean_r.clamp(0.0, 255.0) as u32;
-                            let out_g = mean_g.clamp(0.0, 255.0) as u32;
-                            let out_b = mean_b.clamp(0.0, 255.0) as u32;
+                            // Integer division is sufficient for the final mean
+                            let out_r = sum_r / count;
+                            let out_g = sum_g / count;
+                            let out_b = sum_b / count;
 
                             best_color = 0xFF00_0000 | (out_r << 16) | (out_g << 8) | out_b;
                         }
