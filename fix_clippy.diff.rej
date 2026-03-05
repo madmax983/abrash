@@ -1,0 +1,24 @@
+--- fix_clippy.diff
++++ fix_clippy.diff
+@@ -1,21 +0,0 @@
+---- src/framebuffer.rs
+-+++ src/framebuffer.rs
+-@@ -176,14 +176,14 @@
+-
+-     /// Clear a rectangular region
+-     pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
+-         if width == 0 || height == 0 {
+-             return;
+-         }
+-
+-         let x1 = x;
+-         let y1 = y;
+--        let x2 = x.saturating_add(width as i32);
+--        let y2 = y.saturating_add(height as i32);
+-+        let x2 = x.saturating_add_unsigned(width);
+-+        let y2 = y.saturating_add_unsigned(height);
+-
+-         let start_x = x1.clamp(0, self.width as i32) as u32;
+-         let start_y = y1.clamp(0, self.height as i32) as u32;
+-         let end_x = x2.clamp(0, self.width as i32) as u32;
+-         let end_y = y2.clamp(0, self.height as i32) as u32;

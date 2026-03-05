@@ -191,7 +191,7 @@ impl Texture {
     /// Each pixel in mip level `L+1` is the arithmetic mean of the corresponding
     /// 2x2 block of pixels in level `L`.
     ///
-    /// $$ P_{L+1}(x,y) = \frac{P_L(2x,2y) + P_L(2x+1,2y) + P_L(2x,2y+1) + P_L(2x+1,2y+1)}{4} $$
+    /// $$ P_{L+1}(x,y) = \`frac{P_L(2x,2y)\` + \`P_L(2x+1,2y)\` + \`P_L(2x,2y+1)\` + \`P_L(2x+1,2y+1)}{4}\` $$
     ///
     /// # Panics
     ///

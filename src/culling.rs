@@ -559,8 +559,7 @@ mod tests {
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
             assert_eq!(
                 *simd, *scalar,
-                "Mismatch at index {}: simd={}, scalar={}",
-                i, simd, scalar
+                "Mismatch at index {i}: simd={simd}, scalar={scalar}",
             );
         }
     }
@@ -736,8 +735,7 @@ mod tests {
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
             assert_eq!(
                 *simd, *scalar,
-                "Mismatch at index {}: simd={}, scalar={}",
-                i, simd, scalar
+                "Mismatch at index {i}: simd={simd}, scalar={scalar}",
             );
         }
     }

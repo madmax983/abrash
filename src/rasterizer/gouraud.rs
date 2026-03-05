@@ -799,7 +799,7 @@ mod tests {
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50);
+        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 50);
         let p50 = fb.get_pixel(50, 0).unwrap();
         assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50);
         let p99 = fb.get_pixel(99, 0).unwrap();
