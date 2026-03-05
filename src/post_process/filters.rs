@@ -61,12 +61,12 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 }
 
 fn apply_grayscale_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let luminance = u32::from(pixel_luminance(p));
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
-    });
+    }
 }
 
 /// Simulates CRT scanlines by darkening every odd row.
@@ -103,7 +103,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 
     // Process pairs of rows: even row (kept), odd row (darkened)
     // chunks_exact_mut(width * 2) gives us 2 rows at a time.
-    pixels.chunks_exact_mut(width * 2).for_each(|rows| {
+    for rows in pixels.chunks_exact_mut(width * 2) {
         // Second half is the odd row
         let odd_row = &mut rows[width..];
         for pixel in odd_row {
@@ -112,7 +112,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
             // Preserve Alpha: (p & 0xFF00_0000)
             *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
         }
-    });
+    }
 
     // Handle remaining odd row if height is odd
     // If height is odd, chunks_exact_mut leaves exactly one row remainder?
@@ -152,9 +152,9 @@ pub fn apply_invert(fb: &mut Framebuffer) {
         }
     }
 
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         *pixel ^= 0x00FF_FFFF;
-    });
+    }
 }
 
 /// Applies a sepia tone effect to the framebuffer in-place.
@@ -203,7 +203,7 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 }
 
 fn apply_sepia_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let r = (p >> 16) & 0xFF;
         let g = (p >> 8) & 0xFF;
@@ -219,7 +219,7 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
         let new_b = new_b.min(255);
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
-    });
+    }
 }
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
@@ -266,7 +266,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
         // Process each row
         // chunks_exact_mut gives us rows directly
-        pixels.chunks_exact_mut(width).for_each(|row_pixels| {
+        for row_pixels in pixels.chunks_exact_mut(width) {
             // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
@@ -293,7 +293,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
                 *dest_pixel = (a << 24) | (r << 16) | (g << 8) | b;
             }
-        });
+        }
     });
 }
 
