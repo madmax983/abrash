@@ -60,40 +60,47 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         let curr_row = &src[row_offset..row_offset + width];
         let next_row = &src[next_row_offset..next_row_offset + width];
 
-        for x in 1..width - 1 {
-            // Read pixels
-            let tl = prev_row[x - 1];
-            let t  = prev_row[x];
+        let dest_row = &mut row[1..width - 1];
 
-            let l  = curr_row[x - 1];
-            let c  = curr_row[x];
-            let r  = curr_row[x + 1];
+        dest_row
+            .iter_mut()
+            .zip(prev_row.windows(3))
+            .zip(curr_row.windows(3))
+            .zip(next_row.windows(3))
+            .for_each(|(((dest_pixel, prev_w), curr_w), next_w)| {
+                // Read pixels
+                let tl = prev_w[0];
+                let t = prev_w[1];
 
-            let b  = next_row[x];
-            let br = next_row[x + 1];
+                let l = curr_w[0];
+                let c = curr_w[1];
+                let r = curr_w[2];
 
-            let (tl_r, tl_g, tl_b) = extract(tl);
-            let (t_r, t_g, t_b) = extract(t);
-            let (l_r, l_g, l_b) = extract(l);
-            let (c_r, c_g, c_b) = extract(c);
-            let (r_r, r_g, r_b) = extract(r);
-            let (b_r, b_g, b_b) = extract(b);
-            let (br_r, br_g, br_b) = extract(br);
+                let b = next_w[1];
+                let br = next_w[2];
 
-            // Apply weights
-            let sum_r = -tl_r - t_r - l_r + c_r + r_r + b_r + br_r;
-            let sum_g = -tl_g - t_g - l_g + c_g + r_g + b_g + br_g;
-            let sum_b = -tl_b - t_b - l_b + c_b + r_b + b_b + br_b;
+                let (tl_r, tl_g, tl_b) = extract(tl);
+                let (t_r, t_g, t_b) = extract(t);
+                let (l_r, l_g, l_b) = extract(l);
+                let (c_r, c_g, c_b) = extract(c);
+                let (r_r, r_g, r_b) = extract(r);
+                let (b_r, b_g, b_b) = extract(b);
+                let (br_r, br_g, br_b) = extract(br);
 
-            // Add bias and clamp
-            let out_r = (sum_r + 128).clamp(0, 255) as u32;
-            let out_g = (sum_g + 128).clamp(0, 255) as u32;
-            let out_b = (sum_b + 128).clamp(0, 255) as u32;
+                // Apply weights
+                let sum_r = -tl_r - t_r - l_r + c_r + r_r + b_r + br_r;
+                let sum_g = -tl_g - t_g - l_g + c_g + r_g + b_g + br_g;
+                let sum_b = -tl_b - t_b - l_b + c_b + r_b + b_b + br_b;
 
-            // Preserve alpha from center
-            let a = c & 0xFF00_0000;
+                // Add bias and clamp
+                let out_r = (sum_r + 128).clamp(0, 255) as u32;
+                let out_g = (sum_g + 128).clamp(0, 255) as u32;
+                let out_b = (sum_b + 128).clamp(0, 255) as u32;
 
-            row[x] = a | (out_r << 16) | (out_g << 8) | out_b;
-        }
+                // Preserve alpha from center
+                let a = c & 0xFF00_0000;
+
+                *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
+            });
     });
 }
