@@ -1,5 +1,5 @@
-use abrash::framebuffer::Framebuffer;
 use abrash::experimental::emboss;
+use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn benchmark_emboss(c: &mut Criterion) {
