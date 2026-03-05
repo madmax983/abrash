@@ -21,5 +21,8 @@ fn main() {
     // Apply the emboss filter
     apply_emboss(&mut fb);
 
-    println!("Emboss filter applied successfully to a {}x{} framebuffer.", width, height);
+    println!(
+        "Emboss filter applied successfully to a {}x{} framebuffer.",
+        width, height
+    );
 }
