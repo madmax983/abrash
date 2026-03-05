@@ -176,10 +176,13 @@ impl SoftBody {
             }
         }
 
-        let mut edges = HashSet::new();
-        let mut spring_indices_a = Vec::new();
-        let mut spring_indices_b = Vec::new();
-        let mut spring_rest_lengths = Vec::new();
+        // ⚡ Bolt: Pre-allocate vectors and sets to prevent dynamic heap reallocations.
+        // We know exactly the maximum possible number of edges/springs (3 per triangle).
+        let max_edges = mesh.indices.len() * 3;
+        let mut edges = HashSet::with_capacity(max_edges);
+        let mut spring_indices_a = Vec::with_capacity(max_edges);
+        let mut spring_indices_b = Vec::with_capacity(max_edges);
+        let mut spring_rest_lengths = Vec::with_capacity(max_edges);
 
         for tri in &mesh.indices {
             let idxs = [tri[0], tri[1], tri[2]];
