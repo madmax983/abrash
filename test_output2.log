@@ -1,0 +1,22 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.63s
+     Running `target/debug/examples/emboss_demo`
+
+[38;5;14m[1m🏔️  Emboss Filter Demo[0m
+[38;5;8m=======================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬───────────────────────────────┐
+│ Property    ┆ Value                         │
+╞═════════════╪═══════════════════════════════╡
+│ Description ┆ Post-processing emboss effect │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Input       ┆ Procedural Checkerboard       │
+└─────────────┴───────────────────────────────┘
+
+[1m🎮 Controls[0m
+┌────────┬──────────────────────┐
+│ Input  ┆ Action               │
+╞════════╪══════════════════════╡
+│ Window ┆ Close window to exit │
+└────────┴──────────────────────┘

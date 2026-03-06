@@ -1,0 +1,66 @@
+   Compiling abrash v0.1.0 (/app)
+   Compiling proptest v1.9.0
+   Compiling criterion v0.5.1
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "-m64" "/tmp/rustc19QCly/symbols.o" "<38 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/app/target/debug/deps/{libcomfy_table-cc2bc2aae099e433,libunicode_segmentation-6fcabf051155db38,libcrossterm-1b7a1403fc2529ee,librustix-651a6b20728d5d07,liblinux_raw_sys-6bfc7af018e90c25,libbitflags-99ac776a85dac37d,libparking_lot-85c5f1204070d276,libparking_lot_core-54f31b0eb18778e6,libcfg_if-2d20780be38939e6,libsmallvec-4c1e029acc7d9e07,liblock_api-010fe42e762642f2,libscopeguard-84f01c100fc6352c,libderive_more-bea110c771c7f9bf,libsignal_hook_mio-4492e27251c65a34,libsignal_hook-4973997e43c290f1,libsignal_hook_registry-4632f4c6bdad6144,liberrno-3f37f8c4d1b4bf61,libmio-5593c5aa3e033041,liblibc-8a79b14d48e59c53,liblog-901d2d15d17f50d9,libunicode_width-e271a6c187fd2070,libabrash-4f864e39df8c0f8c,libwindows_sys-8d1221827a18037e,libwindows_targets-66d201c0fa33fb51,librayon-a42489e78b471ba6,librayon_core-af936d5901b0fce8,libcrossbeam_deque-6995d016e26db07f,libcrossbeam_epoch-3f303a1308604a37,libcrossbeam_utils-8775055eb4b1a9f1,libeither-83c551e8647906ea}.rlib" "<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/tmp/rustc19QCly/raw-dylibs" "-B<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld" "-fuse-ld=lld" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/home/jules/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows_x86_64_gnu-0.52.6/lib" "-L" "<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib" "-o" "/app/target/debug/examples/emboss_demo-cc035529625b539a" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: rust-lld: error: undefined symbol: DefWindowProcW
+          >>> referenced by win32.rs:202 (src/platform/win32.rs:202)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(abrash::platform::win32::window_proc::h8fe216fd28b29553) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: DestroyWindow
+          >>> referenced by win32.rs:195 (src/platform/win32.rs:195)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(abrash::platform::win32::window_proc::h8fe216fd28b29553) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: PostQuitMessage
+          >>> referenced by win32.rs:199 (src/platform/win32.rs:199)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(abrash::platform::win32::window_proc::h8fe216fd28b29553) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: LoadCursorW
+          >>> referenced by win32.rs:178 (src/platform/win32.rs:178)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(abrash::platform::win32::register_window_class::h2cc462220cb783e9) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: RegisterClassW
+          >>> referenced by win32.rs:184 (src/platform/win32.rs:184)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(abrash::platform::win32::register_window_class::h2cc462220cb783e9) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: PeekMessageW
+          >>> referenced by win32.rs:102 (src/platform/win32.rs:102)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::poll_events::h0a7729412fc57e24) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: TranslateMessage
+          >>> referenced by win32.rs:107 (src/platform/win32.rs:107)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::poll_events::h0a7729412fc57e24) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: DispatchMessageW
+          >>> referenced by win32.rs:108 (src/platform/win32.rs:108)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::poll_events::h0a7729412fc57e24) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: GetDC
+          >>> referenced by win32.rs:118 (src/platform/win32.rs:118)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::blit_framebuffer::h07523b72bdb168d5) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: StretchDIBits
+          >>> referenced by win32.rs:142 (src/platform/win32.rs:142)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::blit_framebuffer::h07523b72bdb168d5) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: ReleaseDC
+          >>> referenced by win32.rs:158 (src/platform/win32.rs:158)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::blit_framebuffer::h07523b72bdb168d5) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: DwmFlush
+          >>> referenced by win32.rs:161 (src/platform/win32.rs:161)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::blit_framebuffer::h07523b72bdb168d5) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: GetModuleHandleW
+          >>> referenced by win32.rs:38 (src/platform/win32.rs:38)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::new::h6347979acc6414e2) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+
+          rust-lld: error: undefined symbol: CreateWindowExW
+          >>> referenced by win32.rs:56 (src/platform/win32.rs:56)
+          >>>               abrash-4f864e39df8c0f8c.7ata6a7cp1cnn7tlfdzs48ezg.0yowx8q.rcgu.o:(_$LT$abrash..platform..win32..Win32Window$u20$as$u20$abrash..platform..WindowBackend$GT$::new::h6347979acc6414e2) in archive /app/target/debug/deps/libabrash-4f864e39df8c0f8c.rlib
+          collect2: error: ld returned 1 exit status
+
+
+error: could not compile `abrash` (example "emboss_demo") due to 1 previous error
