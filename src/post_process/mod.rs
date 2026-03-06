@@ -58,7 +58,8 @@
 //! apply_depth_of_field(&mut fb, &zb, 5.0, 2.0, 3);
 //!
 //! // Step C: Vignette (Stylistic) - Darkens edges
-//! apply_vignette(&mut fb, 0.5, 0.5);
+//! let vignette_config = abrash::post_process::filters::VignetteConfig { intensity: 0.5, roundness: 0.5 };
+//! apply_vignette(&mut fb, &vignette_config);
 //!
 //! // Step D: Color Grading (Optional)
 //! // apply_grayscale(&mut fb); // Uncomment for noir style

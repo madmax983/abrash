@@ -221,7 +221,13 @@ fn benchmark_vignette(c: &mut Criterion) {
 
     c.bench_function("apply_vignette 1080p", |b| {
         b.iter(|| {
-            post_process::apply_vignette(black_box(&mut fb), black_box(0.5), black_box(0.5));
+            post_process::apply_vignette(
+                black_box(&mut fb),
+                black_box(&post_process::filters::VignetteConfig {
+                    intensity: 0.5,
+                    roundness: 0.5,
+                }),
+            );
         });
     });
 }
@@ -242,7 +248,13 @@ fn benchmark_color_adjust(c: &mut Criterion) {
 
     c.bench_function("apply_color_adjust 1080p", |b| {
         b.iter(|| {
-            post_process::apply_color_adjust(black_box(&mut fb), black_box(10), black_box(1.2));
+            post_process::apply_color_adjust(
+                black_box(&mut fb),
+                black_box(&post_process::filters::ColorAdjustConfig {
+                    brightness: 10,
+                    contrast: 1.2,
+                }),
+            );
         });
     });
 }
