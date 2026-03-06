@@ -29,6 +29,12 @@ fn bench_kuwahara(c: &mut Criterion) {
         });
     });
 
+    group.bench_function("radius_5", |b| {
+        b.iter(|| {
+            apply_kuwahara(&mut fb, 5);
+        });
+    });
+
     group.finish();
 }
 

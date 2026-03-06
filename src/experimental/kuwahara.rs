@@ -9,6 +9,11 @@
 
 use crate::framebuffer::Framebuffer;
 use rayon::prelude::*;
+use std::cell::RefCell;
+
+thread_local! {
+    static BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Applies a Kuwahara filter to the framebuffer.
 ///
@@ -23,16 +28,25 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
     let width = fb.width() as i32;
     let height = fb.height() as i32;
-    let pixels = fb.as_slice();
+    let len = (width * height) as usize;
 
-    // We must read from the original pixels and write to a new buffer
+    // We must read from the original pixels and write back to the framebuffer
     // since the filter requires unmodified neighboring pixels.
-    let mut new_pixels = vec![0u32; (width * height) as usize];
+    // Instead of re-allocating `new_pixels` every frame, we use a zero-cost thread_local buffer.
+    BUFFER.with(|buffer| {
+        let mut source_pixels = buffer.borrow_mut();
 
-    new_pixels
-        .par_chunks_mut(width as usize)
-        .enumerate()
-        .for_each(|(y_usize, row)| {
+        if source_pixels.len() < len {
+            source_pixels.resize(len, 0);
+        }
+
+        // Copy original pixels into the buffer so we can modify the framebuffer directly
+        source_pixels[..len].copy_from_slice(fb.as_slice());
+
+        let pixels = &source_pixels[..len];
+        let new_pixels = fb.as_mut_slice();
+
+        let process_row = |y_usize: usize, row: &mut [u32]| {
             let y = y_usize as i32;
 
             for x in 0..width {
@@ -122,8 +136,59 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                 row[x as usize] = best_color;
             }
-        });
+        };
 
-    // Copy the filtered pixels back to the framebuffer
-    fb.as_mut_slice().copy_from_slice(&new_pixels);
+        new_pixels
+            .par_chunks_mut(width as usize)
+            .enumerate()
+            .for_each(|(y, row)| process_row(y, row));
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_kuwahara_basic() {
+        let mut fb = Framebuffer::new(5, 5).unwrap();
+        // Fill framebuffer with a pattern
+        for y in 0..5 {
+            for x in 0..5 {
+                let color = if x < 2 && y < 2 {
+                    0xFF00_00FF // Blue in top left
+                } else if x >= 2 && y < 2 {
+                    0xFFFF_0000 // Red in top right
+                } else {
+                    0xFF00_FF00 // Green bottom
+                };
+                unsafe {
+                    fb.set_pixel_unchecked(x, y, color);
+                }
+            }
+        }
+
+        apply_kuwahara(&mut fb, 1);
+
+        // Spot check pixels after Kuwahara filter
+        // We expect regions to be somewhat preserved or smoothed
+        let pixel_tl = unsafe { fb.get_pixel_unchecked(0, 0) };
+        assert_eq!(pixel_tl, 0xFF00_00FF, "Top-left should stay blue");
+
+        let pixel_tr = unsafe { fb.get_pixel_unchecked(4, 0) };
+        assert_eq!(pixel_tr, 0xFFFF_0000, "Top-right should stay red");
+    }
+
+    #[test]
+    fn test_apply_kuwahara_zero_radius() {
+        let mut fb = Framebuffer::new(3, 3).unwrap();
+        unsafe {
+            fb.set_pixel_unchecked(1, 1, 0xFF123456);
+        }
+
+        apply_kuwahara(&mut fb, 0);
+
+        // Should be unmodified
+        assert_eq!(unsafe { fb.get_pixel_unchecked(1, 1) }, 0xFF123456);
+    }
 }
