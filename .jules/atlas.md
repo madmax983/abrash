@@ -43,3 +43,13 @@
 2.  **Config Struct:** Created `GodRaysConfig` struct to group 7 parameter arguments into a single cohesive configuration block.
 
 **Stability:** Improved clarity and lowered argument count below the cognitive (and linter) limit of 7. Highly cohesive configurations make these effects easier to call in examples.
+
+## [Filter Parameterization]
+**Tangle:** The `apply_color_adjust` and `apply_vignette` functions suffered from the "Argument Jungle" structural smell, accepting multiple loose primitive parameters (e.g., `brightness`, `contrast`, `intensity`, `roundness`). This created a fragmented API and made future extensions difficult without breaking the function signatures.
+
+**Blueprint:**
+1.  **Introduce Configs:** Created `ColorAdjustConfig` and `VignetteConfig` structs in `src/post_process/filters.rs`.
+2.  **Refactor Signatures:** Modified `apply_color_adjust` and `apply_vignette` to accept references to these new configuration structs.
+3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration structs.
+
+**Stability:** Improved high cohesion by grouping related effect parameters together. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.

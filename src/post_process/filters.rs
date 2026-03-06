@@ -396,29 +396,45 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
     });
 }
 
+/// Configuration for the vignette post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct VignetteConfig {
+    /// Strength of the darkening (0.0 to 1.0).
+    pub intensity: f32,
+    /// Controls the falloff curve.
+    pub roundness: f32,
+}
+
+impl Default for VignetteConfig {
+    fn default() -> Self {
+        Self {
+            intensity: 0.5,
+            roundness: 0.5,
+        }
+    }
+}
+
 /// Applies a vignette effect to the framebuffer in-place.
 ///
 /// Darkens the corners of the image to draw attention to the center.
-///
-/// # Arguments
-///
-/// *   `intensity` - Strength of the darkening (0.0 to 1.0).
-/// *   `roundness` - Controls the falloff curve (currently unused in scalar implementation).
 ///
 /// # Examples
 ///
 /// ```
 /// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_vignette;
+/// use abrash::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.clear(0xFFFFFFFF); // White
 /// // Apply vignette
-/// apply_vignette(&mut fb, 0.5, 0.5);
+/// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
+/// apply_vignette(&mut fb, &config);
 /// ```
-pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
+pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
     let width = fb.width();
     let height = fb.height();
+    let intensity = config.intensity;
+    let roundness = config.roundness;
 
     let pixels = fb.as_mut_slice();
 
@@ -447,10 +463,25 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
     );
 }
 
+/// Configuration for the color adjust post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct ColorAdjustConfig {
+    /// Integer offset added to each color channel (typically -255 to 255).
+    pub brightness: i32,
+    /// Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
+    pub contrast: f32,
+}
+
+impl Default for ColorAdjustConfig {
+    fn default() -> Self {
+        Self {
+            brightness: 0,
+            contrast: 1.0,
+        }
+    }
+}
+
 /// Adjusts the brightness and contrast of the framebuffer in-place.
-///
-/// *   `brightness`: Integer offset added to each color channel (typically -255 to 255).
-/// *   `contrast`: Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
 ///
 /// Formula per channel: `new_color = (old_color - 128) * contrast + 128 + brightness`
 ///
@@ -458,19 +489,22 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
 ///
 /// ```
 /// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_color_adjust;
+/// use abrash::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
 /// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral
-/// apply_color_adjust(&mut fb, 20, 1.0);
+/// let config = ColorAdjustConfig { brightness: 20, contrast: 1.0 };
+/// apply_color_adjust(&mut fb, &config);
 ///
 /// // Result should be 128 + 20 = 148
 /// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
 /// ```
-pub fn apply_color_adjust(fb: &mut Framebuffer, brightness: i32, contrast: f32) {
+pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     let pixels = fb.as_mut_slice();
+    let brightness = config.brightness;
+    let contrast = config.contrast;
 
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
@@ -1558,7 +1592,7 @@ mod tests {
         // 3: (100, 110, 120, 255)
         // 4: (130, 140, 150, 255)
         for x in 0..width {
-            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+            let val = (x + 1) * 10; // 10, 20, 30, 40, 50
             let r = val;
             let g = val + 10;
             let b = val + 20;
@@ -1618,7 +1652,13 @@ mod tests {
         fb1.as_mut_slice().copy_from_slice(fb.as_slice());
 
         // Case 1: Brightness + 10, Contrast 1.0
-        apply_color_adjust(&mut fb1, 10, 1.0);
+        apply_color_adjust(
+            &mut fb1,
+            &ColorAdjustConfig {
+                brightness: 10,
+                contrast: 1.0,
+            },
+        );
         assert_eq!(fb1.get_pixel(0, 0).unwrap() & 0xFF, 138); // 128 + 10
         assert_eq!(fb1.get_pixel(1, 0).unwrap() & 0xFF, 74); // 64 + 10
 
@@ -1628,7 +1668,13 @@ mod tests {
         // (192 - 128) * 2.0 + 128 = 128 + 128 = 256 -> 255
         let mut fb2 = Framebuffer::new(3, 1).unwrap();
         fb2.as_mut_slice().copy_from_slice(fb.as_slice());
-        apply_color_adjust(&mut fb2, 0, 2.0);
+        apply_color_adjust(
+            &mut fb2,
+            &ColorAdjustConfig {
+                brightness: 0,
+                contrast: 2.0,
+            },
+        );
         assert_eq!(fb2.get_pixel(0, 0).unwrap() & 0xFF, 128);
         assert_eq!(fb2.get_pixel(1, 0).unwrap() & 0xFF, 0);
         assert_eq!(fb2.get_pixel(2, 0).unwrap() & 0xFF, 255);
@@ -1639,7 +1685,13 @@ mod tests {
         // (192 - 128) * 0.5 + 128 - 20 = 32 + 108 = 140
         let mut fb3 = Framebuffer::new(3, 1).unwrap();
         fb3.as_mut_slice().copy_from_slice(fb.as_slice());
-        apply_color_adjust(&mut fb3, -20, 0.5);
+        apply_color_adjust(
+            &mut fb3,
+            &ColorAdjustConfig {
+                brightness: -20,
+                contrast: 0.5,
+            },
+        );
         assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
         assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
         assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);
