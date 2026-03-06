@@ -43,31 +43,42 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
 
             let pixels_ptr = SendPtr(pixels.as_mut_ptr());
 
-            (0..width).into_par_iter().for_each_init(
-                || vec![0u32; height],
-                |col_buffer, x| {
+            // ⚡ Bolt: Eliminate per-thread dynamic heap allocation in par_iter by using a thread_local buffer.
+            std::thread_local! {
+                static PIXEL_SORT_COL_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+            }
+
+            (0..width).into_par_iter().for_each(|x| {
+                PIXEL_SORT_COL_BUFFER.with(|buffer| {
+                    let mut col_buffer = buffer.borrow_mut();
+                    if col_buffer.len() < height {
+                        col_buffer.resize(height, 0);
+                    }
+
+                    let col_slice = &mut col_buffer[..height];
+
                     // Accessing the SendPtr instead of the raw pointer allows it to cross the boundary
                     // and then we extract the inner raw pointer.
                     let ptr = pixels_ptr;
 
                     // Extract column
-                    for (y, item) in col_buffer.iter_mut().enumerate().take(height) {
+                    for (y, item) in col_slice.iter_mut().enumerate() {
                         unsafe {
                             *item = *ptr.0.add(y * width + x);
                         }
                     }
 
                     // Sort segments in column
-                    sort_segments(col_buffer, lum_threshold, reverse);
+                    sort_segments(col_slice, lum_threshold, reverse);
 
                     // Put column back
-                    for (y, item) in col_buffer.iter().enumerate().take(height) {
+                    for (y, item) in col_slice.iter().enumerate() {
                         unsafe {
                             *ptr.0.add(y * width + x) = *item;
                         }
                     }
-                },
-            );
+                });
+            });
         } else {
             // Horizontal sorting
             // We can operate directly on contiguous chunks (rows)
