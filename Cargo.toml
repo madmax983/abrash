@@ -421,3 +421,8 @@ required-features = ["nova"]
 name = "kuwahara_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "boids_demo"
+path = "examples/boids_demo.rs"
+required-features = ["nova"]

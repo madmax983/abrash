@@ -51,3 +51,4 @@ pub mod vision;
 pub mod volume;
 pub mod voxel_explosion;
 pub mod voxelizer;
+pub mod boids;

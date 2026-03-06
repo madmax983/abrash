@@ -60,3 +60,8 @@
 **Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.
+
+## [Boids Simulation]
+**Concept:** An experimental implementation of Craig Reynolds' Boids flocking algorithm, demonstrating autonomous entity movement using Separation, Alignment, and Cohesion forces, mapped onto 3D pyramids.
+**Fate:** Implemented
+**Lesson:** Simple, local vector mathematics can produce complex, emergent flocking behaviors. By calculating rotation matrices dynamically from velocity vectors, we can correctly orient meshes without needing a full-blown physics engine.
