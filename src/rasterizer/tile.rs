@@ -1674,17 +1674,17 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Process triangles in parallel and collect prepared results
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTriangle> = indices
-                .par_iter()
-                .flat_map_iter(|&[i0, i1, i2]| {
+            // Bolt: Use `par_extend` combined with `flat_map_iter` to reuse the existing capacity
+            // of `self.prepared` and eliminate intermediate Vec heap allocations entirely.
+            self.prepared.par_extend(
+                indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
                     // Safety: We trust the indices are within bounds of the vertices slice.
                     // The caller must ensure this or it will panic inside the thread.
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
 
-                    let tris = Self::prepare_triangle_static(
+                    Self::prepare_triangle_static(
                         v0,
                         v1,
                         v2,
@@ -1693,12 +1693,9 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
+                    )
                 })
-                .collect();
-
-            self.prepared.extend(results);
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1990,11 +1987,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2, color)| {
-                    let tris = Self::prepare_triangle_static(
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared.par_extend(
+                triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
+                    Self::prepare_triangle_static(
                         v0,
                         v1,
                         v2,
@@ -2003,12 +1999,9 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
+                    )
                 })
-                .collect();
-
-            self.prepared.extend(results);
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2069,11 +2062,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTexturedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                    let tris = Self::prepare_triangle_textured_static(
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared_textured.par_extend(
+                triangles.par_iter().flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                    Self::prepare_triangle_textured_static(
                         (v0, uv0),
                         (v1, uv1),
                         (v2, uv2),
@@ -2083,12 +2075,9 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
+                    )
                 })
-                .collect();
-
-            self.prepared_textured.extend(results);
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2251,11 +2240,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedGouraudTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2)| {
-                    let tris = Self::prepare_triangle_gouraud_static(
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared_gouraud.par_extend(
+                triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
+                    Self::prepare_triangle_gouraud_static(
                         v0,
                         v1,
                         v2,
@@ -2263,12 +2251,9 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
+                    )
                 })
-                .collect();
-
-            self.prepared_gouraud.extend(results);
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -3549,13 +3534,11 @@ mod tests {
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
         let tri = &tr.prepared[0];
         // AABB should be within screen bounds
-        assert!(true); // tri.aabb_min_x is u16 so it's always >= 0
-        assert!(true); // tri.aabb_min_y is u16 so it's always >= 0
         assert!(tri.aabb_max_x < 100);
         assert!(tri.aabb_max_y < 100);
         // And AABB should encompass the triangle
-        assert!((tri.aabb_min_x as i32) <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
-        assert!((tri.aabb_max_x as i32) >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
+        assert!(i32::from(tri.aabb_min_x) <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
+        assert!(i32::from(tri.aabb_max_x) >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
     }
 
     // --- Step 2: Binning ---
@@ -4118,7 +4101,6 @@ mod tests {
         );
         println!("PreparedTriangle size: {}", size_of::<PreparedTriangle>());
     }
-
     #[test]
     #[cfg(feature = "simd")]
     fn verify_simd_execution_with_wide_scanlines() {
@@ -4245,9 +4227,8 @@ fn render_triangle_in_tile_gouraud(
     tile_y1: i32,
     screen_w: i32,
 ) {
-    let p0_y = i32::from(tri.p0.y);
-    let _p1_y = i32::from(tri.p1.y);
-    let p2_y = i32::from(tri.p2.y);
+    let p0_y = tri.p0.y;
+    let p2_y = tri.p2.y;
 
     let y_start = p0_y.max(tile_y0);
     let y_end = p2_y.min(tile_y1 - 1);
@@ -4264,19 +4245,6 @@ fn render_triangle_in_tile_gouraud(
     let p2 = tri.p2.to_screen_point(1.0);
 
     // Convert fixed point colors back to Vec3 for EdgeWalker initialization
-    // (This seems inefficient, maybe adapt EdgeWalker to take fixed point?)
-    // GouraudEdgeWalker takes Vec3 for color to handle interpolation precisely?
-    // Actually GouraudEdgeWalker::new takes Vec3 start/end.
-    // And it computes gradients in fixed point internally.
-    // But we already HAVE gradients in the PreparedGouraudTriangle.
-    // We just need to step X, Z, and C.
-    // Wait, PreparedGouraudTriangle has `gradients` which are `GouraudGradients` (dX only).
-    // It does NOT have dY gradients for stepping edges.
-    // `GouraudEdgeWalker` computes dY gradients.
-    // So we need to reconstruct the full walker or adapt it.
-
-    // Reconstruction from vertices:
-    // We need Vec3 colors.
     let c0 = Vec3::new(
         tri.c0.0 as f32 / 65536.0,
         tri.c0.1 as f32 / 65536.0,
@@ -4298,7 +4266,7 @@ fn render_triangle_in_tile_gouraud(
         edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
     }
 
-    let mut edge_b = if y_start < tri.p1.y as i32 {
+    let mut edge_b = if y_start < tri.p1.y {
         let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
         if y_start > p0.y {
             e.step_n(i64::from(y_start) - i64::from(p0.y));
@@ -4306,7 +4274,7 @@ fn render_triangle_in_tile_gouraud(
         e
     } else {
         let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        if y_start > tri.p1.y as i32 {
+        if y_start > tri.p1.y {
             e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
         }
         e
@@ -4316,7 +4284,7 @@ fn render_triangle_in_tile_gouraud(
     let dc_dx = tri.gradients.dc_dx;
 
     for y in y_start..=y_end {
-        if y == tri.p1.y as i32 && y != p0_y {
+        if y == tri.p1.y && y != p0_y {
             edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
         }
 
