@@ -1,0 +1,100 @@
+--- src/experimental/kuwahara.rs
++++ src/experimental/kuwahara.rs
+@@ -9,6 +9,11 @@
+ use crate::framebuffer::Framebuffer;
+ #[cfg(feature = "parallel")]
+ use rayon::prelude::*;
++use std::cell::RefCell;
++
++thread_local! {
++    static KUWAHARA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
++}
+
+ /// Applies a Kuwahara filter to the framebuffer.
+ ///
+@@ -24,14 +29,23 @@
+
+     let width = fb.width() as i32;
+     let height = fb.height() as i32;
+-    let pixels = fb.as_slice();
+
+     // We must read from the original pixels and write to a new buffer
+     // since the filter requires unmodified neighboring pixels.
+-    let mut new_pixels = vec![0u32; (width * height) as usize];
++    KUWAHARA_BUFFER.with(|buf| {
++        let mut src_fb_vec = buf.borrow_mut();
++        let size = (width * height) as usize;
++        if src_fb_vec.len() < size {
++            src_fb_vec.resize(size, 0);
++        }
++
++        let src_fb = &mut src_fb_vec[..size];
++        src_fb.copy_from_slice(fb.as_slice());
++
++        let dest_pixels = fb.as_mut_slice();
+
+-    #[cfg(feature = "parallel")]
+-    {
+-        new_pixels
+-            .par_chunks_mut(width as usize)
+-            .enumerate()
+-            .for_each(|(y_usize, row)| {
++        #[cfg(feature = "parallel")]
++        {
++            dest_pixels
++                .par_chunks_mut(width as usize)
++                .enumerate()
++                .for_each(|(y_usize, row)| {
+@@ -73,8 +87,8 @@
+                             let row_offset = (py * width) as usize;
+                             for px in px_start..=px_end {
+                                 // Using get_unchecked since we clamped
+-                                let pixel =
+-                                    unsafe { *pixels.get_unchecked(row_offset + px as usize) };
++                                let pixel =
++                                    unsafe { *src_fb.get_unchecked(row_offset + px as usize) };
+
+                                 let r = (pixel >> 16) & 0xFF;
+                                 let g = (pixel >> 8) & 0xFF;
+@@ -124,14 +138,14 @@
+                     row[x as usize] = best_color;
+                 }
+             });
+-    }
++        }
+
+-    #[cfg(not(feature = "parallel"))]
+-    {
+-        new_pixels
+-            .chunks_mut(width as usize)
+-            .enumerate()
+-            .for_each(|(y_usize, row)| {
++        #[cfg(not(feature = "parallel"))]
++        {
++            dest_pixels
++                .chunks_mut(width as usize)
++                .enumerate()
++                .for_each(|(y_usize, row)| {
+@@ -174,8 +188,8 @@
+                             let row_offset = (py * width) as usize;
+                             for px in px_start..=px_end {
+                                 // Using get_unchecked since we clamped
+-                                let pixel =
+-                                    unsafe { *pixels.get_unchecked(row_offset + px as usize) };
++                                let pixel =
++                                    unsafe { *src_fb.get_unchecked(row_offset + px as usize) };
+
+                                 let r = (pixel >> 16) & 0xFF;
+                                 let g = (pixel >> 8) & 0xFF;
+@@ -225,7 +239,6 @@
+                     row[x as usize] = best_color;
+                 }
+             });
+-    }
+-
+-    // Copy the filtered pixels back to the framebuffer
+-    fb.as_mut_slice().copy_from_slice(&new_pixels);
+-}
++        }
++    });
++}
