@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 /// Represents the state of the drawing turtle.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Turtle {
     /// Current position in 3D space.
     pub position: Vec3,
@@ -271,7 +271,7 @@ impl LSystem {
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
                 b'[' => {
-                    stack.push(turtle.clone());
+                    stack.push(turtle);
                 }
                 b']' => {
                     if let Some(state) = stack.pop() {
