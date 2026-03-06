@@ -1,0 +1,6 @@
+radial_blur_1024x1024   time:   [30.256 ms 30.452 ms 30.674 ms]
+                        change: [+0.3157% +1.1621% +2.0311%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
