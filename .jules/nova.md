@@ -60,3 +60,8 @@
 **Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.
+
+## [Framebuffer Exporter]
+**Concept:** Added functionality to export `Framebuffer` data directly to simple, uncompressed image formats (PPM and TGA) without introducing heavy external dependencies like the `image` crate.
+**Fate:** Implemented
+**Lesson:** Sometimes the best way to handle image exports in an engine designed to be dependency-lite is to use raw `std::io::BufWriter` combined with simple binary formats. PPM for simple RGB, TGA for better BGR viewer support. Writing directly to disk in chunks bypasses large memory allocations.
