@@ -38,13 +38,7 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
     //  0,  1,  1
 
     // Extract channels
-    let extract = |p: u32| {
-        (
-            ((p >> 16) & 0xFF) as i32,
-            ((p >> 8) & 0xFF) as i32,
-            (p & 0xFF) as i32,
-        )
-    };
+    let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
 
     #[cfg(feature = "parallel")]
     let row_iter = dest
@@ -91,15 +85,20 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 let (b_r, b_g, b_b) = extract(b);
                 let (br_r, br_g, br_b) = extract(br);
 
-                // Apply weights
-                let sum_r = -tl_r - t_r - l_r + c_r + r_r + b_r + br_r;
-                let sum_g = -tl_g - t_g - l_g + c_g + r_g + b_g + br_g;
-                let sum_b = -tl_b - t_b - l_b + c_b + r_b + b_b + br_b;
+                // Apply weights using saturating unsigned integer operations
+                let pos_r = c_r + r_r + b_r + br_r;
+                let neg_r = tl_r + t_r + l_r;
 
-                // Add bias and clamp
-                let out_r = (sum_r + 128).clamp(0, 255) as u32;
-                let out_g = (sum_g + 128).clamp(0, 255) as u32;
-                let out_b = (sum_b + 128).clamp(0, 255) as u32;
+                let pos_g = c_g + r_g + b_g + br_g;
+                let neg_g = tl_g + t_g + l_g;
+
+                let pos_b = c_b + r_b + b_b + br_b;
+                let neg_b = tl_b + t_b + l_b;
+
+                // Add bias (128) and clamp using unsigned math
+                let out_r = (pos_r + 128).saturating_sub(neg_r).min(255);
+                let out_g = (pos_g + 128).saturating_sub(neg_g).min(255);
+                let out_b = (pos_b + 128).saturating_sub(neg_b).min(255);
 
                 // Preserve alpha from center
                 let a = c & 0xFF00_0000;
