@@ -330,9 +330,8 @@ impl RayTracer {
             return self.background_color;
         }
 
-        let mut closest_hit: Option<Hit> = None;
+        let mut closest_hit: Option<(Hit, &SceneObject)> = None;
         let mut closest_t = f32::MAX;
-        let mut hit_obj: Option<&SceneObject> = None;
 
         for r_obj in objects {
             if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, closest_t) {
@@ -352,20 +351,18 @@ impl RayTracer {
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
                     closest_t = hit.t;
-                    closest_hit = Some(hit);
-                    hit_obj = Some(r_obj.obj);
+                    closest_hit = Some((hit, r_obj.obj));
                 }
             }
         }
 
-        if let Some(hit) = closest_hit {
+        if let Some((hit, obj)) = closest_hit {
             // Lighting
             // Light source: Directional light from top-left-front
             let light_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
             let light_color = Vec3::new(1.0, 1.0, 1.0);
             let ambient = Vec3::new(0.1, 0.1, 0.1);
 
-            let obj = hit_obj.unwrap();
             let base_color = obj.color;
 
             let r = ((base_color >> 16) & 0xFF) as f32 / 255.0;
@@ -445,4 +442,42 @@ impl RayTracer {
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - n * 2.0 * v.dot(n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::{Camera, Scene};
+    use crate::math::Mat4;
+    use crate::mesh::Mesh;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_raytracer_hit_desync_panic() {
+        let mut mesh = Mesh::new();
+        mesh.vertices.push(Vec3::new(-1.0, -1.0, 0.0));
+        mesh.vertices.push(Vec3::new(1.0, -1.0, 0.0));
+        mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+        mesh.indices.push([0, 1, 2]);
+
+        let view = Mat4::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+        let proj = Mat4::perspective(1.57, 1.33, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let mut scene = Scene::new(camera);
+
+        // Add one object
+        scene.add_object(crate::scene::SceneObject::new(Arc::new(mesh), Mat4::identity(), 0xFFFFFFFF));
+
+        let tracer = RayTracer::new();
+        let ray = Ray::new(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, -1.0));
+
+        let render_objects = scene.objects.iter().map(|obj| RenderObject {
+            obj,
+            world_aabb: obj.local_aabb.transform(&obj.transform),
+        }).collect::<Vec<_>>();
+
+        // Trace the ray - shouldn't panic
+        let result = tracer.trace_ray(&ray, &render_objects, 0);
+        assert_ne!(result, tracer.background_color); // Hit the white triangle
+    }
 }
