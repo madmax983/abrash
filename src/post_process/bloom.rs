@@ -23,9 +23,29 @@ struct BloomContext {
 /// *   `fb` - The framebuffer to apply the effect to.
 /// *   `threshold` - Minimum luminance (0-255) for a pixel to contribute to bloom.
 /// *   `blur_radius` - Radius of the box blur kernel.
-/// *   `intensity` - Multiplier for the bloom intensity.
-pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intensity: f32) {
-    if blur_radius == 0 || intensity <= 0.0 {
+/// Configuration for the Bloom effect.
+#[derive(Clone, Copy, Debug)]
+pub struct BloomConfig {
+    /// Luminance threshold for extracting bright pixels (0-255).
+    pub threshold: u8,
+    /// Radius of the box blur applied to the bright pixels.
+    pub blur_radius: u32,
+    /// Multiplier for the bloom intensity when blending.
+    pub intensity: f32,
+}
+
+impl Default for BloomConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 200,
+            blur_radius: 5,
+            intensity: 1.0,
+        }
+    }
+}
+
+pub fn apply_bloom(fb: &mut Framebuffer, config: &BloomConfig) {
+    if config.blur_radius == 0 || config.intensity <= 0.0 {
         return;
     }
 
@@ -60,11 +80,17 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
         let acc_slice = &mut acc_buffer[..acc_needed_size];
 
         // 1. Extract bright pixels
-        extract_bright_pixels(pixels, bright_slice, threshold);
+        extract_bright_pixels(pixels, bright_slice, config.threshold);
 
         // 2. Blur the bright pixels
         // Horizontal pass: bright_pixels -> scratch_buffer
-        box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
+        box_blur_horizontal(
+            bright_slice,
+            scratch_slice,
+            width,
+            height,
+            config.blur_radius,
+        );
         // Vertical pass: scratch_buffer -> bright_pixels
         box_blur_vertical(
             scratch_slice,
@@ -72,11 +98,11 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
             acc_slice,
             width,
             height,
-            blur_radius,
+            config.blur_radius,
         );
 
         // 3. Composite back
-        blend_additive(pixels, bright_slice, intensity);
+        blend_additive(pixels, bright_slice, config.intensity);
     });
 }
 
