@@ -157,10 +157,18 @@ pub struct SoftBody {
 
 impl SoftBody {
     /// Adds a structural or constraint spring between two existing vertices.
-    pub fn add_spring(&mut self, index_a: usize, index_b: usize, rest_length: f32) -> Result<(), String> {
+    pub fn add_spring(
+        &mut self,
+        index_a: usize,
+        index_b: usize,
+        rest_length: f32,
+    ) -> Result<(), String> {
         let max_idx = self.mesh.vertices.len();
         if index_a >= max_idx || index_b >= max_idx {
-            return Err(format!("Spring indices out of bounds: {}, {}", index_a, index_b));
+            return Err(format!(
+                "Spring indices out of bounds: {}, {}",
+                index_a, index_b
+            ));
         }
         self.spring_indices_a.push(index_a);
         self.spring_indices_b.push(index_b);
@@ -256,7 +264,11 @@ impl SoftBody {
         }
 
         // Validate spring bounds
-        for &idx in self.spring_indices_a.iter().chain(self.spring_indices_b.iter()) {
+        for &idx in self
+            .spring_indices_a
+            .iter()
+            .chain(self.spring_indices_b.iter())
+        {
             if idx >= self.mesh.vertices.len() {
                 eprintln!("SoftBody Error: Spring index {} out of bounds", idx);
                 return;

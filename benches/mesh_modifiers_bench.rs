@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use abrash::experimental::modifiers::{displace_noise, taper, twist};
 use abrash::experimental::procedural_mesh::TerrainGenerator;

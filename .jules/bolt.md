@@ -40,3 +40,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Concept:** Optimizing the Radial Blur post-processing effect by eliminating float-to-int conversions inside the innermost rendering loop.
 **Fate:** Merged
 **Lesson:** Fixed-point math and digital differential analyzer (DDA) techniques provide massive speedups when doing sub-pixel interpolation. By pre-calculating the step interval in fixed point (`let step_x = (dx * step_factor * 65536.0) as i32`), replacing the sample array allocation and float math (`for &scale in scales { ... dx * scale }`) with integer accumulation (`cur_x += step_x`), the benchmark execution time was effectively halved (~45% speedup).
+
+**[Performance Optimization: Look-Up Tables for Color Channels]**
+**Learning:** When performing per-pixel math operations on 8-bit color channels (like brightness and contrast adjustments), there are only 256 possible input values. Re-calculating the math and clamping bounds for millions of pixels per frame is redundant.
+**Action:** Replace per-pixel inner-loop calculations with a precomputed 256-element Look-Up Table (LUT) (`[u32; 256]`). This converts complex math and clamping logic into a simple `O(1)` array indexing operation per channel, providing massive speedups on large framebuffers.

@@ -62,7 +62,8 @@ fn test_displace_noise_modifier() {
 
     // Ensure normals exist
     if mesh.normals.len() != mesh.vertices.len() {
-        mesh.normals.resize(mesh.vertices.len(), abrash::math::Vec3::new(0.0, 1.0, 0.0));
+        mesh.normals
+            .resize(mesh.vertices.len(), abrash::math::Vec3::new(0.0, 1.0, 0.0));
     }
 
     // Displace by 0.5. Since we don't strictly test the noise value here, just make sure vertices moved along normal.

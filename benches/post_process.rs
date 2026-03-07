@@ -77,14 +77,14 @@ fn benchmark_bloom(c: &mut Criterion) {
     let mut fb = Framebuffer::new(width, height).unwrap();
     fb.clear(0xFFFFFFFF); // White
 
+    let config = post_process::BloomConfig {
+        threshold: 200,
+        blur_radius: 10,
+        intensity: 0.8,
+    };
     c.bench_function("apply_bloom 1080p (r=10)", |b| {
         b.iter(|| {
-            post_process::apply_bloom(
-                black_box(&mut fb),
-                black_box(200),
-                black_box(10),
-                black_box(0.8),
-            );
+            post_process::apply_bloom(black_box(&mut fb), black_box(&config));
         });
     });
 }
@@ -276,24 +276,30 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
         }
     }
 
+    let config_horizontal = abrash::experimental::pixel_sort::PixelSortConfig {
+        threshold: 0.5,
+        vertical: false,
+        reverse: false,
+    };
     c.bench_function("apply_pixel_sort 1080p horizontal", |b| {
         b.iter(|| {
             abrash::experimental::pixel_sort::apply_pixel_sort(
                 black_box(&mut fb),
-                black_box(0.5),
-                black_box(false),
-                black_box(false),
+                black_box(&config_horizontal),
             );
         });
     });
 
+    let config_vertical = abrash::experimental::pixel_sort::PixelSortConfig {
+        threshold: 0.5,
+        vertical: true,
+        reverse: false,
+    };
     c.bench_function("apply_pixel_sort 1080p vertical", |b| {
         b.iter(|| {
             abrash::experimental::pixel_sort::apply_pixel_sort(
                 black_box(&mut fb),
-                black_box(0.5),
-                black_box(true),
-                black_box(false),
+                black_box(&config_vertical),
             );
         });
     });
