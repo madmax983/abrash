@@ -1843,13 +1843,22 @@ impl TileRenderer {
                     (0..self.tiles_y)
                         .into_par_iter()
                         .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                        .for_each_init(
-                            || {
+                        .for_each(|(tx, ty)| {
+                            std::thread_local! {
+                                static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                            }
+                            TILE_BUFFER.with(|buf| {
+                                let mut buffers = buf.borrow_mut();
                                 let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                            },
-                            |buffers, (tx, ty)| {
-                                let (tile_pixels, tile_depths) = &mut *buffers;
+                                if buffers.0.len() < tile_area {
+                                    buffers.0.resize(tile_area, 0);
+                                    buffers.1.resize(tile_area, f32::INFINITY);
+                                }
+                                let buffers_ref = &mut *buffers;
+                                let tile_pixels = &mut buffers_ref.0;
+                                let tile_depths = &mut buffers_ref.1;
+                                tile_pixels.fill(0);
+                                tile_depths.fill(f32::INFINITY);
                                 if let Some((clear_y_min, clear_y_max)) = render_single_tile(
                                     tx,
                                     ty,
@@ -1890,8 +1899,8 @@ impl TileRenderer {
                                         }
                                     }
                                 }
-                            },
-                        );
+                            });
+                        });
                 }
             }
         }
@@ -2152,13 +2161,22 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        std::thread_local! {
+                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                        }
+                        TILE_BUFFER.with(|buf| {
+                            let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if buffers.0.len() < tile_area {
+                                buffers.0.resize(tile_area, 0);
+                                buffers.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let buffers_ref = &mut *buffers;
+                            let tile_pixels = &mut buffers_ref.0;
+                            let tile_depths = &mut buffers_ref.1;
+                            tile_pixels.fill(0);
+                            tile_depths.fill(f32::INFINITY);
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
                                 tx,
                                 ty,
@@ -2198,8 +2216,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
@@ -2326,13 +2344,22 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        std::thread_local! {
+                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                        }
+                        TILE_BUFFER.with(|buf| {
+                            let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if buffers.0.len() < tile_area {
+                                buffers.0.resize(tile_area, 0);
+                                buffers.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let buffers_ref = &mut *buffers;
+                            let tile_pixels = &mut buffers_ref.0;
+                            let tile_depths = &mut buffers_ref.1;
+                            tile_pixels.fill(0);
+                            tile_depths.fill(f32::INFINITY);
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
                                 tx,
                                 ty,
@@ -2370,8 +2397,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
