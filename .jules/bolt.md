@@ -28,3 +28,19 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Thread-local buffers in parallel iteration]**
 **Learning:** Using `.for_each_init(|| vec![0u32; len], ...)` or allocating a `Vec` per element inside a Rayon parallel iterator (`par_iter`) causes a high number of dynamic heap allocations per frame, particularly when iterating over elements like pixels or columns.
 **Action:** Replace `for_each_init` allocations inside parallel loops with a `std::thread_local! { static BUFFER: std::cell::RefCell<Vec<T>> = ... }` buffer. This guarantees only one allocation occurs per Rayon worker thread, allowing safe reuse of capacities across elements by resizing as needed and borrowing mutable slices.
+
+**[Performance Optimization: Cross-multiplication for variance comparisons]**
+**Learning:** In color filtering algorithms (like Kuwahara), replacing floating-point division and casts for variance comparisons (`var1 < var2` where `var = num / den`) with integer cross-multiplication (`num1 * den2 < num2 * den1`) completely removes `f32` casts and operations from the hot loops.
+**Action:** Always prefer cross-multiplication with integer types (e.g. `u64`) over floating point division when comparing ratios or variances in tight pixel processing loops.
+**[Performance Optimization: Thread-local buffers for coordinate remapping]**
+**Learning:** When reusing `thread_local!` buffers for screen-space post-processing effects that remap coordinates (like CRT barrel distortion), explicitly call `.fill(default_color)` on the reused buffer. This prevents visual 'ghosting' artifacts from previous frames in areas (like screen corners) that aren't overwritten by the distorted image, while maintaining the zero-cost allocation benefits.
+**Action:** Always explicitly `.fill()` thread-local slice borrows if the rendering algorithm doesn't guarantee writing to every single pixel in the destination slice.
+
+## [Radial Blur Optimization]
+**Concept:** Optimizing the Radial Blur post-processing effect by eliminating float-to-int conversions inside the innermost rendering loop.
+**Fate:** Merged
+**Lesson:** Fixed-point math and digital differential analyzer (DDA) techniques provide massive speedups when doing sub-pixel interpolation. By pre-calculating the step interval in fixed point (`let step_x = (dx * step_factor * 65536.0) as i32`), replacing the sample array allocation and float math (`for &scale in scales { ... dx * scale }`) with integer accumulation (`cur_x += step_x`), the benchmark execution time was effectively halved (~45% speedup).
+
+**[Performance Optimization: Integer Fixed-Point Lerping]**
+**Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
+**Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.

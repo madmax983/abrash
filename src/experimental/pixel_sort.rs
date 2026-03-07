@@ -18,20 +18,41 @@ use crate::utils::pixel_luminance;
 /// * `threshold` - The luminance threshold (0.0 to 1.0) above which pixels are sorted.
 /// * `vertical` - If true, pixels are sorted vertically (columns). If false, horizontally (rows).
 /// * `reverse` - If true, sort in descending order (brightest first). Otherwise, ascending.
-pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, reverse: bool) {
+/// Configuration for the Pixel Sort effect.
+#[derive(Clone, Copy, Debug)]
+pub struct PixelSortConfig {
+    /// Luminance threshold (0.0 to 1.0) below which pixels are sorted.
+    pub threshold: f32,
+    /// Sort vertically instead of horizontally.
+    pub vertical: bool,
+    /// Reverse the sort order (bright to dark).
+    pub reverse: bool,
+}
+
+impl Default for PixelSortConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 0.5,
+            vertical: false,
+            reverse: false,
+        }
+    }
+}
+
+pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
 
     // Convert 0.0-1.0 threshold to 0-255 luminance
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let lum_threshold = (threshold.clamp(0.0, 1.0) * 255.0) as u8;
+    let lum_threshold = (config.threshold.clamp(0.0, 1.0) * 255.0) as u8;
 
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
 
-        if vertical {
+        if config.vertical {
             // Vertical sorting
             // We need to extract columns, sort them, and put them back.
             // Using Rayon, we can process columns in parallel. We wrap the raw pointer
@@ -69,7 +90,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
                     }
 
                     // Sort segments in column
-                    sort_segments(col_slice, lum_threshold, reverse);
+                    sort_segments(col_slice, lum_threshold, config.reverse);
 
                     // Put column back
                     for (y, item) in col_slice.iter().enumerate() {
@@ -83,14 +104,14 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
             // Horizontal sorting
             // We can operate directly on contiguous chunks (rows)
             pixels.par_chunks_exact_mut(width).for_each(|row| {
-                sort_segments(row, lum_threshold, reverse);
+                sort_segments(row, lum_threshold, config.reverse);
             });
         }
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        if vertical {
+        if config.vertical {
             // Vertical sorting
             // We need to extract columns, sort them, and put them back.
             // Doing this in-place with strided access is tricky in Rust,
@@ -115,7 +136,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, threshold: f32, vertical: bool, re
             // Horizontal sorting
             // We can operate directly on contiguous chunks (rows)
             pixels.chunks_exact_mut(width).for_each(|row| {
-                sort_segments(row, lum_threshold, reverse);
+                sort_segments(row, lum_threshold, config.reverse);
             });
         }
     }
@@ -176,7 +197,12 @@ mod tests {
 
         // Threshold = 0.2 (Lum ~51). So b_low, b_mid, b_high are all above threshold.
         // Segments: [b_mid, b_low] and [b_high].
-        apply_pixel_sort(&mut fb, 0.2, false, false);
+        let config = PixelSortConfig {
+            threshold: 0.2,
+            vertical: false,
+            reverse: false,
+        };
+        apply_pixel_sort(&mut fb, &config);
 
         // Expected sorting (ascending luminance):
         // First segment: [b_mid, b_low] sorts to [b_low, b_mid].
@@ -203,7 +229,12 @@ mod tests {
         fb.set_pixel(0, 4, b_high);
 
         // Vertical sort, ascending
-        apply_pixel_sort(&mut fb, 0.2, true, false);
+        let config = PixelSortConfig {
+            threshold: 0.2,
+            vertical: true,
+            reverse: false,
+        };
+        apply_pixel_sort(&mut fb, &config);
 
         assert_eq!(fb.get_pixel(0, 0).unwrap(), dark);
         assert_eq!(fb.get_pixel(0, 1).unwrap(), b_low);
@@ -224,7 +255,12 @@ mod tests {
         fb.set_pixel(2, 0, b_high);
 
         // Horizontal sort, reverse (descending)
-        apply_pixel_sort(&mut fb, 0.1, false, true);
+        let config = PixelSortConfig {
+            threshold: 0.1,
+            vertical: false,
+            reverse: true,
+        };
+        apply_pixel_sort(&mut fb, &config);
 
         // All are above threshold. Whole row is sorted descending.
         assert_eq!(fb.get_pixel(0, 0).unwrap(), b_high);

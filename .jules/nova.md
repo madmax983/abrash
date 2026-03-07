@@ -15,8 +15,8 @@
 
 ## [Mesh Modifiers]
 **Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
-**Fate:** In Progress
-**Lesson:** TBD
+**Fate:** Merged
+**Lesson:** Modifying large meshes vertex-by-vertex can be computationally intensive, particularly for procedural displacement functions. Offloading iteration onto parallel CPU threads using Rayon greatly accelerates full-mesh deformations. Also, dynamically calculating or verifying per-vertex normals is critical, as out-of-bounds normal arrays can easily crash procedural adjustments.
 
 ## [Toon Outlines]
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
@@ -65,3 +65,7 @@
 **Concept:** A neon-style screen-space post-processing effect that highlights edges using a configurable color and darkens non-edges. It effectively combines edge detection with dynamic tinting.
 **Fate:** Implemented
 **Lesson:** Using integer arithmetic and bitwise shifts combined with safe thread-local buffering (`thread_local!`) prevents dynamic allocation per frame while avoiding expensive floating-point overhead, leading to a massive performance speedup. Rayon `par_chunks_mut()` effectively handles independent rows.
+## [Framebuffer Image Exporter]
+**Concept:** Added zero-dependency TGA and PPM export functionality directly to the `Framebuffer` via an `ImageExporter` trait.
+**Fate:** Implemented
+**Lesson:** Writing uncompressed image formats natively (PPM for RGB, TGA for BGR) using simple bitwise extraction (`(pixel >> 16) & 0xFF`) and a `BufWriter` is extremely easy and removes the need for heavy external dependencies just to dump a visual artifact.

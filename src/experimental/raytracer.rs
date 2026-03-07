@@ -330,9 +330,8 @@ impl RayTracer {
             return self.background_color;
         }
 
-        let mut closest_hit: Option<Hit> = None;
+        let mut closest_hit: Option<(Hit, &SceneObject)> = None;
         let mut closest_t = f32::MAX;
-        let mut hit_obj: Option<&SceneObject> = None;
 
         for r_obj in objects {
             if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, closest_t) {
@@ -352,20 +351,18 @@ impl RayTracer {
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
                     closest_t = hit.t;
-                    closest_hit = Some(hit);
-                    hit_obj = Some(r_obj.obj);
+                    closest_hit = Some((hit, r_obj.obj));
                 }
             }
         }
 
-        if let Some(hit) = closest_hit {
+        if let Some((hit, obj)) = closest_hit {
             // Lighting
             // Light source: Directional light from top-left-front
             let light_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
             let light_color = Vec3::new(1.0, 1.0, 1.0);
             let ambient = Vec3::new(0.1, 0.1, 0.1);
 
-            let obj = hit_obj.unwrap();
             let base_color = obj.color;
 
             let r = ((base_color >> 16) & 0xFF) as f32 / 255.0;
@@ -445,4 +442,86 @@ impl RayTracer {
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - n * 2.0 * v.dot(n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Mat4;
+    use crate::mesh::Mesh;
+    use crate::scene::Camera;
+
+    #[test]
+    fn should_return_background_color_on_miss() {
+        let tracer = RayTracer {
+            background_color: 0xFF123456,
+            ..Default::default()
+        };
+
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let scene = Scene::new(camera);
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        tracer.render(&scene, &mut fb);
+
+        // Ray misses everything, so every pixel should be background_color
+        for y in 0..10 {
+            for x in 0..10 {
+                assert_eq!(fb.get_pixel(x, y).unwrap(), 0xFF123456);
+            }
+        }
+    }
+
+    #[test]
+    fn should_render_object_color_on_hit() {
+        let tracer = RayTracer {
+            background_color: 0xFF000000,
+            ..Default::default()
+        };
+
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let mut scene = Scene::new(camera);
+
+        // A large quad that covers the screen
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![
+            Vec3::new(-10.0, -10.0, 0.0),
+            Vec3::new(10.0, -10.0, 0.0),
+            Vec3::new(10.0, 10.0, 0.0),
+            Vec3::new(-10.0, 10.0, 0.0),
+        ];
+        mesh.indices = vec![[0, 1, 2], [0, 2, 3]];
+
+        // Base color is pure red
+        let red = 0xFFFF0000;
+        let transform = Mat4::identity();
+        scene.add_object(SceneObject::new(std::sync::Arc::new(mesh), transform, red));
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        tracer.render(&scene, &mut fb);
+
+        // Due to lighting, the pixel at the center won't be exactly red,
+        // but it should not be the background color. Let's check the middle pixel.
+        let pixel = fb.get_pixel(5, 5).unwrap();
+        assert_ne!(
+            pixel, 0xFF000000,
+            "Pixel should be shaded, not background color"
+        );
+
+        // Extract the red channel. Due to specular/ambient/diffuse, it should be > 0.
+        let r = (pixel >> 16) & 0xFF;
+        assert!(r > 0, "Red channel should be lit");
+    }
 }

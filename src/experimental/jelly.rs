@@ -140,11 +140,11 @@ pub struct SoftBody {
     /// Accumulated forces on each vertex for the current frame.
     pub forces: Vec<Vec3>,
     /// SoA: Indices of the first vertex in each spring.
-    pub spring_indices_a: Vec<usize>,
+    pub(crate) spring_indices_a: Vec<usize>,
     /// SoA: Indices of the second vertex in each spring.
-    pub spring_indices_b: Vec<usize>,
+    pub(crate) spring_indices_b: Vec<usize>,
     /// SoA: Rest length of each spring.
-    pub spring_rest_lengths: Vec<f32>,
+    pub(crate) spring_rest_lengths: Vec<f32>,
     /// Mass of each vertex (uniform for now).
     pub mass: f32,
     /// Stiffness of springs (k).
@@ -156,6 +156,18 @@ pub struct SoftBody {
 }
 
 impl SoftBody {
+    /// Adds a structural or constraint spring between two existing vertices.
+    pub fn add_spring(&mut self, index_a: usize, index_b: usize, rest_length: f32) -> Result<(), String> {
+        let max_idx = self.mesh.vertices.len();
+        if index_a >= max_idx || index_b >= max_idx {
+            return Err(format!("Spring indices out of bounds: {}, {}", index_a, index_b));
+        }
+        self.spring_indices_a.push(index_a);
+        self.spring_indices_b.push(index_b);
+        self.spring_rest_lengths.push(rest_length);
+        Ok(())
+    }
+
     /// Creates a new `SoftBody` from a Mesh.
     ///
     /// Automatically generates springs from the mesh's unique edges.
@@ -241,6 +253,14 @@ impl SoftBody {
                 self.forces.len()
             );
             return;
+        }
+
+        // Validate spring bounds
+        for &idx in self.spring_indices_a.iter().chain(self.spring_indices_b.iter()) {
+            if idx >= self.mesh.vertices.len() {
+                eprintln!("SoftBody Error: Spring index {} out of bounds", idx);
+                return;
+            }
         }
 
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
