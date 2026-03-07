@@ -142,6 +142,10 @@ name = "rasterization"
 harness = false
 
 [[bench]]
+name = "edge_glow_bench"
+harness = false
+
+[[bench]]
 name = "culling"
 harness = false
 
@@ -421,6 +425,10 @@ required-features = ["nova"]
 name = "kuwahara_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "dof_bench"
+harness = false
 
 [[bench]]
 name = "mesh_modifiers_bench"
