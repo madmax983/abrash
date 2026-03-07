@@ -63,8 +63,12 @@ mod app {
 
         // Generate
         let start_time = std::time::Instant::now();
-        let expanded = lsys.expand(args.iterations).expect("L-system memory limit exceeded");
-        let mesh = lsys.generate_mesh(args.iterations).expect("L-system memory limit exceeded");
+        let expanded = lsys
+            .expand(args.iterations)
+            .expect("L-system memory limit exceeded");
+        let mesh = lsys
+            .generate_mesh(args.iterations)
+            .expect("L-system memory limit exceeded");
         let duration = start_time.elapsed();
 
         // TUI Setup
