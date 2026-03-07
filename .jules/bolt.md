@@ -32,3 +32,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Cross-multiplication for variance comparisons]**
 **Learning:** In color filtering algorithms (like Kuwahara), replacing floating-point division and casts for variance comparisons (`var1 < var2` where `var = num / den`) with integer cross-multiplication (`num1 * den2 < num2 * den1`) completely removes `f32` casts and operations from the hot loops.
 **Action:** Always prefer cross-multiplication with integer types (e.g. `u64`) over floating point division when comparing ratios or variances in tight pixel processing loops.
+**[Performance Optimization: Thread-local buffers for coordinate remapping]**
+**Learning:** When reusing `thread_local!` buffers for screen-space post-processing effects that remap coordinates (like CRT barrel distortion), explicitly call `.fill(default_color)` on the reused buffer. This prevents visual 'ghosting' artifacts from previous frames in areas (like screen corners) that aren't overwritten by the distorted image, while maintaining the zero-cost allocation benefits.
+**Action:** Always explicitly `.fill()` thread-local slice borrows if the rendering algorithm doesn't guarantee writing to every single pixel in the destination slice.
