@@ -336,9 +336,9 @@ impl LSystem {
         // Let's connect the sides.
         // Side 1: 0 -> 4 -> 5 -> 1
         mesh.indices
-            .push([base_idx + 0, base_idx + 4, base_idx + 5]);
+            .push([base_idx, base_idx + 4, base_idx + 5]);
         mesh.indices
-            .push([base_idx + 0, base_idx + 5, base_idx + 1]);
+            .push([base_idx, base_idx + 5, base_idx + 1]);
 
         // Side 2: 1 -> 5 -> 6 -> 2
         mesh.indices
@@ -356,7 +356,7 @@ impl LSystem {
         mesh.indices
             .push([base_idx + 3, base_idx + 7, base_idx + 4]);
         mesh.indices
-            .push([base_idx + 3, base_idx + 4, base_idx + 0]);
+            .push([base_idx + 3, base_idx + 4, base_idx]);
     }
 }
 

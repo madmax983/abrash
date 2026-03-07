@@ -2,7 +2,7 @@ use abrash::experimental::directional_blur::apply_directional_blur;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::scene::{Camera, Scene, SceneObject};
 use abrash::time::FixedTimestep;
 use std::f32::consts::PI;

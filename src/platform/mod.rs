@@ -1,7 +1,5 @@
 use std::fmt;
 
-use crate::framebuffer::Framebuffer;
-
 #[derive(Debug, Clone)]
 pub enum Event {
     Close,
@@ -24,23 +22,6 @@ impl fmt::Display for WindowError {
 }
 
 impl std::error::Error for WindowError {}
-
-/// Trait for native (synchronous loop) window backends.
-pub trait WindowBackend {
-    /// Creates a new window with the given title and dimensions.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`WindowError`] if window class registration or window creation fails.
-    fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError>
-    where
-        Self: Sized;
-    fn is_open(&self) -> bool;
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
-    fn poll_events(&mut self) -> Vec<Event>;
-    fn blit_framebuffer(&mut self, framebuffer: &Framebuffer);
-}
 
 // Shared half-block framebuffer widget (used by TUI and WASM backends)
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]

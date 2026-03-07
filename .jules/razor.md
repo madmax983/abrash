@@ -29,3 +29,13 @@
 **Bloat:** The `Vec2Ext` trait in `src/experimental/sdf.rs` which was only implemented for `Vec2` to provide a `length()` method.
 **Cut:** Removed the `Vec2Ext` trait entirely. Moved the `length()` method directly into the `impl Vec2` block in `src/math.rs`.
 **Saved:** 10 lines of trait boilerplate, flattened the abstraction, and unified the API for `Vec2`.
+
+## [Reduction]
+**Bloat:** `Lerp` trait in `src/clipping.rs` that overcomplicated simple mathematical interpolation with generic trait bounds.
+**Cut:** Deleted the `Lerp` trait and its implementations. Replaced trait bounds with a simple closure `lerp: impl Fn(V, V, f32) -> V` passed to clipping functions.
+**Saved:** ~90 lines of boilerplate trait code and flattened the abstraction.
+
+## [Reduction]
+**Bloat:** `WindowBackend` trait in `src/platform/mod.rs` serving as a "One-Time" trait since actual window types are conditionally compiled.
+**Cut:** Deleted the `WindowBackend` trait. Converted `win32::Win32Window` and `tui::TuiWindow` to use concrete implementations directly.
+**Saved:** ~15 lines of trait definitions and reduced cognitive load by removing dynamic dispatch / trait bound requirements in examples.

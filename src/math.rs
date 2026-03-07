@@ -224,7 +224,7 @@ impl Mat2 {
 /// use abrash::math::Vec3;
 ///
 /// let v = Vec3::new(1.0, 2.0, 3.0);
-/// assert_eq!(v.x, 1.0);
+/// assert!((v.x - 1.0).abs() < f32::EPSILON);
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -1817,10 +1817,10 @@ mod tests {
     #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.y, 2.0);
-        assert_eq!(v.z, 3.0);
-        assert_eq!(v.w, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1852,14 +1852,14 @@ mod tests {
         let b = Vec3::new(3.0, 2.0, -1.0);
 
         let min = a.min(b);
-        assert_eq!(min.x, 1.0);
-        assert_eq!(min.y, 2.0);
-        assert_eq!(min.z, -2.0);
+        assert!((min.x - 1.0).abs() < f32::EPSILON);
+        assert!((min.y - 2.0).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
-        assert_eq!(max.x, 3.0);
-        assert_eq!(max.y, 5.0);
-        assert_eq!(max.z, -1.0);
+        assert!((max.x - 3.0).abs() < f32::EPSILON);
+        assert!((max.y - 5.0).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1916,7 +1916,7 @@ mod tests {
             };
 
             if s_scalar.z.is_nan() {
-                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {name}");
             } else {
                 assert!(
                     z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
@@ -1931,8 +1931,7 @@ mod tests {
             if s_scalar.inv_w.is_nan() {
                 assert!(
                     s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {}",
-                    name
+                    "InvW NaN mismatch for case: {name}"
                 );
             } else {
                 assert!(
@@ -1961,7 +1960,7 @@ mod tests {
 /// use abrash::math::Vec4;
 ///
 /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
-/// assert_eq!(v.x, 1.0);
+/// assert!((v.x - 1.0).abs() < f32::EPSILON);
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
