@@ -1,4 +1,4 @@
-use abrash::experimental::pixel_sort::apply_pixel_sort;
+use abrash::experimental::pixel_sort::{PixelSortConfig, apply_pixel_sort};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -134,7 +134,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let reverse = (total_time * 0.5).sin() > 0.0;
 
         // Apply Pixel Sort Effect
-        apply_pixel_sort(&mut framebuffer, threshold, vertical, reverse);
+        let config = PixelSortConfig {
+            threshold,
+            vertical,
+            reverse,
+        };
+        apply_pixel_sort(&mut framebuffer, &config);
 
         window.blit_framebuffer(&framebuffer);
     }

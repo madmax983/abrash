@@ -7,8 +7,29 @@ use crate::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-pub fn apply_directional_blur(framebuffer: &mut Framebuffer, dx: f32, dy: f32, num_samples: usize) {
-    if num_samples <= 1 {
+/// Configuration for the Directional Blur effect.
+#[derive(Clone, Copy, Debug)]
+pub struct DirectionalBlurConfig {
+    /// Horizontal distance of the blur in pixels.
+    pub dx: f32,
+    /// Vertical distance of the blur in pixels.
+    pub dy: f32,
+    /// Number of samples to take along the blur direction.
+    pub num_samples: usize,
+}
+
+impl Default for DirectionalBlurConfig {
+    fn default() -> Self {
+        Self {
+            dx: 10.0,
+            dy: 0.0,
+            num_samples: 5,
+        }
+    }
+}
+
+pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &DirectionalBlurConfig) {
+    if config.num_samples <= 1 {
         return;
     }
 
@@ -21,11 +42,11 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, dx: f32, dy: f32, n
     // Clone the source framebuffer to read from while writing to the original
     let source_pixels = framebuffer.as_slice().to_vec();
 
-    let inv_samples = 1.0 / (num_samples as f32);
+    let inv_samples = 1.0 / (config.num_samples as f32);
 
     // Pre-calculate steps
-    let dx_step = dx * inv_samples;
-    let dy_step = dy * inv_samples;
+    let dx_step = config.dx * inv_samples;
+    let dy_step = config.dy * inv_samples;
 
     let process_row = |(y, row): (usize, &mut [u32])| {
         let y_f32 = y as f32;
@@ -35,7 +56,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, dx: f32, dy: f32, n
             let mut g_sum = 0.0;
             let mut b_sum = 0.0;
 
-            for i in 0..num_samples {
+            for i in 0..config.num_samples {
                 let i_f32 = i as f32;
                 // Sample position
                 let sample_x = x_f32 + dx_step * i_f32;
@@ -96,7 +117,12 @@ mod tests {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         fb.set_pixel(0, 0, 0xFF00_0000);
 
-        apply_directional_blur(&mut fb, 10.0, 0.0, 0);
+        let config = DirectionalBlurConfig {
+            dx: 10.0,
+            dy: 0.0,
+            num_samples: 0,
+        };
+        apply_directional_blur(&mut fb, &config);
 
         assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
     }
@@ -110,7 +136,12 @@ mod tests {
         fb.set_pixel(3, 0, 0xFF000000);
 
         // Blur rightwards by 3 pixels, 3 samples
-        apply_directional_blur(&mut fb, 3.0, 0.0, 3);
+        let config = DirectionalBlurConfig {
+            dx: 3.0,
+            dy: 0.0,
+            num_samples: 3,
+        };
+        apply_directional_blur(&mut fb, &config);
 
         // The white pixel should be spread
         let p0 = fb.get_pixel(0, 0).unwrap();
