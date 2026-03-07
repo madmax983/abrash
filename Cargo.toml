@@ -421,3 +421,8 @@ required-features = ["nova"]
 name = "kuwahara_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "mesh_modifiers_bench"
+harness = false
+required-features = ["nova"]

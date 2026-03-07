@@ -41,6 +41,7 @@ pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod pixel_sort;
 pub mod pixelate;
+pub mod modifiers;
 pub mod procedural_mesh;
 pub mod radial_blur;
 pub mod raytracer;
