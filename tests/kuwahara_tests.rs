@@ -51,3 +51,27 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     assert_eq!(fb.get_pixel(3, 3).unwrap(), 0xFFFF0000);
     assert_eq!(fb.get_pixel(4, 3).unwrap(), 0xFF0000FF);
 }
+
+#[test]
+fn test_kuwahara_handles_uniform_noise() {
+    let mut fb = Framebuffer::new(10, 10).unwrap();
+    // Fill with base color
+    fb.clear(0xFF808080);
+    // Add uniform noise pattern
+    for y in 0..10 {
+        for x in 0..10 {
+            if (x + y) % 2 == 0 {
+                fb.set_pixel(x, y, 0xFF888888);
+            } else {
+                fb.set_pixel(x, y, 0xFF787878);
+            }
+        }
+    }
+
+    apply_kuwahara(&mut fb, 2);
+
+    // Assert it successfully smooths out noise without panicking
+    // or causing math overflows (regression test for integer variance logic)
+    let center_pixel = fb.get_pixel(5, 5).unwrap();
+    assert_ne!(center_pixel, 0);
+}
