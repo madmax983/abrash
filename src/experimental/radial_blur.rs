@@ -52,12 +52,9 @@ pub fn apply_radial_blur(
 
         let dest_pixels = fb.as_mut_slice();
 
-        // Precalculate scales
-        let mut scales = Vec::with_capacity(samples);
-        for i in 0..samples {
-            let t = i as f32 / (samples - 1) as f32;
-            scales.push(1.0 - (strength * t));
-        }
+        let step_factor = -(strength / (samples - 1) as f32);
+        let w_m1 = width as i32 - 1;
+        let h_m1 = height as i32 - 1;
 
         #[cfg(feature = "parallel")]
         {
@@ -71,23 +68,28 @@ pub fn apply_radial_blur(
                         let dx = x as f32 - cx as f32;
                         let dy = y as f32 - cy as f32;
 
+                        let step_x = (dx * step_factor * 65536.0) as i32;
+                        let step_y = (dy * step_factor * 65536.0) as i32;
+
+                        let mut cur_x = (x as i32) << 16;
+                        let mut cur_y = (y as i32) << 16;
+
                         let mut r_acc = 0;
                         let mut g_acc = 0;
                         let mut b_acc = 0;
 
-                        for &scale in &scales {
-                            // Using standard clamp optimization: bounds are static per render pass.
-                            let sample_x = (cx as f32 + dx * scale) as i32;
-                            let sample_y = (cy as f32 + dy * scale) as i32;
-
+                        for _ in 0..samples {
                             // Using direct min/max instead of clamp is usually faster when inline
-                            let x_idx = sample_x.max(0).min(width as i32 - 1) as usize;
-                            let y_idx = sample_y.max(0).min(height as i32 - 1) as usize;
+                            let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                            let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
                             let color = src_fb[y_idx * width + x_idx];
                             r_acc += (color >> 16) & 0xFF;
                             g_acc += (color >> 8) & 0xFF;
                             b_acc += color & 0xFF;
+
+                            cur_x += step_x;
+                            cur_y += step_y;
                         }
 
                         let inv_samples = samples as u32;
@@ -108,21 +110,27 @@ pub fn apply_radial_blur(
                     let dx = x as f32 - cx as f32;
                     let dy = y as f32 - cy as f32;
 
+                    let step_x = (dx * step_factor * 65536.0) as i32;
+                    let step_y = (dy * step_factor * 65536.0) as i32;
+
+                    let mut cur_x = (x as i32) << 16;
+                    let mut cur_y = (y as i32) << 16;
+
                     let mut r_acc = 0;
                     let mut g_acc = 0;
                     let mut b_acc = 0;
 
-                    for &scale in &scales {
-                        let sample_x = (cx as f32 + dx * scale) as i32;
-                        let sample_y = (cy as f32 + dy * scale) as i32;
-
-                        let x_idx = sample_x.max(0).min(width as i32 - 1) as usize;
-                        let y_idx = sample_y.max(0).min(height as i32 - 1) as usize;
+                    for _ in 0..samples {
+                        let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
+                        let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
 
                         let color = src_fb[y_idx * width + x_idx];
                         r_acc += (color >> 16) & 0xFF;
                         g_acc += (color >> 8) & 0xFF;
                         b_acc += color & 0xFF;
+
+                        cur_x += step_x;
+                        cur_y += step_y;
                     }
 
                     let inv_samples = samples as u32;
