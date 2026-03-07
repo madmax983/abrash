@@ -128,7 +128,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                                 let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
                                 let total_variance_den = count_u64 * count_u64;
 
-                                if u128::from(total_variance_num) * u128::from(best_den) < u128::from(best_num) * u128::from(total_variance_den) {
+                                if u128::from(total_variance_num) * u128::from(best_den)
+                                    < u128::from(best_num) * u128::from(total_variance_den)
+                                {
                                     best_num = total_variance_num;
                                     best_den = total_variance_den;
 
@@ -230,7 +232,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                                 let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
                                 let total_variance_den = count_u64 * count_u64;
 
-                                if u128::from(total_variance_num) * u128::from(best_den) < u128::from(best_num) * u128::from(total_variance_den) {
+                                if u128::from(total_variance_num) * u128::from(best_den)
+                                    < u128::from(best_num) * u128::from(total_variance_den)
+                                {
                                     best_num = total_variance_num;
                                     best_den = total_variance_den;
 

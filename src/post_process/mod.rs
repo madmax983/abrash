@@ -65,14 +65,19 @@
 //! // apply_grayscale(&mut fb); // Uncomment for noir style
 //! ```
 
+/// Bloom filter implementation.
 pub mod bloom;
+/// Blur filter implementation.
 pub mod blur;
+/// Various image processing filters (grayscale, sepia, etc.).
 pub mod filters;
+/// Screen Space Ambient Occlusion (SSAO) implementation.
 pub mod ssao;
 
 pub use self::bloom::*;
 pub use self::blur::*;
 pub use self::filters::*;
 pub use self::ssao::*;
+/// Depth of Field (`DoF`) implementation.
 pub mod dof;
 pub use self::dof::*;
