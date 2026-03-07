@@ -59,7 +59,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                         // 1: Top-Right
                         // 2: Bottom-Left
                         // 3: Bottom-Right
-                        let mut min_variance = f32::MAX;
+
+                        let mut best_num = u64::MAX;
+                        let mut best_den = 1u64;
                         let mut best_color = 0u32;
 
                         // Region definitions (dx_start, dx_end, dy_start, dy_end)
@@ -123,12 +125,12 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                                 // Total variance (luminance could also be used here, but sum of channel variances is simple)
                                 // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance = (scaled_var_r + scaled_var_g + scaled_var_b)
-                                    as f32
-                                    / (count_u64 * count_u64) as f32;
+                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
+                                let total_variance_den = count_u64 * count_u64;
 
-                                if total_variance < min_variance {
-                                    min_variance = total_variance;
+                                if u128::from(total_variance_num) * u128::from(best_den) < u128::from(best_num) * u128::from(total_variance_den) {
+                                    best_num = total_variance_num;
+                                    best_den = total_variance_den;
 
                                     // Integer division is sufficient for the final mean
                                     let out_r = sum_r / count;
@@ -159,7 +161,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                         // 1: Top-Right
                         // 2: Bottom-Left
                         // 3: Bottom-Right
-                        let mut min_variance = f32::MAX;
+
+                        let mut best_num = u64::MAX;
+                        let mut best_den = 1u64;
                         let mut best_color = 0u32;
 
                         // Region definitions (dx_start, dx_end, dy_start, dy_end)
@@ -223,12 +227,12 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                                 // Total variance (luminance could also be used here, but sum of channel variances is simple)
                                 // Convert to f32 once per region to compare across potentially different count sizes near edges
-                                let total_variance = (scaled_var_r + scaled_var_g + scaled_var_b)
-                                    as f32
-                                    / (count_u64 * count_u64) as f32;
+                                let total_variance_num = scaled_var_r + scaled_var_g + scaled_var_b;
+                                let total_variance_den = count_u64 * count_u64;
 
-                                if total_variance < min_variance {
-                                    min_variance = total_variance;
+                                if u128::from(total_variance_num) * u128::from(best_den) < u128::from(best_num) * u128::from(total_variance_den) {
+                                    best_num = total_variance_num;
+                                    best_den = total_variance_den;
 
                                     // Integer division is sufficient for the final mean
                                     let out_r = sum_r / count;
