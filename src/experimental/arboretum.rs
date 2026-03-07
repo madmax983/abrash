@@ -113,12 +113,15 @@ impl LSystem {
     /// This method includes a fast-path for purely ASCII strings. It avoids the overhead of
     /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
     /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
-    pub fn expand(&self, iterations: u32) -> String {
+    pub fn expand(&self, iterations: u32) -> Result<String, String> {
         if iterations == 0 {
-            return self.axiom.clone();
+            return Ok(self.axiom.clone());
         }
 
         let mut current = self.axiom.clone();
+
+        // Security / DoS protection limit: an L-system can grow exponentially and cause OOM.
+        let limit: usize = 100_000_000; // Cap at 100MB
 
         // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
         let mut is_pure_ascii = self.axiom.is_ascii();
@@ -148,13 +151,16 @@ impl LSystem {
             let mut current_bytes = self.axiom.as_bytes().to_vec();
             for _ in 0..iterations {
                 // Determine capacity and write directly
-                let mut exact_len = 0;
+                let mut exact_len: usize = 0;
                 for &b in &current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        exact_len += replacement.len();
+                        exact_len = exact_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
                     } else {
-                        exact_len += 1;
+                        exact_len = exact_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
                     }
+                }
+                if exact_len > limit {
+                    return Err("L-system exceeded memory limits".to_string());
                 }
 
                 let mut next_bytes = Vec::with_capacity(exact_len);
@@ -168,8 +174,8 @@ impl LSystem {
                 current_bytes = next_bytes;
             }
 
-            // SAFETY: We checked is_ascii() for axiom and all rules, so bytes are guaranteed to be valid UTF-8.
-            return unsafe { String::from_utf8_unchecked(current_bytes) };
+            // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
+            return String::from_utf8(current_bytes).map_err(|e| e.to_string());
         }
 
         // Fallback for unicode
@@ -183,7 +189,26 @@ impl LSystem {
         for _ in 0..iterations {
             // Estimate capacity: a bit larger than current to avoid multiple reallocations,
             // but not requiring a full pre-pass loop over the string.
-            let mut next = String::with_capacity(current.len() * 2);
+            let mut next_len: usize = 0;
+            for c in current.chars() {
+                let u = c as usize;
+                if u < 128 {
+                    if let Some(replacement) = rules_array[u] {
+                        next_len = next_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
+                    } else {
+                        next_len = next_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
+                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
+                    next_len = next_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
+                } else {
+                    next_len = next_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
+                }
+            }
+            if next_len > limit {
+                return Err("L-system exceeded memory limits".to_string());
+            }
+
+            let mut next = String::with_capacity(next_len);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {
@@ -201,12 +226,12 @@ impl LSystem {
             current = next;
         }
 
-        current
+        Ok(current)
     }
 
     /// Generates a Mesh from the expanded L-System string.
-    pub fn generate_mesh(&self, iterations: u32) -> Mesh {
-        let instructions = self.expand(iterations);
+    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
+        let instructions = self.expand(iterations)?;
 
         // Estimate capacities from total length without needing a second O(N) pass
         let num_segments = instructions.len() / 2;
@@ -282,7 +307,7 @@ impl LSystem {
             }
         }
 
-        mesh
+        Ok(mesh)
     }
 
     /// Adds a 4-sided prism segment to the mesh.
@@ -371,20 +396,29 @@ mod tests {
         lsys.add_rule('B', "A");
 
         // Iteration 0: A
-        assert_eq!(lsys.expand(0), "A");
+        assert_eq!(lsys.expand(0).unwrap(), "A");
         // Iteration 1: AB
-        assert_eq!(lsys.expand(1), "AB");
+        assert_eq!(lsys.expand(1).unwrap(), "AB");
         // Iteration 2: ABA
-        assert_eq!(lsys.expand(2), "ABA");
+        assert_eq!(lsys.expand(2).unwrap(), "ABA");
         // Iteration 3: ABAAB
-        assert_eq!(lsys.expand(3), "ABAAB");
+        assert_eq!(lsys.expand(3).unwrap(), "ABAAB");
+    }
+
+    #[test]
+    fn test_expansion_dos() {
+        let mut lsys = LSystem::new("A", 90.0, 1.0, 0.1);
+        // 1 => 10 chars
+        lsys.add_rule('A', "AAAAAAAAAA");
+        // 10 iterations = 10^10 chars > 100MB limit
+        assert!(lsys.expand(10).is_err());
     }
 
     #[test]
     fn test_mesh_generation() {
         // Simple "stick"
         let lsys = LSystem::new("F", 90.0, 1.0, 0.1);
-        let mesh = lsys.generate_mesh(1);
+        let mesh = lsys.generate_mesh(1).unwrap();
 
         // Should have 8 vertices (4 start, 4 end)
         assert_eq!(mesh.vertices.len(), 8);

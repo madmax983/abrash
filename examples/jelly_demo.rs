@@ -51,21 +51,10 @@ mod demo {
 
         // Add internal cross-bracing springs for stability
         let diag_len = (jelly.mesh.vertices[0] - jelly.mesh.vertices[6]).length();
-        jelly.spring_indices_a.push(0);
-        jelly.spring_indices_b.push(6);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(1);
-        jelly.spring_indices_b.push(7);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(2);
-        jelly.spring_indices_b.push(4);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(3);
-        jelly.spring_indices_b.push(5);
-        jelly.spring_rest_lengths.push(diag_len);
+        jelly.add_spring(0, 6, diag_len).unwrap();
+        jelly.add_spring(1, 7, diag_len).unwrap();
+        jelly.add_spring(2, 4, diag_len).unwrap();
+        jelly.add_spring(3, 5, diag_len).unwrap();
 
         // Camera
         let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 100.0);
