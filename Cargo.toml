@@ -142,6 +142,10 @@ name = "rasterization"
 harness = false
 
 [[bench]]
+name = "edge_glow_bench"
+harness = false
+
+[[bench]]
 name = "culling"
 harness = false
 
