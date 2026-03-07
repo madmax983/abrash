@@ -84,7 +84,14 @@ use crate::hiz_buffer::{AABB3D, HiZBuffer};
 use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
 use crate::texture::{FilterMode, Texture};
 use crate::zbuffer::ZBuffer;
+use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
+
+#[cfg(feature = "parallel")]
+thread_local! {
+    // Reusable buffers for parallel tile rendering to avoid per-frame allocations
+    static TILE_BUFFERS: RefCell<(Vec<u32>, Vec<f32>)> = RefCell::new((Vec::new(), Vec::new()));
+}
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
 ///
@@ -572,8 +579,8 @@ fn render_single_tile(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min(i32::from(tri.aabb_min_y).max(tile_y0));
+        clear_y_max = clear_y_max.max(i32::from(tri.aabb_max_y).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
@@ -770,8 +777,8 @@ fn render_single_tile_textured(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min(i32::from(tri.aabb_min_y).max(tile_y0));
+        clear_y_max = clear_y_max.max(i32::from(tri.aabb_max_y).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
@@ -1843,13 +1850,17 @@ impl TileRenderer {
                     (0..self.tiles_y)
                         .into_par_iter()
                         .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                        .for_each_init(
-                            || {
+                        .for_each(|(tx, ty)| {
+                            TILE_BUFFERS.with(|buffers| {
+                                let mut b = buffers.borrow_mut();
                                 let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                            },
-                            |buffers, (tx, ty)| {
-                                let (tile_pixels, tile_depths) = &mut *buffers;
+                                if b.0.len() < tile_area {
+                                    b.0.resize(tile_area, 0);
+                                    b.1.resize(tile_area, f32::INFINITY);
+                                }
+                                let (pixels_vec, depths_vec) = &mut *b;
+                                let tile_pixels = &mut pixels_vec[..tile_area];
+                                let tile_depths = &mut depths_vec[..tile_area];
                                 if let Some((clear_y_min, clear_y_max)) = render_single_tile(
                                     tx,
                                     ty,
@@ -1890,8 +1901,8 @@ impl TileRenderer {
                                         }
                                     }
                                 }
-                            },
-                        );
+                            });
+                        });
                 }
             }
         }
@@ -2152,13 +2163,17 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        TILE_BUFFERS.with(|buffers| {
+                            let mut b = buffers.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if b.0.len() < tile_area {
+                                b.0.resize(tile_area, 0);
+                                b.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let (pixels_vec, depths_vec) = &mut *b;
+                                let tile_pixels = &mut pixels_vec[..tile_area];
+                                let tile_depths = &mut depths_vec[..tile_area];
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
                                 tx,
                                 ty,
@@ -2198,8 +2213,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
@@ -2326,13 +2341,17 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        TILE_BUFFERS.with(|buffers| {
+                            let mut b = buffers.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if b.0.len() < tile_area {
+                                b.0.resize(tile_area, 0);
+                                b.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let (pixels_vec, depths_vec) = &mut *b;
+                                let tile_pixels = &mut pixels_vec[..tile_area];
+                                let tile_depths = &mut depths_vec[..tile_area];
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
                                 tx,
                                 ty,
@@ -2370,8 +2389,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
@@ -4185,8 +4204,8 @@ fn render_single_tile_gouraud(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
+        clear_y_min = clear_y_min.min(i32::from(tri.aabb_min_y).max(tile_y0));
+        clear_y_max = clear_y_max.max(i32::from(tri.aabb_max_y).min(tile_y1 - 1));
     }
 
     // Clear only the rows that will be touched
