@@ -4848,7 +4848,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // (0 + 255) / 2 = 127.
-        assert!((120..=135).contains(&r), "Pixel should be ~127, got {}", r);
+        assert!((120..=135).contains(&r), "Pixel should be ~127, got {r}");
     }
 
     #[test]
@@ -4963,7 +4963,7 @@ fn test_draw_scanline_trilinear() {
     // Level 0 (Black) mixed with Level 1 (Grey ~127).
     // 50/50 blend -> ~63.
     // Allow range 55-75.
-    assert!((55..=75).contains(&r), "Expected ~64, got {}", r);
+    assert!((55..=75).contains(&r), "Expected ~64, got {r}");
 }
 
 #[test]

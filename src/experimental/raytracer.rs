@@ -42,6 +42,8 @@
 //! tracer.render(&scene, &mut fb);
 //! ```
 
+use std::cell::RefCell;
+
 use crate::framebuffer::Framebuffer;
 use crate::geometry::AABB;
 use crate::math::{Vec2, Vec3};
@@ -49,6 +51,10 @@ use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+
+thread_local! {
+    static RAYTRACER_AABBS: RefCell<Vec<AABB>> = const { RefCell::new(Vec::new()) };
+}
 
 /// A ray in 3D space, defined by an origin and a direction.
 ///
@@ -225,12 +231,6 @@ impl Default for RayTracer {
     }
 }
 
-/// A structure to hold pre-calculated world data for an object.
-struct RenderObject<'a> {
-    obj: &'a SceneObject,
-    world_aabb: AABB,
-}
-
 impl RayTracer {
     /// Creates a new `RayTracer` with default settings (3 bounces, dark grey background).
     #[must_use]
@@ -257,16 +257,13 @@ impl RayTracer {
         let aspect = width as f32 / height as f32;
 
         // Pre-calculate World AABBs
-        let render_objects: Vec<RenderObject> = scene
-            .objects
-            .iter()
-            .map(|obj| RenderObject {
-                obj,
-                world_aabb: obj.calculate_world_aabb(),
-            })
-            .collect();
+        RAYTRACER_AABBS.with(|aabbs_ref| {
+            let mut world_aabbs = aabbs_ref.borrow_mut();
+            world_aabbs.clear();
+            // Need to pass a closure to extend to avoid 'redundant closure' clippy warning
+            world_aabbs.extend(scene.objects.iter().map(SceneObject::calculate_world_aabb));
 
-        // Reconstruct Camera Vectors from View Matrix.
+            // Reconstruct Camera Vectors from View Matrix.
         // View Matrix is R * T (Row-Major).
         // The rotation submatrix R transforms World basis to View basis.
         // The inverse R^T transforms View basis to World basis.
@@ -311,6 +308,9 @@ impl RayTracer {
         #[cfg(not(feature = "parallel"))]
         let iter = buffer.chunks_mut(width as usize).enumerate();
 
+            // We must copy the buffer locally to avoid passing `RefMut` across threads in `par_chunks_mut`.
+            let aabbs_slice: &[AABB] = &world_aabbs;
+
         iter.for_each(|(y, row)| {
             let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
             for (x, pixel) in row.iter_mut().enumerate() {
@@ -320,12 +320,13 @@ impl RayTracer {
                 let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
                 let ray = Ray::new(eye, direction);
 
-                *pixel = self.trace_ray(&ray, &render_objects, 0);
+                    *pixel = self.trace_ray(&ray, &scene.objects, aabbs_slice, 0);
             }
+        });
         });
     }
 
-    fn trace_ray(&self, ray: &Ray, objects: &[RenderObject], depth: u32) -> u32 {
+    fn trace_ray(&self, ray: &Ray, objects: &[SceneObject], aabbs: &[AABB], depth: u32) -> u32 {
         if depth > self.max_bounces {
             return self.background_color;
         }
@@ -334,26 +335,26 @@ impl RayTracer {
         let mut closest_t = f32::MAX;
         let mut hit_obj: Option<&SceneObject> = None;
 
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, closest_t) {
+        for (obj, aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(aabb, 0.001, closest_t) {
                 continue;
             }
 
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 // Transform vertices to World Space
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
                     closest_t = hit.t;
                     closest_hit = Some(hit);
-                    hit_obj = Some(r_obj.obj);
+                    hit_obj = Some(obj);
                 }
             }
         }
@@ -385,7 +386,7 @@ impl RayTracer {
 
             // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
-            let in_shadow = Self::check_shadow(&shadow_ray, objects);
+            let in_shadow = Self::check_shadow(&shadow_ray, objects, aabbs);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
@@ -398,7 +399,7 @@ impl RayTracer {
                     hit.point + hit.normal * 0.001,
                     reflect(ray.direction, hit.normal),
                 );
-                let r_col_u32 = self.trace_ray(&r_ray, objects, depth + 1);
+                let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
                 let rg = ((r_col_u32 >> 8) & 0xFF) as f32 / 255.0;
                 let rb = (r_col_u32 & 0xFF) as f32 / 255.0;
@@ -419,20 +420,20 @@ impl RayTracer {
         self.background_color
     }
 
-    fn check_shadow(ray: &Ray, objects: &[RenderObject]) -> bool {
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, 1000.0) {
+    fn check_shadow(ray: &Ray, objects: &[SceneObject], aabbs: &[AABB]) -> bool {
+        for (obj, aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(aabb, 0.001, 1000.0) {
                 continue;
             }
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if ray.intersect_triangle(v0, v1, v2, 0.001, 1000.0).is_some() {
                     return true;
