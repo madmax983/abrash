@@ -421,3 +421,7 @@ required-features = ["nova"]
 name = "kuwahara_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "dof_bench"
+harness = false

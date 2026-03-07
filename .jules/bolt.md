@@ -40,3 +40,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Concept:** Optimizing the Radial Blur post-processing effect by eliminating float-to-int conversions inside the innermost rendering loop.
 **Fate:** Merged
 **Lesson:** Fixed-point math and digital differential analyzer (DDA) techniques provide massive speedups when doing sub-pixel interpolation. By pre-calculating the step interval in fixed point (`let step_x = (dx * step_factor * 65536.0) as i32`), replacing the sample array allocation and float math (`for &scale in scales { ... dx * scale }`) with integer accumulation (`cur_x += step_x`), the benchmark execution time was effectively halved (~45% speedup).
+
+**[Performance Optimization: Integer Fixed-Point Lerping]**
+**Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
+**Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
