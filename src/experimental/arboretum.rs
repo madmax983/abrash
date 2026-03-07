@@ -118,8 +118,6 @@ impl LSystem {
             return self.axiom.clone();
         }
 
-        let mut current = self.axiom.clone();
-
         // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
         let mut is_pure_ascii = self.axiom.is_ascii();
         if is_pure_ascii {
@@ -147,17 +145,7 @@ impl LSystem {
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
             for _ in 0..iterations {
-                // Determine capacity and write directly
-                let mut exact_len = 0;
-                for &b in &current_bytes {
-                    if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        exact_len += replacement.len();
-                    } else {
-                        exact_len += 1;
-                    }
-                }
-
-                let mut next_bytes = Vec::with_capacity(exact_len);
+                let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
                 for b in current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
                         next_bytes.extend_from_slice(replacement);
@@ -171,6 +159,8 @@ impl LSystem {
             // SAFETY: We checked is_ascii() for axiom and all rules, so bytes are guaranteed to be valid UTF-8.
             return unsafe { String::from_utf8_unchecked(current_bytes) };
         }
+
+        let mut current = self.axiom.clone();
 
         // Fallback for unicode
         let mut rules_array: [Option<&str>; 128] = [None; 128];
