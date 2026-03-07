@@ -15,8 +15,8 @@
 
 ## [Mesh Modifiers]
 **Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
-**Fate:** In Progress
-**Lesson:** TBD
+**Fate:** Merged
+**Lesson:** Modifying large meshes vertex-by-vertex can be computationally intensive, particularly for procedural displacement functions. Offloading iteration onto parallel CPU threads using Rayon greatly accelerates full-mesh deformations. Also, dynamically calculating or verifying per-vertex normals is critical, as out-of-bounds normal arrays can easily crash procedural adjustments.
 
 ## [Toon Outlines]
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
