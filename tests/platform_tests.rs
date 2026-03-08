@@ -4,7 +4,7 @@
 //! enums) are correctly wired up. We cannot create actual Win32 or TUI
 //! windows in test mode, so we test types and trait surface only.
 
-use abrash::platform::{Event, WindowBackend, WindowError};
+use abrash::platform::{Event, WindowError};
 
 // ---------- Event enum ----------
 

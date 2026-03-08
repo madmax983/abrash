@@ -1,10 +1,10 @@
-use abrash::clipping::{ClippedTriangles, Lerp, clip_triangle_to_frustum};
+use abrash::clipping::{ClippedTriangles, clip_triangle_to_frustum};
 use abrash::math::Vec3;
 use proptest::prelude::*;
 
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
-fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
+fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     v0: V,
     v1: V,
     v2: V,
@@ -41,7 +41,7 @@ fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
     triangles
 }
 
-fn clip_plane<V: Lerp + Copy>(
+fn clip_plane<V: Copy>(
     polygon: &mut Vec<V>,
     dist_fn: impl Fn(Vec3, f32) -> f32,
     get_pos: &impl Fn(&V) -> (Vec3, f32),

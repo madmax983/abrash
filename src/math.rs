@@ -96,6 +96,15 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+
     /// Creates a new 2D vector.
     #[must_use]
     #[inline]
@@ -235,6 +244,16 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -388,17 +407,9 @@ impl Vec3 {
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-    pub fn lerp(&self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-        }
-    }
 
     /// Returns a new vector containing the minimum value for each component.
-    #[must_use]
-    #[inline]
+
     pub fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
@@ -1973,6 +1984,20 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+            w: self.w + (other.w - self.w) * t,
+        }
+    }
+
+    #[must_use]
+    #[inline(always)]
+
     /// Creates a new 4D vector.
     ///
     /// # Examples
@@ -1983,8 +2008,7 @@ impl Vec4 {
     /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
     /// assert_eq!(v.w, 1.0);
     /// ```
-    #[must_use]
-    #[inline]
+
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
