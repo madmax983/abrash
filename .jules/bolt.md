@@ -47,3 +47,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Integer Fixed-Point Lerping]**
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+
+**[Performance Optimization: Fixed-Point Coordinates for Sub-pixel Sampling]**
+**Learning:** In sub-pixel sampling loops (like directional blurs), calculating coordinates using floating point math, adding steps, and calling `.round()` per-sample is a massive bottleneck.
+**Action:** Replace floating-point coordinate math with 16.16 fixed-point integer arithmetic. Scale steps by `65536.0` (as `i32`) outside the loop. Offset the initial starting coordinates by `32768` (representing 0.5 in 16.16 fixed-point) and accumulate integers in the loop. The final integer pixel coordinate can then be extracted simply via a right shift (`>> 16`), which naturally incorporates the 0.5 rounding cost-free.
