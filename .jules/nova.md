@@ -69,3 +69,8 @@
 **Concept:** Added zero-dependency TGA and PPM export functionality directly to the `Framebuffer` via an `ImageExporter` trait.
 **Fate:** Implemented
 **Lesson:** Writing uncompressed image formats natively (PPM for RGB, TGA for BGR) using simple bitwise extraction (`(pixel >> 16) & 0xFF`) and a `BufWriter` is extremely easy and removes the need for heavy external dependencies just to dump a visual artifact.
+
+## [L-System Generator]
+**Concept:** A procedural string-rewriting system (L-System) interpreted by a 3D Turtle to generate intricate branching structures (plants, fractals) directly into a `Mesh`.
+**Fate:** Implemented
+**Lesson:** Interpreting expanded strings using a stack-based state (Push/Pop orientation and position) is extremely powerful for generating recursive geometry like trees. To prevent OOM DoS attacks when expanding strings recursively, enforcing a strict char count capacity limit early inside the evaluation loop safely avoids excessive allocations and returns a graceful error.
