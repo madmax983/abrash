@@ -750,7 +750,19 @@ pub fn fill_triangle_point_lit(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -1121,7 +1133,19 @@ pub fn fill_triangle_phong_shadowed(
 
     // Note: We use clip_triangle_to_frustum which uses Lerp.
     // Ensure ((Vec3, f32), Vec3, Vec3) implements Lerp in clipping.rs
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -1795,7 +1819,18 @@ pub fn fill_triangle_phong(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();

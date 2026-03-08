@@ -269,47 +269,16 @@ pub struct PreparedTexturedTriangle {
     pub max_depth: f32,
 }
 
-pub trait AabbBounds {
-    fn aabb_min_y(&self) -> i32;
-    fn aabb_max_y(&self) -> i32;
-}
-
-impl AabbBounds for PreparedTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
-impl AabbBounds for PreparedGouraudTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
-impl AabbBounds for PreparedTexturedTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
 /// Helper function to compute the minimum and maximum Y bounds for clearing a tile,
 /// based on the triangles intersecting it, and clears the specified tile regions.
 #[inline(always)]
-fn clear_tile_bounds<T: AabbBounds>(
+fn clear_tile_bounds<T>(
     tile_bins: &TileBins,
     bin_idx: usize,
     prepared: &[T],
     tile_y0: i32,
     tile_y1: i32,
+    get_bounds: impl Fn(&T) -> (i32, i32),
     tile_pixels: &mut [u32],
     tile_depths: &mut [f32],
 ) -> (i32, i32) {
@@ -318,8 +287,9 @@ fn clear_tile_bounds<T: AabbBounds>(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min(tri.aabb_min_y().max(tile_y0));
-        clear_y_max = clear_y_max.max(tri.aabb_max_y().min(tile_y1 - 1));
+        let (min_y, max_y) = get_bounds(tri);
+        clear_y_min = clear_y_min.min(min_y.max(tile_y0));
+        clear_y_max = clear_y_max.max(max_y.min(tile_y1 - 1));
     }
 
     let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE as u32) as usize;
@@ -633,6 +603,7 @@ fn render_single_tile(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y)),
         tile_pixels,
         tile_depths,
     );
@@ -825,6 +796,7 @@ fn render_single_tile_textured(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (tri.aabb_min_y, tri.aabb_max_y),
         tile_pixels,
         tile_depths,
     );
@@ -2485,7 +2457,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedGouraudTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedGouraudTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2696,7 +2679,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTexturedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedTexturedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2851,7 +2845,13 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| (v.0, v.1),
+            |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
+        );
         let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -3403,6 +3403,7 @@ fn render_single_tile_gouraud(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y)),
         tile_pixels,
         tile_depths,
     );

@@ -1,10 +1,10 @@
-use abrash::experimental::edge_glow::{apply_edge_glow, EdgeGlowConfig};
+use abrash::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::WindowBackend;
-#[cfg(feature = "backend-win32")]
-use abrash::platform::win32::Win32Window;
+
 #[cfg(feature = "backend-tui")]
 use abrash::platform::tui::TuiWindow;
+#[cfg(feature = "backend-win32")]
+use abrash::platform::win32::Win32Window;
 use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,7 +66,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         #[cfg(not(feature = "backend-win32"))]
         {
-            println!("Win32 backend not enabled. Please use --tui or build with --features backend-win32");
+            println!(
+                "Win32 backend not enabled. Please use --tui or build with --features backend-win32"
+            );
         }
     }
 
