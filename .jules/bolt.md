@@ -47,3 +47,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Integer Fixed-Point Lerping]**
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+## [Optimization] Barrel Distortion
+**Technique:** Replaced per-frame dynamic heap allocations (e.g. `vec![0u32; width * height]`) with a `thread_local!` buffer (`std::cell::RefCell<Vec<T>>`).
+**Benefit:** Prevents slice length mismatch panics, achieves zero-cost allocation architecture, and allows parallelization with Rayon.

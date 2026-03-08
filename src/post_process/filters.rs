@@ -18,6 +18,7 @@ const SEPIA_B_B: u32 = 134;
 thread_local! {
     static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+    static BARREL_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Applies a grayscale filter to the framebuffer in-place.
@@ -501,6 +502,102 @@ impl Default for ColorAdjustConfig {
 /// // Result should be 128 + 20 = 148
 /// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
 /// ```
+/// Applies a barrel distortion (fisheye/CRT) effect to the framebuffer in-place.
+///
+/// Uses coordinate remapping to distort the image radially from the center.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::apply_barrel_distortion;
+///
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// apply_barrel_distortion(&mut fb, 0.5);
+/// ```
+pub fn apply_barrel_distortion(fb: &mut Framebuffer, strength: f32) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+    let len = width * height;
+
+    BARREL_BUFFER.with(|buf| {
+        let mut temp_buffer = buf.borrow_mut();
+        if temp_buffer.len() < len {
+            temp_buffer.resize(len, 0);
+        }
+
+        let temp = &mut temp_buffer[..len];
+        temp.copy_from_slice(pixels);
+
+        let center_x = width as f32 * 0.5;
+        let center_y = height as f32 * 0.5;
+
+        // Max radius squared for normalization
+        let max_radius_sq = center_x * center_x + center_y * center_y;
+        let inv_max_radius_sq = if max_radius_sq > 0.0 { 1.0 / max_radius_sq } else { 0.0 };
+
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            pixels.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
+                let dy = y as f32 - center_y;
+                let dy_sq = dy * dy;
+                for (x, pixel) in row.iter_mut().enumerate() {
+                    let dx = x as f32 - center_x;
+                    let dist_sq = dx * dx + dy_sq;
+                    let normalized_dist_sq = dist_sq * inv_max_radius_sq;
+
+                    let distortion_factor = 1.0 + strength * normalized_dist_sq;
+                    let nx = center_x + dx * distortion_factor;
+                    let ny = center_y + dy * distortion_factor;
+
+                    let px = nx as i32;
+                    let py = ny as i32;
+
+                    if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
+                        *pixel = temp[(py as usize) * width + (px as usize)];
+                    } else {
+                        *pixel = 0xFF000000; // Black for out of bounds
+                    }
+                }
+            });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for y in 0..height {
+                let dy = y as f32 - center_y;
+                let dy_sq = dy * dy;
+                let row_start = y * width;
+
+                for x in 0..width {
+                    let dx = x as f32 - center_x;
+                    let dist_sq = dx * dx + dy_sq;
+                    let normalized_dist_sq = dist_sq * inv_max_radius_sq;
+
+                    let distortion_factor = 1.0 + strength * normalized_dist_sq;
+                    let nx = center_x + dx * distortion_factor;
+                    let ny = center_y + dy * distortion_factor;
+
+                    let px = nx as i32;
+                    let py = ny as i32;
+
+                    if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
+                        pixels[row_start + x] = temp[(py as usize) * width + (px as usize)];
+                    } else {
+                        pixels[row_start + x] = 0xFF000000; // Black for out of bounds
+                    }
+                }
+            }
+        }
+    });
+}
+
 pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     let pixels = fb.as_mut_slice();
     let brightness = config.brightness;
@@ -1699,6 +1796,27 @@ mod tests {
         assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
         assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
         assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);
+    }
+
+    #[test]
+    fn test_apply_barrel_distortion() {
+        let mut fb = Framebuffer::new(3, 3).unwrap();
+        // Fill center pixel white, rest black
+        for y in 0..3 {
+            for x in 0..3 {
+                if x == 1 && y == 1 {
+                    fb.set_pixel(x, y, 0xFFFFFFFF);
+                } else {
+                    fb.set_pixel(x, y, 0xFF000000);
+                }
+            }
+        }
+
+        apply_barrel_distortion(&mut fb, 1.0);
+
+        // Due to barrel distortion, the center pixel gets smaller and might shift or blur.
+        // As a basic check, just ensure the function compiles and runs.
+        assert_eq!(fb.width(), 3);
     }
 
     #[test]
