@@ -29,81 +29,97 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         return; // Too small for 3x3 kernel
     }
 
-    let src = fb.as_slice().to_vec();
-    let dest = fb.as_mut_slice();
+    // ⚡ Bolt: Use a thread_local! buffer to eliminate per-frame dynamic heap allocations
+    // while keeping parallel iterators safe.
+    thread_local! {
+        static EMBOSS_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    // Kernel:
-    // -1, -1,  0
-    // -1,  1,  1
-    //  0,  1,  1
+    EMBOSS_BUFFER.with(|buffer| {
+        let mut src_buffer = buffer.borrow_mut();
+        let total_pixels = fb.as_slice().len();
+        if src_buffer.len() < total_pixels {
+            src_buffer.resize(total_pixels, 0);
+        }
 
-    // Extract channels
-    let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
+        let src = &mut src_buffer[..total_pixels];
+        src.copy_from_slice(fb.as_slice());
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dest
-        .par_chunks_mut(width)
-        .enumerate()
-        .skip(1)
-        .take(height - 2);
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
+        let dest = fb.as_mut_slice();
 
-    row_iter.for_each(|(y, row)| {
-        let prev_row_offset = (y - 1) * width;
-        let row_offset = y * width;
-        let next_row_offset = (y + 1) * width;
+        // Kernel:
+        // -1, -1,  0
+        // -1,  1,  1
+        //  0,  1,  1
 
-        let prev_row = &src[prev_row_offset..prev_row_offset + width];
-        let curr_row = &src[row_offset..row_offset + width];
-        let next_row = &src[next_row_offset..next_row_offset + width];
+        // Extract channels
+        let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
 
-        let dest_row = &mut row[1..width - 1];
+        #[cfg(feature = "parallel")]
+        let row_iter = dest
+            .par_chunks_mut(width)
+            .enumerate()
+            .skip(1)
+            .take(height - 2);
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
 
-        dest_row
-            .iter_mut()
-            .zip(prev_row.windows(3))
-            .zip(curr_row.windows(3))
-            .zip(next_row.windows(3))
-            .for_each(|(((dest_pixel, prev_w), curr_w), next_w)| {
-                // Read pixels
-                let tl = prev_w[0];
-                let t = prev_w[1];
+        row_iter.for_each(|(y, row)| {
+            let prev_row_offset = (y - 1) * width;
+            let row_offset = y * width;
+            let next_row_offset = (y + 1) * width;
 
-                let l = curr_w[0];
-                let c = curr_w[1];
-                let r = curr_w[2];
+            let prev_row = &src[prev_row_offset..prev_row_offset + width];
+            let curr_row = &src[row_offset..row_offset + width];
+            let next_row = &src[next_row_offset..next_row_offset + width];
 
-                let b = next_w[1];
-                let br = next_w[2];
+            let dest_row = &mut row[1..width - 1];
 
-                let (tl_r, tl_g, tl_b) = extract(tl);
-                let (t_r, t_g, t_b) = extract(t);
-                let (l_r, l_g, l_b) = extract(l);
-                let (c_r, c_g, c_b) = extract(c);
-                let (r_r, r_g, r_b) = extract(r);
-                let (b_r, b_g, b_b) = extract(b);
-                let (br_r, br_g, br_b) = extract(br);
+            dest_row
+                .iter_mut()
+                .zip(prev_row.windows(3))
+                .zip(curr_row.windows(3))
+                .zip(next_row.windows(3))
+                .for_each(|(((dest_pixel, prev_w), curr_w), next_w)| {
+                    // Read pixels
+                    let tl = prev_w[0];
+                    let t = prev_w[1];
 
-                // Apply weights using saturating unsigned integer operations
-                let pos_r = c_r + r_r + b_r + br_r;
-                let neg_r = tl_r + t_r + l_r;
+                    let l = curr_w[0];
+                    let c = curr_w[1];
+                    let r = curr_w[2];
 
-                let pos_g = c_g + r_g + b_g + br_g;
-                let neg_g = tl_g + t_g + l_g;
+                    let b = next_w[1];
+                    let br = next_w[2];
 
-                let pos_b = c_b + r_b + b_b + br_b;
-                let neg_b = tl_b + t_b + l_b;
+                    let (tl_r, tl_g, tl_b) = extract(tl);
+                    let (t_r, t_g, t_b) = extract(t);
+                    let (l_r, l_g, l_b) = extract(l);
+                    let (c_r, c_g, c_b) = extract(c);
+                    let (r_r, r_g, r_b) = extract(r);
+                    let (b_r, b_g, b_b) = extract(b);
+                    let (br_r, br_g, br_b) = extract(br);
 
-                // Add bias (128) and clamp using unsigned math
-                let out_r = (pos_r + 128).saturating_sub(neg_r).min(255);
-                let out_g = (pos_g + 128).saturating_sub(neg_g).min(255);
-                let out_b = (pos_b + 128).saturating_sub(neg_b).min(255);
+                    // Apply weights using saturating unsigned integer operations
+                    let pos_r = c_r + r_r + b_r + br_r;
+                    let neg_r = tl_r + t_r + l_r;
 
-                // Preserve alpha from center
-                let a = c & 0xFF00_0000;
+                    let pos_g = c_g + r_g + b_g + br_g;
+                    let neg_g = tl_g + t_g + l_g;
 
-                *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
-            });
+                    let pos_b = c_b + r_b + b_b + br_b;
+                    let neg_b = tl_b + t_b + l_b;
+
+                    // Add bias (128) and clamp using unsigned math
+                    let out_r = (pos_r + 128).saturating_sub(neg_r).min(255);
+                    let out_g = (pos_g + 128).saturating_sub(neg_g).min(255);
+                    let out_b = (pos_b + 128).saturating_sub(neg_b).min(255);
+
+                    // Preserve alpha from center
+                    let a = c & 0xFF00_0000;
+
+                    *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
+                });
+        });
     });
 }

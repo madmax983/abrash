@@ -427,6 +427,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "pixel_sort_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "dof_bench"
 harness = false
 
