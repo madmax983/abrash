@@ -47,3 +47,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Integer Fixed-Point Lerping]**
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+
+**[Performance Optimization: Procedural mesh modifiers]**
+**Learning:** In procedural mesh modifiers (like noise displacement), eliminate unnecessary O(N) heap allocations caused by `.clone()` on `mesh.normals`. Instead, ensure the normals array is properly sized in-place, and use `.zip(&mesh.normals)` alongside `mesh.vertices.par_iter_mut()` to safely take disjoint borrows and iterate without allocation overhead.
+**Action:** Replace `mesh.normals.clone()` inside procedural generation loops by checking the length of normals and resizing the original vector instead, then zip the normal reference with the vertices.
