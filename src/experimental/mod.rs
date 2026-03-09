@@ -26,6 +26,7 @@
 //! ```
 
 pub mod arboretum;
+pub mod ascii_export;
 pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
