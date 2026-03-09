@@ -53,3 +53,13 @@
 3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration structs.
 
 **Stability:** Improved high cohesion by grouping related effect parameters together. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.
+
+## [Effect Config Refactoring]
+**Tangle:** Several experimental and post-processing effects (like `apply_ssao`, `apply_depth_of_field`, and `apply_radial_blur`) suffered from the "Argument Jungle" anti-pattern, requiring many individual numeric arguments for configuration. This made the APIs verbose and difficult to maintain.
+
+**Blueprint:**
+1. **Encapsulate:** Created strongly-typed configuration structs (e.g., `SsaoConfig`, `DofConfig`, `RadialBlurConfig`) for each effect.
+2. **Refactor Signatures:** Modified the respective `apply_*` functions to take a single reference to their corresponding `*Config` struct instead of loose parameters.
+3. **Unify SSAO:** Extracted `SsaoConfig` into the `post_process` module and reused it for the experimental SSAO implementation to promote DRY principles.
+
+**Stability:** Improved readability and cohesion by organizing parameters logically. Reduced function signature arity, lowering coupling and making future extensions safer.
