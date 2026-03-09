@@ -44,45 +44,50 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
 
     let inv_samples = 1.0 / (config.num_samples as f32);
 
-    // Pre-calculate steps
-    let dx_step = config.dx * inv_samples;
-    let dy_step = config.dy * inv_samples;
+    // Pre-calculate steps in 16.16 fixed point format
+    let dx_step = (config.dx * inv_samples * 65536.0) as i32;
+    let dy_step = (config.dy * inv_samples * 65536.0) as i32;
 
     let process_row = |(y, row): (usize, &mut [u32])| {
-        let y_f32 = y as f32;
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let mut r_sum = 0.0;
-            let mut g_sum = 0.0;
-            let mut b_sum = 0.0;
+            let mut r_sum = 0;
+            let mut g_sum = 0;
+            let mut b_sum = 0;
 
-            for i in 0..config.num_samples {
-                let i_f32 = i as f32;
-                // Sample position
-                let sample_x = x_f32 + dx_step * i_f32;
-                let sample_y = y_f32 + dy_step * i_f32;
+            // Initialize fixed point coords with an offset of 32768 (0.5 in 16.16)
+            // This provides free mathematical rounding when we shift right later.
+            let mut fx = (x as i32) << 16;
+            fx += 32768;
+            let mut fy = (y as i32) << 16;
+            fy += 32768;
 
-                // Nearest neighbor sampling
-                let px = sample_x.round() as isize;
-                let py = sample_y.round() as isize;
+            for _ in 0..config.num_samples {
+                // Extract integer part by shifting right 16 bits.
+                // Because of the 0.5 offset, this is equivalent to round()
+                let px = fx >> 16;
+                let py = fy >> 16;
 
                 // Clamp to edges
-                let px = px.clamp(0, width as isize - 1) as usize;
-                let py = py.clamp(0, height as isize - 1) as usize;
+                let px = px.clamp(0, width as i32 - 1) as usize;
+                let py = py.clamp(0, height as i32 - 1) as usize;
 
                 let color = source_pixels[py * width + px];
-                let r = ((color >> 16) & 0xFF) as f32;
-                let g = ((color >> 8) & 0xFF) as f32;
-                let b = (color & 0xFF) as f32;
+                let r = (color >> 16) & 0xFF;
+                let g = (color >> 8) & 0xFF;
+                let b = color & 0xFF;
 
                 r_sum += r;
                 g_sum += g;
                 b_sum += b;
+
+                // Advance sample positions
+                fx += dx_step;
+                fy += dy_step;
             }
 
-            let final_r = (r_sum * inv_samples).min(255.0) as u32;
-            let final_g = (g_sum * inv_samples).min(255.0) as u32;
-            let final_b = (b_sum * inv_samples).min(255.0) as u32;
+            let final_r = ((r_sum as f32) * inv_samples).min(255.0) as u32;
+            let final_g = ((g_sum as f32) * inv_samples).min(255.0) as u32;
+            let final_b = ((b_sum as f32) * inv_samples).min(255.0) as u32;
 
             *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
