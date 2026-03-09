@@ -14,8 +14,8 @@ fn bench_directional_blur(c: &mut Criterion) {
     }
 
     let config = abrash::experimental::directional_blur::DirectionalBlurConfig {
-        dx: 15.0,
-        dy: 10.0,
+        dx: 20.0,
+        dy: 20.0,
         num_samples: 16,
     };
     c.bench_function("directional_blur_1024x1024", |b| {

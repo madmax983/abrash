@@ -48,6 +48,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
 
+**[Performance Optimization: Fixed-Point Coordinates for Sub-pixel Sampling]**
+**Learning:** In sub-pixel sampling loops (like directional blurs), calculating coordinates using floating point math, adding steps, and calling `.round()` per-sample is a massive bottleneck.
+**Action:** Replace floating-point coordinate math with 16.16 fixed-point integer arithmetic. Scale steps by `65536.0` (as `i32`) outside the loop. Offset the initial starting coordinates by `32768` (representing 0.5 in 16.16 fixed-point) and accumulate integers in the loop. The final integer pixel coordinate can then be extracted simply via a right shift (`>> 16`), which naturally incorporates the 0.5 rounding cost-free.
 **[Performance Optimization: Zip Iterator to Eliminate Array Clones]**
 **Learning:** In procedural mesh algorithms like `displace_noise`, cloning entire vectors (e.g. `mesh.normals.clone()`) to satisfy borrow checker rules or avoid length mismatches introduces an unnecessary `O(N)` heap allocation. Furthermore, using `.enumerate()` to access a separate slice via `let normal = normals[i];` incurs implicit bounds-checking.
 **Action:** Replace `vector.clone()` with explicit length matching and `.resize()` in place. Then, use `.zip(&mesh.normals)` when iterating over `mesh.vertices.par_iter_mut()` to safely obtain simultaneous mutable and immutable borrows, entirely eliminating both the heap allocation and the inner-loop bounds checks.
