@@ -51,3 +51,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Zip Iterator to Eliminate Array Clones]**
 **Learning:** In procedural mesh algorithms like `displace_noise`, cloning entire vectors (e.g. `mesh.normals.clone()`) to satisfy borrow checker rules or avoid length mismatches introduces an unnecessary `O(N)` heap allocation. Furthermore, using `.enumerate()` to access a separate slice via `let normal = normals[i];` incurs implicit bounds-checking.
 **Action:** Replace `vector.clone()` with explicit length matching and `.resize()` in place. Then, use `.zip(&mesh.normals)` when iterating over `mesh.vertices.par_iter_mut()` to safely obtain simultaneous mutable and immutable borrows, entirely eliminating both the heap allocation and the inner-loop bounds checks.
+## [Performance] Zero-Cost Normal Iteration in Displace Noise
+**Learning:** In procedural mesh modifiers, cloning `mesh.normals` just to iterate alongside `mesh.vertices` creates an unnecessary $O(N)$ heap allocation per frame/call.
+**Action:** Exploit Rust's ability to take disjoint borrows from the same struct by properly sizing `mesh.normals` in-place, and directly pairing it with `mesh.vertices` using `.zip(&mesh.normals)`. This removes the clone while preserving `.par_iter_mut()` parallelism entirely overhead-free.
