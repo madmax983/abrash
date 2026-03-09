@@ -125,7 +125,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
                 }
 
                 // Sort segments in column
-                sort_segments(&mut col_buffer, lum_threshold, reverse);
+                sort_segments(&mut col_buffer, lum_threshold, config.reverse);
 
                 // Put column back
                 for y in 0..height {

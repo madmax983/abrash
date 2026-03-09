@@ -28,6 +28,12 @@ impl Default for DirectionalBlurConfig {
     }
 }
 
+use std::cell::RefCell;
+
+thread_local! {
+    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &DirectionalBlurConfig) {
     if config.num_samples <= 1 {
         return;
@@ -39,72 +45,122 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         return;
     }
 
-    // Clone the source framebuffer to read from while writing to the original
-    let source_pixels = framebuffer.as_slice().to_vec();
-
     let inv_samples = 1.0 / (config.num_samples as f32);
 
-    // Pre-calculate steps
-    let dx_step = config.dx * inv_samples;
-    let dy_step = config.dy * inv_samples;
+    // Pre-calculate steps in 16.16 fixed point format
+    let dx_step = (config.dx * inv_samples * 65536.0) as i32;
+    let dy_step = (config.dy * inv_samples * 65536.0) as i32;
 
     let process_row = |(y, row): (usize, &mut [u32])| {
-        let y_f32 = y as f32;
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let x_f32 = x as f32;
-            let mut r_sum = 0.0;
-            let mut g_sum = 0.0;
-            let mut b_sum = 0.0;
+            let mut r_sum = 0;
+            let mut g_sum = 0;
+            let mut b_sum = 0;
 
-            for i in 0..config.num_samples {
-                let i_f32 = i as f32;
-                // Sample position
-                let sample_x = x_f32 + dx_step * i_f32;
-                let sample_y = y_f32 + dy_step * i_f32;
+            // Initialize fixed point coords with an offset of 32768 (0.5 in 16.16)
+            // This provides free mathematical rounding when we shift right later.
+            let mut fx = (x as i32) << 16;
+            fx += 32768;
+            let mut fy = (y as i32) << 16;
+            fy += 32768;
 
-                // Nearest neighbor sampling
-                let px = sample_x.round() as isize;
-                let py = sample_y.round() as isize;
+            for _ in 0..config.num_samples {
+                // Extract integer part by shifting right 16 bits.
+                // Because of the 0.5 offset, this is equivalent to round()
+                let px = fx >> 16;
+                let py = fy >> 16;
 
                 // Clamp to edges
-                let px = px.clamp(0, width as isize - 1) as usize;
-                let py = py.clamp(0, height as isize - 1) as usize;
+                let px = px.clamp(0, width as i32 - 1) as usize;
+                let py = py.clamp(0, height as i32 - 1) as usize;
 
                 let color = source_pixels[py * width + px];
-                let r = ((color >> 16) & 0xFF) as f32;
-                let g = ((color >> 8) & 0xFF) as f32;
-                let b = (color & 0xFF) as f32;
+                let r = (color >> 16) & 0xFF;
+                let g = (color >> 8) & 0xFF;
+                let b = color & 0xFF;
 
                 r_sum += r;
                 g_sum += g;
                 b_sum += b;
+
+                // Advance sample positions
+                fx += dx_step;
+                fy += dy_step;
             }
 
-            let final_r = (r_sum * inv_samples).min(255.0) as u32;
-            let final_g = (g_sum * inv_samples).min(255.0) as u32;
-            let final_b = (b_sum * inv_samples).min(255.0) as u32;
+            let final_r = ((r_sum as f32) * inv_samples).min(255.0) as u32;
+            let final_g = ((g_sum as f32) * inv_samples).min(255.0) as u32;
+            let final_b = ((b_sum as f32) * inv_samples).min(255.0) as u32;
 
-            *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+        if source_pixels.len() != fb_slice.len() {
+            source_pixels.resize(fb_slice.len(), 0);
         }
-    };
+        source_pixels.copy_from_slice(fb_slice);
+        // We now safely reference the slice. We can extract it as an immutable reference
+        // to pass into the parallel iterator safely since `RefMut` doesn't implement `Sync`.
+        let source_slice: &[u32] = &source_pixels;
 
-    #[cfg(feature = "parallel")]
-    {
-        framebuffer
-            .as_mut_slice()
-            .par_chunks_mut(width)
-            .enumerate()
-            .for_each(process_row);
-    }
+        let process_row = |(y, row): (usize, &mut [u32])| {
+            // Start Y at pixel center + 0.5 (32768) for rounding equivalent
+            let start_y = (y << 16) as i32 + 32768;
 
-    #[cfg(not(feature = "parallel"))]
-    {
-        framebuffer
-            .as_mut_slice()
-            .chunks_mut(width)
-            .enumerate()
-            .for_each(process_row);
-    }
+            for (x, pixel) in row.iter_mut().enumerate().take(width) {
+                let mut cur_x = (x << 16) as i32 + 32768;
+                let mut cur_y = start_y;
+
+                let mut r_sum = 0;
+                let mut g_sum = 0;
+                let mut b_sum = 0;
+
+                for _ in 0..config.num_samples {
+                    // Nearest neighbor sampling by shifting down the fixed-point coordinate
+                    let px = cur_x >> 16;
+                    let py = cur_y >> 16;
+
+                    // Clamp to edges
+                    let px = px.clamp(0, width as i32 - 1) as usize;
+                    let py = py.clamp(0, height as i32 - 1) as usize;
+
+                    let color = source_slice[py * width + px];
+                    let r = (color >> 16) & 0xFF;
+                    let g = (color >> 8) & 0xFF;
+                    let b = color & 0xFF;
+
+                    r_sum += r;
+                    g_sum += g;
+                    b_sum += b;
+
+                    cur_x += dx_step_fixed;
+                    cur_y += dy_step_fixed;
+                }
+
+                // Multiply by fixed-point inverse and shift down
+                let final_r = (r_sum * inv_samples_fixed) >> 16;
+                let final_g = (g_sum * inv_samples_fixed) >> 16;
+                let final_b = (b_sum * inv_samples_fixed) >> 16;
+
+                *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+            }
+        };
+
+        #[cfg(feature = "parallel")]
+        {
+            framebuffer
+                .as_mut_slice()
+                .par_chunks_mut(width)
+                .enumerate()
+                .for_each(process_row);
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            framebuffer
+                .as_mut_slice()
+                .chunks_mut(width)
+                .enumerate()
+                .for_each(process_row);
+        }
+    }); // Close SOURCE_PIXELS.with
 }
 
 #[cfg(test)]
