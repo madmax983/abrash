@@ -48,6 +48,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
 
+**[Performance Optimization: Zip Iterator to Eliminate Array Clones]**
+**Learning:** In procedural mesh modifiers (like noise displacement), unnecessary O(N) heap allocations can be avoided by making sure the normal array is correctly sized in place, then using `.zip(&mesh.normals)` next to the `mesh.vertices.par_iter_mut()` loop to avoid cloning the normal array.
+**Action:** Always favor `.zip()` and in-place resizing instead of `.clone()` for concurrent or parallel array iterations.
 **[Performance Optimization: Fixed-Point Directional Blur]**
 **Learning:** In sub-pixel sampling loops like directional blurs, replacing floating-point coordinate math and `.round()` operations with 16.16 fixed-point integer arithmetic provides an enormous ~75% speedup by eliminating `f32` conversion overhead in the inner-most rendering loop. Scaling steps by `65536.0` (`<< 16`) and offsetting the initial starting coordinates by `32768` (0.5 in 16.16 fixed point) achieves free mathematical rounding via standard integer truncation when extracting the coordinate (`>> 16`).
 **Action:** Always prefer integer fixed-point math over floating-point arithmetic for coordinate sampling and interpolation in per-pixel rendering loops to significantly improve performance.

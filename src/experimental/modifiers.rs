@@ -78,6 +78,10 @@ pub fn displace_noise(mesh: &mut Mesh, amount: f32, seed: u32) {
             .resize(mesh.vertices.len(), crate::math::Vec3::new(0.0, 1.0, 0.0));
     }
 
+    // ⚡ Bolt Optimization:
+    // By using `.zip(&mesh.normals)` alongside `par_iter_mut()`, we safely take disjoint borrows
+    // of the vertices and normals arrays directly from the `mesh` struct.
+    // This allows zero-cost parallel iteration without moving data to a temporary heap allocation.
     #[cfg(feature = "parallel")]
     let iter = mesh.vertices.par_iter_mut().zip(&mesh.normals);
     #[cfg(not(feature = "parallel"))]
