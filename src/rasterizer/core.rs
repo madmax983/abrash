@@ -168,6 +168,26 @@ pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
     pack_color_channels(r, g, b)
 }
 
+/// SIMD implementation of alpha blending using SWAR (SIMD Within A Register) techniques.
+///
+/// Blends a vector of source colors `c0` over a vector of destination colors `c1`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::rasterizer::core::blend_swar_simd;
+///
+/// #[cfg(all(any(target_arch = "x86_64", target_arch = "x86"), target_feature = "avx2"))]
+/// unsafe {
+///     use std::arch::x86_64::_mm256_set1_epi32;
+///     // Opaque red over black with 100% weight
+///     let src = _mm256_set1_epi32(0xFFFF0000_u32 as i32);
+///     let dst = _mm256_set1_epi32(0xFF000000_u32 as i32);
+///     let w = _mm256_set1_epi32(256);
+///     let inv_w = _mm256_set1_epi32(0);
+///     let result = blend_swar_simd(src, dst, w, inv_w);
+/// }
+/// ```
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[inline]

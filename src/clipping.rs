@@ -527,6 +527,28 @@ pub fn clip_line_to_frustum<V: Copy>(
 }
 
 // Keep the old function for now if needed, or deprecate.
+/// Clips a triangle against the near plane (W = 0 or specific near depth).
+///
+/// Returns a list of 0, 1, or 2 clipped triangles depending on how many
+/// vertices lie behind the near plane.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::clipping::clip_triangle_against_near_plane;
+/// use abrash::math::Vec3;
+///
+/// let v0 = (Vec3::new(0.0, 0.0, 1.0), 1.0);
+/// let v1 = (Vec3::new(1.0, 0.0, 1.0), 1.0);
+/// let v2 = (Vec3::new(0.0, 1.0, 1.0), 1.0);
+///
+/// let clipped = clip_triangle_against_near_plane(
+///     v0, v1, v2,
+///     |v| v.1, // get_w
+///     |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t) // lerp
+/// );
+/// assert_eq!(clipped.count, 1);
+/// ```
 pub fn clip_triangle_against_near_plane<V: Copy>(
     v0: V,
     v1: V,

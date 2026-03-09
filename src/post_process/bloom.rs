@@ -44,6 +44,30 @@ impl Default for BloomConfig {
     }
 }
 
+/// Applies a bloom post-processing effect to the given framebuffer.
+///
+/// This extracts the bright regions of the image, applies a multi-pass Gaussian blur
+/// to create a "glow" effect, and composites it back onto the original image.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to apply the effect to.
+/// * `config` - Configuration parameters controlling the threshold, radius, and intensity.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::bloom::{apply_bloom, BloomConfig};
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let config = BloomConfig {
+///     threshold: 200,
+///     blur_radius: 2,
+///     intensity: 1.0,
+/// };
+/// apply_bloom(&mut fb, &config);
+/// ```
 pub fn apply_bloom(fb: &mut Framebuffer, config: &BloomConfig) {
     if config.blur_radius == 0 || config.intensity <= 0.0 {
         return;

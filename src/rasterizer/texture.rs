@@ -4210,6 +4210,30 @@ fn draw_span_textured_gouraud_scalar(
     }
 }
 
+/// Rasterizes a single horizontal scanline with perspective-correct texture mapping and Gouraud shading.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::zbuffer::ZBuffer;
+/// use abrash::texture::Texture;
+/// use abrash::rasterizer::texture::{
+///     draw_scanline_textured_gouraud, PerspectiveSpanStart, TexturedGouraudSpanStart, TexturedGouraudGradients
+/// };
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let mut zb = ZBuffer::new(800, 600).unwrap();
+/// let tex = Texture::new(64, 64).unwrap();
+///
+/// let start = TexturedGouraudSpanStart { z: 10.0, q: 1.0, u: 0.0, v: 0.0, r: 0.0, g: 0.0, b: 0.0 };
+/// let grads = TexturedGouraudGradients {
+///     dz_dx: 0.0, dq_dx: 0.0, du_dx: 0.1, dv_dx: 0.1, dr_dx: 0.0, dg_dx: 0.0, db_dx: 0.0,
+///     dq_dy: 0.0, du_dy: 0.0, dv_dy: 0.0, dr_dy: 0.0, dg_dy: 0.0, db_dy: 0.0
+/// };
+///
+/// draw_scanline_textured_gouraud(&mut fb, &mut zb, 0, 100, 0, start, &grads, &tex);
+/// ```
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_textured_gouraud(
