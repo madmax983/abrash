@@ -9,7 +9,7 @@ struct TestVertex {
     w: f32,
 }
 
-// Helper for lerping TestVertex
+// Implement Lerp for TestVertex
 impl TestVertex {
     fn lerp(self, other: Self, t: f32) -> Self {
         Self {
