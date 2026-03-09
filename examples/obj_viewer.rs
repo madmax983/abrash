@@ -13,6 +13,7 @@ use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
 
+use crossterm::style::Stylize;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -193,10 +194,44 @@ impl Widget for AsciiWidget<'_> {
     }
 }
 
+fn print_banner(args: &Args) {
+    println!("\n{}", "🎨 Abrash OBJ Viewer".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Window Mode"),
+            if args.ascii || args.colored_ascii {
+                Cell::new(format!("Terminal TUI ({}x{})", args.width, args.height)).fg(Color::Magenta)
+            } else {
+                Cell::new(format!("Desktop Window ({}x{})", WIDTH, HEIGHT)).fg(Color::Blue)
+            },
+        ])
+        .add_row(vec![
+            Cell::new("Render Style"),
+            if args.colored_ascii {
+                Cell::new("Colored ASCII").fg(Color::Green)
+            } else if args.ascii {
+                Cell::new("Grayscale ASCII").fg(Color::DarkGrey)
+            } else {
+                Cell::new("Flat Shaded 3D").fg(Color::Yellow)
+            },
+        ]);
+
+    println!("\n{}", "⚙️  Configuration".bold());
+    println!("{table}");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    println!("\n🎨 Abrash OBJ Viewer");
+    print_banner(&args);
 
     let (mesh_source, source_name) = match args.input {
         Some(path) => {
@@ -282,7 +317,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-rotating")]);
 
-    println!("\n🎮 Controls");
+    println!("\n{}", "🎮 Controls".bold());
     println!("{controls}\n");
 
     // Compute normals for flat shading logic

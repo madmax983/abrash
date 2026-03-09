@@ -6,12 +6,53 @@ use abrash::platform::tui::TuiWindow;
 #[cfg(feature = "backend-win32")]
 use abrash::platform::win32::Win32Window;
 use std::env;
+use comfy_table::{Table, Cell, Color as TableColor, Attribute};
+
+fn print_banner(width: u32, height: u32) {
+    println!("\n\x1b[1;36m🌟 Edge Glow Demo\x1b[0m");
+    println!("\x1b[90m=====================\x1b[0m");
+
+    let mut table = Table::new();
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL_CONDENSED)
+        .set_header(vec![
+            Cell::new("Property").add_attribute(Attribute::Bold),
+            Cell::new("Value").add_attribute(Attribute::Bold),
+        ])
+        .add_row(vec![
+            Cell::new("Resolution").fg(TableColor::Cyan),
+            Cell::new(format!("{}x{}", width, height)),
+        ])
+        .add_row(vec![
+            Cell::new("Algorithm").fg(TableColor::Cyan),
+            Cell::new("Sobel Operator Edge Detection"),
+        ])
+        .add_row(vec![
+            Cell::new("Feature").fg(TableColor::Cyan),
+            Cell::new("Nova (Experimental)"),
+        ]);
+
+    println!("\n\x1b[1m⚙️  Info\x1b[0m");
+    println!("{table}");
+
+    println!("\n\x1b[1m🎮 Controls\x1b[0m");
+    let mut controls = Table::new();
+    controls
+        .load_preset(comfy_table::presets::NOTHING)
+        .add_row(vec![
+            Cell::new("[ESC] / [Q]").fg(TableColor::Yellow),
+            Cell::new("Exit Demo"),
+        ]);
+    println!("{controls}\n");
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let width = 800;
     let height = 600;
 
     let use_tui = env::args().any(|arg| arg == "--tui");
+
+    print_banner(width, height);
 
     let mut fb = Framebuffer::new(width, height)?;
 
@@ -60,7 +101,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut window = Win32Window::new("Edge Glow Demo", width, height)?;
             window.blit_framebuffer(&fb);
 
-            while window.poll_events() {
+            while window.is_open() {
+                window.poll_events();
                 std::thread::sleep(std::time::Duration::from_millis(16));
             }
         }

@@ -123,6 +123,16 @@ path = "examples/cloth_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "raytracer_demo"
+path = "examples/raytracer_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "edge_glow_demo"
+path = "examples/edge_glow_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "vision_demo"
 path = "examples/vision_demo.rs"
 required-features = ["nova"]
@@ -414,6 +424,11 @@ required-features = ["nova"]
 [[bench]]
 name = "emboss_bench"
 harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "emboss_demo"
+path = "examples/emboss_demo.rs"
 required-features = ["nova"]
 
 [[example]]
