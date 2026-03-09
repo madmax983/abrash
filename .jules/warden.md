@@ -36,3 +36,6 @@
 **2025-01-20 - Buffer Overflow in SoftBody SIMD**
 **Threat:** The `SoftBody::update_simd` physics loop in `src/experimental/jelly.rs` gathered data from internal arrays via AVX2 using indices loaded straight from memory into SIMD registers (`_mm256_i32gather_ps(pos_base, idx_a)`), where `idx_a` came from `spring_indices_a`. If a user mutated `spring_indices_a` post-creation (as it was fully `pub`), or provided out-of-bounds indices, the physics step would read/write wildly out of bounds, risking arbitrary memory corruption or info leaks.
 **Defense:** Changed the struct fields to `pub(crate)` and added an explicit `O(N)` bounds validation check immediately prior to the SIMD loop for defense-in-depth, alongside an encapsulated `add_spring` method.
+**2025-05-15 - [Fix potential Out-of-Bounds in Kuwahara filter]**
+**Threat:** The `apply_kuwahara` function in `src/experimental/kuwahara.rs` used `unsafe { *src_fb.get_unchecked(...) }` when sampling pixels. Even though boundaries were explicitly clamped to logical limits, casting `width` to `i32` and complex row offsets calculated by hand introduced a risk of memory corruption.
+**Defense:** Replaced the `unsafe` block with safe slice indexing, ensuring bounds checks remain, deferring any optimization safely to the compiler.
