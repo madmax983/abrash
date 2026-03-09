@@ -2,6 +2,11 @@ use abrash::clipping::{ClippedTriangles, clip_triangle_to_frustum};
 use abrash::math::Vec3;
 use proptest::prelude::*;
 
+// Helper to linearly interpolate a simple tuple vertex
+fn lerp_tuple_vertex(a: (Vec3, f32), b: (Vec3, f32), t: f32) -> (Vec3, f32) {
+    (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+}
+
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
 fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
@@ -9,7 +14,7 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
-    lerp_fn: impl Fn(V, V, f32) -> V,
+    lerp: impl Fn(V, V, f32) -> V + Copy,
 ) -> Vec<V> {
     // Return Vec<V> for easier comparison
     // We use a Vec instead of fixed array for the oracle to be safe
@@ -128,6 +133,7 @@ proptest! {
         let v2 = (Vec3::new(vx2, vy2, vz2), w2);
 
         let get_pos = |v: &(Vec3, f32)| *v;
+        let lerp_func = lerp_tuple_vertex;
 
         // Run Optimized (SIMD)
         let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));

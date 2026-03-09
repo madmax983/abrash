@@ -305,6 +305,16 @@ impl ObjParser {
             ));
         }
 
+        if let Some(ti) = vt_idx {
+            if ti >= self.raw_uvs.len() {
+                return Err(format!("Line {}: UV index {} out of bounds", line_num, ti + 1));
+            }
+        }
+        if let Some(ni) = vn_idx {
+            if ni >= self.raw_normals.len() {
+                return Err(format!("Line {}: Normal index {} out of bounds", line_num, ni + 1));
+            }
+        }
         let key = VertexKey::new(v_idx, vt_idx, vn_idx);
 
         if let Some(&idx) = self.deduplicator.get(&key) {
