@@ -4,12 +4,12 @@ use proptest::prelude::*;
 
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
-fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
-    v0: V,
-    v1: V,
-    v2: V,
-    get_pos: impl Fn(&V) -> (Vec3, f32),
-) -> Vec<V> {
+fn clip_triangle_scalar(
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    get_pos: impl Fn(&(Vec3, f32)) -> (Vec3, f32),
+) -> Vec<(Vec3, f32)> {
     // Return Vec<V> for easier comparison
     // We use a Vec instead of fixed array for the oracle to be safe
     let mut current_polygon = vec![v0, v1, v2];
@@ -41,10 +41,10 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     triangles
 }
 
-fn clip_plane<V: Copy>(
-    polygon: &mut Vec<V>,
+fn clip_plane(
+    polygon: &mut Vec<(Vec3, f32)>,
     dist_fn: impl Fn(Vec3, f32) -> f32,
-    get_pos: &impl Fn(&V) -> (Vec3, f32),
+    get_pos: &impl Fn(&(Vec3, f32)) -> (Vec3, f32),
 ) {
     if polygon.is_empty() {
         return;
@@ -64,7 +64,7 @@ fn clip_plane<V: Copy>(
             if prev_d < 0.0 {
                 // Entered
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push(lerp_vertex(prev_v, curr_v, t));
             }
             new_polygon.push(curr_v);
         } else {
@@ -72,7 +72,7 @@ fn clip_plane<V: Copy>(
             if prev_d >= 0.0 {
                 // Exited
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push(lerp_vertex(prev_v, curr_v, t));
             }
         }
         prev_v = curr_v;
@@ -80,6 +80,10 @@ fn clip_plane<V: Copy>(
     }
 
     *polygon = new_polygon;
+}
+
+fn lerp_vertex(a: (Vec3, f32), b: (Vec3, f32), t: f32) -> (Vec3, f32) {
+    (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
 }
 
 // Convert ClippedTriangles to Vec<V> for comparison
@@ -128,7 +132,7 @@ proptest! {
         let get_pos = |v: &(Vec3, f32)| *v;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_vertex);
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle
