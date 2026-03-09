@@ -7,7 +7,47 @@ use abrash::platform::tui::TuiWindow;
 use abrash::platform::win32::Win32Window;
 use std::env;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner() {
+    println!("\n{}", "🌟 Edge Glow Demo".bold().magenta());
+    println!("{}", "==========================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Edge Detection & Glow Post-Processing").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Effect"),
+            Cell::new("Highlights edges with a neon glow").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Q / Esc"), Cell::new("Quit Demo")]);
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
+
     let width = 800;
     let height = 600;
 
@@ -48,7 +88,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut window = TuiWindow::new("Edge Glow Demo", width, height)?;
             window.blit_framebuffer(&fb);
-            std::thread::sleep(std::time::Duration::from_secs(3));
+
+            use crossterm::event::{self, Event, KeyCode};
+            use std::time::Duration;
+
+            loop {
+                if event::poll(Duration::from_millis(100))? {
+                    if let Event::Key(key) = event::read()? {
+                        match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => break,
+                            _ => {}
+                        }
+                    }
+                }
+            }
         }
         #[cfg(not(feature = "backend-tui"))]
         {
@@ -60,7 +113,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut window = Win32Window::new("Edge Glow Demo", width, height)?;
             window.blit_framebuffer(&fb);
 
-            while window.poll_events() {
+            while window.is_open() {
+                window.poll_events();
                 std::thread::sleep(std::time::Duration::from_millis(16));
             }
         }
