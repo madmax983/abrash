@@ -26,6 +26,7 @@
 //! ```
 
 pub mod arboretum;
+pub mod ascii_export;
 pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
@@ -40,6 +41,7 @@ pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
+pub mod lsystem;
 pub mod modifiers;
 pub mod pixel_sort;
 pub mod pixelate;
