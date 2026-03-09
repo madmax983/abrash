@@ -29,34 +29,49 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         return; // Too small for 3x3 kernel
     }
 
-    let src = fb.as_slice().to_vec();
-    let dest = fb.as_mut_slice();
+    // ⚡ Bolt: Use a thread_local! buffer to eliminate dynamic allocation of `src`
+    std::thread_local! {
+        static SRC_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    // Kernel:
-    // -1, -1,  0
-    // -1,  1,  1
-    //  0,  1,  1
+    SRC_BUFFER.with(|buffer| {
+        let mut src_buffer = buffer.borrow_mut();
+        let pixel_count = width * height;
+        if src_buffer.len() < pixel_count {
+            src_buffer.resize(pixel_count, 0);
+        }
 
-    // Extract channels
-    let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
+        // Copy pixels
+        src_buffer[..pixel_count].copy_from_slice(fb.as_slice());
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dest
-        .par_chunks_mut(width)
-        .enumerate()
-        .skip(1)
-        .take(height - 2);
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
+        let src = &src_buffer[..pixel_count];
+        let dest = fb.as_mut_slice();
 
-    row_iter.for_each(|(y, row)| {
-        let prev_row_offset = (y - 1) * width;
-        let row_offset = y * width;
-        let next_row_offset = (y + 1) * width;
+        // Kernel:
+        // -1, -1,  0
+        // -1,  1,  1
+        //  0,  1,  1
 
-        let prev_row = &src[prev_row_offset..prev_row_offset + width];
-        let curr_row = &src[row_offset..row_offset + width];
-        let next_row = &src[next_row_offset..next_row_offset + width];
+        // Extract channels
+        let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
+
+        #[cfg(feature = "parallel")]
+        let row_iter = dest
+            .par_chunks_mut(width)
+            .enumerate()
+            .skip(1)
+            .take(height - 2);
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
+
+        row_iter.for_each(|(y, row)| {
+            let prev_row_offset = (y - 1) * width;
+            let row_offset = y * width;
+            let next_row_offset = (y + 1) * width;
+
+            let prev_row = &src[prev_row_offset..prev_row_offset + width];
+            let curr_row = &src[row_offset..row_offset + width];
+            let next_row = &src[next_row_offset..next_row_offset + width];
 
         let dest_row = &mut row[1..width - 1];
 
@@ -105,5 +120,6 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
 
                 *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
             });
+        });
     });
 }

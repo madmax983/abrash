@@ -47,104 +47,7 @@ impl Particle {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_particle_emission() {
-        let texture = Texture::new(2, 2).unwrap();
-        let mut sys = ParticleSystem::new(10, texture);
-        sys.emission_rate = 1.0;
-
-        // Update 0.5s -> accumulator 0.5 -> 0 particles
-        sys.update(0.5);
-        assert_eq!(sys.particles.len(), 0);
-
-        // Update 0.6s -> accumulator 1.1 -> 1 particle emitted -> acc 0.1
-        sys.update(0.6);
-        assert_eq!(sys.particles.len(), 1);
-    }
-
-    #[test]
-    fn test_particle_life() {
-        let texture = Texture::new(2, 2).unwrap();
-        let mut sys = ParticleSystem::new(10, texture);
-        sys.emission_rate = 0.0; // Manual emission
-
-        // Manually add a particle
-        sys.particles.push(Particle::new(
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 0.0, 0.0),
-            1.0, // Life 1.0
-            0.1,
-            0xFFFFFFFF,
-        ));
-
-        // Update 0.5s -> Life 0.5
-        sys.update(0.5);
-        assert_eq!(sys.particles.len(), 1);
-        assert!((sys.particles[0].life - 0.5).abs() < 0.001);
-
-        // Update 0.6s -> Life -0.1 -> Dead
-        sys.update(0.6);
-        assert_eq!(sys.particles.len(), 0);
-    }
-
-    #[test]
-    fn test_physics() {
-        let texture = Texture::new(2, 2).unwrap();
-        let mut sys = ParticleSystem::new(10, texture);
-        sys.gravity = Vec3::new(0.0, -10.0, 0.0);
-
-        sys.particles.push(Particle::new(
-            Vec3::new(0.0, 10.0, 0.0),
-            Vec3::new(0.0, 0.0, 0.0),
-            2.0, // Life 2.0 so it survives 1.0s update
-            0.1,
-            0xFFFFFFFF,
-        ));
-
-        // Update 1.0s
-        // Vel = 0 + (-10 * 1) = -10
-        // Pos = 10 + (-10 * 1) = 0?
-        // Note: Simple Euler integration v += a*dt; p += v*dt;
-        // In code: v += g*dt; p += v*dt; (Symplectic Euler)
-        // v = -10. p = 10 + (-10) = 0.
-        sys.update(1.0);
-
-        let p = &sys.particles[0];
-        assert!((p.velocity.y - -10.0).abs() < 0.001);
-        assert!((p.position.y - 0.0).abs() < 0.001);
-    }
-}
-
-/// A particle emitter and manager.
-pub struct ParticleSystem {
-    /// The active particles in the system.
-    pub particles: Vec<Particle>,
-    /// The 3D position of the emitter in world space.
-    pub position: Vec3,
-    /// The number of particles emitted per second.
-    pub emission_rate: f32,
-    /// The global gravity vector applied to all particles.
-    pub gravity: Vec3,
-    /// The texture applied to each particle sprite.
-    pub texture: Texture,
-
-    /// Initial speed of emitted particles.
-    pub start_speed: f32,
-    /// Initial life of emitted particles.
-    pub start_life: f32,
-    /// Initial size of emitted particles.
-    pub start_size: f32,
-    /// Randomness applied to initial particle direction.
-    pub spread: f32,
-
-    // Internal state
-    emission_accumulator: f32,
-    rng: XorShift32,
-}
 
 impl ParticleSystem {
     /// Creates a new particle system.
@@ -304,4 +207,104 @@ impl ParticleSystem {
             );
         }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_particle_emission() {
+        let texture = Texture::new(2, 2).unwrap();
+        let mut sys = ParticleSystem::new(10, texture);
+        sys.emission_rate = 1.0;
+
+        // Update 0.5s -> accumulator 0.5 -> 0 particles
+        sys.update(0.5);
+        assert_eq!(sys.particles.len(), 0);
+
+        // Update 0.6s -> accumulator 1.1 -> 1 particle emitted -> acc 0.1
+        sys.update(0.6);
+        assert_eq!(sys.particles.len(), 1);
+    }
+
+    #[test]
+    fn test_particle_life() {
+        let texture = Texture::new(2, 2).unwrap();
+        let mut sys = ParticleSystem::new(10, texture);
+        sys.emission_rate = 0.0; // Manual emission
+
+        // Manually add a particle
+        sys.particles.push(Particle::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            1.0, // Life 1.0
+            0.1,
+            0xFFFFFFFF,
+        ));
+
+        // Update 0.5s -> Life 0.5
+        sys.update(0.5);
+        assert_eq!(sys.particles.len(), 1);
+        assert!((sys.particles[0].life - 0.5).abs() < 0.001);
+
+        // Update 0.6s -> Life -0.1 -> Dead
+        sys.update(0.6);
+        assert_eq!(sys.particles.len(), 0);
+    }
+
+    #[test]
+    fn test_physics() {
+        let texture = Texture::new(2, 2).unwrap();
+        let mut sys = ParticleSystem::new(10, texture);
+        sys.gravity = Vec3::new(0.0, -10.0, 0.0);
+
+        sys.particles.push(Particle::new(
+            Vec3::new(0.0, 10.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            2.0, // Life 2.0 so it survives 1.0s update
+            0.1,
+            0xFFFFFFFF,
+        ));
+
+        // Update 1.0s
+        // Vel = 0 + (-10 * 1) = -10
+        // Pos = 10 + (-10 * 1) = 0?
+        // Note: Simple Euler integration v += a*dt; p += v*dt;
+        // In code: v += g*dt; p += v*dt; (Symplectic Euler)
+        // v = -10. p = 10 + (-10) = 0.
+        sys.update(1.0);
+
+        let p = &sys.particles[0];
+        assert!((p.velocity.y - -10.0).abs() < 0.001);
+        assert!((p.position.y - 0.0).abs() < 0.001);
+    }
+}
+
+/// A particle emitter and manager.
+pub struct ParticleSystem {
+    /// The active particles in the system.
+    pub particles: Vec<Particle>,
+    /// The 3D position of the emitter in world space.
+    pub position: Vec3,
+    /// The number of particles emitted per second.
+    pub emission_rate: f32,
+    /// The global gravity vector applied to all particles.
+    pub gravity: Vec3,
+    /// The texture applied to each particle sprite.
+    pub texture: Texture,
+
+    /// Initial speed of emitted particles.
+    pub start_speed: f32,
+    /// Initial life of emitted particles.
+    pub start_life: f32,
+    /// Initial size of emitted particles.
+    pub start_size: f32,
+    /// Randomness applied to initial particle direction.
+    pub spread: f32,
+
+    // Internal state
+    emission_accumulator: f32,
+    rng: XorShift32,
 }
