@@ -72,26 +72,31 @@ pub fn displace_noise(mesh: &mut Mesh, amount: f32, seed: u32) {
         let _ = mesh.compute_face_normals();
     }
 
-    // Fallback if still empty or length mismatch: initialize with UP
-    let mut normals = mesh.normals.clone();
-    if normals.len() != mesh.vertices.len() {
-        normals.resize(mesh.vertices.len(), crate::math::Vec3::new(0.0, 1.0, 0.0));
+    // ⚡ Bolt Optimization:
+    // Fallback if still empty or length mismatch: initialize with UP.
+    // We resize `mesh.normals` in-place rather than cloning it (`let mut normals = mesh.normals.clone();`)
+    // to eliminate a costly O(N) dynamic heap allocation per frame.
+    if mesh.normals.len() != mesh.vertices.len() {
+        mesh.normals
+            .resize(mesh.vertices.len(), crate::math::Vec3::new(0.0, 1.0, 0.0));
     }
 
+    // ⚡ Bolt Optimization:
+    // By using `.zip(&mesh.normals)` alongside `par_iter_mut()`, we safely take disjoint borrows
+    // of the vertices and normals arrays directly from the `mesh` struct.
+    // This allows zero-cost parallel iteration without moving data to a temporary heap allocation.
     #[cfg(feature = "parallel")]
-    let iter = mesh.vertices.par_iter_mut().enumerate();
+    let iter = mesh.vertices.par_iter_mut().zip(&mesh.normals);
     #[cfg(not(feature = "parallel"))]
-    let iter = mesh.vertices.iter_mut().enumerate();
+    let iter = mesh.vertices.iter_mut().zip(&mesh.normals);
 
-    iter.for_each(|(i, v)| {
+    iter.for_each(|(v, normal)| {
         // Use the procedural noise function from procedural_mesh
         // We evaluate noise based on the X and Z coordinates
         let n = noise(v.x, v.z, seed);
 
-        let normal = normals[i];
-
         // Displace the vertex along its normal
-        *v = *v + normal * (n * amount);
+        *v = *v + *normal * (n * amount);
     });
 
     // Recalculate normals after displacement
