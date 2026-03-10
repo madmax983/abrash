@@ -1,7 +1,7 @@
 use abrash::culling::Frustum;
 use abrash::geometry::{AABB, BoundingSphere};
 use abrash::math::{Mat4, Vec3};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_culling(c: &mut Criterion) {
     let view = Mat4::look_at(
@@ -41,7 +41,8 @@ fn bench_culling(c: &mut Criterion) {
     }
 
     let mut results = vec![false; aabbs.len()];
-    let transform = Mat4::translation(1.0, 2.0, 3.0) * Mat4::rotation_y(0.5) * Mat4::scale(2.0, 2.0, 2.0);
+    let transform =
+        Mat4::translation(1.0, 2.0, 3.0) * Mat4::rotation_y(0.5) * Mat4::scale(2.0, 2.0, 2.0);
 
     let mut group = c.benchmark_group("culling");
 
