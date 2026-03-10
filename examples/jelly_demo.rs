@@ -182,16 +182,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     #[cfg(not(feature = "nova"))]
     {
-        println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        println!(
-            "{}",
-            "This demo requires the 'nova' feature to run.".white()
-        );
-        println!("\nTry running with:");
-        println!(
-            "{}",
-            "cargo run --example jelly_demo --features nova".green()
-        );
-        Ok(())
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![
+                Cell::new("This demo requires the 'nova' feature to run.").fg(Color::White),
+            ])
+            .add_row(vec![
+                Cell::new("Try running with:\ncargo run --example jelly_demo --features nova")
+                    .fg(Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
     }
 }
