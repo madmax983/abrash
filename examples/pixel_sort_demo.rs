@@ -2,7 +2,7 @@ use abrash::experimental::pixel_sort::apply_pixel_sort;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;

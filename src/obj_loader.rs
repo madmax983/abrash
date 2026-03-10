@@ -28,7 +28,7 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
-use std::hash::{BuildHasher, Hasher};
+use std::hash::Hasher;
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -63,6 +63,7 @@ impl VertexKey {
 
 /// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
 /// This avoids the overhead of SipHash for simple vertex deduplication lookups.
+#[derive(Default)]
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -92,18 +93,6 @@ impl Hasher for FastU64Hasher {
         x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
         x ^= x >> 31;
         self.0 = x;
-    }
-}
-
-#[derive(Default)]
-struct FastU64Builder;
-
-impl BuildHasher for FastU64Builder {
-    type Hasher = FastU64Hasher;
-
-    #[inline]
-    fn build_hasher(&self) -> Self::Hasher {
-        FastU64Hasher(0)
     }
 }
 
@@ -161,7 +150,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize, FastU64Builder>,
+    deduplicator: HashMap<VertexKey, usize, std::hash::BuildHasherDefault<FastU64Hasher>>,
     face_indices: Vec<usize>,
 }
 
@@ -224,7 +213,7 @@ impl ObjParser {
             final_indices: Vec::with_capacity(estimated_capacity),
             deduplicator: HashMap::with_capacity_and_hasher(
                 estimated_capacity,
-                FastU64Builder::default(),
+                std::hash::BuildHasherDefault::<FastU64Hasher>::default(),
             ),
             face_indices: Vec::with_capacity(4),
         }
@@ -652,11 +641,11 @@ f 1//1 2 3
         let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\n";
 
         // Index 0 (OBJ is 1-based)
-        let obj_zero = format!("{}f 0 1 2", obj_ok);
+        let obj_zero = format!("{obj_ok}f 0 1 2");
         assert!(load_obj(&obj_zero).is_err());
 
         // Index out of bounds
-        let obj_oob = format!("{}f 1 2 4", obj_ok); // 4 doesn't exist
+        let obj_oob = format!("{obj_ok}f 1 2 4"); // 4 doesn't exist
         assert!(load_obj(&obj_oob).is_err());
     }
 

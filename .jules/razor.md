@@ -29,3 +29,13 @@
 **Bloat:** The `Vec2Ext` trait in `src/experimental/sdf.rs` which was only implemented for `Vec2` to provide a `length()` method.
 **Cut:** Removed the `Vec2Ext` trait entirely. Moved the `length()` method directly into the `impl Vec2` block in `src/math.rs`.
 **Saved:** 10 lines of trait boilerplate, flattened the abstraction, and unified the API for `Vec2`.
+
+## [Reduction]
+**Bloat:** `FastU64Builder` in `src/obj_loader.rs`. It was an unnecessary custom factory for a `std::hash::Hasher`.
+**Cut:** Removed the struct and replaced its usage in `HashMap` with `std::hash::BuildHasherDefault<FastU64Hasher>`.
+**Saved:** 15 lines of factory boilerplate code.
+
+## [Reduction]
+**Bloat:** `WindowBackend` trait in `src/platform/mod.rs`. It was a purely speculative level of abstraction, since only one platform window type is ever instantiated at compile time via `#cfg` aliasing to `pub type Window`.
+**Cut:** Deleted the `WindowBackend` trait, changing its implementation on `Win32Window` and `TuiWindow` to a standard inherent implementation.
+**Saved:** 17 lines of trait definition, simplified the platform model, and removed the need for examples/tests to import the trait.
