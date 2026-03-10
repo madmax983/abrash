@@ -434,3 +434,8 @@ harness = false
 name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "raytracer_bench"
+harness = false
+required-features = ["nova"]

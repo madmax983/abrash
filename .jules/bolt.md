@@ -47,3 +47,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Integer Fixed-Point Lerping]**
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+
+**[Performance Optimization: Thread-local AABB caching to remove allocations]**
+**Learning:** In raytracing, iterating through `scene.objects` and `collect()`-ing `RenderObject` wrapper structs creates a dynamic heap allocation (`Vec::new()`) *every single frame*. By using a `thread_local!` buffer for computed data (e.g. `Vec<AABB>`) and replacing the iteration with a `zip` operation over the objects and the thread-local AABB slice, we eliminate this allocation entirely.
+**Action:** Identify operations that `collect` temporary structures at a high frequency (like per-frame processing). If they just cache calculations side-by-side with original elements, replace them with thread-local vectors of only the computed data, zipped with the original references during inner loop iteration.
