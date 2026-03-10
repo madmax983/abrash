@@ -1,8 +1,8 @@
-use abrash::experimental::directional_blur::apply_directional_blur;
+use abrash::experimental::directional_blur::{DirectionalBlurConfig, apply_directional_blur};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::scene::{Camera, Scene, SceneObject};
 use abrash::time::FixedTimestep;
 use std::f32::consts::PI;
@@ -102,7 +102,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Apply directional blur as a simulated motion blur screen effect
         // Scale the delta drastically to exaggerate the screen-space blur amount
-        apply_directional_blur(&mut framebuffer, dx * 500.0, -dy * 500.0, 16);
+        let config = DirectionalBlurConfig {
+            dx: dx * 500.0,
+            dy: -dy * 500.0,
+            num_samples: 16,
+        };
+        apply_directional_blur(&mut framebuffer, &config);
 
         window.blit_framebuffer(&framebuffer);
     }

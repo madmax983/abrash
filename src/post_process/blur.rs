@@ -245,6 +245,35 @@ unsafe fn box_blur_f32_vertical_avx2(
     }
 }
 
+/// Applies a horizontal box blur to a 32-bit (0xAARRGGBB) image buffer.
+///
+/// This function performs a 1D horizontal blur using a sliding window accumulator
+/// for O(1) performance per pixel regardless of the blur radius.
+///
+/// # Arguments
+/// * `src` - Source buffer containing pixels in 0xAARRGGBB format.
+/// * `dest` - Destination buffer to store the blurred result.
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Radius of the blur. A radius of `r` means a window size of `2r + 1`.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash::post_process::blur::box_blur_horizontal;
+///
+/// let width = 3;
+/// let height = 1;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+///
+/// // Blur with radius 1 (window size 3)
+/// box_blur_horizontal(&src, &mut dest, width, height, 1);
+///
+/// // The center pixel was white, now the energy is spread horizontally.
+/// // The exact values depend on clamp-to-edge logic and integer scaling.
+/// assert!(dest[1] != 0xFFFFFFFF);
+/// ```
 pub fn box_blur_horizontal(
     src: &[u32],
     dest: &mut [u32],
@@ -348,6 +377,37 @@ fn process_row_horizontal(
     }
 }
 
+/// Applies a vertical box blur to a 32-bit (0xAARRGGBB) image buffer.
+///
+/// This function performs a 1D vertical blur using a sliding window accumulator
+/// for O(1) performance per pixel regardless of the blur radius. It is designed to
+/// be used after `box_blur_horizontal` to achieve a full 2D separable box blur.
+///
+/// # Arguments
+/// * `src` - Source buffer containing pixels in 0xAARRGGBB format.
+/// * `dest` - Destination buffer to store the blurred result.
+/// * `acc_buffer` - Scratch buffer for column accumulators. Must have size `3 * width`.
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Radius of the blur. A radius of `r` means a window size of `2r + 1`.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash::post_process::blur::box_blur_vertical;
+///
+/// let width = 1;
+/// let height = 3;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+/// let mut acc = vec![0; width * 3]; // Scratch buffer for RGB accumulators
+///
+/// // Blur with radius 1 (window size 3)
+/// box_blur_vertical(&src, &mut dest, &mut acc, width, height, 1);
+///
+/// // The energy from the center white pixel is spread vertically.
+/// assert!(dest[1] != 0xFFFFFFFF);
+/// ```
 pub fn box_blur_vertical(
     src: &[u32],
     dest: &mut [u32],

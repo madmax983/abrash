@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::apply_bloom;
+use abrash::post_process::{BloomConfig, apply_bloom};
 
 #[test]
 fn test_apply_bloom_effect() {
@@ -11,7 +11,12 @@ fn test_apply_bloom_effect() {
     fb.set_pixel(2, 2, 0xFFFFFFFF);
 
     // Apply bloom with a radius of 1
-    apply_bloom(&mut fb, 100, 1, 1.0);
+    let config = BloomConfig {
+        threshold: 100,
+        blur_radius: 1,
+        intensity: 1.0,
+    };
+    apply_bloom(&mut fb, &config);
 
     // Center pixel should remain bright (or brighter)
     let center = fb.get_pixel(2, 2).unwrap();

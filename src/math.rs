@@ -96,6 +96,15 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+
     /// Creates a new 2D vector.
     #[must_use]
     #[inline]
@@ -235,6 +244,16 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -388,17 +407,9 @@ impl Vec3 {
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-    pub fn lerp(&self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-        }
-    }
 
     /// Returns a new vector containing the minimum value for each component.
-    #[must_use]
-    #[inline]
+
     pub fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
@@ -1817,10 +1828,10 @@ mod tests {
     #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.y, 2.0);
-        assert_eq!(v.z, 3.0);
-        assert_eq!(v.w, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1852,14 +1863,14 @@ mod tests {
         let b = Vec3::new(3.0, 2.0, -1.0);
 
         let min = a.min(b);
-        assert_eq!(min.x, 1.0);
-        assert_eq!(min.y, 2.0);
-        assert_eq!(min.z, -2.0);
+        assert!((min.x - 1.0).abs() < f32::EPSILON);
+        assert!((min.y - 2.0).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
-        assert_eq!(max.x, 3.0);
-        assert_eq!(max.y, 5.0);
-        assert_eq!(max.z, -1.0);
+        assert!((max.x - 3.0).abs() < f32::EPSILON);
+        assert!((max.y - 5.0).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1916,7 +1927,7 @@ mod tests {
             };
 
             if s_scalar.z.is_nan() {
-                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {name}");
             } else {
                 assert!(
                     z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
@@ -1931,8 +1942,7 @@ mod tests {
             if s_scalar.inv_w.is_nan() {
                 assert!(
                     s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {}",
-                    name
+                    "InvW NaN mismatch for case: {name}"
                 );
             } else {
                 assert!(
@@ -1973,6 +1983,20 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+            w: self.w + (other.w - self.w) * t,
+        }
+    }
+
+    #[must_use]
+    #[inline(always)]
+
     /// Creates a new 4D vector.
     ///
     /// # Examples
@@ -1983,8 +2007,7 @@ impl Vec4 {
     /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
     /// assert_eq!(v.w, 1.0);
     /// ```
-    #[must_use]
-    #[inline]
+
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }

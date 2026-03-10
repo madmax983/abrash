@@ -523,22 +523,26 @@ fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32)
     // contrast fixed point (8.8)
     let contrast_fixed = (contrast * 256.0) as i32;
 
+    // ⚡ Bolt: Use a Look-Up Table (LUT) for O(1) color adjustments per channel.
+    // Since color components (R, G, B) are strictly 8-bit (0..255), we precompute
+    // the adjusted and clamped values for all 256 possible inputs.
+    // This removes 3 multiplications, 6 additions/subtractions, and 3 clamp operations
+    // from the inner loop per pixel, significantly reducing CPU cycles on large framebuffers.
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let val = i as i32;
+        let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        *entry = new_val.clamp(0, 255) as u32;
+    }
+
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
-        let r = ((p >> 16) & 0xFF) as i32;
-        let g = ((p >> 8) & 0xFF) as i32;
-        let b = (p & 0xFF) as i32;
+        let r = lut[((p >> 16) & 0xFF) as usize];
+        let g = lut[((p >> 8) & 0xFF) as usize];
+        let b = lut[(p & 0xFF) as usize];
 
-        let new_r = (((r - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_g = (((g - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_b = (((b - 128) * contrast_fixed) >> 8) + 128 + brightness;
-
-        let r_clamped = new_r.clamp(0, 255) as u32;
-        let g_clamped = new_g.clamp(0, 255) as u32;
-        let b_clamped = new_b.clamp(0, 255) as u32;
-
-        *pixel = a | (r_clamped << 16) | (g_clamped << 8) | b_clamped;
+        *pixel = a | (r << 16) | (g << 8) | b;
     }
 }
 

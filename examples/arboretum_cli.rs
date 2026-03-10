@@ -63,8 +63,12 @@ mod app {
 
         // Generate
         let start_time = std::time::Instant::now();
-        let expanded = lsys.expand(args.iterations);
-        let mesh = lsys.generate_mesh(args.iterations);
+        let expanded = lsys
+            .expand(args.iterations)
+            .expect("L-system memory limit exceeded");
+        let mesh = lsys
+            .generate_mesh(args.iterations)
+            .expect("L-system memory limit exceeded");
         let duration = start_time.elapsed();
 
         // TUI Setup
@@ -309,17 +313,24 @@ fn main() {
     }
     #[cfg(not(feature = "nova"))]
     {
-        use crossterm::style::Stylize;
-        eprintln!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        eprintln!(
-            "{}",
-            "This example requires the 'nova' feature to run.".white()
-        );
-        eprintln!("\nTry running with:");
-        eprintln!(
-            "{}",
-            "cargo run --example arboretum_cli --features nova".green()
-        );
+        let mut error_table = comfy_table::Table::new();
+        error_table
+            .load_preset(comfy_table::presets::UTF8_FULL)
+            .set_header(vec![
+                comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(comfy_table::Color::Red),
+            ])
+            .add_row(vec![
+                comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                    .fg(comfy_table::Color::White),
+            ])
+            .add_row(vec![
+                comfy_table::Cell::new("Try running with:\ncargo run --example arboretum_cli --features nova")
+                    .fg(comfy_table::Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
         std::process::exit(1);
     }
 }
