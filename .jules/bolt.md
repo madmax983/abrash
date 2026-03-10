@@ -15,3 +15,7 @@
 **Optimize capacity estimations for large procedurally generated datasets**
 **Learning:** While `Vec::with_capacity()` is standard practice to avoid allocations, adding an O(N) pre-pass to count specific elements (like `[` in an L-System string) or calculate exact replacement lengths for unicode characters to calculate an exact capacity for extremely long strings or datasets can cause a massive performance regression.
 **Action:** When working with large procedurally expanded data, use a reasonable O(1) heuristic capacity estimate based on the current length (e.g. `String::with_capacity(current.len() * 2)`) and let the collection scale dynamically, avoiding full iteration overhead.
+
+**[Performance Optimization: Pre-allocating SOAs based on bounds]**
+**Learning:** When building physics structures like SoftBody springs from a mesh, structure-of-array (SoA) layout vectors should be pre-allocated based on mathematical upper bounds (e.g., `mesh.indices.len() * 3` for max edges) using `Vec::with_capacity()` and `HashSet::with_capacity()` to prevent heap reallocations.
+**Action:** When building graphs or parsing structures where the maximum possible size is known or easily calculable, always pre-allocate collections to that maximum bound, rather than growing dynamically.
