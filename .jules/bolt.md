@@ -47,3 +47,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Integer Fixed-Point Lerping]**
 **Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
 **Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+
+## RayTracer RenderObject allocation reduction
+**Learning:** Extracting small nested allocations from inner loops or per-frame hotpaths like `RayTracer::render()` by using structure-of-arrays (SoA) combined with `thread_local!` buffers and `.zip()` iteration avoids fighting lifetimes when working with temporary computed values (like bounding boxes).
+**Action:** When a method needs to compute data per object and pass it alongside a reference to that object, do not construct a new wrapper struct containing a reference (`&'a Object`) if it causes borrowing headaches with thread-local buffers. Instead, keep a `thread_local! { static BUFFER: RefCell<Vec<T>> }`, populate it, extract a slice, and `zip` the iterators. This eliminates dynamic allocations while staying safe and avoiding lifetime annotations.

@@ -225,12 +225,6 @@ impl Default for RayTracer {
     }
 }
 
-/// A structure to hold pre-calculated world data for an object.
-struct RenderObject<'a> {
-    obj: &'a SceneObject,
-    world_aabb: AABB,
-}
-
 impl RayTracer {
     /// Creates a new `RayTracer` with default settings (3 bounces, dark grey background).
     #[must_use]
@@ -256,76 +250,84 @@ impl RayTracer {
         let height = fb.height();
         let aspect = width as f32 / height as f32;
 
-        // Pre-calculate World AABBs
-        let render_objects: Vec<RenderObject> = scene
-            .objects
-            .iter()
-            .map(|obj| RenderObject {
-                obj,
-                world_aabb: obj.calculate_world_aabb(),
-            })
-            .collect();
+        // ⚡ Bolt: Eliminate per-frame dynamic heap allocation of `Vec<RenderObject>`
+        // by utilizing a `thread_local!` buffer for computed AABBs. We iterate using SoA
+        // (`objects.iter().zip(aabbs.iter())`) to bypass lifetime issues with `RenderObject`.
+        thread_local! {
+            static AABB_BUFFER: std::cell::RefCell<Vec<AABB>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
 
-        // Reconstruct Camera Vectors from View Matrix.
-        // View Matrix is R * T (Row-Major).
-        // The rotation submatrix R transforms World basis to View basis.
-        // The inverse R^T transforms View basis to World basis.
-        // So the columns of R are the World-Space Right, Up, and Back vectors.
-        let view = scene.camera.view;
-        let proj = scene.camera.proj;
-
-        let cam_right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]); // Column 0
-        let cam_up = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]); // Column 1
-        let cam_back = Vec3::new(view.m[0][2], view.m[1][2], view.m[2][2]); // Column 2
-        let cam_forward = cam_back * -1.0;
-
-        // Extract Eye position.
-        // The translation row T (row 3) contains the dot products of -eye with the basis vectors.
-        // T = (-eye . Right, -eye . Up, -eye . Back)
-        // So eye = -(T.x * Right + T.y * Up + T.z * Back)
-        let tx = view.m[3][0];
-        let ty = view.m[3][1];
-        let tz = view.m[3][2];
-
-        let eye = Vec3::new(
-            -(cam_right.x * tx + cam_up.x * ty + cam_back.x * tz),
-            -(cam_right.y * tx + cam_up.y * ty + cam_back.y * tz),
-            -(cam_right.z * tx + cam_up.z * ty + cam_back.z * tz),
-        );
-
-        // Focal length and plane dimensions
-        let plane_height = 2.0 / proj.m[1][1];
-        let plane_width = plane_height * aspect;
-
-        let pixel_width = plane_width / width as f32;
-        let pixel_height = plane_height / height as f32;
-
-        let start_x = -plane_width * 0.5;
-        let start_y = plane_height * 0.5;
-
-        // Parallel Loop
-        let buffer = fb.as_mut_slice();
-
-        #[cfg(feature = "parallel")]
-        let iter = buffer.par_chunks_mut(width as usize).enumerate();
-        #[cfg(not(feature = "parallel"))]
-        let iter = buffer.chunks_mut(width as usize).enumerate();
-
-        iter.for_each(|(y, row)| {
-            let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
-            for (x, pixel) in row.iter_mut().enumerate() {
-                let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
-
-                // Ray Direction
-                let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
-                let ray = Ray::new(eye, direction);
-
-                *pixel = self.trace_ray(&ray, &render_objects, 0);
+        AABB_BUFFER.with(|buf| {
+            let mut aabbs = buf.borrow_mut();
+            aabbs.clear();
+            for obj in &scene.objects {
+                aabbs.push(obj.calculate_world_aabb());
             }
-        });
+
+            // Extract an immutable slice to safely share across threads in Rayon closures.
+            let aabbs_slice: &[AABB] = &aabbs;
+
+            // Reconstruct Camera Vectors from View Matrix.
+            // View Matrix is R * T (Row-Major).
+            // The rotation submatrix R transforms World basis to View basis.
+            // The inverse R^T transforms View basis to World basis.
+            // So the columns of R are the World-Space Right, Up, and Back vectors.
+            let view = scene.camera.view;
+            let proj = scene.camera.proj;
+
+            let cam_right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]); // Column 0
+            let cam_up = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]); // Column 1
+            let cam_back = Vec3::new(view.m[0][2], view.m[1][2], view.m[2][2]); // Column 2
+            let cam_forward = cam_back * -1.0;
+
+            // Extract Eye position.
+            // The translation row T (row 3) contains the dot products of -eye with the basis vectors.
+            // T = (-eye . Right, -eye . Up, -eye . Back)
+            // So eye = -(T.x * Right + T.y * Up + T.z * Back)
+            let tx = view.m[3][0];
+            let ty = view.m[3][1];
+            let tz = view.m[3][2];
+
+            let eye = Vec3::new(
+                -(cam_right.x * tx + cam_up.x * ty + cam_back.x * tz),
+                -(cam_right.y * tx + cam_up.y * ty + cam_back.y * tz),
+                -(cam_right.z * tx + cam_up.z * ty + cam_back.z * tz),
+            );
+
+            // Focal length and plane dimensions
+            let plane_height = 2.0 / proj.m[1][1];
+            let plane_width = plane_height * aspect;
+
+            let pixel_width = plane_width / width as f32;
+            let pixel_height = plane_height / height as f32;
+
+            let start_x = -plane_width * 0.5;
+            let start_y = plane_height * 0.5;
+
+            // Parallel Loop
+            let buffer = fb.as_mut_slice();
+
+            #[cfg(feature = "parallel")]
+            let iter = buffer.par_chunks_mut(width as usize).enumerate();
+            #[cfg(not(feature = "parallel"))]
+            let iter = buffer.chunks_mut(width as usize).enumerate();
+
+            iter.for_each(|(y, row)| {
+                let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
+                for (x, pixel) in row.iter_mut().enumerate() {
+                    let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
+
+                    // Ray Direction
+                    let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
+                    let ray = Ray::new(eye, direction);
+
+                    *pixel = self.trace_ray(&ray, &scene.objects, aabbs_slice, 0);
+                }
+            });
+        }); // Close AABB_BUFFER.with
     }
 
-    fn trace_ray(&self, ray: &Ray, objects: &[RenderObject], depth: u32) -> u32 {
+    fn trace_ray(&self, ray: &Ray, objects: &[SceneObject], aabbs: &[AABB], depth: u32) -> u32 {
         if depth > self.max_bounces {
             return self.background_color;
         }
@@ -333,25 +335,25 @@ impl RayTracer {
         let mut closest_hit: Option<(Hit, &SceneObject)> = None;
         let mut closest_t = f32::MAX;
 
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, closest_t) {
+        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(world_aabb, 0.001, closest_t) {
                 continue;
             }
 
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 // Transform vertices to World Space
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
                     closest_t = hit.t;
-                    closest_hit = Some((hit, r_obj.obj));
+                    closest_hit = Some((hit, obj));
                 }
             }
         }
@@ -382,7 +384,7 @@ impl RayTracer {
 
             // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
-            let in_shadow = Self::check_shadow(&shadow_ray, objects);
+            let in_shadow = Self::check_shadow(&shadow_ray, objects, aabbs);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
@@ -395,7 +397,7 @@ impl RayTracer {
                     hit.point + hit.normal * 0.001,
                     reflect(ray.direction, hit.normal),
                 );
-                let r_col_u32 = self.trace_ray(&r_ray, objects, depth + 1);
+                let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
                 let rg = ((r_col_u32 >> 8) & 0xFF) as f32 / 255.0;
                 let rb = (r_col_u32 & 0xFF) as f32 / 255.0;
@@ -416,20 +418,20 @@ impl RayTracer {
         self.background_color
     }
 
-    fn check_shadow(ray: &Ray, objects: &[RenderObject]) -> bool {
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, 1000.0) {
+    fn check_shadow(ray: &Ray, objects: &[SceneObject], aabbs: &[AABB]) -> bool {
+        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(world_aabb, 0.001, 1000.0) {
                 continue;
             }
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if ray.intersect_triangle(v0, v1, v2, 0.001, 1000.0).is_some() {
                     return true;
