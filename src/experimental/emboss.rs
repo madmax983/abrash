@@ -47,7 +47,11 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
     };
 
     #[cfg(feature = "parallel")]
-    let row_iter = dest.par_chunks_mut(width).enumerate().skip(1).take(height - 2);
+    let row_iter = dest
+        .par_chunks_mut(width)
+        .enumerate()
+        .skip(1)
+        .take(height - 2);
     #[cfg(not(feature = "parallel"))]
     let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
 
@@ -60,17 +64,25 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         let curr_row = &src[row_offset..row_offset + width];
         let next_row = &src[next_row_offset..next_row_offset + width];
 
-        for x in 1..width - 1 {
+        let prev_windows = prev_row.windows(3);
+        let curr_windows = curr_row.windows(3);
+        let next_windows = next_row.windows(3);
+
+        for (((prev_win, curr_win), next_win), dest_pixel) in prev_windows
+            .zip(curr_windows)
+            .zip(next_windows)
+            .zip(&mut row[1..width - 1])
+        {
             // Read pixels
-            let tl = prev_row[x - 1];
-            let t  = prev_row[x];
+            let tl = prev_win[0];
+            let t  = prev_win[1];
 
-            let l  = curr_row[x - 1];
-            let c  = curr_row[x];
-            let r  = curr_row[x + 1];
+            let l  = curr_win[0];
+            let c  = curr_win[1];
+            let r  = curr_win[2];
 
-            let b  = next_row[x];
-            let br = next_row[x + 1];
+            let b  = next_win[1];
+            let br = next_win[2];
 
             let (tl_r, tl_g, tl_b) = extract(tl);
             let (t_r, t_g, t_b) = extract(t);
@@ -93,7 +105,7 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
             // Preserve alpha from center
             let a = c & 0xFF00_0000;
 
-            row[x] = a | (out_r << 16) | (out_g << 8) | out_b;
+            *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
         }
     });
 }
