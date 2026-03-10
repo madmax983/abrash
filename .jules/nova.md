@@ -78,3 +78,8 @@
 **Concept:** A mashup feature extending the `Framebuffer` with an `AsciiExporter` trait that uses the existing `AsciiConverter`. It allows exporting any rendered frame to a `.txt` or colored `.ans` (ANSI) file directly, turning visual output into viewable text files via `cat`.
 **Fate:** Implemented
 **Lesson:** Simple additive trait implementations in experimental modules can safely combine existing systems (like the Framebuffer and AsciiConverter) into new, unexpected tooling.
+
+## [Palette Swap / Retro Quantization]
+**Concept:** A post-processing effect that maps the full 32-bit ARGB framebuffer to a predefined color palette (e.g. Gameboy, CGA, Vaporwave) using nearest-neighbor Euclidean distance in RGB space.
+**Fate:** Implemented
+**Lesson:** Iterating over the entire framebuffer and doing nearest neighbor distance checks against a small array (like 4-16 colors) is easily parallelizable with Rayon. Euclidean squared distance (`dr*dr + dg*dg + db*db`) avoids costly `sqrt` calculations in the inner loop.
