@@ -1828,10 +1828,10 @@ mod tests {
     #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.y, 2.0);
-        assert_eq!(v.z, 3.0);
-        assert_eq!(v.w, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1865,12 +1865,12 @@ mod tests {
         let min = a.min(b);
         assert!((min.x - 1.0).abs() < f32::EPSILON);
         assert!((min.y - 2.0).abs() < f32::EPSILON);
-        assert!((min.z - (-2.0)).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
         assert!((max.x - 3.0).abs() < f32::EPSILON);
         assert!((max.y - 5.0).abs() < f32::EPSILON);
-        assert!((max.z - (-1.0)).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1940,7 +1940,10 @@ mod tests {
             }
 
             if s_scalar.inv_w.is_nan() {
-                assert!(s_tri_0.inv_w.is_nan(), "InvW NaN mismatch for case: {name}");
+                assert!(
+                    s_tri_0.inv_w.is_nan(),
+                    "InvW NaN mismatch for case: {name}"
+                );
             } else {
                 assert!(
                     inv_w_diff < tolerance
