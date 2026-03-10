@@ -374,10 +374,19 @@ fn box_blur_vertical_scalar(
     let kernel_size = 2 * radius + 1;
     let scale = 1.0 / (kernel_size as f32);
 
+    if src.len() < width * height || dest.len() < width * height {
+        return;
+    }
+
     // Split accumulators
-    // We assume acc_buffer is size 3 * width
+    // We assume acc_buffer is size >= 3 * width
+    let acc_len = acc_buffer.len();
+    if acc_len < width * 3 {
+        return;
+    }
     let (r_acc, rest) = acc_buffer.split_at_mut(width);
-    let (g_acc, b_acc) = rest.split_at_mut(width);
+    let (g_acc, rest2) = rest.split_at_mut(width);
+    let (b_acc, _) = rest2.split_at_mut(width);
 
     // Reset accumulators
     r_acc.fill(0);
@@ -422,22 +431,24 @@ fn box_blur_vertical_scalar(
             *dst_pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
 
-        // Update accumulators for next row
-        // Outgoing: y - radius
-        let out_y = (y as isize - radius as isize).max(0) as usize;
-        let out_row = &src[out_y * width..(out_y + 1) * width];
+        // Update accumulators for next row (only if not at bottom edge)
+        if y < height - 1 {
+            // Outgoing: y - radius
+            let out_y = (y as isize - radius as isize).max(0) as usize;
+            let out_row = &src[out_y * width..(out_y + 1) * width];
 
-        // Incoming: y + radius + 1
-        let in_y = (y + radius + 1).min(height - 1);
-        let in_row = &src[in_y * width..(in_y + 1) * width];
+            // Incoming: y + radius + 1
+            let in_y = (y + radius + 1).min(height - 1);
+            let in_row = &src[in_y * width..(in_y + 1) * width];
 
-        for x in 0..width {
-            let p_out = out_row[x];
-            let p_in = in_row[x];
+            for x in 0..width {
+                let p_out = out_row[x];
+                let p_in = in_row[x];
 
-            r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
-            g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
-            b_acc[x] = b_acc[x] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
+                r_acc[x] = r_acc[x] + ((p_in >> 16) & 0xFF) as i32 - ((p_out >> 16) & 0xFF) as i32;
+                g_acc[x] = g_acc[x] + ((p_in >> 8) & 0xFF) as i32 - ((p_out >> 8) & 0xFF) as i32;
+                b_acc[x] = b_acc[x] + (p_in & 0xFF) as i32 - (p_out & 0xFF) as i32;
+            }
         }
     }
 }
@@ -467,9 +478,18 @@ unsafe fn box_blur_vertical_avx2(
         let scale_vec = _mm256_set1_ps(scale);
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
+        if src.len() < width * height || dest.len() < width * height {
+            return;
+        }
+
         // Accumulators
+        let acc_len = acc_buffer.len();
+        if acc_len < width * 3 {
+            return;
+        }
         let (r_acc, rest) = acc_buffer.split_at_mut(width);
-        let (g_acc, b_acc) = rest.split_at_mut(width);
+        let (g_acc, rest2) = rest.split_at_mut(width);
+        let (b_acc, _) = rest2.split_at_mut(width);
 
         // Reset
         r_acc.fill(0);

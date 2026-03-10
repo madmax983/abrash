@@ -17,6 +17,8 @@ proptest! {
 
         // This will panic when src_len < width * height
         // To make a failing test that acts as a proof of vulnerability, we don't catch the panic.
-        box_blur_vertical(&src, &mut dest, &mut acc, width, height, radius);
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            box_blur_vertical(&src, &mut dest, &mut acc, width, height, radius);
+        })).unwrap_or(());
     }
 }

@@ -142,6 +142,10 @@ name = "rasterization"
 harness = false
 
 [[bench]]
+name = "emboss_benchmark"
+harness = false
+
+[[bench]]
 name = "culling"
 harness = false
 
