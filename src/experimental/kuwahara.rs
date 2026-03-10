@@ -82,8 +82,11 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                     let mean_g = sum_g / count;
                     let mean_b = sum_b / count;
 
+                    #[allow(clippy::suspicious_operation_groupings)]
                     let var_r = (sum_r2 / count) - (mean_r * mean_r);
+                    #[allow(clippy::suspicious_operation_groupings)]
                     let var_g = (sum_g2 / count) - (mean_g * mean_g);
+                    #[allow(clippy::suspicious_operation_groupings)]
                     let var_b = (sum_b2 / count) - (mean_b * mean_b);
 
                     // Total variance (luminance could also be used here, but sum of channel variances is simple)

@@ -403,6 +403,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "kuwahara_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "directional_blur_bench"
 harness = false
 required-features = ["nova"]

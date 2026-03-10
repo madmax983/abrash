@@ -90,7 +90,6 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
-        let _precomputed_kernels = &ctx.precomputed_kernel_buffer;
 
         // Projection parameters
         // Flatten matrix for SIMD
@@ -182,7 +181,7 @@ fn apply_ssao_scalar(
 
     iter.for_each(|(y, row)| {
         let noise_y = y % NOISE_SIZE;
-        for x in 0..width {
+        for (x, occlusion_out) in row.iter_mut().enumerate().take(width) {
             let noise_x = x % NOISE_SIZE;
             let noise_idx = noise_y * NOISE_SIZE + noise_x;
             let random_vec = noise[noise_idx];
@@ -190,7 +189,7 @@ fn apply_ssao_scalar(
             let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
             if depth_val >= 1.0 {
-                row[x] = 0.0;
+                *occlusion_out = 0.0;
                 continue;
             }
 
@@ -238,7 +237,7 @@ fn apply_ssao_scalar(
                 }
             }
 
-            row[x] = occlusion;
+            *occlusion_out = occlusion;
         }
     });
 }
