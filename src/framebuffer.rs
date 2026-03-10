@@ -568,4 +568,75 @@ mod export_tests {
         // Cleanup
         fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn test_export_txt() {
+        let mut fb = Framebuffer::new(4, 4).unwrap();
+        fb.clear(0xFFFFFFFF); // White -> '@'
+
+        let test_path = "test_output.txt";
+        fb.export_txt(test_path).unwrap();
+
+        let content = std::fs::read_to_string(test_path).unwrap();
+        assert!(content.contains("@@@@"));
+        assert!(content.contains('\n'));
+
+        // Clean up
+        let _ = std::fs::remove_file(test_path);
+    }
+
+    #[test]
+    fn test_export_ansi() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFFFF0000); // Red
+
+        let test_path = "test_output.ans";
+        fb.export_ansi(test_path).unwrap();
+
+        let content = std::fs::read_to_string(test_path).unwrap();
+        // Check for ANSI color code for Red (255;0;0)
+        assert!(content.contains("\x1b[38;2;255;0;0m"));
+        // Check for reset code
+        assert!(content.contains("\x1b[0m"));
+
+        // Clean up
+        let _ = std::fs::remove_file(test_path);
+    }
+}
+
+impl Framebuffer {
+    /// Exports the framebuffer to a plain text file using standard ASCII character mapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path to write the `.txt` file to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file creation or writing fails.
+    pub fn export_txt<P: std::convert::AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+        let converter = crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+        let content = converter.to_string();
+        let mut file = std::fs::File::create(path)?;
+        use std::io::Write;
+        file.write_all(content.as_bytes())
+    }
+
+    /// Exports the framebuffer to an ANSI colored text file.
+    /// This file can be viewed in standard terminals (e.g., via `cat`).
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path to write the `.ans` file to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file creation or writing fails.
+    pub fn export_ansi<P: std::convert::AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+        let converter = crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+        let content = converter.to_colored_string();
+        let mut file = std::fs::File::create(path)?;
+        use std::io::Write;
+        file.write_all(content.as_bytes())
+    }
 }
