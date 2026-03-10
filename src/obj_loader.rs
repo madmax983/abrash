@@ -62,7 +62,7 @@ impl VertexKey {
 }
 
 /// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
-/// This avoids the overhead of SipHash for simple vertex deduplication lookups.
+/// This avoids the overhead of `SipHash` for simple vertex deduplication lookups.
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -76,7 +76,7 @@ impl Hasher for FastU64Hasher {
         // Fallback for completeness, though our key uses write_u64 directly
         let mut x = self.0;
         for &b in bytes {
-            x = x.rotate_left(8) ^ (b as u64);
+            x = x.rotate_left(8) ^ u64::from(b);
             x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
         }
         self.0 = x;
@@ -222,10 +222,7 @@ impl ObjParser {
             final_uvs: Vec::with_capacity(estimated_capacity),
             final_normals: Vec::with_capacity(estimated_capacity),
             final_indices: Vec::with_capacity(estimated_capacity),
-            deduplicator: HashMap::with_capacity_and_hasher(
-                estimated_capacity,
-                FastU64Builder::default(),
-            ),
+            deduplicator: HashMap::with_capacity_and_hasher(estimated_capacity, FastU64Builder),
             face_indices: Vec::with_capacity(4),
         }
     }

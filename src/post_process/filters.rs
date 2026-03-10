@@ -61,12 +61,12 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 }
 
 fn apply_grayscale_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let luminance = u32::from(pixel_luminance(p));
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
-    });
+    }
 }
 
 /// Simulates CRT scanlines by darkening every odd row.
@@ -152,9 +152,9 @@ pub fn apply_invert(fb: &mut Framebuffer) {
         }
     }
 
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         *pixel ^= 0x00FF_FFFF;
-    });
+    }
 }
 
 /// Applies a sepia tone effect to the framebuffer in-place.
@@ -203,7 +203,7 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 }
 
 fn apply_sepia_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let r = (p >> 16) & 0xFF;
         let g = (p >> 8) & 0xFF;
@@ -219,7 +219,7 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
         let new_b = new_b.min(255);
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
-    });
+    }
 }
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
@@ -1558,7 +1558,7 @@ mod tests {
         // 3: (100, 110, 120, 255)
         // 4: (130, 140, 150, 255)
         for x in 0..width {
-            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+            let val = (x + 1) * 10; // 10, 20, 30, 40, 50
             let r = val;
             let g = val + 10;
             let b = val + 20;

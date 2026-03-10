@@ -7,12 +7,7 @@ use crate::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-pub fn apply_directional_blur(
-    framebuffer: &mut Framebuffer,
-    dx: f32,
-    dy: f32,
-    num_samples: usize,
-) {
+pub fn apply_directional_blur(framebuffer: &mut Framebuffer, dx: f32, dy: f32, num_samples: usize) {
     if num_samples <= 1 {
         return;
     }

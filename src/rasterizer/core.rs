@@ -171,6 +171,7 @@ pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[inline]
+#[allow(clippy::missing_safety_doc)]
 pub unsafe fn blend_swar_simd(
     c0: std::arch::x86_64::__m256i,
     c1: std::arch::x86_64::__m256i,

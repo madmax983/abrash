@@ -236,6 +236,7 @@ impl AABB {
     /// completely in parallel within a single register.
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[target_feature(enable = "avx2")]
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn transform_avx2(&self, transform: &Mat4) -> Self {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::{

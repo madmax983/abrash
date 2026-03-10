@@ -288,33 +288,6 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
 }
 
 #[cfg(feature = "nova")]
-fn benchmark_halftone(c: &mut Criterion) {
-    let width = 1920;
-    let height = 1080;
-    let mut fb = Framebuffer::new(width, height).unwrap();
-    // Fill with a pattern
-    for y in 0..height {
-        for x in 0..width {
-            let color = if (x / 50 + y / 50) % 2 == 0 {
-                0xFFFFFFFF
-            } else {
-                0xFF000000
-            };
-            fb.set_pixel(x as i32, y as i32, color);
-        }
-    }
-
-    c.bench_function("apply_halftone 1080p", |b| {
-        b.iter(|| {
-            abrash::experimental::halftone::apply_halftone(
-                black_box(&mut fb),
-                black_box(5.0),
-                black_box(std::f32::consts::FRAC_PI_4),
-            );
-        });
-    });
-}
-
 #[cfg(feature = "nova")]
 criterion_group!(
     benches,
@@ -332,7 +305,6 @@ criterion_group!(
     benchmark_vignette,
     benchmark_color_adjust,
     benchmark_pixel_sort,
-    benchmark_halftone,
 );
 
 #[cfg(not(feature = "nova"))]

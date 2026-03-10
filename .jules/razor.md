@@ -29,3 +29,13 @@
 **Bloat:** The `Vec2Ext` trait in `src/experimental/sdf.rs` which was only implemented for `Vec2` to provide a `length()` method.
 **Cut:** Removed the `Vec2Ext` trait entirely. Moved the `length()` method directly into the `impl Vec2` block in `src/math.rs`.
 **Saved:** 10 lines of trait boilerplate, flattened the abstraction, and unified the API for `Vec2`.
+
+## [Reduction]
+**Bloat:** Unused experimental modules that were effectively dead code but kept "just in case" (`kuwahara`, `sharpen`, `crosshatch`, `crt`, `halftone`, `pixelate`, `radial_blur`, `volume`).
+**Cut:** Deleted all these unused files and their associated tests, removed them from `src/experimental/mod.rs` and bench files.
+**Saved:** Hundreds of lines of code and lowered cognitive load around experimental features.
+
+## [Reduction]
+**Bloat:** Accumulated `cargo clippy` warnings and messy code related to types, useless casts, missing `#[must_use]`, missing `const`, and needless range loops spanning multiple core engine files.
+**Cut:** Cleaned up code layout across `tile.rs`, `texture.rs`, `filters.rs`, `math.rs`, and others using simpler patterns and adhering strictly to the `cargo clippy` suggestions without using `-A` flags globally.
+**Saved:** Eliminated ~60 active compilation warnings, enforcing KISS principles.

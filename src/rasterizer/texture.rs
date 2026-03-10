@@ -559,12 +559,10 @@ pub(crate) fn draw_span_bilinear(
         } else {
             process_span_bilinear!(*, tex_w_usize, true);
         }
+    } else if shift < 32 {
+        process_span_bilinear!(<<, shift, false);
     } else {
-        if shift < 32 {
-            process_span_bilinear!(<<, shift, false);
-        } else {
-            process_span_bilinear!(*, tex_w_usize, false);
-        }
+        process_span_bilinear!(*, tex_w_usize, false);
     }
 }
 
@@ -1044,17 +1042,16 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                     let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
+                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     let idx = if is_pot {
                         // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
                         // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
                         // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
                         // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+
                         _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                     } else {
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                         _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                     };
 
@@ -3677,13 +3674,11 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
+                let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                 let idx = if is_pot {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                 } else {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                 };
 
@@ -4077,8 +4072,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 let final_g = ((tex_g * g_val) >> 16).clamp(0, 255) as u32;
                 let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
-                let final_color =
-                    ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                let final_color = (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                 if tex_a == 255 {
                     *depth_val = z_curr;
@@ -4162,7 +4156,7 @@ fn draw_span_textured_gouraud_scalar(
             let final_g = ((tex_g * g_clamped) >> 16).clamp(0, 255) as u32;
             let final_b = ((tex_b * b_clamped) >> 16).clamp(0, 255) as u32;
 
-            let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+            let final_color = (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
             if tex_a == 255 {
                 *depth_val = z;
@@ -4416,7 +4410,7 @@ pub fn draw_scanline_textured_gouraud(
                             let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
                             let final_color =
-                                ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                                (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                             if tex_a == 255 {
                                 *depth_val = z_curr;
@@ -4693,7 +4687,7 @@ fn fill_projected_triangle_textured_gouraud_with_gradients(
                     g: g_left,
                     b: b_left,
                 },
-                &gradients,
+                gradients,
                 texture,
             );
         }
@@ -4968,8 +4962,8 @@ fn test_draw_scanline_trilinear() {
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for i in 1..RECIPROCAL_TABLE.len() {
-        let table_val = RECIPROCAL_TABLE[i];
+    for (i, table_val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
+        let table_val = *table_val;
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 

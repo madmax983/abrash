@@ -1245,6 +1245,7 @@ pub fn project_to_screen_optimized(
 #[cfg(target_arch = "x86_64")]
 #[must_use]
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn project_triangle_to_screen(
     v0: Vec3,
     w0: f32,
@@ -1485,6 +1486,7 @@ pub fn project_quad_to_screen(
 #[cfg(not(target_arch = "x86_64"))]
 #[must_use]
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn project_triangle_to_screen(
     v0: Vec3,
     w0: f32,

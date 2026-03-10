@@ -293,7 +293,7 @@ mod tests {
 
         for y in 0..10 {
             for x in 0..10 {
-                let expected = if x >= 2 && x < 5 && y >= 2 && y < 5 {
+                let expected = if (2..5).contains(&x) && (2..5).contains(&y) {
                     0xFFFFFFFF
                 } else {
                     0xFF00_0000

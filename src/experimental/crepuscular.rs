@@ -25,7 +25,7 @@ use crate::framebuffer::Framebuffer;
 /// * `decay` - Falloff factor per sample (0.0 to 1.0). High values (>0.9) mean longer rays.
 /// * `exposure` - Final brightness multiplier for the accumulated light.
 /// * `num_samples` - Number of samples to take along the ray. Higher is smoother but slower (e.g., 32-100).
-/// Configuration parameters for the God Rays (Crepuscular Rays) effect.
+///   Configuration parameters for the God Rays (Crepuscular Rays) effect.
 #[derive(Debug, Clone, Copy)]
 pub struct GodRaysConfig {
     /// Screen-space X coordinate of the light source (can be outside the screen).

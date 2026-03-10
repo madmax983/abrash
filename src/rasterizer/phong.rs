@@ -383,6 +383,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
 unsafe fn draw_scanline_point_lit_simd(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],

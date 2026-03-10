@@ -263,7 +263,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .add_attribute(comfy_table::Attribute::Bold)
                         .fg(Color::Red),
                 ])
-                .add_row(vec![Cell::new(format!("{e}")).fg(Color::Yellow)]);
+                .add_row(vec![Cell::new(e.to_string()).fg(Color::Yellow)]);
             eprintln!("\n{error_table}");
             std::process::exit(1);
         }

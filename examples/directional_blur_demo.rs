@@ -64,11 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Moving Cube
     let cube_transform = Mat4::identity();
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        cube_transform,
-        0xFFFF5555,
-    ));
+    scene.add_object(SceneObject::new(cube_mesh, cube_transform, 0xFFFF5555));
 
     let mut timestep = FixedTimestep::new(60);
     let mut time = 0.0f32;
