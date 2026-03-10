@@ -2974,64 +2974,92 @@ impl TileRenderer {
     fn bin_triangles_two_level_cpu(&mut self) {
         let prepared_len = self.prepared.len();
         let coarse_size = 4; // 4x4 tiles = 128x128 pixels
+        let tile_size_i32 = TILE_SIZE as i32;
+        let coarse_pixel_size = (coarse_size * TILE_SIZE) as i32;
+
+        let width_i32 = self.width as i32 - 1;
+        let height_i32 = self.height as i32 - 1;
+
+        // Optimization: Lift branch out of outer loop
+        let has_hiz = self.hiz_buffer.is_some();
+        let hiz_buffer_ref = self.hiz_buffer.as_ref();
 
         for i in 0..prepared_len {
             let tri = &self.prepared[i];
 
             // If Hi-Z is enabled, we can use it to cull coarse bins
             // First, check if the whole triangle is occluded (fast rejection)
-            if let Some(ref hiz) = self.hiz_buffer {
+            if has_hiz {
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
 
-                if !hiz.is_potentially_visible(aabb) {
+                // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
+                if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(aabb) {
                     continue;
                 }
             }
 
-            let tile_size_i32 = TILE_SIZE as i32;
-
             // Calculate triangle bounds in tile coordinates
-            let tx_min_tri = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
-            let ty_min_tri = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
-            let tx_max_tri =
-                ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
-            let ty_max_tri =
-                ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+            let tx_min_tri = u32::from(tri.aabb_min_x) >> 5;
+            let ty_min_tri = u32::from(tri.aabb_min_y) >> 5;
+            let tx_max_tri = (u32::from(tri.aabb_max_x) >> 5).min(self.tiles_x - 1);
+            let ty_max_tri = (u32::from(tri.aabb_max_y) >> 5).min(self.tiles_y - 1);
 
             // Calculate bounds in coarse bin coordinates
-            let cx_min = tx_min_tri / coarse_size;
-            let cy_min = ty_min_tri / coarse_size;
-            let cx_max = tx_max_tri / coarse_size;
-            let cy_max = ty_max_tri / coarse_size;
+            let cx_min = tx_min_tri >> 2;
+            let cy_min = ty_min_tri >> 2;
+            let cx_max = tx_max_tri >> 2;
+            let cy_max = ty_max_tri >> 2;
+
+            // Small triangles don't benefit from coarse binning
+            // If it spans very few coarse bins, fallback to simple binning
+            if cx_max - cx_min <= 1 && cy_max - cy_min <= 1 {
+                for ty in ty_min_tri..=ty_max_tri {
+                    let mut bin_idx = (ty * self.tiles_x + tx_min_tri) as usize;
+                    for _tx in tx_min_tri..=tx_max_tri {
+                        self.tile_bins.push(bin_idx, i);
+                        bin_idx += 1;
+                    }
+                }
+                continue;
+            }
+
+            let tri_min_depth = tri.min_depth;
+            let tri_max_depth = tri.max_depth;
 
             for cy in cy_min..=cy_max {
+                let bin_min_y = (cy * coarse_size * TILE_SIZE) as i32;
+                let bin_max_y = bin_min_y + coarse_pixel_size - 1;
+                let cy_clamped_max_y = bin_max_y.min(height_i32);
+                let cy_clamped_min_y = bin_min_y.max(0);
+
+                let ty_start = (cy * coarse_size).max(ty_min_tri);
+                let ty_end = ((cy + 1) * coarse_size - 1).min(ty_max_tri);
+
                 for cx in cx_min..=cx_max {
-                    // Check visibility of this coarse bin
                     let mut visible = true;
-                    if let Some(ref hiz) = self.hiz_buffer {
+                    if has_hiz {
                         let bin_min_x = (cx * coarse_size * TILE_SIZE) as i32;
-                        let bin_min_y = (cy * coarse_size * TILE_SIZE) as i32;
-                        let bin_max_x = bin_min_x + (coarse_size * TILE_SIZE) as i32 - 1;
-                        let bin_max_y = bin_min_y + (coarse_size * TILE_SIZE) as i32 - 1;
+                        let bin_max_x = bin_min_x + coarse_pixel_size - 1;
 
                         // Clamp to screen
                         let bin_aabb = AABB3D {
                             min_x: bin_min_x.max(0),
-                            max_x: bin_max_x.min(self.width as i32 - 1),
-                            min_y: bin_min_y.max(0),
-                            max_y: bin_max_y.min(self.height as i32 - 1),
-                            min_depth: tri.min_depth,
-                            max_depth: tri.max_depth,
+                            max_x: bin_max_x.min(width_i32),
+                            min_y: cy_clamped_min_y,
+                            max_y: cy_clamped_max_y,
+                            min_depth: tri_min_depth,
+                            max_depth: tri_max_depth,
                         };
 
-                        if !hiz.is_potentially_visible(bin_aabb) {
+                        // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
+                        if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(bin_aabb) {
                             visible = false;
                         }
                     }
@@ -3039,14 +3067,13 @@ impl TileRenderer {
                     if visible {
                         // Iterate over fine tiles within this coarse bin
                         let tx_start = (cx * coarse_size).max(tx_min_tri);
-                        let ty_start = (cy * coarse_size).max(ty_min_tri);
                         let tx_end = ((cx + 1) * coarse_size - 1).min(tx_max_tri);
-                        let ty_end = ((cy + 1) * coarse_size - 1).min(ty_max_tri);
 
                         for ty in ty_start..=ty_end {
-                            for tx in tx_start..=tx_end {
-                                let bin_idx = (ty * self.tiles_x + tx) as usize;
+                            let mut bin_idx = (ty * self.tiles_x + tx_start) as usize;
+                            for _tx in tx_start..=tx_end {
                                 self.tile_bins.push(bin_idx, i);
+                                bin_idx += 1;
                             }
                         }
                     }
