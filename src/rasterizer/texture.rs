@@ -5010,6 +5010,9 @@ fn test_reciprocal_table_accuracy() {
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
-        assert!(diff < 1e-6, "Table index {i} mismatch: table={table_val}, actual={actual}");
+        assert!(
+            diff < 1e-6,
+            "Table index {i} mismatch: table={table_val}, actual={actual}"
+        );
     }
 }

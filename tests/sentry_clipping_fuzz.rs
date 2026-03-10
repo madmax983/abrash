@@ -14,7 +14,7 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
-    lerp: impl Fn(V, V, f32) -> V + Copy,
+    lerp_fn: impl Fn(V, V, f32) -> V + Copy,
 ) -> Vec<V> {
     // Return Vec<V> for easier comparison
     // We use a Vec instead of fixed array for the oracle to be safe
@@ -133,14 +133,16 @@ proptest! {
         let v2 = (Vec3::new(vx2, vy2, vz2), w2);
 
         let get_pos = |v: &(Vec3, f32)| *v;
+
+        // Run Optimized (SIMD)
         let lerp_func = lerp_tuple_vertex;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_func);
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle
-        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
+        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos, lerp_func);
 
         compare_vertices(&vec_simd, &vec_scalar);
     }

@@ -63,3 +63,8 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] Zero-Cost Normal Iteration in Displace Noise
 **Learning:** In procedural mesh modifiers, cloning `mesh.normals` just to iterate alongside `mesh.vertices` creates an unnecessary $O(N)$ heap allocation per frame/call.
 **Action:** Exploit Rust's ability to take disjoint borrows from the same struct by properly sizing `mesh.normals` in-place, and directly pairing it with `mesh.vertices` using `.zip(&mesh.normals)`. This removes the clone while preserving `.par_iter_mut()` parallelism entirely overhead-free.
+
+## Optimize Directional Blur Allocation
+
+**Learning:** When using `thread_local!` buffers to optimize away per-frame dynamic heap allocations in rendering loops (like `apply_directional_blur`), moving the target read data out of the parallel loop directly into the thread-local structure is tricky if you're writing to the same slice. Instead, resizing and copying the entire framebuffer to the thread-local `SOURCE_PIXELS` avoids the need for a separate copy inside the parallel iterators, saving multiple unneeded operations.
+**Action:** Be mindful to copy arrays *once* into thread-local buffers outside of rayon loops, avoiding heavy reads or dynamic scaling during `par_chunks_mut()` execution.

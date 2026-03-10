@@ -1,27 +1,155 @@
-   Compiling abrash v0.1.0 (/app)
-    Finished `bench` profile [optimized] target(s) in 11.27s
-     Running benches/kuwahara_bench.rs (target/release/deps/kuwahara_bench-c1d199847f2d2ab4)
-Gnuplot not found, using plotters backend
-Benchmarking kuwahara_filter/radius_1
-Benchmarking kuwahara_filter/radius_1: Warming up for 3.0000 s
-Benchmarking kuwahara_filter/radius_1: Collecting 100 samples in estimated 5.4898 s (400 iterations)
-Benchmarking kuwahara_filter/radius_1: Analyzing
-kuwahara_filter/radius_1
-                        time:   [13.614 ms 13.636 ms 13.660 ms]
-                        change: [-0.9721% -0.5660% -0.2100%] (p = 0.00 < 0.05)
+fill_cube_tiled         time:   [356.89 µs 362.07 µs 367.34 µs]
+                        change: [-6.7940% -4.9986% -2.5288%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+
+fill_cube_scanline      time:   [111.72 µs 113.51 µs 116.75 µs]
+                        change: [+0.0147% +0.8568% +2.1657%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+tiled_800x600/10        time:   [371.77 µs 375.85 µs 379.83 µs]
+                        change: [-4.0655% -2.4590% -0.9322%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) low mild
+  1 (1.00%) high mild
+tiled_800x600/50        time:   [523.83 µs 527.89 µs 532.05 µs]
+                        change: [-1.5551% -0.2375% +1.1840%] (p = 0.73 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+tiled_800x600/100       time:   [1.5000 ms 1.5052 ms 1.5107 ms]
+                        change: [+1.1062% +1.7433% +2.4004%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low mild
+  7 (7.00%) high mild
+  3 (3.00%) high severe
+tiled_800x600/200       time:   [2.2106 ms 2.2225 ms 2.2345 ms]
+                        change: [+0.6198% +1.3901% +2.1622%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+tiled_800x600/500       time:   [5.4331 ms 5.4751 ms 5.5166 ms]
+                        change: [-1.8144% -0.8103% +0.2232%] (p = 0.12 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) low mild
+
+tiled_1920x1080/10      time:   [1.1129 ms 1.1182 ms 1.1234 ms]
+                        change: [-0.1541% +0.5377% +1.2445%] (p = 0.12 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+tiled_1920x1080/50      time:   [1.4519 ms 1.4574 ms 1.4633 ms]
+                        change: [-10.779% -7.2921% -3.8272%] (p = 0.00 < 0.05)
+                        Performance has improved.
+tiled_1920x1080/100     time:   [4.8856 ms 4.9064 ms 4.9282 ms]
+                        change: [-1.7916% -0.9646% -0.1517%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+tiled_1920x1080/200     time:   [6.9419 ms 6.9864 ms 7.0368 ms]
+                        change: [-2.4286% -1.4916% -0.5202%] (p = 0.00 < 0.05)
                         Change within noise threshold.
 Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
-Benchmarking kuwahara_filter/radius_3
-Benchmarking kuwahara_filter/radius_3: Warming up for 3.0000 s
-Benchmarking kuwahara_filter/radius_3: Collecting 100 samples in estimated 6.6567 s (200 iterations)
-Benchmarking kuwahara_filter/radius_3: Analyzing
-kuwahara_filter/radius_3
-                        time:   [33.004 ms 33.091 ms 33.199 ms]
-                        change: [-0.8223% -0.1369% +0.4767%] (p = 0.70 > 0.05)
+tiled_1920x1080/500     time:   [20.042 ms 20.186 ms 20.332 ms]
+                        change: [-3.1045% -2.0060% -0.8842%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
+tiled_3840x2160/10      time:   [4.6527 ms 4.6834 ms 4.7147 ms]
+                        change: [-0.4760% +0.5352% +1.4472%] (p = 0.29 > 0.05)
                         No change in performance detected.
-Found 5 outliers among 100 measurements (5.00%)
+tiled_3840x2160/50      time:   [5.7246 ms 5.7563 ms 5.7885 ms]
+                        change: [+1.1064% +1.8860% +2.7474%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
+tiled_3840x2160/100     time:   [19.316 ms 19.410 ms 19.504 ms]
+                        change: [-0.8897% -0.2120% +0.4545%] (p = 0.55 > 0.05)
+                        No change in performance detected.
+tiled_3840x2160/200     time:   [27.766 ms 27.940 ms 28.124 ms]
+                        change: [+1.5304% +2.3065% +3.0959%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+tiled_3840x2160/500     time:   [72.843 ms 73.738 ms 74.938 ms]
+                        change: [-0.2429% +1.0943% +2.8416%] (p = 0.17 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) high mild
   3 (3.00%) high severe
 
+scanline_800x600/10     time:   [117.05 µs 117.34 µs 117.64 µs]
+                        change: [-0.8999% -0.5838% -0.2656%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+scanline_800x600/50     time:   [181.61 µs 182.04 µs 182.46 µs]
+                        change: [-1.2929% -0.8141% -0.3851%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+scanline_800x600/100    time:   [754.47 µs 756.16 µs 757.90 µs]
+                        change: [+0.0354% +0.3545% +0.6854%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+scanline_800x600/200    time:   [1.1585 ms 1.1632 ms 1.1687 ms]
+                        change: [+3.3846% +3.9343% +4.5317%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+scanline_800x600/500    time:   [3.2329 ms 3.2543 ms 3.2780 ms]
+                        change: [+2.1140% +2.8443% +3.5616%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+scanline_1920x1080/10   time:   [554.25 µs 557.36 µs 560.90 µs]
+                        change: [+0.5520% +1.1031% +1.6996%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 18 outliers among 100 measurements (18.00%)
+  3 (3.00%) high mild
+  15 (15.00%) high severe
+scanline_1920x1080/50   time:   [741.31 µs 743.13 µs 745.11 µs]
+                        change: [+0.2453% +0.6376% +1.0333%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+scanline_1920x1080/100  time:   [2.8475 ms 2.8576 ms 2.8680 ms]
+                        change: [+0.3097% +0.8024% +1.2934%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
+scanline_1920x1080/200  time:   [4.1482 ms 4.1618 ms 4.1761 ms]
+                        change: [+1.9826% +2.4646% +2.9531%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+scanline_1920x1080/500  time:   [11.903 ms 11.934 ms 11.966 ms]
+                        change: [+3.1227% +3.5174% +3.9142%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+scanline_3840x2160/10   time:   [3.4224 ms 3.4811 ms 3.5450 ms]
+                        change: [+4.6927% +6.5757% +8.6328%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  8 (8.00%) high mild
+  4 (4.00%) high severe
+scanline_3840x2160/50   time:   [4.7353 ms 4.7842 ms 4.8350 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+scanline_3840x2160/100  time:   [15.868 ms 16.107 ms 16.389 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
