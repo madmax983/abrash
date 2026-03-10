@@ -47,7 +47,20 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     print_banner();
-    abrash_gpu_render::run_gpu_cube()
+    if let Err(e) = abrash_gpu_render::run_gpu_cube() {
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("❌ Application Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![Cell::new(format!("{e}")).fg(Color::Yellow)]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
+    }
 }

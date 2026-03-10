@@ -81,7 +81,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     print_banner();
     let (vertices, indices) = pyramid_mesh();
 
@@ -93,5 +93,18 @@ fn main() -> Result<(), String> {
         ..GpuDemoConfig::default()
     };
 
-    run_mesh_demo(vertices, indices, config)
+    if let Err(e) = run_mesh_demo(vertices, indices, config) {
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("❌ Application Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![Cell::new(format!("{e}")).fg(Color::Yellow)]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
+    }
 }
