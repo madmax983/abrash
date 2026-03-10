@@ -61,12 +61,12 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 }
 
 fn apply_grayscale_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let luminance = u32::from(pixel_luminance(p));
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
-    });
+    }
 }
 
 /// Simulates CRT scanlines by darkening every odd row.
@@ -103,7 +103,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 
     // Process pairs of rows: even row (kept), odd row (darkened)
     // chunks_exact_mut(width * 2) gives us 2 rows at a time.
-    pixels.chunks_exact_mut(width * 2).for_each(|rows| {
+    for rows in pixels.chunks_exact_mut(width * 2) {
         // Second half is the odd row
         let odd_row = &mut rows[width..];
         for pixel in odd_row {
@@ -112,7 +112,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
             // Preserve Alpha: (p & 0xFF00_0000)
             *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
         }
-    });
+    }
 
     // Handle remaining odd row if height is odd
     // If height is odd, chunks_exact_mut leaves exactly one row remainder?
@@ -152,9 +152,9 @@ pub fn apply_invert(fb: &mut Framebuffer) {
         }
     }
 
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         *pixel ^= 0x00FF_FFFF;
-    });
+    }
 }
 
 /// Applies a sepia tone effect to the framebuffer in-place.
@@ -203,7 +203,7 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 }
 
 fn apply_sepia_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let r = (p >> 16) & 0xFF;
         let g = (p >> 8) & 0xFF;
@@ -219,7 +219,7 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
         let new_b = new_b.min(255);
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
-    });
+    }
 }
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
@@ -266,7 +266,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
         // Process each row
         // chunks_exact_mut gives us rows directly
-        pixels.chunks_exact_mut(width).for_each(|row_pixels| {
+        for row_pixels in pixels.chunks_exact_mut(width) {
             // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
@@ -293,7 +293,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
                 *dest_pixel = (a << 24) | (r << 16) | (g << 8) | b;
             }
-        });
+        }
     });
 }
 
@@ -396,29 +396,45 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
     });
 }
 
+/// Configuration for the vignette post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct VignetteConfig {
+    /// Strength of the darkening (0.0 to 1.0).
+    pub intensity: f32,
+    /// Controls the falloff curve.
+    pub roundness: f32,
+}
+
+impl Default for VignetteConfig {
+    fn default() -> Self {
+        Self {
+            intensity: 0.5,
+            roundness: 0.5,
+        }
+    }
+}
+
 /// Applies a vignette effect to the framebuffer in-place.
 ///
 /// Darkens the corners of the image to draw attention to the center.
-///
-/// # Arguments
-///
-/// *   `intensity` - Strength of the darkening (0.0 to 1.0).
-/// *   `roundness` - Controls the falloff curve (currently unused in scalar implementation).
 ///
 /// # Examples
 ///
 /// ```
 /// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_vignette;
+/// use abrash::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.clear(0xFFFFFFFF); // White
 /// // Apply vignette
-/// apply_vignette(&mut fb, 0.5, 0.5);
+/// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
+/// apply_vignette(&mut fb, &config);
 /// ```
-pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
+pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
     let width = fb.width();
     let height = fb.height();
+    let intensity = config.intensity;
+    let roundness = config.roundness;
 
     let pixels = fb.as_mut_slice();
 
@@ -447,10 +463,25 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
     );
 }
 
+/// Configuration for the color adjust post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct ColorAdjustConfig {
+    /// Integer offset added to each color channel (typically -255 to 255).
+    pub brightness: i32,
+    /// Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
+    pub contrast: f32,
+}
+
+impl Default for ColorAdjustConfig {
+    fn default() -> Self {
+        Self {
+            brightness: 0,
+            contrast: 1.0,
+        }
+    }
+}
+
 /// Adjusts the brightness and contrast of the framebuffer in-place.
-///
-/// *   `brightness`: Integer offset added to each color channel (typically -255 to 255).
-/// *   `contrast`: Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
 ///
 /// Formula per channel: `new_color = (old_color - 128) * contrast + 128 + brightness`
 ///
@@ -458,19 +489,22 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
 ///
 /// ```
 /// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_color_adjust;
+/// use abrash::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
 /// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral
-/// apply_color_adjust(&mut fb, 20, 1.0);
+/// let config = ColorAdjustConfig { brightness: 20, contrast: 1.0 };
+/// apply_color_adjust(&mut fb, &config);
 ///
 /// // Result should be 128 + 20 = 148
 /// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
 /// ```
-pub fn apply_color_adjust(fb: &mut Framebuffer, brightness: i32, contrast: f32) {
+pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     let pixels = fb.as_mut_slice();
+    let brightness = config.brightness;
+    let contrast = config.contrast;
 
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
@@ -489,22 +523,26 @@ fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32)
     // contrast fixed point (8.8)
     let contrast_fixed = (contrast * 256.0) as i32;
 
+    // ⚡ Bolt: Use a Look-Up Table (LUT) for O(1) color adjustments per channel.
+    // Since color components (R, G, B) are strictly 8-bit (0..255), we precompute
+    // the adjusted and clamped values for all 256 possible inputs.
+    // This removes 3 multiplications, 6 additions/subtractions, and 3 clamp operations
+    // from the inner loop per pixel, significantly reducing CPU cycles on large framebuffers.
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let val = i as i32;
+        let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        *entry = new_val.clamp(0, 255) as u32;
+    }
+
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
-        let r = ((p >> 16) & 0xFF) as i32;
-        let g = ((p >> 8) & 0xFF) as i32;
-        let b = (p & 0xFF) as i32;
+        let r = lut[((p >> 16) & 0xFF) as usize];
+        let g = lut[((p >> 8) & 0xFF) as usize];
+        let b = lut[(p & 0xFF) as usize];
 
-        let new_r = (((r - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_g = (((g - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_b = (((b - 128) * contrast_fixed) >> 8) + 128 + brightness;
-
-        let r_clamped = new_r.clamp(0, 255) as u32;
-        let g_clamped = new_g.clamp(0, 255) as u32;
-        let b_clamped = new_b.clamp(0, 255) as u32;
-
-        *pixel = a | (r_clamped << 16) | (g_clamped << 8) | b_clamped;
+        *pixel = a | (r << 16) | (g << 8) | b;
     }
 }
 
@@ -1558,7 +1596,7 @@ mod tests {
         // 3: (100, 110, 120, 255)
         // 4: (130, 140, 150, 255)
         for x in 0..width {
-            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+            let val = (x + 1) * 10; // 10, 20, 30, 40, 50
             let r = val;
             let g = val + 10;
             let b = val + 20;
@@ -1618,7 +1656,13 @@ mod tests {
         fb1.as_mut_slice().copy_from_slice(fb.as_slice());
 
         // Case 1: Brightness + 10, Contrast 1.0
-        apply_color_adjust(&mut fb1, 10, 1.0);
+        apply_color_adjust(
+            &mut fb1,
+            &ColorAdjustConfig {
+                brightness: 10,
+                contrast: 1.0,
+            },
+        );
         assert_eq!(fb1.get_pixel(0, 0).unwrap() & 0xFF, 138); // 128 + 10
         assert_eq!(fb1.get_pixel(1, 0).unwrap() & 0xFF, 74); // 64 + 10
 
@@ -1628,7 +1672,13 @@ mod tests {
         // (192 - 128) * 2.0 + 128 = 128 + 128 = 256 -> 255
         let mut fb2 = Framebuffer::new(3, 1).unwrap();
         fb2.as_mut_slice().copy_from_slice(fb.as_slice());
-        apply_color_adjust(&mut fb2, 0, 2.0);
+        apply_color_adjust(
+            &mut fb2,
+            &ColorAdjustConfig {
+                brightness: 0,
+                contrast: 2.0,
+            },
+        );
         assert_eq!(fb2.get_pixel(0, 0).unwrap() & 0xFF, 128);
         assert_eq!(fb2.get_pixel(1, 0).unwrap() & 0xFF, 0);
         assert_eq!(fb2.get_pixel(2, 0).unwrap() & 0xFF, 255);
@@ -1639,7 +1689,13 @@ mod tests {
         // (192 - 128) * 0.5 + 128 - 20 = 32 + 108 = 140
         let mut fb3 = Framebuffer::new(3, 1).unwrap();
         fb3.as_mut_slice().copy_from_slice(fb.as_slice());
-        apply_color_adjust(&mut fb3, -20, 0.5);
+        apply_color_adjust(
+            &mut fb3,
+            &ColorAdjustConfig {
+                brightness: -20,
+                contrast: 0.5,
+            },
+        );
         assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
         assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
         assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);

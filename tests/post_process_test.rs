@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::apply_bloom;
+use abrash::post_process::{BloomConfig, apply_bloom};
 
 #[test]
 fn test_apply_bloom_simple() {
@@ -16,7 +16,12 @@ fn test_apply_bloom_simple() {
     // Threshold = 200 (white passes)
     // Blur radius = 2 (should spread to 5 +/- 2 = 3..7)
     // Intensity = 1.0
-    apply_bloom(&mut fb, 200, 2, 1.0);
+    let config = BloomConfig {
+        threshold: 200,
+        blur_radius: 2,
+        intensity: 1.0,
+    };
+    apply_bloom(&mut fb, &config);
 
     // Check center pixel (should be bright + bloom)
     let center = fb.get_pixel(5, 5).unwrap();
@@ -63,7 +68,12 @@ fn test_apply_bloom_no_change() {
     fb.set_pixel(5, 5, 0xFF404040); // Dark gray (64, 64, 64)
 
     // Apply bloom with high threshold
-    apply_bloom(&mut fb, 200, 2, 1.0);
+    let config = BloomConfig {
+        threshold: 200,
+        blur_radius: 2,
+        intensity: 1.0,
+    };
+    apply_bloom(&mut fb, &config);
 
     // Should not have bloomed
     let neighbor = fb.get_pixel(3, 5).unwrap();

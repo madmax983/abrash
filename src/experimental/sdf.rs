@@ -85,16 +85,6 @@ fn vec3_max(v: Vec3, val: f32) -> Vec3 {
     Vec3::new(v.x.max(val), v.y.max(val), v.z.max(val))
 }
 
-trait Vec2Ext {
-    fn length(self) -> f32;
-}
-
-impl Vec2Ext for Vec2 {
-    fn length(self) -> f32 {
-        self.x.hypot(self.y)
-    }
-}
-
 /// A scene containing SDF objects.
 pub struct SdfScene {
     pub objects: Vec<SdfObject>,

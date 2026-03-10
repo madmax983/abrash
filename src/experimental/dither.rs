@@ -99,7 +99,7 @@ fn apply_ordered_dither(fb: &mut Framebuffer, depth: u8, matrix: &[u8], size: us
             let idx = y * width + x;
             let pixel = pixels[idx];
 
-            let bayer_val = matrix[(y % size) * size + (x % size)] as f32;
+            let bayer_val = f32::from(matrix[(y % size) * size + (x % size)]);
             // Center the dither around 0 (-0.5 to 0.5 range of step)
             // Actually, standard formula: val + (bayer/max * step) - (step/2)
             // Simplified: val + scale * (bayer - limit/2)

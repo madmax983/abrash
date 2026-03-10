@@ -1689,7 +1689,18 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -3184,7 +3195,20 @@ pub fn fill_triangle_normal_mapped(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+                a.3.lerp(b.3, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -4482,7 +4506,19 @@ pub fn fill_triangle_textured_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -4848,7 +4884,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // (0 + 255) / 2 = 127.
-        assert!((120..=135).contains(&r), "Pixel should be ~127, got {}", r);
+        assert!((120..=135).contains(&r), "Pixel should be ~127, got {r}");
     }
 
     #[test]
@@ -4963,23 +4999,17 @@ fn test_draw_scanline_trilinear() {
     // Level 0 (Black) mixed with Level 1 (Grey ~127).
     // 50/50 blend -> ~63.
     // Allow range 55-75.
-    assert!((55..=75).contains(&r), "Expected ~64, got {}", r);
+    assert!((55..=75).contains(&r), "Expected ~64, got {r}");
 }
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for i in 1..RECIPROCAL_TABLE.len() {
+    for (i, val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let table_val = RECIPROCAL_TABLE[i];
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
-        assert!(
-            diff < 1e-6,
-            "Table index {} mismatch: table={}, actual={}",
-            i,
-            table_val,
-            actual
-        );
+        assert!(diff < 1e-6, "Table index {i} mismatch: table={table_val}, actual={actual}");
     }
 }

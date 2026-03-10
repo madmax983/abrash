@@ -305,6 +305,16 @@ impl ObjParser {
             ));
         }
 
+        if let Some(ti) = vt_idx {
+            if ti >= self.raw_uvs.len() {
+                return Err(format!("Line {}: UV index {} out of bounds", line_num, ti + 1));
+            }
+        }
+        if let Some(ni) = vn_idx {
+            if ni >= self.raw_normals.len() {
+                return Err(format!("Line {}: Normal index {} out of bounds", line_num, ni + 1));
+            }
+        }
         let key = VertexKey::new(v_idx, vt_idx, vn_idx);
 
         if let Some(&idx) = self.deduplicator.get(&key) {
@@ -652,11 +662,11 @@ f 1//1 2 3
         let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\n";
 
         // Index 0 (OBJ is 1-based)
-        let obj_zero = format!("{}f 0 1 2", obj_ok);
+        let obj_zero = format!("{obj_ok}f 0 1 2");
         assert!(load_obj(&obj_zero).is_err());
 
         // Index out of bounds
-        let obj_oob = format!("{}f 1 2 4", obj_ok); // 4 doesn't exist
+        let obj_oob = format!("{obj_ok}f 1 2 4"); // 4 doesn't exist
         assert!(load_obj(&obj_oob).is_err());
     }
 

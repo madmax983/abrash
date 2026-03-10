@@ -142,6 +142,10 @@ name = "rasterization"
 harness = false
 
 [[bench]]
+name = "edge_glow_bench"
+harness = false
+
+[[bench]]
 name = "culling"
 harness = false
 
@@ -407,7 +411,26 @@ name = "directional_blur_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "emboss_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "directional_blur_demo"
 path = "examples/directional_blur_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "kuwahara_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "dof_bench"
+harness = false
+
+[[bench]]
+name = "mesh_modifiers_bench"
+harness = false
 required-features = ["nova"]
