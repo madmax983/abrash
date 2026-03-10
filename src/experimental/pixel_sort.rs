@@ -66,7 +66,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
             // ⚡ Bolt: Eliminate per-thread dynamic heap allocation in par_iter by using a thread_local buffer.
             std::thread_local! {
-                static PIXEL_SORT_COL_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+            static PIXEL_SORT_COL_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
             }
 
             (0..width).into_par_iter().for_each(|x| {
@@ -125,7 +125,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
                 }
 
                 // Sort segments in column
-                sort_segments(&mut col_buffer, lum_threshold, reverse);
+                sort_segments(&mut col_buffer, lum_threshold, config.reverse);
 
                 // Put column back
                 for y in 0..height {

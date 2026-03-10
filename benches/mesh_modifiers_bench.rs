@@ -12,7 +12,7 @@ fn bench_modifiers(c: &mut Criterion) {
     group.bench_function("twist", |b| {
         b.iter_batched(
             || original_mesh.clone(),
-            |mut mesh| twist(black_box(&mut mesh), 3.14),
+            |mut mesh| twist(black_box(&mut mesh), std::f32::consts::PI),
             criterion::BatchSize::LargeInput,
         )
     });
