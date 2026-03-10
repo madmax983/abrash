@@ -77,3 +77,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Flattened iterator chunking for framebuffer exports]**
 **Learning:** When flattening or transforming 1D slices representing 2D grids (like framebuffers), using manual `y` and `x` loops with `.push()` operations incurs overhead from bounds checking on every insertion. Furthermore, if `pixels.len()` is larger than `width * height` (e.g., due to memory padding), iterating over `chunks_exact(width)` without `.take(height)` can incorrectly write out-of-bounds rows.
 **Action:** Use `.chunks_exact(width).take(height)` combined with `.extend(row.iter().flat_map(...))` to bypass repetitive bounds checks, enable loop vectorization, and correctly handle capacity alignment padding without panicking or writing garbage data.
+
+**[Performance Optimization: L-System Mesh Pre-allocation and Byte Iteration]**
+**Learning:** In procedural mesh generation like L-Systems, relying on a dynamically expanding `Mesh::new()` inside a character iteration loop (`commands.chars()`) causes excessive heap allocations and UTF-8 decoding overhead.
+**Action:** When iterating over purely ASCII command strings, always prefer `.as_bytes()` over `.chars()`. Furthermore, combine this with `.filter(|&&b| b == expected_char).count()` to compute the exact capacity needed and pre-allocate destination buffers using `with_capacity()` to significantly reduce execution time. Use `#[allow(clippy::naive_bytecount)]` to suppress linting suggestions instead of adding new crates.

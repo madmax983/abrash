@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::filters::{apply_film_grain, FilmGrainConfig};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use abrash::post_process::filters::{FilmGrainConfig, apply_film_grain};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_film_grain(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();
