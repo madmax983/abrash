@@ -60,3 +60,8 @@
 **Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.
+
+### Boids Simulation (`nova`)
+* **Feature:** Added a Boids flocking simulation (`boids.rs`) with separation, alignment, cohesion, and boundary avoidance.
+* **Learnings:** When implementing boids, orienting meshes along their velocity vector is crucial. We implemented a `compute_basis` function that uses cross products (Right-Handed) to generate a rotation matrix mapping +Z forward.
+* **Optimization:** Boids update step exhibits O(N^2) complexity. We used `rayon` `par_iter_mut()` to parallelize the outer loop, yielding a ~65% speedup for 500 boids.
