@@ -5025,8 +5025,7 @@ fn test_draw_span_nearest_overflow_vulnerability() {
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for (i, val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
-        let table_val = RECIPROCAL_TABLE[i];
+    for (i, &table_val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 
