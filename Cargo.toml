@@ -1,3 +1,11 @@
+[workspace]
+members = [
+    ".",
+    "crates/abrash-gpu",
+    "crates/abrash-gpu-render",
+    "crates/tiny_engine"
+]
+
 [package]
 name = "abrash"
 version = "0.1.0"
