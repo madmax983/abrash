@@ -13,14 +13,14 @@ fn bench_directional_blur(c: &mut Criterion) {
         }
     }
 
+    let config = abrash::experimental::directional_blur::DirectionalBlurConfig {
+        dx: 20.0,
+        dy: 20.0,
+        num_samples: 16,
+    };
     c.bench_function("directional_blur_1024x1024", |b| {
         b.iter(|| {
-            apply_directional_blur(
-                black_box(&mut fb),
-                black_box(20.0),
-                black_box(20.0),
-                black_box(16),
-            );
+            apply_directional_blur(black_box(&mut fb), black_box(&config));
         });
     });
 }

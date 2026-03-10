@@ -269,47 +269,16 @@ pub struct PreparedTexturedTriangle {
     pub max_depth: f32,
 }
 
-pub trait AabbBounds {
-    fn aabb_min_y(&self) -> i32;
-    fn aabb_max_y(&self) -> i32;
-}
-
-impl AabbBounds for PreparedTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
-impl AabbBounds for PreparedGouraudTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
-impl AabbBounds for PreparedTexturedTriangle {
-    fn aabb_min_y(&self) -> i32 {
-        i32::from(self.aabb_min_y)
-    }
-    fn aabb_max_y(&self) -> i32 {
-        i32::from(self.aabb_max_y)
-    }
-}
-
 /// Helper function to compute the minimum and maximum Y bounds for clearing a tile,
 /// based on the triangles intersecting it, and clears the specified tile regions.
 #[inline(always)]
-fn clear_tile_bounds<T: AabbBounds>(
+fn clear_tile_bounds<T>(
     tile_bins: &TileBins,
     bin_idx: usize,
     prepared: &[T],
     tile_y0: i32,
     tile_y1: i32,
+    get_bounds: impl Fn(&T) -> (i32, i32),
     tile_pixels: &mut [u32],
     tile_depths: &mut [f32],
 ) -> (i32, i32) {
@@ -318,8 +287,9 @@ fn clear_tile_bounds<T: AabbBounds>(
 
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min(tri.aabb_min_y().max(tile_y0));
-        clear_y_max = clear_y_max.max(tri.aabb_max_y().min(tile_y1 - 1));
+        let (min_y, max_y) = get_bounds(tri);
+        clear_y_min = clear_y_min.min(min_y.max(tile_y0));
+        clear_y_max = clear_y_max.max(max_y.min(tile_y1 - 1));
     }
 
     let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE as u32) as usize;
@@ -633,6 +603,7 @@ fn render_single_tile(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y)),
         tile_pixels,
         tile_depths,
     );
@@ -825,6 +796,7 @@ fn render_single_tile_textured(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (tri.aabb_min_y, tri.aabb_max_y),
         tile_pixels,
         tile_depths,
     );
@@ -1447,7 +1419,7 @@ fn rasterize_scanline_simd(
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_load_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
@@ -2485,7 +2457,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedGouraudTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedGouraudTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2696,7 +2679,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTexturedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedTexturedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2851,7 +2845,13 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| (v.0, v.1),
+            |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
+        );
         let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -3083,20 +3083,22 @@ impl TileRenderer {
         }
 
         // Helper to sort a single bin (linked list)
+        // Bolt: Use thread_local here since this closure is called from par_iter_mut
         let sort_bin = |head: &mut u32, nexts: &mut [u32], tris: &[u32]| {
             if *head == u32::MAX {
                 return;
             }
 
             // 1. Collect indices into a temporary vector
-            // We reuse a thread-local buffer to avoid allocations?
-            // For now, just allocate a small vec. Most tiles have < 100 triangles.
-            let mut indices = Vec::with_capacity(64);
-            let mut curr = *head;
-            while curr != u32::MAX {
-                indices.push(curr);
-                curr = nexts[curr as usize];
-            }
+            thread_local! { static SCRATCH: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) }; }
+            SCRATCH.with(|scratch| {
+                let mut indices = scratch.borrow_mut();
+                indices.clear();
+                let mut curr = *head;
+                while curr != u32::MAX {
+                    indices.push(curr);
+                    curr = nexts[curr as usize];
+                }
 
             // 2. Sort indices by depth
             indices.sort_unstable_by(|&a, &b| {
@@ -3150,11 +3152,12 @@ impl TileRenderer {
 
             let mut tails = &mut self.tile_bins.tails;
 
+            let mut indices = Vec::with_capacity(64);
             for (tile_idx, head) in heads.iter_mut().enumerate() {
                 if *head == u32::MAX { continue; }
 
                 // Collect
-                let mut indices = Vec::with_capacity(64);
+                indices.clear();
                 let mut curr = *head;
                 while curr != u32::MAX {
                     indices.push(curr);
@@ -3188,10 +3191,11 @@ impl TileRenderer {
             let tails = &mut self.tile_bins.tails;
             let tris = &self.tile_bins.tris;
 
+            let mut indices = Vec::with_capacity(64);
             for (tile_idx, head) in heads.iter_mut().enumerate() {
                 if *head == u32::MAX { continue; }
 
-                let mut indices = Vec::with_capacity(64);
+                indices.clear();
                 let mut curr = *head;
                 while curr != u32::MAX {
                     indices.push(curr);
@@ -3234,10 +3238,11 @@ impl TileRenderer {
 
         // Sequential implementation for both parallel/not parallel features for now
         // to avoid code duplication and safety issues with parallel linked list modification.
+        let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX { continue; }
 
-            let mut indices = Vec::with_capacity(64);
+            indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
                 indices.push(curr);
@@ -3403,6 +3408,7 @@ fn render_single_tile_gouraud(
         prepared,
         tile_y0,
         tile_y1,
+        |tri| (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y)),
         tile_pixels,
         tile_depths,
     );

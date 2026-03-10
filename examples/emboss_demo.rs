@@ -32,12 +32,16 @@ fn print_success(width: u32, height: u32) {
     table
         .load_preset(presets::UTF8_FULL)
         .set_header(vec![
-            Cell::new("✅ Status").fg(Color::Green).add_attribute(comfy_table::Attribute::Bold),
+            Cell::new("✅ Status")
+                .fg(Color::Green)
+                .add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Details").fg(Color::Green),
         ])
         .add_row(vec![
             Cell::new("Success"),
-            Cell::new(format!("Emboss filter applied to {width}x{height} framebuffer.")),
+            Cell::new(format!(
+                "Emboss filter applied to {width}x{height} framebuffer."
+            )),
         ]);
 
     println!("\n{}", table);

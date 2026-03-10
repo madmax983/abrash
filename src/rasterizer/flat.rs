@@ -354,7 +354,13 @@ pub fn fill_triangle_3d(
         return;
     }
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| (v.0, v.1),
+        |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
+    );
 
     let width = fb.width();
     let height = fb.height();

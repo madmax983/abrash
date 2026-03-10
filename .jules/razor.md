@@ -29,3 +29,23 @@
 **Bloat:** The `Vec2Ext` trait in `src/experimental/sdf.rs` which was only implemented for `Vec2` to provide a `length()` method.
 **Cut:** Removed the `Vec2Ext` trait entirely. Moved the `length()` method directly into the `impl Vec2` block in `src/math.rs`.
 **Saved:** 10 lines of trait boilerplate, flattened the abstraction, and unified the API for `Vec2`.
+
+## [Reduction]
+**Bloat:** The `WindowBackend` trait which abstracted window operations but was only implemented by `Win32Window` and `TuiWindow` (which are conditionally compiled).
+**Cut:** Deleted the `WindowBackend` trait, moved its methods directly to `impl Win32Window` and `impl TuiWindow`, and updated examples to rely purely on the concrete type alias `Window`.
+**Saved:** ~10 lines of trait boilerplate, removed the need for users to import a trait just to use the window, and flattened the platform abstraction.
+
+## [Reduction]
+**Bloat:** The `AabbBounds` trait in `tile.rs` which was only used as a constraint for a single helper function (`clear_tile_bounds`).
+**Cut:** Deleted the `AabbBounds` trait and its three implementations. Replaced the trait constraint with an explicit closure parameter `get_bounds: impl Fn(&T) -> (i32, i32)`.
+**Saved:** 30 lines of code and simplified the mental model by passing data directly rather than funneling it through a single-use trait.
+
+## [Reduction]
+**Bloat:** The `Lerp` trait in `clipping.rs` which abstracted generic linear interpolation math over simple tuples and primitives.
+**Cut:** Deleted the `Lerp` trait entirely. Replaced its usage in clipping functions with explicit `lerp: impl Fn(V, V, f32) -> V` closure arguments. Added inherent `lerp` methods to `Vec2` and `Vec4`.
+**Saved:** 100 lines of repetitive trait implementation blocks. Math interpolation is now explicit and localized to the caller.
+
+## [Reduction]
+**Bloat:** The `AsciiExporter` single-implementation trait in `src/experimental/ascii_export.rs`.
+**Cut:** Removed the trait and `ascii_export.rs` entirely. Moved the implementations of `export_txt` and `export_ansi` directly to a concrete `impl Framebuffer` block in `src/framebuffer.rs`.
+**Saved:** Removed 1 file, eliminated the trait abstraction, and lowered cognitive overhead by attaching the methods directly to the struct they operate on.

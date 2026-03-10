@@ -1,0 +1,24 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.51s
+     Running `target/debug/examples/heat_vision`
+
+[38;5;9m[1m🔥 Heat Vision Demo[0m
+[38;5;8m=====================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬──────────────────────────────────┐
+│ Property    ┆ Value                            │
+╞═════════════╪══════════════════════════════════╡
+│ Description ┆ Simulates thermal imaging effect │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Effect      ┆ Post-process heat map shader     │
+└─────────────┴──────────────────────────────────┘
+
+[1m🎮 Controls[0m
+┌──────────┬───────────────┐
+│ Input    ┆ Action        │
+╞══════════╪═══════════════╡
+│ Mouse    ┆ None          │
+├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Keyboard ┆ Auto-rotating │
+└──────────┴───────────────┘

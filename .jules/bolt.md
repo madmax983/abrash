@@ -29,6 +29,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Learning:** Using `.for_each_init(|| vec![0u32; len], ...)` or allocating a `Vec` per element inside a Rayon parallel iterator (`par_iter`) causes a high number of dynamic heap allocations per frame, particularly when iterating over elements like pixels or columns.
 **Action:** Replace `for_each_init` allocations inside parallel loops with a `std::thread_local! { static BUFFER: std::cell::RefCell<Vec<T>> = ... }` buffer. This guarantees only one allocation occurs per Rayon worker thread, allowing safe reuse of capacities across elements by resizing as needed and borrowing mutable slices.
 
+**[Performance Optimization: Inline multi-element struct collection instead of .collect() mapping]**
+**Learning:** When building an output collection from an algorithm that produces elements in sequence (like Marching Cubes/Tetrahedra producing 3 indices at a time), directly pushing grouped elements (e.g. `[usize; 3]`) avoids an O(N) intermediate heap allocation and mapping pass that would be caused by a `.collect()` chain on `.chunks(3)`.
+**Action:** When a function requires a specific grouped structural return (like `Vec<[usize; 3]>`), maintain this structure inline as elements are computed rather than collecting into a flat list and refactoring it at the very end.
 **[Performance Optimization: Cross-multiplication for variance comparisons]**
 **Learning:** In color filtering algorithms (like Kuwahara), replacing floating-point division and casts for variance comparisons (`var1 < var2` where `var = num / den`) with integer cross-multiplication (`num1 * den2 < num2 * den1`) completely removes `f32` casts and operations from the hot loops.
 **Action:** Always prefer cross-multiplication with integer types (e.g. `u64`) over floating point division when comparing ratios or variances in tight pixel processing loops.
@@ -45,3 +48,28 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 
 **Learning:** Replacing a manual `for` loop and `.push()` with an idiomatic `.map(...).collect()` chain on a slice iterator can yield significant performance gains. Because slice iterators implement the `TrustedLen` trait, `.collect()` can safely bypass bounds and capacity checks on every insertion, allowing LLVM to better vectorize the code.
 **Action:** Always prefer iterator chains over manual loop pushes when transforming slices or arrays, as it not only improves readability but can also drastically enhance performance by leveraging zero-cost abstractions.
+**[Performance Optimization: Look-Up Tables for Color Channels]**
+**Learning:** When performing per-pixel math operations on 8-bit color channels (like brightness and contrast adjustments), there are only 256 possible input values. Re-calculating the math and clamping bounds for millions of pixels per frame is redundant.
+**Action:** Replace per-pixel inner-loop calculations with a precomputed 256-element Look-Up Table (LUT) (`[u32; 256]`). This converts complex math and clamping logic into a simple `O(1)` array indexing operation per channel, providing massive speedups on large framebuffers.
+**[Performance Optimization: Integer Fixed-Point Lerping]**
+**Learning:** In pixel blending or interpolation hot loops, replace floating-point `lerp` operations with integer fixed-point arithmetic. For example, scaling a `0.0-1.0` blend factor to a `0-256` integer, then computing `(a * inv_factor + b * factor) >> 8`.
+**Action:** Always prefer integer fixed-point math over floating-point linear interpolation for per-pixel color blending to significantly improve rendering performance.
+
+## Raytracer Parallel Allocation Elimination
+**Learning:** `scene.objects.iter().map(|obj| RenderObject { obj, world_aabb: obj.calculate_world_aabb() }).collect::<Vec<_>>()` created unnecessary allocations within a parallel rendering loop.
+**Action:** Replaced `collect::<Vec<_>>()` with a `thread_local!` `RefCell<Vec<AABB>>` buffer to store computed bounds. Using Structure-of-Arrays (`scene.objects` and `AABB_BUFFER`), we eliminated dynamic allocations inside the render loop, which improved execution times from ~82ms to ~21ms (74% improvement).
+**[Performance Optimization: Zip Iterator to Eliminate Array Clones]**
+**Learning:** In procedural mesh modifiers (like noise displacement), unnecessary O(N) heap allocations can be avoided by making sure the normal array is correctly sized in place, then using `.zip(&mesh.normals)` next to the `mesh.vertices.par_iter_mut()` loop to avoid cloning the normal array.
+**Action:** Always favor `.zip()` and in-place resizing instead of `.clone()` for concurrent or parallel array iterations.
+**[Performance Optimization: Fixed-Point Directional Blur]**
+**Learning:** In sub-pixel sampling loops like directional blurs, replacing floating-point coordinate math and `.round()` operations with 16.16 fixed-point integer arithmetic provides an enormous ~75% speedup by eliminating `f32` conversion overhead in the inner-most rendering loop. Scaling steps by `65536.0` (`<< 16`) and offsetting the initial starting coordinates by `32768` (0.5 in 16.16 fixed point) achieves free mathematical rounding via standard integer truncation when extracting the coordinate (`>> 16`).
+**Action:** Always prefer integer fixed-point math over floating-point arithmetic for coordinate sampling and interpolation in per-pixel rendering loops to significantly improve performance.
+**[Performance Optimization: Fixed-Point Coordinates for Sub-pixel Sampling]**
+**Learning:** In sub-pixel sampling loops (like directional blurs), calculating coordinates using floating point math, adding steps, and calling `.round()` per-sample is a massive bottleneck.
+**Action:** Replace floating-point coordinate math with 16.16 fixed-point integer arithmetic. Scale steps by `65536.0` (as `i32`) outside the loop. Offset the initial starting coordinates by `32768` (representing 0.5 in 16.16 fixed-point) and accumulate integers in the loop. The final integer pixel coordinate can then be extracted simply via a right shift (`>> 16`), which naturally incorporates the 0.5 rounding cost-free.
+**[Performance Optimization: Zip Iterator to Eliminate Array Clones]**
+**Learning:** In procedural mesh algorithms like `displace_noise`, cloning entire vectors (e.g. `mesh.normals.clone()`) to satisfy borrow checker rules or avoid length mismatches introduces an unnecessary `O(N)` heap allocation. Furthermore, using `.enumerate()` to access a separate slice via `let normal = normals[i];` incurs implicit bounds-checking.
+**Action:** Replace `vector.clone()` with explicit length matching and `.resize()` in place. Then, use `.zip(&mesh.normals)` when iterating over `mesh.vertices.par_iter_mut()` to safely obtain simultaneous mutable and immutable borrows, entirely eliminating both the heap allocation and the inner-loop bounds checks.
+## [Performance] Zero-Cost Normal Iteration in Displace Noise
+**Learning:** In procedural mesh modifiers, cloning `mesh.normals` just to iterate alongside `mesh.vertices` creates an unnecessary $O(N)$ heap allocation per frame/call.
+**Action:** Exploit Rust's ability to take disjoint borrows from the same struct by properly sizing `mesh.normals` in-place, and directly pairing it with `mesh.vertices` using `.zip(&mesh.normals)`. This removes the clone while preserving `.par_iter_mut()` parallelism entirely overhead-free.

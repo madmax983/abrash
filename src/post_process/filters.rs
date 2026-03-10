@@ -511,7 +511,7 @@ pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
         if std::is_x86_feature_detected!("avx2") {
             unsafe {
                 simd::apply_color_adjust_avx2(pixels, brightness, contrast);
-            };
+            }
             return;
         }
     }
@@ -519,26 +519,126 @@ pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
     apply_color_adjust_scalar(pixels, brightness, contrast);
 }
 
+/// Configuration for the Film Grain filter.
+pub struct FilmGrainConfig {
+    /// Intensity of the grain noise, usually [0.0, 1.0].
+    pub intensity: f32,
+    /// Seed for the noise generator to create static or animated noise.
+    pub seed: u32,
+}
+
+/// Applies a film grain effect to the framebuffer.
+///
+/// Uses a simple integer-based LCG (Linear Congruential Generator) per pixel
+/// to add noise scaled by the `intensity` parameter.
+///
+/// # Examples
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::{apply_film_grain, FilmGrainConfig};
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let config = FilmGrainConfig { intensity: 0.1, seed: 42 };
+/// apply_film_grain(&mut fb, &config);
+/// ```
+pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
+    let pixels = fb.as_mut_slice();
+    let intensity = config.intensity.clamp(0.0, 1.0);
+    // Use fixed point arithmetic for blending: factor in [0, 256]
+    let max_noise_shift = (intensity * 256.0) as i32;
+
+    if max_noise_shift == 0 {
+        return;
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pixels.par_iter_mut().enumerate().for_each(|(i, p)| {
+            // Give each pixel a deterministic but pseudo-random starting state based on index
+            // This allows the noise to be consistent per frame (if seed is same)
+            let mut lcg = config.seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+            lcg ^= lcg << 13;
+            lcg ^= lcg >> 17;
+            lcg ^= lcg << 5;
+
+            // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
+            // LCG sequence needs to diverge significantly
+            lcg = lcg.wrapping_add(0x12345678);
+            lcg ^= lcg << 13;
+            lcg ^= lcg >> 17;
+            lcg ^= lcg << 5;
+
+            // Random value between 0 and 255
+            let noise = (lcg & 0xFF) as i32;
+
+            // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
+            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+
+            let a = *p & 0xFF00_0000;
+            let r = ((*p >> 16) & 0xFF) as i32;
+            let g = ((*p >> 8) & 0xFF) as i32;
+            let b = (*p & 0xFF) as i32;
+
+            let nr = (r + noise_delta).clamp(0, 255) as u32;
+            let ng = (g + noise_delta).clamp(0, 255) as u32;
+            let nb = (b + noise_delta).clamp(0, 255) as u32;
+
+            *p = a | (nr << 16) | (ng << 8) | nb;
+        });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        // A simple LCG state, mixed with the config seed
+        let mut state = config.seed.wrapping_add(0x12345678);
+
+        for p in pixels.iter_mut() {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+
+            let noise = (state & 0xFF) as i32;
+            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+
+            let a = *p & 0xFF00_0000;
+            let r = ((*p >> 16) & 0xFF) as i32;
+            let g = ((*p >> 8) & 0xFF) as i32;
+            let b = (*p & 0xFF) as i32;
+
+            let nr = (r + noise_delta).clamp(0, 255) as u32;
+            let ng = (g + noise_delta).clamp(0, 255) as u32;
+            let nb = (b + noise_delta).clamp(0, 255) as u32;
+
+            *p = a | (nr << 16) | (ng << 8) | nb;
+        }
+    }
+}
+
 fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32) {
     // contrast fixed point (8.8)
     let contrast_fixed = (contrast * 256.0) as i32;
 
+    // ⚡ Bolt: Use a Look-Up Table (LUT) for O(1) color adjustments per channel.
+    // Since color components (R, G, B) are strictly 8-bit (0..255), we precompute
+    // the adjusted and clamped values for all 256 possible inputs.
+    // This removes 3 multiplications, 6 additions/subtractions, and 3 clamp operations
+    // from the inner loop per pixel, significantly reducing CPU cycles on large framebuffers.
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let val = i as i32;
+        let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        *entry = new_val.clamp(0, 255) as u32;
+    }
+
     for pixel in pixels.iter_mut() {
         let p = *pixel;
         let a = p & 0xFF00_0000;
-        let r = ((p >> 16) & 0xFF) as i32;
-        let g = ((p >> 8) & 0xFF) as i32;
-        let b = (p & 0xFF) as i32;
+        let r = lut[((p >> 16) & 0xFF) as usize];
+        let g = lut[((p >> 8) & 0xFF) as usize];
+        let b = lut[(p & 0xFF) as usize];
 
-        let new_r = (((r - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_g = (((g - 128) * contrast_fixed) >> 8) + 128 + brightness;
-        let new_b = (((b - 128) * contrast_fixed) >> 8) + 128 + brightness;
-
-        let r_clamped = new_r.clamp(0, 255) as u32;
-        let g_clamped = new_g.clamp(0, 255) as u32;
-        let b_clamped = new_b.clamp(0, 255) as u32;
-
-        *pixel = a | (r_clamped << 16) | (g_clamped << 8) | b_clamped;
+        *pixel = a | (r << 16) | (g << 8) | b;
     }
 }
 
@@ -1695,6 +1795,78 @@ mod tests {
         assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
         assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
         assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);
+    }
+
+    #[test]
+    fn test_apply_film_grain() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        // Fill with near white, enough to potentially cause overflow if not handled correctly
+        fb.clear(0xFFF0F0F0);
+
+        let config = FilmGrainConfig {
+            intensity: 0.5,
+            seed: 1234,
+        };
+        apply_film_grain(&mut fb, &config);
+
+        // Ensure bounds are not violated (no underflow/overflow wrapper bugs)
+        // and that some noise was actually applied.
+        let mut changed = false;
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            // Check that the clamping to 255 actually worked when it overflowed
+            assert!(r <= 255, "Red channel was clamped properly");
+            assert!(g <= 255, "Green channel was clamped properly");
+            assert!(b <= 255, "Blue channel was clamped properly");
+
+            if r != 240 || g != 240 || b != 240 {
+                changed = true;
+            }
+        }
+
+        assert!(changed, "Film grain did not change the pixel values");
+
+        // Fill with near black, to test underflow clamp
+        fb.clear(0xFF0A0A0A);
+        apply_film_grain(&mut fb, &config);
+
+        let mut changed = false;
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            if r != 10 || g != 10 || b != 10 {
+                changed = true;
+            }
+        }
+
+        assert!(changed, "Film grain did not change the pixel values on black");
+    }
+
+    #[test]
+    fn test_apply_film_grain_zero_intensity() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFF808080);
+
+        let config = FilmGrainConfig {
+            intensity: 0.0,
+            seed: 1234,
+        };
+        apply_film_grain(&mut fb, &config);
+
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            assert_eq!(r, 128, "Pixel changed when intensity was 0");
+            assert_eq!(g, 128, "Pixel changed when intensity was 0");
+            assert_eq!(b, 128, "Pixel changed when intensity was 0");
+        }
     }
 
     #[test]

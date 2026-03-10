@@ -154,9 +154,13 @@ impl LSystem {
                 let mut exact_len: usize = 0;
                 for &b in &current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        exact_len = exact_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
+                        exact_len = exact_len
+                            .checked_add(replacement.len())
+                            .ok_or("L-system exceeded memory limits")?;
                     } else {
-                        exact_len = exact_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
+                        exact_len = exact_len
+                            .checked_add(1)
+                            .ok_or("L-system exceeded memory limits")?;
                     }
                 }
                 if exact_len > limit {
@@ -194,14 +198,22 @@ impl LSystem {
                 let u = c as usize;
                 if u < 128 {
                     if let Some(replacement) = rules_array[u] {
-                        next_len = next_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
+                        next_len = next_len
+                            .checked_add(replacement.len())
+                            .ok_or("L-system exceeded memory limits")?;
                     } else {
-                        next_len = next_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
+                        next_len = next_len
+                            .checked_add(1)
+                            .ok_or("L-system exceeded memory limits")?;
                     }
                 } else if let Some(replacement) = self.rules.get(&c) {
-                    next_len = next_len.checked_add(replacement.len()).ok_or("L-system exceeded memory limits")?;
+                    next_len = next_len
+                        .checked_add(replacement.len())
+                        .ok_or("L-system exceeded memory limits")?;
                 } else {
-                    next_len = next_len.checked_add(1).ok_or("L-system exceeded memory limits")?;
+                    next_len = next_len
+                        .checked_add(1)
+                        .ok_or("L-system exceeded memory limits")?;
                 }
             }
             if next_len > limit {
