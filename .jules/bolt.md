@@ -28,3 +28,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Thread-local buffers in parallel iteration]**
 **Learning:** Using `.for_each_init(|| vec![0u32; len], ...)` or allocating a `Vec` per element inside a Rayon parallel iterator (`par_iter`) causes a high number of dynamic heap allocations per frame, particularly when iterating over elements like pixels or columns.
 **Action:** Replace `for_each_init` allocations inside parallel loops with a `std::thread_local! { static BUFFER: std::cell::RefCell<Vec<T>> = ... }` buffer. This guarantees only one allocation occurs per Rayon worker thread, allowing safe reuse of capacities across elements by resizing as needed and borrowing mutable slices.
+
+**[Performance Optimization: Inline multi-element struct collection instead of .collect() mapping]**
+**Learning:** When building an output collection from an algorithm that produces elements in sequence (like Marching Cubes/Tetrahedra producing 3 indices at a time), directly pushing grouped elements (e.g. `[usize; 3]`) avoids an O(N) intermediate heap allocation and mapping pass that would be caused by a `.collect()` chain on `.chunks(3)`.
+**Action:** When a function requires a specific grouped structural return (like `Vec<[usize; 3]>`), maintain this structure inline as elements are computed rather than collecting into a flat list and refactoring it at the very end.
