@@ -1419,7 +1419,7 @@ fn rasterize_scanline_simd(
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_load_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
