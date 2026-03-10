@@ -366,3 +366,7 @@ harness = false
 [[bench]]
 name = "sorting_bench"
 harness = false
+
+[[bench]]
+name = "culling_bench"
+harness = false
