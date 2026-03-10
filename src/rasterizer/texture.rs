@@ -5004,7 +5004,7 @@ fn test_draw_scanline_trilinear() {
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for (i, val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
+    for (i, _val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let table_val = RECIPROCAL_TABLE[i];
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
