@@ -29,11 +29,58 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
 
     // Original weight is scaled by amount
     // Center pixel gets (1 + 4 * amount), surrounding gets (-amount)
-    let center_weight = 1.0 + 4.0 * amount;
-    let side_weight = -amount;
+    let center_weight_fixed = ((1.0 + 4.0 * amount) * 256.0) as i32;
+    let side_weight_fixed = (-amount * 256.0) as i32;
 
     let src = fb.as_slice().to_vec(); // create a copy of the framebuffer to read from
     let dst = fb.as_mut_slice();
+
+    let process_row = |(y_idx, row): (usize, &mut [u32])| {
+        let y = y_idx + 1; // actual y in the full image
+        let row_start = y * width;
+        let prev_row = (y - 1) * width;
+        let next_row = (y + 1) * width;
+
+        for x in 1..(width - 1) {
+            let center_idx = row_start + x;
+
+            // Read 5 pixels (center + 4 neighbors)
+            let center_c = src[center_idx];
+            let top_c = src[prev_row + x];
+            let bottom_c = src[next_row + x];
+            let left_c = src[row_start + x - 1];
+            let right_c = src[row_start + x + 1];
+
+            // Extract center
+            let c_r = ((center_c >> 16) & 0xFF) as i32;
+            let c_g = ((center_c >> 8) & 0xFF) as i32;
+            let c_b = (center_c & 0xFF) as i32;
+
+            let mut r_sum = c_r * center_weight_fixed;
+            let mut g_sum = c_g * center_weight_fixed;
+            let mut b_sum = c_b * center_weight_fixed;
+
+            // Add sides inline
+            for &side_c in &[top_c, bottom_c, left_c, right_c] {
+                let s_r = ((side_c >> 16) & 0xFF) as i32;
+                let s_g = ((side_c >> 8) & 0xFF) as i32;
+                let s_b = (side_c & 0xFF) as i32;
+
+                r_sum += s_r * side_weight_fixed;
+                g_sum += s_g * side_weight_fixed;
+                b_sum += s_b * side_weight_fixed;
+            }
+
+            let r = (r_sum >> 8).clamp(0, 255) as u32;
+            let g = (g_sum >> 8).clamp(0, 255) as u32;
+            let b = (b_sum >> 8).clamp(0, 255) as u32;
+
+            // preserve alpha
+            let a = center_c & 0xFF000000;
+
+            row[x] = a | (r << 16) | (g << 8) | b;
+        }
+    };
 
     #[cfg(feature = "parallel")]
     {
@@ -51,108 +98,15 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
         dst_body
             .par_chunks_mut(width)
             .enumerate()
-            .for_each(|(y_idx, row)| {
-                let y = y_idx + 1; // actual y in the full image
-                let row_start = y * width;
-                let prev_row = (y - 1) * width;
-                let next_row = (y + 1) * width;
-
-                for x in 1..(width - 1) {
-                    let center_idx = row_start + x;
-
-                    // Read 5 pixels (center + 4 neighbors)
-                    let center_c = src[center_idx];
-                    let top_c = src[prev_row + x];
-                    let bottom_c = src[next_row + x];
-                    let left_c = src[row_start + x - 1];
-                    let right_c = src[row_start + x + 1];
-
-                    let mut r_sum = 0.0;
-                    let mut g_sum = 0.0;
-                    let mut b_sum = 0.0;
-
-                    // Extract and accumulate
-                    let c_r = ((center_c >> 16) & 0xFF) as f32;
-                    let c_g = ((center_c >> 8) & 0xFF) as f32;
-                    let c_b = (center_c & 0xFF) as f32;
-
-                    r_sum += c_r * center_weight;
-                    g_sum += c_g * center_weight;
-                    b_sum += c_b * center_weight;
-
-                    // Add sides
-                    for &side_c in &[top_c, bottom_c, left_c, right_c] {
-                        let s_r = ((side_c >> 16) & 0xFF) as f32;
-                        let s_g = ((side_c >> 8) & 0xFF) as f32;
-                        let s_b = (side_c & 0xFF) as f32;
-
-                        r_sum += s_r * side_weight;
-                        g_sum += s_g * side_weight;
-                        b_sum += s_b * side_weight;
-                    }
-
-                    let r = r_sum.clamp(0.0, 255.0) as u32;
-                    let g = g_sum.clamp(0.0, 255.0) as u32;
-                    let b = b_sum.clamp(0.0, 255.0) as u32;
-
-                    // preserve alpha
-                    let a = center_c & 0xFF000000;
-
-                    row[x] = a | (r << 16) | (g << 8) | b;
-                }
-            });
+            .for_each(process_row);
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        for y in 1..(height - 1) {
-            let row_start = y * width;
-            let prev_row = (y - 1) * width;
-            let next_row = (y + 1) * width;
-
-            for x in 1..(width - 1) {
-                let center_idx = row_start + x;
-
-                // Read 5 pixels (center + 4 neighbors)
-                let center_c = src[center_idx];
-                let top_c = src[prev_row + x];
-                let bottom_c = src[next_row + x];
-                let left_c = src[row_start + x - 1];
-                let right_c = src[row_start + x + 1];
-
-                let mut r_sum = 0.0;
-                let mut g_sum = 0.0;
-                let mut b_sum = 0.0;
-
-                // Extract and accumulate
-                let c_r = ((center_c >> 16) & 0xFF) as f32;
-                let c_g = ((center_c >> 8) & 0xFF) as f32;
-                let c_b = (center_c & 0xFF) as f32;
-
-                r_sum += c_r * center_weight;
-                g_sum += c_g * center_weight;
-                b_sum += c_b * center_weight;
-
-                // Add sides
-                for &side_c in &[top_c, bottom_c, left_c, right_c] {
-                    let s_r = ((side_c >> 16) & 0xFF) as f32;
-                    let s_g = ((side_c >> 8) & 0xFF) as f32;
-                    let s_b = (side_c & 0xFF) as f32;
-
-                    r_sum += s_r * side_weight;
-                    g_sum += s_g * side_weight;
-                    b_sum += s_b * side_weight;
-                }
-
-                let r = r_sum.clamp(0.0, 255.0) as u32;
-                let g = g_sum.clamp(0.0, 255.0) as u32;
-                let b = b_sum.clamp(0.0, 255.0) as u32;
-
-                // preserve alpha
-                let a = center_c & 0xFF000000;
-
-                dst[center_idx] = a | (r << 16) | (g << 8) | b;
-            }
-        }
+        let dst_body = &mut dst[width..width * (height - 1)];
+        dst_body
+            .chunks_mut(width)
+            .enumerate()
+            .for_each(process_row);
     }
 }
