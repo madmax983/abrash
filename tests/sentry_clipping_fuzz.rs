@@ -22,17 +22,17 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
 
     // 6 Planes
     // 1. Left: x >= -w -> x + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos, &lerp);
     // 2. Right: x <= w -> w - x >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos, &lerp);
     // 3. Bottom: y >= -w -> y + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos, &lerp);
     // 4. Top: y <= w -> w - y >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos, &lerp);
     // 5. Near: z >= -w -> z + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos, &lerp);
     // 6. Far: z <= w -> w - z >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos, &lerp);
 
     // Triangulate (Fan)
     let mut triangles = Vec::new();
@@ -133,14 +133,13 @@ proptest! {
         let v2 = (Vec3::new(vx2, vy2, vz2), w2);
 
         let get_pos = |v: &(Vec3, f32)| *v;
-        let lerp_func = lerp_tuple_vertex;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_tuple_vertex);
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle
-        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
+        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos, lerp_tuple_vertex);
 
         compare_vertices(&vec_simd, &vec_scalar);
     }
