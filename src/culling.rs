@@ -557,7 +557,10 @@ mod tests {
 
         assert_eq!(simd_results.len(), scalar_results.len());
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
-            assert_eq!(*simd, *scalar, "Mismatch at index {i}: simd={simd}, scalar={scalar}");
+            assert_eq!(
+                *simd, *scalar,
+                "Mismatch at index {i}: simd={simd}, scalar={scalar}"
+            );
         }
     }
 
@@ -730,7 +733,10 @@ mod tests {
 
         assert_eq!(simd_results.len(), scalar_results.len());
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
-            assert_eq!(*simd, *scalar, "Mismatch at index {i}: simd={simd}, scalar={scalar}");
+            assert_eq!(
+                *simd, *scalar,
+                "Mismatch at index {i}: simd={simd}, scalar={scalar}"
+            );
         }
     }
 }

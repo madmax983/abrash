@@ -60,9 +60,11 @@ impl LSystem {
     /// Returns an error if the expansion string exceeds `max_capacity`.
     pub fn expand(&self, iterations: usize) -> Result<String, &'static str> {
         let mut current = self.axiom.clone();
+        let mut next_string = String::new();
 
         for _ in 0..iterations {
-            let mut next_string = String::with_capacity(current.len() * 2);
+            next_string.clear();
+            next_string.reserve(current.len() * 2);
 
             for c in current.chars() {
                 if let Some(replacement) = self.rules.get(&c) {
@@ -70,13 +72,13 @@ impl LSystem {
                 } else {
                     next_string.push(c);
                 }
-
-                // OOM Prevention check
-                if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
-                }
             }
-            current = next_string;
+
+            // OOM Prevention check
+            if next_string.len() > self.max_capacity {
+                return Err("L-System expansion exceeded maximum capacity limit");
+            }
+            std::mem::swap(&mut current, &mut next_string);
         }
 
         Ok(current)

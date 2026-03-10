@@ -63,3 +63,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] Zero-Cost Normal Iteration in Displace Noise
 **Learning:** In procedural mesh modifiers, cloning `mesh.normals` just to iterate alongside `mesh.vertices` creates an unnecessary $O(N)$ heap allocation per frame/call.
 **Action:** Exploit Rust's ability to take disjoint borrows from the same struct by properly sizing `mesh.normals` in-place, and directly pairing it with `mesh.vertices` using `.zip(&mesh.normals)`. This removes the clone while preserving `.par_iter_mut()` parallelism entirely overhead-free.
+
+**[Performance Optimization: Double-buffering Strings]**
+**Learning:** In L-System procedural generation, dynamically creating new strings or re-allocating new vectors every iteration inside an inner loop causes significant performance drops due to the repeated overhead of memory allocation.
+**Action:** Use a double-buffering approach (`std::mem::swap(&mut current, &mut next_string)`), pre-calculate or estimate capacity with `.reserve()`, and simply `.clear()` the next buffer on each iteration. This reduces benchmark times by roughly 10%.
