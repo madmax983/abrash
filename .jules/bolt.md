@@ -11,3 +11,7 @@
 **[Performance Optimization: Rayon fold to flat_map_iter]**
 **Learning:** Replacing `.fold(Vec::new, ...).flatten().collect()` with `.flat_map_iter(...)` in Rayon iterator chains eliminates intermediate `Vec` allocations per chunk. This reduces heap allocations significantly in parallel processing pipelines like the tile rasterizer (`submit_mesh`, `render_batch` paths).
 **Action:** Always prefer `flat_map_iter` when flattening iterator results in Rayon to keep data on the stack (via returned Iterators or arrays) and avoid heap-allocating intermediate collections.
+
+**[Performance Optimization: Small allocations and clones]**
+**Learning:** `derive(Copy)` for structs (e.g., `Turtle` in L-systems) that are frequently pushed into stacks or lists during execution avoids `clone()` and speeds up processing significantly while consuming zero heap memory during the push/pop loop when compared to reference counting or full copying. Also, checking for early exits (like `if iterations == 0`) before making allocations avoids memory pressure for base cases.
+**Action:** When implementing recursive or stack-based algorithms, prefer `Copy` types for states and avoid `.clone()` entirely. Also add early returns to prevent zero-iteration allocations.

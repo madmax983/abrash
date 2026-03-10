@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 /// Represents the state of the drawing turtle.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Turtle {
     /// Current position in 3D space.
     pub position: Vec3,
@@ -114,11 +114,12 @@ impl LSystem {
     /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
     /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
     pub fn expand(&self, iterations: u32) -> String {
+        if iterations == 0 {
+            return self.axiom.clone();
+        }
+
         let mut current = self.axiom.clone();
 
-        if iterations == 0 {
-            return current;
-        }
 
         // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
         let mut is_pure_ascii = self.axiom.is_ascii();
@@ -298,7 +299,7 @@ impl LSystem {
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
                 '[' => {
-                    stack.push(turtle.clone());
+                    stack.push(turtle);
                 }
                 ']' => {
                     if let Some(state) = stack.pop() {

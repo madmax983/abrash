@@ -70,7 +70,7 @@
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::gouraud::draw_scanline_gouraud_simd_fast;
-use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
+use super::gouraud::{GouraudEdgeWalker, GouraudGradients, draw_scanline_gouraud_i32};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
@@ -2382,7 +2382,6 @@ impl TileRenderer {
                                         .write(fb_start + col, tile_depths[tile_row_offset + col]);
                                 }
                             }
-                            }
                         },
                     );
             }
@@ -2496,18 +2495,18 @@ impl TileRenderer {
 
             results.push(PreparedGouraudTriangle {
                 p0: CompactScreenPoint {
-                    x: p0.x as i32,
-                    y: p0.y as i32,
+                    x: p0.x as i16,
+                    y: p0.y as i16,
                     z: p0.z,
                 },
                 p1: CompactScreenPoint {
-                    x: p1.x as i32,
-                    y: p1.y as i32,
+                    x: p1.x as i16,
+                    y: p1.y as i16,
                     z: p1.z,
                 },
                 p2: CompactScreenPoint {
-                    x: p2.x as i32,
-                    y: p2.y as i32,
+                    x: p2.x as i16,
+                    y: p2.y as i16,
                     z: p2.z,
                 },
                 c0: c0_fixed,
