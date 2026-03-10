@@ -427,6 +427,10 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "film_grain_bench"
+harness = false
+
+[[bench]]
 name = "dof_bench"
 harness = false
 
