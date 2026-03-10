@@ -1,20 +1,72 @@
-/// Hierarchical Z-Buffer for efficient occlusion culling
-///
-/// The Hi-Z buffer maintains a depth pyramid where each level stores the minimum
-/// (closest) depth from a 2×2 region of the level below. This enables fast occlusion
-/// queries by testing against progressively coarser representations.
-///
-/// # Memory Layout
-/// - Level 0: References the full-resolution `ZBuffer` (not duplicated)
-/// - Level 1+: Progressively coarser 2×2 min-reductions
-/// - For 1920×1080: ~2.67 MB total pyramid overhead (33% of zbuffer size)
-///
-/// # Query Algorithm
-/// Hierarchical descent from coarse to fine levels, testing AABB depth bounds
-/// against pyramid cells. Conservative: false positives OK, false negatives NOT OK.
+//! # The Hierarchical Z-Buffer (Hi-Z) 🏔️
+//!
+//! Welcome to the heights of occlusion culling! When rendering complex scenes, drawing geometry
+//! that is eventually hidden behind other objects (overdraw) is a massive performance killer.
+//! The `HiZBuffer` acts as a sentinel, rapidly determining if a piece of geometry is completely hidden
+//! before the rasterizer wastes time drawing it.
+//!
+//! Think of it as a mipmapped pyramid of depth values. Instead of checking every single pixel of a bounding box
+//! against the full-resolution depth buffer, we can test it against a coarse summary. If the closest point of
+//! the bounding box is *farther* away than the farthest geometry in a coarse region, we know the entire box
+//! (and the geometry inside it) is completely occluded.
+//!
+//! ## The Algorithm
+//! 1. **Build:** After rendering a base pass (or using depth from the previous frame), we build a pyramid
+//!    where each level stores the minimum (closest) depth from a 2×2 region of the level below it.
+//! 2. **Query:** When testing an `AABB3D`, we find the pyramid level where the box covers roughly 2×2 pixels.
+//!    We compare the box's closest depth against those 4 pixels.
+//! 3. **Result:** If the box is behind the known depth, it is discarded. This process is conservative:
+//!    false positives (drawing something that ends up hidden) are acceptable, but false negatives are forbidden.
+//!
+//! ## Examples
+//!
+//! ```rust
+//! use abrash::zbuffer::ZBuffer;
+//! use abrash::hiz_buffer::{HiZBuffer, AABB3D};
+//!
+//! // 1. Initialize buffers for our viewport
+//! let width = 1920;
+//! let height = 1080;
+//! let mut zb = ZBuffer::new(width, height).unwrap();
+//! let mut hiz = HiZBuffer::new(width, height);
+//!
+//! // 2. Build the pyramid (usually done after a pre-pass or using previous frame data)
+//! hiz.build_pyramid(&zb);
+//!
+//! // 3. Create a bounding box for an object we want to draw
+//! let my_object_aabb = AABB3D::new(100, 200, 100, 200, 50.0, 60.0);
+//!
+//! // 4. Ask the sentinel!
+//! if hiz.is_potentially_visible(my_object_aabb) {
+//!     // Draw the object, it might be seen!
+//! } else {
+//!     // Skip drawing, it's definitely hidden behind a wall.
+//! }
+//! ```
+//!
+//! ## Performance Characteristics
+//! * **Memory:** ~33% overhead of the base ZBuffer size (e.g., ~2.67 MB for 1080p).
+//! * **Build Time:** ~1-2ms on CPU at 1080p.
+//! * **Query Time:** <100ns per object.
+//!
+
 use crate::zbuffer::ZBuffer;
 
-/// 3D Axis-Aligned Bounding Box for occlusion queries
+/// A 3D Axis-Aligned Bounding Box (AABB) in screen space.
+///
+/// This structure defines a volume in the screen's coordinate system, used primarily for
+/// occlusion queries against the [`HiZBuffer`].
+///
+/// By knowing the bounding volume of an object *before* we draw it, we can ask the `HiZBuffer`
+/// if this entire volume is hidden behind existing geometry.
+///
+/// ## Examples
+/// ```
+/// use abrash::hiz_buffer::AABB3D;
+///
+/// // A box spanning pixels (10, 10) to (50, 50) at a depth range of 10.0 to 20.0
+/// let bounds = AABB3D::new(10, 50, 10, 50, 10.0, 20.0);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct AABB3D {
     /// Minimum X coordinate in screen space
@@ -29,6 +81,31 @@ pub struct AABB3D {
     pub min_depth: f32,
     /// Maximum depth value (farthest point from camera)
     pub max_depth: f32,
+}
+
+impl AABB3D {
+    /// Creates a new AABB3D.
+    ///
+    /// The bounding box is defined by its screen space coordinates (`min_x`, `max_x`, `min_y`, `max_y`)
+    /// and its depth bounds (`min_depth`, `max_depth`).
+    #[must_use]
+    pub fn new(
+        min_x: i32,
+        max_x: i32,
+        min_y: i32,
+        max_y: i32,
+        min_depth: f32,
+        max_depth: f32,
+    ) -> Self {
+        Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            min_depth,
+            max_depth,
+        }
+    }
 }
 
 /// Single level in the depth pyramid
@@ -135,6 +212,12 @@ impl HiZBuffer {
     }
 
     /// Get the dimensions of a specific pyramid level
+    /// Gets the width and height of a specific pyramid level.
+    ///
+    /// Level 0 is the base full-resolution dimension. Each subsequent level is half the
+    /// dimensions of the previous level, rounded up.
+    ///
+    /// Returns `None` if the requested level exceeds the [`level_count`](Self::level_count).
     #[must_use]
     pub fn level_dimensions(&self, level: u32) -> Option<(u32, u32)> {
         if level >= self.level_count {
@@ -337,6 +420,14 @@ impl HiZBuffer {
     /// # Performance
     /// - Single query: <100ns (cache hit)
     /// - Batch of 100: <50µs (cache reuse)
+    /// Tests if a given 3D bounding box ([`AABB3D`]) might be visible on screen.
+    ///
+    /// This function performs a conservative occlusion query against the hierarchical depth pyramid.
+    /// It determines the appropriate pyramid level based on the AABB size on-screen, and compares the
+    /// closest depth of the AABB with the farthest depth known in that coarse region.
+    ///
+    /// - Returns `true` if the object **might** be visible (or if the pyramid is invalid).
+    /// - Returns `false` if the object is **definitely** hidden behind existing geometry.
     #[must_use]
     pub fn is_potentially_visible(&self, aabb: AABB3D) -> bool {
         if !self.valid {
@@ -448,6 +539,11 @@ impl HiZBuffer {
     ///     // Subdivide into fine bins (32×32) and process
     /// }
     /// ```
+    /// Tests if a coarse screen bin (128x128 pixels) is potentially visible.
+    ///
+    /// This is an optimization for two-level hierarchical binning. It quickly checks the
+    /// Hi-Z pyramid at Level 2 to see if an entire coarse tile of the screen is completely occluded.
+    /// If it is, the rasterizer can entirely skip processing fine bins (32x32 pixels) inside it.
     #[must_use]
     pub fn is_coarse_bin_visible(&self, bin_aabb: AABB3D) -> bool {
         const COARSE_BIN_LEVEL: u32 = 2;
@@ -513,6 +609,10 @@ impl HiZBuffer {
     ///
     /// # Panics
     /// Panics if level index is out of range or data size doesn't match level dimensions
+    /// Writes depth data directly into a specific pyramid level.
+    ///
+    /// Primarily used by the GPU builder to download computed reduction data directly into
+    /// the CPU-side pyramid representation.
     #[cfg(feature = "gpu-binning")]
     pub fn write_level_data(&mut self, level: u32, data: &[f32]) {
         assert!(
@@ -542,6 +642,9 @@ impl HiZBuffer {
     /// Mark pyramid as valid after GPU build
     ///
     /// This should be called after all pyramid levels have been written via write_level_data()
+    /// Marks the hierarchical depth pyramid as valid and ready for queries.
+    ///
+    /// Called internally after a successful GPU-side pyramid build.
     #[cfg(feature = "gpu-binning")]
     pub fn mark_valid(&mut self) {
         self.valid = true;
