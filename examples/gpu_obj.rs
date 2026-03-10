@@ -28,13 +28,25 @@ fn print_banner() {
     println!("{}", "=====================".dark_grey());
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     print_banner();
 
     // 1. Load Mesh (CPU)
     let mesh = match load_obj(SPACESHIP_OBJ) {
         Ok(m) => m,
-        Err(e) => return Err(e.to_string()),
+        Err(e) => {
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .set_header(vec![
+                    Cell::new("❌ Mesh Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![Cell::new(e.to_string()).fg(Color::Yellow)]);
+            eprintln!("\n{error_table}");
+            std::process::exit(1);
+        }
     };
 
     let mut mesh_table = Table::new();
@@ -65,7 +77,22 @@ fn main() -> Result<(), String> {
     println!("{mesh_table}");
 
     // 2. Convert to GPU Format (Bridge)
-    let (vertices, indices) = mesh_to_gpu(&mesh)?;
+    let (vertices, indices) = match mesh_to_gpu(&mesh) {
+        Ok(res) => res,
+        Err(e) => {
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .set_header(vec![
+                    Cell::new("❌ Mesh Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
+            eprintln!("\n{error_table}");
+            std::process::exit(1);
+        }
+    };
 
     let mut gpu_table = Table::new();
     gpu_table
@@ -102,5 +129,17 @@ fn main() -> Result<(), String> {
     };
 
     println!("\n{}", "🚀 Launching GPU Demo...".bold().green());
-    run_mesh_demo(vertices, indices, config)
+    if let Err(e) = run_mesh_demo(vertices, indices, config) {
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("❌ GPU Error")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
+    }
 }

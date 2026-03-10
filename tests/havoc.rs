@@ -28,7 +28,7 @@ proptest! {
         // This function handles geometric clipping.
         // Even with NaNs, Infinities, or Subnormals, it should not panic.
         // It might return garbage triangles or count=0, but must be safe.
-        let _result = clip_triangle_to_frustum(v0, v1, v2, |v| *v);
+        let _result = clip_triangle_to_frustum(v0, v1, v2, |v| *v, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
     }
 
     #[test]

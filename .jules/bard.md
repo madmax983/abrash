@@ -35,3 +35,6 @@ Vim: Finished.
 ## 2025-03-05 - Completing Missing Docs and Module Definitions
 **Confusion:** Some modules lack module-level documentation (`//!`) or have public inner structures (like `AABB3D` in `hiz_buffer`) that don't need full documentation in the generated HTML.
 **Clarification:** Use `#[doc(hidden)]` for technically public but practically internal items to avoid failing `cargo doc --document-private-items` or leaving undocumented noise in the output. Make sure all files have high-level `//!` module comments.
+## 2024-05-25 - Documentation Coverage Requirements for Crates
+**Confusion:** Sometimes modifying code inside a crate with `missing_docs` warning causes `clippy` to complain about undocumented code that wasn't modified.
+**Clarification:** `cargo clippy -p [crate] -- -W missing_docs` helps isolate and identify missing documentation across an entire crate to incrementally add module-level (`//!`) and item-level (`///`) docstrings to public APIs, ensuring the "no Black Box" rule is followed.
