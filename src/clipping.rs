@@ -60,7 +60,7 @@ impl<V> Index<usize> for ClippedTriangles<V> {
     fn index(&self, index: usize) -> &Self::Output {
         // We only allow accessing elements that have been marked as valid by `count`.
         // Each triangle has 3 vertices.
-        debug_assert!(
+        assert!(
             index < self.count * 3,
             "Index {} out of bounds for count {}",
             index,
