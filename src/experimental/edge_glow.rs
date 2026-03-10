@@ -75,7 +75,7 @@ pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
         let edge_g = (config.edge_color >> 8) & 0xFF;
         let edge_b = config.edge_color & 0xFF;
 
-        let threshold = config.edge_threshold as i32;
+        let threshold = i32::from(config.edge_threshold);
 
         // 2. Apply Sobel and Glow
         // We skip 1-pixel border.
@@ -157,7 +157,7 @@ pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
 }
 
 #[inline(always)]
-fn darken_pixel(pixel: u32, darken_fixed: u32) -> u32 {
+const fn darken_pixel(pixel: u32, darken_fixed: u32) -> u32 {
     let alpha = pixel & 0xFF00_0000;
     let r = (pixel >> 16) & 0xFF;
     let g = (pixel >> 8) & 0xFF;

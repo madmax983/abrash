@@ -5004,18 +5004,14 @@ fn test_draw_scanline_trilinear() {
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for i in 1..RECIPROCAL_TABLE.len() {
-        let table_val = RECIPROCAL_TABLE[i];
+    for (i, &table_val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
         assert!(
             diff < 1e-6,
-            "Table index {} mismatch: table={}, actual={}",
-            i,
-            table_val,
-            actual
+            "Table index {i} mismatch: table={table_val}, actual={actual}"
         );
     }
 }

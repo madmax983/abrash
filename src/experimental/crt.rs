@@ -32,10 +32,10 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
         return;
     }
 
+    use std::cell::RefCell;
+
     let cx = width as f32 / 2.0;
     let cy = height as f32 / 2.0;
-
-    use std::cell::RefCell;
 
     thread_local! {
         static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
@@ -124,6 +124,6 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
         }
 
         // Copy the distorted image back into the framebuffer
-        fb.as_mut_slice().copy_from_slice(&new_pixels);
+        fb.as_mut_slice().copy_from_slice(new_pixels);
     });
 }

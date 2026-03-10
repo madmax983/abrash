@@ -18,7 +18,7 @@ use crate::utils::pixel_luminance;
 /// * `threshold` - The luminance threshold (0.0 to 1.0) above which pixels are sorted.
 /// * `vertical` - If true, pixels are sorted vertically (columns). If false, horizontally (rows).
 /// * `reverse` - If true, sort in descending order (brightest first). Otherwise, ascending.
-/// Configuration for the Pixel Sort effect.
+///   Configuration for the Pixel Sort effect.
 #[derive(Clone, Copy, Debug)]
 pub struct PixelSortConfig {
     /// Luminance threshold (0.0 to 1.0) below which pixels are sorted.
