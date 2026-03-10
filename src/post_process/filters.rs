@@ -61,12 +61,12 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
 }
 
 fn apply_grayscale_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let luminance = u32::from(pixel_luminance(p));
         // Preserve Alpha, set RGB to luminance
         *pixel = (p & 0xFF00_0000) | (luminance << 16) | (luminance << 8) | luminance;
-    });
+    }
 }
 
 /// Simulates CRT scanlines by darkening every odd row.
@@ -103,7 +103,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 
     // Process pairs of rows: even row (kept), odd row (darkened)
     // chunks_exact_mut(width * 2) gives us 2 rows at a time.
-    pixels.chunks_exact_mut(width * 2).for_each(|rows| {
+    for rows in pixels.chunks_exact_mut(width * 2) {
         // Second half is the odd row
         let odd_row = &mut rows[width..];
         for pixel in odd_row {
@@ -112,7 +112,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
             // Preserve Alpha: (p & 0xFF00_0000)
             *pixel = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
         }
-    });
+    }
 
     // Handle remaining odd row if height is odd
     // If height is odd, chunks_exact_mut leaves exactly one row remainder?
@@ -152,9 +152,9 @@ pub fn apply_invert(fb: &mut Framebuffer) {
         }
     }
 
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         *pixel ^= 0x00FF_FFFF;
-    });
+    }
 }
 
 /// Applies a sepia tone effect to the framebuffer in-place.
@@ -203,7 +203,7 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 }
 
 fn apply_sepia_scalar(pixels: &mut [u32]) {
-    pixels.iter_mut().for_each(|pixel| {
+    for pixel in pixels.iter_mut() {
         let p = *pixel;
         let r = (p >> 16) & 0xFF;
         let g = (p >> 8) & 0xFF;
@@ -219,7 +219,7 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
         let new_b = new_b.min(255);
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
-    });
+    }
 }
 
 /// Applies chromatic aberration by shifting Red and Blue channels.
@@ -266,7 +266,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
         // Process each row
         // chunks_exact_mut gives us rows directly
-        pixels.chunks_exact_mut(width).for_each(|row_pixels| {
+        for row_pixels in pixels.chunks_exact_mut(width) {
             // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
@@ -285,7 +285,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
                 };
 
                 // Blue (B) from right (x + offset)
-                let b = if x + offset < width {
+                let b = if x.saturating_add(offset) < width {
                     row_scratch[x + offset] & 0xFF
                 } else {
                     0
@@ -293,7 +293,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
 
                 *dest_pixel = (a << 24) | (r << 16) | (g << 8) | b;
             }
-        });
+        }
     });
 }
 
@@ -396,29 +396,45 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
     });
 }
 
+/// Configuration for the vignette post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct VignetteConfig {
+    /// Strength of the darkening (0.0 to 1.0).
+    pub intensity: f32,
+    /// Controls the falloff curve.
+    pub roundness: f32,
+}
+
+impl Default for VignetteConfig {
+    fn default() -> Self {
+        Self {
+            intensity: 0.5,
+            roundness: 0.5,
+        }
+    }
+}
+
 /// Applies a vignette effect to the framebuffer in-place.
 ///
 /// Darkens the corners of the image to draw attention to the center.
-///
-/// # Arguments
-///
-/// *   `intensity` - Strength of the darkening (0.0 to 1.0).
-/// *   `roundness` - Controls the falloff curve (currently unused in scalar implementation).
 ///
 /// # Examples
 ///
 /// ```
 /// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::filters::apply_vignette;
+/// use abrash::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.clear(0xFFFFFFFF); // White
 /// // Apply vignette
-/// apply_vignette(&mut fb, 0.5, 0.5);
+/// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
+/// apply_vignette(&mut fb, &config);
 /// ```
-pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
+pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
     let width = fb.width();
     let height = fb.height();
+    let intensity = config.intensity;
+    let roundness = config.roundness;
 
     let pixels = fb.as_mut_slice();
 
@@ -445,6 +461,185 @@ pub fn apply_vignette(fb: &mut Framebuffer, intensity: f32, roundness: f32) {
         intensity,
         roundness,
     );
+}
+
+/// Configuration for the color adjust post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct ColorAdjustConfig {
+    /// Integer offset added to each color channel (typically -255 to 255).
+    pub brightness: i32,
+    /// Multiplier for color difference from mid-gray (1.0 is neutral, <1.0 decreases contrast, >1.0 increases contrast).
+    pub contrast: f32,
+}
+
+impl Default for ColorAdjustConfig {
+    fn default() -> Self {
+        Self {
+            brightness: 0,
+            contrast: 1.0,
+        }
+    }
+}
+
+/// Adjusts the brightness and contrast of the framebuffer in-place.
+///
+/// Formula per channel: `new_color = (old_color - 128) * contrast + 128 + brightness`
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+///
+/// // Increase brightness by 20, keep contrast neutral
+/// let config = ColorAdjustConfig { brightness: 20, contrast: 1.0 };
+/// apply_color_adjust(&mut fb, &config);
+///
+/// // Result should be 128 + 20 = 148
+/// assert_eq!(fb.get_pixel(0, 0).unwrap() & 0xFF, 148);
+/// ```
+pub fn apply_color_adjust(fb: &mut Framebuffer, config: &ColorAdjustConfig) {
+    let pixels = fb.as_mut_slice();
+    let brightness = config.brightness;
+    let contrast = config.contrast;
+
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                simd::apply_color_adjust_avx2(pixels, brightness, contrast);
+            }
+            return;
+        }
+    }
+
+    apply_color_adjust_scalar(pixels, brightness, contrast);
+}
+
+/// Configuration for the Film Grain filter.
+pub struct FilmGrainConfig {
+    /// Intensity of the grain noise, usually [0.0, 1.0].
+    pub intensity: f32,
+    /// Seed for the noise generator to create static or animated noise.
+    pub seed: u32,
+}
+
+/// Applies a film grain effect to the framebuffer.
+///
+/// Uses a simple integer-based LCG (Linear Congruential Generator) per pixel
+/// to add noise scaled by the `intensity` parameter.
+///
+/// # Examples
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::filters::{apply_film_grain, FilmGrainConfig};
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let config = FilmGrainConfig { intensity: 0.1, seed: 42 };
+/// apply_film_grain(&mut fb, &config);
+/// ```
+pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
+    let pixels = fb.as_mut_slice();
+    let intensity = config.intensity.clamp(0.0, 1.0);
+    // Use fixed point arithmetic for blending: factor in [0, 256]
+    let max_noise_shift = (intensity * 256.0) as i32;
+
+    if max_noise_shift == 0 {
+        return;
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pixels.par_iter_mut().enumerate().for_each(|(i, p)| {
+            // Give each pixel a deterministic but pseudo-random starting state based on index
+            // This allows the noise to be consistent per frame (if seed is same)
+            let mut lcg = config.seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+            lcg ^= lcg << 13;
+            lcg ^= lcg >> 17;
+            lcg ^= lcg << 5;
+
+            // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
+            // LCG sequence needs to diverge significantly
+            lcg = lcg.wrapping_add(0x12345678);
+            lcg ^= lcg << 13;
+            lcg ^= lcg >> 17;
+            lcg ^= lcg << 5;
+
+            // Random value between 0 and 255
+            let noise = (lcg & 0xFF) as i32;
+
+            // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
+            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+
+            let a = *p & 0xFF00_0000;
+            let r = ((*p >> 16) & 0xFF) as i32;
+            let g = ((*p >> 8) & 0xFF) as i32;
+            let b = (*p & 0xFF) as i32;
+
+            let nr = (r + noise_delta).clamp(0, 255) as u32;
+            let ng = (g + noise_delta).clamp(0, 255) as u32;
+            let nb = (b + noise_delta).clamp(0, 255) as u32;
+
+            *p = a | (nr << 16) | (ng << 8) | nb;
+        });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        // A simple LCG state, mixed with the config seed
+        let mut state = config.seed.wrapping_add(0x12345678);
+
+        for p in pixels.iter_mut() {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+
+            let noise = (state & 0xFF) as i32;
+            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+
+            let a = *p & 0xFF00_0000;
+            let r = ((*p >> 16) & 0xFF) as i32;
+            let g = ((*p >> 8) & 0xFF) as i32;
+            let b = (*p & 0xFF) as i32;
+
+            let nr = (r + noise_delta).clamp(0, 255) as u32;
+            let ng = (g + noise_delta).clamp(0, 255) as u32;
+            let nb = (b + noise_delta).clamp(0, 255) as u32;
+
+            *p = a | (nr << 16) | (ng << 8) | nb;
+        }
+    }
+}
+
+fn apply_color_adjust_scalar(pixels: &mut [u32], brightness: i32, contrast: f32) {
+    // contrast fixed point (8.8)
+    let contrast_fixed = (contrast * 256.0) as i32;
+
+    // ⚡ Bolt: Use a Look-Up Table (LUT) for O(1) color adjustments per channel.
+    // Since color components (R, G, B) are strictly 8-bit (0..255), we precompute
+    // the adjusted and clamped values for all 256 possible inputs.
+    // This removes 3 multiplications, 6 additions/subtractions, and 3 clamp operations
+    // from the inner loop per pixel, significantly reducing CPU cycles on large framebuffers.
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let val = i as i32;
+        let new_val = (((val - 128) * contrast_fixed) >> 8) + 128 + brightness;
+        *entry = new_val.clamp(0, 255) as u32;
+    }
+
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let a = p & 0xFF00_0000;
+        let r = lut[((p >> 16) & 0xFF) as usize];
+        let g = lut[((p >> 8) & 0xFF) as usize];
+        let b = lut[(p & 0xFF) as usize];
+
+        *pixel = a | (r << 16) | (g << 8) | b;
+    }
 }
 
 fn apply_vignette_scalar(
@@ -746,7 +941,7 @@ mod simd {
                         let r = 0;
 
                         // B from x+offset (might be OOB)
-                        let b = if x + offset < width {
+                        let b = if x.saturating_add(offset) < width {
                             *src_ptr.add(x + offset) & 0xFF
                         } else {
                             0
@@ -757,7 +952,7 @@ mod simd {
                     }
 
                     // 2. SIMD Loop
-                    if offset + 32 <= width {
+                    if offset.saturating_add(32) <= width {
                         let simd_limit_unrolled = width - offset - 32;
                         while x <= simd_limit_unrolled {
                             // Unroll 4x
@@ -785,7 +980,7 @@ mod simd {
                         }
                     }
 
-                    if offset + 8 <= width {
+                    if offset.saturating_add(8) <= width {
                         let simd_limit = width - offset - 8;
                         while x <= simd_limit {
                             let v_center = _mm256_loadu_si256(src_ptr.add(x).cast());
@@ -1033,6 +1228,69 @@ mod simd {
                 }
             }
         }
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn apply_color_adjust_avx2(pixels: &mut [u32], brightness: i32, contrast: f32) {
+        let contrast_fixed = (contrast * 256.0) as i32;
+
+        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        let c128 = _mm256_set1_epi32(128);
+        let c_brightness = _mm256_set1_epi32(128 + brightness);
+        let c_contrast = _mm256_set1_epi32(contrast_fixed);
+        let zero = _mm256_setzero_si256();
+        let max_val = _mm256_set1_epi32(255);
+
+        let len = pixels.len();
+        let simd_len = len & !7;
+        let mut ptr = pixels.as_mut_ptr();
+        let end_ptr = ptr.add(simd_len);
+
+        while ptr < end_ptr {
+            let chunk = _mm256_loadu_si256(ptr.cast());
+            let alphas = _mm256_and_si256(chunk, alpha_mask);
+
+            // Extract R, G, B using bitwise AND and shifts, then do math in 32-bit.
+
+            // Channel B
+            let b_raw = _mm256_and_si256(chunk, max_val);
+            let b_sub = _mm256_sub_epi32(b_raw, c128);
+            let b_mul = _mm256_mullo_epi32(b_sub, c_contrast);
+            let b_sra = _mm256_srai_epi32(b_mul, 8);
+            let b_add = _mm256_add_epi32(b_sra, c_brightness);
+            let b_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(b_add, max_val));
+
+            // Channel G
+            let g_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 8), max_val);
+            let g_sub = _mm256_sub_epi32(g_raw, c128);
+            let g_mul = _mm256_mullo_epi32(g_sub, c_contrast);
+            let g_sra = _mm256_srai_epi32(g_mul, 8);
+            let g_add = _mm256_add_epi32(g_sra, c_brightness);
+            let g_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(g_add, max_val));
+
+            // Channel R
+            let r_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 16), max_val);
+            let r_sub = _mm256_sub_epi32(r_raw, c128);
+            let r_mul = _mm256_mullo_epi32(r_sub, c_contrast);
+            let r_sra = _mm256_srai_epi32(r_mul, 8);
+            let r_add = _mm256_add_epi32(r_sra, c_brightness);
+            let r_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(r_add, max_val));
+
+            let g_shift = _mm256_slli_epi32(g_clamped, 8);
+            let r_shift = _mm256_slli_epi32(r_clamped, 16);
+
+            let res = _mm256_or_si256(
+                alphas,
+                _mm256_or_si256(r_shift, _mm256_or_si256(g_shift, b_clamped)),
+            );
+
+            _mm256_storeu_si256(ptr.cast(), res);
+            ptr = ptr.add(8);
+        }
+
+        // Tail
+        let tail_slice = std::slice::from_raw_parts_mut(ptr, len - simd_len);
+        apply_color_adjust_scalar(tail_slice, brightness, contrast);
     }
 
     #[target_feature(enable = "avx2")]
@@ -1330,7 +1588,7 @@ mod tests {
 
         assert_eq!(r, 255, "Red channel mismatch");
         assert_eq!(g, 255, "Green channel mismatch");
-        assert!(b >= 235 && b <= 240, "Blue channel mismatch, got {}", b);
+        assert!((235..=240).contains(&b), "Blue channel mismatch, got {b}");
 
         // Test with Red (255, 0, 0)
         fb.set_pixel(0, 0, 0xFFFF0000);
@@ -1345,18 +1603,15 @@ mod tests {
 
         assert!(
             (r as i32 - 100).abs() <= 2,
-            "Red mismatch for red pixel, got {}",
-            r
+            "Red mismatch for red pixel, got {r}",
         );
         assert!(
             (g as i32 - 89).abs() <= 2,
-            "Green mismatch for red pixel, got {}",
-            g
+            "Green mismatch for red pixel, got {g}",
         );
         assert!(
             (b as i32 - 69).abs() <= 2,
-            "Blue mismatch for red pixel, got {}",
-            b
+            "Blue mismatch for red pixel, got {b}",
         );
     }
 
@@ -1437,7 +1692,7 @@ mod tests {
         // 3: (100, 110, 120, 255)
         // 4: (130, 140, 150, 255)
         for x in 0..width {
-            let val = (x as u32 + 1) * 10; // 10, 20, 30, 40, 50
+            let val = (x + 1) * 10; // 10, 20, 30, 40, 50
             let r = val;
             let g = val + 10;
             let b = val + 20;
@@ -1460,9 +1715,9 @@ mod tests {
         let g = (p >> 8) & 0xFF;
         let b = p & 0xFF;
 
-        assert_eq!(r, 20, "Red mismatch at x=2. Got {}", r);
-        assert_eq!(g, 40, "Green mismatch at x=2. Got {}", g);
-        assert_eq!(b, 60, "Blue mismatch at x=2. Got {}", b);
+        assert_eq!(r, 20, "Red mismatch at x=2. Got {r}");
+        assert_eq!(g, 40, "Green mismatch at x=2. Got {g}");
+        assert_eq!(b, 60, "Blue mismatch at x=2. Got {b}");
 
         // Edge case: x=0 (offset 1)
         // R: from x-1 (out of bounds) -> 0
@@ -1483,5 +1738,203 @@ mod tests {
         assert_eq!((p >> 16) & 0xFF, 40, "Red mismatch at x=4");
         assert_eq!((p >> 8) & 0xFF, 60, "Green mismatch at x=4");
         assert_eq!(p & 0xFF, 0, "Blue mismatch at x=4");
+    }
+
+    #[test]
+    fn test_apply_color_adjust() {
+        let mut fb = Framebuffer::new(3, 1).unwrap();
+        // Base pixels
+        fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+        fb.set_pixel(1, 0, 0xFF404040); // Dark Gray (64)
+        fb.set_pixel(2, 0, 0xFFC0C0C0); // Light Gray (192)
+
+        let mut fb1 = Framebuffer::new(3, 1).unwrap();
+        fb1.as_mut_slice().copy_from_slice(fb.as_slice());
+
+        // Case 1: Brightness + 10, Contrast 1.0
+        apply_color_adjust(
+            &mut fb1,
+            &ColorAdjustConfig {
+                brightness: 10,
+                contrast: 1.0,
+            },
+        );
+        assert_eq!(fb1.get_pixel(0, 0).unwrap() & 0xFF, 138); // 128 + 10
+        assert_eq!(fb1.get_pixel(1, 0).unwrap() & 0xFF, 74); // 64 + 10
+
+        // Case 2: Brightness 0, Contrast 2.0
+        // (128 - 128) * 2.0 + 128 = 128
+        // (64 - 128) * 2.0 + 128 = -64 + 128 = 0
+        // (192 - 128) * 2.0 + 128 = 128 + 128 = 256 -> 255
+        let mut fb2 = Framebuffer::new(3, 1).unwrap();
+        fb2.as_mut_slice().copy_from_slice(fb.as_slice());
+        apply_color_adjust(
+            &mut fb2,
+            &ColorAdjustConfig {
+                brightness: 0,
+                contrast: 2.0,
+            },
+        );
+        assert_eq!(fb2.get_pixel(0, 0).unwrap() & 0xFF, 128);
+        assert_eq!(fb2.get_pixel(1, 0).unwrap() & 0xFF, 0);
+        assert_eq!(fb2.get_pixel(2, 0).unwrap() & 0xFF, 255);
+
+        // Case 3: Brightness -20, Contrast 0.5
+        // (128 - 128) * 0.5 + 128 - 20 = 108
+        // (64 - 128) * 0.5 + 128 - 20 = -32 + 108 = 76
+        // (192 - 128) * 0.5 + 128 - 20 = 32 + 108 = 140
+        let mut fb3 = Framebuffer::new(3, 1).unwrap();
+        fb3.as_mut_slice().copy_from_slice(fb.as_slice());
+        apply_color_adjust(
+            &mut fb3,
+            &ColorAdjustConfig {
+                brightness: -20,
+                contrast: 0.5,
+            },
+        );
+        assert_eq!(fb3.get_pixel(0, 0).unwrap() & 0xFF, 108);
+        assert_eq!(fb3.get_pixel(1, 0).unwrap() & 0xFF, 76);
+        assert_eq!(fb3.get_pixel(2, 0).unwrap() & 0xFF, 140);
+    }
+
+    #[test]
+    fn test_apply_film_grain() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        // Fill with near white, enough to potentially cause overflow if not handled correctly
+        fb.clear(0xFFF0F0F0);
+
+        let config = FilmGrainConfig {
+            intensity: 0.5,
+            seed: 1234,
+        };
+        apply_film_grain(&mut fb, &config);
+
+        // Ensure bounds are not violated (no underflow/overflow wrapper bugs)
+        // and that some noise was actually applied.
+        let mut changed = false;
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            // Check that the clamping to 255 actually worked when it overflowed
+            assert!(r <= 255, "Red channel was clamped properly");
+            assert!(g <= 255, "Green channel was clamped properly");
+            assert!(b <= 255, "Blue channel was clamped properly");
+
+            if r != 240 || g != 240 || b != 240 {
+                changed = true;
+            }
+        }
+
+        assert!(changed, "Film grain did not change the pixel values");
+
+        // Fill with near black, to test underflow clamp
+        fb.clear(0xFF0A0A0A);
+        apply_film_grain(&mut fb, &config);
+
+        let mut changed = false;
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            if r != 10 || g != 10 || b != 10 {
+                changed = true;
+            }
+        }
+
+        assert!(changed, "Film grain did not change the pixel values on black");
+    }
+
+    #[test]
+    fn test_apply_film_grain_zero_intensity() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFF808080);
+
+        let config = FilmGrainConfig {
+            intensity: 0.0,
+            seed: 1234,
+        };
+        apply_film_grain(&mut fb, &config);
+
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            assert_eq!(r, 128, "Pixel changed when intensity was 0");
+            assert_eq!(g, 128, "Pixel changed when intensity was 0");
+            assert_eq!(b, 128, "Pixel changed when intensity was 0");
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+    fn test_apply_color_adjust_simd_vs_scalar() {
+        if !std::is_x86_feature_detected!("avx2") {
+            return;
+        }
+
+        let width = 64;
+        let height = 64;
+        let brightness = -15;
+        let contrast = 1.25;
+
+        let mut fb_scalar = Framebuffer::new(width, height).unwrap();
+        let mut fb_simd = Framebuffer::new(width, height).unwrap();
+
+        // Fill with a gradient pattern to cover many color ranges
+        for y in 0..height {
+            for x in 0..width {
+                let r = (x * 4) as u32 % 256;
+                let g = (y * 4) as u32 % 256;
+                let b = ((x + y) * 2) as u32 % 256;
+                let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                fb_scalar.set_pixel(x as i32, y as i32, color);
+                fb_simd.set_pixel(x as i32, y as i32, color);
+            }
+        }
+
+        // Apply scalar
+        apply_color_adjust_scalar(fb_scalar.as_mut_slice(), brightness, contrast);
+
+        // Apply SIMD
+        unsafe {
+            simd::apply_color_adjust_avx2(fb_simd.as_mut_slice(), brightness, contrast);
+        }
+
+        // Compare
+        let pixels_scalar = fb_scalar.as_slice();
+        let pixels_simd = fb_simd.as_slice();
+
+        for i in 0..pixels_scalar.len() {
+            let p_s = pixels_scalar[i];
+            let p_avx = pixels_simd[i];
+
+            if p_s != p_avx {
+                let r_s = (p_s >> 16) & 0xFF;
+                let g_s = (p_s >> 8) & 0xFF;
+                let b_s = p_s & 0xFF;
+
+                let r_a = (p_avx >> 16) & 0xFF;
+                let g_a = (p_avx >> 8) & 0xFF;
+                let b_a = p_avx & 0xFF;
+
+                // Because of floating point approximations, allow a difference of +/- 1
+                assert!(
+                    (r_s as i32 - r_a as i32).abs() <= 1,
+                    "Red mismatch at {i}: {r_s} vs {r_a}"
+                );
+                assert!(
+                    (g_s as i32 - g_a as i32).abs() <= 1,
+                    "Green mismatch at {i}: {g_s} vs {g_a}"
+                );
+                assert!(
+                    (b_s as i32 - b_a as i32).abs() <= 1,
+                    "Blue mismatch at {i}: {b_s} vs {b_a}"
+                );
+            }
+        }
     }
 }

@@ -158,13 +158,17 @@ thread_local! {
 #[derive(Default)]
 struct SceneRenderContext {
     transformed_verts: Vec<(Vec3, f32)>,
+    world_aabbs: Vec<AABB>,
+    cull_results: Vec<bool>,
 }
 
 /// The Scene containing objects and the camera.
 ///
 /// See the [module-level documentation](self) for usage examples.
 pub struct Scene {
+    /// The collection of renderable objects in the scene.
     pub objects: Vec<SceneObject>,
+    /// The camera used to view the scene.
     pub camera: Camera,
 }
 
@@ -202,13 +206,27 @@ impl Scene {
             let mut ctx_guard = ctx_cell.borrow_mut();
             let ctx = &mut *ctx_guard;
             let transformed_verts = &mut ctx.transformed_verts;
+            let world_aabbs = &mut ctx.world_aabbs;
+            let cull_results = &mut ctx.cull_results;
 
+            let num_objects = self.objects.len();
+            world_aabbs.clear();
+            world_aabbs.reserve(num_objects);
+            cull_results.clear();
+            cull_results.resize(num_objects, false);
+
+            // 1. Calculate all World AABBs (could be parallelized)
             for obj in &self.objects {
-                // 1. Calculate World AABB
-                let world_aabb = obj.local_aabb.transform(&obj.transform);
+                world_aabbs.push(obj.local_aabb.transform(&obj.transform));
+            }
 
-                // 2. Frustum Cull
-                if !self.camera.frustum.intersects_aabb(&world_aabb) {
+            // 2. Frustum Cull (SIMD batched)
+            self.camera
+                .frustum
+                .cull_aabbs_prealloc(world_aabbs, cull_results);
+
+            for (i, obj) in self.objects.iter().enumerate() {
+                if !cull_results[i] {
                     continue;
                 }
 

@@ -16,6 +16,10 @@ pub fn box_blur_f32(
     width: usize,
     height: usize,
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
+
     let radius = 2; // 5x5 kernel
 
     // 1. Horizontal pass: src -> dest
@@ -38,17 +42,25 @@ fn box_blur_f32_horizontal_scalar(
     src: &[f32],
     dest: &mut [f32],
     width: usize,
-    height: usize,
+    _height: usize,
     radius: usize,
 ) {
     let scale = 1.0 / (radius as f32 * 2.0 + 1.0);
 
+    if width == 0 {
+        return;
+    }
+
     // If width is too small, fallback to checked loop
     if width <= 2 * radius + 1 {
-        for y in 0..height {
+        #[cfg(feature = "parallel")]
+        let iter = dest.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = dest.chunks_exact_mut(width).enumerate();
+
+        iter.for_each(|(y, dest_row)| {
             let row_start = y * width;
             let src_row = &src[row_start..row_start + width];
-            let dest_row = &mut dest[row_start..row_start + width];
 
             let mut acc = 0.0;
             let first = src_row[0];
@@ -66,14 +78,18 @@ fn box_blur_f32_horizontal_scalar(
                 acc -= src_row[out_idx];
                 acc += src_row[in_idx];
             }
-        }
+        });
         return;
     }
 
-    for y in 0..height {
+    #[cfg(feature = "parallel")]
+    let iter = dest.par_chunks_exact_mut(width).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = dest.chunks_exact_mut(width).enumerate();
+
+    iter.for_each(|(y, dest_row)| {
         let row_start = y * width;
         let src_row = &src[row_start..row_start + width];
-        let dest_row = &mut dest[row_start..row_start + width];
 
         let mut acc = 0.0;
 
@@ -104,7 +120,7 @@ fn box_blur_f32_horizontal_scalar(
             acc -= src_row[x - radius];
             acc += last;
         }
-    }
+    });
 }
 
 fn box_blur_f32_vertical_scalar(
@@ -229,6 +245,35 @@ unsafe fn box_blur_f32_vertical_avx2(
     }
 }
 
+/// Applies a horizontal box blur to a 32-bit (0xAARRGGBB) image buffer.
+///
+/// This function performs a 1D horizontal blur using a sliding window accumulator
+/// for O(1) performance per pixel regardless of the blur radius.
+///
+/// # Arguments
+/// * `src` - Source buffer containing pixels in 0xAARRGGBB format.
+/// * `dest` - Destination buffer to store the blurred result.
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Radius of the blur. A radius of `r` means a window size of `2r + 1`.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash::post_process::blur::box_blur_horizontal;
+///
+/// let width = 3;
+/// let height = 1;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+///
+/// // Blur with radius 1 (window size 3)
+/// box_blur_horizontal(&src, &mut dest, width, height, 1);
+///
+/// // The center pixel was white, now the energy is spread horizontally.
+/// // The exact values depend on clamp-to-edge logic and integer scaling.
+/// assert!(dest[1] != 0xFFFFFFFF);
+/// ```
 pub fn box_blur_horizontal(
     src: &[u32],
     dest: &mut [u32],
@@ -236,7 +281,11 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
-    let radius = radius.min((width.max(height)) as u32);
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    let radius = radius.min((width.max(height)) as u32).min(100_000);
     let radius = radius as usize;
     // Window size (kernel width)
     let kernel_size = (2 * radius + 1) as u64;
@@ -328,6 +377,37 @@ fn process_row_horizontal(
     }
 }
 
+/// Applies a vertical box blur to a 32-bit (0xAARRGGBB) image buffer.
+///
+/// This function performs a 1D vertical blur using a sliding window accumulator
+/// for O(1) performance per pixel regardless of the blur radius. It is designed to
+/// be used after `box_blur_horizontal` to achieve a full 2D separable box blur.
+///
+/// # Arguments
+/// * `src` - Source buffer containing pixels in 0xAARRGGBB format.
+/// * `dest` - Destination buffer to store the blurred result.
+/// * `acc_buffer` - Scratch buffer for column accumulators. Must have size `3 * width`.
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Radius of the blur. A radius of `r` means a window size of `2r + 1`.
+///
+/// # Examples
+///
+/// ```rust
+/// use abrash::post_process::blur::box_blur_vertical;
+///
+/// let width = 1;
+/// let height = 3;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+/// let mut acc = vec![0; width * 3]; // Scratch buffer for RGB accumulators
+///
+/// // Blur with radius 1 (window size 3)
+/// box_blur_vertical(&src, &mut dest, &mut acc, width, height, 1);
+///
+/// // The energy from the center white pixel is spread vertically.
+/// assert!(dest[1] != 0xFFFFFFFF);
+/// ```
 pub fn box_blur_vertical(
     src: &[u32],
     dest: &mut [u32],
@@ -336,7 +416,11 @@ pub fn box_blur_vertical(
     height: usize,
     radius: u32,
 ) {
-    let radius = radius.min((width.max(height)) as u32);
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    let radius = radius.min((width.max(height)) as u32).min(100_000);
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
@@ -685,6 +769,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_box_blur_zero_dimensions() {
+        let mut f32_src: Vec<f32> = vec![];
+        let mut f32_dest: Vec<f32> = vec![];
+        let mut f32_acc: Vec<f32> = vec![];
+        box_blur_f32(&mut f32_src, &mut f32_dest, &mut f32_acc, 0, 0);
+
+        let u32_src: Vec<u32> = vec![];
+        let mut u32_dest: Vec<u32> = vec![];
+        let mut i32_acc: Vec<i32> = vec![];
+        box_blur_horizontal(&u32_src, &mut u32_dest, 0, 0, 5);
+        box_blur_vertical(&u32_src, &mut u32_dest, &mut i32_acc, 0, 0, 5);
+    }
+
+    #[test]
     fn test_box_blur_f32_correctness() {
         let width = 5;
         let height = 5;
@@ -708,8 +806,7 @@ mod tests {
         let val = src[0];
         assert!(
             (val - 1.0).abs() < 1e-4,
-            "Corner pixel mismatch. Got {}, expected 1.0",
-            val
+            "Corner pixel mismatch. Got {val}, expected 1.0",
         );
     }
 }

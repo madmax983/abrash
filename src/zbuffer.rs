@@ -104,7 +104,7 @@ impl ZBuffer {
     ///
     /// # Safety
     ///
-    /// Caller must ensure x and y are within bounds.
+    /// Caller must ensure `x < width` and `y < height`.
     pub unsafe fn test_and_set_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         let idx = y * self.width as usize + x;
         // SAFETY: Caller guarantees bounds
@@ -117,10 +117,12 @@ impl ZBuffer {
         }
     }
 
+    /// Returns the width of the depth buffer in pixels.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
+    /// Returns the height of the depth buffer in pixels.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height

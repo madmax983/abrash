@@ -14,7 +14,9 @@ use std::arch::x86_64::{
 /// Equation: `normal . point + distance = 0`
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {
+    /// The normal vector of the plane.
     pub normal: Vec3,
+    /// The distance from the origin to the plane along its normal.
     pub distance: f32,
 }
 
@@ -40,6 +42,7 @@ impl Plane {
 /// A View Frustum defined by 6 planes.
 /// Used for object-level culling.
 pub struct Frustum {
+    /// The 6 planes that define the view frustum (Left, Right, Bottom, Top, Near, Far).
     pub planes: [Plane; 6],
 }
 
@@ -488,8 +491,8 @@ mod tests {
         let mut results = vec![false; 2]; // Initialize with false to ensure it writes true
         frustum.cull_spheres_prealloc(&spheres, &mut results);
 
-        assert_eq!(results[0], true);
-        assert_eq!(results[1], false);
+        assert!(results[0]);
+        assert!(!results[1]);
     }
 
     #[test]
@@ -526,7 +529,7 @@ mod tests {
 
         // Create random spheres
         // We use deterministic loop to avoid randomness dependency in test
-        let mut spheres = Vec::new();
+        let mut spheres = Vec::with_capacity(101); // 100 random + 1 definitely outside
         for i in 0..100 {
             let x = ((i % 20) as f32) - 10.0;
             let y = ((i / 20) as f32) - 2.0;
@@ -547,18 +550,14 @@ mod tests {
         let simd_results = frustum.cull_spheres(&spheres);
 
         // Run Scalar manually
-        let mut scalar_results = Vec::new();
+        let mut scalar_results = Vec::with_capacity(spheres.len());
         for sphere in &spheres {
             scalar_results.push(frustum.intersects(sphere));
         }
 
         assert_eq!(simd_results.len(), scalar_results.len());
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
-            assert_eq!(
-                *simd, *scalar,
-                "Mismatch at index {}: simd={}, scalar={}",
-                i, simd, scalar
-            );
+            assert_eq!(*simd, *scalar, "Mismatch at index {i}: simd={simd}, scalar={scalar}");
         }
     }
 
@@ -675,7 +674,7 @@ mod tests {
             (rng_seed as f32) / (u32::MAX as f32)
         };
 
-        let mut aabbs = Vec::new();
+        let mut aabbs = Vec::with_capacity(205); // 200 random + 5 edge cases
         for _ in 0..200 {
             // Random position in [-20, 20]
             let x = rand_f32() * 40.0 - 20.0;
@@ -724,18 +723,14 @@ mod tests {
         frustum.cull_aabbs_prealloc(&aabbs, &mut simd_results);
 
         // Run Scalar manually
-        let mut scalar_results = Vec::new();
+        let mut scalar_results = Vec::with_capacity(aabbs.len());
         for aabb in &aabbs {
             scalar_results.push(frustum.intersects_aabb(aabb));
         }
 
         assert_eq!(simd_results.len(), scalar_results.len());
         for (i, (simd, scalar)) in simd_results.iter().zip(scalar_results.iter()).enumerate() {
-            assert_eq!(
-                *simd, *scalar,
-                "Mismatch at index {}: simd={}, scalar={}",
-                i, simd, scalar
-            );
+            assert_eq!(*simd, *scalar, "Mismatch at index {i}: simd={simd}, scalar={scalar}");
         }
     }
 }

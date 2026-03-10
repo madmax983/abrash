@@ -37,6 +37,24 @@
 use std::mem::MaybeUninit;
 use std::ops::{Add, Mul, Sub};
 
+/// Approximates the reciprocal square root ($1 / \sqrt{x}$).
+///
+/// This uses the hardware-accelerated AVX/SSE intrinsic if available, which offers
+/// excellent performance (around 4 cycles) at the cost of a small precision error.
+/// If AVX/SSE is not available, it falls back to a standard `sqrt().recip()`, which
+/// is typically faster on modern generic x86_64 CPUs than the legacy "Quake III bit-hack".
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::fast_inv_sqrt;
+///
+/// let x = 4.0;
+/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
+///
+/// // Assert with a small tolerance due to approximation
+/// assert!((inv_sqrt - 0.5).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
@@ -78,11 +96,27 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+
     /// Creates a new 2D vector.
     #[must_use]
     #[inline]
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+
+    /// Calculates the Euclidean length (magnitude) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.x.hypot(self.y)
     }
 }
 
@@ -206,6 +240,16 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -359,17 +403,9 @@ impl Vec3 {
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-    pub fn lerp(&self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-        }
-    }
 
     /// Returns a new vector containing the minimum value for each component.
-    #[must_use]
-    #[inline]
+
     pub fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
@@ -1738,19 +1774,99 @@ mod tests {
     }
 
     #[test]
+    fn test_mat2_rotation() {
+        use std::f32::consts::FRAC_PI_2;
+        let m = Mat2::rotation(FRAC_PI_2);
+        // cos(90) is approx 0, sin(90) is 1
+        assert!(m.m[0][0].abs() < 1e-6);
+        assert!((m.m[0][1] - (-1.0)).abs() < 1e-6);
+        assert!((m.m[1][0] - 1.0).abs() < 1e-6);
+        assert!(m.m[1][1].abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform() {
+        use std::f32::consts::FRAC_PI_2;
+        let m = Mat2::rotation(FRAC_PI_2);
+        let v = Vec2::new(1.0, 0.0);
+        let result = m.transform(v);
+        // (1, 0) rotated 90 deg -> (0, 1)
+        assert!(result.x.abs() < 1e-6);
+        assert!((result.y - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform_batch() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+        let result = m.transform_batch(&vertices);
+        // Rotate 180 degrees -> (-x, -y)
+        assert!((result[0].x - (-1.0)).abs() < 1e-6);
+        assert!(result[0].y.abs() < 1e-6);
+        assert!(result[1].x.abs() < 1e-6);
+        assert!((result[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat2_transform_in_place() {
+        use std::f32::consts::PI;
+        let m = Mat2::rotation(PI);
+        let mut vertices = vec![Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)];
+        m.transform_in_place(&mut vertices);
+        // Rotate 180 degrees -> (-x, -y)
+        assert!((vertices[0].x - (-1.0)).abs() < 1e-6);
+        assert!(vertices[0].y.abs() < 1e-6);
+        assert!(vertices[1].x.abs() < 1e-6);
+        assert!((vertices[1].y - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec4_new() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_vec4_add() {
+        let v1 = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let v2 = Vec4::new(5.0, 6.0, 7.0, 8.0);
+        let result = v1 + v2;
+        assert_eq!(result, Vec4::new(6.0, 8.0, 10.0, 12.0));
+    }
+
+    #[test]
+    fn test_vec4_sub() {
+        let v1 = Vec4::new(5.0, 6.0, 7.0, 8.0);
+        let v2 = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let result = v1 - v2;
+        assert_eq!(result, Vec4::new(4.0, 4.0, 4.0, 4.0));
+    }
+
+    #[test]
+    fn test_vec4_mul_scalar() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let result = v * 2.5;
+        assert_eq!(result, Vec4::new(2.5, 5.0, 7.5, 10.0));
+    }
+
+    #[test]
     fn test_vec3_min_max() {
         let a = Vec3::new(1.0, 5.0, -2.0);
         let b = Vec3::new(3.0, 2.0, -1.0);
 
         let min = a.min(b);
-        assert_eq!(min.x, 1.0);
-        assert_eq!(min.y, 2.0);
-        assert_eq!(min.z, -2.0);
+        assert!((min.x - 1.0).abs() < f32::EPSILON);
+        assert!((min.y - 2.0).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
-        assert_eq!(max.x, 3.0);
-        assert_eq!(max.y, 5.0);
-        assert_eq!(max.z, -1.0);
+        assert!((max.x - 3.0).abs() < f32::EPSILON);
+        assert!((max.y - 5.0).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1807,7 +1923,7 @@ mod tests {
             };
 
             if s_scalar.z.is_nan() {
-                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {name}");
             } else {
                 assert!(
                     z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
@@ -1822,8 +1938,7 @@ mod tests {
             if s_scalar.inv_w.is_nan() {
                 assert!(
                     s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {}",
-                    name
+                    "InvW NaN mismatch for case: {name}"
                 );
             } else {
                 assert!(
@@ -1864,6 +1979,20 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+            w: self.w + (other.w - self.w) * t,
+        }
+    }
+
+    #[must_use]
+    #[inline(always)]
+
     /// Creates a new 4D vector.
     ///
     /// # Examples
@@ -1874,8 +2003,7 @@ impl Vec4 {
     /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
     /// assert_eq!(v.w, 1.0);
     /// ```
-    #[must_use]
-    #[inline]
+
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }

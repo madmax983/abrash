@@ -1,14 +1,20 @@
-use abrash::clipping::{ClippedTriangles, Lerp, clip_triangle_to_frustum};
+use abrash::clipping::{ClippedTriangles, clip_triangle_to_frustum};
 use abrash::math::Vec3;
 use proptest::prelude::*;
 
+// Helper to linearly interpolate a simple tuple vertex
+fn lerp_tuple_vertex(a: (Vec3, f32), b: (Vec3, f32), t: f32) -> (Vec3, f32) {
+    (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+}
+
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
-fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
+fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     v0: V,
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
+    lerp: impl Fn(V, V, f32) -> V + Copy,
 ) -> Vec<V> {
     // Return Vec<V> for easier comparison
     // We use a Vec instead of fixed array for the oracle to be safe
@@ -16,17 +22,17 @@ fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
 
     // 6 Planes
     // 1. Left: x >= -w -> x + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos, &lerp_fn);
     // 2. Right: x <= w -> w - x >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos, &lerp_fn);
     // 3. Bottom: y >= -w -> y + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos, &lerp_fn);
     // 4. Top: y <= w -> w - y >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos, &lerp_fn);
     // 5. Near: z >= -w -> z + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos, &lerp_fn);
     // 6. Far: z <= w -> w - z >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos);
+    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos, &lerp_fn);
 
     // Triangulate (Fan)
     let mut triangles = Vec::new();
@@ -41,10 +47,11 @@ fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
     triangles
 }
 
-fn clip_plane<V: Lerp + Copy>(
+fn clip_plane<V: Copy>(
     polygon: &mut Vec<V>,
     dist_fn: impl Fn(Vec3, f32) -> f32,
     get_pos: &impl Fn(&V) -> (Vec3, f32),
+    lerp_fn: &impl Fn(V, V, f32) -> V,
 ) {
     if polygon.is_empty() {
         return;
@@ -64,7 +71,7 @@ fn clip_plane<V: Lerp + Copy>(
             if prev_d < 0.0 {
                 // Entered
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push((*lerp_fn)(prev_v.clone(), curr_v.clone(), t));
             }
             new_polygon.push(curr_v);
         } else {
@@ -72,7 +79,7 @@ fn clip_plane<V: Lerp + Copy>(
             if prev_d >= 0.0 {
                 // Exited
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push((*lerp_fn)(prev_v.clone(), curr_v.clone(), t));
             }
         }
         prev_v = curr_v;
@@ -108,18 +115,9 @@ fn compare_vertices(v1: &[(Vec3, f32)], v2: &[(Vec3, f32)]) {
 
         assert!(
             diff.x.abs() < eps && diff.y.abs() < eps && diff.z.abs() < eps,
-            "Vertex {} pos mismatch: {:?} vs {:?}",
-            i,
-            pa,
-            pb
+            "Vertex {i} pos mismatch: {pa:?} vs {pb:?}"
         );
-        assert!(
-            (wa - wb).abs() < eps,
-            "Vertex {} w mismatch: {} vs {}",
-            i,
-            wa,
-            wb
-        );
+        assert!((wa - wb).abs() < eps, "Vertex {i} w mismatch: {wa} vs {wb}");
     }
 }
 
@@ -135,13 +133,14 @@ proptest! {
         let v2 = (Vec3::new(vx2, vy2, vz2), w2);
 
         let get_pos = |v: &(Vec3, f32)| *v;
+        let lerp_func = lerp_tuple_vertex;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle
-        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos);
+        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
 
         compare_vertices(&vec_simd, &vec_scalar);
     }

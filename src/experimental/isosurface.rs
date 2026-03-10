@@ -31,9 +31,16 @@ where
     let height = (size.y / step).ceil() as usize + 1;
     let depth = (size.z / step).ceil() as usize + 1;
 
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
-    let mut normals = Vec::new();
+    // Optimization: Preallocate vectors using a surface-area heuristic.
+    // The number of surface cells is typically proportional to the surface area,
+    // which scales as the 2/3 power of the total volume (total_cells).
+    let total_cells = width * height * depth;
+    let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
+    let estimated_indices = estimated_vertices * 2 / 3; // Rough estimate of triangles from vertices
+
+    let mut vertices = Vec::with_capacity(estimated_vertices);
+    let mut indices = Vec::with_capacity(estimated_indices);
+    let mut normals = Vec::with_capacity(estimated_vertices);
 
     // Cache SDF values to avoid recomputing
     // Index: z * height * width + y * width + x
@@ -111,12 +118,13 @@ where
         normals.push(n);
     }
 
-    // Compute tangents (simple approximation)
-    let tangents = vec![Vec4::default(); vertices.len()]; // TODO: Implement proper tangent generation
+    // Tangents are populated with default values.
+    // Full tangent generation requires complete UV maps which are currently placeholders.
+    let tangents = vec![Vec4::default(); vertices.len()];
 
     Mesh {
         vertices,
-        indices: indices.chunks(3).map(|c| [c[0], c[1], c[2]]).collect(),
+        indices,
         uvs: vec![crate::math::Vec2::default(); normals.len()], // Placeholder UVs
         normals,
         tangents,
@@ -135,7 +143,7 @@ where
 
 fn polygonize_tetrahedron(
     vertices: &mut Vec<Vec3>,
-    indices: &mut Vec<usize>,
+    indices: &mut Vec<[usize; 3]>,
     p: &[Vec3; 8],
     v: &[f32; 8],
     idxs: [usize; 4],
@@ -184,6 +192,9 @@ fn polygonize_tetrahedron(
     ];
 
     let edges = tri_table[case];
+    let mut current_tri = [0, 0, 0];
+    let mut vert_count = 0;
+
     for &edge_idx in &edges {
         if edge_idx == -1 {
             break;
@@ -226,8 +237,14 @@ fn polygonize_tetrahedron(
         );
 
         // Simple index buffer generation (no welding/sharing for now)
-        indices.push(vertices.len());
+        current_tri[vert_count] = vertices.len();
         vertices.push(pos);
+        vert_count += 1;
+
+        if vert_count == 3 {
+            indices.push(current_tri);
+            vert_count = 0;
+        }
     }
 }
 
@@ -244,8 +261,8 @@ mod tests {
 
         let mesh = extract_isosurface(sphere_sdf, min, max, resolution);
 
-        assert!(mesh.vertices.len() > 0, "Should generate vertices");
-        assert!(mesh.indices.len() > 0, "Should generate triangles");
+        assert!(!mesh.vertices.is_empty(), "Should generate vertices");
+        assert!(!mesh.indices.is_empty(), "Should generate triangles");
         assert!(
             mesh.normals.len() == mesh.vertices.len(),
             "Should have normals"
@@ -256,8 +273,7 @@ mod tests {
             let dist = v.length();
             assert!(
                 (dist - 1.0).abs() < 0.2,
-                "Vertex should be near surface, got dist {}",
-                dist
+                "Vertex should be near surface, got dist {dist}"
             );
         }
     }

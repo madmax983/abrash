@@ -4,12 +4,12 @@ use std::error::Error;
 
 #[cfg(feature = "nova")]
 mod demo {
-    use abrash::experimental::jelly::{SoftBody, Spring};
+    use abrash::experimental::jelly::SoftBody;
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene, render_sdf};
     use abrash::framebuffer::Framebuffer;
     use abrash::math::{Mat4, Vec3};
     use abrash::mesh::Mesh;
-    use abrash::platform::{Window, WindowBackend};
+    use abrash::platform::Window;
     use abrash::rasterizer::fill_triangle_3d;
     use abrash::zbuffer::ZBuffer;
     use std::time::Instant;
@@ -51,21 +51,10 @@ mod demo {
 
         // Add internal cross-bracing springs for stability
         let diag_len = (jelly.mesh.vertices[0] - jelly.mesh.vertices[6]).length();
-        jelly.spring_indices_a.push(0);
-        jelly.spring_indices_b.push(6);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(1);
-        jelly.spring_indices_b.push(7);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(2);
-        jelly.spring_indices_b.push(4);
-        jelly.spring_rest_lengths.push(diag_len);
-
-        jelly.spring_indices_a.push(3);
-        jelly.spring_indices_b.push(5);
-        jelly.spring_rest_lengths.push(diag_len);
+        jelly.add_spring(0, 6, diag_len).unwrap();
+        jelly.add_spring(1, 7, diag_len).unwrap();
+        jelly.add_spring(2, 4, diag_len).unwrap();
+        jelly.add_spring(3, 5, diag_len).unwrap();
 
         // Camera
         let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 100.0);
@@ -130,7 +119,7 @@ mod demo {
                 let t = (s * 10.0).clamp(0.0, 1.0);
                 let r = (t * 255.0) as u32;
                 let g = ((1.0 - t) * 255.0) as u32;
-                let color = 0xFF000000 | (r << 16) | (g << 8) | 0x00;
+                let color = 0xFF000000 | (r << 16) | (g << 8);
 
                 fill_triangle_3d(&mut fb, &mut zb, (c0, w0), (c1, w1), (c2, w2), color);
             }
@@ -193,16 +182,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     #[cfg(not(feature = "nova"))]
     {
-        println!("\n{}", "⚠️  Missing Feature: Nova".bold().red());
-        println!(
-            "{}",
-            "This demo requires the 'nova' feature to run.".white()
-        );
-        println!("\nTry running with:");
-        println!(
-            "{}",
-            "cargo run --example jelly_demo --features nova".green()
-        );
-        Ok(())
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![
+                Cell::new("This demo requires the 'nova' feature to run.").fg(Color::White),
+            ])
+            .add_row(vec![
+                Cell::new("Try running with:\ncargo run --example jelly_demo --features nova")
+                    .fg(Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
     }
 }

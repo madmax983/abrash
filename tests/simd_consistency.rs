@@ -25,8 +25,8 @@ fn test_simd_vs_scalar_overflow() {
     // We pass 3 identical vertices to make it simple
     let (simd_res, _, _) = project_triangle_to_screen(v, w, v, w, v, w, half_width, half_height);
 
-    println!("Scalar result: {:?}", scalar_res);
-    println!("SIMD result:   {:?}", simd_res);
+    println!("Scalar result: {scalar_res:?}");
+    println!("SIMD result:   {simd_res:?}");
 
     // Scalar: saturates to i32::MAX.
     // SIMD: clamped to ~2147483520 (float precision limit below i32::MAX).
@@ -63,8 +63,8 @@ fn test_simd_vs_scalar_underflow() {
     // SIMD
     let (simd_res, _, _) = project_triangle_to_screen(v, w, v, w, v, w, half_width, half_height);
 
-    println!("Scalar result: {:?}", scalar_res);
-    println!("SIMD result:   {:?}", simd_res);
+    println!("Scalar result: {scalar_res:?}");
+    println!("SIMD result:   {simd_res:?}");
 
     // Both should saturate to i32::MIN (or i32::MIN + 1).
     // Scalar: i32::MIN + 1.

@@ -99,7 +99,7 @@ fn apply_ordered_dither(fb: &mut Framebuffer, depth: u8, matrix: &[u8], size: us
             let idx = y * width + x;
             let pixel = pixels[idx];
 
-            let bayer_val = matrix[(y % size) * size + (x % size)] as f32;
+            let bayer_val = f32::from(matrix[(y % size) * size + (x % size)]);
             // Center the dither around 0 (-0.5 to 0.5 range of step)
             // Actually, standard formula: val + (bayer/max * step) - (step/2)
             // Simplified: val + scale * (bayer - limit/2)
@@ -148,9 +148,9 @@ fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
             let g_old = buffer[idx + 1];
             let b_old = buffer[idx + 2];
 
-            let r_new = quantize(r_old, depth) as f32;
-            let g_new = quantize(g_old, depth) as f32;
-            let b_new = quantize(b_old, depth) as f32;
+            let r_new = f32::from(quantize(r_old, depth));
+            let g_new = f32::from(quantize(g_old, depth));
+            let b_new = f32::from(quantize(b_old, depth));
 
             // Write back quantized pixel immediately
             let p_idx = y * width + x;

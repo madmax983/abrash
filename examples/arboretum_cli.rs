@@ -48,10 +48,10 @@ mod app {
         // Parse rules
         let mut parsed_rules = HashMap::new();
         for rule in args.rules.split(',') {
-            if let Some((input, output)) = rule.split_once('=') {
-                if let Some(c) = input.chars().next() {
-                    parsed_rules.insert(c, output.to_string());
-                }
+            if let Some((input, output)) = rule.split_once('=')
+                && let Some(c) = input.chars().next()
+            {
+                parsed_rules.insert(c, output.to_string());
             }
         }
 
@@ -63,8 +63,12 @@ mod app {
 
         // Generate
         let start_time = std::time::Instant::now();
-        let expanded = lsys.expand(args.iterations);
-        let mesh = lsys.generate_mesh(args.iterations);
+        let expanded = lsys
+            .expand(args.iterations)
+            .expect("L-system memory limit exceeded");
+        let mesh = lsys
+            .generate_mesh(args.iterations)
+            .expect("L-system memory limit exceeded");
         let duration = start_time.elapsed();
 
         // TUI Setup
@@ -94,7 +98,19 @@ mod app {
         terminal.show_cursor()?;
 
         if let Err(err) = res {
-            eprintln!("TUI Error: {err:?}");
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ TUI Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{err:?}")).fg(comfy_table::Color::Yellow),
+                ]);
+
+            eprintln!("\n{error_table}");
         }
 
         Ok(())
@@ -174,7 +190,7 @@ mod app {
                     ]),
                     Line::from(vec![
                         Span::styled("Generation Time: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(format!("{:.2?}", duration)),
+                        Span::raw(format!("{duration:.2?}")),
                     ]),
                     Line::from(""),
                     Line::from(Span::styled(
@@ -263,12 +279,12 @@ mod app {
                 f.render_widget(help, chunks[3]);
             })?;
 
-            if event::poll(Duration::from_millis(100))? {
-                if let Event::Key(key) = event::read()? {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                        _ => {}
-                    }
+            if event::poll(Duration::from_millis(100))?
+                && let Event::Key(key) = event::read()?
+            {
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                    _ => {}
                 }
             }
         }
@@ -279,13 +295,42 @@ fn main() {
     #[cfg(feature = "nova")]
     {
         if let Err(e) = app::run() {
-            eprintln!("Error: {}", e);
+            let mut error_table = comfy_table::Table::new();
+            error_table
+                .load_preset(comfy_table::presets::UTF8_FULL)
+                .set_header(vec![
+                    comfy_table::Cell::new("❌ Application Error")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(comfy_table::Color::Red),
+                ])
+                .add_row(vec![
+                    comfy_table::Cell::new(format!("{e}")).fg(comfy_table::Color::Yellow),
+                ]);
+
+            eprintln!("\n{error_table}");
             std::process::exit(1);
         }
     }
     #[cfg(not(feature = "nova"))]
     {
-        eprintln!("This example requires the 'nova' feature.");
-        eprintln!("Run with: cargo run --example arboretum_cli --features nova");
+        let mut error_table = comfy_table::Table::new();
+        error_table
+            .load_preset(comfy_table::presets::UTF8_FULL)
+            .set_header(vec![
+                comfy_table::Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(comfy_table::Color::Red),
+            ])
+            .add_row(vec![
+                comfy_table::Cell::new("This example requires the 'nova' feature to run.")
+                    .fg(comfy_table::Color::White),
+            ])
+            .add_row(vec![
+                comfy_table::Cell::new("Try running with:\ncargo run --example arboretum_cli --features nova")
+                    .fg(comfy_table::Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
     }
 }

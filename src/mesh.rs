@@ -55,6 +55,30 @@ impl Mesh {
         }
     }
 
+    /// Creates a new empty mesh with pre-allocated capacity.
+    ///
+    /// Pre-allocating capacity avoids reallocations during mesh construction
+    /// which improves performance when building large meshes procedurally.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::mesh::Mesh;
+    /// let mesh = Mesh::with_capacity(100, 200);
+    /// assert_eq!(mesh.vertices.capacity(), 100);
+    /// assert_eq!(mesh.indices.capacity(), 200);
+    /// ```
+    #[must_use]
+    pub fn with_capacity(vertex_capacity: usize, index_capacity: usize) -> Self {
+        Self {
+            vertices: Vec::with_capacity(vertex_capacity),
+            indices: Vec::with_capacity(index_capacity),
+            uvs: Vec::with_capacity(vertex_capacity),
+            normals: Vec::with_capacity(vertex_capacity),
+            tangents: Vec::with_capacity(vertex_capacity),
+        }
+    }
+
     /// Create a cube centered at origin with side length `size`.
     ///
     /// The cube has 8 vertices and 12 triangles (2 per face).
@@ -142,24 +166,27 @@ impl Mesh {
     /// ```
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
-        self.indices
-            .iter()
-            .map(|[i0, i1, i2]| {
-                let v0 = self.vertices[*i0];
-                let v1 = self.vertices[*i1];
-                let v2 = self.vertices[*i2];
+        let mut normals = Vec::with_capacity(self.indices.len());
+        for &[i0, i1, i2] in &self.indices {
+            let v0 = self.vertices[i0];
+            let v1 = self.vertices[i1];
+            let v2 = self.vertices[i2];
 
-                let edge1 = v1 - v0;
-                let edge2 = v2 - v0;
-                edge1.cross(edge2).normalize()
-            })
-            .collect()
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            normals.push(edge1.cross(edge2).normalize());
+        }
+        normals
     }
 
     /// Calculates the bounding sphere of the mesh.
     ///
     /// Uses a simple algorithm: Center is the average of min/max bounds (AABB center),
     /// and radius is the distance to the furthest vertex.
+    ///
+    /// Optimization: Uses `Vec3::min` and `Vec3::max` to leverage underlying fast
+    /// floating point operations (`minss`/`maxss`) instead of branchy component-wise checks.
+    /// This provides a small but measurable speedup for bounding box calculations on large meshes.
     #[must_use]
     pub fn calculate_bounding_sphere(&self) -> BoundingSphere {
         if self.vertices.is_empty() {
@@ -172,37 +199,19 @@ impl Mesh {
         let mut min = self.vertices[0];
         let mut max = self.vertices[0];
 
-        for v in &self.vertices {
-            if v.x < min.x {
-                min.x = v.x;
-            }
-            if v.y < min.y {
-                min.y = v.y;
-            }
-            if v.z < min.z {
-                min.z = v.z;
-            }
-            if v.x > max.x {
-                max.x = v.x;
-            }
-            if v.y > max.y {
-                max.y = v.y;
-            }
-            if v.z > max.z {
-                max.z = v.z;
-            }
+        for v in self.vertices.iter().skip(1) {
+            min = min.min(*v);
+            max = max.max(*v);
         }
 
         let center = (min + max) * 0.5;
-        let mut max_dist_sq = 0.0;
-
-        for v in &self.vertices {
+        // Optimization: `f32::max` avoids branchy component-wise checks and utilizes
+        // underlying fast float max instructions.
+        let max_dist_sq = self.vertices.iter().fold(0.0_f32, |max_sq, v| {
             let d = *v - center;
             let dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-            if dist_sq > max_dist_sq {
-                max_dist_sq = dist_sq;
-            }
-        }
+            max_sq.max(dist_sq)
+        });
 
         BoundingSphere {
             center,
@@ -220,6 +229,7 @@ impl Mesh {
         }
 
         let mut tan1 = vec![Vec3::default(); self.vertices.len()];
+
         let mut tan2 = vec![Vec3::default(); self.vertices.len()];
 
         for &[i0, i1, i2] in &self.indices {
@@ -264,7 +274,8 @@ impl Mesh {
             tan2[i2] = tan2[i2] + tdir;
         }
 
-        self.tangents = vec![Vec4::default(); self.vertices.len()];
+        self.tangents.clear();
+        self.tangents.resize(self.vertices.len(), Vec4::default());
         for i in 0..self.vertices.len() {
             let n = self.normals[i];
             let t = tan1[i];

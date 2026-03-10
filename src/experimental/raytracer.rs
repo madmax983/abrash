@@ -101,6 +101,7 @@ impl Ray {
     ///
     /// * `Some(Hit)` if the ray intersects the triangle within the range `[t_min, t_max]`.
     /// * `None` otherwise.
+    #[must_use]
     pub fn intersect_triangle(
         &self,
         v0: Vec3,
@@ -165,6 +166,7 @@ impl Ray {
     /// # Returns
     ///
     /// * `true` if the ray intersects the AABB within `[t_min, t_max]`.
+    #[must_use]
     pub fn intersect_aabb(&self, aabb: &AABB, t_min: f32, t_max: f32) -> bool {
         let tx1 = (aabb.min.x - self.origin.x) * self.inv_direction.x;
         let tx2 = (aabb.max.x - self.origin.x) * self.inv_direction.x;
@@ -223,14 +225,9 @@ impl Default for RayTracer {
     }
 }
 
-/// A structure to hold pre-calculated world data for an object.
-struct RenderObject<'a> {
-    obj: &'a SceneObject,
-    world_aabb: AABB,
-}
-
 impl RayTracer {
-    /// Creates a new RayTracer with default settings (3 bounces, dark grey background).
+    /// Creates a new `RayTracer` with default settings (3 bounces, dark grey background).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -254,14 +251,9 @@ impl RayTracer {
         let aspect = width as f32 / height as f32;
 
         // Pre-calculate World AABBs
-        let render_objects: Vec<RenderObject> = scene
-            .objects
-            .iter()
-            .map(|obj| RenderObject {
-                obj,
-                world_aabb: obj.calculate_world_aabb(),
-            })
-            .collect();
+        thread_local! {
+            static AABB_BUFFER: std::cell::RefCell<Vec<AABB>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
 
         // Reconstruct Camera Vectors from View Matrix.
         // View Matrix is R * T (Row-Major).
@@ -308,63 +300,75 @@ impl RayTracer {
         #[cfg(not(feature = "parallel"))]
         let iter = buffer.chunks_mut(width as usize).enumerate();
 
-        iter.for_each(|(y, row)| {
-            let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
-            for (x, pixel) in row.iter_mut().enumerate() {
-                let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
-
-                // Ray Direction
-                let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
-                let ray = Ray::new(eye, direction);
-
-                *pixel = self.trace_ray(&ray, &render_objects, 0);
+        AABB_BUFFER.with(|buffer| {
+            let mut world_aabbs = buffer.borrow_mut();
+            world_aabbs.clear();
+            world_aabbs.reserve(scene.objects.len());
+            for obj in &scene.objects {
+                world_aabbs.push(obj.calculate_world_aabb());
             }
+        });
+
+        AABB_BUFFER.with(|buffer| {
+            let world_aabbs = buffer.borrow();
+
+            // Extract immutable slices to satisfy the parallel iterator
+            let objects_slice: &[SceneObject] = &scene.objects;
+            let aabbs_slice: &[AABB] = &world_aabbs;
+
+            iter.for_each(|(y, row)| {
+                let ndc_y = start_y - (y as f32 + 0.5) * pixel_height;
+                for (x, pixel) in row.iter_mut().enumerate() {
+                    let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
+
+                    // Ray Direction
+                    let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
+                    let ray = Ray::new(eye, direction);
+
+                    *pixel = self.trace_ray(&ray, objects_slice, aabbs_slice, 0);
+                }
+            });
         });
     }
 
-    fn trace_ray(&self, ray: &Ray, objects: &[RenderObject], depth: u32) -> u32 {
+    fn trace_ray(&self, ray: &Ray, objects: &[SceneObject], aabbs: &[AABB], depth: u32) -> u32 {
         if depth > self.max_bounces {
             return self.background_color;
         }
 
-        let mut closest_hit: Option<Hit> = None;
+        let mut closest_hit: Option<(Hit, &SceneObject)> = None;
         let mut closest_t = f32::MAX;
-        let mut hit_obj: Option<&SceneObject> = None;
 
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, closest_t) {
+        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(world_aabb, 0.001, closest_t) {
                 continue;
             }
 
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 // Transform vertices to World Space
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if let Some(hit) = ray.intersect_triangle(v0, v1, v2, 0.001, closest_t) {
-                    if hit.t < closest_t {
-                        closest_t = hit.t;
-                        closest_hit = Some(hit);
-                        hit_obj = Some(r_obj.obj);
-                    }
+                    closest_t = hit.t;
+                    closest_hit = Some((hit, obj));
                 }
             }
         }
 
-        if let Some(hit) = closest_hit {
+        if let Some((hit, obj)) = closest_hit {
             // Lighting
             // Light source: Directional light from top-left-front
             let light_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
             let light_color = Vec3::new(1.0, 1.0, 1.0);
             let ambient = Vec3::new(0.1, 0.1, 0.1);
 
-            let obj = hit_obj.unwrap();
             let base_color = obj.color;
 
             let r = ((base_color >> 16) & 0xFF) as f32 / 255.0;
@@ -384,7 +388,7 @@ impl RayTracer {
 
             // Shadow Ray
             let shadow_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir * -1.0);
-            let in_shadow = self.check_shadow(&shadow_ray, objects);
+            let in_shadow = Self::check_shadow(&shadow_ray, objects, aabbs);
             let shadow_factor = if in_shadow { 0.2 } else { 1.0 };
 
             let final_color = (ambient + (diffuse + specular) * shadow_factor) * material_color;
@@ -397,7 +401,7 @@ impl RayTracer {
                     hit.point + hit.normal * 0.001,
                     reflect(ray.direction, hit.normal),
                 );
-                let r_col_u32 = self.trace_ray(&r_ray, objects, depth + 1);
+                let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
                 let rg = ((r_col_u32 >> 8) & 0xFF) as f32 / 255.0;
                 let rb = (r_col_u32 & 0xFF) as f32 / 255.0;
@@ -418,20 +422,20 @@ impl RayTracer {
         self.background_color
     }
 
-    fn check_shadow(&self, ray: &Ray, objects: &[RenderObject]) -> bool {
-        for r_obj in objects {
-            if !ray.intersect_aabb(&r_obj.world_aabb, 0.001, 1000.0) {
+    fn check_shadow(ray: &Ray, objects: &[SceneObject], aabbs: &[AABB]) -> bool {
+        for (obj, world_aabb) in objects.iter().zip(aabbs.iter()) {
+            if !ray.intersect_aabb(world_aabb, 0.001, 1000.0) {
                 continue;
             }
-            let mesh = &r_obj.obj.mesh;
+            let mesh = &obj.mesh;
             for indices in &mesh.indices {
                 let v0_local = mesh.vertices[indices[0]];
                 let v1_local = mesh.vertices[indices[1]];
                 let v2_local = mesh.vertices[indices[2]];
 
-                let (v0, _) = r_obj.obj.transform.transform_point(v0_local);
-                let (v1, _) = r_obj.obj.transform.transform_point(v1_local);
-                let (v2, _) = r_obj.obj.transform.transform_point(v2_local);
+                let (v0, _) = obj.transform.transform_point(v0_local);
+                let (v1, _) = obj.transform.transform_point(v1_local);
+                let (v2, _) = obj.transform.transform_point(v2_local);
 
                 if ray.intersect_triangle(v0, v1, v2, 0.001, 1000.0).is_some() {
                     return true;
@@ -444,4 +448,86 @@ impl RayTracer {
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - n * 2.0 * v.dot(n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Mat4;
+    use crate::mesh::Mesh;
+    use crate::scene::Camera;
+
+    #[test]
+    fn should_return_background_color_on_miss() {
+        let tracer = RayTracer {
+            background_color: 0xFF123456,
+            ..Default::default()
+        };
+
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let scene = Scene::new(camera);
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        tracer.render(&scene, &mut fb);
+
+        // Ray misses everything, so every pixel should be background_color
+        for y in 0..10 {
+            for x in 0..10 {
+                assert_eq!(fb.get_pixel(x, y).unwrap(), 0xFF123456);
+            }
+        }
+    }
+
+    #[test]
+    fn should_render_object_color_on_hit() {
+        let tracer = RayTracer {
+            background_color: 0xFF000000,
+            ..Default::default()
+        };
+
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let mut scene = Scene::new(camera);
+
+        // A large quad that covers the screen
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![
+            Vec3::new(-10.0, -10.0, 0.0),
+            Vec3::new(10.0, -10.0, 0.0),
+            Vec3::new(10.0, 10.0, 0.0),
+            Vec3::new(-10.0, 10.0, 0.0),
+        ];
+        mesh.indices = vec![[0, 1, 2], [0, 2, 3]];
+
+        // Base color is pure red
+        let red = 0xFFFF0000;
+        let transform = Mat4::identity();
+        scene.add_object(SceneObject::new(std::sync::Arc::new(mesh), transform, red));
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        tracer.render(&scene, &mut fb);
+
+        // Due to lighting, the pixel at the center won't be exactly red,
+        // but it should not be the background color. Let's check the middle pixel.
+        let pixel = fb.get_pixel(5, 5).unwrap();
+        assert_ne!(
+            pixel, 0xFF000000,
+            "Pixel should be shaded, not background color"
+        );
+
+        // Extract the red channel. Due to specular/ambient/diffuse, it should be > 0.
+        let r = (pixel >> 16) & 0xFF;
+        assert!(r > 0, "Red channel should be lit");
+    }
 }

@@ -130,28 +130,27 @@ pub fn apply_depth_of_field(
                 let orig = original_pixels[i];
                 let blur = blurred_slice[i];
 
-                let r_o = ((orig >> 16) & 0xFF) as f32;
-                let g_o = ((orig >> 8) & 0xFF) as f32;
-                let b_o = (orig & 0xFF) as f32;
+                // Convert factor to 0-256 fixed point
+                let factor_fixed = (factor * 256.0) as u32;
+                let inv_factor = 256 - factor_fixed;
 
-                let r_b = ((blur >> 16) & 0xFF) as f32;
-                let g_b = ((blur >> 8) & 0xFF) as f32;
-                let b_b = (blur & 0xFF) as f32;
+                let r_o = (orig >> 16) & 0xFF;
+                let g_o = (orig >> 8) & 0xFF;
+                let b_o = orig & 0xFF;
 
-                let r_new = lerp(r_o, r_b, factor) as u32;
-                let g_new = lerp(g_o, g_b, factor) as u32;
-                let b_new = lerp(b_o, b_b, factor) as u32;
+                let r_b = (blur >> 16) & 0xFF;
+                let g_b = (blur >> 8) & 0xFF;
+                let b_b = blur & 0xFF;
+
+                let r_new = (r_o * inv_factor + r_b * factor_fixed) >> 8;
+                let g_new = (g_o * inv_factor + g_b * factor_fixed) >> 8;
+                let b_new = (b_o * inv_factor + b_b * factor_fixed) >> 8;
 
                 // Preserve alpha
                 original_pixels[i] = (orig & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
             }
         }
     });
-}
-
-#[inline(always)]
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t
 }
 
 #[cfg(test)]
@@ -182,7 +181,7 @@ mod tests {
         // Checkerboard
         for y in 0..height {
             for x in 0..width {
-                if (x as u32 + y as u32) % 2 == 0 {
+                if (x + y).is_multiple_of(2) {
                     fb.set_pixel(x as i32, y as i32, 0xFF000000);
                 }
             }

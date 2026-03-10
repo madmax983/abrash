@@ -1,105 +1,32 @@
+//! # 3D View Frustum Clipping ✂️
+//!
+//! This module ensures we only render what the camera can actually see.
+//!
+//! Without clipping, vertices behind the camera (where $Z < 0$ or $W < 0$) would project
+//! incorrectly onto the screen, causing bizarre mirroring and infinite lines. Furthermore,
+//! rasterizing geometry that falls far outside the screen bounds wastes precious CPU cycles.
+//!
+//! ## The Sutherland-Hodgman Algorithm
+//!
+//! We employ the Sutherland-Hodgman algorithm in Homogeneous Clip Space. The space is defined
+//! by six planes: Left, Right, Top, Bottom, Near, and Far.
+//!
+//! For each plane, the algorithm checks if a vertex is "inside" or "outside":
+//! *   **Left Plane**: $x \ge -w$
+//! *   **Right Plane**: $x \le w$
+//! *   **Top Plane**: $y \le w$
+//! *   **Bottom Plane**: $y \ge -w$
+//! *   **Near Plane**: $z \ge -w$
+//! *   **Far Plane**: $z \le w$
+//!
+//! When an edge crosses a plane, we compute the exact intersection point using linear interpolation
+//! (see the [`Lerp`] trait) and insert a new vertex. This turns a single triangle into a convex polygon
+//! with up to 9 vertices, which is then fan-triangulated back into a list of triangles.
+
 use std::mem::MaybeUninit;
 use std::ops::Index;
 
-use crate::math::{Vec2, Vec3, Vec4};
-
-pub trait Lerp: Copy + Clone {
-    #[must_use]
-    fn lerp(self, other: Self, t: f32) -> Self;
-}
-
-// Implement Lerp for primitive types
-
-impl Lerp for f32 {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        self + (other - self) * t
-    }
-}
-
-impl Lerp for Vec2 {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-        }
-    }
-}
-
-impl Lerp for Vec3 {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-        }
-    }
-}
-
-impl Lerp for Vec4 {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-            w: self.w + (other.w - self.w) * t,
-        }
-    }
-}
-
-// For (Vec3, f32) - Position and W
-impl Lerp for (Vec3, f32) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
-    }
-}
-
-// For ((Vec3, f32), Vec3) - Pos+W, Color
-impl Lerp for ((Vec3, f32), Vec3) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
-    }
-}
-
-// For ((Vec3, f32), Vec2) - Pos+W, UV
-impl Lerp for ((Vec3, f32), Vec2) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (self.0.lerp(other.0, t), self.1.lerp(other.1, t))
-    }
-}
-
-// For ((Vec3, f32), Vec2, Vec3, Vec4) - Pos+W, UV, Normal, Tangent
-impl Lerp for ((Vec3, f32), Vec2, Vec3, Vec4) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (
-            self.0.lerp(other.0, t),
-            self.1.lerp(other.1, t),
-            self.2.lerp(other.2, t),
-            self.3.lerp(other.3, t),
-        )
-    }
-}
-
-// For ((Vec3, f32), Vec3, Vec3) - Pos+W, Normal, WorldPos
-impl Lerp for ((Vec3, f32), Vec3, Vec3) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (
-            self.0.lerp(other.0, t),
-            self.1.lerp(other.1, t),
-            self.2.lerp(other.2, t),
-        )
-    }
-}
-
-// For ((Vec3, f32), Vec3, Vec2) - Pos+W, Color, UV
-impl Lerp for ((Vec3, f32), Vec3, Vec2) {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        (
-            self.0.lerp(other.0, t),
-            self.1.lerp(other.1, t),
-            self.2.lerp(other.2, t),
-        )
-    }
-}
+use crate::math::Vec3;
 
 /// A list of triangles resulting from clipping.
 ///
@@ -112,7 +39,8 @@ impl Lerp for ((Vec3, f32), Vec3, Vec2) {
 /// is Undefined Behavior. The implementation of `Index` performs bounds checking to ensure safety.
 pub struct ClippedTriangles<V> {
     tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
-    pub count: usize,           // Number of triangles
+    /// Number of triangles currently in the list
+    pub count: usize,
 }
 
 impl<V> ClippedTriangles<V> {
@@ -156,16 +84,39 @@ const NEAR: f32 = 0.001;
 /// 1.  Start with the input triangle.
 /// 2.  Clip against Plane 1. Output is a polygon (triangle or quad).
 /// 3.  Clip that polygon against Plane 2. Output is a polygon...
-/// ...
+///     ...
 /// 7.  Clip against Plane 6.
 ///
 /// The final result is a convex polygon (potentially with many vertices), which is then
 /// triangulated into a triangle fan for rasterization.
-pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
+///
+/// # Examples
+///
+/// ```
+/// use abrash::clipping::clip_triangle_to_frustum;
+/// use abrash::math::Vec3;
+///
+/// // Create a triangle where one vertex is behind the Near Plane (z < -w)
+/// let w = 1.0;
+/// // Inside
+/// let v0 = (Vec3::new(0.0, 0.0, 0.5), w);
+/// // Inside
+/// let v1 = (Vec3::new(0.5, 0.5, 0.5), w);
+/// // Outside Near Plane! (z = -2.0 < -1.0)
+/// let v2 = (Vec3::new(0.0, 0.0, -2.0), w);
+///
+/// let get_pos = |v: &(Vec3, f32)| *v;
+/// let result = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
+///
+/// // The triangle is clipped into a quad, which is triangulated into 2 triangles.
+/// assert_eq!(result.count, 2);
+/// ```
+pub fn clip_triangle_to_frustum<V: Copy>(
     v0: V,
     v1: V,
     v2: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
+    lerp: impl Fn(V, V, f32) -> V,
 ) -> ClippedTriangles<V> {
     // Optimization: Trivial Accept/Reject
     // Check if all vertices are inside all planes (Accept) or all outside one plane (Reject)
@@ -396,7 +347,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
                             // Entered: add intersection
                             let t = prev_d / (prev_d - curr_d);
                             if out_count < 12 {
-                                $buf_out[out_count].write(prev_v.lerp(curr_v, t));
+                                $buf_out[out_count].write(lerp(prev_v, curr_v, t));
                                 out_count += 1;
                             }
                         }
@@ -411,7 +362,7 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
                             // Exited: add intersection
                             let t = prev_d / (prev_d - curr_d);
                             if out_count < 12 {
-                                $buf_out[out_count].write(prev_v.lerp(curr_v, t));
+                                $buf_out[out_count].write(lerp(prev_v, curr_v, t));
                                 out_count += 1;
                             }
                         }
@@ -493,10 +444,33 @@ pub fn clip_triangle_to_frustum<V: Lerp + Copy>(
 /// Clip a line segment against the view frustum (6 planes) in Homogeneous Clip Space.
 ///
 /// Returns `Some((v0, v1))` if the line is partially or fully visible, `None` if fully culled.
-pub fn clip_line_to_frustum<V: Lerp + Copy>(
+///
+/// # Examples
+///
+/// ```
+/// use abrash::clipping::clip_line_to_frustum;
+/// use abrash::math::Vec3;
+///
+/// let w = 10.0;
+/// // Start point is inside
+/// let v0 = (Vec3::new(5.0, 0.0, 0.0), w);
+/// // End point is outside the Right Plane (x > w)
+/// let v1 = (Vec3::new(15.0, 0.0, 0.0), w);
+///
+/// let get_pos = |v: &(Vec3, f32)| *v;
+/// let clipped = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)).unwrap();
+///
+/// // The start point remains the same
+/// assert_eq!(clipped.0, v0);
+///
+/// // The end point is clipped exactly to the Right Plane (x = w = 10.0)
+/// assert_eq!((clipped.1).0.x, 10.0);
+/// ```
+pub fn clip_line_to_frustum<V: Copy>(
     v0: V,
     v1: V,
     get_pos: impl Fn(&V) -> (Vec3, f32),
+    lerp: impl Fn(V, V, f32) -> V,
 ) -> Option<(V, V)> {
     let mut curr_v0 = v0;
     let mut curr_v1 = v1;
@@ -518,7 +492,7 @@ pub fn clip_line_to_frustum<V: Lerp + Copy>(
             } else {
                 // One in, one out. Clip.
                 let t = d0 / (d0 - d1);
-                let intersection = curr_v0.lerp(curr_v1, t);
+                let intersection = lerp(curr_v0, curr_v1, t);
 
                 if d0 < 0.0 {
                     // v0 is outside, replace v0
@@ -553,11 +527,12 @@ pub fn clip_line_to_frustum<V: Lerp + Copy>(
 }
 
 // Keep the old function for now if needed, or deprecate.
-pub fn clip_triangle_against_near_plane<V: Lerp + Copy>(
+pub fn clip_triangle_against_near_plane<V: Copy>(
     v0: V,
     v1: V,
     v2: V,
     get_w: impl Fn(&V) -> f32,
+    lerp: impl Fn(V, V, f32) -> V,
 ) -> ClippedTriangles<V> {
     // Check which vertices are inside (w >= NEAR)
     let inside0 = get_w(&v0) >= NEAR;
@@ -588,7 +563,7 @@ pub fn clip_triangle_against_near_plane<V: Lerp + Copy>(
         let w_start = get_w(&start);
         let w_end = get_w(&end);
         let t = (NEAR - w_start) / (w_end - w_start);
-        start.lerp(end, t)
+        lerp(start, end, t)
     };
 
     // Logic depends on which are inside.
@@ -670,7 +645,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(5.0, 0.0, 0.0), 10.0);
         let v2: Vertex = (Vec3::new(15.0, 0.0, 0.0), 10.0);
 
-        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         // Should be clipped
         assert!(result.count > 0, "Should output at least one triangle");
@@ -704,7 +681,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), 10.0);
         let v2: Vertex = (Vec3::new(0.0, 1.0, 0.0), 10.0);
 
-        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert_eq!(result.count, 1);
         assert_eq!(result[0], v0);
@@ -719,7 +698,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(21.0, 0.0, 0.0), 10.0);
         let v2: Vertex = (Vec3::new(20.0, 1.0, 0.0), 10.0);
 
-        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert_eq!(result.count, 0);
     }
@@ -730,7 +711,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), 1.0);
         let v2: Vertex = (Vec3::new(0.0, 1.0, 0.0), 1.0);
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert_eq!(result.count, 1);
         assert_eq!(result[0], v0);
@@ -744,7 +727,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), -1.0);
         let v2: Vertex = (Vec3::new(0.0, 1.0, 0.0), -1.0);
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert_eq!(result.count, 0);
     }
@@ -756,7 +741,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(0.0, 2.0, -1.0), -1.0);
         let v2: Vertex = (Vec3::new(2.0, 0.0, -1.0), -1.0);
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         // Should return 1 triangle
         assert_eq!(result.count, 1);
@@ -777,7 +764,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), 1.0);
         let v2: Vertex = (Vec3::new(0.0, 2.0, -1.0), -1.0); // Outside
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         // Should return 2 triangles (quad)
         assert_eq!(result.count, 2);
@@ -818,7 +807,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), NEAR);
         let v2: Vertex = (Vec3::new(0.0, 1.0, 0.0), NEAR);
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         // Should be considered inside
         assert_eq!(result.count, 1);
@@ -832,7 +823,9 @@ mod tests {
         let v1: Vertex = (Vec3::new(1.0, 0.0, 0.0), NEAR + eps); // Inside
         let v2: Vertex = (Vec3::new(0.0, 1.0, 0.0), 1.0); // Inside
 
-        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w);
+        let result = clip_triangle_against_near_plane(v0, v1, v2, get_w, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         // Should clip to 2 triangles (quad) since 2 are inside
         assert_eq!(result.count, 2);
@@ -846,7 +839,9 @@ mod tests {
         let v0: Vertex = (Vec3::new(0.0, 0.0, 0.0), w);
         let v1: Vertex = (Vec3::new(1.0, 1.0, 5.0), w);
 
-        let result = clip_line_to_frustum(v0, v1, get_pos);
+        let result = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert!(result.is_some());
         let (r0, r1) = result.unwrap();
@@ -862,7 +857,9 @@ mod tests {
         let v0: Vertex = (Vec3::new(20.0, 0.0, 0.0), w);
         let v1: Vertex = (Vec3::new(25.0, 0.0, 0.0), w);
 
-        let result = clip_line_to_frustum(v0, v1, get_pos);
+        let result = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert!(result.is_none());
     }
@@ -877,7 +874,9 @@ mod tests {
         let v0: Vertex = (Vec3::new(5.0, 0.0, 0.0), w);
         let v1: Vertex = (Vec3::new(15.0, 0.0, 0.0), w);
 
-        let result = clip_line_to_frustum(v0, v1, get_pos);
+        let result = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert!(result.is_some());
         let (r0, r1) = result.unwrap();
@@ -904,7 +903,9 @@ mod tests {
         let v0: Vertex = (Vec3::new(-20.0, 0.0, 0.0), w);
         let v1: Vertex = (Vec3::new(20.0, 0.0, 0.0), w);
 
-        let result = clip_line_to_frustum(v0, v1, get_pos);
+        let result = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert!(result.is_some());
         let (r0, r1) = result.unwrap();
@@ -922,7 +923,9 @@ mod tests {
         let v0: Vertex = (Vec3::new(0.0, 0.0, -10.0), w);
         let v1: Vertex = (Vec3::new(0.0, 5.0, -10.0), w);
 
-        let result = clip_line_to_frustum(v0, v1, get_pos);
+        let result = clip_line_to_frustum(v0, v1, get_pos, |a, b, t| {
+            (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t)
+        });
 
         assert!(result.is_some());
         let (r0, r1) = result.unwrap();

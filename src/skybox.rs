@@ -15,6 +15,7 @@ use crate::zbuffer::ZBuffer;
 /// Faces are ordered: +X, -X, +Y, -Y, +Z, -Z.
 /// (Right, Left, Top, Bottom, Front, Back).
 pub struct Cubemap {
+    /// The 6 textures that make up the cubemap faces (Right, Left, Top, Bottom, Front, Back).
     pub faces: [Texture; 6],
 }
 

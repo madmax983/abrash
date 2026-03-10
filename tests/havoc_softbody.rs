@@ -1,3 +1,4 @@
+#![cfg(feature = "nova")]
 use abrash::experimental::jelly::SoftBody;
 use abrash::math::Vec3;
 use abrash::mesh::Mesh;

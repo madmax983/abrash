@@ -3,7 +3,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -32,7 +32,7 @@ const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF101010;
 
 // Embed a simple spaceship-like OBJ
-const SPACESHIP_OBJ: &str = r#"
+const SPACESHIP_OBJ: &str = r"
 # Simple Spacerocket
 v 0.0 1.5 0.0
 v 0.5 -0.5 0.5
@@ -50,7 +50,7 @@ f 6 3 2
 f 6 4 3
 f 6 5 4
 f 6 2 5
-"#;
+";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -145,14 +145,14 @@ struct AsciiWidget<'a> {
     colored: bool,
 }
 
-fn pixel_luminance(pixel: u32) -> u8 {
+const fn pixel_luminance(pixel: u32) -> u8 {
     let r = (pixel >> 16) & 0xFF;
     let g = (pixel >> 8) & 0xFF;
     let b = pixel & 0xFF;
     ((77 * r + 150 * g + 29 * b) >> 8) as u8
 }
 
-impl<'a> Widget for AsciiWidget<'a> {
+impl Widget for AsciiWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if area.width == 0 || area.height == 0 {
             return;
@@ -203,7 +203,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let content = match fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("❌ Failed to read file '{}': {}", path.display(), e);
+                    let mut error_table = Table::new();
+                    error_table
+                        .load_preset(presets::UTF8_FULL)
+                        .set_header(vec![
+                            Cell::new("❌ Error Reading File")
+                                .add_attribute(comfy_table::Attribute::Bold)
+                                .fg(Color::Red),
+                        ])
+                        .add_row(vec![
+                            Cell::new(format!("File '{}': {}", path.display(), e))
+                                .fg(Color::Yellow),
+                        ]);
+                    eprintln!("\n{error_table}");
                     std::process::exit(1);
                 }
             };
@@ -243,7 +255,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             m
         }
         Err(e) => {
-            eprintln!("❌ Failed to parse OBJ: {}", e);
+            let mut error_table = Table::new();
+            error_table
+                .load_preset(presets::UTF8_FULL)
+                .set_header(vec![
+                    Cell::new("❌ Error Parsing OBJ")
+                        .add_attribute(comfy_table::Attribute::Bold)
+                        .fg(Color::Red),
+                ])
+                .add_row(vec![Cell::new(e.to_string()).fg(Color::Yellow)]);
+            eprintln!("\n{error_table}");
             std::process::exit(1);
         }
     };
@@ -294,12 +315,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         loop {
             // Event Handling
-            if event::poll(std::time::Duration::from_millis(16))? {
-                if let Event::Key(key) = event::read()? {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break,
-                        _ => {}
-                    }
+            if event::poll(std::time::Duration::from_millis(16))?
+                && let Event::Key(key) = event::read()?
+            {
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => break,
+                    _ => {}
                 }
             }
 
@@ -340,7 +361,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let block = Block::default()
                     .borders(Borders::ALL)
-                    .title(format!(" Abrash OBJ Viewer: {} ", source_name))
+                    .title(format!(" Abrash OBJ Viewer: {source_name} "))
                     .title_style(Style::default().fg(TuiColor::Cyan));
 
                 f.render_widget(ascii_widget, block.inner(chunks[0]));
@@ -367,7 +388,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         terminal.show_cursor()?;
     } else {
-        let window_title = format!("Abrash - OBJ Viewer - {}", source_name);
+        let window_title = format!("Abrash - OBJ Viewer - {source_name}");
         let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
         let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
         let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;

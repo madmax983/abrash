@@ -1,54 +1,89 @@
-use abrash::framebuffer::Framebuffer;
+use abrash::culling::Frustum;
+use abrash::geometry::{AABB, BoundingSphere};
 use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
-use abrash::rasterizer::fill_triangle_3d;
-use abrash::zbuffer::ZBuffer;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 
-fn bench_culling_cube(c: &mut Criterion) {
-    let mut fb = Framebuffer::new(800, 600).unwrap();
-    let mut zb = ZBuffer::new(800, 600).unwrap();
-
-    let mesh = Mesh::cube(2.0);
-
-    // Setup transformation
-    let model = Mat4::rotation_x(0.5) * Mat4::rotation_y(0.5); // Rotate to show 3 faces
+fn bench_culling(c: &mut Criterion) {
     let view = Mat4::look_at(
-        Vec3::new(0.0, 0.0, -5.0),
+        Vec3::new(0.0, 0.0, 50.0),
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
     );
-    let projection = Mat4::perspective(1.57, 800.0 / 600.0, 0.1, 100.0);
-    let mvp = model * view * projection;
+    let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+    let frustum = Frustum::from_matrix(view * proj);
 
-    // Pre-transform vertices to simulate the pipeline state just before rasterization
-    let transformed_verts: Vec<(Vec3, f32)> = mesh
-        .vertices
-        .iter()
-        .map(|v| mvp.transform_point(*v))
-        .collect();
+    let mut aabbs = Vec::new();
+    let mut spheres = Vec::new();
 
-    c.bench_function("fill_cube_culling", |b| {
+    // Deterministic random generation for repeatable benchmarks
+    let mut rng_seed = 12345u32;
+    let mut rand_f32 = || {
+        rng_seed = rng_seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        (rng_seed as f32) / (u32::MAX as f32)
+    };
+
+    for _ in 0..10000 {
+        let x = rand_f32() * 40.0 - 20.0;
+        let y = rand_f32() * 40.0 - 20.0;
+        let z = rand_f32() * 40.0 - 20.0;
+        let sx = rand_f32() * 4.9 + 0.1;
+        let sy = rand_f32() * 4.9 + 0.1;
+        let sz = rand_f32() * 4.9 + 0.1;
+
+        aabbs.push(AABB::new(
+            Vec3::new(x - sx, y - sy, z - sz),
+            Vec3::new(x + sx, y + sy, z + sz),
+        ));
+        spheres.push(BoundingSphere {
+            center: Vec3::new(x, y, z),
+            radius: sx, // Rough approximation
+        });
+    }
+
+    let mut results = vec![false; aabbs.len()];
+    let transform =
+        Mat4::translation(1.0, 2.0, 3.0) * Mat4::rotation_y(0.5) * Mat4::scale(2.0, 2.0, 2.0);
+
+    let mut group = c.benchmark_group("culling");
+
+    group.bench_function("frustum_cull_10k_aabbs_scalar", |b| {
         b.iter(|| {
-            zb.clear();
-
-            for indices in &mesh.indices {
-                let v0 = transformed_verts[indices[0]];
-                let v1 = transformed_verts[indices[1]];
-                let v2 = transformed_verts[indices[2]];
-
-                fill_triangle_3d(
-                    &mut fb,
-                    &mut zb,
-                    black_box(v0),
-                    black_box(v1),
-                    black_box(v2),
-                    black_box(0xFFFF_FFFF),
-                );
+            for (i, aabb) in aabbs.iter().enumerate() {
+                results[i] = frustum.intersects_aabb(aabb);
             }
         });
     });
+
+    group.bench_function("frustum_cull_10k_aabbs_simd", |b| {
+        b.iter(|| {
+            frustum.cull_aabbs_prealloc(&aabbs, &mut results);
+        });
+    });
+
+    group.bench_function("frustum_cull_10k_spheres_scalar", |b| {
+        b.iter(|| {
+            for (i, sphere) in spheres.iter().enumerate() {
+                results[i] = frustum.intersects(sphere);
+            }
+        });
+    });
+
+    group.bench_function("frustum_cull_10k_spheres_simd", |b| {
+        b.iter(|| {
+            frustum.cull_spheres_prealloc(&spheres, &mut results);
+        });
+    });
+
+    group.bench_function("aabb_transform", |b| {
+        b.iter(|| {
+            for aabb in &aabbs {
+                let _ = aabb.transform(&transform);
+            }
+        });
+    });
+
+    group.finish();
 }
 
-criterion_group!(benches, bench_culling_cube);
+criterion_group!(benches, bench_culling);
 criterion_main!(benches);

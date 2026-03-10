@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 /// Represents the state of the drawing turtle.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Turtle {
     /// Current position in 3D space.
     pub position: Vec3,
@@ -107,13 +107,129 @@ impl LSystem {
     }
 
     /// Expands the axiom string by `iterations`.
-    pub fn expand(&self, iterations: u32) -> String {
+    /// Expands the axiom string by `iterations`.
+    ///
+    /// # Performance Optimization
+    /// This method includes a fast-path for purely ASCII strings. It avoids the overhead of
+    /// UTF-8 validation and the `String::push_str` method, operating directly on bytes.
+    /// It also pre-calculates the exact capacity needed to avoid intermediate reallocations.
+    pub fn expand(&self, iterations: u32) -> Result<String, String> {
+        if iterations == 0 {
+            return Ok(self.axiom.clone());
+        }
+
         let mut current = self.axiom.clone();
 
+        // Security / DoS protection limit: an L-system can grow exponentially and cause OOM.
+        let limit: usize = 100_000_000; // Cap at 100MB
+
+        // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
+        let mut is_pure_ascii = self.axiom.is_ascii();
+        if is_pure_ascii {
+            for v in self.rules.values() {
+                if !v.is_ascii() {
+                    is_pure_ascii = false;
+                    break;
+                }
+            }
+            if is_pure_ascii {
+                for k in self.rules.keys() {
+                    if !k.is_ascii() {
+                        is_pure_ascii = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if is_pure_ascii {
+            // Setup lookup table for ASCII
+            let mut rules_array: [Option<&[u8]>; 128] = [None; 128];
+            for (k, v) in &self.rules {
+                rules_array[(*k as usize) & 127] = Some(v.as_bytes());
+            }
+            let mut current_bytes = self.axiom.as_bytes().to_vec();
+            for _ in 0..iterations {
+                // Determine capacity and write directly
+                let mut exact_len: usize = 0;
+                for &b in &current_bytes {
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
+                        exact_len = exact_len
+                            .checked_add(replacement.len())
+                            .ok_or("L-system exceeded memory limits")?;
+                    } else {
+                        exact_len = exact_len
+                            .checked_add(1)
+                            .ok_or("L-system exceeded memory limits")?;
+                    }
+                }
+                if exact_len > limit {
+                    return Err("L-system exceeded memory limits".to_string());
+                }
+
+                let mut next_bytes = Vec::with_capacity(exact_len);
+                for b in current_bytes {
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
+                        next_bytes.extend_from_slice(replacement);
+                    } else {
+                        next_bytes.push(b);
+                    }
+                }
+                current_bytes = next_bytes;
+            }
+
+            // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
+            return String::from_utf8(current_bytes).map_err(|e| e.to_string());
+        }
+
+        // Fallback for unicode
+        let mut rules_array: [Option<&str>; 128] = [None; 128];
+        for (k, v) in &self.rules {
+            if (*k as usize) < 128 {
+                rules_array[*k as usize] = Some(v.as_str());
+            }
+        }
+
         for _ in 0..iterations {
-            let mut next = String::with_capacity(current.len() * 2);
+            // Estimate capacity: a bit larger than current to avoid multiple reallocations,
+            // but not requiring a full pre-pass loop over the string.
+            let mut next_len: usize = 0;
             for c in current.chars() {
-                if let Some(replacement) = self.rules.get(&c) {
+                let u = c as usize;
+                if u < 128 {
+                    if let Some(replacement) = rules_array[u] {
+                        next_len = next_len
+                            .checked_add(replacement.len())
+                            .ok_or("L-system exceeded memory limits")?;
+                    } else {
+                        next_len = next_len
+                            .checked_add(1)
+                            .ok_or("L-system exceeded memory limits")?;
+                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
+                    next_len = next_len
+                        .checked_add(replacement.len())
+                        .ok_or("L-system exceeded memory limits")?;
+                } else {
+                    next_len = next_len
+                        .checked_add(1)
+                        .ok_or("L-system exceeded memory limits")?;
+                }
+            }
+            if next_len > limit {
+                return Err("L-system exceeded memory limits".to_string());
+            }
+
+            let mut next = String::with_capacity(next_len);
+            for c in current.chars() {
+                let u = c as usize;
+                if u < 128 {
+                    if let Some(replacement) = rules_array[u] {
+                        next.push_str(replacement);
+                    } else {
+                        next.push(c);
+                    }
+                } else if let Some(replacement) = self.rules.get(&c) {
                     next.push_str(replacement);
                 } else {
                     next.push(c);
@@ -122,19 +238,24 @@ impl LSystem {
             current = next;
         }
 
-        current
+        Ok(current)
     }
 
     /// Generates a Mesh from the expanded L-System string.
-    pub fn generate_mesh(&self, iterations: u32) -> Mesh {
-        let instructions = self.expand(iterations);
-        let mut mesh = Mesh::new();
-        let mut stack: Vec<Turtle> = Vec::new();
+    pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
+        let instructions = self.expand(iterations)?;
+
+        // Estimate capacities from total length without needing a second O(N) pass
+        let num_segments = instructions.len() / 2;
+        let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 8);
+
+        let mut stack: Vec<Turtle> = Vec::with_capacity(instructions.len() / 8);
         let mut turtle = Turtle::new(self.step_length, self.radius);
 
-        for c in instructions.chars() {
-            match c {
-                'F' => {
+        // F, f, +, -, &, ^, \, /, |, [, ] are all 1-byte ascii characters in UTF-8
+        for &b in instructions.as_bytes() {
+            match b {
+                b'F' => {
                     // Draw segment
                     let start = turtle.position;
                     let end = start + turtle.heading * turtle.step_length;
@@ -143,53 +264,53 @@ impl LSystem {
 
                     turtle.position = end;
                 }
-                'f' => {
+                b'f' => {
                     // Move without drawing
                     turtle.position = turtle.position + turtle.heading * turtle.step_length;
                 }
-                '+' => {
+                b'+' => {
                     // Yaw Left (around Up)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '-' => {
+                b'-' => {
                     // Yaw Right (around Up)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '&' => {
+                b'&' => {
                     // Pitch Down (around Left)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
-                '^' => {
+                b'^' => {
                     // Pitch Up (around Left)
                     turtle.heading =
                         rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
                     turtle.up = turtle.heading.cross(turtle.left).normalize();
                 }
-                '\\' => {
+                b'\\' => {
                     // Roll Left (around Heading)
                     turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '/' => {
+                b'/' => {
                     // Roll Right (around Heading)
                     turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '|' => {
+                b'|' => {
                     // Turn 180 (around Up)
                     turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).normalize();
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
-                '[' => {
-                    stack.push(turtle.clone());
+                b'[' => {
+                    stack.push(turtle);
                 }
-                ']' => {
+                b']' => {
                     if let Some(state) = stack.pop() {
                         turtle = state;
                     }
@@ -198,7 +319,7 @@ impl LSystem {
             }
         }
 
-        mesh
+        Ok(mesh)
     }
 
     /// Adds a 4-sided prism segment to the mesh.
@@ -287,20 +408,29 @@ mod tests {
         lsys.add_rule('B', "A");
 
         // Iteration 0: A
-        assert_eq!(lsys.expand(0), "A");
+        assert_eq!(lsys.expand(0).unwrap(), "A");
         // Iteration 1: AB
-        assert_eq!(lsys.expand(1), "AB");
+        assert_eq!(lsys.expand(1).unwrap(), "AB");
         // Iteration 2: ABA
-        assert_eq!(lsys.expand(2), "ABA");
+        assert_eq!(lsys.expand(2).unwrap(), "ABA");
         // Iteration 3: ABAAB
-        assert_eq!(lsys.expand(3), "ABAAB");
+        assert_eq!(lsys.expand(3).unwrap(), "ABAAB");
+    }
+
+    #[test]
+    fn test_expansion_dos() {
+        let mut lsys = LSystem::new("A", 90.0, 1.0, 0.1);
+        // 1 => 10 chars
+        lsys.add_rule('A', "AAAAAAAAAA");
+        // 10 iterations = 10^10 chars > 100MB limit
+        assert!(lsys.expand(10).is_err());
     }
 
     #[test]
     fn test_mesh_generation() {
         // Simple "stick"
         let lsys = LSystem::new("F", 90.0, 1.0, 0.1);
-        let mesh = lsys.generate_mesh(1);
+        let mesh = lsys.generate_mesh(1).unwrap();
 
         // Should have 8 vertices (4 start, 4 end)
         assert_eq!(mesh.vertices.len(), 8);
