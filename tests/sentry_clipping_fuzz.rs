@@ -5,6 +5,7 @@ use proptest::prelude::*;
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
 fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
+    lerp: impl Fn(V, V, f32) -> V,
     v0: V,
     v1: V,
     v2: V,
@@ -16,17 +17,17 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
 
     // 6 Planes
     // 1. Left: x >= -w -> x + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| p.x + w, &get_pos);
     // 2. Right: x <= w -> w - x >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| w - p.x, &get_pos);
     // 3. Bottom: y >= -w -> y + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| p.y + w, &get_pos);
     // 4. Top: y <= w -> w - y >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| w - p.y, &get_pos);
     // 5. Near: z >= -w -> z + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| p.z + w, &get_pos);
     // 6. Far: z <= w -> w - z >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos);
+    clip_plane(&lerp, &mut current_polygon, |p, w| w - p.z, &get_pos);
 
     // Triangulate (Fan)
     let mut triangles = Vec::new();
@@ -42,6 +43,7 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
 }
 
 fn clip_plane<V: Copy>(
+    lerp: &impl Fn(V, V, f32) -> V,
     polygon: &mut Vec<V>,
     dist_fn: impl Fn(Vec3, f32) -> f32,
     get_pos: &impl Fn(&V) -> (Vec3, f32),
@@ -64,7 +66,7 @@ fn clip_plane<V: Copy>(
             if prev_d < 0.0 {
                 // Entered
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push(lerp(prev_v, curr_v, t));
             }
             new_polygon.push(curr_v);
         } else {
@@ -72,7 +74,7 @@ fn clip_plane<V: Copy>(
             if prev_d >= 0.0 {
                 // Exited
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push(prev_v.lerp(curr_v, t));
+                new_polygon.push(lerp(prev_v, curr_v, t));
             }
         }
         prev_v = curr_v;
@@ -128,11 +130,11 @@ proptest! {
         let get_pos = |v: &(Vec3, f32)| *v;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t));
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle
-        let vec_scalar = clip_triangle_scalar(v0, v1, v2, get_pos);
+        let vec_scalar = clip_triangle_scalar(|a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t), v0, v1, v2, get_pos);
 
         compare_vertices(&vec_simd, &vec_scalar);
     }
