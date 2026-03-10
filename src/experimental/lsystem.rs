@@ -133,31 +133,41 @@ impl Turtle {
     /// # Errors
     /// Returns an error if the stack overflows or underflows.
     pub fn generate_mesh(&mut self, commands: &str) -> Result<Mesh, &'static str> {
-        let mut mesh = Mesh::new();
         // Base mesh to use for segments (a simple tetrahedron/pyramid or line placeholder)
         // For simplicity and speed in software rendering, we will generate a very simple geometry
         // per line segment (e.g., a small box or custom geometry). We will use a fast hardcoded method here.
 
-        for c in commands.chars() {
+        /// Bolt Performance Optimization:
+        /// - Converts commands to an ASCII byte array to avoid UTF-8 `chars()` decoding overhead during iteration.
+        /// - Pre-calculates the required number of segments by scanning for `b'F'`.
+        /// - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
+        ///   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
+
+        let commands_bytes = commands.as_bytes();
+        #[allow(clippy::naive_bytecount)]
+        let num_segments = commands_bytes.iter().filter(|&&b| b == b'F').count();
+        let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 12);
+
+        for &c in commands_bytes {
             match c {
-                'F' => {
+                b'F' => {
                     // Draw forward
                     let start = self.position;
                     self.position = self.position + self.direction * self.segment_length;
                     let end = self.position;
                     self.add_segment(&mut mesh, start, end, self.segment_radius);
                 }
-                'f' => {
+                b'f' => {
                     // Move forward (no draw)
                     self.position = self.position + self.direction * self.segment_length;
                 }
-                '+' => self.yaw(self.turn_angle),
-                '-' => self.yaw(-self.turn_angle),
-                '&' => self.pitch(self.turn_angle),
-                '^' => self.pitch(-self.turn_angle),
-                '\\' => self.roll(self.turn_angle),
-                '/' => self.roll(-self.turn_angle),
-                '[' => {
+                b'+' => self.yaw(self.turn_angle),
+                b'-' => self.yaw(-self.turn_angle),
+                b'&' => self.pitch(self.turn_angle),
+                b'^' => self.pitch(-self.turn_angle),
+                b'\\' => self.roll(self.turn_angle),
+                b'/' => self.roll(-self.turn_angle),
+                b'[' => {
                     if self.stack.len() > 1000 {
                         return Err("L-System stack overflow");
                     }
@@ -170,7 +180,7 @@ impl Turtle {
                         segment_radius: self.segment_radius,
                     });
                 }
-                ']' => {
+                b']' => {
                     if let Some(state) = self.stack.pop() {
                         self.position = state.position;
                         self.direction = state.direction;

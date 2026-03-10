@@ -557,7 +557,9 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
         pixels.par_iter_mut().enumerate().for_each(|(i, p)| {
             // Give each pixel a deterministic but pseudo-random starting state based on index
             // This allows the noise to be consistent per frame (if seed is same)
-            let mut lcg = config.seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+            let mut lcg = config
+                .seed
+                .wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
             lcg ^= lcg << 13;
             lcg ^= lcg >> 17;
             lcg ^= lcg << 5;
@@ -1844,7 +1846,10 @@ mod tests {
             }
         }
 
-        assert!(changed, "Film grain did not change the pixel values on black");
+        assert!(
+            changed,
+            "Film grain did not change the pixel values on black"
+        );
     }
 
     #[test]

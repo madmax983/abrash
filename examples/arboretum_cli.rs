@@ -326,8 +326,10 @@ fn main() {
                     .fg(comfy_table::Color::White),
             ])
             .add_row(vec![
-                comfy_table::Cell::new("Try running with:\ncargo run --example arboretum_cli --features nova")
-                    .fg(comfy_table::Color::Green),
+                comfy_table::Cell::new(
+                    "Try running with:\ncargo run --example arboretum_cli --features nova",
+                )
+                .fg(comfy_table::Color::Green),
             ]);
 
         eprintln!("\n{error_table}");

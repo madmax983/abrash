@@ -1,8 +1,8 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use abrash::culling::Frustum;
-use abrash::math::Mat4;
 use abrash::geometry::BoundingSphere;
+use abrash::math::Mat4;
 use abrash::math::Vec3;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_cull_spheres(c: &mut Criterion) {
     let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
