@@ -44,6 +44,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Fate:** Merged
 **Lesson:** Fixed-point math and digital differential analyzer (DDA) techniques provide massive speedups when doing sub-pixel interpolation. By pre-calculating the step interval in fixed point (`let step_x = (dx * step_factor * 65536.0) as i32`), replacing the sample array allocation and float math (`for &scale in scales { ... dx * scale }`) with integer accumulation (`cur_x += step_x`), the benchmark execution time was effectively halved (~45% speedup).
 
+## Optimize transform_batch with collect
+
+**Learning:** Replacing a manual `for` loop and `.push()` with an idiomatic `.map(...).collect()` chain on a slice iterator can yield significant performance gains. Because slice iterators implement the `TrustedLen` trait, `.collect()` can safely bypass bounds and capacity checks on every insertion, allowing LLVM to better vectorize the code.
+**Action:** Always prefer iterator chains over manual loop pushes when transforming slices or arrays, as it not only improves readability but can also drastically enhance performance by leveraging zero-cost abstractions.
 **[Performance Optimization: Look-Up Tables for Color Channels]**
 **Learning:** When performing per-pixel math operations on 8-bit color channels (like brightness and contrast adjustments), there are only 256 possible input values. Re-calculating the math and clamping bounds for millions of pixels per frame is redundant.
 **Action:** Replace per-pixel inner-loop calculations with a precomputed 256-element Look-Up Table (LUT) (`[u32; 256]`). This converts complex math and clamping logic into a simple `O(1)` array indexing operation per channel, providing massive speedups on large framebuffers.
