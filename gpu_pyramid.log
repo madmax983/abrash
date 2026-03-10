@@ -1,0 +1,206 @@
+ Downloading crates ...
+  Downloaded ab_glyph_rasterizer v0.1.10
+  Downloaded arrayref v0.3.9
+  Downloaded cfg_aliases v0.1.1
+  Downloaded as-raw-xcb-connection v1.0.1
+  Downloaded calloop-wayland-source v0.2.0
+  Downloaded arrayvec v0.7.6
+  Downloaded dlib v0.5.2
+  Downloaded strict-num v0.1.1
+  Downloaded scoped-tls v1.0.1
+  Downloaded smol_str v0.2.2
+  Downloaded wayland-csd-frame v0.3.0
+  Downloaded owned_ttf_parser v0.25.1
+  Downloaded wayland-cursor v0.31.12
+  Downloaded unicode-xid v0.2.6
+  Downloaded gethostname v1.1.0
+  Downloaded xkbcommon-dl v0.4.2
+  Downloaded gpu-descriptor v0.3.2
+  Downloaded xcursor v0.3.10
+  Downloaded shlex v1.3.0
+  Downloaded codespan-reporting v0.11.1
+  Downloaded wayland-protocols-wlr v0.2.0
+  Downloaded wayland-scanner v0.31.8
+  Downloaded x11-dl v2.21.0
+  Downloaded wayland-protocols-plasma v0.2.0
+  Downloaded wayland-backend v0.3.12
+  Downloaded xkeysym v0.2.1
+  Downloaded smithay-client-toolkit v0.18.1
+  Downloaded wayland-protocols v0.31.2
+  Downloaded hashbrown v0.15.5
+  Downloaded glow v0.13.1
+  Downloaded x11rb v0.13.2
+  Downloaded quick-xml v0.38.4
+  Downloaded wgpu-core v0.21.1
+  Downloaded ttf-parser v0.25.1
+  Downloaded wgpu-hal v0.21.1
+  Downloaded unicode-width v0.1.14
+  Downloaded tiny-skia v0.11.4
+  Downloaded wgpu v0.20.1
+  Downloaded rustix v0.38.44
+  Downloaded indexmap v2.13.0
+  Downloaded polling v3.11.0
+  Downloaded wgpu-types v0.20.0
+  Downloaded wayland-client v0.31.12
+  Downloaded ash v0.37.3+1.3.251
+  Downloaded sctk-adwaita v0.8.3
+  Downloaded x11rb-protocol v0.13.2
+  Downloaded tiny-skia-path v0.11.4
+  Downloaded raw-window-handle v0.6.2
+  Downloaded memmap2 v0.9.9
+  Downloaded libloading v0.8.9
+  Downloaded khronos-egl v6.0.0
+  Downloaded naga v0.20.0
+  Downloaded winit v0.29.15
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded calloop v0.12.4
+  Downloaded termcolor v1.4.1
+  Downloaded slab v0.4.12
+  Downloaded pkg-config v0.3.32
+  Downloaded jobserver v0.1.34
+  Downloaded cc v1.2.55
+  Downloaded libloading v0.7.4
+  Downloaded foldhash v0.1.5
+  Downloaded downcast-rs v1.2.1
+  Downloaded wayland-sys v0.31.8
+  Downloaded rustc-hash v1.1.0
+  Downloaded profiling v1.0.17
+  Downloaded pollster v0.3.0
+  Downloaded gpu-descriptor-types v0.2.0
+  Downloaded ahash v0.8.12
+  Downloaded spirv v0.3.0+sdk-1.3.268.0
+  Downloaded percent-encoding v2.3.2
+  Downloaded gpu-alloc v0.6.0
+  Downloaded gpu-alloc-types v0.3.0
+  Downloaded ab_glyph v0.2.32
+  Downloaded hexf-parse v0.2.1
+  Downloaded bytemuck_derive v1.10.2
+  Downloaded renderdoc-sys v1.1.0
+  Downloaded cursor-icon v1.2.0
+  Downloaded linux-raw-sys v0.4.15
+   Compiling rustix v1.1.3
+   Compiling linux-raw-sys v0.11.0
+   Compiling smallvec v1.15.1
+   Compiling libloading v0.8.9
+   Compiling pkg-config v0.3.32
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling dlib v0.5.2
+   Compiling cc v1.2.55
+   Compiling cfg_aliases v0.1.1
+   Compiling memchr v2.7.6
+   Compiling wayland-sys v0.31.8
+   Compiling scoped-tls v1.0.1
+   Compiling downcast-rs v1.2.1
+   Compiling thiserror v1.0.69
+   Compiling quick-xml v0.38.4
+   Compiling thiserror-impl v1.0.69
+   Compiling wayland-backend v0.3.12
+   Compiling wayland-client v0.31.12
+   Compiling parking_lot_core v0.9.12
+   Compiling wayland-scanner v0.31.8
+   Compiling parking_lot v0.12.5
+   Compiling rustix v0.38.44
+   Compiling arrayvec v0.7.6
+   Compiling linux-raw-sys v0.4.15
+   Compiling bytemuck_derive v1.10.2
+   Compiling ash v0.37.3+1.3.251
+   Compiling foldhash v0.1.5
+   Compiling unicode-width v0.1.14
+   Compiling bit-vec v0.6.3
+   Compiling khronos-egl v6.0.0
+   Compiling slab v0.4.12
+   Compiling termcolor v1.4.1
+   Compiling bit-set v0.5.3
+   Compiling codespan-reporting v0.11.1
+   Compiling bytemuck v1.25.0
+   Compiling hashbrown v0.15.5
+   Compiling wgpu-hal v0.21.1
+   Compiling polling v3.11.0
+   Compiling indexmap v2.13.0
+   Compiling calloop v0.12.4
+   Compiling gpu-descriptor-types v0.2.0
+   Compiling gpu-alloc-types v0.3.0
+   Compiling spirv v0.3.0+sdk-1.3.268.0
+   Compiling libloading v0.7.4
+   Compiling unicode-xid v0.2.6
+   Compiling xkeysym v0.2.1
+   Compiling cursor-icon v1.2.0
+   Compiling arrayref v0.3.9
+   Compiling xcursor v0.3.10
+   Compiling wayland-protocols v0.31.2
+   Compiling smithay-client-toolkit v0.18.1
+   Compiling ttf-parser v0.25.1
+   Compiling version_check v0.9.5
+   Compiling raw-window-handle v0.6.2
+   Compiling rustc-hash v1.1.0
+   Compiling hexf-parse v0.2.1
+   Compiling strict-num v0.1.1
+   Compiling tiny-skia-path v0.11.4
+   Compiling naga v0.20.0
+   Compiling ahash v0.8.12
+   Compiling wayland-cursor v0.31.12
+   Compiling calloop-wayland-source v0.2.0
+   Compiling owned_ttf_parser v0.25.1
+   Compiling wayland-csd-frame v0.3.0
+   Compiling gpu-alloc v0.6.0
+   Compiling wayland-protocols-wlr v0.2.0
+   Compiling gpu-descriptor v0.3.2
+   Compiling x11-dl v2.21.0
+   Compiling wgpu-core v0.21.1
+   Compiling memmap2 v0.9.9
+   Compiling wgpu-types v0.20.0
+   Compiling renderdoc-sys v1.1.0
+   Compiling profiling v1.0.17
+   Compiling ab_glyph_rasterizer v0.1.10
+   Compiling glow v0.13.1
+   Compiling ab_glyph v0.2.32
+   Compiling crossterm v0.29.0
+   Compiling tiny-skia v0.11.4
+   Compiling gethostname v1.1.0
+   Compiling winit v0.29.15
+   Compiling wgpu v0.20.1
+   Compiling x11rb-protocol v0.13.2
+   Compiling as-raw-xcb-connection v1.0.1
+   Compiling sctk-adwaita v0.8.3
+   Compiling wayland-protocols-plasma v0.2.0
+   Compiling xkbcommon-dl v0.4.2
+   Compiling smol_str v0.2.2
+   Compiling percent-encoding v2.3.2
+   Compiling tempfile v3.24.0
+   Compiling pollster v0.3.0
+   Compiling abrash v0.1.0 (/app)
+   Compiling ratatui-crossterm v0.1.0
+   Compiling rusty-fork v0.3.1
+   Compiling comfy-table v7.2.2
+   Compiling x11rb v0.13.2
+   Compiling proptest v1.9.0
+   Compiling abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+   Compiling ratatui v0.30.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 56.86s
+     Running `target/debug/examples/gpu_pyramid`
+
+[38;5;14m[1m📐 GPU Pyramid Demo[0m
+[38;5;8m========================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬─────────────────────────────┐
+│ Property    ┆ Value                       │
+╞═════════════╪═════════════════════════════╡
+│ Description ┆ Generic mesh rendering test │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Backend     ┆ wgpu (Metal/Vulkan/DX12)    │
+└─────────────┴─────────────────────────────┘
+
+[1m🎮 Controls[0m
+┌──────────┬──────────────────────────────────┐
+│ Input    ┆ Action                           │
+╞══════════╪══════════════════════════════════╡
+│ Mouse    ┆ Drag to orbit, Wheel to zoom     │
+├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Keyboard ┆ Arrows/WASD (Orbit), Q/E (Zoom)  │
+├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Keyboard ┆ Space (Toggle Rotate), R (Reset) │
+└──────────┴──────────────────────────────────┘
+
+Error: "Failed to create event loop: os error at /home/jules/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.29.15/src/platform_impl/linux/mod.rs:786: neither WAYLAND_DISPLAY nor WAYLAND_SOCKET nor DISPLAY is set."

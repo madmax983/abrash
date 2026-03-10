@@ -1,0 +1,22 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.50s
+     Running `target/debug/examples/pixel_sort_demo`
+
+[38;5;14m[1m📺 Pixel Sort Demo[0m
+[38;5;8m=======================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬───────────────────────────────────────────────┐
+│ Property    ┆ Value                                         │
+╞═════════════╪═══════════════════════════════════════════════╡
+│ Description ┆ Glitch art pixel sorting effect               │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Features    ┆ Luminance Threshold Sorting, Alternating Axes │
+└─────────────┴───────────────────────────────────────────────┘
+
+[1m🎮 Controls[0m
+┌───────┬────────────────────────────────┐
+│ Input ┆ Action                         │
+╞═══════╪════════════════════════════════╡
+│ Auto  ┆ Cycles sorting modes over time │
+└───────┴────────────────────────────────┘
