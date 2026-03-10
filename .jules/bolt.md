@@ -73,3 +73,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] Zero-Cost Normal Iteration in Displace Noise
 **Learning:** In procedural mesh modifiers, cloning `mesh.normals` just to iterate alongside `mesh.vertices` creates an unnecessary $O(N)$ heap allocation per frame/call.
 **Action:** Exploit Rust's ability to take disjoint borrows from the same struct by properly sizing `mesh.normals` in-place, and directly pairing it with `mesh.vertices` using `.zip(&mesh.normals)`. This removes the clone while preserving `.par_iter_mut()` parallelism entirely overhead-free.
+
+**[Performance Optimization: Flattened iterator chunking for framebuffer exports]**
+**Learning:** When flattening or transforming 1D slices representing 2D grids (like framebuffers), using manual `y` and `x` loops with `.push()` operations incurs overhead from bounds checking on every insertion. Furthermore, if `pixels.len()` is larger than `width * height` (e.g., due to memory padding), iterating over `chunks_exact(width)` without `.take(height)` can incorrectly write out-of-bounds rows.
+**Action:** Use `.chunks_exact(width).take(height)` combined with `.extend(row.iter().flat_map(...))` to bypass repetitive bounds checks, enable loop vectorization, and correctly handle capacity alignment padding without panicking or writing garbage data.

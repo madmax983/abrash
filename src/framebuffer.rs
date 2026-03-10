@@ -397,6 +397,10 @@ impl Framebuffer {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_ppm<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        if self.width() == 0 || self.height() == 0 {
+            return Ok(());
+        }
+
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
@@ -409,21 +413,18 @@ impl Framebuffer {
         let pixels = self.as_slice();
         let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
 
-        for y in 0..self.height() {
+        // Optimization: Iterating over contiguous chunks and extending the row buffer
+        // using `flat_map` eliminates inner-loop bounds checking (which `push()` would incur),
+        // and enables the compiler to unroll and vectorize the RGB extraction.
+        for row in pixels.chunks_exact(self.width() as usize).take(self.height() as usize) {
             row_buffer.clear();
-            for x in 0..self.width() {
-                // Get pixel at (x, y)
-                let pixel = pixels[(y * self.width() + x) as usize];
-
-                // Extract RGB components (0xAARRGGBB)
-                let r = ((pixel >> 16) & 0xFF) as u8;
-                let g = ((pixel >> 8) & 0xFF) as u8;
-                let b = (pixel & 0xFF) as u8;
-
-                row_buffer.push(r);
-                row_buffer.push(g);
-                row_buffer.push(b);
-            }
+            row_buffer.extend(row.iter().flat_map(|&pixel| {
+                [
+                    ((pixel >> 16) & 0xFF) as u8,
+                    ((pixel >> 8) & 0xFF) as u8,
+                    (pixel & 0xFF) as u8,
+                ]
+            }));
             writer.write_all(&row_buffer)?;
         }
 
@@ -438,6 +439,10 @@ impl Framebuffer {
     /// # Errors
     /// Returns an error if the file cannot be created or written to.
     pub fn export_tga<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        if self.width() == 0 || self.height() == 0 {
+            return Ok(());
+        }
+
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
@@ -462,21 +467,19 @@ impl Framebuffer {
         let pixels = self.as_slice();
         let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
 
-        for y in 0..self.height() {
+        // Optimization: Replacing manual indexing and sequential `.push()` operations
+        // with chunked slice iteration and `.extend(.flat_map(...))` allows the compiler
+        // to bypass repetitive bounds and capacity checks on every insertion, enabling
+        // better vectorization and substantially decreasing file export latency.
+        for row in pixels.chunks_exact(self.width() as usize).take(self.height() as usize) {
             row_buffer.clear();
-            for x in 0..self.width() {
-                let pixel = pixels[(y * self.width() + x) as usize];
-
-                // Extract BGR components (0xAARRGGBB)
-                let r = ((pixel >> 16) & 0xFF) as u8;
-                let g = ((pixel >> 8) & 0xFF) as u8;
-                let b = (pixel & 0xFF) as u8;
-
-                // TGA uses BGR
-                row_buffer.push(b);
-                row_buffer.push(g);
-                row_buffer.push(r);
-            }
+            row_buffer.extend(row.iter().flat_map(|&pixel| {
+                [
+                    (pixel & 0xFF) as u8,
+                    ((pixel >> 8) & 0xFF) as u8,
+                    ((pixel >> 16) & 0xFF) as u8,
+                ]
+            }));
             writer.write_all(&row_buffer)?;
         }
 
