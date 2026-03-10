@@ -9,14 +9,10 @@ struct TestVertex {
     w: f32,
 }
 
-// Implement Lerp for TestVertex
-use abrash::clipping::Lerp;
-impl Lerp for TestVertex {
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self {
-            pos: self.pos.lerp(other.pos, t),
-            w: self.w + (other.w - self.w) * t,
-        }
+fn lerp_vertex(a: TestVertex, b: TestVertex, t: f32) -> TestVertex {
+    TestVertex {
+        pos: a.pos.lerp(b.pos, t),
+        w: a.w + (b.w - a.w) * t,
     }
 }
 
@@ -42,7 +38,7 @@ proptest! {
         v1 in arb_vertex(),
         v2 in arb_vertex()
     ) {
-        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_vertex);
     }
 
     // Test with specific tricky values
@@ -53,7 +49,7 @@ proptest! {
         v2 in arb_vertex()
     ) {
         // Run it multiple times or just rely on proptest's shrinking
-        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_vertex);
     }
 }
 
@@ -75,7 +71,7 @@ fn test_clip_triangle_nan_panic() {
     };
 
     // Should not panic
-    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_vertex);
 }
 
 #[test]
@@ -95,5 +91,5 @@ fn test_clip_triangle_inf_panic() {
     };
 
     // Should not panic
-    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, lerp_vertex);
 }
