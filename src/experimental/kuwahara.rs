@@ -90,9 +90,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             for py in py_start..=py_end {
                                 let row_offset = (py * width) as usize;
                                 for px in px_start..=px_end {
-                                    // Using get_unchecked since we clamped
-                                    let pixel =
-                                        unsafe { *src_fb.get_unchecked(row_offset + px as usize) };
+                                    let pixel = src_fb[row_offset + px as usize];
 
                                     let r = (pixel >> 16) & 0xFF;
                                     let g = (pixel >> 8) & 0xFF;
@@ -194,9 +192,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             for py in py_start..=py_end {
                                 let row_offset = (py * width) as usize;
                                 for px in px_start..=px_end {
-                                    // Using get_unchecked since we clamped
-                                    let pixel =
-                                        unsafe { *src_fb.get_unchecked(row_offset + px as usize) };
+                                    let pixel = src_fb[row_offset + px as usize];
 
                                     let r = (pixel >> 16) & 0xFF;
                                     let g = (pixel >> 8) & 0xFF;
@@ -253,4 +249,26 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                 });
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+
+    #[test]
+    fn test_kuwahara_bounds() {
+        // Test with different framebuffer sizes to ensure no out-of-bounds panics
+        let sizes = [(1, 1), (10, 10), (100, 1), (1, 100), (33, 47)];
+
+        for (w, h) in sizes {
+            let mut fb = Framebuffer::new(w, h).unwrap();
+            fb.clear(0xFFFFFFFF);
+
+            // Should not panic with varying radii
+            for radius in [1, 2, 5, 10] {
+                apply_kuwahara(&mut fb, radius);
+            }
+        }
+    }
 }

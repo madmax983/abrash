@@ -4884,7 +4884,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // (0 + 255) / 2 = 127.
-        assert!((120..=135).contains(&r), "Pixel should be ~127, got {}", r);
+        assert!((120..=135).contains(&r), "Pixel should be ~127, got {r}");
     }
 
     #[test]
@@ -4999,23 +4999,17 @@ fn test_draw_scanline_trilinear() {
     // Level 0 (Black) mixed with Level 1 (Grey ~127).
     // 50/50 blend -> ~63.
     // Allow range 55-75.
-    assert!((55..=75).contains(&r), "Expected ~64, got {}", r);
+    assert!((55..=75).contains(&r), "Expected ~64, got {r}");
 }
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for i in 1..RECIPROCAL_TABLE.len() {
+    for (i, val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let table_val = RECIPROCAL_TABLE[i];
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
-        assert!(
-            diff < 1e-6,
-            "Table index {} mismatch: table={}, actual={}",
-            i,
-            table_val,
-            actual
-        );
+        assert!(diff < 1e-6, "Table index {i} mismatch: table={table_val}, actual={actual}");
     }
 }
