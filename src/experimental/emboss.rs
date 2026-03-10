@@ -47,7 +47,11 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
     };
 
     #[cfg(feature = "parallel")]
-    let row_iter = dest.par_chunks_mut(width).enumerate().skip(1).take(height - 2);
+    let row_iter = dest
+        .par_chunks_mut(width)
+        .enumerate()
+        .skip(1)
+        .take(height - 2);
     #[cfg(not(feature = "parallel"))]
     let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
 
@@ -63,13 +67,13 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         for x in 1..width - 1 {
             // Read pixels
             let tl = prev_row[x - 1];
-            let t  = prev_row[x];
+            let t = prev_row[x];
 
-            let l  = curr_row[x - 1];
-            let c  = curr_row[x];
-            let r  = curr_row[x + 1];
+            let l = curr_row[x - 1];
+            let c = curr_row[x];
+            let r = curr_row[x + 1];
 
-            let b  = next_row[x];
+            let b = next_row[x];
             let br = next_row[x + 1];
 
             let (tl_r, tl_g, tl_b) = extract(tl);

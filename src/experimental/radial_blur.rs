@@ -37,13 +37,10 @@ pub fn apply_radial_blur(
     let src_fb = fb.as_slice().to_vec();
     let dest_pixels = fb.as_mut_slice();
 
-    // Precalculate scales
-    let scales: Vec<f32> = (0..samples)
-        .map(|i| {
-            let t = i as f32 / (samples - 1) as f32;
-            1.0 - (strength * t)
-        })
-        .collect();
+    // ⚡ Bolt Optimization: Calculate scale math iteratively inside the sampling loops
+    // to completely avoid heap allocation (`Vec::collect`) and iteration overhead
+    // for small `samples` limits.
+    let inv_samples = 1.0 / (samples as f32 - 1.0);
 
     #[cfg(feature = "parallel")]
     {
@@ -61,7 +58,10 @@ pub fn apply_radial_blur(
                     let mut g_acc = 0;
                     let mut b_acc = 0;
 
-                    for &scale in &scales {
+                    for i in 0..samples {
+                        let t = i as f32 * inv_samples;
+                        let scale = 1.0 - (strength * t);
+
                         let sample_x = (cx as f32 + dx * scale) as i32;
                         let sample_y = (cy as f32 + dy * scale) as i32;
 
@@ -95,7 +95,10 @@ pub fn apply_radial_blur(
                 let mut g_acc = 0;
                 let mut b_acc = 0;
 
-                for &scale in &scales {
+                for i in 0..samples {
+                    let t = i as f32 * inv_samples;
+                    let scale = 1.0 - (strength * t);
+
                     let sample_x = (cx as f32 + dx * scale) as i32;
                     let sample_y = (cy as f32 + dy * scale) as i32;
 
