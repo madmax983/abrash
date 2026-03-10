@@ -5008,19 +5008,14 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_span_nearest(
-            &mut fb,
-            &mut zb,
-            &tex,
-            z,
-            dz_dx,
-            u_fix,
-            v_fix,
-            du_fix,
-            dv_fix,
+            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
         );
     }));
 
-    assert!(result.is_ok(), "draw_span_nearest panicked due to overflow vulnerability!");
+    assert!(
+        result.is_ok(),
+        "draw_span_nearest panicked due to overflow vulnerability!"
+    );
 }
 
 #[test]
@@ -5030,6 +5025,9 @@ fn test_reciprocal_table_accuracy() {
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
-        assert!(diff < 1e-6, "Table index {i} mismatch: table={table_val}, actual={actual}");
+        assert!(
+            diff < 1e-6,
+            "Table index {i} mismatch: table={table_val}, actual={actual}"
+        );
     }
 }
