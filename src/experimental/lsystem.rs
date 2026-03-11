@@ -70,6 +70,12 @@ impl LSystem {
         for _ in 0..iterations {
             next_string.clear();
 
+            // Bolt Performance Optimization:
+            // When `current` and `next_string` are swapped, the smaller buffer is recycled.
+            // By reserving capacity before pushing new characters, we prevent continuous O(N)
+            // heap reallocations as the string expands exponentially.
+            next_string.reserve(current.len() * 2);
+
             for c in current.chars() {
                 if let Some(replacement) = self.rules.get(&c) {
                     next_string.push_str(replacement);
@@ -142,7 +148,6 @@ impl Turtle {
         /// - Pre-calculates the required number of segments by scanning for `b'F'`.
         /// - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
         ///   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
-
         let commands_bytes = commands.as_bytes();
         #[allow(clippy::naive_bytecount)]
         let num_segments = commands_bytes.iter().filter(|&&b| b == b'F').count();
