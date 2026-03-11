@@ -45,6 +45,10 @@ pub struct GodRaysConfig {
     pub num_samples: u32,
 }
 
+/// Bolt Performance Optimization:
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     if config.num_samples == 0 || config.weight <= 0.0 || config.exposure <= 0.0 {
         return;

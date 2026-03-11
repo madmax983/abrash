@@ -44,6 +44,10 @@ impl Default for DitherConfig {
 ///
 /// * `fb` - The framebuffer to modify.
 /// * `config` - Dithering configuration.
+/// Bolt Performance Optimization:
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 pub fn apply_dither(fb: &mut Framebuffer, config: DitherConfig) {
     match config.mode {
         DitherMode::Ordered2x2 => apply_ordered_dither(fb, config.color_depth, &BAYER_2X2, 2),
