@@ -178,7 +178,6 @@ impl<T> DerefMut for AlignedBuffer<T> {
 unsafe impl<T: Send> Send for AlignedBuffer<T> {}
 unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
-
 /// Context for rendering a triangle into a tile.
 struct TileContext<'a> {
     pixels: &'a mut [u32],
@@ -204,7 +203,6 @@ impl<'a> TileContext<'a> {
         ((y - self.y0) as u32 * TILE_SIZE) as usize
     }
 }
-
 
 /// A clip-space triangle with three vertices `(position, w)` and a flat color.
 pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
@@ -719,7 +717,6 @@ fn render_triangle_in_tile(
         e
     };
 
-
     let mut ctx = TileContext {
         pixels: tile_pixels,
         depths: tile_depths,
@@ -729,7 +726,6 @@ fn render_triangle_in_tile(
         y1: tile_y1,
         screen_x_max,
     };
-
 
     let mut ctx = TileContext {
         pixels: tile_pixels,
@@ -743,7 +739,6 @@ fn render_triangle_in_tile(
 
     let dz_dx = tri.dz_dx;
     let color = tri.color;
-
 
     let mut ctx = TileContext {
         pixels: tile_pixels,
@@ -899,7 +894,6 @@ fn render_triangle_in_tile_textured(
         e
     };
 
-
     let mut ctx = TileContext {
         pixels: tile_pixels,
         depths: tile_depths,
@@ -944,7 +938,9 @@ fn render_triangle_in_tile_textured(
             )
         };
 
-        process_tile_scanline_textured(&mut ctx, y, x_start, x_end, z_left, q_left, u_left, v_left, tri, texture);
+        process_tile_scanline_textured(
+            &mut ctx, y, x_start, x_end, z_left, q_left, u_left, v_left, tri, texture,
+        );
 
         edge_a.step();
         edge_b.step();
@@ -1004,7 +1000,6 @@ fn process_tile_scanline_flat(
     }
 }
 
-
 #[inline(always)]
 fn process_tile_scanline_textured(
     ctx: &mut TileContext,
@@ -1036,10 +1031,14 @@ fn process_tile_scanline_textured(
                         let w = 1.0 / q_left;
                         let w_sq = w * w;
 
-                        let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
-                        let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
-                        let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
-                        let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+                        let du_tex_dx =
+                            (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
+                        let dv_tex_dx =
+                            (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
+                        let du_tex_dy =
+                            (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
+                        let dv_tex_dy =
+                            (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
 
                         let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
                             .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
@@ -3604,7 +3603,6 @@ fn render_triangle_in_tile_gouraud(
     let dz_dx = tri.gradients.dz_dx;
     let dc_dx = tri.gradients.dc_dx;
 
-
     let mut ctx = TileContext {
         pixels: tile_pixels,
         depths: tile_depths,
@@ -3699,7 +3697,9 @@ fn process_tile_scanline_gouraud(
             {
                 if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
                     unsafe {
-                        draw_scanline_gouraud_simd_fast(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                        draw_scanline_gouraud_simd_fast(
+                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
+                        );
                     }
                 } else {
                     draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);

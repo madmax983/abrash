@@ -77,3 +77,8 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Flattened iterator chunking for framebuffer exports]**
 **Learning:** When flattening or transforming 1D slices representing 2D grids (like framebuffers), using manual `y` and `x` loops with `.push()` operations incurs overhead from bounds checking on every insertion. Furthermore, if `pixels.len()` is larger than `width * height` (e.g., due to memory padding), iterating over `chunks_exact(width)` without `.take(height)` can incorrectly write out-of-bounds rows.
 **Action:** Use `.chunks_exact(width).take(height)` combined with `.extend(row.iter().flat_map(...))` to bypass repetitive bounds checks, enable loop vectorization, and correctly handle capacity alignment padding without panicking or writing garbage data.
+
+## Bolt's Journal
+**[Eliminate Bounds Checks in 2D Iteration]**
+**Learning:** In hot paths iterating over an entire framebuffer or 2D grid, nested `x`/`y` loops that use bounds-checked `get_pixel(x, y)` calls introduce significant overhead due to the bounds check and `Option` unwrapping per pixel.
+**Action:** Replace nested `x`/`y` loops with direct slice iteration using `.as_slice().chunks_exact(width)`. This leverages zero-cost abstractions to elide bounds checks and eliminate `Option` unwrapping overhead, enabling better vectorization and significant performance gains.

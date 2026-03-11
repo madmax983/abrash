@@ -95,23 +95,13 @@ impl<'a> AsciiConverter<'a> {
         // ANSI sequence is roughly "\x1b[38;2;RRR;GGG;BBBmC" -> ~20 chars
         let mut result = String::with_capacity(((width * 20) * height) as usize);
 
-        for y in 0..height {
-            for x in 0..width {
-                if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
-                    let luminance = pixel_luminance(pixel);
-                    let ch = self.charset.map(luminance);
-
-                    let r = (pixel >> 16) & 0xFF;
-                    let g = (pixel >> 8) & 0xFF;
-                    let b = pixel & 0xFF;
-
-                    // ANSI 24-bit color: ESC[38;2;R;G;Bm
-                    // Note: This allocation inside loop is not ideal for performance but acceptable for ASCII resolution.
-                    // A better approach would be to write directly to the buffer.
-                    let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
-                } else {
-                    result.push(' ');
-                }
+        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+            for &pixel in row {
+                let ch = self.charset.map(pixel_luminance(pixel));
+                let r = (pixel >> 16) & 0xFF;
+                let g = (pixel >> 8) & 0xFF;
+                let b = pixel & 0xFF;
+                let _ = write!(result, "\x1b[38;2;{r};{g};{b}m{ch}");
             }
             // Reset color at end of line
             result.push_str("\x1b[0m\n");
@@ -127,12 +117,9 @@ impl fmt::Display for AsciiConverter<'_> {
         // Estimate capacity: (width + 1) * height
         let mut result = String::with_capacity(((width + 1) * height) as usize);
 
-        for y in 0..height {
-            for x in 0..width {
-                if let Some(pixel) = self.framebuffer.get_pixel(x as i32, y as i32) {
-                    let luminance = pixel_luminance(pixel);
-                    result.push(self.charset.map(luminance));
-                }
+        for row in self.framebuffer.as_slice().chunks_exact(width as usize) {
+            for &pixel in row {
+                result.push(self.charset.map(pixel_luminance(pixel)));
             }
             result.push('\n');
         }
