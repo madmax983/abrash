@@ -178,8 +178,33 @@ impl<T> DerefMut for AlignedBuffer<T> {
 unsafe impl<T: Send> Send for AlignedBuffer<T> {}
 unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
+
+/// Context for rendering a triangle into a tile.
+struct TileContext<'a> {
+    pixels: &'a mut [u32],
+    depths: &'a mut [f32],
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    screen_x_max: i32,
+}
+
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
 pub const TILE_SIZE: u32 = 32;
+
+impl<'a> TileContext<'a> {
+    #[inline(always)]
+    fn get_indices(&self, x: i32, y: i32) -> usize {
+        ((y - self.y0) as u32 * TILE_SIZE + (x - self.x0) as u32) as usize
+    }
+
+    #[inline(always)]
+    fn get_row_offset(&self, y: i32) -> usize {
+        ((y - self.y0) as u32 * TILE_SIZE) as usize
+    }
+}
+
 
 /// A clip-space triangle with three vertices `(position, w)` and a flat color.
 pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
@@ -694,8 +719,41 @@ fn render_triangle_in_tile(
         e
     };
 
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
+
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
+
     let dz_dx = tri.dz_dx;
     let color = tri.color;
+
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
 
     for y in y_start..=y_end {
         if y == p1_y && y != p0_y {
@@ -708,56 +766,7 @@ fn render_triangle_in_tile(
             ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
         };
 
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left;
-                    tile_pixels[tile_idx] = color;
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                // Calculate z at xs
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_at_xs = z_left + dx_start * dz_dx;
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                {
-                    // Adaptive SIMD Rasterization
-                    //
-                    // History:
-                    // - Previously disabled due to maskstore performance regression (4x slower).
-                    // - Optimized to use _mm256_blendv_ps instead of maskstores.
-                    // - Benchmarks verify ~11-14% speedup for large triangles (scanlines >= 32 pixels).
-                    // - Adaptive threshold protects against regression on small triangles.
-                    //
-                    // See: benches/scanline_micro.rs results.
-                    if pixels.len() >= 8 {
-                        rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
-                    } else {
-                        rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-                    }
-                }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-            }
-        }
+        process_tile_scanline_flat(&mut ctx, y, x_start, x_end, z_left, dz_dx, color);
 
         edge_a.step();
         edge_b.step();
@@ -890,6 +899,17 @@ fn render_triangle_in_tile_textured(
         e
     };
 
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
+
     for y in y_start..=y_end {
         if y == tri.p1.y && y != tri.p0.y {
             edge_b = PerspectiveTextureEdgeWalker::new(
@@ -924,82 +944,7 @@ fn render_triangle_in_tile_textured(
             )
         };
 
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] && q_left.abs() > 0.000_001 {
-                    tile_depths[tile_idx] = z_left;
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    tile_pixels[tile_idx] = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        FilterMode::Trilinear => {
-                            // Calculate LOD for single pixel
-                            // For a single pixel, we can estimate gradients based on the triangle gradients
-                            // projected to this pixel.
-                            // q = 1/w.
-                            // u_tex = u/q.
-                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                            let w = 1.0 / q_left;
-                            let w_sq = w * w;
-
-                            let du_tex_dx = (tri.gradients.du_dx * q_left
-                                - u_left * tri.gradients.dq_dx)
-                                * w_sq;
-                            let dv_tex_dx = (tri.gradients.dv_dx * q_left
-                                - v_left * tri.gradients.dq_dx)
-                                * w_sq;
-                            let du_tex_dy = (tri.gradients.du_dy * q_left
-                                - u_left * tri.gradients.dq_dy)
-                                * w_sq;
-                            let dv_tex_dy = (tri.gradients.dv_dy * q_left
-                                - v_left * tri.gradients.dq_dy)
-                                * w_sq;
-
-                            let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
-                                .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-
-                            let lod = 0.5 * max_rho_sq.log2();
-                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
-                        }
-                    };
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_start = z_left + dx_start * tri.gradients.dz_dx;
-                let q_start = q_left + dx_start * tri.gradients.dq_dx;
-                let u_start = u_left + dx_start * tri.gradients.du_dx;
-                let v_start = v_left + dx_start * tri.gradients.dv_dx;
-
-                let start = PerspectiveSpanStart {
-                    z: z_start,
-                    q: q_start,
-                    u: u_start,
-                    v: v_start,
-                };
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                rasterize_scanline_textured(pixels, depths, texture, start, &tri.gradients);
-            }
-        }
+        process_tile_scanline_textured(&mut ctx, y, x_start, x_end, z_left, q_left, u_left, v_left, tri, texture);
 
         edge_a.step();
         edge_b.step();
@@ -1007,6 +952,135 @@ fn render_triangle_in_tile_textured(
 }
 
 #[inline(always)]
+
+fn process_tile_scanline_flat(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] {
+                ctx.depths[tile_idx] = z_left;
+                ctx.pixels[tile_idx] = color;
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            // Calculate z at xs
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_at_xs = z_left + dx_start * dz_dx;
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+            {
+                if pixels.len() >= 8 {
+                    rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
+                } else {
+                    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+                }
+            }
+            #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+            rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+        }
+    }
+}
+
+
+#[inline(always)]
+fn process_tile_scanline_textured(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    q_left: f32,
+    u_left: f32,
+    v_left: f32,
+    tri: &PreparedTexturedTriangle,
+    texture: &Texture,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] && q_left.abs() > 0.000_001 {
+                ctx.depths[tile_idx] = z_left;
+                let w = 1.0 / q_left;
+                let u_tex = u_left * w;
+                let v_tex = v_left * w;
+                ctx.pixels[tile_idx] = match texture.filter_mode {
+                    FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                    FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                    FilterMode::Trilinear => {
+                        let w = 1.0 / q_left;
+                        let w_sq = w * w;
+
+                        let du_tex_dx = (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
+                        let dv_tex_dx = (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
+                        let du_tex_dy = (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
+                        let dv_tex_dy = (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+
+                        let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                            .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+
+                        let lod = 0.5 * max_rho_sq.log2();
+                        texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                    }
+                };
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_start = z_left + dx_start * tri.gradients.dz_dx;
+            let q_start = q_left + dx_start * tri.gradients.dq_dx;
+            let u_start = u_left + dx_start * tri.gradients.du_dx;
+            let v_start = v_left + dx_start * tri.gradients.dv_dx;
+
+            let start = PerspectiveSpanStart {
+                z: z_start,
+                q: q_start,
+                u: u_start,
+                v: v_start,
+            };
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            rasterize_scanline_textured(pixels, depths, texture, start, &tri.gradients);
+        }
+    }
+}
+
 fn rasterize_scanline_textured(
     pixels: &mut [u32],
     depths: &mut [f32],
@@ -3528,6 +3602,17 @@ fn render_triangle_in_tile_gouraud(
     let dz_dx = tri.gradients.dz_dx;
     let dc_dx = tri.gradients.dc_dx;
 
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
+
     for y in y_start..=y_end {
         if y == tri.p1.y && y != p0_y {
             edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
@@ -3549,68 +3634,7 @@ fn render_triangle_in_tile_gouraud(
             )
         };
 
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left;
-                    // c_left is (i32, i32, i32) fixed point.
-                    // Need to pack to u32.
-                    // Reuse pack_color_fixed_i32 from core/gouraud?
-                    // core::pack_color_fixed_i32 is likely private or not exported to here.
-                    // Let's implement inline packing.
-                    let r = (c_left.0 >> 16).clamp(0, 255) as u32;
-                    let g = (c_left.1 >> 16).clamp(0, 255) as u32;
-                    let b = (c_left.2 >> 16).clamp(0, 255) as u32;
-                    tile_pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                // Calculate z and color at xs
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_at_xs = z_left + dx_start * dz_dx;
-
-                let dx_start_i32 = (i64::from(xs) - i64::from(x_start)) as i32;
-                let c_at_xs = (
-                    c_left.0.wrapping_add(dc_dx.0.wrapping_mul(dx_start_i32)),
-                    c_left.1.wrapping_add(dc_dx.1.wrapping_mul(dx_start_i32)),
-                    c_left.2.wrapping_add(dc_dx.2.wrapping_mul(dx_start_i32)),
-                );
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                {
-                    if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
-                        unsafe {
-                            draw_scanline_gouraud_simd_fast(
-                                pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
-                            );
-                        }
-                    } else {
-                        draw_scanline_gouraud_i32_tile(
-                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
-                        );
-                    }
-                }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
-            }
-        }
+        process_tile_scanline_gouraud(&mut ctx, y, x_start, x_end, z_left, c_left, tri);
 
         edge_a.step();
         edge_b.step();
@@ -3619,6 +3643,72 @@ fn render_triangle_in_tile_gouraud(
 
 /// Helper for drawing gouraud scanline into a slice (no bounds checking needed)
 #[inline(always)]
+
+fn process_tile_scanline_gouraud(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    c_left: (i32, i32, i32),
+    tri: &PreparedGouraudTriangle,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+    let dz_dx = tri.gradients.dz_dx;
+    let dc_dx = tri.gradients.dc_dx;
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] {
+                ctx.depths[tile_idx] = z_left;
+                let r = (c_left.0 >> 16).clamp(0, 255) as u32;
+                let g = (c_left.1 >> 16).clamp(0, 255) as u32;
+                let b = (c_left.2 >> 16).clamp(0, 255) as u32;
+                ctx.pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            // Calculate z and color at xs
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_at_xs = z_left + dx_start * dz_dx;
+
+            let dx_start_i32 = (i64::from(xs) - i64::from(x_start)) as i32;
+            let c_at_xs = (
+                c_left.0.wrapping_add(dc_dx.0.wrapping_mul(dx_start_i32)),
+                c_left.1.wrapping_add(dc_dx.1.wrapping_mul(dx_start_i32)),
+                c_left.2.wrapping_add(dc_dx.2.wrapping_mul(dx_start_i32)),
+            );
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+            {
+                if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_scanline_gouraud_simd_fast(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                    }
+                } else {
+                    draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                }
+            }
+            #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+            draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+        }
+    }
+}
+
 fn draw_scanline_gouraud_i32_tile(
     pixels: &mut [u32],
     depths: &mut [f32],
