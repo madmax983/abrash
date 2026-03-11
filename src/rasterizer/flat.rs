@@ -464,20 +464,17 @@ pub fn fill_triangle_3d(
 
             if dx <= 0 {
                 if x_start >= 0 && x_start < width_i32 {
-                    // SAFETY: Safe due to clamps on x_start and y.
-                    unsafe {
-                        if alpha == 0xFF {
-                            if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, color);
-                            }
-                        } else {
-                            // Transparent single pixel
-                            let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
-                            if z_left < z_current {
-                                let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                                let blended = blend_swar(color, dest, 255 - alpha, alpha);
-                                fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
-                            }
+                    if alpha == 0xFF {
+                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                        }
+                    } else {
+                        // Transparent single pixel
+                        let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
+                        if z_left < z_current {
+                            let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
+                            let blended = blend_swar(color, dest, 255 - alpha, alpha);
+                            fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
                         }
                     }
                 }

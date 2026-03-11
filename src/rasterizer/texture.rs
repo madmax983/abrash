@@ -1996,50 +1996,45 @@ fn fill_projected_triangle_textured_with_gradients(
 
         if dx <= 0 {
             if x_start >= 0 && x_start < width_i32 && q_left.abs() > 0.000_001 {
-                // SAFETY: Safe due to clamps on x_start and y
-                unsafe {
-                    let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
-                    if z_left < z_current {
-                        let w = 1.0 / q_left;
-                        let u_tex = u_left * w;
-                        let v_tex = v_left * w;
-                        let color = match texture.filter_mode {
-                            FilterMode::Nearest => {
-                                texture.get_pixel_texel(u_tex as i32, v_tex as i32)
-                            }
-                            FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                            FilterMode::Trilinear => {
-                                let w = 1.0 / q_left;
-                                let w_sq = w * w;
+                let z_current = zb.get_depth_unchecked(x_start as usize, y as usize);
+                if z_left < z_current {
+                    let w = 1.0 / q_left;
+                    let u_tex = u_left * w;
+                    let v_tex = v_left * w;
+                    let color = match texture.filter_mode {
+                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                        FilterMode::Trilinear => {
+                            let w = 1.0 / q_left;
+                            let w_sq = w * w;
 
-                                let du_tex_dx =
-                                    (gradients.du_dx * q_left - u_left * gradients.dq_dx) * w_sq;
-                                let dv_tex_dx =
-                                    (gradients.dv_dx * q_left - v_left * gradients.dq_dx) * w_sq;
-                                let du_tex_dy =
-                                    (gradients.du_dy * q_left - u_left * gradients.dq_dy) * w_sq;
-                                let dv_tex_dy =
-                                    (gradients.dv_dy * q_left - v_left * gradients.dq_dy) * w_sq;
+                            let du_tex_dx =
+                                (gradients.du_dx * q_left - u_left * gradients.dq_dx) * w_sq;
+                            let dv_tex_dx =
+                                (gradients.dv_dx * q_left - v_left * gradients.dq_dx) * w_sq;
+                            let du_tex_dy =
+                                (gradients.du_dy * q_left - u_left * gradients.dq_dy) * w_sq;
+                            let dv_tex_dy =
+                                (gradients.dv_dy * q_left - v_left * gradients.dq_dy) * w_sq;
 
-                                let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
-                                    .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+                            let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                                .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
 
-                                let lod = 0.5 * max_rho_sq.log2();
-                                texture.get_pixel_trilinear(u_tex, v_tex, lod)
-                            }
-                        };
-
-                        let alpha = (color >> 24) & 0xFF;
-                        if alpha == 255 {
-                            let width_usize = fb.width() as usize;
-                            let idx = (y as usize) * width_usize + (x_start as usize);
-                            *zb.as_mut_slice().get_unchecked_mut(idx) = z_left;
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, color);
-                        } else if alpha > 0 {
-                            let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
-                            let blended = blend_swar(color, dest, 255 - alpha, alpha);
-                            fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
+                            let lod = 0.5 * max_rho_sq.log2();
+                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
                         }
+                    };
+
+                    let alpha = (color >> 24) & 0xFF;
+                    if alpha == 255 {
+                        let width_usize = fb.width() as usize;
+                        let idx = (y as usize) * width_usize + (x_start as usize);
+                        zb.as_mut_slice()[idx] = z_left;
+                        fb.set_pixel_unchecked(x_start as usize, y as usize, color);
+                    } else if alpha > 0 {
+                        let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
+                        let blended = blend_swar(color, dest, 255 - alpha, alpha);
+                        fb.set_pixel_unchecked(x_start as usize, y as usize, blended);
                     }
                 }
             }

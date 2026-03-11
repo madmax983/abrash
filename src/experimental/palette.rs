@@ -36,10 +36,22 @@ impl Palette {
     pub fn cga() -> Self {
         Self {
             colors: vec![
-                0xFF_000000, 0xFF_0000AA, 0xFF_00AA00, 0xFF_00AAAA,
-                0xFF_AA0000, 0xFF_AA00AA, 0xFF_AA5500, 0xFF_AAAAAA,
-                0xFF_555555, 0xFF_5555FF, 0xFF_55FF55, 0xFF_55FFFF,
-                0xFF_FF5555, 0xFF_FF55FF, 0xFF_FFFF55, 0xFF_FFFFFF,
+                0xFF_000000,
+                0xFF_0000AA,
+                0xFF_00AA00,
+                0xFF_00AAAA,
+                0xFF_AA0000,
+                0xFF_AA00AA,
+                0xFF_AA5500,
+                0xFF_AAAAAA,
+                0xFF_555555,
+                0xFF_5555FF,
+                0xFF_55FF55,
+                0xFF_55FFFF,
+                0xFF_FF5555,
+                0xFF_FF55FF,
+                0xFF_FFFF55,
+                0xFF_FFFFFF,
             ],
         }
     }

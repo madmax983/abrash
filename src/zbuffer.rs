@@ -66,16 +66,12 @@ impl ZBuffer {
     }
 
     /// Get depth at pixel without bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure x and y are within bounds.
+    /// (Note: This function has been secured by Warden to always perform bounds checking.)
     #[inline]
     #[must_use]
-    pub unsafe fn get_depth_unchecked(&self, x: usize, y: usize) -> f32 {
+    pub fn get_depth_unchecked(&self, x: usize, y: usize) -> f32 {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
-        unsafe { *self.depths.get_unchecked(idx) }
+        self.depths[idx]
     }
 
     /// Get depth at pixel
@@ -101,14 +97,10 @@ impl ZBuffer {
     }
 
     /// Test and set depth at pixel without bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure `x < width` and `y < height`.
-    pub unsafe fn test_and_set_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
+    /// (Note: This function has been secured by Warden to always perform bounds checking.)
+    pub fn test_and_set_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
-        let d = unsafe { self.depths.get_unchecked_mut(idx) };
+        let d = &mut self.depths[idx];
         if depth < *d {
             *d = depth;
             true
@@ -206,15 +198,14 @@ mod tests {
     #[test]
     fn test_test_and_set_unchecked() {
         let mut zb = ZBuffer::new(2, 2).unwrap();
-        unsafe {
-            // Should pass
-            assert!(zb.test_and_set_unchecked(0, 0, 10.0));
-            assert_eq!(zb.get_depth(0, 0), Some(10.0));
 
-            // Should fail
-            assert!(!zb.test_and_set_unchecked(0, 0, 15.0));
-            assert_eq!(zb.get_depth(0, 0), Some(10.0));
-        }
+        // Should pass
+        assert!(zb.test_and_set_unchecked(0, 0, 10.0));
+        assert_eq!(zb.get_depth(0, 0), Some(10.0));
+
+        // Should fail
+        assert!(!zb.test_and_set_unchecked(0, 0, 15.0));
+        assert_eq!(zb.get_depth(0, 0), Some(10.0));
     }
 
     #[test]

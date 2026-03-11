@@ -142,7 +142,6 @@ impl Turtle {
         /// - Pre-calculates the required number of segments by scanning for `b'F'`.
         /// - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
         ///   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
-
         let commands_bytes = commands.as_bytes();
         #[allow(clippy::naive_bytecount)]
         let num_segments = commands_bytes.iter().filter(|&&b| b == b'F').count();

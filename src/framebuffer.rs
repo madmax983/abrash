@@ -115,12 +115,7 @@ impl Framebuffer {
     }
 
     /// Set pixel color without bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure `x < width` and `y < height`.
-    /// Calling this with out-of-bounds coordinates results in Undefined Behavior
-    /// (likely a buffer overflow or segmentation fault).
+    /// (Note: This function has been secured by Warden to always perform bounds checking.)
     ///
     /// # Examples
     ///
@@ -133,25 +128,16 @@ impl Framebuffer {
     /// let color = 0xFFFF0000;
     ///
     /// if (x as u32) < fb.width() && (y as u32) < fb.height() {
-    ///     unsafe {
-    ///         fb.set_pixel_unchecked(x, y, color);
-    ///     }
+    ///     fb.set_pixel_unchecked(x, y, color);
     /// }
     /// ```
-    pub unsafe fn set_pixel_unchecked(&mut self, x: usize, y: usize, color: u32) {
+    pub fn set_pixel_unchecked(&mut self, x: usize, y: usize, color: u32) {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
-        unsafe {
-            *self.pixels.get_unchecked_mut(idx) = color;
-        }
+        self.pixels[idx] = color;
     }
 
     /// Get pixel color without bounds checking.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure `x < width` and `y < height`.
-    /// Calling this with out-of-bounds coordinates results in Undefined Behavior.
+    /// (Note: This function has been secured by Warden to always perform bounds checking.)
     ///
     /// # Examples
     ///
@@ -163,15 +149,14 @@ impl Framebuffer {
     /// let y = 10;
     ///
     /// if (x as u32) < fb.width() && (y as u32) < fb.height() {
-    ///     let color = unsafe { fb.get_pixel_unchecked(x, y) };
+    ///     let color = fb.get_pixel_unchecked(x, y);
     /// }
     /// ```
     #[inline]
     #[must_use]
-    pub unsafe fn get_pixel_unchecked(&self, x: usize, y: usize) -> u32 {
+    pub fn get_pixel_unchecked(&self, x: usize, y: usize) -> u32 {
         let idx = y * self.width as usize + x;
-        // SAFETY: Caller guarantees bounds
-        unsafe { *self.pixels.get_unchecked(idx) }
+        self.pixels[idx]
     }
 
     /// Clear a rectangular region
@@ -378,10 +363,8 @@ mod tests {
     fn test_unsafe_set_get_pixel() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
-        unsafe {
-            fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
-            assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
-        }
+        fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
+        assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
     }
 }
 

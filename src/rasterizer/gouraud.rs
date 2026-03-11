@@ -760,15 +760,12 @@ pub fn fill_triangle_gouraud(
 
             if dx <= 0 {
                 if x_start >= 0 && x_start < width_i32 {
-                    // SAFETY: Safe due to clamps on x_start and y
-                    unsafe {
-                        if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
-                            fb.set_pixel_unchecked(
-                                x_start as usize,
-                                y as usize,
-                                pack_color_fixed_i32(c_left),
-                            );
-                        }
+                    if zb.test_and_set_unchecked(x_start as usize, y as usize, z_left) {
+                        fb.set_pixel_unchecked(
+                            x_start as usize,
+                            y as usize,
+                            pack_color_fixed_i32(c_left),
+                        );
                     }
                 }
             } else {
