@@ -51,11 +51,13 @@
 //! // 2. Apply Post-Processing Chain
 //!
 //! // Step A: SSAO (Needs Depth) - Adds shadows to corners/crevices
-//! apply_ssao(&mut fb, &zb, &proj, 0.5, 0.025, 2.0);
+//! let ssao_config = abrash::post_process::ssao::SsaoConfig { radius: 0.5, bias: 0.025, intensity: 2.0 };
+//! apply_ssao(&mut fb, &zb, &proj, &ssao_config);
 //!
 //! // Step B: Depth of Field (Needs Depth) - Blurs background
 //! // Focus at depth 5.0, range 2.0, blur radius 3
-//! apply_depth_of_field(&mut fb, &zb, 5.0, 2.0, 3);
+//! let dof_config = abrash::post_process::dof::DepthOfFieldConfig { focus_dist: 5.0, focus_range: 2.0, blur_radius: 3 };
+//! apply_depth_of_field(&mut fb, &zb, &dof_config);
 //!
 //! // Step C: Vignette (Stylistic) - Darkens edges
 //! let vignette_config = abrash::post_process::filters::VignetteConfig { intensity: 0.5, roundness: 0.5 };

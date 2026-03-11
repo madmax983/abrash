@@ -53,3 +53,10 @@
 3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration structs.
 
 **Stability:** Improved high cohesion by grouping related effect parameters together. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.
+
+## [Argument Jungle Fix for DoF and SSAO]
+**Tangle:** The `apply_ssao` and `apply_depth_of_field` functions were suffering from the "Argument Jungle" anti-pattern. `apply_ssao` took 6 arguments (including 3 configuration floats) and `apply_depth_of_field` took 5 arguments (including 3 configuration values), making it difficult to maintain and read.
+**Blueprint:**
+1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
+2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
+3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
