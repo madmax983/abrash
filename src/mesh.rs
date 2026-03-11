@@ -166,17 +166,18 @@ impl Mesh {
     /// ```
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
-        let mut normals = Vec::with_capacity(self.indices.len());
-        for &[i0, i1, i2] in &self.indices {
-            let v0 = self.vertices[i0];
-            let v1 = self.vertices[i1];
-            let v2 = self.vertices[i2];
+        self.indices
+            .iter()
+            .map(|&[i0, i1, i2]| {
+                let v0 = self.vertices[i0];
+                let v1 = self.vertices[i1];
+                let v2 = self.vertices[i2];
 
-            let edge1 = v1 - v0;
-            let edge2 = v2 - v0;
-            normals.push(edge1.cross(edge2).normalize());
-        }
-        normals
+                let edge1 = v1 - v0;
+                let edge2 = v2 - v0;
+                edge1.cross(edge2).normalize()
+            })
+            .collect()
     }
 
     /// Calculates the bounding sphere of the mesh.

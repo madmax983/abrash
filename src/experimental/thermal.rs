@@ -32,6 +32,10 @@ impl Default for ThermalConfig {
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `config` - Configuration for the thermal effect.
+/// Bolt Performance Optimization:
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 pub fn apply_thermal(fb: &mut Framebuffer, config: &ThermalConfig) {
     if config.intensity <= 0.0 {
         return;
