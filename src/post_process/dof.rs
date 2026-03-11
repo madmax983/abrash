@@ -14,6 +14,27 @@ struct DofContext {
     acc_buffer: Vec<i32>,
 }
 
+/// Configuration for the Depth of Field effect.
+#[derive(Clone, Copy, Debug)]
+pub struct DepthOfFieldConfig {
+    /// The depth at which objects are perfectly in focus (0.0 - 1.0 in non-linear z-buffer space).
+    pub focus_dist: f32,
+    /// The range of depth that remains reasonably sharp.
+    pub focus_range: f32,
+    /// The radius of the blur for out-of-focus areas.
+    pub blur_radius: u32,
+}
+
+impl Default for DepthOfFieldConfig {
+    fn default() -> Self {
+        Self {
+            focus_dist: 0.5,
+            focus_range: 0.1,
+            blur_radius: 5,
+        }
+    }
+}
+
 /// Applies depth of field effect.
 ///
 /// This simulates a camera lens where objects at `focus_dist` are sharp, and objects
@@ -22,9 +43,7 @@ struct DofContext {
 /// # Arguments
 /// * `fb` - The framebuffer (modified in-place).
 /// * `zb` - The depth buffer.
-/// * `focus_dist` - The depth at which objects are perfectly in focus (0.0 - 1.0 in non-linear z-buffer space).
-/// * `focus_range` - The range of depth that remains reasonably sharp.
-/// * `blur_radius` - The radius of the blur for out-of-focus areas.
+/// * `config` - Configuration for the Depth of Field effect.
 ///
 /// # Examples
 ///
@@ -43,16 +62,11 @@ struct DofContext {
 /// // Apply Depth of Field
 /// // Focus on objects at depth 5.0 (in View Space, converted to Z-Buffer space appropriately)
 /// // Note: ZBuffer typically stores non-linear depth.
-/// apply_depth_of_field(&mut fb, &zb, 0.5, 0.1, 5);
+/// let config = abrash::post_process::dof::DepthOfFieldConfig { focus_dist: 0.5, focus_range: 0.1, blur_radius: 5 };
+/// apply_depth_of_field(&mut fb, &zb, &config);
 /// ```
-pub fn apply_depth_of_field(
-    fb: &mut Framebuffer,
-    zb: &ZBuffer,
-    focus_dist: f32,
-    focus_range: f32,
-    blur_radius: u32,
-) {
-    if blur_radius == 0 {
+pub fn apply_depth_of_field(fb: &mut Framebuffer, zb: &ZBuffer, config: &DepthOfFieldConfig) {
+    if config.blur_radius == 0 {
         return;
     }
 
@@ -87,7 +101,13 @@ pub fn apply_depth_of_field(
 
         // 1. Create blurred copy
         // Horizontal pass: original -> scratch
-        box_blur_horizontal(original_pixels, scratch_slice, width, height, blur_radius);
+        box_blur_horizontal(
+            original_pixels,
+            scratch_slice,
+            width,
+            height,
+            config.blur_radius,
+        );
         // Vertical pass: scratch -> blurred
         box_blur_vertical(
             scratch_slice,
@@ -95,7 +115,7 @@ pub fn apply_depth_of_field(
             acc_slice,
             width,
             height,
-            blur_radius,
+            config.blur_radius,
         );
 
         // 2. Blend based on depth
@@ -118,13 +138,13 @@ pub fn apply_depth_of_field(
             // Let's treat INFINITY as far (e.g. 1.0 or just use large number)
             let z = if depth.is_infinite() { 1000.0 } else { depth };
 
-            let dist = (z - focus_dist).abs();
+            let dist = (z - config.focus_dist).abs();
 
             // Calculate blur factor (0.0 = sharp, 1.0 = full blur)
             // If dist < range, factor = 0.
             // If dist > range, factor increases.
             // Simple linear falloff:
-            let factor = ((dist - focus_range) / focus_range).clamp(0.0, 1.0);
+            let factor = ((dist - config.focus_range) / config.focus_range).clamp(0.0, 1.0);
 
             if factor > 0.0 {
                 let orig = original_pixels[i];
@@ -191,7 +211,12 @@ mod tests {
 
         // Apply DoF
         // Focus at 1.0, range 1.0. Right half should blur.
-        apply_depth_of_field(&mut fb, &zb, 1.0, 1.0, 2);
+        let config = DepthOfFieldConfig {
+            focus_dist: 1.0,
+            focus_range: 1.0,
+            blur_radius: 2,
+        };
+        apply_depth_of_field(&mut fb, &zb, &config);
 
         // Check if out-of-focus pixel changed
         let new_pixel = fb.get_pixel(width as i32 - 1, height as i32 - 1).unwrap();

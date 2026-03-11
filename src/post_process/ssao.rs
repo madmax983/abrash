@@ -38,6 +38,27 @@ impl Default for SsaoContext {
     }
 }
 
+/// Configuration for the SSAO effect.
+#[derive(Clone, Copy, Debug)]
+pub struct SsaoConfig {
+    /// Sampling radius in view space (e.g., 0.5).
+    pub radius: f32,
+    /// Bias to prevent self-occlusion (e.g., 0.025).
+    pub bias: f32,
+    /// Strength of the effect (e.g., 1.0 - 3.0).
+    pub intensity: f32,
+}
+
+impl Default for SsaoConfig {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            bias: 0.025,
+            intensity: 1.0,
+        }
+    }
+}
+
 /// Applies Screen-Space Ambient Occlusion to the framebuffer.
 ///
 /// # Arguments
@@ -45,17 +66,8 @@ impl Default for SsaoContext {
 /// * `fb` - The framebuffer to modify (darkened by occlusion).
 /// * `zb` - The depth buffer (source of geometry).
 /// * `proj` - The projection matrix used to render the scene.
-/// * `radius` - Sampling radius in view space (e.g., 0.5).
-/// * `bias` - Bias to prevent self-occlusion (e.g., 0.025).
-/// * `intensity` - Strength of the effect (e.g., 1.0 - 3.0).
-pub fn apply_ssao(
-    fb: &mut Framebuffer,
-    zb: &ZBuffer,
-    proj: &Mat4,
-    radius: f32,
-    bias: f32,
-    intensity: f32,
-) {
+/// * `config` - Configuration for the SSAO effect.
+pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &SsaoConfig) {
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
     }
@@ -114,25 +126,41 @@ pub fn apply_ssao(
                         kernel,
                         noise,
                         &ctx.precomputed_kernel_buffer,
-                        radius,
-                        bias,
+                        config.radius,
+                        config.bias,
                         half_width,
                         half_height,
                     );
                 }
             } else {
-                apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
+                apply_ssao_scalar(
+                    occlusion_buffer,
+                    zb,
+                    proj,
+                    kernel,
+                    noise,
+                    config.radius,
+                    config.bias,
+                );
             }
         }
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
+        apply_ssao_scalar(
+            occlusion_buffer,
+            zb,
+            proj,
+            kernel,
+            noise,
+            config.radius,
+            config.bias,
+        );
 
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
         let pixels = fb.as_mut_slice();
         for (i, p) in pixels.iter_mut().enumerate() {
             let occ = occlusion_buffer[i];
-            let factor = 1.0 - (occ / KERNEL_SIZE as f32) * intensity;
+            let factor = 1.0 - (occ / KERNEL_SIZE as f32) * config.intensity;
             let factor = factor.clamp(0.0, 1.0);
 
             let r = ((*p >> 16) & 0xFF) as f32;

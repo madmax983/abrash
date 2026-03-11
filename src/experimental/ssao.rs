@@ -7,6 +7,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
+use crate::post_process::ssao::SsaoConfig;
 use crate::zbuffer::ZBuffer;
 
 const KERNEL_SIZE: usize = 16;
@@ -66,17 +67,8 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 /// * `fb` - The framebuffer to modify (darkened by occlusion).
 /// * `zb` - The depth buffer (source of geometry).
 /// * `proj` - The projection matrix used to render the scene.
-/// * `radius` - Sampling radius in view space (e.g., 0.5).
-/// * `bias` - Bias to prevent self-occlusion (e.g., 0.025).
-/// * `intensity` - Strength of the effect (e.g., 1.0 - 3.0).
-pub fn apply_ssao(
-    fb: &mut Framebuffer,
-    zb: &ZBuffer,
-    proj: &Mat4,
-    radius: f32,
-    bias: f32,
-    intensity: f32,
-) {
+/// * `config` - Configuration for the SSAO effect.
+pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &SsaoConfig) {
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
     }
@@ -184,7 +176,7 @@ pub fn apply_ssao(
                          // So if we add +Z to pos_view (which is negative Z), we move towards camera (closer).
                 );
 
-                let sample_pos = pos_view + rotated_sample * radius;
+                let sample_pos = pos_view + rotated_sample * config.radius;
 
                 // Project sample position
                 let (sample_clip, sample_w) = proj.transform_point(sample_pos);
@@ -238,11 +230,11 @@ pub fn apply_ssao(
                         // i.e., existing_view_z > sample_view_z.
 
                         // Range check: If geometry is TOO close (blocking very far away), ignore.
-                        // range_check = abs(existing - sample) < radius ? 1 : 0.
+                        // range_check = abs(existing - sample) < config.radius ? 1 : 0.
 
-                        let range_check = (existing_view_z - sample_view_z).abs() < radius;
+                        let range_check = (existing_view_z - sample_view_z).abs() < config.radius;
 
-                        if existing_view_z >= sample_view_z + bias && range_check {
+                        if existing_view_z >= sample_view_z + config.bias && range_check {
                             occlusion += 1.0;
                         }
                     }
@@ -267,7 +259,7 @@ pub fn apply_ssao(
     let pixels = fb.as_mut_slice();
     for (i, p) in pixels.iter_mut().enumerate() {
         let occ = blurred[i];
-        let factor = 1.0 - (occ / KERNEL_SIZE as f32) * intensity;
+        let factor = 1.0 - (occ / KERNEL_SIZE as f32) * config.intensity;
         let factor = factor.clamp(0.0, 1.0);
 
         // Multiply RGB
@@ -314,6 +306,7 @@ mod tests {
     use super::*;
     use crate::framebuffer::Framebuffer;
     use crate::math::Mat4;
+    use crate::post_process::ssao::SsaoConfig;
     use crate::zbuffer::ZBuffer;
     use std::f32::consts::PI;
 
@@ -368,7 +361,12 @@ mod tests {
         }
 
         // Apply SSAO (radius 1.0 to cover gap 0.4)
-        apply_ssao(&mut fb, &zb, &proj, 1.0, 0.001, 2.0);
+        let ssao_config = SsaoConfig {
+            radius: 1.0,
+            bias: 0.001,
+            intensity: 2.0,
+        };
+        apply_ssao(&mut fb, &zb, &proj, &ssao_config);
 
         // Check pixels near the post (e.g., 39, 50).
         // They should be darkened because the post occludes the wall.
