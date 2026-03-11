@@ -1,136 +1,66 @@
-//! Abrash Raytracer Demo
-//!
-//! Demonstrates the experimental CPU raytracer with reflections and shadows.
+#[cfg(feature = "nova")]
+use abrash::experimental::raytracer::{Material, RayTracer, Scene, Sphere};
+#[cfg(feature = "nova")]
+use abrash::math::Vec3;
+#[cfg(feature = "nova")]
+use abrash::platform::PlatformContext;
 
-use abrash::experimental::raytracer::RayTracer;
-use abrash::framebuffer::Framebuffer;
-use abrash::math::{Mat4, Vec3};
-use abrash::mesh::Mesh;
-use abrash::platform::Window;
-use abrash::scene::{Camera, Scene, SceneObject};
-use abrash::time::FixedTimestep;
-use std::f32::consts::PI;
-use std::sync::Arc;
-
-use comfy_table::{Cell, Color, Table, presets};
-use crossterm::style::Stylize;
-
-const WIDTH: u32 = 400;
-const HEIGHT: u32 = 300;
-
-fn print_banner() {
-    println!("\n{}", "✨ Raytracer Demo".bold().cyan());
-    println!("{}", "=====================".dark_grey());
-
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_header(vec![
-            Cell::new("Property").fg(Color::Cyan),
-            Cell::new("Value").fg(Color::Cyan),
-        ])
-        .add_row(vec![
-            Cell::new("Resolution"),
-            Cell::new(format!("{WIDTH}x{HEIGHT}")).fg(Color::Yellow),
-        ])
-        .add_row(vec![
-            Cell::new("Features"),
-            Cell::new("Reflections, Soft Shadows (Simulated), Phong Shading").fg(Color::Green),
-        ]);
-
-    println!("\n{}", "⚙️  Info".bold());
-    println!("{table}");
-}
-
+#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+    let width = 400;
+    let height = 300;
+    let mut ctx = PlatformContext::new("Ray Tracer", width, height)?;
 
-    let mut renderer = RayTracer::new();
-    renderer.max_bounces = 3;
-    renderer.background_color = 0xFF101015; // Deep dark blue/grey
+    let material_ground = Material::lambertian(Vec3::new(0.8, 0.8, 0.0));
+    let material_center = Material::lambertian(Vec3::new(0.1, 0.2, 0.5));
+    let material_left = Material::metal(Vec3::new(0.8, 0.8, 0.8), 0.3);
+    let material_right = Material::metal(Vec3::new(0.8, 0.6, 0.2), 1.0);
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    // Position camera
-    let eye = Vec3::new(0.0, 3.0, 6.0);
-    let target = Vec3::new(0.0, 0.0, 0.0);
-    let up = Vec3::new(0.0, 1.0, 0.0);
-    let view = Mat4::look_at(eye, target, up);
+    let mut scene = Scene { objects: vec![] };
+    scene.objects.push(Sphere {
+        center: Vec3::new(0.0, -100.5, -1.0),
+        radius: 100.0,
+        material: material_ground,
+    });
+    scene.objects.push(Sphere {
+        center: Vec3::new(0.0, 0.0, -1.0),
+        radius: 0.5,
+        material: material_center,
+    });
+    scene.objects.push(Sphere {
+        center: Vec3::new(-1.0, 0.0, -1.0),
+        radius: 0.5,
+        material: material_left,
+    });
+    scene.objects.push(Sphere {
+        center: Vec3::new(1.0, 0.0, -1.0),
+        radius: 0.5,
+        material: material_right,
+    });
 
-    let camera = Camera::new(view, projection);
+    let mut tracer = RayTracer::new(width, height);
 
-    let mut scene = Scene::new(camera);
+    // Initial render
+    tracer.render(&scene);
 
-    // Create meshes
-    let cube_mesh = Arc::new(Mesh::cube(1.0));
+    let mut samples = 1;
+    let max_samples = 100;
 
-    // Floor (Flattened Cube)
-    let floor_transform = Mat4::translation(0.0, -1.0, 0.0) * Mat4::scale(10.0, 0.1, 10.0);
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        floor_transform,
-        0xFF404040,
-    )); // Grey
-
-    // Center Cube (Red)
-    let center_transform = Mat4::translation(0.0, 0.0, 0.0);
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        center_transform,
-        0xFFFF0000,
-    ));
-
-    // Left Cube (Green)
-    let left_transform = Mat4::translation(-2.5, 0.0, -1.0) * Mat4::rotation_y(PI / 4.0);
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        left_transform,
-        0xFF00FF00,
-    ));
-
-    // Right Cube (Blue)
-    let right_transform = Mat4::translation(2.5, 0.0, -1.0) * Mat4::rotation_y(-PI / 4.0);
-    scene.add_object(SceneObject::new(
-        cube_mesh.clone(),
-        right_transform,
-        0xFF0000FF,
-    ));
-
-    // Mirror Cube (White/Bright)
-    let mirror_transform = Mat4::translation(0.0, 0.0, 2.5) * Mat4::scale(0.5, 0.5, 0.5);
-    scene.add_object(SceneObject::new(cube_mesh, mirror_transform, 0xFFFFFFFF));
-
-    let mut timestep = FixedTimestep::new(60);
-    let mut time = 0.0f32;
-
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
-        for _ in 0..steps {
-            time += 0.01;
+    while ctx.update() {
+        if samples < max_samples {
+            // Progressive rendering: add another sample per pixel and accumulate
+            // For simplicity in this demo, we just re-render to show it works,
+            // A real progressive renderer would accumulate samples in a float buffer.
+            tracer.render(&scene);
+            samples += 1;
+            ctx.set_title(&format!("Ray Tracer - Samples: {}", samples));
         }
 
-        // Animate objects
-        // Rotate center cube
-        let rotation = Mat4::rotation_y(time);
-        let translation = Mat4::translation(0.0, 0.5 + (time * 2.0).sin() * 0.5, 0.0);
-        // Note: transform order is Scale * Rotate * Translate.
-        // We want Translate * Rotate? No, Rotate then Translate relative to parent?
-        // Row-vector convention: v * R * T.
-        // Rotation applied first, then Translation.
-        // This makes object rotate around its local origin, then move to world position.
-        scene.objects[1].transform = translation * rotation;
-        // Re-calculate AABB logic happens implicitly via transform,
-        // but SceneObject stores local_aabb which is static.
-        // Raytracer uses calculate_world_aabb which uses transform. Correct.
-
-        renderer.render(&scene, &mut framebuffer);
-
-        window.blit_framebuffer(&framebuffer);
+        ctx.draw_framebuffer(&tracer.framebuffer)?;
     }
 
     Ok(())
 }
+
+#[cfg(not(feature = "nova"))]
+fn main() {}

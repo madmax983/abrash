@@ -51,7 +51,6 @@ pub mod radial_blur;
 pub mod raytracer;
 pub mod sdf;
 pub mod sharpen;
-pub mod ssao;
 pub mod thermal;
 pub mod vision;
 pub mod volume;

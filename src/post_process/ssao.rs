@@ -709,8 +709,7 @@ mod tests {
         // Allow some difference due to floating point precision and rcp approximation
         assert!(
             max_diff < 1e-4,
-            "SSAO output mismatch too large: {}",
-            max_diff
+            "SSAO output mismatch too large: {max_diff}",
         );
     }
 }

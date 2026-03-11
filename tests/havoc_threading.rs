@@ -43,7 +43,7 @@ fn test_post_process_concurrency() {
 
                 // Call SSAO
                 let proj = Mat4::identity();
-                apply_ssao(&mut fb, &zb, &proj, 0.5, 0.025, 2.0);
+                apply_ssao(&mut fb, &zb, &proj, &abrash::post_process::SsaoConfig { radius: 0.5, bias: 0.025, intensity: 2.0 });
 
                 // Call Sobel
                 apply_sobel(&mut fb);

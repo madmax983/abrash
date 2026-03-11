@@ -88,3 +88,4 @@
 **Concept:** A post-processing effect that converts pixel luminance to a heatmap color palette, simulating a thermal imaging camera.
 **Fate:** Implemented
 **Lesson:** Extracting luminance and mapping it via threshold ranges into specific RGB blends creates a convincing thermal effect very efficiently without needing external LUT textures.
+Test files, examples, and benchmarks targeting experimental features (e.g., mapped to `src/experimental/`) must include `#![cfg(feature = "nova")]` at the top of the file to ensure they conditionally compile correctly only when the `nova` feature is active, preventing `cargo check --all-targets` failures.

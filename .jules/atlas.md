@@ -60,3 +60,4 @@
 1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
 2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
 3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
+Persona 'Atlas' Learning: To eliminate "Argument Jungles" in rendering or post-processing APIs (e.g., `apply_ssao`, `apply_depth_of_field`), group scalar parameters into strongly-typed `Config` structs (e.g., `SsaoConfig`). Implement `Default` for these structs for easy instantiation, and pass them to functions by reference.

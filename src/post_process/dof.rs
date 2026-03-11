@@ -1,6 +1,8 @@
 use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 use std::cell::RefCell;
 
 thread_local! {
@@ -128,35 +130,18 @@ pub fn apply_depth_of_field(fb: &mut Framebuffer, zb: &ZBuffer, config: &DepthOf
             .min(zb_slice.len())
             .min(blurred_slice.len());
 
-        for i in 0..len {
-            let depth = zb_slice[i];
-
-            // Skip infinite depth (skybox) if desired, or treat as far.
-            // ZBuffer init is INFINITY. If depth is INFINITY, it's background.
-            // If focus is near, background is blurred.
-            // If focus is far, background is sharp?
-            // Let's treat INFINITY as far (e.g. 1.0 or just use large number)
+        let process_pixel = |(i, (orig, (&depth, &blur))): (usize, (&mut u32, (&f32, &u32)))| {
             let z = if depth.is_infinite() { 1000.0 } else { depth };
-
             let dist = (z - config.focus_dist).abs();
-
-            // Calculate blur factor (0.0 = sharp, 1.0 = full blur)
-            // If dist < range, factor = 0.
-            // If dist > range, factor increases.
-            // Simple linear falloff:
             let factor = ((dist - config.focus_range) / config.focus_range).clamp(0.0, 1.0);
 
             if factor > 0.0 {
-                let orig = original_pixels[i];
-                let blur = blurred_slice[i];
-
-                // Convert factor to 0-256 fixed point
                 let factor_fixed = (factor * 256.0) as u32;
                 let inv_factor = 256 - factor_fixed;
 
-                let r_o = (orig >> 16) & 0xFF;
-                let g_o = (orig >> 8) & 0xFF;
-                let b_o = orig & 0xFF;
+                let r_o = (*orig >> 16) & 0xFF;
+                let g_o = (*orig >> 8) & 0xFF;
+                let b_o = *orig & 0xFF;
 
                 let r_b = (blur >> 16) & 0xFF;
                 let g_b = (blur >> 8) & 0xFF;
@@ -166,9 +151,26 @@ pub fn apply_depth_of_field(fb: &mut Framebuffer, zb: &ZBuffer, config: &DepthOf
                 let g_new = (g_o * inv_factor + g_b * factor_fixed) >> 8;
                 let b_new = (b_o * inv_factor + b_b * factor_fixed) >> 8;
 
-                // Preserve alpha
-                original_pixels[i] = (orig & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
+                *orig = (*orig & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
             }
+        };
+
+        #[cfg(feature = "parallel")]
+        {
+            original_pixels[..len]
+                .par_iter_mut()
+                .zip(zb_slice[..len].par_iter().zip(blurred_slice[..len].par_iter()))
+                .enumerate()
+                .for_each(process_pixel);
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            original_pixels[..len]
+                .iter_mut()
+                .zip(zb_slice[..len].iter().zip(blurred_slice[..len].iter()))
+                .enumerate()
+                .for_each(process_pixel);
         }
     });
 }
