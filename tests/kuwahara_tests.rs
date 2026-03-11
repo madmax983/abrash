@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash::experimental::kuwahara::apply_kuwahara;
 use abrash::framebuffer::Framebuffer;
 

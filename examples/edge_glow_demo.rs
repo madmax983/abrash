@@ -1,3 +1,4 @@
+#[cfg(feature = "nova")]
 use abrash::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 use abrash::framebuffer::Framebuffer;
 
@@ -45,6 +46,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
 
@@ -93,12 +95,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use std::time::Duration;
 
             loop {
-                if event::poll(Duration::from_millis(100))? {
-                    if let Event::Key(key) = event::read()? {
-                        match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => break,
-                            _ => {}
-                        }
+                if event::poll(Duration::from_millis(100))?
+                    && let Event::Key(key) = event::read()?
+                {
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        _ => {}
                     }
                 }
             }
@@ -126,5 +128,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    Ok(())
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("This example requires the 'nova' feature to be enabled.");
     Ok(())
 }

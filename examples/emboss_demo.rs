@@ -1,3 +1,4 @@
+#[cfg(feature = "nova")]
 use abrash::experimental::emboss::apply_emboss;
 use abrash::framebuffer::Framebuffer;
 use comfy_table::{Cell, Color, Table, presets};
@@ -44,9 +45,10 @@ fn print_success(width: u32, height: u32) {
             )),
         ]);
 
-    println!("\n{}", table);
+    println!("\n{table}");
 }
 
+#[cfg(feature = "nova")]
 fn main() {
     let width = 800;
     let height = 600;
@@ -70,4 +72,9 @@ fn main() {
     apply_emboss(&mut fb);
 
     print_success(width, height);
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() {
+    println!("This example requires the 'nova' feature to be enabled.");
 }

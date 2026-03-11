@@ -2,6 +2,7 @@
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
+#[cfg(feature = "nova")]
 use abrash::experimental::raytracer::RayTracer;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
@@ -42,6 +43,7 @@ fn print_banner() {
     println!("{table}");
 }
 
+#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
@@ -132,5 +134,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         window.blit_framebuffer(&framebuffer);
     }
 
+    Ok(())
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("This example requires the 'nova' feature to be enabled.");
     Ok(())
 }
