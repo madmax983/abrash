@@ -45,7 +45,7 @@
 //! ```
 //!
 //! ## Performance Characteristics
-//! * **Memory:** ~33% overhead of the base ZBuffer size (e.g., ~2.67 MB for 1080p).
+//! * **Memory:** ~33% overhead of the base `ZBuffer` size (e.g., ~2.67 MB for 1080p).
 //! * **Build Time:** ~1-2ms on CPU at 1080p.
 //! * **Query Time:** <100ns per object.
 //!
@@ -89,7 +89,7 @@ impl AABB3D {
     /// The bounding box is defined by its screen space coordinates (`min_x`, `max_x`, `min_y`, `max_y`)
     /// and its depth bounds (`min_depth`, `max_depth`).
     #[must_use]
-    pub fn new(
+    pub const fn new(
         min_x: i32,
         max_x: i32,
         min_y: i32,
@@ -324,7 +324,7 @@ impl HiZBuffer {
     /// # SIMD Note
     /// SIMD was attempted but found to be slower due to memory bandwidth saturation,
     /// excessive shuffle operations for horizontal reduction, and small working sets.
-    /// See SIMD_PROFILING_ANALYSIS.md for details.
+    /// See `SIMD_PROFILING_ANALYSIS.md` for details.
     fn min_reduce_2x2(
         dest: &mut [f32],
         dest_width: u32,

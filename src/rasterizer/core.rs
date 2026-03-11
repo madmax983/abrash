@@ -146,12 +146,14 @@ pub fn color_to_u32_scaled(color: Vec3) -> u32 {
 
 /// Helper to pack 8-bit color channels into u32 ARGB
 #[inline(always)]
+#[must_use]
 pub const fn pack_color_channels(r: u32, g: u32, b: u32) -> u32 {
     0xFF00_0000 | (r << 16) | (g << 8) | b
 }
 
 /// Helper for fast color packing from fixed point.
 #[inline(always)]
+#[must_use]
 pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
     let r = (c.0 >> 16).clamp(0, 255) as u32;
     let g = (c.1 >> 16).clamp(0, 255) as u32;
@@ -161,6 +163,7 @@ pub fn pack_color_fixed(c: (i64, i64, i64)) -> u32 {
 
 /// Helper for fast color packing from fixed point (i32 version).
 #[inline(always)]
+#[must_use]
 pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
     let r = (c.0 >> 16).clamp(0, 255) as u32;
     let g = (c.1 >> 16).clamp(0, 255) as u32;
@@ -171,13 +174,17 @@ pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[inline]
+#[must_use]
 pub unsafe fn blend_swar_simd(
     c0: std::arch::x86_64::__m256i,
     c1: std::arch::x86_64::__m256i,
     w: std::arch::x86_64::__m256i,
     inv_w: std::arch::x86_64::__m256i,
 ) -> std::arch::x86_64::__m256i {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _mm256_add_epi16, _mm256_and_si256, _mm256_mullo_epi16, _mm256_or_si256, _mm256_set1_epi32,
+        _mm256_slli_epi32, _mm256_srli_epi16, _mm256_srli_epi32,
+    };
     let mask = _mm256_set1_epi32(0x00FF00FF);
 
     let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));

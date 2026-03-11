@@ -92,7 +92,7 @@ struct MockWindow {
 }
 
 impl MockWindow {
-    fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
+    const fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
     where
         Self: Sized,
     {
@@ -103,23 +103,23 @@ impl MockWindow {
         })
     }
 
-    fn is_open(&self) -> bool {
+    const fn is_open(&self) -> bool {
         self.open
     }
 
-    fn width(&self) -> u32 {
+    const fn width(&self) -> u32 {
         self.w
     }
 
-    fn height(&self) -> u32 {
+    const fn height(&self) -> u32 {
         self.h
     }
 
-    fn poll_events(&mut self) -> Vec<Event> {
+    const fn poll_events(&mut self) -> Vec<Event> {
         Vec::new()
     }
 
-    fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
+    const fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
         // no-op
     }
 }

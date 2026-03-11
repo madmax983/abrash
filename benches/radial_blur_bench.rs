@@ -1,7 +1,9 @@
+#[cfg(feature = "nova")]
 use abrash::experimental::radial_blur::apply_radial_blur;
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
+#[cfg(feature = "nova")]
 fn bench_radial_blur(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1024, 1024).unwrap();
 
@@ -45,5 +47,12 @@ fn bench_radial_blur(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(feature = "nova")]
+criterion_group!(benches, bench_radial_blur);
+
+#[cfg(not(feature = "nova"))]
+fn bench_radial_blur(c: &mut Criterion) {}
+
+#[cfg(not(feature = "nova"))]
 criterion_group!(benches, bench_radial_blur);
 criterion_main!(benches);

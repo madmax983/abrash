@@ -41,7 +41,7 @@ proptest! {
         v1 in arb_vertex(),
         v2 in arb_vertex()
     ) {
-        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| a.lerp(b, t));
+        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, TestVertex::lerp);
     }
 
     // Test with specific tricky values
@@ -52,7 +52,7 @@ proptest! {
         v2 in arb_vertex()
     ) {
         // Run it multiple times or just rely on proptest's shrinking
-        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| a.lerp(b, t));
+        let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, TestVertex::lerp);
     }
 }
 
@@ -74,7 +74,7 @@ fn test_clip_triangle_nan_panic() {
     };
 
     // Should not panic
-    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| a.lerp(b, t));
+    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, TestVertex::lerp);
 }
 
 #[test]
@@ -94,5 +94,5 @@ fn test_clip_triangle_inf_panic() {
     };
 
     // Should not panic
-    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| a.lerp(b, t));
+    let _ = clip_triangle_to_frustum(v0, v1, v2, get_pos, TestVertex::lerp);
 }

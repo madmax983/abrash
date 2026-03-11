@@ -185,15 +185,15 @@ impl Framebuffer {
 
         // Prevent overflow when adding width to x
         // Use i64 for intermediate calculation to avoid wrapping
-        let x2_i64 = (x as i64) + (width as i64);
-        let y2_i64 = (y as i64) + (height as i64);
+        let x2_i64 = i64::from(x) + i64::from(width);
+        let y2_i64 = i64::from(y) + i64::from(height);
 
-        let x2 = if x2_i64 > i32::MAX as i64 {
+        let x2 = if x2_i64 > i64::from(i32::MAX) {
             i32::MAX
         } else {
             x2_i64 as i32
         };
-        let y2 = if y2_i64 > i32::MAX as i64 {
+        let y2 = if y2_i64 > i64::from(i32::MAX) {
             i32::MAX
         } else {
             y2_i64 as i32
@@ -298,13 +298,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }
@@ -323,13 +317,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }
@@ -348,13 +336,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }

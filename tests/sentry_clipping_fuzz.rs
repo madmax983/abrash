@@ -71,7 +71,7 @@ fn clip_plane<V: Copy>(
             if prev_d < 0.0 {
                 // Entered
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push((*lerp_fn)(prev_v.clone(), curr_v.clone(), t));
+                new_polygon.push((*lerp_fn)(prev_v, curr_v, t));
             }
             new_polygon.push(curr_v);
         } else {
@@ -79,7 +79,7 @@ fn clip_plane<V: Copy>(
             if prev_d >= 0.0 {
                 // Exited
                 let t = prev_d / (prev_d - curr_d);
-                new_polygon.push((*lerp_fn)(prev_v.clone(), curr_v.clone(), t));
+                new_polygon.push((*lerp_fn)(prev_v, curr_v, t));
             }
         }
         prev_v = curr_v;

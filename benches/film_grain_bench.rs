@@ -14,7 +14,7 @@ fn bench_film_grain(c: &mut Criterion) {
     c.bench_function("apply_film_grain (1080p)", |b| {
         b.iter(|| {
             apply_film_grain(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 

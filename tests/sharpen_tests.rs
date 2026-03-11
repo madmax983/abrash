@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash::experimental::sharpen::apply_sharpen;
 use abrash::framebuffer::Framebuffer;
 
