@@ -58,7 +58,13 @@ fn test_apply_ssao_darkens_occluded_pixels() {
     }
 
     // Apply SSAO (radius 1.0 to cover gap 0.4)
-    post_process::apply_ssao(&mut fb, &zb, &proj, 1.0, 0.001, 2.0);
+    let config = post_process::SsaoConfig {
+        radius: 1.0,
+        bias: 0.001,
+        intensity: 2.0,
+        ..Default::default()
+    };
+    post_process::apply_ssao(&mut fb, &zb, &proj, &config);
 
     // Check pixels near the post (e.g., 39, 50).
     // They should be darkened because the post occludes the wall.

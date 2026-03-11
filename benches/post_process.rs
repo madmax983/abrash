@@ -107,14 +107,18 @@ fn benchmark_ssao(c: &mut Criterion) {
     }
 
     c.bench_function("apply_ssao 1080p", |b| {
+        let config = post_process::SsaoConfig {
+            radius: 1.0,
+            bias: 0.001,
+            intensity: 2.0,
+            ..Default::default()
+        };
         b.iter(|| {
             post_process::apply_ssao(
                 black_box(&mut fb),
                 black_box(&zb),
                 black_box(&proj),
-                black_box(1.0),
-                black_box(0.001),
-                black_box(2.0),
+                black_box(&config),
             );
         });
     });
@@ -201,13 +205,17 @@ fn benchmark_dof(c: &mut Criterion) {
     }
 
     c.bench_function("apply_depth_of_field 1080p", |b| {
+        let config = post_process::DepthOfFieldConfig {
+            focus_dist: 0.7,
+            focus_range: 0.1,
+            blur_radius: 5,
+            ..Default::default()
+        };
         b.iter(|| {
             post_process::apply_depth_of_field(
                 black_box(&mut fb),
                 black_box(&zb),
-                black_box(0.7),
-                black_box(0.1),
-                black_box(5),
+                black_box(&config),
             );
         });
     });
