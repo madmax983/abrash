@@ -137,11 +137,11 @@ impl Turtle {
         // For simplicity and speed in software rendering, we will generate a very simple geometry
         // per line segment (e.g., a small box or custom geometry). We will use a fast hardcoded method here.
 
-        /// Bolt Performance Optimization:
-        /// - Converts commands to an ASCII byte array to avoid UTF-8 `chars()` decoding overhead during iteration.
-        /// - Pre-calculates the required number of segments by scanning for `b'F'`.
-        /// - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
-        ///   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
+        // Bolt Performance Optimization:
+        // - Converts commands to an ASCII byte array to avoid UTF-8 `chars()` decoding overhead during iteration.
+        // - Pre-calculates the required number of segments by scanning for `b'F'`.
+        // - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
+        //   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
 
         let commands_bytes = commands.as_bytes();
         #[allow(clippy::naive_bytecount)]

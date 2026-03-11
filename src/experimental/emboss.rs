@@ -40,16 +40,25 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
     // Extract channels
     let extract = |p: u32| ((p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF);
 
+    // Dest is width * height. We skip the first row.
+    // .chunks_exact_mut(width) yields rows.
+    // skipping 1 skips row 0. Then taking height - 2 yields rows 1..height-1.
+    // The index from enumerate() will start at 0. So y = index + 1.
     #[cfg(feature = "parallel")]
     let row_iter = dest
-        .par_chunks_mut(width)
-        .enumerate()
+        .par_chunks_exact_mut(width)
         .skip(1)
-        .take(height - 2);
+        .take(height - 2)
+        .enumerate();
     #[cfg(not(feature = "parallel"))]
-    let row_iter = dest.chunks_mut(width).enumerate().skip(1).take(height - 2);
+    let row_iter = dest
+        .chunks_exact_mut(width)
+        .skip(1)
+        .take(height - 2)
+        .enumerate();
 
-    row_iter.for_each(|(y, row)| {
+    row_iter.for_each(|(y_offset, row)| {
+        let y = y_offset + 1; // Since we skip 1, the index y_offset starts at 0 for row y=1
         let prev_row_offset = (y - 1) * width;
         let row_offset = y * width;
         let next_row_offset = (y + 1) * width;
@@ -95,15 +104,21 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 let pos_b = c_b + r_b + b_b + br_b;
                 let neg_b = tl_b + t_b + l_b;
 
-                // Add bias (128) and clamp using unsigned math
-                let out_r = (pos_r + 128).saturating_sub(neg_r).min(255);
-                let out_g = (pos_g + 128).saturating_sub(neg_g).min(255);
-                let out_b = (pos_b + 128).saturating_sub(neg_b).min(255);
+                // To map flat color areas to neutral grey properly, we compute
+                // the average difference of the color channels and add a neutral bias.
+                let diff_r = (pos_r as i32) - (neg_r as i32);
+                let diff_g = (pos_g as i32) - (neg_g as i32);
+                let diff_b = (pos_b as i32) - (neg_b as i32);
+
+                let avg_diff = (diff_r + diff_g + diff_b) / 3;
+
+                // Add bias (128) and clamp
+                let out = (avg_diff + 128).clamp(0, 255) as u32;
 
                 // Preserve alpha from center
                 let a = c & 0xFF00_0000;
 
-                *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
+                *dest_pixel = a | (out << 16) | (out << 8) | out;
             });
     });
 }
