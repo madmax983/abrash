@@ -83,3 +83,8 @@
 **Concept:** A post-processing effect that maps the full 32-bit ARGB framebuffer to a predefined color palette (e.g. Gameboy, CGA, Vaporwave) using nearest-neighbor Euclidean distance in RGB space.
 **Fate:** Implemented
 **Lesson:** Iterating over the entire framebuffer and doing nearest neighbor distance checks against a small array (like 4-16 colors) is easily parallelizable with Rayon. Euclidean squared distance (`dr*dr + dg*dg + db*db`) avoids costly `sqrt` calculations in the inner loop.
+
+## [Thermal Vision]
+**Concept:** A post-processing effect that converts pixel luminance to a heatmap color palette, simulating a thermal imaging camera.
+**Fate:** Implemented
+**Lesson:** Extracting luminance and mapping it via threshold ranges into specific RGB blends creates a convincing thermal effect very efficiently without needing external LUT textures.
