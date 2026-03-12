@@ -60,6 +60,8 @@ impl Boid {
 /// A manager for a collection of Boids.
 pub struct Flock {
     pub boids: Vec<Boid>,
+    /// Pre-allocated buffer to store the previous state of the flock without per-frame allocations.
+    pub old_boids: Vec<Boid>,
     pub config: FlockConfig,
 }
 
@@ -68,6 +70,7 @@ impl Flock {
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
+            old_boids: Vec::new(),
             config,
         }
     }
@@ -78,7 +81,10 @@ impl Flock {
 
     /// Updates the flock by one time step.
     pub fn update(&mut self, delta_time: f32) {
-        let old_boids = self.boids.clone();
+        self.old_boids.clear();
+        self.old_boids.extend_from_slice(&self.boids);
+
+        let old_boids = &self.old_boids;
 
         #[cfg(feature = "parallel")]
         let iter = self.boids.par_iter_mut();
