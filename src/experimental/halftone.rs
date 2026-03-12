@@ -17,9 +17,9 @@ use rayon::prelude::*;
 /// * `dot_size`: The maximum radius of the halftone dots (e.g., 5.0).
 /// * `angle_radians`: The rotation angle of the dot grid (e.g., 45 degrees or PI/4).
 /// Bolt Performance Optimization:
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// remainder chunk handling and bounds checking, enabling better vectorization
-    /// and measurable performance improvements.
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 /// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// remainder chunk handling and bounds checking, enabling better vectorization

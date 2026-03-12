@@ -28,7 +28,7 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
-use std::hash::{BuildHasher, Hasher};
+use std::hash::{BuildHasherDefault, Hasher};
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -63,6 +63,7 @@ impl VertexKey {
 
 /// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
 /// This avoids the overhead of `SipHash` for simple vertex deduplication lookups.
+#[derive(Default)]
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -92,18 +93,6 @@ impl Hasher for FastU64Hasher {
         x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
         x ^= x >> 31;
         self.0 = x;
-    }
-}
-
-#[derive(Default)]
-struct FastU64Builder;
-
-impl BuildHasher for FastU64Builder {
-    type Hasher = FastU64Hasher;
-
-    #[inline]
-    fn build_hasher(&self) -> Self::Hasher {
-        FastU64Hasher(0)
     }
 }
 
@@ -161,7 +150,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize, FastU64Builder>,
+    deduplicator: HashMap<VertexKey, usize, BuildHasherDefault<FastU64Hasher>>,
     face_indices: Vec<usize>,
 }
 
@@ -224,7 +213,7 @@ impl ObjParser {
             final_indices: Vec::with_capacity(estimated_capacity),
             deduplicator: HashMap::with_capacity_and_hasher(
                 estimated_capacity,
-                FastU64Builder::default(),
+                BuildHasherDefault::default(),
             ),
             face_indices: Vec::with_capacity(4),
         }
