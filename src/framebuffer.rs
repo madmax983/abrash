@@ -204,10 +204,18 @@ impl Framebuffer {
         let end_x = x2.clamp(0, self.width as i32) as u32;
         let end_y = y2.clamp(0, self.height as i32) as u32;
 
-        for row in start_y..end_y {
-            let start = (row * self.width + start_x) as usize;
-            let end = (row * self.width + end_x) as usize;
-            self.pixels[start..end].fill(color);
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
+
+        let start_x_usize = start_x as usize;
+        let end_x_usize = end_x as usize;
+        let start_y_usize = start_y as usize;
+        let end_y_usize = end_y as usize;
+        let row_width = self.width as usize;
+
+        for row in self.pixels.chunks_exact_mut(row_width).take(end_y_usize).skip(start_y_usize) {
+            row[start_x_usize..end_x_usize].fill(color);
         }
     }
 }

@@ -446,3 +446,7 @@ required-features = ["nova"]
 [[bin]]
 name = "run_film_grain"
 path = "benches/run_film_grain.rs"
+
+[[bench]]
+name = "clear_rect_bench"
+harness = false
