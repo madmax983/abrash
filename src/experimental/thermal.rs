@@ -1,3 +1,7 @@
+//! Thermal vision effect.
+//!
+//! Maps luminance to a heat map color gradient.
+
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 

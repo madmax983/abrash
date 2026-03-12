@@ -1,3 +1,7 @@
+//! Depth of Field effect.
+//!
+//! Simulates camera focus by blurring pixels based on their depth in the Z-buffer.
+
 use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::zbuffer::ZBuffer;

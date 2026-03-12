@@ -1,3 +1,7 @@
+//! Screen-Space Ambient Occlusion (SSAO).
+//!
+//! Approximates ambient lighting attenuation based on depth buffer geometry.
+
 use super::blur::box_blur_f32;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};

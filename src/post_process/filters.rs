@@ -1,3 +1,7 @@
+//! Color filters.
+//!
+//! Provides various color mapping filters like grayscale, sepia, and invert.
+
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 use std::cell::RefCell;

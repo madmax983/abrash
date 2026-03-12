@@ -1,3 +1,7 @@
+//! Bloom lighting effect.
+//!
+//! Extracts bright areas of the image and applies a blur to simulate light bleeding.
+
 use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;

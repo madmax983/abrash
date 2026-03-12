@@ -1,4 +1,8 @@
 #![allow(clippy::collapsible_if)]
+//! Tile-based rasterizer data structures.
+//!
+//! Handles splitting the screen into tiles for binning-based rasterization.
+
 //! Tile-based rendering for improved cache locality at high resolutions.
 //!
 //! This module implements a tile-based rasterizer that subdivides the framebuffer into 32×32 pixel
