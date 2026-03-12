@@ -383,6 +383,13 @@ impl Framebuffer {
             return Ok(());
         }
 
+        if self.width() > u32::from(u16::MAX) || self.height() > u32::from(u16::MAX) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Framebuffer dimensions exceed maximum TGA dimensions (65535)",
+            ));
+        }
+
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
@@ -426,6 +433,13 @@ impl Framebuffer {
     pub fn export_tga<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
         if self.width() == 0 || self.height() == 0 {
             return Ok(());
+        }
+
+        if self.width() > u32::from(u16::MAX) || self.height() > u32::from(u16::MAX) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Framebuffer dimensions exceed maximum TGA dimensions (65535)",
+            ));
         }
 
         let file = File::create(path)?;

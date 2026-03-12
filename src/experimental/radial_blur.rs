@@ -20,9 +20,9 @@ thread_local! {
 /// * `strength` - The intensity of the blur. 0.0 means no blur.
 /// * `samples` - The number of samples to take along the blur vector. 0 or 1 means no blur.
 /// Bolt Performance Optimization:
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// remainder chunk handling and bounds checking, enabling better vectorization
-    /// and measurable performance improvements.
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 /// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// remainder chunk handling and bounds checking, enabling better vectorization
