@@ -442,3 +442,7 @@ harness = false
 name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "clear_rect_bench"
+harness = false

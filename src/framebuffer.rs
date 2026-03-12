@@ -180,34 +180,38 @@ impl Framebuffer {
             return;
         }
 
-        let x1 = x;
-        let y1 = y;
+        let width_buf = self.width;
+        let height_buf = self.height;
 
-        // Prevent overflow when adding width to x
-        // Use i64 for intermediate calculation to avoid wrapping
+        // Ensure we calculate the end coordinates safely without overflowing
         let x2_i64 = i64::from(x) + i64::from(width);
         let y2_i64 = i64::from(y) + i64::from(height);
 
-        let x2 = if x2_i64 > i64::from(i32::MAX) {
-            i32::MAX
-        } else {
-            x2_i64 as i32
-        };
-        let y2 = if y2_i64 > i64::from(i32::MAX) {
-            i32::MAX
-        } else {
-            y2_i64 as i32
-        };
+        // Clamp to buffer dimensions
+        let start_x = (i64::from(x).clamp(0, i64::from(width_buf))) as usize;
+        let start_y = (i64::from(y).clamp(0, i64::from(height_buf))) as usize;
+        let end_x = (x2_i64.clamp(0, i64::from(width_buf))) as usize;
+        let end_y = (y2_i64.clamp(0, i64::from(height_buf))) as usize;
 
-        let start_x = x1.clamp(0, self.width as i32) as u32;
-        let start_y = y1.clamp(0, self.height as i32) as u32;
-        let end_x = x2.clamp(0, self.width as i32) as u32;
-        let end_y = y2.clamp(0, self.height as i32) as u32;
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
 
-        for row in start_y..end_y {
-            let start = (row * self.width + start_x) as usize;
-            let end = (row * self.width + end_x) as usize;
+        let buf_width_usize = width_buf as usize;
+        if start_x == 0 && end_x == buf_width_usize {
+            // Optimized case: clearing full rows
+            let start = start_y * buf_width_usize;
+            let end = end_y * buf_width_usize;
             self.pixels[start..end].fill(color);
+        } else {
+            // Optimized case: Clearing partial rows
+            // We slice the exact targeted vertical span and step cleanly per-row.
+            let start_idx = start_y * buf_width_usize;
+            let end_idx = end_y * buf_width_usize;
+            let len = end_x - start_x;
+            for row in self.pixels[start_idx..end_idx].chunks_exact_mut(buf_width_usize) {
+                row[start_x..start_x + len].fill(color);
+            }
         }
     }
 }
