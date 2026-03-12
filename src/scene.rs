@@ -216,9 +216,11 @@ impl Scene {
             cull_results.resize(num_objects, false);
 
             // 1. Calculate all World AABBs (could be parallelized)
-            for obj in &self.objects {
-                world_aabbs.push(obj.local_aabb.transform(&obj.transform));
-            }
+            world_aabbs.extend(
+                self.objects
+                    .iter()
+                    .map(|obj| obj.local_aabb.transform(&obj.transform)),
+            );
 
             // 2. Frustum Cull (SIMD batched)
             self.camera

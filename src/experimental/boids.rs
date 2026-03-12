@@ -78,12 +78,22 @@ impl Flock {
 
     /// Updates the flock by one time step.
     pub fn update(&mut self, delta_time: f32) {
-        let old_boids = self.boids.clone();
+        thread_local! {
+            static OLD_BOIDS: std::cell::RefCell<Vec<Boid>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
 
-        #[cfg(feature = "parallel")]
-        let iter = self.boids.par_iter_mut();
-        #[cfg(not(feature = "parallel"))]
-        let iter = self.boids.iter_mut();
+        OLD_BOIDS.with(|old_boids_cell| {
+            let mut old_boids_mut = old_boids_cell.borrow_mut();
+            old_boids_mut.clear();
+            old_boids_mut.extend(self.boids.iter().cloned());
+
+            // Extract the slice so we can safely pass it to the Rayon parallel closure
+            let old_boids: &[Boid] = &old_boids_mut;
+
+            #[cfg(feature = "parallel")]
+            let iter = self.boids.par_iter_mut();
+            #[cfg(not(feature = "parallel"))]
+            let iter = self.boids.iter_mut();
 
         iter.enumerate().for_each(|(i, boid)| {
             let mut separation = Vec3::new(0.0, 0.0, 0.0);
@@ -216,6 +226,7 @@ impl Flock {
             boid.position.y += boid.velocity.y * delta_time;
             boid.position.z += boid.velocity.z * delta_time;
         });
+        }); // Close OLD_BOIDS.with
     }
 }
 
