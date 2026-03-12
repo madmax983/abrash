@@ -82,3 +82,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate Bounds Checks in 2D Iteration]**
 **Learning:** In hot paths iterating over an entire framebuffer or 2D grid, nested `x`/`y` loops that use bounds-checked `get_pixel(x, y)` calls introduce significant overhead due to the bounds check and `Option` unwrapping per pixel.
 **Action:** Replace nested `x`/`y` loops with direct slice iteration using `.as_slice().chunks_exact(width)`. This leverages zero-cost abstractions to elide bounds checks and eliminate `Option` unwrapping overhead, enabling better vectorization and significant performance gains.
+
+**[Performance Optimization: Par Chunks Exact Mut in Film Grain]**
+**Learning:** Using Rayon's `par_iter_mut().enumerate()` across millions of individual pixels creates high task-spawning and synchronization overhead.
+**Action:** Replace it with `.par_chunks_exact_mut(width).enumerate()` to parallelize per-row instead of per-pixel. Calculate the true pixel index by combining the row offset and the chunk index. In the `apply_film_grain` filter, this improved the benchmark time from ~10.7ms down to ~1.8ms per 1080p frame (nearly 6x speedup) while still cleanly supporting the pixel-index dependent pseudorandom noise generation without allocating buffers.
