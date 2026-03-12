@@ -88,3 +88,8 @@
 **Concept:** A post-processing effect that converts pixel luminance to a heatmap color palette, simulating a thermal imaging camera.
 **Fate:** Implemented
 **Lesson:** Extracting luminance and mapping it via threshold ranges into specific RGB blends creates a convincing thermal effect very efficiently without needing external LUT textures.
+
+## [Boids Simulation]
+**Concept:** A procedural flocking simulation based on Craig Reynolds' Boids algorithm implementing separation, alignment, and cohesion.
+**Fate:** Implemented
+**Lesson:** When implementing O(N^2) entity updates using parallel processing (like Rayon's `par_iter_mut`), avoid mutable aliasing errors by cloning the initial read-state (e.g., `let old_boids = self.boids.clone();`) and mapping over the mutable target array. Using `.hypot()` chained calls keeps distance calculations safe and clean.
