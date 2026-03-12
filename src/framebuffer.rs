@@ -214,7 +214,10 @@ impl Framebuffer {
         let end_y_usize = end_y as usize;
         let row_width = self.width as usize;
 
-        for row in self.pixels.chunks_exact_mut(row_width).take(end_y_usize).skip(start_y_usize) {
+        let start_idx = start_y_usize * row_width;
+        let end_idx = end_y_usize * row_width;
+
+        for row in self.pixels[start_idx..end_idx].chunks_exact_mut(row_width) {
             row[start_x_usize..end_x_usize].fill(color);
         }
     }
