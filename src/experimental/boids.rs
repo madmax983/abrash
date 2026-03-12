@@ -60,6 +60,7 @@ impl Boid {
 /// A manager for a collection of Boids.
 pub struct Flock {
     pub boids: Vec<Boid>,
+    pub old_boids: Vec<Boid>,
     pub config: FlockConfig,
 }
 
@@ -68,6 +69,7 @@ impl Flock {
     pub const fn new(config: FlockConfig) -> Self {
         Self {
             boids: Vec::new(),
+            old_boids: Vec::new(),
             config,
         }
     }
@@ -77,8 +79,13 @@ impl Flock {
     }
 
     /// Updates the flock by one time step.
+    ///
+    /// ⚡ Bolt Optimization: Uses a reusable `old_boids` buffer with `clone_from`
+    /// instead of a dynamic `.clone()` allocation per frame, eliminating
+    /// per-frame heap allocations during state snapshotting.
     pub fn update(&mut self, delta_time: f32) {
-        let old_boids = self.boids.clone();
+        self.old_boids.clone_from(&self.boids);
+        let old_boids = &self.old_boids;
 
         #[cfg(feature = "parallel")]
         let iter = self.boids.par_iter_mut();
@@ -191,12 +198,17 @@ impl Flock {
             }
 
             // Apply steering forces
-            boid.velocity.x += (separation.x + alignment.x + cohesion.x + bounds_steering.x) * delta_time;
-            boid.velocity.y += (separation.y + alignment.y + cohesion.y + bounds_steering.y) * delta_time;
-            boid.velocity.z += (separation.z + alignment.z + cohesion.z + bounds_steering.z) * delta_time;
+            boid.velocity.x +=
+                (separation.x + alignment.x + cohesion.x + bounds_steering.x) * delta_time;
+            boid.velocity.y +=
+                (separation.y + alignment.y + cohesion.y + bounds_steering.y) * delta_time;
+            boid.velocity.z +=
+                (separation.z + alignment.z + cohesion.z + bounds_steering.z) * delta_time;
 
             // Clamp speed
-            let speed_sq = boid.velocity.x * boid.velocity.x + boid.velocity.y * boid.velocity.y + boid.velocity.z * boid.velocity.z;
+            let speed_sq = boid.velocity.x * boid.velocity.x
+                + boid.velocity.y * boid.velocity.y
+                + boid.velocity.z * boid.velocity.z;
             let speed = speed_sq.sqrt();
 
             if speed > self.config.max_speed {
@@ -237,8 +249,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
 
         flock.update(1.0);
 
@@ -262,8 +280,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(5.0, 5.0, 5.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(5.0, 5.0, 5.0),
+        ));
 
         flock.update(1.0);
 
@@ -287,8 +311,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(4.0, 4.0, 4.0), Vec3::new(0.0, 0.0, 0.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(4.0, 4.0, 4.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
 
         flock.update(1.0);
 
