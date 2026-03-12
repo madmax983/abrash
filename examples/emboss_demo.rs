@@ -1,9 +1,12 @@
 #[cfg(feature = "nova")]
 use abrash::experimental::emboss::apply_emboss;
+#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "nova")]
 fn print_banner(width: u32, height: u32) {
     println!("\n{}", "🗿 Emboss Filter Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
@@ -28,6 +31,7 @@ fn print_banner(width: u32, height: u32) {
     println!("{table}");
 }
 
+#[cfg(feature = "nova")]
 fn print_success(width: u32, height: u32) {
     let mut table = Table::new();
     table
@@ -76,5 +80,23 @@ fn main() {
 
 #[cfg(not(feature = "nova"))]
 fn main() {
-    println!("This example requires the 'nova' feature to be enabled.");
+    use comfy_table::{Cell, Color, Table, presets};
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new("Try running with:\ncargo run --example emboss_demo --features nova")
+                .fg(Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }
