@@ -1,3 +1,7 @@
+//! Screen-space reflections.
+//!
+//! Provides basic reflection mapping based on surface normals and view vectors.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};

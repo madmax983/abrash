@@ -1,3 +1,7 @@
+//! Directional blur post-processing effect.
+//!
+//! This module provides a fast directional blur (e.g., motion blur) applied in screen space.
+
 use crate::framebuffer::Framebuffer;
 
 /// Applies a directional (motion) blur to the framebuffer.

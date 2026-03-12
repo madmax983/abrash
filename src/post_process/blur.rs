@@ -1,3 +1,7 @@
+//! Gaussian and box blur effects.
+//!
+//! Basic blurring filters for the framebuffer.
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

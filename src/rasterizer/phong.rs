@@ -1,3 +1,7 @@
+//! Phong shading rasterizer.
+//!
+//! Per-pixel lighting interpolation and calculation.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};

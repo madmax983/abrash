@@ -1,3 +1,7 @@
+//! Edge glow post-processing effect.
+//!
+//! Detects edges and applies a bloom-like glow to them.
+
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
 

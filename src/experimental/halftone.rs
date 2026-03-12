@@ -1,3 +1,7 @@
+//! Halftone pattern effect.
+//!
+//! Simulates CMYK or grayscale halftone printing processes.
+
 use crate::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]

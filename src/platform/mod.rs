@@ -1,3 +1,7 @@
+//! Platform abstraction layer.
+//!
+//! Provides unified windowing and event handling across different operating systems.
+
 use std::fmt;
 
 #[derive(Debug, Clone)]

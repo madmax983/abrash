@@ -1,3 +1,7 @@
+//! Screen-space modifiers.
+//!
+//! Assorted visual modifiers and filters that operate on the framebuffer.
+
 use crate::experimental::procedural_mesh::noise;
 use crate::mesh::Mesh;
 

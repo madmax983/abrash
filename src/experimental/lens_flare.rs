@@ -1,3 +1,7 @@
+//! Lens flare rendering.
+//!
+//! Provides screen-space lens flare artifacts based on bright light sources.
+
 use crate::framebuffer::Framebuffer;
 use crate::math::Vec2;
 
