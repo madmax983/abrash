@@ -26,6 +26,7 @@
 //! ```
 
 pub mod arboretum;
+pub mod anaglyph;
 pub mod boids;
 
 pub mod cloth;
