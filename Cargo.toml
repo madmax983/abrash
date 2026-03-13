@@ -461,5 +461,10 @@ name = "lsystem_bench"
 harness = false
 
 [[bench]]
+name = "posterize_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "vec3_reflect_bench"
 harness = false
