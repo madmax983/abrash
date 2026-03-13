@@ -1,4 +1,4 @@
-use abrash::experimental::anaglyph::{apply_anaglyph, AnaglyphConfig};
+use abrash::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -8,7 +8,7 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
-use comfy_table::{presets, Cell, Color, Table};
+use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut angle_x: f32 = 0.0;
 
     let anaglyph_config = AnaglyphConfig {
-        max_offset: 20, // Strong enough to be visible
+        max_offset: 20,   // Strong enough to be visible
         focal_depth: 3.5, // Depth where image converges (roughly around the cube)
     };
 
@@ -150,7 +150,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let (clip1, w1) = floor_mvp.transform_point(v1);
             let (clip2, w2) = floor_mvp.transform_point(v2);
 
-            if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 { continue; }
+            if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
+                continue;
+            }
 
             // Dark grey floor
             fill_triangle_3d(
