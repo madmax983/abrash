@@ -1282,9 +1282,8 @@ fn rasterize_scanline_simd(
 ) {
     use std::arch::x86_64::{
         __m256i, _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_ps, _mm256_castps_si256,
-        _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256,
-        _mm256_movemask_ps, _mm256_mul_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps,
-        _mm256_storeu_ps, _mm256_storeu_si256,
+        _mm256_castsi256_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_movemask_ps,
+        _mm256_mul_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps,
     };
 
     let len = pixels.len();
@@ -1398,7 +1397,7 @@ fn rasterize_scanline_simd(
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_load_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
@@ -1427,7 +1426,7 @@ fn rasterize_scanline_simd(
         // Since we didn't update scalar `z` inside SIMD loop, we do it now.
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
         let simd_pixels = i - pre_simd_count;
-        z += (simd_pixels as f32) * dz_dx;
+        let _z_ignored = z + (simd_pixels as f32) * dz_dx;
     }
 
     // Handle remaining pixels with scalar fallback

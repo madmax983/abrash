@@ -9,7 +9,7 @@ use super::core::{
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
-unsafe fn draw_scanline_gouraud_simd_fast(
+pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     fb_slice: &mut [u32],
     zb_slice: &mut [f32],
     z_start: f32,

@@ -90,7 +90,7 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
-        let _precomputed_kernels = &ctx.precomputed_kernel_buffer;
+        let precomputed_kernels = &ctx.precomputed_kernel_buffer;
 
         // Projection parameters
         // Flatten matrix for SIMD
@@ -344,7 +344,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = _mm256_setzero_ps();
 
-                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
+                for (k, &_s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let sz = _mm256_set1_ps(s.z);
 
@@ -456,7 +456,7 @@ unsafe fn apply_ssao_avx2(
 
                 let mut occlusion = 0.0;
 
-                for (k, &s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
+                for (k, &_s) in kernel.iter().enumerate().take(KERNEL_SIZE) {
                     let s = kernel[k];
                     let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
                     let sample_pos = pos_view + rotated_sample * radius;
