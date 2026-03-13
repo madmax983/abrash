@@ -302,7 +302,7 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        dest.par_chunks_mut(width)
+        dest[..width * height].par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, dst_row)| {
                 let row_offset = y * width;
@@ -313,12 +313,13 @@ pub fn box_blur_horizontal(
 
     #[cfg(not(feature = "parallel"))]
     {
-        for y in 0..height {
-            let row_offset = y * width;
-            let src_row = &src[row_offset..row_offset + width];
-            let dst_row = &mut dest[row_offset..row_offset + width];
-            process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
-        }
+        dest[..width * height].chunks_exact_mut(width)
+            .enumerate()
+            .for_each(|(y, dst_row)| {
+                let row_offset = y * width;
+                let src_row = &src[row_offset..row_offset + width];
+                process_row_horizontal(src_row, dst_row, width, radius, scale, bias);
+            });
     }
 }
 

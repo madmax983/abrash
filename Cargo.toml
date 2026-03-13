@@ -450,3 +450,7 @@ path = "benches/run_film_grain.rs"
 [[bench]]
 name = "clear_rect_bench"
 harness = false
+
+[[bench]]
+name = "box_blur_bench"
+harness = false
