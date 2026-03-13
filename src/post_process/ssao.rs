@@ -162,20 +162,33 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
         let pixels = fb.as_mut_slice();
+
+        // /// Bolt Performance Optimization:
+        // /// Precompute intensity multipliers to avoid float-division and scaling in the inner loop
+        // /// Reduces floating-point operations.
+        let inv_kernel_size = 1.0 / KERNEL_SIZE as f32;
+        let intensity_factor = inv_kernel_size * config.intensity;
+
         for (i, p) in pixels.iter_mut().enumerate() {
             let occ = occlusion_buffer[i];
-            let factor = 1.0 - (occ / KERNEL_SIZE as f32) * config.intensity;
+            let factor = 1.0 - occ * intensity_factor;
             let factor = factor.clamp(0.0, 1.0);
 
-            let r = ((*p >> 16) & 0xFF) as f32;
-            let g = ((*p >> 8) & 0xFF) as f32;
-            let b = (*p & 0xFF) as f32;
+            // /// Bolt Performance Optimization:
+            // /// Use integer fixed-point math for color blending (8.8 precision)
+            // /// Removes floating point multiplications for R, G, and B.
+            let factor_fixed = (factor * 256.0) as u32;
 
-            let new_r = (r * factor) as u32;
-            let new_g = (g * factor) as u32;
-            let new_b = (b * factor) as u32;
+            let a = *p & 0xFF00_0000;
+            let r = (*p >> 16) & 0xFF;
+            let g = (*p >> 8) & 0xFF;
+            let b = *p & 0xFF;
 
-            *p = (*p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+            let new_r = (r * factor_fixed) >> 8;
+            let new_g = (g * factor_fixed) >> 8;
+            let new_b = (b * factor_fixed) >> 8;
+
+            *p = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     });
 }
