@@ -289,6 +289,9 @@ mod tests {
         }
 
         let y_end = cloth.particles[idx_bottom].pos.y;
-        assert!(y_end < y_lifted, "Particle should fall from lifted position. Start: {y_lifted}, End: {y_end}");
+        assert!(
+            y_end < y_lifted,
+            "Particle should fall from lifted position. Start: {y_lifted}, End: {y_end}"
+        );
     }
 }

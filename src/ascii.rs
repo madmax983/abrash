@@ -57,6 +57,7 @@ impl AsciiCharset {
     }
 
     /// Maps a luminance value (0-255) to a character in the set.
+    #[must_use]
     pub fn map(self, luminance: u8) -> char {
         let chars = self.chars();
         let len = chars.len();

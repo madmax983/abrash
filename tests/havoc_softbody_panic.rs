@@ -1,7 +1,7 @@
 use abrash::experimental::jelly::SoftBody;
-use abrash::experimental::sdf::{SdfScene, SdfPrimitive, SdfObject};
-use abrash::mesh::Mesh;
+use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene};
 use abrash::math::Vec3;
+use abrash::mesh::Mesh;
 
 #[test]
 #[should_panic(expected = "index out of bounds")]
@@ -14,7 +14,10 @@ fn test_havoc_softbody_panic() {
 
     let mut scene = SdfScene::new();
     scene.add(SdfObject {
-        primitive: SdfPrimitive::Sphere { radius: 10.0, center: Vec3::new(0.0, 0.0, 0.0) },
+        primitive: SdfPrimitive::Sphere {
+            radius: 10.0,
+            center: Vec3::new(0.0, 0.0, 0.0),
+        },
         color: 0xFFFFFFFF,
     });
 

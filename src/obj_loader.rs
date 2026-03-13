@@ -62,7 +62,7 @@ impl VertexKey {
 }
 
 /// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
-/// This avoids the overhead of SipHash for simple vertex deduplication lookups.
+/// This avoids the overhead of `SipHash` for simple vertex deduplication lookups.
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -76,7 +76,7 @@ impl Hasher for FastU64Hasher {
         // Fallback for completeness, though our key uses write_u64 directly
         let mut x = self.0;
         for &b in bytes {
-            x = x.rotate_left(8) ^ (b as u64);
+            x = x.rotate_left(8) ^ u64::from(b);
             x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
         }
         self.0 = x;
@@ -307,12 +307,20 @@ impl ObjParser {
 
         if let Some(ti) = vt_idx {
             if ti >= self.raw_uvs.len() {
-                return Err(format!("Line {}: UV index {} out of bounds", line_num, ti + 1));
+                return Err(format!(
+                    "Line {}: UV index {} out of bounds",
+                    line_num,
+                    ti + 1
+                ));
             }
         }
         if let Some(ni) = vn_idx {
             if ni >= self.raw_normals.len() {
-                return Err(format!("Line {}: Normal index {} out of bounds", line_num, ni + 1));
+                return Err(format!(
+                    "Line {}: Normal index {} out of bounds",
+                    line_num,
+                    ni + 1
+                ));
             }
         }
         let key = VertexKey::new(v_idx, vt_idx, vn_idx);

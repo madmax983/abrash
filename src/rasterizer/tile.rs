@@ -308,14 +308,15 @@ pub struct PreparedGouraudTrianglesList {
 }
 
 impl PreparedGouraudTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedGouraudTriangle) {
+    pub const fn push(&mut self, tri: PreparedGouraudTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -360,14 +361,15 @@ pub struct PreparedTrianglesList {
 }
 
 impl PreparedTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedTriangle) {
+    pub const fn push(&mut self, tri: PreparedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -454,14 +456,15 @@ pub struct PreparedTexturedTrianglesList {
 }
 
 impl PreparedTexturedTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedTexturedTriangle) {
+    pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -511,6 +514,7 @@ pub struct TileBins {
 }
 
 impl TileBins {
+    #[must_use]
     pub fn new(num_tiles: usize) -> Self {
         Self {
             heads: vec![u32::MAX; num_tiles],
@@ -543,6 +547,7 @@ impl TileBins {
         self.tails[tile_idx] = node_idx;
     }
 
+    #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
@@ -556,7 +561,7 @@ pub struct TileBinIter<'a> {
     curr: u32,
 }
 
-impl<'a> Iterator for TileBinIter<'a> {
+impl Iterator for TileBinIter<'_> {
     type Item = usize;
 
     #[inline]
@@ -2577,10 +2582,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared_gouraud[i];
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2597,10 +2602,10 @@ impl TileRenderer {
         let tri = &self.prepared_gouraud[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
-        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
-        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
+        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
+        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -2611,7 +2616,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&self) {
+    const fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -2954,10 +2959,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared[i];
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2982,10 +2987,10 @@ impl TileRenderer {
             // First, check if the whole triangle is occluded (fast rejection)
             if let Some(ref hiz) = self.hiz_buffer {
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -3059,10 +3064,10 @@ impl TileRenderer {
         let tri = &self.prepared[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
-        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
-        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
+        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
+        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -3073,7 +3078,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&self) {
+    const fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3223,7 +3228,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&self) {
+    const fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;

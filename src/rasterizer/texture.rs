@@ -2408,7 +2408,17 @@ unsafe fn draw_scanline_normal_mapped_simd(
     ambient: Vec3,
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256,
+            _mm256_andnot_ps, _mm256_blendv_epi8, _mm256_blendv_ps, _mm256_castps_si256,
+            _mm256_cmp_ps, _mm256_cvtepi32_ps, _mm256_cvttps_epi32, _mm256_fmadd_ps,
+            _mm256_fmsub_ps, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_loadu_si256,
+            _mm256_max_epi32, _mm256_max_ps, _mm256_min_epi32, _mm256_min_ps, _mm256_movemask_ps,
+            _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_rcp_ps, _mm256_rsqrt_ps,
+            _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps,
+            _mm256_setzero_si256, _mm256_slli_epi32, _mm256_sllv_epi32, _mm256_srli_epi32,
+            _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_ps,
+        };
 
         let len = fb_slice.len();
         let mut i = 0;
@@ -3406,6 +3416,7 @@ pub struct TexturedGouraudGradients {
 
 impl TexturedGouraudGradients {
     #[allow(clippy::too_many_arguments)]
+    #[must_use]
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -3670,7 +3681,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
         let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
 
         let ff_mask = _mm256_set1_epi32(0xFF);
@@ -3696,7 +3707,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 };
 
                 let pixel_vals =
-                    _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                    _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
 
                 let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
                 let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
@@ -3740,7 +3751,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -3752,7 +3763,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
                     // Alpha blending: src * alpha + dest * inv_alpha
@@ -5008,19 +5019,14 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_span_nearest(
-            &mut fb,
-            &mut zb,
-            &tex,
-            z,
-            dz_dx,
-            u_fix,
-            v_fix,
-            du_fix,
-            dv_fix,
+            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
         );
     }));
 
-    assert!(result.is_ok(), "draw_span_nearest panicked due to overflow vulnerability!");
+    assert!(
+        result.is_ok(),
+        "draw_span_nearest panicked due to overflow vulnerability!"
+    );
 }
 
 #[test]
@@ -5030,6 +5036,9 @@ fn test_reciprocal_table_accuracy() {
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
-        assert!(diff < 1e-6, "Table index {i} mismatch: table={table_val}, actual={actual}");
+        assert!(
+            diff < 1e-6,
+            "Table index {i} mismatch: table={table_val}, actual={actual}"
+        );
     }
 }

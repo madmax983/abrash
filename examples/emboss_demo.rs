@@ -44,7 +44,7 @@ fn print_success(width: u32, height: u32) {
             )),
         ]);
 
-    println!("\n{}", table);
+    println!("\n{table}");
 }
 
 fn main() {
