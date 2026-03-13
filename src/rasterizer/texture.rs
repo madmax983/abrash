@@ -2169,11 +2169,11 @@ pub fn fill_quad_textured(
         let q2 = p2.inv_w;
 
         // Note argument order for gradients: u0, u1, u2, then v0, v1, v2
-        let (gradients, is_front_facing) = PerspectiveTextureGradients::new_with_winding(
+        let (gradients, _) = PerspectiveTextureGradients::new_with_winding(
             p0, p1, p2, q0, q1, q2, u0, u1, u2, v0_val, v1_val, v2_val,
         );
 
-        if !is_front_facing {
+        if is_backface(p0, p1, p2) {
             return;
         }
 
@@ -4898,7 +4898,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+
     fn test_fill_quad_textured_optimization() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let mut zb = ZBuffer::new(10, 10).unwrap();
