@@ -22,17 +22,17 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
 
     // 6 Planes
     // 1. Left: x >= -w -> x + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.x + w, &get_pos, &lerp);
     // 2. Right: x <= w -> w - x >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.x, &get_pos, &lerp);
     // 3. Bottom: y >= -w -> y + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.y + w, &get_pos, &lerp);
     // 4. Top: y <= w -> w - y >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.y, &get_pos, &lerp);
     // 5. Near: z >= -w -> z + w >= 0
-    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| p.z + w, &get_pos, &lerp);
     // 6. Far: z <= w -> w - z >= 0
-    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos, &lerp_fn);
+    clip_plane(&mut current_polygon, |p, w| w - p.z, &get_pos, &lerp);
 
     // Triangulate (Fan)
     let mut triangles = Vec::new();

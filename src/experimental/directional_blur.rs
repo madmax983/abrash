@@ -47,57 +47,24 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
 
     let inv_samples = 1.0 / (config.num_samples as f32);
 
+    let fb_slice = framebuffer.as_slice();
+
     // Pre-calculate steps in 16.16 fixed point format
-    let dx_step = (config.dx * inv_samples * 65536.0) as i32;
-    let dy_step = (config.dy * inv_samples * 65536.0) as i32;
+    let dx_step_fixed = (config.dx * inv_samples * 65536.0) as i32;
+    let dy_step_fixed = (config.dy * inv_samples * 65536.0) as i32;
+    let inv_samples_fixed = (inv_samples * 65536.0) as u32;
 
-    let process_row = |(y, row): (usize, &mut [u32])| {
-        for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let mut r_sum = 0;
-            let mut g_sum = 0;
-            let mut b_sum = 0;
-
-            // Initialize fixed point coords with an offset of 32768 (0.5 in 16.16)
-            // This provides free mathematical rounding when we shift right later.
-            let mut fx = (x as i32) << 16;
-            fx += 32768;
-            let mut fy = (y as i32) << 16;
-            fy += 32768;
-
-            for _ in 0..config.num_samples {
-                // Extract integer part by shifting right 16 bits.
-                // Because of the 0.5 offset, this is equivalent to round()
-                let px = fx >> 16;
-                let py = fy >> 16;
-
-                // Clamp to edges
-                let px = px.clamp(0, width as i32 - 1) as usize;
-                let py = py.clamp(0, height as i32 - 1) as usize;
-
-                let color = source_pixels[py * width + px];
-                let r = (color >> 16) & 0xFF;
-                let g = (color >> 8) & 0xFF;
-                let b = color & 0xFF;
-
-                r_sum += r;
-                g_sum += g;
-                b_sum += b;
-
-                // Advance sample positions
-                fx += dx_step;
-                fy += dy_step;
-            }
-
-            let final_r = ((r_sum as f32) * inv_samples).min(255.0) as u32;
-            let final_g = ((g_sum as f32) * inv_samples).min(255.0) as u32;
-            let final_b = ((b_sum as f32) * inv_samples).min(255.0) as u32;
+    SOURCE_PIXELS.with(|source_pixels_cell| {
+        let mut source_pixels = source_pixels_cell.borrow_mut();
 
         if source_pixels.len() != fb_slice.len() {
             source_pixels.resize(fb_slice.len(), 0);
         }
         source_pixels.copy_from_slice(fb_slice);
-        // We now safely reference the slice. We can extract it as an immutable reference
-        // to pass into the parallel iterator safely since `RefMut` doesn't implement `Sync`.
+    });
+
+    SOURCE_PIXELS.with(|source_pixels_cell| {
+        let source_pixels = source_pixels_cell.borrow();
         let source_slice: &[u32] = &source_pixels;
 
         let process_row = |(y, row): (usize, &mut [u32])| {
@@ -209,5 +176,83 @@ mod tests {
 
         // At x=1, samples at x=1, 2, 3. (Black, Black, Black) -> Black
         assert_eq!(p1, 0xFF000000);
+    }
+
+    #[test]
+    fn test_directional_blur_vertical() {
+        let mut fb = Framebuffer::new(1, 4).unwrap();
+        fb.set_pixel(0, 0, 0xFFFFFFFF); // White pixel
+        fb.set_pixel(0, 1, 0xFF000000); // Black pixels
+        fb.set_pixel(0, 2, 0xFF000000);
+        fb.set_pixel(0, 3, 0xFF000000);
+
+        // Blur downwards by 3 pixels, 3 samples
+        let config = DirectionalBlurConfig {
+            dx: 0.0,
+            dy: 3.0,
+            num_samples: 3,
+        };
+        apply_directional_blur(&mut fb, &config);
+
+        // The white pixel should be spread
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        let p1 = fb.get_pixel(0, 1).unwrap();
+
+        // At y=0, samples at y=0, 1, 2. (White, Black, Black) -> ~1/3 White
+        assert!(p0 != 0xFFFFFFFF);
+        assert!(p0 != 0xFF000000);
+
+        // At y=1, samples at y=1, 2, 3. (Black, Black, Black) -> Black
+        assert_eq!(p1, 0xFF000000);
+    }
+
+    #[test]
+    fn test_directional_blur_diagonal() {
+        let mut fb = Framebuffer::new(3, 3).unwrap();
+        fb.set_pixel(0, 0, 0xFFFFFFFF); // White pixel top-left
+        fb.set_pixel(1, 1, 0xFF000000);
+        fb.set_pixel(2, 2, 0xFF000000);
+
+        let config = DirectionalBlurConfig {
+            dx: 2.0,
+            dy: 2.0,
+            num_samples: 2,
+        };
+        apply_directional_blur(&mut fb, &config);
+
+        let p00 = fb.get_pixel(0, 0).unwrap();
+
+        assert!(p00 != 0xFFFFFFFF);
+        assert!(p00 != 0xFF000000);
+    }
+
+    #[test]
+    fn test_directional_blur_zero_size_framebuffer() {
+        let mut fb = Framebuffer::new(0, 0).unwrap();
+
+        let config = DirectionalBlurConfig {
+            dx: 10.0,
+            dy: 0.0,
+            num_samples: 5,
+        };
+        // Should not panic
+        apply_directional_blur(&mut fb, &config);
+    }
+
+    #[test]
+    fn test_directional_blur_huge_samples() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.set_pixel(0, 0, 0xFFFFFFFF);
+        fb.set_pixel(1, 0, 0xFF000000);
+        fb.set_pixel(0, 1, 0xFF000000);
+        fb.set_pixel(1, 1, 0xFF000000);
+
+        let config = DirectionalBlurConfig {
+            dx: 1.0,
+            dy: 1.0,
+            num_samples: 10000,
+        };
+        // Should not panic
+        apply_directional_blur(&mut fb, &config);
     }
 }
