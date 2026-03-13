@@ -44,3 +44,18 @@
 **Bloat:** The `Lerp` trait in `clipping.rs` which abstracted generic linear interpolation math over simple tuples and primitives.
 **Cut:** Deleted the `Lerp` trait entirely. Replaced its usage in clipping functions with explicit `lerp: impl Fn(V, V, f32) -> V` closure arguments. Added inherent `lerp` methods to `Vec2` and `Vec4`.
 **Saved:** 100 lines of repetitive trait implementation blocks. Math interpolation is now explicit and localized to the caller.
+
+## [Reduction]
+**Bloat:** `WindowBackend` trait which had only two implementations and added unnecessary abstraction layers.
+**Cut:** Removed the trait and replaced it with a direct type alias `Window` depending on features (`tui::TuiWindow` or `win32::Win32Window`).
+**Saved:** ~30 lines of code, simplified platform module, reduced trait bounds.
+
+## [Reduction]
+**Bloat:** `Lerp` trait used exclusively for simple interpolation during frustum clipping.
+**Cut:** Replaced the trait bound with an explicit closure parameter (`lerp: impl Fn(V, V, f32) -> V`) in clipping functions.
+**Saved:** 50 lines of code, removed unnecessary trait boilerplate in tests and codebase.
+
+## [Reduction]
+**Bloat:** `FastU64Builder` which wrapped `FastU64Hasher` and implemented `BuildHasher`.
+**Cut:** Eliminated the wrapper builder struct where possible and used the hasher directly.
+**Saved:** 15 lines of code, removed an unnecessary layer of indirection.

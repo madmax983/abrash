@@ -143,6 +143,7 @@ harness = false
 
 [[bench]]
 name = "edge_glow_bench"
+required-features = ["nova"]
 harness = false
 
 [[bench]]
@@ -206,6 +207,7 @@ path = "benches/simd_profiling.rs"
 
 [[bench]]
 name = "radial_blur_bench"
+required-features = ["nova"]
 harness = false
 path = "benches/radial_blur_bench.rs"
 
