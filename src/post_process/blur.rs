@@ -245,6 +245,36 @@ unsafe fn box_blur_f32_vertical_avx2(
     }
 }
 
+/// Performs the horizontal pass of a separable box blur on a 32-bit ARGB buffer.
+///
+/// Blurring a 2D image directly requires a 2D convolution kernel (e.g., N x N reads per pixel).
+/// However, a box blur is "separable", meaning it can be decomposed into a 1D horizontal pass
+/// followed by a 1D vertical pass. This reduces the complexity from O(N^2) to O(N).
+///
+/// Furthermore, this implementation uses a sliding window (accumulator) approach. As the window
+/// moves right, it subtracts the outgoing pixel and adds the incoming pixel, achieving O(1)
+/// complexity per pixel regardless of the blur radius.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::post_process::box_blur_horizontal;
+///
+/// let width = 3;
+/// let height = 1;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+///
+/// // Blur with a radius of 1 (a 3-pixel wide window)
+/// box_blur_horizontal(&src, &mut dest, width, height, 1);
+/// ```
+///
+/// # Arguments
+/// * `src` - Source image buffer containing 32-bit ARGB pixels.
+/// * `dest` - Destination buffer to store the horizontally blurred intermediate result.
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Blur radius (kernel size = `2 * radius + 1`).
 pub fn box_blur_horizontal(
     src: &[u32],
     dest: &mut [u32],
@@ -348,6 +378,37 @@ fn process_row_horizontal(
     }
 }
 
+/// Performs the vertical pass of a separable box blur on a 32-bit ARGB buffer.
+///
+/// This function completes a full box blur when run after `box_blur_horizontal`.
+/// Like the horizontal pass, it uses a sliding window to achieve O(1) complexity per pixel.
+///
+/// Because vertical memory access jumps across rows (cache misses), this pass uses
+/// a dedicated `acc_buffer` to track columns and heavily leverages SIMD (AVX2) when available
+/// to process 8 columns simultaneously, providing significant performance improvements.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::post_process::box_blur_vertical;
+///
+/// let width = 1;
+/// let height = 3;
+/// let src = vec![0xFF000000, 0xFFFFFFFF, 0xFF000000]; // Black, White, Black
+/// let mut dest = vec![0; 3];
+/// let mut acc = vec![0; 3 * width]; // RGB accumulators
+///
+/// // Blur with a radius of 1 (a 3-pixel tall window)
+/// box_blur_vertical(&src, &mut dest, &mut acc, width, height, 1);
+/// ```
+///
+/// # Arguments
+/// * `src` - Source buffer containing the horizontally blurred intermediate result.
+/// * `dest` - Destination buffer to store the final fully blurred image.
+/// * `acc_buffer` - Scratch buffer for column accumulators (must be at least `3 * width` in length).
+/// * `width` - Image width in pixels.
+/// * `height` - Image height in pixels.
+/// * `radius` - Blur radius (kernel size = `2 * radius + 1`).
 pub fn box_blur_vertical(
     src: &[u32],
     dest: &mut [u32],

@@ -1,16 +1,23 @@
+
 use std::fmt;
 
 use crate::framebuffer::Framebuffer;
 
+/// Represents an event from the windowing system.
 #[derive(Debug, Clone)]
 pub enum Event {
+    /// Window close requested.
     Close,
+    /// Window resized to the given width and height.
     Resize(u32, u32),
 }
 
+/// Error type for window creation failures.
 #[derive(Debug)]
 pub enum WindowError {
+    /// Failed to register the window class with the OS.
     RegistrationFailed,
+    /// Failed to create the window instance.
     CreationFailed,
 }
 
@@ -35,10 +42,15 @@ pub trait WindowBackend {
     fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError>
     where
         Self: Sized;
+    /// Returns whether the window is currently open and active.
     fn is_open(&self) -> bool;
+    /// Returns the current client area width.
     fn width(&self) -> u32;
+    /// Returns the current client area height.
     fn height(&self) -> u32;
+    /// Polls for and returns a list of pending window events.
     fn poll_events(&mut self) -> Vec<Event>;
+    /// Copies the framebuffer contents to the window display.
     fn blit_framebuffer(&mut self, framebuffer: &Framebuffer);
 }
 
@@ -58,6 +70,7 @@ pub type Window = win32::Win32Window;
 pub mod tui;
 
 #[cfg(all(feature = "backend-tui", not(feature = "backend-win32")))]
+/// The active Window backend type for the current build configuration.
 pub type Window = tui::TuiWindow;
 
 #[cfg(feature = "backend-wasm")]

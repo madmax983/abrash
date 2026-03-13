@@ -1,3 +1,4 @@
+
 //! # The Rasterizer 🎨
 //!
 //! This module is the heart of the Abrash rendering engine. It is responsible for the "Rasterization" stage
@@ -60,11 +61,16 @@
 //! *   **SIMD**: Key paths (like texture mapping and lighting) are optimized with AVX2 intrinsics for modern CPUs.
 
 pub mod core;
+/// Flat shading triangle rasterization.
 pub mod flat;
+/// Gouraud shading triangle rasterization.
 pub mod gouraud;
+/// Line rasterization.
 pub mod line;
 pub mod pbr;
+/// Phong shading triangle rasterization.
 pub mod phong;
+/// Reflection mapping logic.
 pub mod reflection;
 pub mod texture;
 pub mod tile;

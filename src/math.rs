@@ -1,3 +1,4 @@
+
 //! 2D and 3D math types for graphics programming.
 //!
 //! # Coordinate System
@@ -90,8 +91,27 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// A 2-dimensional vector in Cartesian space.
+///
+/// This structure is primarily used for representing 2D screen coordinates,
+/// texture mapping coordinates (UVs), and 2D directions. It provides a lightweight
+/// and cache-friendly way to manage pairs of floating-point numbers.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::math::Vec2;
+///
+/// // Create a new 2D vector
+/// let v = Vec2::new(3.0, 4.0);
+///
+/// // Calculate the squared length
+/// assert_eq!(v.length_sq(), 25.0);
+/// ```
 pub struct Vec2 {
+    /// The horizontal X coordinate or U texture component.
     pub x: f32,
+    /// The vertical Y coordinate or V texture component.
     pub y: f32,
 }
 
@@ -165,7 +185,28 @@ impl Mul<f32> for Vec2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+/// A 2x2 matrix used primarily for 2D transformations like rotation and scaling.
+///
+/// Matrices are stored in row-major order, which means elements are arranged as
+/// `m[row][col]`. This structure is essential for applying transformations to `Vec2`
+/// points or vectors without the overhead of a full 4x4 matrix.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::math::{Mat2, Vec2};
+///
+/// // Create an identity matrix
+/// let identity = Mat2::identity();
+///
+/// // Transform a vector by the identity matrix
+/// let v = Vec2::new(1.0, 2.0);
+/// let transformed = identity * v;
+///
+/// assert_eq!(transformed, v);
+/// ```
 pub struct Mat2 {
+    /// The underlying 2x2 array of elements stored in row-major format.
     pub m: [[f32; 2]; 2],
 }
 
@@ -228,18 +269,41 @@ impl Mat2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// A 3-dimensional vector in Cartesian space.
+///
+/// The `Vec3` is the fundamental building block for all 3D operations in the engine,
+/// representing positions, directions (normals), and RGB colors in the graphics pipeline.
+/// It is optimized for SIMD execution where possible.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::math::Vec3;
+///
+/// let up = Vec3::new(0.0, 1.0, 0.0);
+/// let right = Vec3::new(1.0, 0.0, 0.0);
+///
+/// // The cross product of Right and Up yields the Forward vector (assuming Right-Handed coordinates)
+/// let forward = right.cross(up);
+/// assert_eq!(forward, Vec3::new(0.0, 0.0, 1.0));
+/// ```
 pub struct Vec3 {
+    /// The horizontal X coordinate, or the Red color channel.
     pub x: f32,
+    /// The vertical Y coordinate, or the Green color channel.
     pub y: f32,
+    /// The depth Z coordinate, or the Blue color channel.
     pub z: f32,
 }
 
 impl Vec3 {
+    /// A vector with all components set to zero.
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    /// A vector with all components set to one.
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
@@ -521,7 +585,33 @@ impl std::ops::Div<f32> for Vec3 {
 /// ```
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
+/// A 4x4 matrix used for 3D affine transformations.
+///
+/// This matrix represents scaling, rotation, translation, and perspective projection.
+/// It is stored in **row-major** order and operates under a **row-vector** convention
+/// (`v * M`). When combining transformations, they should be multiplied in the order
+/// they are meant to be applied (e.g., `Scale * Rotation * Translation`).
+///
+/// The struct is explicitly aligned to 16 bytes (`repr(C, align(16))`) to allow
+/// direct loading into 128-bit SIMD registers during high-performance vertex processing.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::math::{Mat4, Vec3};
+/// use std::f32::consts::PI;
+///
+/// // Create a translation matrix moving 5 units on the Z axis
+/// let translation = Mat4::translation(Vec3::new(0.0, 0.0, 5.0));
+///
+/// // Create a scaling matrix
+/// let scale = Mat4::scale(Vec3::new(2.0, 2.0, 2.0));
+///
+/// // Combine them (Scale then Translate)
+/// let model_matrix = scale * translation;
+/// ```
 pub struct Mat4 {
+    /// The 16 elements of the matrix stored in a 4x4 row-major array.
     pub m: [[f32; 4]; 4],
 }
 
@@ -1169,9 +1259,13 @@ impl Mul for Mat4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// A 2D point on the screen with an associated depth value and inverse W coordinate.
 pub struct ScreenPoint {
+    /// The X coordinate on the screen.
     pub x: i32,
+    /// The Y coordinate on the screen.
     pub y: i32,
+    /// The depth value of this point for Z-buffering.
     pub z: f32,
     /// Reciprocal of the Homogeneous W coordinate ($1/w$).
     ///
@@ -1965,10 +2059,33 @@ mod tests {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// A 4-dimensional vector, primarily used for homogeneous coordinates.
+///
+/// In 3D graphics, a 4D vector is necessary for representing points and vectors during
+/// projective transformations (like multiplying by a perspective projection matrix).
+/// If `w = 1.0`, it represents a distinct point in space. If `w = 0.0`, it represents a direction.
+///
+/// It is also used to represent RGBA colors.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::math::Vec4;
+///
+/// // Create a 4D point (w = 1.0)
+/// let point = Vec4::new(10.0, 20.0, 30.0, 1.0);
+///
+/// // Represents solid red color
+/// let red = Vec4::new(1.0, 0.0, 0.0, 1.0);
+/// ```
 pub struct Vec4 {
+    /// The X coordinate or Red color channel.
     pub x: f32,
+    /// The Y coordinate or Green color channel.
     pub y: f32,
+    /// The Z coordinate or Blue color channel.
     pub z: f32,
+    /// The Homogeneous W coordinate or Alpha color channel.
     pub w: f32,
 }
 

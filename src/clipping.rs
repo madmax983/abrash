@@ -28,7 +28,32 @@ use std::ops::Index;
 
 use crate::math::{Vec2, Vec3, Vec4};
 
+/// A trait for types that can be linearly interpolated.
+///
+/// When the rasterizer clips a triangle against a frustum plane, it must generate
+/// new vertices precisely at the intersection point. To do this, it needs to interpolate
+/// not just the 3D position, but all associated vertex attributes (like texture coordinates,
+/// normals, and colors). This trait allows arbitrary vertex formats to define how they
+/// should be blended.
+///
+/// ## Examples
+///
+/// ```
+/// use abrash::clipping::Lerp;
+/// use abrash::math::Vec3;
+///
+/// let start = Vec3::new(0.0, 0.0, 0.0);
+/// let end = Vec3::new(10.0, 10.0, 10.0);
+///
+/// // Interpolate exactly halfway
+/// let midpoint = start.lerp(end, 0.5);
+/// assert_eq!(midpoint, Vec3::new(5.0, 5.0, 5.0));
+/// ```
 pub trait Lerp: Copy + Clone {
+    /// Linearly interpolates between `self` and `other` by the factor `t`.
+    ///
+    /// `t` is typically in the range `[0.0, 1.0]`. When `t = 0.0`, the result is `self`.
+    /// When `t = 1.0`, the result is `other`.
     #[must_use]
     fn lerp(self, other: Self, t: f32) -> Self;
 }
@@ -622,7 +647,14 @@ pub fn clip_line_to_frustum<V: Lerp + Copy>(
     Some((curr_v0, curr_v1))
 }
 
-// Keep the old function for now if needed, or deprecate.
+/// Clips a single triangle against the near clipping plane.
+///
+/// This is a simplified, faster clipping function for situations where only near-plane
+/// clipping is necessary. It prevents division by zero or negative W interpolation
+/// during projection, which occurs when vertices fall behind the camera.
+///
+/// Returns a `ClippedTriangles` array that can contain 0 (fully culled), 1 (fully visible),
+/// or 2 (partially visible quad triangulated into 2 triangles) resulting triangles.
 pub fn clip_triangle_against_near_plane<V: Lerp + Copy>(
     v0: V,
     v1: V,

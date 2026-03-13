@@ -1,3 +1,4 @@
+
 //! Shared half-block (`▀`) framebuffer widget for terminal rendering.
 //!
 //! Used by both the TUI (crossterm) and WASM (ratzilla) backends to render
@@ -12,6 +13,7 @@ use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
 /// Each terminal cell represents two vertical pixels: the foreground color is the
 /// top pixel, the background color is the bottom pixel.
 pub struct FramebufferWidget<'a> {
+    /// The framebuffer containing the pixels to be drawn to the terminal.
     pub framebuffer: &'a Framebuffer,
 }
 

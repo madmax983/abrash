@@ -1,5 +1,8 @@
-// Build script for compiling HLSL shaders to DXIL bytecode
-// Only runs when gpu-binning feature is enabled
+//! Build script for compiling HLSL shaders to DXIL bytecode
+//!
+//! Only runs when `gpu-binning` feature is enabled.
+//! Finds the `dxc.exe` compiler and compiles the `.hlsl` compute shaders
+//! into `.cso` files used by the GPU compute backend.
 
 fn main() {
     #[cfg(feature = "gpu-binning")]

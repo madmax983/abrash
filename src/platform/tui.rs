@@ -1,3 +1,4 @@
+
 //! TUI backend using ratatui + crossterm.
 //!
 //! Renders the framebuffer into a terminal using half-block characters.
@@ -21,6 +22,10 @@ use std::io::{Stdout, stdout};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// A Terminal User Interface (TUI) window backend.
+///
+/// This backend allows rendering the framebuffer directly to the terminal using ANSI escape codes
+/// or block characters, enabling the engine to run on systems without a graphical desktop environment.
 pub struct TuiWindow {
     width: u32,
     height: u32,

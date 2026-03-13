@@ -1,3 +1,4 @@
+
 //! Perspective-correct texture mapping rasterizer.
 //!
 //! This module implements scanline rasterization for textured triangles with perspective correction.

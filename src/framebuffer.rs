@@ -1,3 +1,4 @@
+
 //! Pixel buffer management.
 //!
 //! Framebuffer stores pixels in row-major order as 32-bit RGBA values.

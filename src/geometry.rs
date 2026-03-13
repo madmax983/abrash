@@ -1,3 +1,4 @@
+
 //! Geometric primitives and utilities.
 
 use crate::math::{Mat4, Vec3};

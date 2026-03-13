@@ -85,6 +85,7 @@ pub mod framebuffer;
 pub mod geometry;
 pub mod math;
 pub mod mesh;
+/// Platform abstraction (Windows, TUI, WASM).
 pub mod platform;
 pub mod rasterizer;
 pub mod time;
@@ -95,6 +96,7 @@ pub mod ascii;
 pub mod clipping;
 pub mod culling;
 pub mod heat_vision;
+/// Hierarchical Z-Buffer implementation for occlusion culling.
 pub mod hiz_buffer;
 pub mod obj_loader;
 pub mod particles;
@@ -110,5 +112,7 @@ pub mod gpu;
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
 
+
+/// Experimental modules behind the `nova` feature.
 #[cfg(feature = "nova")]
 pub mod experimental;

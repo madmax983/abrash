@@ -64,6 +64,8 @@
 //! // apply_grayscale(&mut fb); // Uncomment for noir style
 //! ```
 
+
+
 pub mod bloom;
 pub mod blur;
 pub mod filters;
