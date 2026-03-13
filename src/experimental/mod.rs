@@ -25,8 +25,8 @@
 //! abrash = { version = "0.1", features = ["nova"] }
 //! ```
 
-pub mod arboretum;
 pub mod anaglyph;
+pub mod arboretum;
 pub mod boids;
 
 pub mod cloth;
@@ -43,6 +43,7 @@ pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
+pub mod lens_flare;
 pub mod lsystem;
 pub mod modifiers;
 pub mod palette;

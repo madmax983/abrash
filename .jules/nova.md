@@ -98,3 +98,8 @@
 **Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
 **Fate:** Implemented
 **Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.
+
+## [Lens Flare]
+**Concept:** A screen-space post-processing effect that generates simulated lens flare artifacts (ghosts and halos) based on a bright light source's screen coordinates.
+**Fate:** Implemented
+**Lesson:** Calculating precise bounding boxes for each flare element (ghosts/halos) dramatically reduces the number of pixels tested. Combining this with chunk-based parallel iteration across rows provides a very fast and clean lens flare implementation without full-screen iteration passes.
