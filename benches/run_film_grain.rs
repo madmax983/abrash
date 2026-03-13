@@ -15,6 +15,6 @@ fn main() {
         apply_film_grain(&mut fb, &config);
     }
     let duration = start.elapsed();
-    println!("Time for 100 iterations: {:?}", duration);
+    println!("Time for 100 iterations: {duration:?}");
     println!("Average time per iteration: {:?}", duration / 100);
 }
