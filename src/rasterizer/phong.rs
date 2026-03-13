@@ -196,49 +196,53 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                 let mut shadow_val = _mm256_setzero_ps();
                 let mut sample_count = _mm256_setzero_ps();
 
-                for y_off in -1..=1 {
-                    for x_off in -1..=1 {
-                        let off_x = _mm256_set1_epi32(x_off);
-                        let off_y = _mm256_set1_epi32(y_off);
-                        let coord_x = _mm256_add_epi32(sm_x, off_x);
-                        let coord_y = _mm256_add_epi32(sm_y, off_y);
+                if _mm256_movemask_ps(shadow_test_mask) != 0 {
+                    for y_off in -1..=1 {
+                        for x_off in -1..=1 {
+                            let off_x = _mm256_set1_epi32(x_off);
+                            let off_y = _mm256_set1_epi32(y_off);
+                            let coord_x = _mm256_add_epi32(sm_x, off_x);
+                            let coord_y = _mm256_add_epi32(sm_y, off_y);
 
-                        let in_bounds = _mm256_and_si256(
-                            _mm256_and_si256(
-                                _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_w_i32, coord_x),
-                            ),
-                            _mm256_and_si256(
-                                _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
-                                _mm256_cmpgt_epi32(sm_h_i32, coord_y),
-                            ),
-                        );
+                            let in_bounds = _mm256_and_si256(
+                                _mm256_and_si256(
+                                    _mm256_cmpgt_epi32(coord_x, _mm256_set1_epi32(-1)),
+                                    _mm256_cmpgt_epi32(sm_w_i32, coord_x),
+                                ),
+                                _mm256_and_si256(
+                                    _mm256_cmpgt_epi32(coord_y, _mm256_set1_epi32(-1)),
+                                    _mm256_cmpgt_epi32(sm_h_i32, coord_y),
+                                ),
+                            );
 
-                        let safe_x = _mm256_max_epi32(
-                            _mm256_setzero_si256(),
-                            _mm256_min_epi32(
-                                coord_x,
-                                _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1)),
-                            ),
-                        );
-                        let safe_y = _mm256_max_epi32(
-                            _mm256_setzero_si256(),
-                            _mm256_min_epi32(
-                                coord_y,
-                                _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1)),
-                            ),
-                        );
-                        let idx =
-                            _mm256_add_epi32(_mm256_mullo_epi32(safe_y, sm_width_stride), safe_x);
-                        let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
+                            let safe_x = _mm256_max_epi32(
+                                _mm256_setzero_si256(),
+                                _mm256_min_epi32(
+                                    coord_x,
+                                    _mm256_sub_epi32(sm_w_i32, _mm256_set1_epi32(1)),
+                                ),
+                            );
+                            let safe_y = _mm256_max_epi32(
+                                _mm256_setzero_si256(),
+                                _mm256_min_epi32(
+                                    coord_y,
+                                    _mm256_sub_epi32(sm_h_i32, _mm256_set1_epi32(1)),
+                                ),
+                            );
+                            let idx = _mm256_add_epi32(
+                                _mm256_mullo_epi32(safe_y, sm_width_stride),
+                                safe_x,
+                            );
+                            let depth_sample = _mm256_i32gather_ps(sm_ptr, idx, 4);
 
-                        let is_shadow =
-                            _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
-                        let valid = _mm256_castsi256_ps(in_bounds);
+                            let is_shadow =
+                                _mm256_cmp_ps(ndc_z, _mm256_add_ps(depth_sample, bias), _CMP_GT_OQ);
+                            let valid = _mm256_castsi256_ps(in_bounds);
 
-                        sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
-                        let lit = _mm256_andnot_ps(is_shadow, valid);
-                        shadow_val = _mm256_add_ps(shadow_val, _mm256_and_ps(one, lit));
+                            sample_count = _mm256_add_ps(sample_count, _mm256_and_ps(one, valid));
+                            let lit = _mm256_andnot_ps(is_shadow, valid);
+                            shadow_val = _mm256_add_ps(shadow_val, _mm256_and_ps(one, lit));
+                        }
                     }
                 }
 
@@ -485,7 +489,9 @@ unsafe fn draw_scanline_point_lit_simd(
                     _mm256_mul_ps(lv_x, lv_x),
                     _mm256_add_ps(_mm256_mul_ps(lv_y, lv_y), _mm256_mul_ps(lv_z, lv_z)),
                 );
-                let dist = _mm256_sqrt_ps(dist_sq);
+                let safe_dist_sq = _mm256_max_ps(epsilon, dist_sq);
+                let inv_dist = _mm256_rsqrt_ps(safe_dist_sq);
+                let dist = _mm256_mul_ps(safe_dist_sq, inv_dist);
 
                 let denom = _mm256_add_ps(
                     att_c,
@@ -501,8 +507,7 @@ unsafe fn draw_scanline_point_lit_simd(
                 let inv_len = _mm256_rsqrt_ps(len_sq);
 
                 let dist_valid = _mm256_cmp_ps(dist, epsilon, _CMP_GT_OQ);
-                let safe_dist = _mm256_blendv_ps(one, dist, dist_valid);
-                let inv_dist = _mm256_div_ps(one, safe_dist);
+                let inv_dist = _mm256_blendv_ps(zero, inv_dist, dist_valid);
 
                 let dot_unorm = _mm256_add_ps(
                     _mm256_mul_ps(nx_vec, lv_x),

@@ -30,9 +30,11 @@ fn bench_dof(c: &mut Criterion) {
             apply_depth_of_field(
                 black_box(&mut fb),
                 black_box(&zb),
-                black_box(5.0),
-                black_box(2.0),
-                black_box(3), // radius 3
+                black_box(&abrash::post_process::DepthOfFieldConfig {
+                    focus_dist: 5.0,
+                    focus_range: 2.0,
+                    blur_radius: 3,
+                }),
             );
         });
     });
