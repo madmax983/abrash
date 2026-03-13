@@ -1,7 +1,0 @@
-culling/frustum_cull_10k_spheres_scalar
-                        time:   [94.715 µs 95.341 µs 96.016 µs]
-culling/frustum_cull_10k_spheres_simd
-                        time:   [82.745 µs 83.995 µs 85.598 µs]
-Found 3 outliers among 100 measurements (3.00%)
-  1 (1.00%) high mild
-  2 (2.00%) high severe
