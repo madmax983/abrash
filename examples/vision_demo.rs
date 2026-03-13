@@ -10,7 +10,11 @@ use std::f32::consts::PI;
 use std::io::{Write, stdout};
 
 use comfy_table::{Cell, Color, Table, presets};
-use crossterm::{cursor, execute, style::Stylize, terminal::{Clear, ClearType}};
+use crossterm::{
+    cursor, execute,
+    style::Stylize,
+    terminal::{Clear, ClearType},
+};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -130,12 +134,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             // Print to console to inform user cleanly
             let mut out = stdout();
-            let _ = execute!(
-                out,
-                cursor::MoveToColumn(0),
-                Clear(ClearType::CurrentLine)
+            let _ = execute!(out, cursor::MoveToColumn(0), Clear(ClearType::CurrentLine));
+            print!(
+                "🔄 Mode Switched to: {}",
+                format!("{:?}", vision_config.mode).bold().green()
             );
-            print!("🔄 Mode Switched to: {}", format!("{:?}", vision_config.mode).bold().green());
             let _ = out.flush();
         }
 
