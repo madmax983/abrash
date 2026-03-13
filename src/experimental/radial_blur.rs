@@ -64,26 +64,29 @@ pub fn apply_radial_blur(
                 .par_chunks_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
+                    let dy = y as f32 - cy as f32;
+                    let step_y = (dy * step_factor * 65536.0) as i32;
+
                     for (x, pixel) in row.iter_mut().enumerate() {
                         let dx = x as f32 - cx as f32;
-                        let dy = y as f32 - cy as f32;
-
                         let step_x = (dx * step_factor * 65536.0) as i32;
-                        let step_y = (dy * step_factor * 65536.0) as i32;
 
-                        let mut cur_x = (x as i32) << 16;
-                        let mut cur_y = (y as i32) << 16;
+                        // Add 32768 (0.5 in 16.16 fixed-point) to naturally mathematically round on right shift
+                        let mut cur_x = ((x as i32) << 16) + 32768;
+                        let mut cur_y = ((y as i32) << 16) + 32768;
 
                         let mut r_acc = 0;
                         let mut g_acc = 0;
                         let mut b_acc = 0;
 
                         for _ in 0..samples {
-                            // Using direct min/max instead of clamp is usually faster when inline
-                            let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                            let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                            // Unsigned cast efficiently clamps negatives by wrapping them to a huge number,
+                            // which is then caught by the single min() call.
+                            let x_idx = ((cur_x >> 16) as usize).min(w_m1 as usize);
+                            let y_idx = ((cur_y >> 16) as usize).min(h_m1 as usize);
 
-                            let color = src_fb[y_idx * width + x_idx];
+                            // Unchecked access since we manually clamped within valid array bounds
+                            let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
                             r_acc += (color >> 16) & 0xFF;
                             g_acc += (color >> 8) & 0xFF;
                             b_acc += color & 0xFF;
@@ -106,25 +109,29 @@ pub fn apply_radial_blur(
         {
             for y in 0..height {
                 let row_start = y * width;
+                let dy = y as f32 - cy as f32;
+                let step_y = (dy * step_factor * 65536.0) as i32;
+
                 for x in 0..width {
                     let dx = x as f32 - cx as f32;
-                    let dy = y as f32 - cy as f32;
-
                     let step_x = (dx * step_factor * 65536.0) as i32;
-                    let step_y = (dy * step_factor * 65536.0) as i32;
 
-                    let mut cur_x = (x as i32) << 16;
-                    let mut cur_y = (y as i32) << 16;
+                    // Add 32768 (0.5 in 16.16 fixed-point) to naturally mathematically round on right shift
+                    let mut cur_x = ((x as i32) << 16) + 32768;
+                    let mut cur_y = ((y as i32) << 16) + 32768;
 
                     let mut r_acc = 0;
                     let mut g_acc = 0;
                     let mut b_acc = 0;
 
                     for _ in 0..samples {
-                        let x_idx = (cur_x >> 16).max(0).min(w_m1) as usize;
-                        let y_idx = (cur_y >> 16).max(0).min(h_m1) as usize;
+                        // Unsigned cast efficiently clamps negatives by wrapping them to a huge number,
+                        // which is then caught by the single min() call.
+                        let x_idx = ((cur_x >> 16) as usize).min(w_m1 as usize);
+                        let y_idx = ((cur_y >> 16) as usize).min(h_m1 as usize);
 
-                        let color = src_fb[y_idx * width + x_idx];
+                        // Unchecked access since we manually clamped within valid array bounds
+                        let color = unsafe { *src_fb.get_unchecked(y_idx * width + x_idx) };
                         r_acc += (color >> 16) & 0xFF;
                         g_acc += (color >> 8) & 0xFF;
                         b_acc += color & 0xFF;

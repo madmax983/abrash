@@ -1936,10 +1936,7 @@ mod tests {
             }
 
             if s_scalar.inv_w.is_nan() {
-                assert!(
-                    s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {name}"
-                );
+                assert!(s_tri_0.inv_w.is_nan(), "InvW NaN mismatch for case: {name}");
             } else {
                 assert!(
                     inv_w_diff < tolerance

@@ -614,8 +614,12 @@ impl Framebuffer {
     /// # Errors
     ///
     /// Returns an error if file creation or writing fails.
-    pub fn export_txt<P: std::convert::AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
-        let converter = crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+    pub fn export_txt<P: std::convert::AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> std::io::Result<()> {
+        let converter =
+            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
         let content = converter.to_string();
         let mut file = std::fs::File::create(path)?;
         use std::io::Write;
@@ -632,8 +636,12 @@ impl Framebuffer {
     /// # Errors
     ///
     /// Returns an error if file creation or writing fails.
-    pub fn export_ansi<P: std::convert::AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
-        let converter = crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+    pub fn export_ansi<P: std::convert::AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> std::io::Result<()> {
+        let converter =
+            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
         let content = converter.to_colored_string();
         let mut file = std::fs::File::create(path)?;
         use std::io::Write;
