@@ -565,43 +565,46 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
         use rayon::prelude::*;
 
         let seed = config.seed;
-        pixels.par_chunks_exact_mut(_width).enumerate().for_each(|(y, row)| {
-            let row_offset = y * _width;
-            for (x, p) in row.iter_mut().enumerate() {
-                let i = row_offset + x;
+        pixels
+            .par_chunks_exact_mut(_width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let row_offset = y * _width;
+                for (x, p) in row.iter_mut().enumerate() {
+                    let i = row_offset + x;
 
-                // Give each pixel a deterministic but pseudo-random starting state based on index
-                // This allows the noise to be consistent per frame (if seed is same)
-                let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
-                lcg ^= lcg << 13;
-                lcg ^= lcg >> 17;
-                lcg ^= lcg << 5;
+                    // Give each pixel a deterministic but pseudo-random starting state based on index
+                    // This allows the noise to be consistent per frame (if seed is same)
+                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+                    lcg ^= lcg << 13;
+                    lcg ^= lcg >> 17;
+                    lcg ^= lcg << 5;
 
-                // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
-                // LCG sequence needs to diverge significantly
-                lcg = lcg.wrapping_add(0x12345678);
-                lcg ^= lcg << 13;
-                lcg ^= lcg >> 17;
-                lcg ^= lcg << 5;
+                    // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
+                    // LCG sequence needs to diverge significantly
+                    lcg = lcg.wrapping_add(0x12345678);
+                    lcg ^= lcg << 13;
+                    lcg ^= lcg >> 17;
+                    lcg ^= lcg << 5;
 
-                // Random value between 0 and 255
-                let noise = (lcg & 0xFF) as i32;
+                    // Random value between 0 and 255
+                    let noise = (lcg & 0xFF) as i32;
 
-                // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
-                let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+                    // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
+                    let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
-                let a = *p & 0xFF00_0000;
-                let r = ((*p >> 16) & 0xFF) as i32;
-                let g = ((*p >> 8) & 0xFF) as i32;
-                let b = (*p & 0xFF) as i32;
+                    let a = *p & 0xFF00_0000;
+                    let r = ((*p >> 16) & 0xFF) as i32;
+                    let g = ((*p >> 8) & 0xFF) as i32;
+                    let b = (*p & 0xFF) as i32;
 
-                let nr = (r + noise_delta).clamp(0, 255) as u32;
-                let ng = (g + noise_delta).clamp(0, 255) as u32;
-                let nb = (b + noise_delta).clamp(0, 255) as u32;
+                    let nr = (r + noise_delta).clamp(0, 255) as u32;
+                    let ng = (g + noise_delta).clamp(0, 255) as u32;
+                    let nb = (b + noise_delta).clamp(0, 255) as u32;
 
-                *p = a | (nr << 16) | (ng << 8) | nb;
-            }
-        });
+                    *p = a | (nr << 16) | (ng << 8) | nb;
+                }
+            });
     }
 
     #[cfg(not(feature = "parallel"))]

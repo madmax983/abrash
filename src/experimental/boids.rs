@@ -197,12 +197,17 @@ impl Flock {
             }
 
             // Apply steering forces
-            boid.velocity.x += (separation.x + alignment.x + cohesion.x + bounds_steering.x) * delta_time;
-            boid.velocity.y += (separation.y + alignment.y + cohesion.y + bounds_steering.y) * delta_time;
-            boid.velocity.z += (separation.z + alignment.z + cohesion.z + bounds_steering.z) * delta_time;
+            boid.velocity.x +=
+                (separation.x + alignment.x + cohesion.x + bounds_steering.x) * delta_time;
+            boid.velocity.y +=
+                (separation.y + alignment.y + cohesion.y + bounds_steering.y) * delta_time;
+            boid.velocity.z +=
+                (separation.z + alignment.z + cohesion.z + bounds_steering.z) * delta_time;
 
             // Clamp speed
-            let speed_sq = boid.velocity.x * boid.velocity.x + boid.velocity.y * boid.velocity.y + boid.velocity.z * boid.velocity.z;
+            let speed_sq = boid.velocity.x * boid.velocity.x
+                + boid.velocity.y * boid.velocity.y
+                + boid.velocity.z * boid.velocity.z;
             let speed = speed_sq.sqrt();
 
             if speed > self.config.max_speed {
@@ -243,8 +248,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
 
         flock.update(1.0);
 
@@ -268,8 +279,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(5.0, 5.0, 5.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(5.0, 5.0, 5.0),
+        ));
 
         flock.update(1.0);
 
@@ -293,8 +310,14 @@ mod tests {
             bounds: Vec3::new(100.0, 100.0, 100.0),
         });
 
-        flock.add_boid(Boid::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)));
-        flock.add_boid(Boid::new(Vec3::new(4.0, 4.0, 4.0), Vec3::new(0.0, 0.0, 0.0)));
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+        flock.add_boid(Boid::new(
+            Vec3::new(4.0, 4.0, 4.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
 
         flock.update(1.0);
 
