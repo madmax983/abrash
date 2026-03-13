@@ -1562,6 +1562,24 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_transform_points_panic_on_length_mismatch() {
+        let m = Mat4::identity();
+        let points = vec![Vec3::new(1.0, 0.0, 0.0); 2];
+        let mut output = vec![(Vec3::default(), 0.0); 1];
+        m.transform_points(&points, &mut output);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_transform_points_parallel_panic_on_length_mismatch() {
+        let m = Mat4::identity();
+        let points = vec![Vec3::new(1.0, 0.0, 0.0); 2];
+        let mut output = vec![(Vec3::default(), 0.0); 1];
+        m.transform_points_parallel(&points, &mut output);
+    }
+
+    #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     fn test_transform_point_simd_vs_scalar() {
         // Scalar implementation reference
@@ -1843,6 +1861,21 @@ mod tests {
     }
 
     #[test]
+    fn test_vec4_lerp() {
+        let v1 = Vec4::new(0.0, 10.0, -10.0, 1.0);
+        let v2 = Vec4::new(10.0, 20.0, 0.0, 0.5);
+
+        let v_mid = v1.lerp(v2, 0.5);
+        assert_eq!(v_mid, Vec4::new(5.0, 15.0, -5.0, 0.75));
+
+        let v_start = v1.lerp(v2, 0.0);
+        assert_eq!(v_start, v1);
+
+        let v_end = v1.lerp(v2, 1.0);
+        assert_eq!(v_end, v2);
+    }
+
+    #[test]
     fn test_vec4_sub() {
         let v1 = Vec4::new(5.0, 6.0, 7.0, 8.0);
         let v2 = Vec4::new(1.0, 2.0, 3.0, 4.0);
@@ -1863,14 +1896,140 @@ mod tests {
         let b = Vec3::new(3.0, 2.0, -1.0);
 
         let min = a.min(b);
-        assert_eq!(min.x, 1.0);
-        assert_eq!(min.y, 2.0);
-        assert_eq!(min.z, -2.0);
+        assert!((min.x - 1.0).abs() < f32::EPSILON);
+        assert!((min.y - 2.0).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
-        assert_eq!(max.x, 3.0);
-        assert_eq!(max.y, 5.0);
-        assert_eq!(max.z, -1.0);
+        assert!((max.x - 3.0).abs() < f32::EPSILON);
+        assert!((max.y - 5.0).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_mat4_transform_normal() {
+        use std::f32::consts::FRAC_PI_2;
+        // Scale and translate should not affect normal direction after normalize
+        let scale = Mat4::scale(2.0, 2.0, 2.0);
+        let translate = Mat4::translation(10.0, 5.0, -3.0);
+        // Rotate 90 degrees around Y axis
+        let rotate = Mat4::rotation_y(FRAC_PI_2);
+
+        let transform = scale * rotate * translate;
+
+        let n = Vec3::new(1.0, 0.0, 0.0);
+        let result = transform.transform_normal(n);
+
+        // Normal should now point down -Z (Right-hand rule: X cross Y = Z, rotate X around Y by +90 goes to -Z)
+        assert!(result.x.abs() < 1e-6);
+        assert!(result.y.abs() < 1e-6);
+        assert!((result.z - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat4_col() {
+        let m = Mat4::translation(1.0, 2.0, 3.0);
+        let c0 = m.col(0);
+        assert_eq!(c0, Vec4::new(1.0, 0.0, 0.0, 1.0));
+
+        let c3 = m.col(3);
+        assert_eq!(c3, Vec4::new(0.0, 0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds")]
+    fn test_mat4_col_panic() {
+        let m = Mat4::identity();
+        let _c = m.col(4); // Panics
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn test_project_quad_to_screen_simd_consistency() {
+        let half_width = 400.0;
+        let half_height = 300.0;
+
+        let test_cases = vec![
+            (Vec3::new(100.0, 100.0, 10.0), 1.0, "Normal"),
+            (Vec3::new(0.0, 0.0, 0.0), 1.0, "Origin"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.000_000_1, "Small w (epsilon)"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.0, "Zero w"),
+            (Vec3::new(1.0, 1.0, 1.0), -1.0, "Negative w"),
+            (Vec3::new(f32::INFINITY, 0.0, 0.0), 1.0, "Inf X"),
+            (Vec3::new(f32::NAN, 0.0, 0.0), 1.0, "NaN X"),
+            (Vec3::new(1e30, 0.0, 0.0), 1.0, "Large X"),
+            (Vec3::new(-1e30, 0.0, 0.0), 1.0, "Large Negative X"),
+            (Vec3::new(0.0, 0.0, 0.0), f32::INFINITY, "Inf W"),
+        ];
+
+        for (v, w, name) in test_cases {
+            // Scalar
+            let s_scalar = project_to_screen_optimized(v, w, half_width, half_height);
+
+            // SIMD (Quad)
+            let (s_quad_0, _, _, _) = project_quad_to_screen(
+                v,
+                w,
+                v,
+                w,
+                v,
+                w,
+                v,
+                w,
+                half_width,
+                half_height,
+            );
+
+            // Verify X and Y (allow off-by-one due to float precision + truncation)
+            assert!(
+                (i64::from(s_scalar.x) - i64::from(s_quad_0.x)).abs() <= 1,
+                "X mismatch for case {name}: {} vs {}",
+                s_scalar.x,
+                s_quad_0.x
+            );
+            assert!(
+                (i64::from(s_scalar.y) - i64::from(s_quad_0.y)).abs() <= 1,
+                "Y mismatch for case {name}: {} vs {}",
+                s_scalar.y,
+                s_quad_0.y
+            );
+
+            // Check z and inv_w with some tolerance
+            let z_diff = (s_scalar.z - s_quad_0.z).abs();
+            let inv_w_diff = (s_scalar.inv_w - s_quad_0.inv_w).abs();
+
+            let tolerance = if w.abs() > 1e-4 {
+                0.002 // Approximation error
+            } else {
+                1.0 // Loose tolerance for fallback/singularities
+            };
+
+            if s_scalar.z.is_nan() {
+                assert!(s_quad_0.z.is_nan(), "Z NaN mismatch for case: {name}");
+            } else {
+                assert!(
+                    z_diff < tolerance || (s_scalar.z.is_infinite() && s_quad_0.z.is_infinite()),
+                    "Z mismatch for {name}: {} vs {} (diff: {z_diff})",
+                    s_scalar.z,
+                    s_quad_0.z
+                );
+            }
+
+            if s_scalar.inv_w.is_nan() {
+                assert!(
+                    s_quad_0.inv_w.is_nan(),
+                    "InvW NaN mismatch for case: {name}"
+                );
+            } else {
+                assert!(
+                    inv_w_diff < tolerance
+                        || (s_scalar.inv_w.is_infinite() && s_quad_0.inv_w.is_infinite()),
+                    "InvW mismatch for {name}: {} vs {} (diff: {inv_w_diff})",
+                    s_scalar.inv_w,
+                    s_quad_0.inv_w
+                );
+            }
+        }
     }
 
     #[test]
@@ -1882,7 +2041,7 @@ mod tests {
         let test_cases = vec![
             (Vec3::new(100.0, 100.0, 10.0), 1.0, "Normal"),
             (Vec3::new(0.0, 0.0, 0.0), 1.0, "Origin"),
-            (Vec3::new(1.0, 1.0, 1.0), 0.0000001, "Small w (epsilon)"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.000_000_1, "Small w (epsilon)"),
             (Vec3::new(1.0, 1.0, 1.0), 0.0, "Zero w"),
             (Vec3::new(1.0, 1.0, 1.0), -1.0, "Negative w"),
             (Vec3::new(f32::INFINITY, 0.0, 0.0), 1.0, "Inf X"),
@@ -1927,7 +2086,7 @@ mod tests {
             };
 
             if s_scalar.z.is_nan() {
-                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {name}");
             } else {
                 assert!(
                     z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
@@ -1942,8 +2101,7 @@ mod tests {
             if s_scalar.inv_w.is_nan() {
                 assert!(
                     s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {}",
-                    name
+                    "InvW NaN mismatch for case: {name}"
                 );
             } else {
                 assert!(
