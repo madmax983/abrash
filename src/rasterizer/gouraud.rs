@@ -1,3 +1,7 @@
+//! Gouraud shading rasterizer.
+//!
+//! Per-vertex lighting calculation and color interpolation across the triangle.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
@@ -17,7 +21,13 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256, _mm256_blendv_epi8,
+        _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set_epi32,
+        _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_slli_epi32, _mm256_srli_epi32,
+        _mm256_storeu_ps, _mm256_storeu_si256,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -89,7 +99,7 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
                 );
 
                 // Store with mask
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -147,7 +157,14 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     dz_dx: f32,
     dc_dx: (i32, i32, i32),
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256, _mm256_blendv_epi8,
+        _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256,
+        _mm256_max_epi32, _mm256_min_epi32, _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32,
+        _mm256_or_si256, _mm256_set_epi32, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_setzero_si256, _mm256_slli_epi32, _mm256_srli_epi32, _mm256_storeu_ps,
+        _mm256_storeu_si256,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -227,7 +244,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
                 );
 
                 // Store with mask
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -645,7 +662,18 @@ pub fn fill_triangle_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -799,7 +827,7 @@ mod tests {
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | (0 << 8) | 50);
+        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 50);
         let p50 = fb.get_pixel(50, 0).unwrap();
         assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50);
         let p99 = fb.get_pixel(99, 0).unwrap();

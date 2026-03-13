@@ -85,16 +85,6 @@ fn vec3_max(v: Vec3, val: f32) -> Vec3 {
     Vec3::new(v.x.max(val), v.y.max(val), v.z.max(val))
 }
 
-trait Vec2Ext {
-    fn length(self) -> f32;
-}
-
-impl Vec2Ext for Vec2 {
-    fn length(self) -> f32 {
-        self.x.hypot(self.y)
-    }
-}
-
 /// A scene containing SDF objects.
 pub struct SdfScene {
     pub objects: Vec<SdfObject>,
@@ -274,13 +264,34 @@ mod tests {
             color: 0xFFFFFFFF,
         };
 
-        // Point at (2,0,0) -> dist = 2 - 1 = 1
-        let d = sphere.distance(Vec3::new(2.0, 0.0, 0.0));
-        assert!((d - 1.0).abs() < 0.001);
+        struct TestCase {
+            p: Vec3,
+            expected: f32,
+        }
 
-        // Point at (0.5,0,0) -> dist = 0.5 - 1 = -0.5
-        let d = sphere.distance(Vec3::new(0.5, 0.0, 0.0));
-        assert!((d - (-0.5)).abs() < 0.001);
+        let cases = vec![
+            TestCase {
+                p: Vec3::new(2.0, 0.0, 0.0),
+                expected: 1.0,
+            },
+            TestCase {
+                p: Vec3::new(0.5, 0.0, 0.0),
+                expected: -0.5,
+            },
+            TestCase {
+                p: Vec3::new(0.0, 0.0, 0.0),
+                expected: -1.0,
+            },
+            TestCase {
+                p: Vec3::new(1.0, 0.0, 0.0),
+                expected: 0.0,
+            },
+        ];
+
+        for case in cases {
+            let d = sphere.distance(case.p);
+            assert!((d - case.expected).abs() < 0.001, "Failed for {:?}", case.p);
+        }
     }
 
     #[test]
@@ -293,13 +304,168 @@ mod tests {
             color: 0xFFFFFFFF,
         };
 
-        // Point at (2,0,0) -> dist = 2 - 1 = 1
-        let d = b.distance(Vec3::new(2.0, 0.0, 0.0));
-        assert!((d - 1.0).abs() < 0.001);
+        struct TestCase {
+            p: Vec3,
+            expected: f32,
+        }
 
-        // Point inside (0,0,0) -> dist = -1
-        let d = b.distance(Vec3::new(0.0, 0.0, 0.0));
-        assert!((d - (-1.0)).abs() < 0.001);
+        let cases = vec![
+            TestCase {
+                p: Vec3::new(2.0, 0.0, 0.0),
+                expected: 1.0,
+            },
+            TestCase {
+                p: Vec3::new(0.0, 0.0, 0.0),
+                expected: -1.0,
+            },
+            TestCase {
+                p: Vec3::new(1.0, 0.0, 0.0),
+                expected: 0.0,
+            },
+            TestCase {
+                p: Vec3::new(0.5, 0.5, 0.5),
+                expected: -0.5,
+            },
+        ];
+
+        for case in cases {
+            let d = b.distance(case.p);
+            assert!((d - case.expected).abs() < 0.001, "Failed for {:?}", case.p);
+        }
+    }
+
+    #[test]
+    fn test_torus_sdf() {
+        let torus = SdfObject {
+            primitive: SdfPrimitive::Torus {
+                major_radius: 2.0,
+                minor_radius: 0.5,
+                center: Vec3::new(0.0, 0.0, 0.0),
+            },
+            color: 0xFFFFFFFF,
+        };
+
+        struct TestCase {
+            p: Vec3,
+            expected: f32,
+        }
+
+        let cases = vec![
+            // Point exactly on the center of the torus tube
+            TestCase {
+                p: Vec3::new(2.0, 0.0, 0.0),
+                expected: -0.5,
+            },
+            // Point on the surface of the torus
+            TestCase {
+                p: Vec3::new(2.5, 0.0, 0.0),
+                expected: 0.0,
+            },
+            // Point inside the hole of the torus
+            TestCase {
+                p: Vec3::new(0.0, 0.0, 0.0),
+                expected: 1.5,
+            },
+            // Point above the torus
+            TestCase {
+                p: Vec3::new(2.0, 1.0, 0.0),
+                expected: 0.5,
+            },
+        ];
+
+        for case in cases {
+            let d = torus.distance(case.p);
+            assert!((d - case.expected).abs() < 0.001, "Failed for {:?}", case.p);
+        }
+    }
+
+    #[test]
+    fn test_plane_sdf() {
+        let plane = SdfObject {
+            primitive: SdfPrimitive::Plane {
+                normal: Vec3::new(0.0, 1.0, 0.0),
+                distance: 1.0,
+            },
+            color: 0xFFFFFFFF,
+        };
+
+        struct TestCase {
+            p: Vec3,
+            expected: f32,
+        }
+
+        let cases = vec![
+            // Point above plane
+            TestCase {
+                p: Vec3::new(0.0, 2.0, 0.0),
+                expected: 3.0,
+            },
+            // Point on plane
+            TestCase {
+                p: Vec3::new(0.0, -1.0, 0.0),
+                expected: 0.0,
+            },
+            // Point below plane
+            TestCase {
+                p: Vec3::new(0.0, -2.0, 0.0),
+                expected: -1.0,
+            },
+        ];
+
+        for case in cases {
+            let d = plane.distance(case.p);
+            assert!((d - case.expected).abs() < 0.001, "Failed for {:?}", case.p);
+        }
+    }
+
+    #[test]
+    fn test_capsule_sdf() {
+        let capsule = SdfObject {
+            primitive: SdfPrimitive::Capsule {
+                start: Vec3::new(0.0, -1.0, 0.0),
+                end: Vec3::new(0.0, 1.0, 0.0),
+                radius: 0.5,
+            },
+            color: 0xFFFFFFFF,
+        };
+
+        struct TestCase {
+            p: Vec3,
+            expected: f32,
+        }
+
+        let cases = vec![
+            // Point on the side, outside
+            TestCase {
+                p: Vec3::new(1.0, 0.0, 0.0),
+                expected: 0.5,
+            },
+            // Point on the side, inside
+            TestCase {
+                p: Vec3::new(0.0, 0.0, 0.0),
+                expected: -0.5,
+            },
+            // Point at the top cap, outside
+            TestCase {
+                p: Vec3::new(0.0, 2.0, 0.0),
+                expected: 0.5,
+            },
+            // Point at the top cap, on surface
+            TestCase {
+                p: Vec3::new(0.0, 1.5, 0.0),
+                expected: 0.0,
+            },
+            // Point beyond bottom cap
+            TestCase {
+                p: Vec3::new(0.0, -2.0, 0.0),
+                expected: 0.5,
+            },
+        ];
+
+        for case in cases {
+            let d = capsule.distance(case.p);
+            assert!((d - case.expected).abs() < 0.001, "Failed for {:?}", case.p);
+        }
     }
 
     #[test]
@@ -319,10 +485,34 @@ mod tests {
     }
 
     #[test]
-    fn test_render_sdf_simple() {
+    fn test_scene_normal() {
+        let mut scene = SdfScene::new();
+        scene.add(SdfObject {
+            primitive: SdfPrimitive::Sphere {
+                radius: 1.0,
+                center: Vec3::new(0.0, 0.0, 0.0),
+            },
+            color: 0xFFFFFFFF,
+        });
+
+        // Normal on top
+        let n = scene.normal(Vec3::new(0.0, 1.0, 0.0));
+        assert!((n.x - 0.0).abs() < 0.01);
+        assert!((n.y - 1.0).abs() < 0.01);
+        assert!((n.z - 0.0).abs() < 0.01);
+
+        // Normal on right side
+        let n = scene.normal(Vec3::new(1.0, 0.0, 0.0));
+        assert!((n.x - 1.0).abs() < 0.01);
+        assert!((n.y - 0.0).abs() < 0.01);
+        assert!((n.z - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_render_sdf_simple() -> Result<(), &'static str> {
         // Minimal render test
-        let mut fb = Framebuffer::new(10, 10).unwrap();
-        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10)?;
+        let mut zb = ZBuffer::new(10, 10)?;
         let mut scene = SdfScene::new();
         scene.add(SdfObject {
             primitive: SdfPrimitive::Sphere {
@@ -342,7 +532,9 @@ mod tests {
         render_sdf(&mut fb, &mut zb, &scene, &view, &proj, eye);
 
         // Center pixel should hit sphere
-        let p = fb.get_pixel(5, 5).unwrap();
+        let p = fb.get_pixel(5, 5).unwrap_or(0);
         assert_ne!(p, 0xFF000000, "Center pixel should not be black");
+
+        Ok(())
     }
 }

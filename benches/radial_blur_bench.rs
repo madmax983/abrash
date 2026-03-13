@@ -1,7 +1,9 @@
+#[cfg(feature = "nova")]
 use abrash::experimental::radial_blur::apply_radial_blur;
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
+#[cfg(feature = "nova")]
 fn bench_radial_blur(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1024, 1024).unwrap();
 
@@ -13,7 +15,11 @@ fn bench_radial_blur(c: &mut Criterion) {
         }
     }
 
-    c.bench_function("radial_blur_1024x1024", |b| {
+    let mut group = c.benchmark_group("radial_blur");
+    group.sample_size(100);
+
+    // Bench SWAR optimized path
+    group.bench_function("swar_16_samples", |b| {
         b.iter(|| {
             apply_radial_blur(
                 black_box(&mut fb),
@@ -24,7 +30,29 @@ fn bench_radial_blur(c: &mut Criterion) {
             );
         });
     });
+
+    // Bench scalar fallback path
+    group.bench_function("scalar_fallback_257_samples", |b| {
+        b.iter(|| {
+            apply_radial_blur(
+                black_box(&mut fb),
+                black_box(512),
+                black_box(512),
+                black_box(0.5),
+                black_box(257),
+            );
+        });
+    });
+
+    group.finish();
 }
 
+#[cfg(feature = "nova")]
+criterion_group!(benches, bench_radial_blur);
+
+#[cfg(not(feature = "nova"))]
+fn bench_radial_blur(c: &mut Criterion) {}
+
+#[cfg(not(feature = "nova"))]
 criterion_group!(benches, bench_radial_blur);
 criterion_main!(benches);

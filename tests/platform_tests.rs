@@ -4,7 +4,7 @@
 //! enums) are correctly wired up. We cannot create actual Win32 or TUI
 //! windows in test mode, so we test types and trait surface only.
 
-use abrash::platform::{Event, WindowBackend, WindowError};
+use abrash::platform::{Event, WindowError};
 
 // ---------- Event enum ----------
 
@@ -91,8 +91,8 @@ struct MockWindow {
     open: bool,
 }
 
-impl WindowBackend for MockWindow {
-    fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
+impl MockWindow {
+    const fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
     where
         Self: Sized,
     {
@@ -103,23 +103,23 @@ impl WindowBackend for MockWindow {
         })
     }
 
-    fn is_open(&self) -> bool {
+    const fn is_open(&self) -> bool {
         self.open
     }
 
-    fn width(&self) -> u32 {
+    const fn width(&self) -> u32 {
         self.w
     }
 
-    fn height(&self) -> u32 {
+    const fn height(&self) -> u32 {
         self.h
     }
 
-    fn poll_events(&mut self) -> Vec<Event> {
+    const fn poll_events(&mut self) -> Vec<Event> {
         Vec::new()
     }
 
-    fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
+    const fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
         // no-op
     }
 }
@@ -155,6 +155,8 @@ fn window_type_alias_resolves() {
     // We can't construct it (Win32 needs a real window, TUI needs a terminal),
     // but we can confirm the type exists and has the expected trait methods
     // by checking it at compile time via a function pointer.
-    fn assert_window_has_trait_methods<T: WindowBackend>() {}
-    assert_window_has_trait_methods::<abrash::platform::Window>();
+
+    // but we can confirm the type exists by ensuring its size is known.
+    fn assert_window_size<T: Sized>() {}
+    assert_window_size::<abrash::platform::Window>();
 }

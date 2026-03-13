@@ -1,3 +1,7 @@
+//! Screen-Space Ambient Occlusion (SSAO).
+//!
+//! Approximates ambient lighting attenuation based on depth buffer geometry.
+
 use super::blur::box_blur_f32;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, Vec3};
@@ -38,6 +42,27 @@ impl Default for SsaoContext {
     }
 }
 
+/// Configuration for the SSAO effect.
+#[derive(Clone, Copy, Debug)]
+pub struct SsaoConfig {
+    /// Sampling radius in view space (e.g., 0.5).
+    pub radius: f32,
+    /// Bias to prevent self-occlusion (e.g., 0.025).
+    pub bias: f32,
+    /// Strength of the effect (e.g., 1.0 - 3.0).
+    pub intensity: f32,
+}
+
+impl Default for SsaoConfig {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            bias: 0.025,
+            intensity: 1.0,
+        }
+    }
+}
+
 /// Applies Screen-Space Ambient Occlusion to the framebuffer.
 ///
 /// # Arguments
@@ -45,17 +70,8 @@ impl Default for SsaoContext {
 /// * `fb` - The framebuffer to modify (darkened by occlusion).
 /// * `zb` - The depth buffer (source of geometry).
 /// * `proj` - The projection matrix used to render the scene.
-/// * `radius` - Sampling radius in view space (e.g., 0.5).
-/// * `bias` - Bias to prevent self-occlusion (e.g., 0.025).
-/// * `intensity` - Strength of the effect (e.g., 1.0 - 3.0).
-pub fn apply_ssao(
-    fb: &mut Framebuffer,
-    zb: &ZBuffer,
-    proj: &Mat4,
-    radius: f32,
-    bias: f32,
-    intensity: f32,
-) {
+/// * `config` - Configuration for the SSAO effect.
+pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &SsaoConfig) {
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;
     }
@@ -90,8 +106,6 @@ pub fn apply_ssao(
         let acc_buffer = &mut ctx.acc_buffer[..width];
         let kernel = &ctx.kernel;
         let noise = &ctx.noise;
-        let precomputed_kernels = &ctx.precomputed_kernel_buffer;
-
         // Projection parameters
         // Flatten matrix for SIMD
         let mut proj_flat = [0.0; 16];
@@ -115,37 +129,66 @@ pub fn apply_ssao(
                         &proj_flat,
                         kernel,
                         noise,
-                        precomputed_kernels,
-                        radius,
-                        bias,
+                        &ctx.precomputed_kernel_buffer,
+                        config.radius,
+                        config.bias,
                         half_width,
                         half_height,
                     );
                 }
             } else {
-                apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
+                apply_ssao_scalar(
+                    occlusion_buffer,
+                    zb,
+                    proj,
+                    kernel,
+                    noise,
+                    config.radius,
+                    config.bias,
+                );
             }
         }
         #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-        apply_ssao_scalar(occlusion_buffer, zb, proj, kernel, noise, radius, bias);
+        apply_ssao_scalar(
+            occlusion_buffer,
+            zb,
+            proj,
+            kernel,
+            noise,
+            config.radius,
+            config.bias,
+        );
 
         box_blur_f32(occlusion_buffer, scratch_buffer, acc_buffer, width, height);
 
         let pixels = fb.as_mut_slice();
+
+        // /// Bolt Performance Optimization:
+        // /// Precompute intensity multipliers to avoid float-division and scaling in the inner loop
+        // /// Reduces floating-point operations.
+        let inv_kernel_size = 1.0 / KERNEL_SIZE as f32;
+        let intensity_factor = inv_kernel_size * config.intensity;
+
         for (i, p) in pixels.iter_mut().enumerate() {
             let occ = occlusion_buffer[i];
-            let factor = 1.0 - (occ / KERNEL_SIZE as f32) * intensity;
+            let factor = 1.0 - occ * intensity_factor;
             let factor = factor.clamp(0.0, 1.0);
 
-            let r = ((*p >> 16) & 0xFF) as f32;
-            let g = ((*p >> 8) & 0xFF) as f32;
-            let b = (*p & 0xFF) as f32;
+            // /// Bolt Performance Optimization:
+            // /// Use integer fixed-point math for color blending (8.8 precision)
+            // /// Removes floating point multiplications for R, G, and B.
+            let factor_fixed = (factor * 256.0) as u32;
 
-            let new_r = (r * factor) as u32;
-            let new_g = (g * factor) as u32;
-            let new_b = (b * factor) as u32;
+            let a = *p & 0xFF00_0000;
+            let r = (*p >> 16) & 0xFF;
+            let g = (*p >> 8) & 0xFF;
+            let b = *p & 0xFF;
 
-            *p = (*p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+            let new_r = (r * factor_fixed) >> 8;
+            let new_g = (g * factor_fixed) >> 8;
+            let new_b = (b * factor_fixed) >> 8;
+
+            *p = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     });
 }
@@ -182,7 +225,7 @@ fn apply_ssao_scalar(
 
     iter.for_each(|(y, row)| {
         let noise_y = y % NOISE_SIZE;
-        for x in 0..width {
+        for (x, row_x) in row.iter_mut().enumerate().take(width) {
             let noise_x = x % NOISE_SIZE;
             let noise_idx = noise_y * NOISE_SIZE + noise_x;
             let random_vec = noise[noise_idx];
@@ -190,7 +233,7 @@ fn apply_ssao_scalar(
             let depth_val = zb.get_depth(x as i32, y as i32).unwrap_or(1.0);
 
             if depth_val >= 1.0 {
-                row[x] = 0.0;
+                *row_x = 0.0;
                 continue;
             }
 
@@ -238,7 +281,7 @@ fn apply_ssao_scalar(
                 }
             }
 
-            row[x] = occlusion;
+            *row_x = occlusion;
         }
     });
 }

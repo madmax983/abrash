@@ -279,41 +279,33 @@ pub(crate) fn draw_span_nearest(
     // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
     let len = fb_slice.len() as i32;
     let can_use_fast_path = if len > 0 {
-        // Calculate range of u_fix and v_fix
-        let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
-        let (u_min, u_max) = if du_fix >= 0 {
-            if u_end < u_fix {
-                (1, 0)
-            } else {
-                (u_fix, u_end)
-            } // Overflow check
-        } else if u_end > u_fix {
-            (1, 0)
-        } else {
-            (u_end, u_fix)
-        }; // Underflow check
+        // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
+        let u_start_64 = i64::from(u_fix);
+        let du_64 = i64::from(du_fix);
+        let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
 
-        let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
-        let (v_min, v_max) = if dv_fix >= 0 {
-            if v_end < v_fix {
-                (1, 0)
-            } else {
-                (v_fix, v_end)
-            }
-        } else if v_end > v_fix {
-            (1, 0)
+        let (u_min_64, u_max_64) = if du_64 >= 0 {
+            (u_start_64, u_end_64)
         } else {
-            (v_end, v_fix)
+            (u_end_64, u_start_64)
         };
 
-        // Check validity (min <= max) and bounds
+        let v_start_64 = i64::from(v_fix);
+        let dv_64 = i64::from(dv_fix);
+        let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
+
+        let (v_min_64, v_max_64) = if dv_64 >= 0 {
+            (v_start_64, v_end_64)
+        } else {
+            (v_end_64, v_start_64)
+        };
+
+        // Check bounds
         // (val >> 16) is the integer coordinate.
-        u_min <= u_max
-            && v_min <= v_max
-            && (u_min >> 16) >= 0
-            && (u_max >> 16) < (tex_w as i32)
-            && (v_min >> 16) >= 0
-            && (v_max >> 16) < (tex_h as i32)
+        u_min_64 >= 0
+            && (u_max_64 >> 16) < i64::from(tex_w)
+            && v_min_64 >= 0
+            && (v_max_64 >> 16) < i64::from(tex_h)
     } else {
         false
     };
@@ -415,42 +407,34 @@ pub(crate) fn draw_span_bilinear(
     // Optimization: Check if the entire span is within texture bounds to avoid per-pixel checks.
     let len = fb_slice.len() as i32;
     let can_use_fast_path = if len > 0 {
-        // Calculate range of u_fix and v_fix
-        let u_end = u_fix.wrapping_add(du_fix.wrapping_mul(len - 1));
-        let (u_min, u_max) = if du_fix >= 0 {
-            if u_end < u_fix {
-                (1, 0)
-            } else {
-                (u_fix, u_end)
-            } // Overflow check
-        } else if u_end > u_fix {
-            (1, 0)
-        } else {
-            (u_end, u_fix)
-        }; // Underflow check
+        // Calculate range of u_fix and v_fix using i64 to prevent wrap-around bypassing bounds checks.
+        let u_start_64 = i64::from(u_fix);
+        let du_64 = i64::from(du_fix);
+        let u_end_64 = u_start_64 + du_64 * i64::from(len - 1);
 
-        let v_end = v_fix.wrapping_add(dv_fix.wrapping_mul(len - 1));
-        let (v_min, v_max) = if dv_fix >= 0 {
-            if v_end < v_fix {
-                (1, 0)
-            } else {
-                (v_fix, v_end)
-            }
-        } else if v_end > v_fix {
-            (1, 0)
+        let (u_min_64, u_max_64) = if du_64 >= 0 {
+            (u_start_64, u_end_64)
         } else {
-            (v_end, v_fix)
+            (u_end_64, u_start_64)
         };
 
-        // Check validity (min <= max) and bounds for Bilinear (width-1)
+        let v_start_64 = i64::from(v_fix);
+        let dv_64 = i64::from(dv_fix);
+        let v_end_64 = v_start_64 + dv_64 * i64::from(len - 1);
+
+        let (v_min_64, v_max_64) = if dv_64 >= 0 {
+            (v_start_64, v_end_64)
+        } else {
+            (v_end_64, v_start_64)
+        };
+
+        // Check bounds for Bilinear (width-1)
         // (val >> 16) is the integer coordinate x0.
         // We need x0 < width - 1 (so x0+1 < width)
-        u_min <= u_max
-            && v_min <= v_max
-            && (u_min >> 16) >= 0
-            && (u_max >> 16) < w_i32
-            && (v_min >> 16) >= 0
-            && (v_max >> 16) < h_i32
+        u_min_64 >= 0
+            && (u_max_64 >> 16) < i64::from(w_i32)
+            && v_min_64 >= 0
+            && (v_max_64 >> 16) < i64::from(h_i32)
     } else {
         false
     };
@@ -1689,7 +1673,18 @@ pub fn fill_triangle_textured(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -2413,7 +2408,17 @@ unsafe fn draw_scanline_normal_mapped_simd(
     ambient: Vec3,
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256,
+            _mm256_andnot_ps, _mm256_blendv_epi8, _mm256_blendv_ps, _mm256_castps_si256,
+            _mm256_cmp_ps, _mm256_cvtepi32_ps, _mm256_cvttps_epi32, _mm256_fmadd_ps,
+            _mm256_fmsub_ps, _mm256_i32gather_epi32, _mm256_loadu_ps, _mm256_loadu_si256,
+            _mm256_max_epi32, _mm256_max_ps, _mm256_min_epi32, _mm256_min_ps, _mm256_movemask_ps,
+            _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_rcp_ps, _mm256_rsqrt_ps,
+            _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps,
+            _mm256_setzero_si256, _mm256_slli_epi32, _mm256_sllv_epi32, _mm256_srli_epi32,
+            _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_ps,
+        };
 
         let len = fb_slice.len();
         let mut i = 0;
@@ -3184,7 +3189,20 @@ pub fn fill_triangle_normal_mapped(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+                a.3.lerp(b.3, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -3398,6 +3416,7 @@ pub struct TexturedGouraudGradients {
 
 impl TexturedGouraudGradients {
     #[allow(clippy::too_many_arguments)]
+    #[must_use]
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -3662,7 +3681,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
         let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
 
         let ff_mask = _mm256_set1_epi32(0xFF);
@@ -3688,7 +3707,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 };
 
                 let pixel_vals =
-                    _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                    _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
 
                 let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
                 let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
@@ -3732,7 +3751,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -3744,7 +3763,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
                     // Alpha blending: src * alpha + dest * inv_alpha
@@ -4482,7 +4501,19 @@ pub fn fill_triangle_textured_gouraud(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -4848,7 +4879,7 @@ mod tests {
         let r = (pixel >> 16) & 0xFF;
 
         // (0 + 255) / 2 = 127.
-        assert!((120..=135).contains(&r), "Pixel should be ~127, got {}", r);
+        assert!((120..=135).contains(&r), "Pixel should be ~127, got {r}");
     }
 
     #[test]
@@ -4963,23 +4994,51 @@ fn test_draw_scanline_trilinear() {
     // Level 0 (Black) mixed with Level 1 (Grey ~127).
     // 50/50 blend -> ~63.
     // Allow range 55-75.
-    assert!((55..=75).contains(&r), "Expected ~64, got {}", r);
+    assert!((55..=75).contains(&r), "Expected ~64, got {r}");
+}
+
+#[test]
+fn test_draw_span_nearest_overflow_vulnerability() {
+    let mut fb = vec![0u32; 16];
+    let mut zb = vec![100.0f32; 16];
+    let mut tex = Texture::new(2, 2).unwrap();
+    for y in 0..2 {
+        for x in 0..2 {
+            tex.set_pixel(x, y, 0xFFFFFFFF);
+        }
+    }
+
+    let z = 1.0;
+    let dz_dx = 0.0;
+
+    let u_fix = 10;
+    let v_fix = 0;
+    let du_fix = 286331154; // Causes wrap around on 15 iterations: 286331154 * 15 % 2^32 = 14
+    let dv_fix = 0;
+
+    // Using `std::panic::catch_unwind` and `AssertUnwindSafe` to ensure intentional panic testing
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        draw_span_nearest(
+            &mut fb, &mut zb, &tex, z, dz_dx, u_fix, v_fix, du_fix, dv_fix,
+        );
+    }));
+
+    assert!(
+        result.is_ok(),
+        "draw_span_nearest panicked due to overflow vulnerability!"
+    );
 }
 
 #[test]
 fn test_reciprocal_table_accuracy() {
-    for i in 1..RECIPROCAL_TABLE.len() {
-        let table_val = RECIPROCAL_TABLE[i];
+    for (i, &table_val) in RECIPROCAL_TABLE.iter().enumerate().skip(1) {
         let actual = 1.0 / (i as f32);
         let diff = (table_val - actual).abs();
 
         // Precision should be very high (f32 epsilon level)
         assert!(
             diff < 1e-6,
-            "Table index {} mismatch: table={}, actual={}",
-            i,
-            table_val,
-            actual
+            "Table index {i} mismatch: table={table_val}, actual={actual}"
         );
     }
 }

@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Mat4;
-use abrash::post_process::{apply_bloom, apply_sobel, apply_ssao};
+use abrash::post_process::{BloomConfig, apply_bloom, apply_sobel, apply_ssao};
 use abrash::zbuffer::ZBuffer;
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -34,11 +34,21 @@ fn test_post_process_concurrency() {
 
                 // Call Bloom
                 // threshold, blur_radius, intensity
-                apply_bloom(&mut fb, 200, 5, 1.5);
+                let config = BloomConfig {
+                    threshold: 200,
+                    blur_radius: 5,
+                    intensity: 1.5,
+                };
+                apply_bloom(&mut fb, &config);
 
                 // Call SSAO
                 let proj = Mat4::identity();
-                apply_ssao(&mut fb, &zb, &proj, 0.5, 0.025, 2.0);
+                let ssao_config = abrash::post_process::SsaoConfig {
+                    radius: 0.5,
+                    bias: 0.025,
+                    intensity: 2.0,
+                };
+                apply_ssao(&mut fb, &zb, &proj, &ssao_config);
 
                 // Call Sobel
                 apply_sobel(&mut fb);

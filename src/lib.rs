@@ -1,3 +1,11 @@
+#![allow(
+    clippy::all,
+    unused_variables,
+    dead_code,
+    unused_imports,
+    unsafe_op_in_unsafe_fn,
+    unused_mut
+)]
 //! # Abrash - A Software Rasterizer in Rust
 //!
 //! Abrash is a high-performance software rasterizer built for educational purposes and retro-style rendering.

@@ -3,7 +3,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
-use abrash::platform::{Window, WindowBackend};
+use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -263,7 +263,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .add_attribute(comfy_table::Attribute::Bold)
                         .fg(Color::Red),
                 ])
-                .add_row(vec![Cell::new(format!("{e}")).fg(Color::Yellow)]);
+                .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
             eprintln!("\n{error_table}");
             std::process::exit(1);
         }

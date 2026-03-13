@@ -25,27 +25,37 @@
 //! abrash = { version = "0.1", features = ["nova"] }
 //! ```
 
+pub mod anaglyph;
 pub mod arboretum;
+pub mod boids;
+
 pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
 pub mod directional_blur;
 pub mod dither;
+pub mod edge_glow;
+pub mod emboss;
 pub mod glitch;
 pub mod halftone;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
+pub mod lsystem;
+pub mod modifiers;
+pub mod palette;
 pub mod pixel_sort;
 pub mod pixelate;
+pub mod posterize;
 pub mod procedural_mesh;
 pub mod radial_blur;
 pub mod raytracer;
 pub mod sdf;
 pub mod sharpen;
 pub mod ssao;
+pub mod thermal;
 pub mod vision;
 pub mod volume;
 pub mod voxel_explosion;

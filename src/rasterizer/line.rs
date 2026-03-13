@@ -1,3 +1,7 @@
+//! Line drawing algorithms.
+//!
+//! Implements Bresenham's line algorithm for wireframe rendering.
+
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_to_screen_optimized};
@@ -18,7 +22,12 @@ pub fn draw_line_3d(
     color: u32,
 ) {
     // Clip against frustum (returns None if fully culled)
-    if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(v0, v1, |v| *v) {
+    if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(
+        v0,
+        v1,
+        |v| *v,
+        |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
+    ) {
         let width = fb.width();
         let height = fb.height();
         let half_width = width as f32 * 0.5;

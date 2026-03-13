@@ -1,4 +1,8 @@
 #![allow(clippy::collapsible_if)]
+//! Tile-based rasterizer data structures.
+//!
+//! Handles splitting the screen into tiles for binning-based rasterization.
+
 //! Tile-based rendering for improved cache locality at high resolutions.
 //!
 //! This module implements a tile-based rasterizer that subdivides the framebuffer into 32×32 pixel
@@ -178,8 +182,31 @@ impl<T> DerefMut for AlignedBuffer<T> {
 unsafe impl<T: Send> Send for AlignedBuffer<T> {}
 unsafe impl<T: Sync> Sync for AlignedBuffer<T> {}
 
+/// Context for rendering a triangle into a tile.
+struct TileContext<'a> {
+    pixels: &'a mut [u32],
+    depths: &'a mut [f32],
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    screen_x_max: i32,
+}
+
 /// Tile size in pixels. 32x32 = 1024 pixels * 4 bytes = 4KB per buffer.
 pub const TILE_SIZE: u32 = 32;
+
+impl TileContext<'_> {
+    #[inline(always)]
+    const fn get_indices(&self, x: i32, y: i32) -> usize {
+        ((y - self.y0) as u32 * TILE_SIZE + (x - self.x0) as u32) as usize
+    }
+
+    #[inline(always)]
+    const fn get_row_offset(&self, y: i32) -> usize {
+        ((y - self.y0) as u32 * TILE_SIZE) as usize
+    }
+}
 
 /// A clip-space triangle with three vertices `(position, w)` and a flat color.
 pub type ClipTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
@@ -269,6 +296,34 @@ pub struct PreparedTexturedTriangle {
     pub max_depth: f32,
 }
 
+/// Helper function to compute the minimum and maximum Y bounds for clearing a tile,
+/// based on the triangles intersecting it, and clears the specified tile regions.
+#[inline(always)]
+fn clear_tile_bounds<T>(
+    ctx: &mut TileContext,
+    tile_bins: &TileBins,
+    bin_idx: usize,
+    prepared: &[T],
+    get_bounds: impl Fn(&T) -> (i32, i32),
+) -> (i32, i32) {
+    let mut clear_y_min = ctx.y1;
+    let mut clear_y_max = ctx.y0;
+
+    for tri_idx in tile_bins.iter(bin_idx) {
+        let tri = &prepared[tri_idx];
+        let (min_y, max_y) = get_bounds(tri);
+        clear_y_min = clear_y_min.min(min_y.max(ctx.y0));
+        clear_y_max = clear_y_max.max(max_y.min(ctx.y1 - 1));
+    }
+
+    let row_start = ((clear_y_min - ctx.y0) as u32 * TILE_SIZE as u32) as usize;
+    let row_end = (((clear_y_max - ctx.y0) as u32 + 1) * TILE_SIZE as u32) as usize;
+    ctx.pixels[row_start..row_end].fill(0xFF00_0000);
+    ctx.depths[row_start..row_end].fill(f32::INFINITY);
+
+    (clear_y_min, clear_y_max)
+}
+
 use std::mem::MaybeUninit;
 
 pub struct PreparedGouraudTrianglesList {
@@ -277,14 +332,15 @@ pub struct PreparedGouraudTrianglesList {
 }
 
 impl PreparedGouraudTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedGouraudTriangle) {
+    pub const fn push(&mut self, tri: PreparedGouraudTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -329,14 +385,15 @@ pub struct PreparedTrianglesList {
 }
 
 impl PreparedTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedTriangle) {
+    pub const fn push(&mut self, tri: PreparedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -423,14 +480,15 @@ pub struct PreparedTexturedTrianglesList {
 }
 
 impl PreparedTexturedTrianglesList {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             tris: unsafe { MaybeUninit::uninit().assume_init() },
             count: 0,
         }
     }
 
-    pub fn push(&mut self, tri: PreparedTexturedTriangle) {
+    pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -480,6 +538,7 @@ pub struct TileBins {
 }
 
 impl TileBins {
+    #[must_use]
     pub fn new(num_tiles: usize) -> Self {
         Self {
             heads: vec![u32::MAX; num_tiles],
@@ -512,6 +571,7 @@ impl TileBins {
         self.tails[tile_idx] = node_idx;
     }
 
+    #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
             bins: self,
@@ -525,7 +585,7 @@ pub struct TileBinIter<'a> {
     curr: u32,
 }
 
-impl<'a> Iterator for TileBinIter<'a> {
+impl Iterator for TileBinIter<'_> {
     type Item = usize;
 
     #[inline]
@@ -544,7 +604,6 @@ impl<'a> Iterator for TileBinIter<'a> {
 /// Render a single tile: clear, rasterize triangles, and return tile buffers.
 /// Free function to enable parallel dispatch without `&mut self` borrows.
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
 fn render_single_tile(
     tx: u32,
     ty: u32,
@@ -565,37 +624,27 @@ fn render_single_tile(
     let tile_y0 = (ty * TILE_SIZE) as i32;
     let tile_x1 = tile_x0 + TILE_SIZE as i32;
     let tile_y1 = tile_y0 + TILE_SIZE as i32;
+    let screen_x_max = width as i32 - 1;
 
-    // Compute Y range covered by triangles in this bin (partial tile clear)
-    let mut clear_y_min = tile_y1;
-    let mut clear_y_max = tile_y0;
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
 
-    for tri_idx in tile_bins.iter(bin_idx) {
-        let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
-    }
-
-    // Clear only the rows that will be touched
-    let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
-    let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
-    tile_pixels[row_start..row_end].fill(0xFF00_0000);
-    tile_depths[row_start..row_end].fill(f32::INFINITY);
+    let (clear_y_min, clear_y_max) =
+        clear_tile_bounds(&mut ctx, tile_bins, bin_idx, prepared, |tri| {
+            (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y))
+        });
 
     // Render all triangles in bin
-    let screen_w = width as i32;
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        render_triangle_in_tile(
-            tile_pixels,
-            tile_depths,
-            tri,
-            tile_x0,
-            tile_y0,
-            tile_x1,
-            tile_y1,
-            screen_w,
-        );
+        render_triangle_in_tile(&mut ctx, tri);
     }
 
     Some((clear_y_min, clear_y_max))
@@ -603,29 +652,17 @@ fn render_single_tile(
 
 /// Render a triangle into tile-local buffers. Free function to avoid `&mut self` borrow conflicts.
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
-fn render_triangle_in_tile(
-    tile_pixels: &mut [u32],
-    tile_depths: &mut [f32],
-    tri: &PreparedTriangle,
-    tile_x0: i32,
-    tile_y0: i32,
-    tile_x1: i32,
-    tile_y1: i32,
-    screen_w: i32,
-) {
+fn render_triangle_in_tile(ctx: &mut TileContext, tri: &PreparedTriangle) {
     let p0_y = tri.p0.y;
     let p1_y = tri.p1.y;
     let p2_y = tri.p2.y;
 
-    let y_start = p0_y.max(tile_y0);
-    let y_end = p2_y.min(tile_y1 - 1);
+    let y_start = p0_y.max(ctx.y0);
+    let y_end = p2_y.min(ctx.y1 - 1);
 
     if y_start > y_end {
         return;
     }
-
-    let screen_x_max = screen_w - 1;
 
     // Reconstruct ScreenPoint for EdgeWalker (inv_w unused for flat shading)
     let p0 = ScreenPoint {
@@ -682,56 +719,7 @@ fn render_triangle_in_tile(
             ((edge_b.x >> 16) as i32, (edge_a.x >> 16) as i32, edge_b.z)
         };
 
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left;
-                    tile_pixels[tile_idx] = color;
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                // Calculate z at xs
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_at_xs = z_left + dx_start * dz_dx;
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                {
-                    // Adaptive SIMD Rasterization
-                    //
-                    // History:
-                    // - Previously disabled due to maskstore performance regression (4x slower).
-                    // - Optimized to use _mm256_blendv_ps instead of maskstores.
-                    // - Benchmarks verify ~11-14% speedup for large triangles (scanlines >= 32 pixels).
-                    // - Adaptive threshold protects against regression on small triangles.
-                    //
-                    // See: benches/scanline_micro.rs results.
-                    if pixels.len() >= 8 {
-                        rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
-                    } else {
-                        rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-                    }
-                }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
-            }
-        }
+        process_tile_scanline_flat(ctx, y, x_start, x_end, z_left, dz_dx, color);
 
         edge_a.step();
         edge_b.step();
@@ -741,7 +729,6 @@ fn render_triangle_in_tile(
 /// Render a single tile textured: clear, rasterize triangles, and return tile buffers.
 /// Free function to enable parallel dispatch without `&mut self` borrows.
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
 fn render_single_tile_textured(
     tx: u32,
     ty: u32,
@@ -763,38 +750,27 @@ fn render_single_tile_textured(
     let tile_y0 = (ty * TILE_SIZE) as i32;
     let tile_x1 = tile_x0 + TILE_SIZE as i32;
     let tile_y1 = tile_y0 + TILE_SIZE as i32;
+    let screen_x_max = width as i32 - 1;
 
-    // Compute Y range covered by triangles in this bin (partial tile clear)
-    let mut clear_y_min = tile_y1;
-    let mut clear_y_max = tile_y0;
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
 
-    for tri_idx in tile_bins.iter(bin_idx) {
-        let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
-    }
-
-    // Clear only the rows that will be touched
-    let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
-    let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
-    tile_pixels[row_start..row_end].fill(0xFF00_0000);
-    tile_depths[row_start..row_end].fill(f32::INFINITY);
+    let (clear_y_min, clear_y_max) =
+        clear_tile_bounds(&mut ctx, tile_bins, bin_idx, prepared, |tri| {
+            (tri.aabb_min_y, tri.aabb_max_y)
+        });
 
     // Render all triangles in bin
-    let screen_w = width as i32;
     for tri_idx in tile_bins.iter(bin_idx) {
         let tri = &prepared[tri_idx];
-        render_triangle_in_tile_textured(
-            tile_pixels,
-            tile_depths,
-            tri,
-            tile_x0,
-            tile_y0,
-            tile_x1,
-            tile_y1,
-            screen_w,
-            texture,
-        );
+        render_triangle_in_tile_textured(&mut ctx, tri, texture);
     }
 
     Some((clear_y_min, clear_y_max))
@@ -802,26 +778,17 @@ fn render_single_tile_textured(
 
 /// Render a textured triangle into tile-local buffers.
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
 fn render_triangle_in_tile_textured(
-    tile_pixels: &mut [u32],
-    tile_depths: &mut [f32],
+    ctx: &mut TileContext,
     tri: &PreparedTexturedTriangle,
-    tile_x0: i32,
-    tile_y0: i32,
-    tile_x1: i32,
-    tile_y1: i32,
-    screen_w: i32,
     texture: &Texture,
 ) {
-    let y_start = tri.p0.y.max(tile_y0);
-    let y_end = tri.p2.y.min(tile_y1 - 1);
+    let y_start = tri.p0.y.max(ctx.y0);
+    let y_end = tri.p2.y.min(ctx.y1 - 1);
 
     if y_start > y_end {
         return;
     }
-
-    let screen_x_max = screen_w - 1;
 
     let mut edge_a = PerspectiveTextureEdgeWalker::new(
         tri.p0,
@@ -903,82 +870,9 @@ fn render_triangle_in_tile_textured(
             )
         };
 
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] && q_left.abs() > 0.000_001 {
-                    tile_depths[tile_idx] = z_left;
-                    let w = 1.0 / q_left;
-                    let u_tex = u_left * w;
-                    let v_tex = v_left * w;
-                    tile_pixels[tile_idx] = match texture.filter_mode {
-                        FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
-                        FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
-                        FilterMode::Trilinear => {
-                            // Calculate LOD for single pixel
-                            // For a single pixel, we can estimate gradients based on the triangle gradients
-                            // projected to this pixel.
-                            // q = 1/w.
-                            // u_tex = u/q.
-                            // du_tex/dx = (du/dx * q - u * dq/dx) / q^2
-                            let w = 1.0 / q_left;
-                            let w_sq = w * w;
-
-                            let du_tex_dx = (tri.gradients.du_dx * q_left
-                                - u_left * tri.gradients.dq_dx)
-                                * w_sq;
-                            let dv_tex_dx = (tri.gradients.dv_dx * q_left
-                                - v_left * tri.gradients.dq_dx)
-                                * w_sq;
-                            let du_tex_dy = (tri.gradients.du_dy * q_left
-                                - u_left * tri.gradients.dq_dy)
-                                * w_sq;
-                            let dv_tex_dy = (tri.gradients.dv_dy * q_left
-                                - v_left * tri.gradients.dq_dy)
-                                * w_sq;
-
-                            let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
-                                .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
-
-                            let lod = 0.5 * max_rho_sq.log2();
-                            texture.get_pixel_trilinear(u_tex, v_tex, lod)
-                        }
-                    };
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_start = z_left + dx_start * tri.gradients.dz_dx;
-                let q_start = q_left + dx_start * tri.gradients.dq_dx;
-                let u_start = u_left + dx_start * tri.gradients.du_dx;
-                let v_start = v_left + dx_start * tri.gradients.dv_dx;
-
-                let start = PerspectiveSpanStart {
-                    z: z_start,
-                    q: q_start,
-                    u: u_start,
-                    v: v_start,
-                };
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                rasterize_scanline_textured(pixels, depths, texture, start, &tri.gradients);
-            }
-        }
+        process_tile_scanline_textured(
+            ctx, y, x_start, x_end, z_left, q_left, u_left, v_left, tri, texture,
+        );
 
         edge_a.step();
         edge_b.step();
@@ -986,6 +880,138 @@ fn render_triangle_in_tile_textured(
 }
 
 #[inline(always)]
+
+fn process_tile_scanline_flat(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    dz_dx: f32,
+    color: u32,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] {
+                ctx.depths[tile_idx] = z_left;
+                ctx.pixels[tile_idx] = color;
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            // Calculate z at xs
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_at_xs = z_left + dx_start * dz_dx;
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+            {
+                if pixels.len() >= 8 {
+                    rasterize_scanline_simd(pixels, depths, z_at_xs, dz_dx, color);
+                } else {
+                    rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+                }
+            }
+            #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+            rasterize_scanline_scalar(pixels, depths, z_at_xs, dz_dx, color);
+        }
+    }
+}
+
+#[inline(always)]
+fn process_tile_scanline_textured(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    q_left: f32,
+    u_left: f32,
+    v_left: f32,
+    tri: &PreparedTexturedTriangle,
+    texture: &Texture,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] && q_left.abs() > 0.000_001 {
+                ctx.depths[tile_idx] = z_left;
+                let w = 1.0 / q_left;
+                let u_tex = u_left * w;
+                let v_tex = v_left * w;
+                ctx.pixels[tile_idx] = match texture.filter_mode {
+                    FilterMode::Nearest => texture.get_pixel_texel(u_tex as i32, v_tex as i32),
+                    FilterMode::Bilinear => texture.get_pixel_bilinear_texel(u_tex, v_tex),
+                    FilterMode::Trilinear => {
+                        let w = 1.0 / q_left;
+                        let w_sq = w * w;
+
+                        let du_tex_dx =
+                            (tri.gradients.du_dx * q_left - u_left * tri.gradients.dq_dx) * w_sq;
+                        let dv_tex_dx =
+                            (tri.gradients.dv_dx * q_left - v_left * tri.gradients.dq_dx) * w_sq;
+                        let du_tex_dy =
+                            (tri.gradients.du_dy * q_left - u_left * tri.gradients.dq_dy) * w_sq;
+                        let dv_tex_dy =
+                            (tri.gradients.dv_dy * q_left - v_left * tri.gradients.dq_dy) * w_sq;
+
+                        let max_rho_sq = (du_tex_dx * du_tex_dx + dv_tex_dx * dv_tex_dx)
+                            .max(du_tex_dy * du_tex_dy + dv_tex_dy * dv_tex_dy);
+
+                        let lod = 0.5 * max_rho_sq.log2();
+                        texture.get_pixel_trilinear(u_tex, v_tex, lod)
+                    }
+                };
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_start = z_left + dx_start * tri.gradients.dz_dx;
+            let q_start = q_left + dx_start * tri.gradients.dq_dx;
+            let u_start = u_left + dx_start * tri.gradients.du_dx;
+            let v_start = v_left + dx_start * tri.gradients.dv_dx;
+
+            let start = PerspectiveSpanStart {
+                z: z_start,
+                q: q_start,
+                u: u_start,
+                v: v_start,
+            };
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            rasterize_scanline_textured(pixels, depths, texture, start, &tri.gradients);
+        }
+    }
+}
+
 fn rasterize_scanline_textured(
     pixels: &mut [u32],
     depths: &mut [f32],
@@ -1503,6 +1529,24 @@ pub struct TileRenderer {
     half_height: f32,
 }
 
+struct CoarseBinContext<'a> {
+    tri_idx: usize,
+    cx_min: u32,
+    cx_max: u32,
+    cy_min: u32,
+    cy_max: u32,
+    tx_min_tri: u32,
+    tx_max_tri: u32,
+    ty_min_tri: u32,
+    ty_max_tri: u32,
+    tri_min_depth: f32,
+    tri_max_depth: f32,
+    width_i32: i32,
+    height_i32: i32,
+    has_hiz: bool,
+    hiz_buffer_ref: Option<&'a HiZBuffer>,
+}
+
 impl TileRenderer {
     /// Create a new tile renderer for the given framebuffer dimensions.
     ///
@@ -1673,17 +1717,17 @@ impl TileRenderer {
             let half_height = self.half_height;
 
             // Process triangles in parallel and collect prepared results
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTriangle> = indices
-                .par_iter()
-                .flat_map_iter(|&[i0, i1, i2]| {
+            // Bolt: Use `par_extend` combined with `flat_map_iter` to reuse the existing capacity
+            // of `self.prepared` and eliminate intermediate Vec heap allocations entirely.
+            self.prepared
+                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
                     // Safety: We trust the indices are within bounds of the vertices slice.
                     // The caller must ensure this or it will panic inside the thread.
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
 
-                    let tris = Self::prepare_triangle_static(
+                    Self::prepare_triangle_static(
                         v0,
                         v1,
                         v2,
@@ -1692,12 +1736,8 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                    )
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -1846,13 +1886,22 @@ impl TileRenderer {
                     (0..self.tiles_y)
                         .into_par_iter()
                         .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                        .for_each_init(
-                            || {
+                        .for_each(|(tx, ty)| {
+                            std::thread_local! {
+                                static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                            }
+                            TILE_BUFFER.with(|buf| {
+                                let mut buffers = buf.borrow_mut();
                                 let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                                (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                            },
-                            |buffers, (tx, ty)| {
-                                let (tile_pixels, tile_depths) = &mut *buffers;
+                                if buffers.0.len() < tile_area {
+                                    buffers.0.resize(tile_area, 0);
+                                    buffers.1.resize(tile_area, f32::INFINITY);
+                                }
+                                let buffers_ref = &mut *buffers;
+                                let tile_pixels = &mut buffers_ref.0;
+                                let tile_depths = &mut buffers_ref.1;
+                                tile_pixels.fill(0);
+                                tile_depths.fill(f32::INFINITY);
                                 if let Some((clear_y_min, clear_y_max)) = render_single_tile(
                                     tx,
                                     ty,
@@ -1893,8 +1942,8 @@ impl TileRenderer {
                                         }
                                     }
                                 }
-                            },
-                        );
+                            });
+                        });
                 }
             }
         }
@@ -1989,11 +2038,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2, color)| {
-                    let tris = Self::prepare_triangle_static(
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
+                    Self::prepare_triangle_static(
                         v0,
                         v1,
                         v2,
@@ -2002,12 +2050,8 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared.extend(results);
+                    )
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2068,26 +2112,25 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedTexturedTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
-                    let tris = Self::prepare_triangle_textured_static(
-                        (v0, uv0),
-                        (v1, uv1),
-                        (v2, uv2),
-                        tex_w,
-                        tex_h,
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared_textured.extend(results);
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared_textured
+                .par_extend(
+                    triangles
+                        .par_iter()
+                        .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                            Self::prepare_triangle_textured_static(
+                                (v0, uv0),
+                                (v1, uv1),
+                                (v2, uv2),
+                                tex_w,
+                                tex_h,
+                                width,
+                                height,
+                                half_width,
+                                half_height,
+                            )
+                        }),
+                );
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2161,13 +2204,22 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        std::thread_local! {
+                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                        }
+                        TILE_BUFFER.with(|buf| {
+                            let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if buffers.0.len() < tile_area {
+                                buffers.0.resize(tile_area, 0);
+                                buffers.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let buffers_ref = &mut *buffers;
+                            let tile_pixels = &mut buffers_ref.0;
+                            let tile_depths = &mut buffers_ref.1;
+                            tile_pixels.fill(0);
+                            tile_depths.fill(f32::INFINITY);
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_textured(
                                 tx,
                                 ty,
@@ -2207,8 +2259,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
@@ -2250,11 +2302,10 @@ impl TileRenderer {
             let half_width = self.half_width;
             let half_height = self.half_height;
 
-            // Bolt: Use `flat_map_iter` instead of `fold` and `flatten` to avoid intermediate Vec allocations per chunk.
-            let results: Vec<PreparedGouraudTriangle> = triangles
-                .par_iter()
-                .flat_map_iter(|&(v0, v1, v2)| {
-                    let tris = Self::prepare_triangle_gouraud_static(
+            // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
+            self.prepared_gouraud
+                .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
+                    Self::prepare_triangle_gouraud_static(
                         v0,
                         v1,
                         v2,
@@ -2262,12 +2313,8 @@ impl TileRenderer {
                         height,
                         half_width,
                         half_height,
-                    );
-                    tris
-                })
-                .collect();
-
-            self.prepared_gouraud.extend(results);
+                    )
+                }));
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -2340,13 +2387,22 @@ impl TileRenderer {
                 (0..self.tiles_y)
                     .into_par_iter()
                     .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
-                    .for_each_init(
-                        || {
+                    .for_each(|(tx, ty)| {
+                        std::thread_local! {
+                            static TILE_BUFFER: std::cell::RefCell<(Vec<u32>, Vec<f32>)> = const { std::cell::RefCell::new((Vec::new(), Vec::new())) };
+                        }
+                        TILE_BUFFER.with(|buf| {
+                            let mut buffers = buf.borrow_mut();
                             let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
-                            (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
-                        },
-                        |buffers, (tx, ty)| {
-                            let (tile_pixels, tile_depths) = &mut *buffers;
+                            if buffers.0.len() < tile_area {
+                                buffers.0.resize(tile_area, 0);
+                                buffers.1.resize(tile_area, f32::INFINITY);
+                            }
+                            let buffers_ref = &mut *buffers;
+                            let tile_pixels = &mut buffers_ref.0;
+                            let tile_depths = &mut buffers_ref.1;
+                            tile_pixels.fill(0);
+                            tile_depths.fill(f32::INFINITY);
                             if let Some((clear_y_min, clear_y_max)) = render_single_tile_gouraud(
                                 tx,
                                 ty,
@@ -2384,8 +2440,8 @@ impl TileRenderer {
                                     }
                                 }
                             }
-                        },
-                    );
+                        });
+                    });
             }
         }
 
@@ -2423,7 +2479,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedGouraudTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedGouraudTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2532,10 +2599,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared_gouraud[i];
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2552,10 +2619,10 @@ impl TileRenderer {
         let tri = &self.prepared_gouraud[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
-        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
-        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
+        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
+        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -2566,7 +2633,8 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    fn sort_bins_gouraud(&self) {
+    #[allow(clippy::unused_self)]
+    const fn sort_bins_gouraud(&self) {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -2634,7 +2702,18 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTexturedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| v.0,
+            |a, b, t| {
+                (
+                    (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                    a.1.lerp(b.1, t),
+                )
+            },
+        );
         let mut results = PreparedTexturedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2789,7 +2868,13 @@ impl TileRenderer {
         half_width: f32,
         half_height: f32,
     ) -> PreparedTrianglesList {
-        let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| (v.0, v.1));
+        let clipped = clip_triangle_to_frustum(
+            v0,
+            v1,
+            v2,
+            |v| (v.0, v.1),
+            |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
+        );
         let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
@@ -2892,10 +2977,10 @@ impl TileRenderer {
             if let Some(ref hiz) = self.hiz_buffer {
                 let tri = &self.prepared[i];
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
@@ -2912,80 +2997,140 @@ impl TileRenderer {
     fn bin_triangles_two_level_cpu(&mut self) {
         let prepared_len = self.prepared.len();
         let coarse_size = 4; // 4x4 tiles = 128x128 pixels
+        let tile_size_i32 = TILE_SIZE as i32;
+        let coarse_pixel_size = (coarse_size * TILE_SIZE) as i32;
+
+        let width_i32 = self.width as i32 - 1;
+        let height_i32 = self.height as i32 - 1;
+
+        // Optimization: Lift branch out of outer loop
+        let has_hiz = self.hiz_buffer.is_some();
+        let hiz_buffer_ref = self.hiz_buffer.as_ref();
 
         for i in 0..prepared_len {
             let tri = &self.prepared[i];
 
             // If Hi-Z is enabled, we can use it to cull coarse bins
             // First, check if the whole triangle is occluded (fast rejection)
-            if let Some(ref hiz) = self.hiz_buffer {
+            if has_hiz {
                 let aabb = AABB3D {
-                    min_x: (tri.aabb_min_x as i32),
-                    max_x: (tri.aabb_max_x as i32),
-                    min_y: (tri.aabb_min_y as i32),
-                    max_y: (tri.aabb_max_y as i32),
+                    min_x: i32::from(tri.aabb_min_x),
+                    max_x: i32::from(tri.aabb_max_x),
+                    min_y: i32::from(tri.aabb_min_y),
+                    max_y: i32::from(tri.aabb_max_y),
                     min_depth: tri.min_depth,
                     max_depth: tri.max_depth,
                 };
 
-                if !hiz.is_potentially_visible(aabb) {
+                // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
+                if !unsafe { hiz_buffer_ref.unwrap_unchecked() }.is_potentially_visible(aabb) {
                     continue;
                 }
             }
 
-            let tile_size_i32 = TILE_SIZE as i32;
-
             // Calculate triangle bounds in tile coordinates
-            let tx_min_tri = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
-            let ty_min_tri = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
-            let tx_max_tri =
-                ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
-            let ty_max_tri =
-                ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
+            let tx_min_tri = u32::from(tri.aabb_min_x) >> 5;
+            let ty_min_tri = u32::from(tri.aabb_min_y) >> 5;
+            let tx_max_tri = (u32::from(tri.aabb_max_x) >> 5).min(self.tiles_x - 1);
+            let ty_max_tri = (u32::from(tri.aabb_max_y) >> 5).min(self.tiles_y - 1);
 
             // Calculate bounds in coarse bin coordinates
-            let cx_min = tx_min_tri / coarse_size;
-            let cy_min = ty_min_tri / coarse_size;
-            let cx_max = tx_max_tri / coarse_size;
-            let cy_max = ty_max_tri / coarse_size;
+            let cx_min = tx_min_tri >> 2;
+            let cy_min = ty_min_tri >> 2;
+            let cx_max = tx_max_tri >> 2;
+            let cy_max = ty_max_tri >> 2;
 
-            for cy in cy_min..=cy_max {
-                for cx in cx_min..=cx_max {
-                    // Check visibility of this coarse bin
-                    let mut visible = true;
-                    if let Some(ref hiz) = self.hiz_buffer {
-                        let bin_min_x = (cx * coarse_size * TILE_SIZE) as i32;
-                        let bin_min_y = (cy * coarse_size * TILE_SIZE) as i32;
-                        let bin_max_x = bin_min_x + (coarse_size * TILE_SIZE) as i32 - 1;
-                        let bin_max_y = bin_min_y + (coarse_size * TILE_SIZE) as i32 - 1;
-
-                        // Clamp to screen
-                        let bin_aabb = AABB3D {
-                            min_x: bin_min_x.max(0),
-                            max_x: bin_max_x.min(self.width as i32 - 1),
-                            min_y: bin_min_y.max(0),
-                            max_y: bin_max_y.min(self.height as i32 - 1),
-                            min_depth: tri.min_depth,
-                            max_depth: tri.max_depth,
-                        };
-
-                        if !hiz.is_potentially_visible(bin_aabb) {
-                            visible = false;
-                        }
+            // Small triangles don't benefit from coarse binning
+            // If it spans very few coarse bins, fallback to simple binning
+            if cx_max - cx_min <= 1 && cy_max - cy_min <= 1 {
+                for ty in ty_min_tri..=ty_max_tri {
+                    let mut bin_idx = (ty * self.tiles_x + tx_min_tri) as usize;
+                    for _tx in tx_min_tri..=tx_max_tri {
+                        self.tile_bins.push(bin_idx, i);
+                        bin_idx += 1;
                     }
+                }
+                continue;
+            }
 
-                    if visible {
-                        // Iterate over fine tiles within this coarse bin
-                        let tx_start = (cx * coarse_size).max(tx_min_tri);
-                        let ty_start = (cy * coarse_size).max(ty_min_tri);
-                        let tx_end = ((cx + 1) * coarse_size - 1).min(tx_max_tri);
-                        let ty_end = ((cy + 1) * coarse_size - 1).min(ty_max_tri);
+            let tri_min_depth = tri.min_depth;
+            let tri_max_depth = tri.max_depth;
 
-                        for ty in ty_start..=ty_end {
-                            for tx in tx_start..=tx_end {
-                                let bin_idx = (ty * self.tiles_x + tx) as usize;
-                                self.tile_bins.push(bin_idx, i);
-                            }
+            Self::process_coarse_bins_for_triangle(
+                &mut self.tile_bins,
+                self.tiles_x,
+                &CoarseBinContext {
+                    tri_idx: i,
+                    cx_min,
+                    cx_max,
+                    cy_min,
+                    cy_max,
+                    tx_min_tri,
+                    tx_max_tri,
+                    ty_min_tri,
+                    ty_max_tri,
+                    tri_min_depth,
+                    tri_max_depth,
+                    width_i32,
+                    height_i32,
+                    has_hiz,
+                    hiz_buffer_ref,
+                },
+            );
+        }
+    }
+
+    fn process_coarse_bins_for_triangle(
+        tile_bins: &mut TileBins,
+        tiles_x: u32,
+        ctx: &CoarseBinContext<'_>,
+    ) {
+        let coarse_size: u32 = 4; // 4x4 tiles = 128x128 pixels
+        let coarse_pixel_size = (coarse_size * TILE_SIZE) as i32;
+
+        for cy in ctx.cy_min..=ctx.cy_max {
+            let bin_min_y = (cy * coarse_size * TILE_SIZE) as i32;
+            let bin_max_y = bin_min_y + coarse_pixel_size - 1;
+            let cy_clamped_max_y = bin_max_y.min(ctx.height_i32);
+            let cy_clamped_min_y = bin_min_y.max(0);
+
+            let ty_start = (cy * coarse_size).max(ctx.ty_min_tri);
+            let ty_end = ((cy + 1) * coarse_size - 1).min(ctx.ty_max_tri);
+
+            for cx in ctx.cx_min..=ctx.cx_max {
+                let mut visible = true;
+                if ctx.has_hiz {
+                    let bin_min_x = (cx * coarse_size * TILE_SIZE) as i32;
+                    let bin_max_x = bin_min_x + coarse_pixel_size - 1;
+
+                    // Clamp to screen
+                    let bin_aabb = AABB3D {
+                        min_x: bin_min_x.max(0),
+                        max_x: bin_max_x.min(ctx.width_i32),
+                        min_y: cy_clamped_min_y,
+                        max_y: cy_clamped_max_y,
+                        min_depth: ctx.tri_min_depth,
+                        max_depth: ctx.tri_max_depth,
+                    };
+
+                    // SAFETY: has_hiz is true, so hiz_buffer_ref is Some
+                    if !unsafe { ctx.hiz_buffer_ref.unwrap_unchecked() }
+                        .is_potentially_visible(bin_aabb)
+                    {
+                        visible = false;
+                    }
+                }
+
+                if visible {
+                    // Iterate over fine tiles within this coarse bin
+                    let tx_start = (cx * coarse_size).max(ctx.tx_min_tri);
+                    let tx_end = ((cx + 1) * coarse_size - 1).min(ctx.tx_max_tri);
+
+                    for ty in ty_start..=ty_end {
+                        let mut bin_idx = (ty * tiles_x + tx_start) as usize;
+                        for _tx in tx_start..=tx_end {
+                            tile_bins.push(bin_idx, ctx.tri_idx);
+                            bin_idx += 1;
                         }
                     }
                 }
@@ -2997,10 +3142,10 @@ impl TileRenderer {
         let tri = &self.prepared[tri_idx];
         let tile_size_i32 = TILE_SIZE as i32;
 
-        let tx_min = ((tri.aabb_min_x as i32) / tile_size_i32) as u32;
-        let ty_min = ((tri.aabb_min_y as i32) / tile_size_i32) as u32;
-        let tx_max = (((tri.aabb_max_x as i32) / tile_size_i32) as u32).min(self.tiles_x - 1);
-        let ty_max = (((tri.aabb_max_y as i32) / tile_size_i32) as u32).min(self.tiles_y - 1);
+        let tx_min = (i32::from(tri.aabb_min_x) / tile_size_i32) as u32;
+        let ty_min = (i32::from(tri.aabb_min_y) / tile_size_i32) as u32;
+        let tx_max = ((i32::from(tri.aabb_max_x) / tile_size_i32) as u32).min(self.tiles_x - 1);
+        let ty_max = ((i32::from(tri.aabb_max_y) / tile_size_i32) as u32).min(self.tiles_y - 1);
 
         for ty in ty_min..=ty_max {
             for tx in tx_min..=tx_max {
@@ -3011,7 +3156,8 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    fn sort_bins_flat(&self) {
+    #[allow(clippy::unused_self)]
+    const fn sort_bins_flat(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3021,20 +3167,22 @@ impl TileRenderer {
         }
 
         // Helper to sort a single bin (linked list)
+        // Bolt: Use thread_local here since this closure is called from par_iter_mut
         let sort_bin = |head: &mut u32, nexts: &mut [u32], tris: &[u32]| {
             if *head == u32::MAX {
                 return;
             }
 
             // 1. Collect indices into a temporary vector
-            // We reuse a thread-local buffer to avoid allocations?
-            // For now, just allocate a small vec. Most tiles have < 100 triangles.
-            let mut indices = Vec::with_capacity(64);
-            let mut curr = *head;
-            while curr != u32::MAX {
-                indices.push(curr);
-                curr = nexts[curr as usize];
-            }
+            thread_local! { static SCRATCH: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) }; }
+            SCRATCH.with(|scratch| {
+                let mut indices = scratch.borrow_mut();
+                indices.clear();
+                let mut curr = *head;
+                while curr != u32::MAX {
+                    indices.push(curr);
+                    curr = nexts[curr as usize];
+                }
 
             // 2. Sort indices by depth
             indices.sort_unstable_by(|&a, &b| {
@@ -3088,11 +3236,12 @@ impl TileRenderer {
 
             let mut tails = &mut self.tile_bins.tails;
 
+            let mut indices = Vec::with_capacity(64);
             for (tile_idx, head) in heads.iter_mut().enumerate() {
                 if *head == u32::MAX { continue; }
 
                 // Collect
-                let mut indices = Vec::with_capacity(64);
+                indices.clear();
                 let mut curr = *head;
                 while curr != u32::MAX {
                     indices.push(curr);
@@ -3126,10 +3275,11 @@ impl TileRenderer {
             let tails = &mut self.tile_bins.tails;
             let tris = &self.tile_bins.tris;
 
+            let mut indices = Vec::with_capacity(64);
             for (tile_idx, head) in heads.iter_mut().enumerate() {
                 if *head == u32::MAX { continue; }
 
-                let mut indices = Vec::with_capacity(64);
+                indices.clear();
                 let mut curr = *head;
                 while curr != u32::MAX {
                     indices.push(curr);
@@ -3157,7 +3307,8 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    fn sort_bins_textured(&self) {
+    #[allow(clippy::unused_self)]
+    const fn sort_bins_textured(&self) {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;
@@ -3172,10 +3323,11 @@ impl TileRenderer {
 
         // Sequential implementation for both parallel/not parallel features for now
         // to avoid code duplication and safety issues with parallel linked list modification.
+        let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX { continue; }
 
-            let mut indices = Vec::with_capacity(64);
+            indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
                 indices.push(curr);
@@ -3310,6 +3462,240 @@ pub const fn should_use_tiled_rendering(
     framebuffer_mb > 12 && triangle_count <= 100
 }
 
+/// Render a single tile gouraud: clear, rasterize triangles, and return tile buffers.
+/// Free function to enable parallel dispatch without `&mut self` borrows.
+#[inline(always)]
+fn render_single_tile_gouraud(
+    tx: u32,
+    ty: u32,
+    tile_bins: &TileBins,
+    prepared: &[PreparedGouraudTriangle],
+    tiles_x: u32,
+    width: u32,
+    _height: u32,
+    tile_pixels: &mut [u32],
+    tile_depths: &mut [f32],
+) -> Option<(i32, i32)> {
+    let bin_idx = (ty * tiles_x + tx) as usize;
+    if tile_bins.heads[bin_idx] == u32::MAX {
+        return None;
+    }
+
+    let tile_x0 = (tx * TILE_SIZE) as i32;
+    let tile_y0 = (ty * TILE_SIZE) as i32;
+    let tile_x1 = tile_x0 + TILE_SIZE as i32;
+    let tile_y1 = tile_y0 + TILE_SIZE as i32;
+    let screen_x_max = width as i32 - 1;
+
+    let mut ctx = TileContext {
+        pixels: tile_pixels,
+        depths: tile_depths,
+        x0: tile_x0,
+        y0: tile_y0,
+        x1: tile_x1,
+        y1: tile_y1,
+        screen_x_max,
+    };
+
+    let (clear_y_min, clear_y_max) =
+        clear_tile_bounds(&mut ctx, tile_bins, bin_idx, prepared, |tri| {
+            (i32::from(tri.aabb_min_y), i32::from(tri.aabb_max_y))
+        });
+
+    // Render all triangles in bin
+    for tri_idx in tile_bins.iter(bin_idx) {
+        let tri = &prepared[tri_idx];
+        render_triangle_in_tile_gouraud(&mut ctx, tri);
+    }
+
+    Some((clear_y_min, clear_y_max))
+}
+
+/// Render a gouraud triangle into tile-local buffers.
+#[inline(always)]
+fn render_triangle_in_tile_gouraud(ctx: &mut TileContext, tri: &PreparedGouraudTriangle) {
+    let p0_y = tri.p0.y;
+    let p2_y = tri.p2.y;
+
+    let y_start = p0_y.max(ctx.y0);
+    let y_end = p2_y.min(ctx.y1 - 1);
+
+    if y_start > y_end {
+        return;
+    }
+
+    // Edge Walking
+    let p0 = tri.p0.to_screen_point(1.0);
+    let p1 = tri.p1.to_screen_point(1.0);
+    let p2 = tri.p2.to_screen_point(1.0);
+
+    // Convert fixed point colors back to Vec3 for EdgeWalker initialization
+    let c0 = Vec3::new(
+        tri.c0.0 as f32 / 65536.0,
+        tri.c0.1 as f32 / 65536.0,
+        tri.c0.2 as f32 / 65536.0,
+    );
+    let c1 = Vec3::new(
+        tri.c1.0 as f32 / 65536.0,
+        tri.c1.1 as f32 / 65536.0,
+        tri.c1.2 as f32 / 65536.0,
+    );
+    let c2 = Vec3::new(
+        tri.c2.0 as f32 / 65536.0,
+        tri.c2.1 as f32 / 65536.0,
+        tri.c2.2 as f32 / 65536.0,
+    );
+
+    let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
+    if y_start > p0.y {
+        edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
+    }
+
+    let mut edge_b = if y_start < tri.p1.y {
+        let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
+        if y_start > p0.y {
+            e.step_n(i64::from(y_start) - i64::from(p0.y));
+        }
+        e
+    } else {
+        let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
+        if y_start > tri.p1.y {
+            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
+        }
+        e
+    };
+
+    let dz_dx = tri.gradients.dz_dx;
+    let dc_dx = tri.gradients.dc_dx;
+
+    for y in y_start..=y_end {
+        if y == tri.p1.y && y != p0_y {
+            edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
+        }
+
+        let (x_start, x_end, z_left, c_left) = if tri.long_edge_is_left {
+            (
+                (edge_a.x >> 16) as i32,
+                (edge_b.x >> 16) as i32,
+                edge_a.z,
+                edge_a.c,
+            )
+        } else {
+            (
+                (edge_b.x >> 16) as i32,
+                (edge_a.x >> 16) as i32,
+                edge_b.z,
+                edge_b.c,
+            )
+        };
+
+        process_tile_scanline_gouraud(ctx, y, x_start, x_end, z_left, c_left, tri);
+
+        edge_a.step();
+        edge_b.step();
+    }
+}
+
+/// Helper for drawing gouraud scanline into a slice (no bounds checking needed)
+#[inline(always)]
+
+fn process_tile_scanline_gouraud(
+    ctx: &mut TileContext,
+    y: i32,
+    x_start: i32,
+    x_end: i32,
+    z_left: f32,
+    c_left: (i32, i32, i32),
+    tri: &PreparedGouraudTriangle,
+) {
+    let dx = i64::from(x_end) - i64::from(x_start);
+    let dz_dx = tri.gradients.dz_dx;
+    let dc_dx = tri.gradients.dc_dx;
+
+    if dx <= 0 {
+        // Single-pixel scanline
+        if x_start >= ctx.x0 && x_start < ctx.x1 && x_start >= 0 && x_start <= ctx.screen_x_max {
+            let tile_idx = ctx.get_indices(x_start, y);
+            if z_left < ctx.depths[tile_idx] {
+                ctx.depths[tile_idx] = z_left;
+                let r = (c_left.0 >> 16).clamp(0, 255) as u32;
+                let g = (c_left.1 >> 16).clamp(0, 255) as u32;
+                let b = (c_left.2 >> 16).clamp(0, 255) as u32;
+                ctx.pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+    } else {
+        // Clamp X to tile and screen bounds
+        let xs = x_start.max(ctx.x0).max(0);
+        let xe = x_end.min(ctx.x1 - 1).min(ctx.screen_x_max);
+
+        if xs <= xe {
+            // Calculate z and color at xs
+            let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
+            let z_at_xs = z_left + dx_start * dz_dx;
+
+            let dx_start_i32 = (i64::from(xs) - i64::from(x_start)) as i32;
+            let c_at_xs = (
+                c_left.0.wrapping_add(dc_dx.0.wrapping_mul(dx_start_i32)),
+                c_left.1.wrapping_add(dc_dx.1.wrapping_mul(dx_start_i32)),
+                c_left.2.wrapping_add(dc_dx.2.wrapping_mul(dx_start_i32)),
+            );
+
+            let row_offset = ctx.get_row_offset(y);
+            let col_start = (xs - ctx.x0) as usize;
+            let col_end = (xe - ctx.x0) as usize;
+
+            let pixels = &mut ctx.pixels[row_offset + col_start..=row_offset + col_end];
+            let depths = &mut ctx.depths[row_offset + col_start..=row_offset + col_end];
+
+            #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+            {
+                if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
+                    unsafe {
+                        draw_scanline_gouraud_simd_fast(
+                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
+                        );
+                    }
+                } else {
+                    draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+                }
+            }
+            #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
+            draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
+        }
+    }
+}
+
+fn draw_scanline_gouraud_i32_tile(
+    pixels: &mut [u32],
+    depths: &mut [f32],
+    z_start: f32,
+    c_start: (i32, i32, i32),
+    dz_dx: f32,
+    dc_dx: (i32, i32, i32),
+) {
+    let mut z = z_start;
+    let mut r = c_start.0;
+    let mut g = c_start.1;
+    let mut b = c_start.2;
+    let dr = dc_dx.0;
+    let dg = dc_dx.1;
+    let db = dc_dx.2;
+
+    for (pixel, depth_val) in pixels.iter_mut().zip(depths.iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            let rv = (r >> 16).clamp(0, 255) as u32;
+            let gv = (g >> 16).clamp(0, 255) as u32;
+            let bv = (b >> 16).clamp(0, 255) as u32;
+            *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
+        }
+        z += dz_dx;
+        r = r.wrapping_add(dr);
+        g = g.wrapping_add(dg);
+        b = b.wrapping_add(db);
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3548,13 +3934,11 @@ mod tests {
         tr.prepare_triangle(v0, v1, v2, 0xFFFF_0000);
         let tri = &tr.prepared[0];
         // AABB should be within screen bounds
-        assert!(true); // tri.aabb_min_x is u16 so it's always >= 0
-        assert!(true); // tri.aabb_min_y is u16 so it's always >= 0
         assert!(tri.aabb_max_x < 100);
         assert!(tri.aabb_max_y < 100);
         // And AABB should encompass the triangle
-        assert!((tri.aabb_min_x as i32) <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
-        assert!((tri.aabb_max_x as i32) >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
+        assert!(i32::from(tri.aabb_min_x) <= tri.p0.x.min(tri.p1.x).min(tri.p2.x));
+        assert!(i32::from(tri.aabb_max_x) >= tri.p0.x.max(tri.p1.x).max(tri.p2.x));
     }
 
     // --- Step 2: Binning ---
@@ -4117,7 +4501,6 @@ mod tests {
         );
         println!("PreparedTriangle size: {}", size_of::<PreparedTriangle>());
     }
-
     #[test]
     #[cfg(feature = "simd")]
     fn verify_simd_execution_with_wide_scanlines() {
@@ -4168,270 +4551,5 @@ mod tests {
             "Expected at least 100 pixels rendered, got {}",
             pixels_changed
         );
-    }
-}
-
-/// Render a single tile gouraud: clear, rasterize triangles, and return tile buffers.
-/// Free function to enable parallel dispatch without `&mut self` borrows.
-#[inline(always)]
-#[allow(clippy::too_many_arguments)]
-fn render_single_tile_gouraud(
-    tx: u32,
-    ty: u32,
-    tile_bins: &TileBins,
-    prepared: &[PreparedGouraudTriangle],
-    tiles_x: u32,
-    width: u32,
-    _height: u32,
-    tile_pixels: &mut [u32],
-    tile_depths: &mut [f32],
-) -> Option<(i32, i32)> {
-    let bin_idx = (ty * tiles_x + tx) as usize;
-    if tile_bins.heads[bin_idx] == u32::MAX {
-        return None;
-    }
-
-    let tile_x0 = (tx * TILE_SIZE) as i32;
-    let tile_y0 = (ty * TILE_SIZE) as i32;
-    let tile_x1 = tile_x0 + TILE_SIZE as i32;
-    let tile_y1 = tile_y0 + TILE_SIZE as i32;
-
-    // Compute Y range covered by triangles in this bin (partial tile clear)
-    let mut clear_y_min = tile_y1;
-    let mut clear_y_max = tile_y0;
-
-    for tri_idx in tile_bins.iter(bin_idx) {
-        let tri = &prepared[tri_idx];
-        clear_y_min = clear_y_min.min((tri.aabb_min_y as i32).max(tile_y0));
-        clear_y_max = clear_y_max.max((tri.aabb_max_y as i32).min(tile_y1 - 1));
-    }
-
-    // Clear only the rows that will be touched
-    let row_start = ((clear_y_min - tile_y0) as u32 * TILE_SIZE) as usize;
-    let row_end = (((clear_y_max - tile_y0) as u32 + 1) * TILE_SIZE) as usize;
-    tile_pixels[row_start..row_end].fill(0xFF00_0000);
-    tile_depths[row_start..row_end].fill(f32::INFINITY);
-
-    // Render all triangles in bin
-    let screen_w = width as i32;
-    for tri_idx in tile_bins.iter(bin_idx) {
-        let tri = &prepared[tri_idx];
-        render_triangle_in_tile_gouraud(
-            tile_pixels,
-            tile_depths,
-            tri,
-            tile_x0,
-            tile_y0,
-            tile_x1,
-            tile_y1,
-            screen_w,
-        );
-    }
-
-    Some((clear_y_min, clear_y_max))
-}
-
-/// Render a gouraud triangle into tile-local buffers.
-#[inline(always)]
-#[allow(clippy::too_many_arguments)]
-fn render_triangle_in_tile_gouraud(
-    tile_pixels: &mut [u32],
-    tile_depths: &mut [f32],
-    tri: &PreparedGouraudTriangle,
-    tile_x0: i32,
-    tile_y0: i32,
-    tile_x1: i32,
-    tile_y1: i32,
-    screen_w: i32,
-) {
-    let p0_y = i32::from(tri.p0.y);
-    let _p1_y = i32::from(tri.p1.y);
-    let p2_y = i32::from(tri.p2.y);
-
-    let y_start = p0_y.max(tile_y0);
-    let y_end = p2_y.min(tile_y1 - 1);
-
-    if y_start > y_end {
-        return;
-    }
-
-    let screen_x_max = screen_w - 1;
-
-    // Edge Walking
-    let p0 = tri.p0.to_screen_point(1.0);
-    let p1 = tri.p1.to_screen_point(1.0);
-    let p2 = tri.p2.to_screen_point(1.0);
-
-    // Convert fixed point colors back to Vec3 for EdgeWalker initialization
-    // (This seems inefficient, maybe adapt EdgeWalker to take fixed point?)
-    // GouraudEdgeWalker takes Vec3 for color to handle interpolation precisely?
-    // Actually GouraudEdgeWalker::new takes Vec3 start/end.
-    // And it computes gradients in fixed point internally.
-    // But we already HAVE gradients in the PreparedGouraudTriangle.
-    // We just need to step X, Z, and C.
-    // Wait, PreparedGouraudTriangle has `gradients` which are `GouraudGradients` (dX only).
-    // It does NOT have dY gradients for stepping edges.
-    // `GouraudEdgeWalker` computes dY gradients.
-    // So we need to reconstruct the full walker or adapt it.
-
-    // Reconstruction from vertices:
-    // We need Vec3 colors.
-    let c0 = Vec3::new(
-        tri.c0.0 as f32 / 65536.0,
-        tri.c0.1 as f32 / 65536.0,
-        tri.c0.2 as f32 / 65536.0,
-    );
-    let c1 = Vec3::new(
-        tri.c1.0 as f32 / 65536.0,
-        tri.c1.1 as f32 / 65536.0,
-        tri.c1.2 as f32 / 65536.0,
-    );
-    let c2 = Vec3::new(
-        tri.c2.0 as f32 / 65536.0,
-        tri.c2.1 as f32 / 65536.0,
-        tri.c2.2 as f32 / 65536.0,
-    );
-
-    let mut edge_a = GouraudEdgeWalker::new(p0, p2, c0, c2);
-    if y_start > p0.y {
-        edge_a.step_n(i64::from(y_start) - i64::from(p0.y));
-    }
-
-    let mut edge_b = if y_start < tri.p1.y as i32 {
-        let mut e = GouraudEdgeWalker::new(p0, p1, c0, c1);
-        if y_start > p0.y {
-            e.step_n(i64::from(y_start) - i64::from(p0.y));
-        }
-        e
-    } else {
-        let mut e = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        if y_start > tri.p1.y as i32 {
-            e.step_n(i64::from(y_start) - i64::from(tri.p1.y));
-        }
-        e
-    };
-
-    let dz_dx = tri.gradients.dz_dx;
-    let dc_dx = tri.gradients.dc_dx;
-
-    for y in y_start..=y_end {
-        if y == tri.p1.y as i32 && y != p0_y {
-            edge_b = GouraudEdgeWalker::new(p1, p2, c1, c2);
-        }
-
-        let (x_start, x_end, z_left, c_left) = if tri.long_edge_is_left {
-            (
-                (edge_a.x >> 16) as i32,
-                (edge_b.x >> 16) as i32,
-                edge_a.z,
-                edge_a.c,
-            )
-        } else {
-            (
-                (edge_b.x >> 16) as i32,
-                (edge_a.x >> 16) as i32,
-                edge_b.z,
-                edge_b.c,
-            )
-        };
-
-        let dx = i64::from(x_end) - i64::from(x_start);
-
-        if dx <= 0 {
-            // Single-pixel scanline
-            if x_start >= tile_x0 && x_start < tile_x1 && x_start >= 0 && x_start <= screen_x_max {
-                let tile_idx =
-                    ((y - tile_y0) as u32 * TILE_SIZE + (x_start - tile_x0) as u32) as usize;
-                if z_left < tile_depths[tile_idx] {
-                    tile_depths[tile_idx] = z_left;
-                    // c_left is (i32, i32, i32) fixed point.
-                    // Need to pack to u32.
-                    // Reuse pack_color_fixed_i32 from core/gouraud?
-                    // core::pack_color_fixed_i32 is likely private or not exported to here.
-                    // Let's implement inline packing.
-                    let r = (c_left.0 >> 16).clamp(0, 255) as u32;
-                    let g = (c_left.1 >> 16).clamp(0, 255) as u32;
-                    let b = (c_left.2 >> 16).clamp(0, 255) as u32;
-                    tile_pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
-                }
-            }
-        } else {
-            // Clamp X to tile and screen bounds
-            let xs = x_start.max(tile_x0).max(0);
-            let xe = x_end.min(tile_x1 - 1).min(screen_x_max);
-
-            if xs <= xe {
-                // Calculate z and color at xs
-                let dx_start = (i64::from(xs) - i64::from(x_start)) as f32;
-                let z_at_xs = z_left + dx_start * dz_dx;
-
-                let dx_start_i32 = (i64::from(xs) - i64::from(x_start)) as i32;
-                let c_at_xs = (
-                    c_left.0.wrapping_add(dc_dx.0.wrapping_mul(dx_start_i32)),
-                    c_left.1.wrapping_add(dc_dx.1.wrapping_mul(dx_start_i32)),
-                    c_left.2.wrapping_add(dc_dx.2.wrapping_mul(dx_start_i32)),
-                );
-
-                let row_offset = ((y - tile_y0) as u32 * TILE_SIZE) as usize;
-                let col_start = (xs - tile_x0) as usize;
-                let col_end = (xe - tile_x0) as usize;
-
-                let pixels = &mut tile_pixels[row_offset + col_start..=row_offset + col_end];
-                let depths = &mut tile_depths[row_offset + col_start..=row_offset + col_end];
-
-                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                {
-                    if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
-                        unsafe {
-                            draw_scanline_gouraud_simd_fast(
-                                pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
-                            );
-                        }
-                    } else {
-                        draw_scanline_gouraud_i32_tile(
-                            pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,
-                        );
-                    }
-                }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                draw_scanline_gouraud_i32_tile(pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx);
-            }
-        }
-
-        edge_a.step();
-        edge_b.step();
-    }
-}
-
-/// Helper for drawing gouraud scanline into a slice (no bounds checking needed)
-#[inline(always)]
-fn draw_scanline_gouraud_i32_tile(
-    pixels: &mut [u32],
-    depths: &mut [f32],
-    z_start: f32,
-    c_start: (i32, i32, i32),
-    dz_dx: f32,
-    dc_dx: (i32, i32, i32),
-) {
-    let mut z = z_start;
-    let mut r = c_start.0;
-    let mut g = c_start.1;
-    let mut b = c_start.2;
-    let dr = dc_dx.0;
-    let dg = dc_dx.1;
-    let db = dc_dx.2;
-
-    for (pixel, depth_val) in pixels.iter_mut().zip(depths.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
-            let rv = (r >> 16).clamp(0, 255) as u32;
-            let gv = (g >> 16).clamp(0, 255) as u32;
-            let bv = (b >> 16).clamp(0, 255) as u32;
-            *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
-        }
-        z += dz_dx;
-        r = r.wrapping_add(dr);
-        g = g.wrapping_add(dg);
-        b = b.wrapping_add(db);
     }
 }

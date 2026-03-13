@@ -36,7 +36,7 @@ where
     // which scales as the 2/3 power of the total volume (total_cells).
     let total_cells = width * height * depth;
     let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
-    let estimated_indices = estimated_vertices * 2; // Rough estimate of triangles from vertices
+    let estimated_indices = estimated_vertices * 2 / 3; // Rough estimate of triangles from vertices
 
     let mut vertices = Vec::with_capacity(estimated_vertices);
     let mut indices = Vec::with_capacity(estimated_indices);
@@ -124,7 +124,7 @@ where
 
     Mesh {
         vertices,
-        indices: indices.chunks(3).map(|c| [c[0], c[1], c[2]]).collect(),
+        indices,
         uvs: vec![crate::math::Vec2::default(); normals.len()], // Placeholder UVs
         normals,
         tangents,
@@ -143,7 +143,7 @@ where
 
 fn polygonize_tetrahedron(
     vertices: &mut Vec<Vec3>,
-    indices: &mut Vec<usize>,
+    indices: &mut Vec<[usize; 3]>,
     p: &[Vec3; 8],
     v: &[f32; 8],
     idxs: [usize; 4],
@@ -192,6 +192,9 @@ fn polygonize_tetrahedron(
     ];
 
     let edges = tri_table[case];
+    let mut current_tri = [0, 0, 0];
+    let mut vert_count = 0;
+
     for &edge_idx in &edges {
         if edge_idx == -1 {
             break;
@@ -234,8 +237,14 @@ fn polygonize_tetrahedron(
         );
 
         // Simple index buffer generation (no welding/sharing for now)
-        indices.push(vertices.len());
+        current_tri[vert_count] = vertices.len();
         vertices.push(pos);
+        vert_count += 1;
+
+        if vert_count == 3 {
+            indices.push(current_tri);
+            vert_count = 0;
+        }
     }
 }
 

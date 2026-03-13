@@ -1,3 +1,7 @@
+//! Bloom lighting effect.
+//!
+//! Extracts bright areas of the image and applies a blur to simulate light bleeding.
+
 use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
@@ -23,9 +27,29 @@ struct BloomContext {
 /// *   `fb` - The framebuffer to apply the effect to.
 /// *   `threshold` - Minimum luminance (0-255) for a pixel to contribute to bloom.
 /// *   `blur_radius` - Radius of the box blur kernel.
-/// *   `intensity` - Multiplier for the bloom intensity.
-pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intensity: f32) {
-    if blur_radius == 0 || intensity <= 0.0 {
+/// Configuration for the Bloom effect.
+#[derive(Clone, Copy, Debug)]
+pub struct BloomConfig {
+    /// Luminance threshold for extracting bright pixels (0-255).
+    pub threshold: u8,
+    /// Radius of the box blur applied to the bright pixels.
+    pub blur_radius: u32,
+    /// Multiplier for the bloom intensity when blending.
+    pub intensity: f32,
+}
+
+impl Default for BloomConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 200,
+            blur_radius: 5,
+            intensity: 1.0,
+        }
+    }
+}
+
+pub fn apply_bloom(fb: &mut Framebuffer, config: &BloomConfig) {
+    if config.blur_radius == 0 || config.intensity <= 0.0 {
         return;
     }
 
@@ -60,11 +84,17 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
         let acc_slice = &mut acc_buffer[..acc_needed_size];
 
         // 1. Extract bright pixels
-        extract_bright_pixels(pixels, bright_slice, threshold);
+        extract_bright_pixels(pixels, bright_slice, config.threshold);
 
         // 2. Blur the bright pixels
         // Horizontal pass: bright_pixels -> scratch_buffer
-        box_blur_horizontal(bright_slice, scratch_slice, width, height, blur_radius);
+        box_blur_horizontal(
+            bright_slice,
+            scratch_slice,
+            width,
+            height,
+            config.blur_radius,
+        );
         // Vertical pass: scratch_buffer -> bright_pixels
         box_blur_vertical(
             scratch_slice,
@@ -72,11 +102,11 @@ pub fn apply_bloom(fb: &mut Framebuffer, threshold: u8, blur_radius: u32, intens
             acc_slice,
             width,
             height,
-            blur_radius,
+            config.blur_radius,
         );
 
         // 3. Composite back
-        blend_additive(pixels, bright_slice, intensity);
+        blend_additive(pixels, bright_slice, config.intensity);
     });
 }
 
@@ -102,10 +132,26 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
         }
     }
 
+    // /// Bolt Performance Optimization:
+    // /// Precalculate luminance threshold to avoid per-pixel float/division math.
+    // /// The `pixel_luminance` function uses the standard coefficients:
+    // /// Y = 0.299*R + 0.587*G + 0.114*B, multiplied by 256 for fixed-point integer math.
+    let threshold_u32 = u32::from(threshold);
+
     for (s, d) in src.iter().zip(dest.iter_mut()) {
-        let lum = pixel_luminance(*s);
-        if lum > threshold {
-            *d = *s;
+        let val = *s;
+
+        let r = (val >> 16) & 0xFF;
+        let g = (val >> 8) & 0xFF;
+        let b = val & 0xFF;
+
+        // /// Bolt Performance Optimization:
+        // /// Approximate luminance using integer arithmetic instead of pixel_luminance
+        // /// Matches the standard formula: Y = (77*R + 150*G + 29*B) >> 8
+        let luma = (77 * r + 150 * g + 29 * b) >> 8;
+
+        if luma > threshold_u32 {
+            *d = val;
         } else {
             *d = 0xFF00_0000; // Black (with full alpha)
         }

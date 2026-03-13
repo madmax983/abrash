@@ -42,7 +42,7 @@ use std::ops::{Add, Mul, Sub};
 /// This uses the hardware-accelerated AVX/SSE intrinsic if available, which offers
 /// excellent performance (around 4 cycles) at the cost of a small precision error.
 /// If AVX/SSE is not available, it falls back to a standard `sqrt().recip()`, which
-/// is typically faster on modern generic x86_64 CPUs than the legacy "Quake III bit-hack".
+/// is typically faster on modern generic `x86_64` CPUs than the legacy "Quake III bit-hack".
 ///
 /// # Examples
 ///
@@ -96,11 +96,27 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+
     /// Creates a new 2D vector.
     #[must_use]
     #[inline]
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+
+    /// Calculates the Euclidean length (magnitude) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.x.hypot(self.y)
     }
 }
 
@@ -194,11 +210,7 @@ impl Mat2 {
     /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        let mut result = Vec::with_capacity(vertices.len());
-        for v in vertices {
-            result.push(self.transform(*v));
-        }
-        result
+        vertices.iter().map(|&v| self.transform(v)).collect()
     }
 
     /// Transform vertices in place.
@@ -228,6 +240,16 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
+
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -376,23 +398,35 @@ impl Vec3 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
+    /// Reflects this vector around a given normal vector.
+    ///
+    /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
+    ///
+    /// # Performance
+    ///
+    /// This implementation manually unfolds scalar components to avoid intermediate struct
+    /// allocations and improve scalar instruction pipelining.
+    #[must_use]
+    #[inline]
+    pub fn reflect(self, normal: Self) -> Self {
+        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
+        let factor = 2.0 * dot;
+        Self {
+            x: self.x - factor * normal.x,
+            y: self.y - factor * normal.y,
+            z: self.z - factor * normal.z,
+        }
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-    pub fn lerp(&self, other: Self, t: f32) -> Self {
-        Self {
-            x: self.x + (other.x - self.x) * t,
-            y: self.y + (other.y - self.y) * t,
-            z: self.z + (other.z - self.z) * t,
-        }
-    }
 
     /// Returns a new vector containing the minimum value for each component.
-    #[must_use]
-    #[inline]
-    pub fn min(&self, other: Self) -> Self {
+
+    pub const fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
             y: self.y.min(other.y),
@@ -403,11 +437,42 @@ impl Vec3 {
     /// Returns a new vector containing the maximum value for each component.
     #[must_use]
     #[inline]
-    pub fn max(&self, other: Self) -> Self {
+    pub const fn max(&self, other: Self) -> Self {
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
             z: self.z.max(other.z),
+        }
+    }
+
+    /// Reflects this vector around a given normal.
+    ///
+    /// The normal vector must be normalized.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let v = Vec3::new(1.0, -1.0, 0.0);
+    /// let n = Vec3::new(0.0, 1.0, 0.0);
+    /// let r = v.reflect(n);
+    ///
+    /// assert!((r.x - 1.0).abs() < 1e-6);
+    /// assert!((r.y - 1.0).abs() < 1e-6);
+    /// assert!(r.z.abs() < 1e-6);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn reflect(&self, normal: Self) -> Self {
+        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
+        // but manually unfolded to avoid intermediate Vec3 allocations
+        // and allow better scalar instruction pipelining.
+        let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
+        Self {
+            x: self.x - normal.x * dot2,
+            y: self.y - normal.y * dot2,
+            z: self.z - normal.z * dot2,
         }
     }
 }
@@ -617,6 +682,38 @@ impl Mat4 {
                 [-s, c, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
+    /// Creates an orthographic projection matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `left` - Left plane.
+    /// * `right` - Right plane.
+    /// * `bottom` - Bottom plane.
+    /// * `top` - Top plane.
+    /// * `near` - Distance to near clipping plane.
+    /// * `far` - Distance to far clipping plane.
+    #[must_use]
+    #[inline]
+    pub fn orthographic(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> Self {
+        let w = 1.0 / (right - left);
+        let h = 1.0 / (top - bottom);
+        let d = 1.0 / (near - far);
+
+        Self {
+            m: [
+                [2.0 * w, 0.0, 0.0, 0.0],
+                [0.0, 2.0 * h, 0.0, 0.0],
+                [0.0, 0.0, 2.0 * d, 0.0],
+                [
+                    -(right + left) * w,
+                    -(top + bottom) * h,
+                    (far + near) * d,
+                    1.0,
+                ],
             ],
         }
     }
@@ -845,9 +942,9 @@ impl Mat4 {
             );
             // Verify offsets
             let dummy: (Vec3, f32) = (Vec3::new(0.0, 0.0, 0.0), 0.0);
-            let base = &dummy as *const _ as usize;
-            let x_ptr = &dummy.0.x as *const _ as usize;
-            let w_ptr = &dummy.1 as *const _ as usize;
+            let base = &raw const dummy as usize;
+            let x_ptr = &raw const dummy.0.x as usize;
+            let w_ptr = &raw const dummy.1 as usize;
             assert_eq!(x_ptr - base, 0, "Offset of Vec3.x must be 0");
             assert_eq!(w_ptr - base, 12, "Offset of f32 must be 12");
         }
@@ -1256,7 +1353,11 @@ pub fn project_triangle_to_screen(
     half_height: f32,
 ) -> (ScreenPoint, ScreenPoint, ScreenPoint) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m128i, _mm_add_ps, _mm_and_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_cvttps_epi32,
+            _mm_max_ps, _mm_min_ps, _mm_mul_ps, _mm_or_ps, _mm_rcp_ps, _mm_set_ps, _mm_set1_ps,
+            _mm_storeu_ps, _mm_storeu_si128, _mm_sub_ps,
+        };
 
         // Load data into SIMD registers
         // Layout: [v2, v1, v0, pad]
@@ -1325,8 +1426,8 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1372,7 +1473,11 @@ pub fn project_quad_to_screen(
     half_height: f32,
 ) -> (ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m128i, _mm_add_ps, _mm_and_ps, _mm_andnot_ps, _mm_cmpgt_ps, _mm_cvttps_epi32,
+            _mm_max_ps, _mm_min_ps, _mm_mul_ps, _mm_or_ps, _mm_rcp_ps, _mm_set_ps, _mm_set1_ps,
+            _mm_storeu_ps, _mm_storeu_si128, _mm_sub_ps,
+        };
 
         // Load data into SIMD registers
         // Layout: [v3, v2, v1, v0]
@@ -1422,8 +1527,8 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr() as *mut __m128i, sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr() as *mut __m128i, sy_i);
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1514,6 +1619,23 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_reflect() {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let r = v.reflect(n);
+        assert!((r.x - 1.0).abs() < f32::EPSILON);
+        assert!((r.y - 1.0).abs() < f32::EPSILON);
+        assert!((r.z - 0.0).abs() < f32::EPSILON);
+
+        let v2 = Vec3::new(1.0, 2.0, 3.0);
+        let n2 = Vec3::new(0.0, 1.0, 0.0);
+        let r2 = v2.reflect(n2);
+        assert!((r2.x - 1.0).abs() < f32::EPSILON);
+        assert!((r2.y - -2.0).abs() < f32::EPSILON);
+        assert!((r2.z - 3.0).abs() < f32::EPSILON);
+    }
 
     #[test]
     fn test_fast_normalize_accuracy() {
@@ -1626,8 +1748,7 @@ mod tests {
         let z_ndc_near = p_near_prime.z / w_near;
         assert!(
             (z_ndc_near - (-1.0)).abs() < 1e-5,
-            "NDZ z at near should be -1.0, got {}",
-            z_ndc_near
+            "NDZ z at near should be -1.0, got {z_ndc_near}"
         );
 
         let p_far = Vec3::new(0.0, 0.0, -far);
@@ -1637,8 +1758,7 @@ mod tests {
         let z_ndc_far = p_far_prime.z / w_far;
         assert!(
             (z_ndc_far - 1.0).abs() < 1e-5,
-            "NDC z at far should be 1.0, got {}",
-            z_ndc_far
+            "NDC z at far should be 1.0, got {z_ndc_far}"
         );
     }
 
@@ -1810,10 +1930,10 @@ mod tests {
     #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.y, 2.0);
-        assert_eq!(v.z, 3.0);
-        assert_eq!(v.w, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1833,6 +1953,32 @@ mod tests {
     }
 
     #[test]
+    fn test_vec3_reflect() {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let r = v.reflect(normal);
+        assert!((r.x - 1.0).abs() < 1e-6);
+        assert!((r.y - 1.0).abs() < 1e-6);
+        assert!(r.z.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mat4_orthographic() {
+        let proj = Mat4::orthographic(-10.0, 10.0, -5.0, 5.0, 0.1, 100.0);
+
+        let p_center = Vec3::new(0.0, 0.0, -50.0);
+        let (p_center_prime, w_center) = proj.transform_point(p_center);
+        assert!((w_center - 1.0).abs() < 1e-5);
+        assert!(p_center_prime.x.abs() < 1e-5);
+        assert!(p_center_prime.y.abs() < 1e-5);
+
+        // Orthographic projection preserves W as 1.0
+        // -50 in Z should map between -1 and 1 in NDC
+        let z_ndc = p_center_prime.z / w_center;
+        assert!(z_ndc >= -1.0 && z_ndc <= 1.0);
+    }
+
+    #[test]
     fn test_vec4_mul_scalar() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let result = v * 2.5;
@@ -1845,14 +1991,14 @@ mod tests {
         let b = Vec3::new(3.0, 2.0, -1.0);
 
         let min = a.min(b);
-        assert_eq!(min.x, 1.0);
-        assert_eq!(min.y, 2.0);
-        assert_eq!(min.z, -2.0);
+        assert!((min.x - 1.0).abs() < f32::EPSILON);
+        assert!((min.y - 2.0).abs() < f32::EPSILON);
+        assert!((min.z - -2.0).abs() < f32::EPSILON);
 
         let max = a.max(b);
-        assert_eq!(max.x, 3.0);
-        assert_eq!(max.y, 5.0);
-        assert_eq!(max.z, -1.0);
+        assert!((max.x - 3.0).abs() < f32::EPSILON);
+        assert!((max.y - 5.0).abs() < f32::EPSILON);
+        assert!((max.z - -1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1909,7 +2055,7 @@ mod tests {
             };
 
             if s_scalar.z.is_nan() {
-                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {}", name);
+                assert!(s_tri_0.z.is_nan(), "Z NaN mismatch for case: {name}");
             } else {
                 assert!(
                     z_diff < tolerance || (s_scalar.z.is_infinite() && s_tri_0.z.is_infinite()),
@@ -1922,11 +2068,7 @@ mod tests {
             }
 
             if s_scalar.inv_w.is_nan() {
-                assert!(
-                    s_tri_0.inv_w.is_nan(),
-                    "InvW NaN mismatch for case: {}",
-                    name
-                );
+                assert!(s_tri_0.inv_w.is_nan(), "InvW NaN mismatch for case: {name}");
             } else {
                 assert!(
                     inv_w_diff < tolerance
@@ -1966,6 +2108,20 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    #[must_use]
+    #[inline(always)]
+    pub fn lerp(self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+            w: self.w + (other.w - self.w) * t,
+        }
+    }
+
+    #[must_use]
+    #[inline(always)]
+
     /// Creates a new 4D vector.
     ///
     /// # Examples
@@ -1976,8 +2132,7 @@ impl Vec4 {
     /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
     /// assert_eq!(v.w, 1.0);
     /// ```
-    #[must_use]
-    #[inline]
+
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }

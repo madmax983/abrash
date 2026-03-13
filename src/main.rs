@@ -116,11 +116,11 @@ const DEMOS: &[Demo] = &[
         example_name: "particles",
     },
     Demo {
-        name: "Heat Vision",
+        name: "Vision Demo",
         category: DemoCategory::Simulation,
-        description: "Simulates thermal imaging effect",
+        description: "Simulates thermal, sonar, and night vision effects",
         instructions: "Mouse: None\nKeyboard: Auto-rotating",
-        example_name: "heat_vision",
+        example_name: "vision_demo",
     },
     Demo {
         name: "Normal Mapping",
@@ -150,7 +150,13 @@ fn is_gpu_render_example(example_name: &str) -> bool {
 }
 
 fn is_nova_example(example_name: &str) -> bool {
-    example_name == "cloth_demo" || example_name == "raytracer_demo"
+    example_name == "cloth_demo"
+        || example_name == "raytracer_demo"
+        || example_name == "vision_demo"
+        || example_name == "pixel_sort_demo"
+        || example_name == "directional_blur_demo"
+        || example_name == "god_rays_demo"
+        || example_name == "jelly_demo"
 }
 
 fn demo_command(example_name: &str) -> String {

@@ -68,3 +68,60 @@
 - **Mat4 SIMD Robustness**: `Mat4::transform_points` withstands fuzzing with `NaN`s and `Infinity` using AVX2, matching scalar implementation behavior.
 - **Gouraud Rasterizer**: `src/rasterizer/gouraud.rs` contains numerous unnecessary `unsafe` blocks around safe SIMD intrinsics.
 - **OBJ Loader Robustness**: `proptest` fuzzing confirmed `load_obj` does not panic on random input strings, gracefully returning errors.
+
+# 👺 Havoc: SoftBody::collide_sdf Out-of-Bounds Panic
+
+## 🧨 The Trigger
+Calling `collide_sdf()` after mutating the public `velocities` array (e.g. `jelly.velocities.clear()`) while leaving `mesh.vertices` populated. Because `collide_sdf` lacks the structural integrity validation that the main `update` method has, a collision forces a read from the truncated `velocities` array based on the original vertex index, triggering a fatal out-of-bounds read panic.
+
+## 📉 The Stack Trace
+```
+thread 'test_havoc_softbody_panic' panicked at src/experimental/jelly.rs:657:40:
+index out of bounds: the len is 0 but the index is 0
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:662:5
+   1: core::panicking::panic_fmt
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:74:14
+   2: core::panicking::panic_bounds_check
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:276:5
+   3: <usize as core::slice::index::SliceIndex<[T]>>::index
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/slice/index.rs:302:10
+   4: core::slice::index::<impl core::ops::index::Index<I> for [T]>::index
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/slice/index.rs:16:9
+   5: alloc::vec::<impl core::ops::index::Index<I> for alloc::vec::Vec<T,A>>::index
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/alloc/src/vec/mod.rs:2910:9
+   6: abrash::experimental::jelly::SoftBody::collide_sdf
+             at /app/src/experimental/jelly.rs:657:25
+   7: havoc_softbody::test_havoc_softbody_panic
+             at /app/tests/havoc_softbody.rs:24:5
+```
+
+## 🧪 Reproduction
+```rust
+use abrash::experimental::jelly::SoftBody;
+use abrash::experimental::sdf::{SdfScene, SdfPrimitive, SdfObject};
+use abrash::mesh::Mesh;
+use abrash::math::Vec3;
+
+#[test]
+fn test_havoc_softbody_panic() {
+    let mut mesh = Mesh::new();
+    mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+    mesh.indices.push([0, 0, 0]);
+
+    let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
+
+    let mut scene = SdfScene::new();
+    scene.add(SdfObject {
+        primitive: SdfPrimitive::Sphere { radius: 10.0, center: Vec3::new(0.0, 0.0, 0.0) },
+        color: 0xFFFFFFFF,
+    });
+
+    jelly.velocities.clear();
+    jelly.collide_sdf(&scene, 0.5);
+}
+```
+
+## 😈 Comment
+You verified structural synchronicity in `update()` but blindly assumed the user wouldn't touch the public `velocities` vector before throwing them into an SDF collision! You trusted public state. You were wrong.

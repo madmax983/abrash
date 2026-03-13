@@ -15,8 +15,8 @@
 
 ## [Mesh Modifiers]
 **Concept:** A system for procedural geometry manipulation (twist, taper, noise) applied directly to mesh vertices.
-**Fate:** In Progress
-**Lesson:** TBD
+**Fate:** Merged
+**Lesson:** Modifying large meshes vertex-by-vertex can be computationally intensive, particularly for procedural displacement functions. Offloading iteration onto parallel CPU threads using Rayon greatly accelerates full-mesh deformations. Also, dynamically calculating or verifying per-vertex normals is critical, as out-of-bounds normal arrays can easily crash procedural adjustments.
 
 ## [Toon Outlines]
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
@@ -60,3 +60,41 @@
 **Concept:** A retro post-processing effect that creates a symmetric, repeating pattern by mapping Cartesian pixels to polar coordinates, applying a modulo to the angle based on segment count, and mirroring every other segment.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing, and fast float-to-int casts (`as i32`) are beneficial for the inner loop.
+
+## [Edge Glow Filter]
+**Concept:** A neon-style screen-space post-processing effect that highlights edges using a configurable color and darkens non-edges. It effectively combines edge detection with dynamic tinting.
+**Fate:** Implemented
+**Lesson:** Using integer arithmetic and bitwise shifts combined with safe thread-local buffering (`thread_local!`) prevents dynamic allocation per frame while avoiding expensive floating-point overhead, leading to a massive performance speedup. Rayon `par_chunks_mut()` effectively handles independent rows.
+## [Framebuffer Image Exporter]
+**Concept:** Added zero-dependency TGA and PPM export functionality directly to the `Framebuffer` via an `ImageExporter` trait.
+**Fate:** Implemented
+**Lesson:** Writing uncompressed image formats natively (PPM for RGB, TGA for BGR) using simple bitwise extraction (`(pixel >> 16) & 0xFF`) and a `BufWriter` is extremely easy and removes the need for heavy external dependencies just to dump a visual artifact.
+
+## [L-System Generator]
+**Concept:** A procedural string-rewriting system (L-System) interpreted by a 3D Turtle to generate intricate branching structures (plants, fractals) directly into a `Mesh`.
+**Fate:** Implemented
+**Lesson:** Interpreting expanded strings using a stack-based state (Push/Pop orientation and position) is extremely powerful for generating recursive geometry like trees. To prevent OOM DoS attacks when expanding strings recursively, enforcing a strict char count capacity limit early inside the evaluation loop safely avoids excessive allocations and returns a graceful error.
+## [Ascii Exporter]
+**Concept:** A mashup feature extending the `Framebuffer` with an `AsciiExporter` trait that uses the existing `AsciiConverter`. It allows exporting any rendered frame to a `.txt` or colored `.ans` (ANSI) file directly, turning visual output into viewable text files via `cat`.
+**Fate:** Implemented
+**Lesson:** Simple additive trait implementations in experimental modules can safely combine existing systems (like the Framebuffer and AsciiConverter) into new, unexpected tooling.
+
+## [Palette Swap / Retro Quantization]
+**Concept:** A post-processing effect that maps the full 32-bit ARGB framebuffer to a predefined color palette (e.g. Gameboy, CGA, Vaporwave) using nearest-neighbor Euclidean distance in RGB space.
+**Fate:** Implemented
+**Lesson:** Iterating over the entire framebuffer and doing nearest neighbor distance checks against a small array (like 4-16 colors) is easily parallelizable with Rayon. Euclidean squared distance (`dr*dr + dg*dg + db*db`) avoids costly `sqrt` calculations in the inner loop.
+
+## [Thermal Vision]
+**Concept:** A post-processing effect that converts pixel luminance to a heatmap color palette, simulating a thermal imaging camera.
+**Fate:** Implemented
+**Lesson:** Extracting luminance and mapping it via threshold ranges into specific RGB blends creates a convincing thermal effect very efficiently without needing external LUT textures.
+
+## [Boids Simulation]
+**Concept:** A procedural flocking simulation based on Craig Reynolds' Boids algorithm implementing separation, alignment, and cohesion.
+**Fate:** Implemented
+**Lesson:** When implementing O(N^2) entity updates using parallel processing (like Rayon's `par_iter_mut`), avoid mutable aliasing errors by cloning the initial read-state (e.g., `let old_boids = self.boids.clone();`) and mapping over the mutable target array. Using `.hypot()` chained calls keeps distance calculations safe and clean.
+
+## [Anaglyph 3D]
+**Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
+**Fate:** Implemented
+**Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.

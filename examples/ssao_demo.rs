@@ -9,8 +9,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
-use abrash::post_process::apply_ssao;
+use abrash::platform::Window;
+use abrash::post_process::{apply_ssao, ssao::SsaoConfig};
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -195,7 +195,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Apply SSAO
         if ssao_enabled {
             // radius 0.5, bias 0.025, intensity 2.0
-            apply_ssao(&mut framebuffer, &zbuffer, &projection, 0.5, 0.025, 2.0);
+            let ssao_config = SsaoConfig {
+                radius: 0.5,
+                bias: 0.025,
+                intensity: 2.0,
+            };
+            apply_ssao(&mut framebuffer, &zbuffer, &projection, &ssao_config);
 
             // Draw "SSAO ON" indicator (simple pixel block in top left)
             for y in 10..20 {

@@ -2,7 +2,7 @@
 
 use abrash::experimental::crepuscular::{GodRaysConfig, apply_god_rays};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::WindowBackend;
+
 use abrash::platform::tui::TuiWindow;
 use abrash::zbuffer::ZBuffer;
 use comfy_table::{Cell, Color, Table, presets};

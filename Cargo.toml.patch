@@ -1,0 +1,13 @@
+<<<<<<< SEARCH
+[[bench]]
+name = "kaleidoscope_bench"
+harness = false
+=======
+[[bench]]
+name = "kaleidoscope_bench"
+harness = false
+
+[[bench]]
+name = "lsystem_bench"
+harness = false
+>>>>>>> REPLACE

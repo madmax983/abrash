@@ -2,22 +2,35 @@
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
+#[cfg(feature = "nova")]
 use abrash::experimental::raytracer::RayTracer;
+#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use abrash::math::{Mat4, Vec3};
+#[cfg(feature = "nova")]
 use abrash::mesh::Mesh;
-use abrash::platform::{Window, WindowBackend};
+#[cfg(feature = "nova")]
+use abrash::platform::Window;
+#[cfg(feature = "nova")]
 use abrash::scene::{Camera, Scene, SceneObject};
+#[cfg(feature = "nova")]
 use abrash::time::FixedTimestep;
+#[cfg(feature = "nova")]
 use std::f32::consts::PI;
+#[cfg(feature = "nova")]
 use std::sync::Arc;
 
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "nova")]
 const WIDTH: u32 = 400;
+#[cfg(feature = "nova")]
 const HEIGHT: u32 = 300;
 
+#[cfg(feature = "nova")]
 fn print_banner() {
     println!("\n{}", "✨ Raytracer Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
@@ -40,8 +53,24 @@ fn print_banner() {
 
     println!("\n{}", "⚙️  Info".bold());
     println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating scene"),
+        ]);
+    println!("{controls}\n");
 }
 
+#[cfg(feature = "nova")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
@@ -133,4 +162,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(not(feature = "nova"))]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new("Try running with:\ncargo run --example raytracer_demo --features nova")
+                .fg(Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }

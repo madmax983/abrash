@@ -1,3 +1,7 @@
+//! Phong shading rasterizer.
+//!
+//! Per-pixel lighting interpolation and calculation.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
@@ -33,7 +37,17 @@ unsafe fn draw_scanline_phong_shadowed_simd(
     shadow_map: &ZBuffer,
     light_vp: Mat4,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_GE_OQ, _CMP_GT_OQ, _CMP_LE_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps,
+        _mm256_and_ps, _mm256_and_si256, _mm256_andnot_ps, _mm256_blendv_epi8, _mm256_blendv_ps,
+        _mm256_castps_si256, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_cmpgt_epi32,
+        _mm256_cvtss_f32, _mm256_cvttps_epi32, _mm256_div_ps, _mm256_fmadd_ps, _mm256_i32gather_ps,
+        _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_epi32, _mm256_max_ps, _mm256_min_epi32,
+        _mm256_min_ps, _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256,
+        _mm256_rsqrt_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps,
+        _mm256_setzero_si256, _mm256_slli_epi32, _mm256_storeu_ps, _mm256_storeu_si256,
+        _mm256_sub_epi32, _mm256_sub_ps,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -286,7 +300,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                     ),
                 );
 
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, _mm256_castps_si256(mask));
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -400,7 +414,14 @@ unsafe fn draw_scanline_point_lit_simd(
     light_color: Vec3,
     attenuation: Vec3,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_ps, _mm256_blendv_epi8,
+        _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_div_ps,
+        _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps, _mm256_movemask_ps,
+        _mm256_mul_ps, _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps, _mm256_set1_epi32,
+        _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_sqrt_ps, _mm256_storeu_ps,
+        _mm256_storeu_si256, _mm256_sub_ps,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -534,7 +555,7 @@ unsafe fn draw_scanline_point_lit_simd(
                     ),
                 );
 
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let mask_int = _mm256_castps_si256(mask);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
@@ -750,7 +771,19 @@ pub fn fill_triangle_point_lit(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -1121,7 +1154,19 @@ pub fn fill_triangle_phong_shadowed(
 
     // Note: We use clip_triangle_to_frustum which uses Lerp.
     // Ensure ((Vec3, f32), Vec3, Vec3) implements Lerp in clipping.rs
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+                a.2.lerp(b.2, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();
@@ -1506,7 +1551,14 @@ unsafe fn draw_scanline_phong_simd(
     ambient_255: Vec3, // Pre-scaled by 255.0
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            __m256i, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_epi8, _mm256_blendv_ps,
+            _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_loadu_ps,
+            _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps, _mm256_movemask_ps, _mm256_mul_ps,
+            _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps,
+            _mm256_setzero_ps, _mm256_slli_epi32, _mm256_storeu_ps, _mm256_storeu_si256,
+            _mm256_sub_ps,
+        };
 
         let len = fb_slice.len();
         let mut i = 0;
@@ -1630,7 +1682,7 @@ unsafe fn draw_scanline_phong_simd(
                 );
 
                 // Store pixels
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 // blendv_epi8 blends based on the high bit of each byte.
                 // Our mask is 32-bit 0xFFFFFFFF or 0x00000000, so it works for bytes too.
@@ -1795,7 +1847,18 @@ pub fn fill_triangle_phong(
 ) {
     assert_same_dimensions(fb, zb);
 
-    let clipped = clip_triangle_to_frustum(v0, v1, v2, |v| v.0);
+    let clipped = clip_triangle_to_frustum(
+        v0,
+        v1,
+        v2,
+        |v| v.0,
+        |a, b, t| {
+            (
+                (a.0.0.lerp(b.0.0, t), a.0.1 + (b.0.1 - a.0.1) * t),
+                a.1.lerp(b.1, t),
+            )
+        },
+    );
 
     let width = fb.width();
     let height = fb.height();

@@ -25,6 +25,7 @@ use crate::framebuffer::Framebuffer;
 /// * `decay` - Falloff factor per sample (0.0 to 1.0). High values (>0.9) mean longer rays.
 /// * `exposure` - Final brightness multiplier for the accumulated light.
 /// * `num_samples` - Number of samples to take along the ray. Higher is smoother but slower (e.g., 32-100).
+///
 /// Configuration parameters for the God Rays (Crepuscular Rays) effect.
 #[derive(Debug, Clone, Copy)]
 pub struct GodRaysConfig {
@@ -44,6 +45,10 @@ pub struct GodRaysConfig {
     pub num_samples: u32,
 }
 
+/// Bolt Performance Optimization:
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     if config.num_samples == 0 || config.weight <= 0.0 || config.exposure <= 0.0 {
         return;

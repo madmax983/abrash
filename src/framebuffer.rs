@@ -185,15 +185,15 @@ impl Framebuffer {
 
         // Prevent overflow when adding width to x
         // Use i64 for intermediate calculation to avoid wrapping
-        let x2_i64 = (x as i64) + (width as i64);
-        let y2_i64 = (y as i64) + (height as i64);
+        let x2_i64 = i64::from(x) + i64::from(width);
+        let y2_i64 = i64::from(y) + i64::from(height);
 
-        let x2 = if x2_i64 > i32::MAX as i64 {
+        let x2 = if x2_i64 > i64::from(i32::MAX) {
             i32::MAX
         } else {
             x2_i64 as i32
         };
-        let y2 = if y2_i64 > i32::MAX as i64 {
+        let y2 = if y2_i64 > i64::from(i32::MAX) {
             i32::MAX
         } else {
             y2_i64 as i32
@@ -204,10 +204,21 @@ impl Framebuffer {
         let end_x = x2.clamp(0, self.width as i32) as u32;
         let end_y = y2.clamp(0, self.height as i32) as u32;
 
-        for row in start_y..end_y {
-            let start = (row * self.width + start_x) as usize;
-            let end = (row * self.width + end_x) as usize;
-            self.pixels[start..end].fill(color);
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
+
+        let start_x_usize = start_x as usize;
+        let end_x_usize = end_x as usize;
+        let start_y_usize = start_y as usize;
+        let end_y_usize = end_y as usize;
+        let row_width = self.width as usize;
+
+        let start_idx = start_y_usize * row_width;
+        let end_idx = end_y_usize * row_width;
+
+        for row in self.pixels[start_idx..end_idx].chunks_exact_mut(row_width) {
+            row[start_x_usize..end_x_usize].fill(color);
         }
     }
 }
@@ -298,13 +309,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }
@@ -323,13 +328,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }
@@ -348,13 +347,7 @@ mod tests {
                 } else {
                     0xFF00_0000
                 };
-                assert_eq!(
-                    fb.get_pixel(x, y),
-                    Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
-                );
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
             }
         }
     }
@@ -382,5 +375,278 @@ mod tests {
             fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
             assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
         }
+    }
+}
+
+use std::fs::File;
+use std::io::{self, BufWriter, Write};
+use std::path::Path;
+
+impl Framebuffer {
+    /// Exports the framebuffer to a Portable Pixmap (PPM) file.
+    ///
+    /// PPM is a simple, uncompressed RGB format.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be created or written to.
+    pub fn export_ppm<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        if self.width() == 0 || self.height() == 0 {
+            return Ok(());
+        }
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+
+        // Write PPM header (P6 = binary RGB)
+        writeln!(writer, "P6")?;
+        writeln!(writer, "{} {}", self.width(), self.height())?;
+        writeln!(writer, "255")?;
+
+        // Write pixel data
+        let pixels = self.as_slice();
+        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+
+        // Optimization: Iterating over contiguous chunks and extending the row buffer
+        // using `flat_map` eliminates inner-loop bounds checking (which `push()` would incur),
+        // and enables the compiler to unroll and vectorize the RGB extraction.
+        for row in pixels
+            .chunks_exact(self.width() as usize)
+            .take(self.height() as usize)
+        {
+            row_buffer.clear();
+            row_buffer.extend(row.iter().flat_map(|&pixel| {
+                [
+                    ((pixel >> 16) & 0xFF) as u8,
+                    ((pixel >> 8) & 0xFF) as u8,
+                    (pixel & 0xFF) as u8,
+                ]
+            }));
+            writer.write_all(&row_buffer)?;
+        }
+
+        writer.flush()?;
+        Ok(())
+    }
+
+    /// Exports the framebuffer to an uncompressed Truevision TGA file.
+    ///
+    /// TGA is a widely supported format that stores uncompressed RGB/RGBA data.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be created or written to.
+    pub fn export_tga<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        if self.width() == 0 || self.height() == 0 {
+            return Ok(());
+        }
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+
+        // TGA Header (18 bytes)
+        let mut header = [0u8; 18];
+        header[2] = 2; // Uncompressed, true-color image
+
+        // Width and height (little-endian)
+        let width = self.width() as u16;
+        let height = self.height() as u16;
+        header[12] = (width & 0xFF) as u8;
+        header[13] = (width >> 8) as u8;
+        header[14] = (height & 0xFF) as u8;
+        header[15] = (height >> 8) as u8;
+
+        header[16] = 24; // 24 bits per pixel (BGR)
+        header[17] = 0x20; // Top-down image (origin in upper left)
+
+        writer.write_all(&header)?;
+
+        // Write pixel data (TGA stores data in BGR format)
+        let pixels = self.as_slice();
+        let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
+
+        // Optimization: Replacing manual indexing and sequential `.push()` operations
+        // with chunked slice iteration and `.extend(.flat_map(...))` allows the compiler
+        // to bypass repetitive bounds and capacity checks on every insertion, enabling
+        // better vectorization and substantially decreasing file export latency.
+        for row in pixels
+            .chunks_exact(self.width() as usize)
+            .take(self.height() as usize)
+        {
+            row_buffer.clear();
+            row_buffer.extend(row.iter().flat_map(|&pixel| {
+                [
+                    (pixel & 0xFF) as u8,
+                    ((pixel >> 8) & 0xFF) as u8,
+                    ((pixel >> 16) & 0xFF) as u8,
+                ]
+            }));
+            writer.write_all(&row_buffer)?;
+        }
+
+        writer.flush()?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod export_tests {
+    use super::*;
+    use std::fs;
+    use std::io::Read;
+
+    #[test]
+    fn test_export_ppm() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        // Red, Green
+        // Blue, White
+        fb.set_pixel(0, 0, 0xFFFF0000); // R
+        fb.set_pixel(1, 0, 0xFF00FF00); // G
+        fb.set_pixel(0, 1, 0xFF0000FF); // B
+        fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+
+        let path = "test_image.ppm";
+        fb.export_ppm(path).unwrap();
+
+        // Read and verify
+        let mut file = File::open(path).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+
+        // Check header (P6\n2 2\n255\n)
+        let header = b"P6\n2 2\n255\n";
+        assert_eq!(&contents[..header.len()], header);
+
+        // Check pixel data
+        let pixel_data = &contents[header.len()..];
+        let expected_data = vec![
+            255, 0, 0, // R
+            0, 255, 0, // G
+            0, 0, 255, // B
+            255, 255, 255, // W
+        ];
+        assert_eq!(pixel_data, expected_data.as_slice());
+
+        // Cleanup
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_export_tga() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        // Red, Green
+        // Blue, White
+        fb.set_pixel(0, 0, 0xFFFF0000); // R
+        fb.set_pixel(1, 0, 0xFF00FF00); // G
+        fb.set_pixel(0, 1, 0xFF0000FF); // B
+        fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+
+        let path = "test_image.tga";
+        fb.export_tga(path).unwrap();
+
+        // Read and verify
+        let mut file = File::open(path).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+
+        // Check TGA Header length
+        assert!(contents.len() >= 18);
+        assert_eq!(contents[2], 2); // Uncompressed true-color
+        assert_eq!(contents[12], 2); // Width
+        assert_eq!(contents[13], 0);
+        assert_eq!(contents[14], 2); // Height
+        assert_eq!(contents[15], 0);
+        assert_eq!(contents[16], 24); // 24 BPP
+        assert_eq!(contents[17], 0x20); // Top-down
+
+        // Check pixel data (BGR)
+        let pixel_data = &contents[18..];
+        let expected_data = vec![
+            0, 0, 255, // R (BGR)
+            0, 255, 0, // G (BGR)
+            255, 0, 0, // B (BGR)
+            255, 255, 255, // W (BGR)
+        ];
+        assert_eq!(pixel_data, expected_data.as_slice());
+
+        // Cleanup
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_export_txt() {
+        let mut fb = Framebuffer::new(4, 4).unwrap();
+        fb.clear(0xFFFFFFFF); // White -> '@'
+
+        let test_path = "test_output.txt";
+        fb.export_txt(test_path).unwrap();
+
+        let content = std::fs::read_to_string(test_path).unwrap();
+        assert!(content.contains("@@@@"));
+        assert!(content.contains('\n'));
+
+        // Clean up
+        let _ = std::fs::remove_file(test_path);
+    }
+
+    #[test]
+    fn test_export_ansi() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFFFF0000); // Red
+
+        let test_path = "test_output.ans";
+        fb.export_ansi(test_path).unwrap();
+
+        let content = std::fs::read_to_string(test_path).unwrap();
+        // Check for ANSI color code for Red (255;0;0)
+        assert!(content.contains("\x1b[38;2;255;0;0m"));
+        // Check for reset code
+        assert!(content.contains("\x1b[0m"));
+
+        // Clean up
+        let _ = std::fs::remove_file(test_path);
+    }
+}
+
+impl Framebuffer {
+    /// Exports the framebuffer to a plain text file using standard ASCII character mapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path to write the `.txt` file to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file creation or writing fails.
+    pub fn export_txt<P: std::convert::AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> std::io::Result<()> {
+        let converter =
+            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+        let content = converter.to_string();
+        let mut file = std::fs::File::create(path)?;
+        use std::io::Write;
+        file.write_all(content.as_bytes())
+    }
+
+    /// Exports the framebuffer to an ANSI colored text file.
+    /// This file can be viewed in standard terminals (e.g., via `cat`).
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path to write the `.ans` file to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file creation or writing fails.
+    pub fn export_ansi<P: std::convert::AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> std::io::Result<()> {
+        let converter =
+            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
+        let content = converter.to_colored_string();
+        let mut file = std::fs::File::create(path)?;
+        use std::io::Write;
+        file.write_all(content.as_bytes())
     }
 }

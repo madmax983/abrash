@@ -28,7 +28,7 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
-use std::hash::{BuildHasher, Hasher};
+use std::hash::{BuildHasherDefault, Hasher};
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -62,7 +62,8 @@ impl VertexKey {
 }
 
 /// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
-/// This avoids the overhead of SipHash for simple vertex deduplication lookups.
+/// This avoids the overhead of `SipHash` for simple vertex deduplication lookups.
+#[derive(Default)]
 struct FastU64Hasher(u64);
 
 impl Hasher for FastU64Hasher {
@@ -76,7 +77,7 @@ impl Hasher for FastU64Hasher {
         // Fallback for completeness, though our key uses write_u64 directly
         let mut x = self.0;
         for &b in bytes {
-            x = x.rotate_left(8) ^ (b as u64);
+            x = x.rotate_left(8) ^ u64::from(b);
             x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
         }
         self.0 = x;
@@ -92,18 +93,6 @@ impl Hasher for FastU64Hasher {
         x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
         x ^= x >> 31;
         self.0 = x;
-    }
-}
-
-#[derive(Default)]
-struct FastU64Builder;
-
-impl BuildHasher for FastU64Builder {
-    type Hasher = FastU64Hasher;
-
-    #[inline]
-    fn build_hasher(&self) -> Self::Hasher {
-        FastU64Hasher(0)
     }
 }
 
@@ -161,7 +150,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize, FastU64Builder>,
+    deduplicator: HashMap<VertexKey, usize, BuildHasherDefault<FastU64Hasher>>,
     face_indices: Vec<usize>,
 }
 
@@ -224,7 +213,7 @@ impl ObjParser {
             final_indices: Vec::with_capacity(estimated_capacity),
             deduplicator: HashMap::with_capacity_and_hasher(
                 estimated_capacity,
-                FastU64Builder::default(),
+                BuildHasherDefault::default(),
             ),
             face_indices: Vec::with_capacity(4),
         }
@@ -305,6 +294,24 @@ impl ObjParser {
             ));
         }
 
+        if let Some(ti) = vt_idx {
+            if ti >= self.raw_uvs.len() {
+                return Err(format!(
+                    "Line {}: UV index {} out of bounds",
+                    line_num,
+                    ti + 1
+                ));
+            }
+        }
+        if let Some(ni) = vn_idx {
+            if ni >= self.raw_normals.len() {
+                return Err(format!(
+                    "Line {}: Normal index {} out of bounds",
+                    line_num,
+                    ni + 1
+                ));
+            }
+        }
         let key = VertexKey::new(v_idx, vt_idx, vn_idx);
 
         if let Some(&idx) = self.deduplicator.get(&key) {
@@ -652,11 +659,11 @@ f 1//1 2 3
         let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\n";
 
         // Index 0 (OBJ is 1-based)
-        let obj_zero = format!("{}f 0 1 2", obj_ok);
+        let obj_zero = format!("{obj_ok}f 0 1 2");
         assert!(load_obj(&obj_zero).is_err());
 
         // Index out of bounds
-        let obj_oob = format!("{}f 1 2 4", obj_ok); // 4 doesn't exist
+        let obj_oob = format!("{obj_ok}f 1 2 4"); // 4 doesn't exist
         assert!(load_obj(&obj_oob).is_err());
     }
 
