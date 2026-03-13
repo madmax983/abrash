@@ -67,6 +67,8 @@ impl XorShift {
 }
 
 /// Applies the selected vision effect to the framebuffer.
+///
+///
 /// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// remainder chunk handling and bounds checking, enabling better vectorization

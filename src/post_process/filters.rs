@@ -546,8 +546,8 @@ pub struct FilmGrainConfig {
 /// apply_film_grain(&mut fb, &config);
 /// ```
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
-    let _width = fb.width() as usize;
-    if _width == 0 {
+    let width_ = fb.width() as usize;
+    if width_ == 0 {
         return;
     }
 
@@ -565,8 +565,8 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
         use rayon::prelude::*;
 
         let seed = config.seed;
-        pixels.par_chunks_exact_mut(_width).enumerate().for_each(|(y, row)| {
-            let row_offset = y * _width;
+        pixels.par_chunks_exact_mut(width_).enumerate().for_each(|(y, row)| {
+            let row_offset = y * width_;
             for (x, p) in row.iter_mut().enumerate() {
                 let i = row_offset + x;
 
@@ -1633,7 +1633,7 @@ mod tests {
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    #[ignore]
+    #[ignore = "Need to investigate test failure"]
     fn test_apply_chromatic_aberration_simd_vs_scalar() {
         if !std::is_x86_feature_detected!("avx2") {
             return;
@@ -1695,7 +1695,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Need to investigate test failure"]
     fn test_apply_chromatic_aberration() {
         let width = 5;
         let height = 1;

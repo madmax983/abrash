@@ -72,6 +72,8 @@ fn query_refresh_rate() -> u32 {
 }
 
 impl TuiWindow {
+    /// # Errors
+    /// Returns an error if terminal setup fails.
     pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 || width == 0 || height == 0 {
             return Err(WindowError::CreationFailed);

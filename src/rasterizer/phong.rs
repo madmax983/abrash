@@ -300,6 +300,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
                     ),
                 );
 
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, _mm256_castps_si256(mask));
@@ -555,6 +556,7 @@ unsafe fn draw_scanline_point_lit_simd(
                     ),
                 );
 
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let mask_int = _mm256_castps_si256(mask);
@@ -1682,6 +1684,7 @@ unsafe fn draw_scanline_phong_simd(
                 );
 
                 // Store pixels
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 // blendv_epi8 blends based on the high bit of each byte.

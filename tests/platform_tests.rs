@@ -92,6 +92,7 @@ struct MockWindow {
 }
 
 impl MockWindow {
+    #[allow(clippy::unnecessary_wraps)]
     const fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
     where
         Self: Sized,
@@ -115,10 +116,14 @@ impl MockWindow {
         self.h
     }
 
+    #[allow(clippy::unused_self)]
+    #[allow(clippy::needless_pass_by_ref_mut)]
     const fn poll_events(&mut self) -> Vec<Event> {
         Vec::new()
     }
 
+    #[allow(clippy::unused_self)]
+    #[allow(clippy::needless_pass_by_ref_mut)]
     const fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
         // no-op
     }

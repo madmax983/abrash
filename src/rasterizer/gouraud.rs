@@ -99,6 +99,7 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
                 );
 
                 // Store with mask
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
@@ -244,6 +245,7 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
                 );
 
                 // Store with mask
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
@@ -827,11 +829,11 @@ mod tests {
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 50);
+        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 0x32);
         let p50 = fb.get_pixel(50, 0).unwrap();
-        assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50);
+        assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 0x32);
         let p99 = fb.get_pixel(99, 0).unwrap();
-        assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 50);
+        assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 0x32);
 
         let zb_slice = zb.as_slice();
         assert!((zb_slice[0] - 5.0).abs() < 0.0001);

@@ -2,7 +2,7 @@
 fn test_box_blur_f32_vertical_scalar_oob() {
     let width = 5;
     let height = 5;
-    let _radius = 100usize;
+
     let _src = vec![0f32; width * height];
     let _dest = vec![0f32; width * height];
     let _acc = vec![0f32; width];

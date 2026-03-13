@@ -198,6 +198,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n🎨 Abrash OBJ Viewer");
 
+    #[allow(clippy::option_if_let_else)]
     let (mesh_source, source_name) = match args.input {
         Some(path) => {
             let content = match fs::read_to_string(&path) {

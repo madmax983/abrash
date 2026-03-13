@@ -13,7 +13,7 @@ fn edge_glow_benchmark(c: &mut Criterion) {
     let pixels = fb.as_mut_slice();
     for y in 0..height {
         for x in 0..width {
-            let val = ((x + y) % 256);
+            let val = (x + y) % 256;
             pixels[(y * width + x) as usize] = 0xFF00_0000 | (val << 16) | (val << 8) | val;
         }
     }

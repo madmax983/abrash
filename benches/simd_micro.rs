@@ -222,6 +222,7 @@ fn generate_horizontal_triangles(
     scanline_len: u32,
     count: usize,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+    #![allow(clippy::type_complexity)]
     let mut triangles = Vec::with_capacity(count);
     let width = scanline_len as f32;
 
@@ -248,6 +249,7 @@ fn generate_scattered_triangles(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+    #![allow(clippy::type_complexity)]
     let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
@@ -274,6 +276,7 @@ fn generate_test_scene(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+    #![allow(clippy::type_complexity)]
     let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {

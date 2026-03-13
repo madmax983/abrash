@@ -3696,7 +3696,9 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
-                let idx = if is_pot {
+                #[allow(clippy::branches_sharing_code)]
+                    #[allow(clippy::branches_sharing_code)]
+                    let idx = if is_pot {
                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
@@ -3751,6 +3753,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
+                    #[allow(clippy::cast_ptr_alignment)]
                     let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
@@ -3763,6 +3766,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
+                    #[allow(clippy::cast_ptr_alignment)]
                     let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
@@ -4898,7 +4902,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Need to investigate test failure"]
     fn test_fill_quad_textured_optimization() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         let mut zb = ZBuffer::new(10, 10).unwrap();

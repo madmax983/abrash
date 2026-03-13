@@ -589,7 +589,7 @@ f 1/1 1/2 1/1
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Need to investigate test failure"]
     fn test_load_normals() {
         let obj = "
 v 0 0 0
@@ -605,7 +605,7 @@ f 1//1 2//1 3//1
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Need to investigate test failure"]
     fn test_load_mixed_normals() {
         let obj = "
 v 0 0 0

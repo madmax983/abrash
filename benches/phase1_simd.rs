@@ -10,6 +10,7 @@ fn generate_test_scene(
     width: u32,
     height: u32,
 ) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+    #![allow(clippy::type_complexity)]
     let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
