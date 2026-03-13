@@ -740,10 +740,10 @@ mod simd {
         let mut ptr = pixels.as_mut_ptr();
 
         // SAFETY: We perform pointer arithmetic within bounds of the slice.
-        let end_ptr = ptr.add(simd_len);
+        let end_ptr = unsafe { ptr.add(simd_len) };
 
         while ptr < end_ptr {
-            let chunk = _mm256_loadu_si256(ptr.cast());
+            let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
 
             // Extract Alpha
             let alphas = _mm256_and_si256(chunk, alpha_mask);
@@ -785,43 +785,45 @@ mod simd {
             // Combine with Alpha
             let result = _mm256_or_si256(gray_pixels, alphas);
 
-            _mm256_storeu_si256(ptr.cast(), result);
-            ptr = ptr.add(8);
+            unsafe { _mm256_storeu_si256(ptr.cast(), result) };
+            ptr = unsafe { ptr.add(8) };
         }
     }
 
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_scanlines_avx2(pixels: &mut [u32], width: usize, height: usize) {
-        let mask_val = _mm256_set1_epi32(0x7F7F_7F7F);
-        let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
+        unsafe {
+            let mask_val = _mm256_set1_epi32(0x7F7F_7F7F);
+            let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
-        for y in (1..height).step_by(2) {
-            let row_start = y * width;
-            let mut row_ptr = pixels.as_mut_ptr().add(row_start);
-            let row_end = row_ptr.add(width);
+            for y in (1..height).step_by(2) {
+                let row_start = y * width;
+                let mut row_ptr = pixels.as_mut_ptr().add(row_start);
+                let row_end = row_ptr.add(width);
 
-            while row_ptr.add(8) <= row_end {
-                let p = _mm256_loadu_si256(row_ptr.cast());
+                while row_ptr.add(8) <= row_end {
+                    let p = _mm256_loadu_si256(row_ptr.cast());
 
-                // ((p >> 1) & 0x7F7F_7F7F)
-                let shifted = _mm256_srli_epi32(p, 1);
-                let masked = _mm256_and_si256(shifted, mask_val);
+                    // ((p >> 1) & 0x7F7F_7F7F)
+                    let shifted = _mm256_srli_epi32(p, 1);
+                    let masked = _mm256_and_si256(shifted, mask_val);
 
-                // (p & 0xFF00_0000)
-                let alpha = _mm256_and_si256(p, alpha_mask);
+                    // (p & 0xFF00_0000)
+                    let alpha = _mm256_and_si256(p, alpha_mask);
 
-                // |
-                let result = _mm256_or_si256(masked, alpha);
+                    // |
+                    let result = _mm256_or_si256(masked, alpha);
 
-                _mm256_storeu_si256(row_ptr.cast(), result);
-                row_ptr = row_ptr.add(8);
-            }
+                    _mm256_storeu_si256(row_ptr.cast(), result);
+                    row_ptr = row_ptr.add(8);
+                }
 
-            // Tail
-            while row_ptr < row_end {
-                let p = *row_ptr;
-                *row_ptr = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
-                row_ptr = row_ptr.add(1);
+                // Tail
+                while row_ptr < row_end {
+                    let p = *row_ptr;
+                    *row_ptr = ((p >> 1) & 0x7F7F_7F7F) | (p & 0xFF00_0000);
+                    row_ptr = row_ptr.add(1);
+                }
             }
         }
     }
@@ -865,10 +867,10 @@ mod simd {
         let len = pixels.len();
         let simd_len = len & !7;
         let mut ptr = pixels.as_mut_ptr();
-        let end_ptr = ptr.add(simd_len);
+        let end_ptr = unsafe { ptr.add(simd_len) };
 
         while ptr < end_ptr {
-            let chunk = _mm256_loadu_si256(ptr.cast());
+            let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
 
             // Extract Alpha
             let alphas = _mm256_and_si256(chunk, alpha_mask);
@@ -913,8 +915,8 @@ mod simd {
                 _mm256_or_si256(g_shift, _mm256_or_si256(r_shift, alphas)),
             );
 
-            _mm256_storeu_si256(ptr.cast(), result);
-            ptr = ptr.add(8);
+            unsafe { _mm256_storeu_si256(ptr.cast(), result) };
+            ptr = unsafe { ptr.add(8) };
         }
     }
 
@@ -1051,8 +1053,8 @@ mod simd {
         // 1. RGB -> Luminance
         {
             let len = width * height;
-            let mut s_ptr = pixels.as_ptr();
-            let mut d_ptr = lum_buffer.as_mut_ptr();
+            let s_ptr = pixels.as_ptr();
+            let d_ptr = lum_buffer.as_mut_ptr();
 
             let weights = _mm256_set1_epi64x(0x0000_004D_0096_001D);
             let perm_mask = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
@@ -1061,10 +1063,10 @@ mod simd {
             let mut i = 0;
             while i + 32 <= len {
                 // Unroll 4x
-                let p0 = _mm256_loadu_si256(s_ptr.add(i).cast());
-                let p1 = _mm256_loadu_si256(s_ptr.add(i + 8).cast());
-                let p2 = _mm256_loadu_si256(s_ptr.add(i + 16).cast());
-                let p3 = _mm256_loadu_si256(s_ptr.add(i + 24).cast());
+                let p0 = unsafe { _mm256_loadu_si256(s_ptr.add(i).cast()) };
+                let p1 = unsafe { _mm256_loadu_si256(s_ptr.add(i + 8).cast()) };
+                let p2 = unsafe { _mm256_loadu_si256(s_ptr.add(i + 16).cast()) };
+                let p3 = unsafe { _mm256_loadu_si256(s_ptr.add(i + 24).cast()) };
 
                 // Manually inline luma calculation to avoid closure/target_feature issues.
                 // Luma 0
@@ -1124,13 +1126,13 @@ mod simd {
                 let packed = _mm256_packus_epi16(l01_16, l23_16);
                 let final_u8 = _mm256_permutevar8x32_epi32(packed, perm_mask);
 
-                _mm256_storeu_si256(d_ptr.add(i).cast(), final_u8);
+                unsafe { _mm256_storeu_si256(d_ptr.add(i).cast(), final_u8) };
                 i += 32;
             }
 
             // Tail
             for j in i..len {
-                *d_ptr.add(j) = pixel_luminance(*s_ptr.add(j));
+                unsafe { *d_ptr.add(j) = pixel_luminance(*s_ptr.add(j)) };
             }
         }
 
@@ -1149,7 +1151,7 @@ mod simd {
                 while x + 16 < width - 1 {
                     // Helper to load 16 bytes and convert to 16 i16s
                     let load_i16 = |ptr: *const u8, offset: usize| {
-                        let v8 = _mm_loadu_si128(ptr.add(offset).cast());
+                        let v8 = unsafe { _mm_loadu_si128(ptr.add(offset).cast()) };
                         _mm256_cvtepu8_epi16(v8)
                     };
 
@@ -1209,9 +1211,9 @@ mod simd {
                     let gray_hi = _mm256_or_si256(mag_hi, _mm256_or_si256(m_sh16_hi, m_sh8_hi));
 
                     // Load original alphas
-                    let dest_ptr = pixels.as_mut_ptr().add(mid_offset + x);
-                    let orig_lo = _mm256_loadu_si256(dest_ptr.cast());
-                    let orig_hi = _mm256_loadu_si256(dest_ptr.add(8).cast());
+                    let dest_ptr = unsafe { pixels.as_mut_ptr().add(mid_offset + x) };
+                    let orig_lo = unsafe { _mm256_loadu_si256(dest_ptr.cast()) };
+                    let orig_hi = unsafe { _mm256_loadu_si256(dest_ptr.add(8).cast()) };
 
                     let alpha_lo = _mm256_and_si256(orig_lo, alpha_mask);
                     let alpha_hi = _mm256_and_si256(orig_hi, alpha_mask);
@@ -1219,8 +1221,8 @@ mod simd {
                     let final_lo = _mm256_or_si256(gray_lo, alpha_lo);
                     let final_hi = _mm256_or_si256(gray_hi, alpha_hi);
 
-                    _mm256_storeu_si256(dest_ptr.cast(), final_lo);
-                    _mm256_storeu_si256(dest_ptr.add(8).cast(), final_hi);
+                    unsafe { _mm256_storeu_si256(dest_ptr.cast(), final_lo) };
+                    unsafe { _mm256_storeu_si256(dest_ptr.add(8).cast(), final_hi) };
 
                     x += 16;
                 }
@@ -1263,10 +1265,10 @@ mod simd {
         let len = pixels.len();
         let simd_len = len & !7;
         let mut ptr = pixels.as_mut_ptr();
-        let end_ptr = ptr.add(simd_len);
+        let end_ptr = unsafe { ptr.add(simd_len) };
 
         while ptr < end_ptr {
-            let chunk = _mm256_loadu_si256(ptr.cast());
+            let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
             let alphas = _mm256_and_si256(chunk, alpha_mask);
 
             // Extract R, G, B using bitwise AND and shifts, then do math in 32-bit.
@@ -1303,12 +1305,12 @@ mod simd {
                 _mm256_or_si256(r_shift, _mm256_or_si256(g_shift, b_clamped)),
             );
 
-            _mm256_storeu_si256(ptr.cast(), res);
-            ptr = ptr.add(8);
+            unsafe { _mm256_storeu_si256(ptr.cast(), res) };
+            ptr = unsafe { ptr.add(8) };
         }
 
         // Tail
-        let tail_slice = std::slice::from_raw_parts_mut(ptr, len - simd_len);
+        let tail_slice = unsafe { std::slice::from_raw_parts_mut(ptr, len - simd_len) };
         apply_color_adjust_scalar(tail_slice, brightness, contrast);
     }
 
@@ -1355,7 +1357,7 @@ mod simd {
             let dy_sq_vec = _mm256_set1_ps(dy_sq);
 
             let row_start = y * width;
-            let mut ptr = pixels.as_mut_ptr().add(row_start);
+            let mut ptr = unsafe { pixels.as_mut_ptr().add(row_start) };
 
             let mut x = 0;
             while x + 8 <= width {
@@ -1383,7 +1385,7 @@ mod simd {
                 let weights_hi = _mm256_shuffle_epi8(factor_hi_lanes, factors_lo_indices);
 
                 // Load and process pixels
-                let chunk = _mm256_loadu_si256(ptr.cast());
+                let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
                 let p_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(chunk));
                 let p_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(chunk, 1));
 
@@ -1400,9 +1402,9 @@ mod simd {
                 let color_mod = _mm256_andnot_si256(alpha_mask, final_pixels);
                 let result = _mm256_or_si256(color_mod, orig_alphas);
 
-                _mm256_storeu_si256(ptr.cast(), result);
+                unsafe { _mm256_storeu_si256(ptr.cast(), result) };
 
-                ptr = ptr.add(8);
+                ptr = unsafe { ptr.add(8) };
                 x += 8;
             }
 
@@ -1413,7 +1415,7 @@ mod simd {
                 let normalized_dist_sq = dist_sq * inv_max_dist_sq;
                 let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
 
-                let p = *ptr;
+                let p = unsafe { *ptr };
                 let a = p & 0xFF00_0000;
                 let r = ((p >> 16) & 0xFF) as f32;
                 let g = ((p >> 8) & 0xFF) as f32;
@@ -1423,9 +1425,9 @@ mod simd {
                 let new_g = (g * factor) as u32;
                 let new_b = (b * factor) as u32;
 
-                *ptr = a | (new_r << 16) | (new_g << 8) | new_b;
+                unsafe { *ptr = a | (new_r << 16) | (new_g << 8) | new_b };
 
-                ptr = ptr.add(1);
+                ptr = unsafe { ptr.add(1) };
                 x += 1;
             }
         }
