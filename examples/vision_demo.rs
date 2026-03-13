@@ -7,9 +7,10 @@ use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
+use std::io::{Write, stdout};
 
 use comfy_table::{Cell, Color, Table, presets};
-use crossterm::style::Stylize;
+use crossterm::{cursor, execute, style::Stylize, terminal::{Clear, ClearType}};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -127,8 +128,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 VisionMode::Thermal => VisionMode::Sonar,
                 VisionMode::Sonar => VisionMode::Night,
             };
-            // Print to console to inform user
-            println!("Switched to {:?}", vision_config.mode);
+            // Print to console to inform user cleanly
+            let mut out = stdout();
+            let _ = execute!(
+                out,
+                cursor::MoveToColumn(0),
+                Clear(ClearType::CurrentLine)
+            );
+            print!("🔄 Mode Switched to: {}", format!("{:?}", vision_config.mode).bold().green());
+            let _ = out.flush();
         }
 
         framebuffer.clear(BACKGROUND);
