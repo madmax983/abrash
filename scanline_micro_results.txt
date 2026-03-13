@@ -1,7 +1,0 @@
-scanline_micro/large_triangle_1080p
-                        time:   [1.1224 ms 1.1378 ms 1.1548 ms]
-                        change: [-20.435% -18.254% -15.973%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 5 outliers among 100 measurements (5.00%)
-  2 (2.00%) high mild
-  3 (3.00%) high severe

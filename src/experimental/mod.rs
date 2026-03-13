@@ -25,6 +25,7 @@
 //! abrash = { version = "0.1", features = ["nova"] }
 //! ```
 
+pub mod anaglyph;
 pub mod arboretum;
 pub mod boids;
 
@@ -47,6 +48,7 @@ pub mod modifiers;
 pub mod palette;
 pub mod pixel_sort;
 pub mod pixelate;
+pub mod posterize;
 pub mod procedural_mesh;
 pub mod radial_blur;
 pub mod raytracer;

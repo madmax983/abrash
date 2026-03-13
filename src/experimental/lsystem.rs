@@ -67,6 +67,17 @@ impl LSystem {
 
         let mut next_string = String::with_capacity(current.len() * 2);
 
+        // Bolt Performance Optimization:
+        // By pre-calculating a flat array for ASCII replacement lookups,
+        // we bypass the `HashMap::get` and `SipHash` overhead entirely in the inner loop.
+        let mut rules_array: [Option<&str>; 128] = [None; 128];
+        for (k, v) in &self.rules {
+            let u = *k as u32;
+            if u < 128 {
+                rules_array[u as usize] = Some(v.as_str());
+            }
+        }
+
         for _ in 0..iterations {
             next_string.clear();
 
@@ -76,18 +87,27 @@ impl LSystem {
             // heap reallocations as the string expands exponentially.
             next_string.reserve(current.len() * 2);
 
-            for c in current.chars() {
-                if let Some(replacement) = self.rules.get(&c) {
+            for b in current.bytes() {
+                let idx = b as usize;
+                if idx < 128 {
+                    if let Some(replacement) = rules_array[idx] {
+                        next_string.push_str(replacement);
+                        continue;
+                    }
+                } else if let Some(replacement) = self.rules.get(&(b as char)) {
+                    // Fallback for non-ASCII
                     next_string.push_str(replacement);
-                } else {
-                    next_string.push(c);
+                    continue;
                 }
 
-                // OOM Prevention check
-                if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
-                }
+                next_string.push(b as char);
             }
+
+            // OOM Prevention check
+            if next_string.len() > self.max_capacity {
+                return Err("L-System expansion exceeded maximum capacity limit");
+            }
+
             std::mem::swap(&mut current, &mut next_string);
         }
 
@@ -143,11 +163,11 @@ impl Turtle {
         // For simplicity and speed in software rendering, we will generate a very simple geometry
         // per line segment (e.g., a small box or custom geometry). We will use a fast hardcoded method here.
 
-        /// Bolt Performance Optimization:
-        /// - Converts commands to an ASCII byte array to avoid UTF-8 `chars()` decoding overhead during iteration.
-        /// - Pre-calculates the required number of segments by scanning for `b'F'`.
-        /// - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
-        ///   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
+        // Bolt Performance Optimization:
+        // - Converts commands to an ASCII byte array to avoid UTF-8 `chars()` decoding overhead during iteration.
+        // - Pre-calculates the required number of segments by scanning for `b'F'`.
+        // - Uses `Mesh::with_capacity` to pre-allocate exact vertex and index buffers, preventing dynamic heap
+        //   reallocations inside the hot interpretation loop. The `bytecount` crate was avoided to minimize dependencies.
         let commands_bytes = commands.as_bytes();
         #[allow(clippy::naive_bytecount)]
         let num_segments = commands_bytes.iter().filter(|&&b| b == b'F').count();

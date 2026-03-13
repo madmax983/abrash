@@ -133,6 +133,11 @@ path = "examples/pixel_sort_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "anaglyph_demo"
+path = "examples/anaglyph_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "god_rays_demo"
 path = "examples/god_rays_demo.rs"
 required-features = ["nova", "backend-tui"]
@@ -449,4 +454,17 @@ path = "benches/run_film_grain.rs"
 
 [[bench]]
 name = "clear_rect_bench"
+harness = false
+
+[[bench]]
+name = "lsystem_bench"
+harness = false
+
+[[bench]]
+name = "posterize_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "vec3_reflect_bench"
 harness = false
