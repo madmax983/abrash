@@ -437,8 +437,3 @@ harness = false
 [[bench]]
 name = "dof_bench"
 harness = false
-
-[[bench]]
-name = "mesh_modifiers_bench"
-harness = false
-required-features = ["nova"]
