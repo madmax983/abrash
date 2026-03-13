@@ -464,3 +464,7 @@ harness = false
 name = "posterize_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "vec3_reflect_bench"
+harness = false

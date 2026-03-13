@@ -398,7 +398,7 @@ impl RayTracer {
 
             // Specular (Phong)
             let view_dir = ray.direction * -1.0;
-            let reflect_dir = reflect(light_dir, hit.normal).normalize();
+            let reflect_dir = light_dir.reflect(hit.normal).normalize();
             let spec = reflect_dir.dot(view_dir).max(0.0).powf(32.0);
             let specular = light_color * spec * 0.5;
 
@@ -415,7 +415,7 @@ impl RayTracer {
             let reflected_color = if depth < self.max_bounces {
                 let r_ray = Ray::new(
                     hit.point + hit.normal * 0.001,
-                    reflect(ray.direction, hit.normal),
+                    ray.direction.reflect(hit.normal),
                 );
                 let r_col_u32 = self.trace_ray(&r_ray, objects, aabbs, depth + 1);
                 let rr = ((r_col_u32 >> 16) & 0xFF) as f32 / 255.0;
@@ -460,10 +460,6 @@ impl RayTracer {
         }
         false
     }
-}
-
-fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v - n * 2.0 * v.dot(n)
 }
 
 #[cfg(test)]
