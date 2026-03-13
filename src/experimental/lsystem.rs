@@ -59,12 +59,11 @@ impl LSystem {
     /// # Errors
     /// Returns an error if the expansion string exceeds `max_capacity`.
     pub fn expand(&self, iterations: usize) -> Result<String, &'static str> {
-        let mut current = self.axiom.clone();
-
         if iterations == 0 {
-            return Ok(current);
+            return Ok(self.axiom.clone());
         }
 
+        let mut current = self.axiom.clone();
         let mut next_string = String::with_capacity(current.len() * 2);
 
         for _ in 0..iterations {

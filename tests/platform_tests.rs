@@ -156,7 +156,6 @@ fn window_type_alias_resolves() {
     // but we can confirm the type exists and has the expected trait methods
     // by checking it at compile time via a function pointer.
 
-
     // but we can confirm the type exists by ensuring its size is known.
     fn assert_window_size<T: Sized>() {}
     assert_window_size::<abrash::platform::Window>();

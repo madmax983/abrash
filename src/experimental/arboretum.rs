@@ -149,6 +149,7 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
+            let mut next_bytes = Vec::new();
             for _ in 0..iterations {
                 // Determine capacity and write directly
                 let mut exact_len: usize = 0;
@@ -167,15 +168,16 @@ impl LSystem {
                     return Err("L-system exceeded memory limits".to_string());
                 }
 
-                let mut next_bytes = Vec::with_capacity(exact_len);
-                for b in current_bytes {
+                next_bytes.clear();
+                next_bytes.reserve(exact_len);
+                for &b in &current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
                         next_bytes.extend_from_slice(replacement);
                     } else {
                         next_bytes.push(b);
                     }
                 }
-                current_bytes = next_bytes;
+                std::mem::swap(&mut current_bytes, &mut next_bytes);
             }
 
             // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
@@ -190,6 +192,7 @@ impl LSystem {
             }
         }
 
+        let mut next = String::new();
         for _ in 0..iterations {
             // Estimate capacity: a bit larger than current to avoid multiple reallocations,
             // but not requiring a full pre-pass loop over the string.
@@ -220,7 +223,8 @@ impl LSystem {
                 return Err("L-system exceeded memory limits".to_string());
             }
 
-            let mut next = String::with_capacity(next_len);
+            next.clear();
+            next.reserve(next_len);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {
@@ -235,7 +239,7 @@ impl LSystem {
                     next.push(c);
                 }
             }
-            current = next;
+            std::mem::swap(&mut current, &mut next);
         }
 
         Ok(current)
