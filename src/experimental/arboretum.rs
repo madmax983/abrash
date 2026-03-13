@@ -155,30 +155,16 @@ impl LSystem {
                 /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
                 /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
                 /// memory allocations and drops that were previously happening on every single iteration.
-                // Determine capacity and write directly
-                let mut exact_len: usize = 0;
-                for &b in &current_bytes {
-                    if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        exact_len = exact_len
-                            .checked_add(replacement.len())
-                            .ok_or("L-system exceeded memory limits")?;
-                    } else {
-                        exact_len = exact_len
-                            .checked_add(1)
-                            .ok_or("L-system exceeded memory limits")?;
-                    }
-                }
-                if exact_len > limit {
-                    return Err("L-system exceeded memory limits".to_string());
-                }
-
                 next_bytes.clear();
-                next_bytes.reserve(exact_len);
+                next_bytes.reserve(current_bytes.len() * 2);
                 for &b in &current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
                         next_bytes.extend_from_slice(replacement);
                     } else {
                         next_bytes.push(b);
+                    }
+                    if next_bytes.len() > limit {
+                        return Err("L-system exceeded memory limits".to_string());
                     }
                 }
                 std::mem::swap(&mut current_bytes, &mut next_bytes);
@@ -201,37 +187,8 @@ impl LSystem {
             /// Bolt Performance Optimization:
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
-            // Estimate capacity: a bit larger than current to avoid multiple reallocations,
-            // but not requiring a full pre-pass loop over the string.
-            let mut next_len: usize = 0;
-            for c in current.chars() {
-                let u = c as usize;
-                if u < 128 {
-                    if let Some(replacement) = rules_array[u] {
-                        next_len = next_len
-                            .checked_add(replacement.len())
-                            .ok_or("L-system exceeded memory limits")?;
-                    } else {
-                        next_len = next_len
-                            .checked_add(1)
-                            .ok_or("L-system exceeded memory limits")?;
-                    }
-                } else if let Some(replacement) = self.rules.get(&c) {
-                    next_len = next_len
-                        .checked_add(replacement.len())
-                        .ok_or("L-system exceeded memory limits")?;
-                } else {
-                    next_len = next_len
-                        .checked_add(1)
-                        .ok_or("L-system exceeded memory limits")?;
-                }
-            }
-            if next_len > limit {
-                return Err("L-system exceeded memory limits".to_string());
-            }
-
             next.clear();
-            next.reserve(next_len);
+            next.reserve(current.len() * 2);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {
@@ -244,6 +201,10 @@ impl LSystem {
                     next.push_str(replacement);
                 } else {
                     next.push(c);
+                }
+
+                if next.len() > limit {
+                    return Err("L-system exceeded memory limits".to_string());
                 }
             }
             std::mem::swap(&mut current, &mut next);

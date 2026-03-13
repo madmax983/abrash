@@ -396,6 +396,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "arboretum_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "crosshatch_bench"
 harness = false
 required-features = ["nova"]
