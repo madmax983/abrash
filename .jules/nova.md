@@ -98,3 +98,8 @@
 **Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
 **Fate:** Implemented
 **Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.
+
+## [Blueprint Filter]
+**Concept:** A retro post-processing effect combining edge detection with a procedural grid to simulate a technical drawing or blueprint.
+**Fate:** Implemented
+**Lesson:** Using a thread-local buffer (`LUMA_BUFFER`) avoids inner-loop allocations during luminance calculations, mirroring edge glow optimizations. Parallel chunk iterations easily accommodate combined edge-checking and grid generation safely if interior bounds are cleanly separated.

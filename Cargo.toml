@@ -430,6 +430,16 @@ name = "directional_blur_demo"
 path = "examples/directional_blur_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "blueprint_demo"
+path = "examples/blueprint_demo.rs"
+required-features = ["nova", "backend-tui"]
+
+[[bench]]
+name = "blueprint_bench"
+harness = false
+required-features = ["nova"]
+
 [[bench]]
 name = "kuwahara_bench"
 harness = false

@@ -1,8 +1,8 @@
-use proptest::prelude::*;
-use abrash::rasterizer::tile::TileRenderer;
 use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
 use abrash::math::Vec3;
+use abrash::rasterizer::tile::TileRenderer;
+use abrash::zbuffer::ZBuffer;
+use proptest::prelude::*;
 
 proptest! {
     #[test]

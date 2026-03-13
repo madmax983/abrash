@@ -29,6 +29,7 @@ pub mod anaglyph;
 pub mod arboretum;
 pub mod boids;
 
+pub mod blueprint;
 pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;

@@ -1,6 +1,6 @@
-use proptest::prelude::*;
-use abrash::rasterizer::tile::TileRenderer;
 use abrash::math::Vec3;
+use abrash::rasterizer::tile::TileRenderer;
+use proptest::prelude::*;
 
 proptest! {
     #[test]
