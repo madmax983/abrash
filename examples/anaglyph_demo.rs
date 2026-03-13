@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Add some more depth layers
         // Let's add a floor
-        let floor_model = Mat4::translation(Vec3::new(0.0, -1.0, 0.0)) * Mat4::scale(Vec3::new(5.0, 0.1, 5.0));
+        let floor_model = Mat4::translation(0.0, -1.0, 0.0) * Mat4::scale(5.0, 0.1, 5.0);
         let floor_mvp = projection * (view * floor_model);
 
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
