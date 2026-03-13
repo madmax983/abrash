@@ -2,6 +2,8 @@
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
+#![cfg(feature = "nova")]
+
 use abrash::experimental::raytracer::RayTracer;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};

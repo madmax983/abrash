@@ -401,3 +401,8 @@ required-features = ["nova"]
 name = "kaleidoscope_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "film_grain_bench"
+harness = false
+required-features = ["nova"]
