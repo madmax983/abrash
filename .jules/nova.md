@@ -98,3 +98,8 @@
 **Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
 **Fate:** Implemented
 **Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.
+
+## [Autostereogram]
+**Concept:** A post-processing effect that generates a Single Image Random Dot Stereogram (Magic Eye) from the depth buffer.
+**Fate:** Implemented
+**Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift allows for generating correct stereograms efficiently without recursive lookbacks. Calculating row-by-row is perfectly parallelizable since shifts only occur horizontally.
