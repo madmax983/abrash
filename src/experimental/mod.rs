@@ -43,6 +43,7 @@ pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
+pub mod lens_flare;
 pub mod lsystem;
 pub mod modifiers;
 pub mod palette;

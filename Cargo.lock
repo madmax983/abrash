@@ -31,6 +31,7 @@ dependencies = [
  "crossterm",
  "foldhash 0.2.0",
  "fyrox",
+ "heapless 0.9.2",
  "proptest",
  "rand 0.8.5",
  "ratatui",
