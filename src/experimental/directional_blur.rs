@@ -35,9 +35,9 @@ thread_local! {
 }
 
 /// Bolt Performance Optimization:
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// remainder chunk handling and bounds checking, enabling better vectorization
-    /// and measurable performance improvements.
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 
 /// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate

@@ -22,9 +22,9 @@ use rayon::prelude::*;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// Bolt Performance Optimization:
-    /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// remainder chunk handling and bounds checking, enabling better vectorization
-    /// and measurable performance improvements.
+/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+/// remainder chunk handling and bounds checking, enabling better vectorization
+/// and measurable performance improvements.
 /// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// remainder chunk handling and bounds checking, enabling better vectorization
@@ -55,7 +55,11 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         .skip(1)
         .take(height - 2);
     #[cfg(not(feature = "parallel"))]
-    let row_iter = dest.chunks_exact_mut(width).enumerate().skip(1).take(height - 2);
+    let row_iter = dest
+        .chunks_exact_mut(width)
+        .enumerate()
+        .skip(1)
+        .take(height - 2);
 
     row_iter.for_each(|(y, row)| {
         let prev_row_offset = (y - 1) * width;

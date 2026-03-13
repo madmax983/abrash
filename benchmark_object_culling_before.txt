@@ -1,5 +1,0 @@
-render_scene_naive      time:   [1.9644 ms 1.9892 ms 2.0144 ms]
-Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high mild
-
-render_scene_optimized  time:   [1.3891 ms 1.4122 ms 1.4389 ms]

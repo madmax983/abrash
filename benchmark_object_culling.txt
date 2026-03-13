@@ -1,4 +1,0 @@
-frustum_cull_10k_spheres
-                        time:   [93.803 µs 96.214 µs 99.258 µs]
-Found 13 outliers among 100 measurements (13.00%)
-  13 (13.00%) high mild

@@ -75,7 +75,7 @@ pub fn draw_line_3d(
                     // Let's assume standard behavior.
                     if z < *z_buffer_val {
                         *z_buffer_val = z;
-                        fb.set_pixel_unchecked(x0 as usize, y0 as usize, color);
+                        fb.set_pixel(x0, y0, color);
                     }
                 }
             }

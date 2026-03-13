@@ -42,28 +42,30 @@ pub fn apply_pixelate(fb: &mut Framebuffer, block_size: u32) {
 
         let chunk_size = width * b_size;
 
-        pixels.par_chunks_exact_mut(chunk_size).for_each(|block_rows| {
-            let block_height = block_rows.len() / width;
-            if block_height == 0 {
-                return;
-            }
-
-            // Process the first row
-            for x in (0..width).step_by(b_size) {
-                let block_width = std::cmp::min(b_size, width - x);
-                let color = block_rows[x];
-                block_rows[x..x + block_width].fill(color);
-            }
-
-            // Copy the first row to the rest of the block rows
-            if block_height > 1 {
-                let (first_row_region, rest) = block_rows.split_at_mut(width);
-                for by in 1..block_height {
-                    let dest_start = (by - 1) * width;
-                    rest[dest_start..dest_start + width].copy_from_slice(first_row_region);
+        pixels
+            .par_chunks_exact_mut(chunk_size)
+            .for_each(|block_rows| {
+                let block_height = block_rows.len() / width;
+                if block_height == 0 {
+                    return;
                 }
-            }
-        });
+
+                // Process the first row
+                for x in (0..width).step_by(b_size) {
+                    let block_width = std::cmp::min(b_size, width - x);
+                    let color = block_rows[x];
+                    block_rows[x..x + block_width].fill(color);
+                }
+
+                // Copy the first row to the rest of the block rows
+                if block_height > 1 {
+                    let (first_row_region, rest) = block_rows.split_at_mut(width);
+                    for by in 1..block_height {
+                        let dest_start = (by - 1) * width;
+                        rest[dest_start..dest_start + width].copy_from_slice(first_row_region);
+                    }
+                }
+            });
     }
 
     #[cfg(not(feature = "parallel"))]

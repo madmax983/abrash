@@ -1889,7 +1889,7 @@ impl TileRenderer {
             self.bin_triangles_cpu();
 
             // Sort triangles front-to-back for early-Z optimization
-            self.sort_bins_flat();
+            Self::sort_bins_flat();
 
             // Phase 3+4: Render and merge each tile
             #[cfg(not(feature = "parallel"))]
@@ -2207,7 +2207,7 @@ impl TileRenderer {
         self.bin_triangles_textured_cpu();
 
         // Sort triangles front-to-back for early-Z optimization
-        self.sort_bins_textured();
+        Self::sort_bins_textured();
 
         // Phase 3+4: Render and merge each tile
         #[cfg(not(feature = "parallel"))]
@@ -2391,7 +2391,7 @@ impl TileRenderer {
         self.bin_triangles_gouraud_cpu();
 
         // Sort triangles front-to-back for early-Z optimization
-        self.sort_bins_gouraud();
+        Self::sort_bins_gouraud();
 
         // Phase 3+4: Render and merge each tile
         #[cfg(not(feature = "parallel"))]
@@ -2689,7 +2689,7 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    const fn sort_bins_gouraud(&self) {
+    const fn sort_bins_gouraud() {
         // FIXME: Sorting disabled
         /*
         let prepared_gouraud = &self.prepared_gouraud;
@@ -3180,7 +3180,7 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    const fn sort_bins_flat(&self) {
+    const fn sort_bins_flat() {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
         /*
@@ -3330,7 +3330,7 @@ impl TileRenderer {
     }
 
     /// Sorts textured triangles in each bin by depth.
-    const fn sort_bins_textured(&self) {
+    const fn sort_bins_textured() {
         // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
         /*
         let prepared_textured = &self.prepared_textured;
