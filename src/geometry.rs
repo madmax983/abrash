@@ -89,7 +89,7 @@ impl AABB {
     /// let aabb = AABB::new(Vec3::ZERO, Vec3::ONE);
     /// ```
     #[must_use]
-    pub fn new(min: Vec3, max: Vec3) -> Self {
+    pub const fn new(min: Vec3, max: Vec3) -> Self {
         Self {
             min,
             pad0: 0.0,
@@ -236,6 +236,7 @@ impl AABB {
     /// completely in parallel within a single register.
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[target_feature(enable = "avx2")]
+    #[must_use]
     pub unsafe fn transform_avx2(&self, transform: &Mat4) -> Self {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::{

@@ -72,15 +72,31 @@ fn bench_vec3_normalize(c: &mut Criterion) {
     });
 }
 
+fn bench_vec3_reflect(c: &mut Criterion) {
+    c.bench_function("vec3_reflect", |b| {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        b.iter(|| black_box(v.reflect(n)));
+    });
+}
+
+fn bench_mat4_orthographic(c: &mut Criterion) {
+    c.bench_function("mat4_orthographic", |b| {
+        b.iter(|| black_box(Mat4::orthographic(-10.0, 10.0, -5.0, 5.0, 0.1, 100.0)));
+    });
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
     bench_vec2_mul,
     bench_vec3_normalize,
+    bench_vec3_reflect,
     bench_mat2_transform,
     bench_mat2_batch_transform,
     bench_mat2_transform_in_place,
     bench_mat4_mul,
-    bench_mat4_transform_point
+    bench_mat4_transform_point,
+    bench_mat4_orthographic
 );
 criterion_main!(benches);

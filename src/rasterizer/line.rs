@@ -1,3 +1,7 @@
+//! Line drawing algorithms.
+//!
+//! Implements Bresenham's line algorithm for wireframe rendering.
+
 use crate::clipping::clip_line_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_to_screen_optimized};

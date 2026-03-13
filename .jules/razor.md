@@ -49,3 +49,8 @@
 **Bloat:** The `AsciiExporter` single-implementation trait in `src/experimental/ascii_export.rs`.
 **Cut:** Removed the trait and `ascii_export.rs` entirely. Moved the implementations of `export_txt` and `export_ansi` directly to a concrete `impl Framebuffer` block in `src/framebuffer.rs`.
 **Saved:** Removed 1 file, eliminated the trait abstraction, and lowered cognitive overhead by attaching the methods directly to the struct they operate on.
+
+## [Reduction]
+**Bloat:** `FastU64Builder` a custom hasher builder trait implementation specifically to instantiate `FastU64Hasher` for `HashMap`.
+**Cut:** Removed `FastU64Builder` entirely and replaced it with `std::hash::BuildHasherDefault<FastU64Hasher>`.
+**Saved:** ~15 lines of redundant builder abstraction and boilerplate code.

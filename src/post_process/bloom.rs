@@ -1,3 +1,7 @@
+//! Bloom lighting effect.
+//!
+//! Extracts bright areas of the image and applies a blur to simulate light bleeding.
+
 use super::blur::{box_blur_horizontal, box_blur_vertical};
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
@@ -128,10 +132,26 @@ fn extract_bright_pixels(src: &[u32], dest: &mut [u32], threshold: u8) {
         }
     }
 
+    // /// Bolt Performance Optimization:
+    // /// Precalculate luminance threshold to avoid per-pixel float/division math.
+    // /// The `pixel_luminance` function uses the standard coefficients:
+    // /// Y = 0.299*R + 0.587*G + 0.114*B, multiplied by 256 for fixed-point integer math.
+    let threshold_u32 = u32::from(threshold);
+
     for (s, d) in src.iter().zip(dest.iter_mut()) {
-        let lum = pixel_luminance(*s);
-        if lum > threshold {
-            *d = *s;
+        let val = *s;
+
+        let r = (val >> 16) & 0xFF;
+        let g = (val >> 8) & 0xFF;
+        let b = val & 0xFF;
+
+        // /// Bolt Performance Optimization:
+        // /// Approximate luminance using integer arithmetic instead of pixel_luminance
+        // /// Matches the standard formula: Y = (77*R + 150*G + 29*B) >> 8
+        let luma = (77 * r + 150 * g + 29 * b) >> 8;
+
+        if luma > threshold_u32 {
+            *d = val;
         } else {
             *d = 0xFF00_0000; // Black (with full alpha)
         }

@@ -1,3 +1,7 @@
+//! Win32 platform backend.
+//!
+//! Handles window creation and framebuffer presentation on Windows.
+
 // Win32 platform implementation
 
 use std::ptr::null_mut;

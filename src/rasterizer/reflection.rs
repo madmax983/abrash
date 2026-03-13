@@ -1,3 +1,7 @@
+//! Screen-space reflections.
+//!
+//! Provides basic reflection mapping based on surface normals and view vectors.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{ScreenPoint, Vec3, project_triangle_to_screen};
@@ -29,7 +33,11 @@ unsafe fn draw_scanline_reflection_simd(
     camera_pos: Vec3,
     cubemap: &Cubemap,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_ps, _mm256_andnot_ps, _mm256_blendv_ps, _mm256_cmp_ps,
+        _mm256_div_ps, _mm256_loadu_ps, _mm256_movemask_ps, _mm256_mul_ps, _mm256_rsqrt_ps,
+        _mm256_set_ps, _mm256_set1_ps, _mm256_storeu_ps, _mm256_sub_ps,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;

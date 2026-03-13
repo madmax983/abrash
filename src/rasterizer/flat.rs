@@ -1,3 +1,7 @@
+//! Flat shading rasterizer.
+//!
+//! Renders triangles with a single solid color.
+
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
 use crate::math::{Vec3, project_triangle_to_screen};
@@ -15,7 +19,12 @@ unsafe fn draw_scanline_flat_simd(
     dz_dx: f32,
     color: u32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_LT_OQ, _mm256_add_ps, _mm256_blendv_epi8, _mm256_blendv_ps,
+        _mm256_castps_si256, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_set_ps, _mm256_set1_epi32, _mm256_set1_ps,
+        _mm256_storeu_ps, _mm256_storeu_si256,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -45,7 +54,7 @@ unsafe fn draw_scanline_flat_simd(
                 _mm256_storeu_ps(depth_ptr, new_z);
 
                 // Update Framebuffer
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, color_vec, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -115,7 +124,13 @@ unsafe fn draw_scanline_flat_blended_simd(
     dz_dx: f32,
     color: u32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        __m256i, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_si256, _mm256_blendv_epi8,
+        _mm256_castps_si256, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_loadu_si256,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_or_si256, _mm256_set_ps,
+        _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_ps, _mm256_slli_epi32, _mm256_srli_epi32,
+        _mm256_storeu_si256,
+    };
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -154,7 +169,7 @@ unsafe fn draw_scanline_flat_blended_simd(
 
             if _mm256_movemask_ps(mask) != 0 {
                 // Load Framebuffer
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let dest_pixels = _mm256_loadu_si256(fb_ptr);
 
                 // Separate Dest channels

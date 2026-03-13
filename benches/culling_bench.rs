@@ -17,7 +17,7 @@ fn bench_cull_spheres(c: &mut Criterion) {
     }
 
     c.bench_function("cull_spheres", |b| {
-        b.iter(|| black_box(frustum.cull_spheres(black_box(&spheres))))
+        b.iter(|| black_box(frustum.cull_spheres(black_box(&spheres))));
     });
 }
 

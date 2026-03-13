@@ -88,3 +88,13 @@
 **Concept:** A post-processing effect that converts pixel luminance to a heatmap color palette, simulating a thermal imaging camera.
 **Fate:** Implemented
 **Lesson:** Extracting luminance and mapping it via threshold ranges into specific RGB blends creates a convincing thermal effect very efficiently without needing external LUT textures.
+
+## [Boids Simulation]
+**Concept:** A procedural flocking simulation based on Craig Reynolds' Boids algorithm implementing separation, alignment, and cohesion.
+**Fate:** Implemented
+**Lesson:** When implementing O(N^2) entity updates using parallel processing (like Rayon's `par_iter_mut`), avoid mutable aliasing errors by cloning the initial read-state (e.g., `let old_boids = self.boids.clone();`) and mapping over the mutable target array. Using `.hypot()` chained calls keeps distance calculations safe and clean.
+
+## [Anaglyph 3D]
+**Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
+**Fate:** Implemented
+**Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.

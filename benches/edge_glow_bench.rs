@@ -1,7 +1,9 @@
+#[cfg(feature = "nova")]
 use abrash::experimental::edge_glow::{EdgeGlowConfig, apply_edge_glow};
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
+#[cfg(feature = "nova")]
 fn edge_glow_benchmark(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
@@ -11,7 +13,7 @@ fn edge_glow_benchmark(c: &mut Criterion) {
     let pixels = fb.as_mut_slice();
     for y in 0..height {
         for x in 0..width {
-            let val = ((x + y) % 256) as u32;
+            let val = (x + y) % 256;
             pixels[(y * width + x) as usize] = 0xFF00_0000 | (val << 16) | (val << 8) | val;
         }
     }
@@ -29,11 +31,18 @@ fn edge_glow_benchmark(c: &mut Criterion) {
     group.bench_function("1080p", |b| {
         b.iter(|| {
             apply_edge_glow(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 
     group.finish();
 }
 
+#[cfg(feature = "nova")]
+criterion_group!(benches, edge_glow_benchmark);
+
+#[cfg(not(feature = "nova"))]
+fn edge_glow_benchmark(c: &mut Criterion) {}
+
+#[cfg(not(feature = "nova"))]
 criterion_group!(benches, edge_glow_benchmark);
 criterion_main!(benches);

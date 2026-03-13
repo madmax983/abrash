@@ -20,7 +20,7 @@
 //! *   **Far Plane**: $z \le w$
 //!
 //! When an edge crosses a plane, we compute the exact intersection point using linear interpolation
-//! (see the [`Lerp`] trait) and insert a new vertex. This turns a single triangle into a convex polygon
+//! (see the `Lerp` trait) and insert a new vertex. This turns a single triangle into a convex polygon
 //! with up to 9 vertices, which is then fan-triangulated back into a list of triangles.
 
 use std::mem::MaybeUninit;
@@ -45,7 +45,7 @@ pub struct ClippedTriangles<V> {
 
 impl<V> ClippedTriangles<V> {
     // Unsafe because it returns uninitialized data structure
-    fn new_uninit() -> Self {
+    const fn new_uninit() -> Self {
         Self {
             // SAFETY: An array of MaybeUninit is safe to be uninitialized.
             tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },
@@ -128,7 +128,10 @@ pub fn clip_triangle_to_frustum<V: Copy>(
 
     #[cfg(target_arch = "x86_64")]
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            _mm_and_ps, _mm_cmpge_ps, _mm_cmple_ps, _mm_movemask_ps, _mm_set_ps, _mm_setzero_ps,
+            _mm_sub_ps,
+        };
         // Layout: [v2, v1, v0, pad] or [v0, v1, v2, pad]?
         // _mm_set_ps(e3, e2, e1, e0) -> [e0, e1, e2, e3]
         // We want lanes 0, 1, 2 to correspond to v0, v1, v2.

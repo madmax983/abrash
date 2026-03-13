@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash::experimental::emboss::apply_emboss;
 use abrash::framebuffer::Framebuffer;
 
