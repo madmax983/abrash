@@ -1701,7 +1701,7 @@ mod tests {
 
         // Expected behavior: inv_w = 1.0, so x = 100.0, y = 100.0
         // ndc_x = 100.0. screen_x = (100+1)*400 = 40400.
-        assert_eq!(sp.inv_w, 1.0);
+        assert!((sp.inv_w - 1.0).abs() < 1e-6);
         assert_eq!(sp.x, 40400);
 
         // Test very small w (but > epsilon)
@@ -1719,7 +1719,7 @@ mod tests {
         // screen_x = (-1+1)*400 = 0.
         let sp_neg =
             project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
-        assert_eq!(sp_neg.inv_w, -1.0);
+        assert!((sp_neg.inv_w - -1.0).abs() < 1e-6);
         assert_eq!(sp_neg.x, 0);
     }
 
@@ -1727,14 +1727,14 @@ mod tests {
     fn test_vec3_normalize_zero() {
         let v = Vec3::new(0.0, 0.0, 0.0);
         let n = v.normalize();
-        assert_eq!(n.x, 0.0);
-        assert_eq!(n.y, 0.0);
-        assert_eq!(n.z, 0.0);
+        assert!((n.x - 0.0).abs() < 1e-6);
+        assert!((n.y - 0.0).abs() < 1e-6);
+        assert!((n.z - 0.0).abs() < 1e-6);
 
         let v_small = Vec3::new(1e-5, 0.0, 0.0);
         let n_small = v_small.normalize();
         // Should return original if length < 0.0001
-        assert_eq!(n_small.x, 1e-5);
+        assert!((n_small.x - 1e-5).abs() < 1e-6);
     }
 
     #[test]

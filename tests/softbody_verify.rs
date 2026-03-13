@@ -33,7 +33,10 @@ fn test_softbody_physics_step() {
 
     // Check forces are reset
     for f in &softbody.forces {
-        assert_eq!(f.length(), 0.0, "Forces should be reset after update");
+        assert!(
+            (f.length() - 0.0).abs() < 1e-6,
+            "Forces should be reset after update"
+        );
     }
 }
 

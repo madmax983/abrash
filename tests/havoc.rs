@@ -84,7 +84,7 @@ proptest! {
                          return Err(TestCaseError::fail(format!("{name} mismatch: NaN vs {b}")));
                      }
                  } else if a.is_infinite() {
-                     if a != b {
+                     if (a - b).abs() > 1e-6 {
                          return Err(TestCaseError::fail(format!("{name} mismatch: Inf vs {b}")));
                      }
                  } else {

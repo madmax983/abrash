@@ -47,7 +47,7 @@ enum DemoCategory {
 }
 
 impl DemoCategory {
-    const fn icon(&self) -> char {
+    const fn icon(self) -> char {
         match self {
             Self::Cpu3D => '🧊',
             Self::Gpu3D => '🚀',

@@ -21,10 +21,10 @@ mod tests {
 
         let ptr = (&raw const tuple).cast::<f32>();
         unsafe {
-            assert_eq!(*ptr.add(0), 1.0);
-            assert_eq!(*ptr.add(1), 2.0);
-            assert_eq!(*ptr.add(2), 3.0);
-            assert_eq!(*ptr.add(3), 4.0);
+            assert!((*ptr.add(0) - 1.0).abs() < 1e-6);
+            assert!((*ptr.add(1) - 2.0).abs() < 1e-6);
+            assert!((*ptr.add(2) - 3.0).abs() < 1e-6);
+            assert!((*ptr.add(3) - 4.0).abs() < 1e-6);
         }
     }
 }

@@ -1,4 +1,5 @@
 use abrash::obj_loader::load_obj;
+use std::fmt::Write;
 
 #[test]
 fn test_obj_deduplication_memory_explosion() {
@@ -7,7 +8,8 @@ fn test_obj_deduplication_memory_explosion() {
 
     // Create 9 unique VT coords
     for i in 0..9 {
-        obj_source.push_str(&format!("vt {} 0.0\n", i as f32 * 0.1));
+        use std::fmt::Write;
+        let _ = write!(obj_source, "vt {} 0.0\n", i as f32 * 0.1);
     }
 
     obj_source.push('f');
@@ -15,7 +17,7 @@ fn test_obj_deduplication_memory_explosion() {
     // Cycle 1000 times through the 9 variations
     for _ in 0..1000 {
         for i in 1..=9 {
-            obj_source.push_str(&format!(" 1/{i}"));
+            let _ = write!(obj_source, " 1/{i}");
         }
     }
     obj_source.push('\n');

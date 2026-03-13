@@ -248,7 +248,6 @@ fn polygonize_tetrahedron(
     }
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
 

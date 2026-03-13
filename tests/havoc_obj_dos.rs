@@ -1,4 +1,5 @@
 use abrash::obj_loader::load_obj;
+use std::fmt::Write;
 use std::time::Instant;
 
 #[test]
@@ -10,13 +11,13 @@ fn test_obj_dos_quadratic_blowup() {
 
     // Generate many unique UVs
     for i in 0..num_verts {
-        obj_source.push_str(&format!("vt {} 0.0\n", i as f32 / num_verts as f32));
+        let _ = write!(obj_source, "vt {} 0.0\n", i as f32 / num_verts as f32);
     }
 
     // Generate a single face with many vertices, all using v index 1 but unique vt indices
     obj_source.push('f');
     for i in 0..num_verts {
-        obj_source.push_str(&format!(" 1/{}", i + 1));
+        let _ = write!(obj_source, " 1/{}", i + 1);
     }
     obj_source.push('\n');
 

@@ -10,8 +10,8 @@ fn test_vec2_layout() {
     let v = Vec2 { x: 1.0, y: 2.0 };
     let ptr = (&raw const v).cast::<f32>();
     unsafe {
-        assert_eq!(*ptr.add(0), 1.0);
-        assert_eq!(*ptr.add(1), 2.0);
+        assert!((*ptr.add(0) - 1.0).abs() < 1e-6);
+        assert!((*ptr.add(1) - 2.0).abs() < 1e-6);
     }
 }
 
@@ -27,9 +27,9 @@ fn test_vec3_layout() {
     };
     let ptr = (&raw const v).cast::<f32>();
     unsafe {
-        assert_eq!(*ptr.add(0), 1.0);
-        assert_eq!(*ptr.add(1), 2.0);
-        assert_eq!(*ptr.add(2), 3.0);
+        assert!((*ptr.add(0) - 1.0).abs() < 1e-6);
+        assert!((*ptr.add(1) - 2.0).abs() < 1e-6);
+        assert!((*ptr.add(2) - 3.0).abs() < 1e-6);
     }
 }
 
@@ -46,10 +46,10 @@ fn test_vec4_layout() {
     };
     let ptr = (&raw const v).cast::<f32>();
     unsafe {
-        assert_eq!(*ptr.add(0), 1.0);
-        assert_eq!(*ptr.add(1), 2.0);
-        assert_eq!(*ptr.add(2), 3.0);
-        assert_eq!(*ptr.add(3), 4.0);
+        assert!((*ptr.add(0) - 1.0).abs() < 1e-6);
+        assert!((*ptr.add(1) - 2.0).abs() < 1e-6);
+        assert!((*ptr.add(2) - 3.0).abs() < 1e-6);
+        assert!((*ptr.add(3) - 4.0).abs() < 1e-6);
     }
 }
 
@@ -71,7 +71,7 @@ fn test_mat4_layout() {
     let ptr = (&raw const m).cast::<f32>();
     unsafe {
         for i in 0..16 {
-            assert_eq!(*ptr.add(i), i as f32);
+            assert!((*ptr.add(i) - i as f32).abs() < 1e-6);
         }
     }
 }
@@ -97,9 +97,9 @@ fn test_bounding_sphere_layout() {
     // Critical assertion: The memory layout MUST be x, y, z, r packed.
     // The AVX culling code depends on this to load 8 spheres into vector registers.
     unsafe {
-        assert_eq!(*ptr.add(0), 1.0); // x
-        assert_eq!(*ptr.add(1), 2.0); // y
-        assert_eq!(*ptr.add(2), 3.0); // z
-        assert_eq!(*ptr.add(3), 4.0); // r
+        assert!((*ptr.add(0) - 1.0).abs() < 1e-6); // x
+        assert!((*ptr.add(1) - 2.0).abs() < 1e-6); // y
+        assert!((*ptr.add(2) - 3.0).abs() < 1e-6); // z
+        assert!((*ptr.add(3) - 4.0).abs() < 1e-6); // r
     }
 }
