@@ -223,7 +223,7 @@ fn benchmark_vignette(c: &mut Criterion) {
         b.iter(|| {
             post_process::apply_vignette(
                 black_box(&mut fb),
-                black_box(&post_process::filters::VignetteConfig {
+                black_box(&post_process::VignetteConfig {
                     intensity: 0.5,
                     roundness: 0.5,
                 }),
@@ -250,7 +250,7 @@ fn benchmark_color_adjust(c: &mut Criterion) {
         b.iter(|| {
             post_process::apply_color_adjust(
                 black_box(&mut fb),
-                black_box(&post_process::filters::ColorAdjustConfig {
+                black_box(&post_process::ColorAdjustConfig {
                     brightness: 10,
                     contrast: 1.2,
                 }),

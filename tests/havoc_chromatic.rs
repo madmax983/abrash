@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::filters::apply_chromatic_aberration;
+use abrash::post_process::apply_chromatic_aberration;
 
 #[test]
 fn test_chromatic_aberration_out_of_bounds() {

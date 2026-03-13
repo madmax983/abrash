@@ -53,3 +53,10 @@
 3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration structs.
 
 **Stability:** Improved high cohesion by grouping related effect parameters together. Lowered coupling between the caller and the specific internal parameters of the post-processing effects, making the public API cleaner and more extensible.
+
+## [Facade Boundary Enforcement]
+**Tangle:** The `rasterizer` and `post_process` modules explicitly defined "Re-export public APIs" with `pub use`, but failed to hide the actual implementation submodules. For example, `pub mod flat;` leaked the internal flat renderer module, enabling calling code to bypass the intended `abrash::rasterizer::` facade.
+**Blueprint:**
+1. Modified `src/rasterizer/mod.rs` and `src/post_process/mod.rs` to mark internal submodules as `pub(crate) mod` instead of `pub mod`.
+2. This structurally enforces the Facade pattern and restricts consumer imports to the public API root.
+3. Migrated all benchmark, test, and example callers to the public API roots (e.g., `abrash::rasterizer::fill_triangle_3d`) ensuring the abstraction is strictly adhered to.

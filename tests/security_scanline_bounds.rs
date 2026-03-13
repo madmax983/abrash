@@ -1,7 +1,7 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{ScreenPoint, Vec3};
-use abrash::rasterizer::gouraud::draw_scanline_gouraud;
-use abrash::rasterizer::texture::{
+use abrash::rasterizer::draw_scanline_gouraud;
+use abrash::rasterizer::{
     PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
     TexturedGouraudSpanStart, draw_scanline_textured_gouraud, draw_scanline_textured_perspective,
 };

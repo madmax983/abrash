@@ -1,4 +1,4 @@
-use abrash::post_process::blur::box_blur_vertical;
+use abrash::post_process::box_blur_vertical;
 
 #[test]
 fn test_box_blur_vertical_int_overflow() {

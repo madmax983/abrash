@@ -1,4 +1,4 @@
-use abrash::post_process::blur::box_blur_horizontal;
+use abrash::post_process::box_blur_horizontal;
 
 #[test]
 fn test_box_blur_horizontal_large_radius() {
@@ -28,7 +28,7 @@ fn test_box_blur_vertical_large_radius() {
 
     // Call it
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        abrash::post_process::blur::box_blur_vertical(
+        abrash::post_process::box_blur_vertical(
             &src, &mut dest, &mut acc, width, height, radius,
         );
     }));

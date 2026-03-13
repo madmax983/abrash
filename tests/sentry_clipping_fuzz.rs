@@ -2,9 +2,30 @@ use abrash::clipping::{ClippedTriangles, clip_triangle_to_frustum};
 use abrash::math::Vec3;
 use proptest::prelude::*;
 
+pub trait Lerp: Copy + Clone {
+    #[must_use]
+    fn lerp(self, other: Self, t: f32) -> Self;
+}
+
+impl Lerp for (Vec3, f32) {
+    fn lerp(self, other: Self, t: f32) -> Self {
+        fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+            a + (b - a) * t
+        }
+        fn lerp_vec3(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+            Vec3 {
+                x: lerp_f32(a.x, b.x, t),
+                y: lerp_f32(a.y, b.y, t),
+                z: lerp_f32(a.z, b.z, t),
+            }
+        }
+        (lerp_vec3(self.0, other.0, t), lerp_f32(self.1, other.1, t))
+    }
+}
+
 // Scalar implementation of Sutherland-Hodgman clipping
 // Copied from src/clipping.rs and stripped of SIMD optimizations
-fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
+fn clip_triangle_scalar<V: Lerp + Copy + std::fmt::Debug>(
     v0: V,
     v1: V,
     v2: V,
@@ -41,7 +62,7 @@ fn clip_triangle_scalar<V: Copy + std::fmt::Debug>(
     triangles
 }
 
-fn clip_plane<V: Copy>(
+fn clip_plane<V: Lerp + Copy>(
     polygon: &mut Vec<V>,
     dist_fn: impl Fn(Vec3, f32) -> f32,
     get_pos: &impl Fn(&V) -> (Vec3, f32),
@@ -128,7 +149,7 @@ proptest! {
         let get_pos = |v: &(Vec3, f32)| *v;
 
         // Run Optimized (SIMD)
-        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos);
+        let result_simd = clip_triangle_to_frustum(v0, v1, v2, get_pos, |a, b, t| { a.lerp(b, t) });
         let vec_simd = clipped_to_vec(&result_simd);
 
         // Run Scalar Oracle

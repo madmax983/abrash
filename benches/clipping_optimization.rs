@@ -176,7 +176,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v0 = (Vec3::new(0.0, 0.0, 0.0), 1.0);
         let v1 = (Vec3::new(0.5, 0.0, 0.0), 1.0);
         let v2 = (Vec3::new(0.0, 0.5, 0.0), 1.0);
-        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v));
+        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v, |a, b, t| { a.lerp(b, t) }));
     });
 
     // Case 2: Clipping needed (straddling near plane)
@@ -193,7 +193,7 @@ fn bench_clipping(c: &mut Criterion) {
         let v0 = (Vec3::new(0.0, 0.0, 1.0), 1.0);
         let v1 = (Vec3::new(0.0, 2.0, -1.0), -1.0);
         let v2 = (Vec3::new(2.0, 0.0, -1.0), -1.0);
-        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v));
+        b.iter(|| clip_triangle_to_frustum(black_box(v0), black_box(v1), black_box(v2), |v| *v, |a, b, t| { a.lerp(b, t) }));
     });
 
     group.finish();

@@ -1,4 +1,4 @@
-use abrash::post_process::blur::box_blur_horizontal;
+use abrash::post_process::box_blur_horizontal;
 
 #[test]
 fn test_box_blur_zero_width_height() {

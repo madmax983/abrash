@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
-use abrash::rasterizer::texture::fill_quad_textured_gouraud;
+use abrash::rasterizer::fill_quad_textured_gouraud;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 

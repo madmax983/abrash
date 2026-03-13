@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::rasterizer::texture::{
+use abrash::rasterizer::{
     PerspectiveSpanStart, PerspectiveTextureGradients, draw_scanline_textured_perspective,
 };
 use abrash::texture::Texture;

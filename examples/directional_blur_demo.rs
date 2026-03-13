@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         framebuffer.clear(0xFF111111);
         let mut zb = abrash::zbuffer::ZBuffer::new(WIDTH, HEIGHT)?;
 
-        let mut renderer = abrash::rasterizer::tile::TileRenderer::new(WIDTH, HEIGHT);
+        let mut renderer = abrash::rasterizer::TileRenderer::new(WIDTH, HEIGHT);
         scene.render(&mut renderer, &mut framebuffer, &mut zb);
 
         // Compute simulated motion blur vector based on speed

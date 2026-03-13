@@ -59,15 +59,15 @@
 //! *   **Span Drawing**: For each scanline, it iterates from `x_start` to `x_end`, interpolating attributes horizontally and writing to the framebuffer.
 //! *   **SIMD**: Key paths (like texture mapping and lighting) are optimized with AVX2 intrinsics for modern CPUs.
 
-pub mod core;
-pub mod flat;
-pub mod gouraud;
-pub mod line;
-pub mod pbr;
-pub mod phong;
-pub mod reflection;
-pub mod texture;
-pub mod tile;
+pub(crate) mod core;
+pub(crate) mod flat;
+pub(crate) mod gouraud;
+pub(crate) mod line;
+pub(crate) mod pbr;
+pub(crate) mod phong;
+pub(crate) mod reflection;
+pub(crate) mod texture;
+pub(crate) mod tile;
 
 // Re-export public API
 pub use self::core::{FIXED_SCALE, color_to_u32};
@@ -82,7 +82,7 @@ pub use self::reflection::fill_triangle_reflection;
 pub use self::texture::{
     PerspectiveSpanStart, PerspectiveTextureGradients, TexturedGouraudGradients,
     TexturedGouraudSpanStart, draw_scanline_textured_gouraud, draw_scanline_textured_perspective,
-    fill_quad_textured, fill_triangle_normal_mapped, fill_triangle_textured,
+    fill_quad_textured, fill_quad_textured_gouraud, fill_triangle_normal_mapped, fill_triangle_textured,
     fill_triangle_textured_gouraud,
 };
 pub use self::tile::{

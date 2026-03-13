@@ -8,5 +8,5 @@ fn test_box_blur_horizontal_large_radius_dos() {
 
     // This will likely take extremely long because of the pre-fill loop
     // for _ in 0..=radius { r_acc += r_first; ... }
-    abrash::post_process::blur::box_blur_horizontal(&src, &mut dest, width, height, radius);
+    abrash::post_process::box_blur_horizontal(&src, &mut dest, width, height, radius);
 }

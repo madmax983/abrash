@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::rasterizer::texture::{
+use abrash::rasterizer::{
     TexturedGouraudGradients, TexturedGouraudSpanStart, draw_scanline_textured_gouraud,
 };
 use abrash::texture::Texture;

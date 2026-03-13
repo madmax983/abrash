@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
-use abrash::rasterizer::pbr::fill_triangle_pbr;
+use abrash::rasterizer::fill_triangle_pbr;
 use abrash::zbuffer::ZBuffer;
 use proptest::prelude::*;
 

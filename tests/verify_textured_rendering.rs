@@ -1,6 +1,6 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Vec2, Vec3};
-use abrash::rasterizer::tile::TileRenderer;
+use abrash::rasterizer::TileRenderer;
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
 

@@ -1,4 +1,4 @@
-use abrash::post_process::blur::{box_blur_horizontal, box_blur_vertical};
+use abrash::post_process::{box_blur_horizontal, box_blur_vertical};
 use proptest::prelude::*;
 
 proptest! {

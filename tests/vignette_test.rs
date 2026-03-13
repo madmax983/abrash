@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::filters::{VignetteConfig, apply_vignette};
+use abrash::post_process::{VignetteConfig, apply_vignette};
 
 #[test]
 fn test_apply_vignette_darkens_corners() {
