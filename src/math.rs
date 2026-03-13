@@ -398,6 +398,26 @@ impl Vec3 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
+    /// Reflects this vector around a given normal vector.
+    ///
+    /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
+    ///
+    /// # Performance
+    ///
+    /// This implementation manually unfolds scalar components to avoid intermediate struct
+    /// allocations and improve scalar instruction pipelining.
+    #[must_use]
+    #[inline]
+    pub fn reflect(self, normal: Self) -> Self {
+        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
+        let factor = 2.0 * dot;
+        Self {
+            x: self.x - factor * normal.x,
+            y: self.y - factor * normal.y,
+            z: self.z - factor * normal.z,
+        }
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -1536,6 +1556,23 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_reflect() {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let r = v.reflect(n);
+        assert!((r.x - 1.0).abs() < f32::EPSILON);
+        assert!((r.y - 1.0).abs() < f32::EPSILON);
+        assert!((r.z - 0.0).abs() < f32::EPSILON);
+
+        let v2 = Vec3::new(1.0, 2.0, 3.0);
+        let n2 = Vec3::new(0.0, 1.0, 0.0);
+        let r2 = v2.reflect(n2);
+        assert!((r2.x - 1.0).abs() < f32::EPSILON);
+        assert!((r2.y - -2.0).abs() < f32::EPSILON);
+        assert!((r2.z - 3.0).abs() < f32::EPSILON);
+    }
 
     #[test]
     fn test_fast_normalize_accuracy() {

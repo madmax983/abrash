@@ -459,3 +459,7 @@ harness = false
 [[bench]]
 name = "lsystem_bench"
 harness = false
+
+[[bench]]
+name = "vec3_reflect_bench"
+harness = false
