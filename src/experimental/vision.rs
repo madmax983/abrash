@@ -232,7 +232,7 @@ mod tests {
         let mut zb = ZBuffer::new(width, height).unwrap();
 
         // Fill with some data
-        fb.clear(0xFFFFFFFF); // White
+        fb.clear(0xFFFF_FFFF); // White
         zb.clear();
         zb.test_and_set(5, 5, 0.0); // Center pixel at 0.0 depth
 
@@ -243,7 +243,7 @@ mod tests {
         };
 
         // Before: Center is White
-        assert_eq!(fb.get_pixel(5, 5), Some(0xFFFFFFFF));
+        assert_eq!(fb.get_pixel(5, 5), Some(0xFFFF_FFFF));
 
         apply_vision(&mut fb, &zb, &config);
 

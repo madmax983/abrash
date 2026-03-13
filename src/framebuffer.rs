@@ -301,9 +301,7 @@ mod tests {
                 assert_eq!(
                     fb.get_pixel(x, y),
                     Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
+                    "Mismatch at {x}, {y}"
                 );
             }
         }
@@ -326,9 +324,7 @@ mod tests {
                 assert_eq!(
                     fb.get_pixel(x, y),
                     Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
+                    "Mismatch at {x}, {y}"
                 );
             }
         }
@@ -351,9 +347,7 @@ mod tests {
                 assert_eq!(
                     fb.get_pixel(x, y),
                     Some(expected),
-                    "Mismatch at {}, {}",
-                    x,
-                    y
+                    "Mismatch at {x}, {y}"
                 );
             }
         }

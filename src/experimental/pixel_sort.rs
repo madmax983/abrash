@@ -220,7 +220,7 @@ mod tests {
         let dark = 0xFF000000;
         let b_mid = 0xFF808080;
         let b_low = 0xFF404040;
-        let b_high = 0xFFC0C0C0;
+        let b_high = 0xFFC0_C0C0;
 
         fb.set_pixel(0, 0, dark);
         fb.set_pixel(0, 1, b_mid);
@@ -246,9 +246,9 @@ mod tests {
     #[test]
     fn test_apply_pixel_sort_reverse() {
         let mut fb = Framebuffer::new(3, 1).unwrap();
-        let b_low = 0xFF404040;
-        let b_mid = 0xFF808080;
-        let b_high = 0xFFC0C0C0;
+        let b_low = 0xFF40_4040;
+        let b_mid = 0xFF80_8080;
+        let b_high = 0xFFC0_C0C0;
 
         fb.set_pixel(0, 0, b_low);
         fb.set_pixel(1, 0, b_mid);

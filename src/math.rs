@@ -1640,8 +1640,7 @@ mod tests {
         let z_ndc_near = p_near_prime.z / w_near;
         assert!(
             (z_ndc_near - (-1.0)).abs() < 1e-5,
-            "NDZ z at near should be -1.0, got {}",
-            z_ndc_near
+            "NDZ z at near should be -1.0, got {z_ndc_near}"
         );
 
         let p_far = Vec3::new(0.0, 0.0, -far);
@@ -1651,8 +1650,7 @@ mod tests {
         let z_ndc_far = p_far_prime.z / w_far;
         assert!(
             (z_ndc_far - 1.0).abs() < 1e-5,
-            "NDC z at far should be 1.0, got {}",
-            z_ndc_far
+            "NDC z at far should be 1.0, got {z_ndc_far}"
         );
     }
 
