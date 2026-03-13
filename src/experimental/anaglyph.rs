@@ -248,6 +248,9 @@ mod tests {
         let p5 = fb.get_pixel(5, 0).unwrap();
 
         // Assert it's no longer white, but cyan
-        assert_eq!(p5, 0xFF_00FFFF, "Pixel at depth < focal should lose its red channel and become cyan");
+        assert_eq!(
+            p5, 0xFF_00FFFF,
+            "Pixel at depth < focal should lose its red channel and become cyan"
+        );
     }
 }
