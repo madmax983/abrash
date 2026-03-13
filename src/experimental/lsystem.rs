@@ -67,6 +67,17 @@ impl LSystem {
 
         let mut next_string = String::with_capacity(current.len() * 2);
 
+        // Bolt Performance Optimization:
+        // By pre-calculating a flat array for ASCII replacement lookups,
+        // we bypass the `HashMap::get` and `SipHash` overhead entirely in the inner loop.
+        let mut rules_array: [Option<&str>; 128] = [None; 128];
+        for (k, v) in &self.rules {
+            let u = *k as u32;
+            if u < 128 {
+                rules_array[u as usize] = Some(v.as_str());
+            }
+        }
+
         for _ in 0..iterations {
             next_string.clear();
 
@@ -76,18 +87,27 @@ impl LSystem {
             // heap reallocations as the string expands exponentially.
             next_string.reserve(current.len() * 2);
 
-            for c in current.chars() {
-                if let Some(replacement) = self.rules.get(&c) {
+            for b in current.bytes() {
+                let idx = b as usize;
+                if idx < 128 {
+                    if let Some(replacement) = rules_array[idx] {
+                        next_string.push_str(replacement);
+                        continue;
+                    }
+                } else if let Some(replacement) = self.rules.get(&(b as char)) {
+                    // Fallback for non-ASCII
                     next_string.push_str(replacement);
-                } else {
-                    next_string.push(c);
+                    continue;
                 }
 
-                // OOM Prevention check
-                if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
-                }
+                next_string.push(b as char);
             }
+
+            // OOM Prevention check
+            if next_string.len() > self.max_capacity {
+                return Err("L-System expansion exceeded maximum capacity limit");
+            }
+
             std::mem::swap(&mut current, &mut next_string);
         }
 
