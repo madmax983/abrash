@@ -1,0 +1,11 @@
+--- src/rasterizer/tile.rs
++++ src/rasterizer/tile.rs
+@@ -2378,7 +2378,8 @@
+                                 }
+                             }
+-                        },
++                        }
++                    }
+                     );
+             }
+         }

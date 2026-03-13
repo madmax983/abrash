@@ -1,0 +1,18 @@
+--- src/rasterizer/tile.rs
++++ src/rasterizer/tile.rs
+@@ -2338,10 +2338,13 @@
+                 let tiles_x = self.tiles_x;
+                 let tile_bins = &self.tile_bins;
+                 let prepared = &self.prepared_gouraud;
+-                tiles.par_iter().for_each_init(
++                (0..self.tiles_y)
++                    .into_par_iter()
++                    .flat_map_iter(|ty| (0..self.tiles_x).map(move |tx| (tx, ty)))
++                    .for_each_init(
+                     || {
+                         let tile_area = (TILE_SIZE * TILE_SIZE) as usize;
+                         (vec![0u32; tile_area], vec![f32::INFINITY; tile_area])
+                     },
+-                    |buffers, &(tx, ty)| {
++                    |buffers, (tx, ty)| {
+                         let (tile_pixels, tile_depths) = &mut *buffers;

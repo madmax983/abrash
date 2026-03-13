@@ -1,0 +1,24 @@
+--- src/rasterizer/tile.rs
++++ src/rasterizer/tile.rs
+@@ -2496,16 +2496,16 @@
+             results.push(PreparedGouraudTriangle {
+                 p0: CompactScreenPoint {
+-                    x: p0.x as i16,
+-                    y: p0.y as i16,
++                    x: p0.x as i32,
++                    y: p0.y as i32,
+                     z: p0.z,
+                 },
+                 p1: CompactScreenPoint {
+-                    x: p1.x as i16,
+-                    y: p1.y as i16,
++                    x: p1.x as i32,
++                    y: p1.y as i32,
+                     z: p1.z,
+                 },
+                 p2: CompactScreenPoint {
+-                    x: p2.x as i16,
+-                    y: p2.y as i16,
++                    x: p2.x as i32,
++                    y: p2.y as i32,
+                     z: p2.z,

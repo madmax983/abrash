@@ -1,0 +1,12 @@
+--- tile.rs
++++ tile.rs
+@@ -2368,6 +2368,9 @@
+                                 }
+                             }
+                         }
++                    }
++                    );
++            }
+         }
+
+         // Invalidate Hi-Z for next frame
