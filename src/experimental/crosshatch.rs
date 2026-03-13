@@ -32,7 +32,7 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
         // we can compute luminance on the fly from the original pixel
         // before we overwrite it.
         pixels
-            .par_chunks_mut(width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row)| {
                 for (x, pixel) in row.iter_mut().enumerate() {
@@ -77,7 +77,7 @@ pub fn apply_crosshatch(fb: &mut Framebuffer, spacing: usize) {
 
     #[cfg(not(feature = "parallel"))]
     {
-        for (y, row) in pixels.chunks_mut(width).enumerate() {
+        for (y, row) in pixels.chunks_exact_mut(width).enumerate() {
             for (x, pixel) in row.iter_mut().enumerate() {
                 let lum = pixel_luminance(*pixel);
                 let original_alpha = *pixel & 0xFF00_0000;

@@ -442,3 +442,8 @@ harness = false
 name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "chunk_iteration_bench"
+harness = false
+required-features = ["parallel"]

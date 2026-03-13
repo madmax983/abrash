@@ -296,9 +296,9 @@ impl RayTracer {
         let buffer = fb.as_mut_slice();
 
         #[cfg(feature = "parallel")]
-        let iter = buffer.par_chunks_mut(width as usize).enumerate();
+        let iter = buffer.par_chunks_exact_mut(width as usize).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let iter = buffer.chunks_mut(width as usize).enumerate();
+        let iter = buffer.chunks_exact_mut(width as usize).enumerate();
 
         AABB_BUFFER.with(|buffer| {
             let mut world_aabbs = buffer.borrow_mut();

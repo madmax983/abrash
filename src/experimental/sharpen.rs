@@ -96,7 +96,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
         let dst_body = &mut dst[width..width * (height - 1)];
 
         dst_body
-            .par_chunks_mut(width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(process_row);
     }
@@ -104,6 +104,6 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     #[cfg(not(feature = "parallel"))]
     {
         let dst_body = &mut dst[width..width * (height - 1)];
-        dst_body.chunks_mut(width).enumerate().for_each(process_row);
+        dst_body.chunks_exact_mut(width).enumerate().for_each(process_row);
     }
 }

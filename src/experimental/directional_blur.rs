@@ -112,7 +112,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         {
             framebuffer
                 .as_mut_slice()
-                .par_chunks_mut(width)
+                .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(process_row);
         }
@@ -121,7 +121,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
         {
             framebuffer
                 .as_mut_slice()
-                .chunks_mut(width)
+                .chunks_exact_mut(width)
                 .enumerate()
                 .for_each(process_row);
         }

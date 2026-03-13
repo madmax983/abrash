@@ -180,14 +180,14 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
 
     #[cfg(feature = "parallel")]
     {
-        pixels.par_chunks_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
+        pixels.par_chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
             process_row(y as i32, row_slice);
         });
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        pixels.chunks_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
+        pixels.chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
             process_row(y as i32, row_slice);
         });
     }

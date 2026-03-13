@@ -130,7 +130,7 @@ pub fn apply_radial_blur(
             use rayon::prelude::*;
 
             dest_pixels
-                .par_chunks_mut(width)
+                .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
                     for (x, pixel) in row.iter_mut().enumerate() {

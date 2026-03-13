@@ -1,3 +1,4 @@
+#![cfg(feature = "nova")]
 #![cfg(all(feature = "nova", test))]
 
 use std::f32::consts::PI;

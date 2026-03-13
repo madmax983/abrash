@@ -1,0 +1,19 @@
+   Compiling abrash v0.1.0 (/app)
+    Finished `release` profile [optimized] target(s) in 5.46s
+     Running `target/release/examples/lit_cube`
+
+[38;5;11m[1m💡 Lit Cube Demo[0m
+[38;5;8m=====================[39m
+
+[1m⚙️  Info[0m
+┌─────────────┬────────────────────────────────────────────┐
+│ Property    ┆ Value                                      │
+╞═════════════╪════════════════════════════════════════════╡
+│ Description ┆ Flat shaded cube with directional lighting │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Lighting    ┆ Directional (Sun) + Ambient                │
+└─────────────┴────────────────────────────────────────────┘
+
+[1m🎮 Controls[0m
+ • Mouse: None
+ • Keyboard: Auto-rotating object

@@ -48,7 +48,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
         #[cfg(feature = "parallel")]
         {
             dest_pixels
-                .par_chunks_mut(width as usize)
+                .par_chunks_exact_mut(width as usize)
                 .enumerate()
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;
@@ -150,7 +150,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
         #[cfg(not(feature = "parallel"))]
         {
             dest_pixels
-                .chunks_mut(width as usize)
+                .chunks_exact_mut(width as usize)
                 .enumerate()
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;

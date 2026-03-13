@@ -58,7 +58,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
             use rayon::prelude::*;
 
             dest_pixels
-                .par_chunks_mut(width)
+                .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
                     let dy = y as f32 - cy;

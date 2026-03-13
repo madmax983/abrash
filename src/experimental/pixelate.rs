@@ -38,7 +38,7 @@ pub fn apply_pixelate(fb: &mut Framebuffer, block_size: u32) {
 
         let chunk_size = width * b_size;
 
-        pixels.par_chunks_mut(chunk_size).for_each(|block_rows| {
+        pixels.par_chunks_exact_mut(chunk_size).for_each(|block_rows| {
             let block_height = block_rows.len() / width;
             if block_height == 0 {
                 return;

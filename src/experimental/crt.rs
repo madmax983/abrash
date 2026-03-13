@@ -59,7 +59,7 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
         {
             use rayon::prelude::*;
             new_pixels
-                .par_chunks_mut(width)
+                .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
                     let ny = (y as f32 - cy) / cy;

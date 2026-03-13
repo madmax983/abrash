@@ -298,7 +298,7 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        dest.par_chunks_mut(width)
+        dest.par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, dst_row)| {
                 let row_offset = y * width;
