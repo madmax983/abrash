@@ -459,3 +459,8 @@ harness = false
 [[bench]]
 name = "lsystem_bench"
 harness = false
+
+[[bench]]
+name = "arboretum_bench"
+harness = false
+required-features = ["nova"]

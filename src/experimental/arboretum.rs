@@ -123,6 +123,13 @@ impl LSystem {
         // Security / DoS protection limit: an L-system can grow exponentially and cause OOM.
         let limit: usize = 100_000_000; // Cap at 100MB
 
+        // Bolt Performance Optimization:
+        // By using a double-buffering pattern (next_bytes/next string) with .clear()
+        // and .reserve(), we eliminate the need for a full O(N) pre-pass over the
+        // string just to calculate exact capacities. `std::mem::swap` prevents
+        // allocating new buffers on every iteration. This achieves O(1) allocations
+        // per iteration while preserving OOM safety guarantees.
+
         // Fast path: if the axiom and all replacements are pure ASCII, we can work with Vec<u8> directly.
         let mut is_pure_ascii = self.axiom.is_ascii();
         if is_pure_ascii {
@@ -149,33 +156,21 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
             for _ in 0..iterations {
-                // Determine capacity and write directly
-                let mut exact_len: usize = 0;
+                next_bytes.clear();
+                next_bytes.reserve(current_bytes.len() * 2);
                 for &b in &current_bytes {
-                    if let Some(replacement) = rules_array[(b as usize) & 127] {
-                        exact_len = exact_len
-                            .checked_add(replacement.len())
-                            .ok_or("L-system exceeded memory limits")?;
-                    } else {
-                        exact_len = exact_len
-                            .checked_add(1)
-                            .ok_or("L-system exceeded memory limits")?;
-                    }
-                }
-                if exact_len > limit {
-                    return Err("L-system exceeded memory limits".to_string());
-                }
-
-                let mut next_bytes = Vec::with_capacity(exact_len);
-                for b in current_bytes {
                     if let Some(replacement) = rules_array[(b as usize) & 127] {
                         next_bytes.extend_from_slice(replacement);
                     } else {
                         next_bytes.push(b);
                     }
+                    if next_bytes.len() > limit {
+                        return Err("L-system exceeded memory limits".to_string());
+                    }
                 }
-                current_bytes = next_bytes;
+                std::mem::swap(&mut current_bytes, &mut next_bytes);
             }
 
             // Remove unsafe by converting back to string securely, though the ascii check guarantees safety.
@@ -190,37 +185,10 @@ impl LSystem {
             }
         }
 
+        let mut next = String::with_capacity(current.len() * 2);
         for _ in 0..iterations {
-            // Estimate capacity: a bit larger than current to avoid multiple reallocations,
-            // but not requiring a full pre-pass loop over the string.
-            let mut next_len: usize = 0;
-            for c in current.chars() {
-                let u = c as usize;
-                if u < 128 {
-                    if let Some(replacement) = rules_array[u] {
-                        next_len = next_len
-                            .checked_add(replacement.len())
-                            .ok_or("L-system exceeded memory limits")?;
-                    } else {
-                        next_len = next_len
-                            .checked_add(1)
-                            .ok_or("L-system exceeded memory limits")?;
-                    }
-                } else if let Some(replacement) = self.rules.get(&c) {
-                    next_len = next_len
-                        .checked_add(replacement.len())
-                        .ok_or("L-system exceeded memory limits")?;
-                } else {
-                    next_len = next_len
-                        .checked_add(1)
-                        .ok_or("L-system exceeded memory limits")?;
-                }
-            }
-            if next_len > limit {
-                return Err("L-system exceeded memory limits".to_string());
-            }
-
-            let mut next = String::with_capacity(next_len);
+            next.clear();
+            next.reserve(current.len() * 2);
             for c in current.chars() {
                 let u = c as usize;
                 if u < 128 {
@@ -234,8 +202,11 @@ impl LSystem {
                 } else {
                     next.push(c);
                 }
+                if next.len() > limit {
+                    return Err("L-system exceeded memory limits".to_string());
+                }
             }
-            current = next;
+            std::mem::swap(&mut current, &mut next);
         }
 
         Ok(current)
