@@ -546,8 +546,8 @@ pub struct FilmGrainConfig {
 /// apply_film_grain(&mut fb, &config);
 /// ```
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
-    let _width = fb.width() as usize;
-    if _width == 0 {
+    let width = fb.width() as usize;
+    if width == 0 {
         return;
     }
 
@@ -566,10 +566,10 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
         let seed = config.seed;
         pixels
-            .par_chunks_exact_mut(_width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row)| {
-                let row_offset = y * _width;
+                let row_offset = y * width;
                 for (x, p) in row.iter_mut().enumerate() {
                     let i = row_offset + x;
 

@@ -1,6 +1,6 @@
-use proptest::prelude::*;
-use abrash::experimental::pixel_sort::{apply_pixel_sort, PixelSortConfig};
+use abrash::experimental::pixel_sort::{PixelSortConfig, apply_pixel_sort};
 use abrash::framebuffer::Framebuffer;
+use proptest::prelude::*;
 
 proptest! {
     #[test]
