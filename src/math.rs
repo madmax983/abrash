@@ -461,7 +461,6 @@ impl Vec3 {
             z: self.z.max(other.z),
         }
     }
-
 }
 
 impl Add for Vec3 {
