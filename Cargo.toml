@@ -478,3 +478,8 @@ harness = false
 name = "autostereogram_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "water_ripple_bench"
+harness = false
+required-features = ["nova"]

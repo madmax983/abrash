@@ -94,6 +94,11 @@
 **Fate:** Implemented
 **Lesson:** When implementing O(N^2) entity updates using parallel processing (like Rayon's `par_iter_mut`), avoid mutable aliasing errors by cloning the initial read-state (e.g., `let old_boids = self.boids.clone();`) and mapping over the mutable target array. Using `.hypot()` chained calls keeps distance calculations safe and clean.
 
+## [Water Ripple Filter]
+**Concept:** A post-processing effect that creates dynamic liquid surfaces by applying a radial sine-wave displacement to the framebuffer to simulate a water droplet ripple.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer is necessary for non-linear pixel displacement to avoid aliasing issues when parallelizing with Rayon. Replacing `round()` with fast float-to-int casts (`as i32`) prevents inner-loop bottlenecks when evaluating the sine waves per pixel.
+
 ## [Anaglyph 3D]
 **Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
 **Fate:** Implemented
