@@ -169,8 +169,7 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
         let inv_kernel_size = 1.0 / KERNEL_SIZE as f32;
         let intensity_factor = inv_kernel_size * config.intensity;
 
-        for (i, p) in pixels.iter_mut().enumerate() {
-            let occ = occlusion_buffer[i];
+        for (p, &occ) in pixels.iter_mut().zip(occlusion_buffer.iter()) {
             let factor = 1.0 - occ * intensity_factor;
             let factor = factor.clamp(0.0, 1.0);
 
@@ -179,16 +178,16 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
             // /// Removes floating point multiplications for R, G, and B.
             let factor_fixed = (factor * 256.0) as u32;
 
-            let a = *p & 0xFF00_0000;
-            let r = (*p >> 16) & 0xFF;
-            let g = (*p >> 8) & 0xFF;
-            let b = *p & 0xFF;
+            // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
+            // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
+            let orig = *p;
+            let rb = orig & 0x00FF00FF;
+            let g = orig & 0x0000FF00;
 
-            let new_r = (r * factor_fixed) >> 8;
-            let new_g = (g * factor_fixed) >> 8;
-            let new_b = (b * factor_fixed) >> 8;
+            let rb_new = ((rb * factor_fixed) >> 8) & 0x00FF00FF;
+            let g_new = ((g * factor_fixed) >> 8) & 0x0000FF00;
 
-            *p = a | (new_r << 16) | (new_g << 8) | new_b;
+            *p = (orig & 0xFF00_0000) | rb_new | g_new;
         }
     });
 }
