@@ -13,14 +13,8 @@ use crate::framebuffer::Framebuffer;
 ///
 /// * `fb` - The framebuffer to modify in-place.
 /// * `amount` - The intensity of the sharpen effect (0.0 to 1.0).
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     if amount <= 0.0 {
         return;
