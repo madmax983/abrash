@@ -240,6 +240,9 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -398,34 +401,9 @@ impl Vec3 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
-    /// Reflects this vector around a given normal vector.
-    ///
-    /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
-    ///
-    /// # Performance
-    ///
-    /// This implementation manually unfolds scalar components to avoid intermediate struct
-    /// allocations and improve scalar instruction pipelining.
-    #[must_use]
-    #[inline]
-    pub fn reflect(self, normal: Self) -> Self {
-        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
-        let factor = 2.0 * dot;
-        Self {
-            x: self.x - factor * normal.x,
-            y: self.y - factor * normal.y,
-            z: self.z - factor * normal.z,
-        }
-    }
-
-    /// Linearly interpolate between this vector and another.
-    ///
-    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
-    #[must_use]
-    #[inline]
-
     /// Returns a new vector containing the minimum value for each component.
-
+    #[must_use]
+    #[inline]
     pub const fn min(&self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
@@ -464,8 +442,8 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn reflect(&self, normal: Self) -> Self {
-        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
+    pub fn reflect(self, normal: Self) -> Self {
+        // Equivalent to `self - normal * (2.0 * self.dot(normal))`
         // but manually unfolded to avoid intermediate Vec3 allocations
         // and allow better scalar instruction pipelining.
         let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
@@ -1801,7 +1779,7 @@ mod tests {
 
         // Expected behavior: inv_w = 1.0, so x = 100.0, y = 100.0
         // ndc_x = 100.0. screen_x = (100+1)*400 = 40400.
-        assert_eq!(sp.inv_w, 1.0);
+        assert!((sp.inv_w - 1.0).abs() < f32::EPSILON);
         assert_eq!(sp.x, 40400);
 
         // Test very small w (but > epsilon)
@@ -1819,7 +1797,7 @@ mod tests {
         // screen_x = (-1+1)*400 = 0.
         let sp_neg =
             project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
-        assert_eq!(sp_neg.inv_w, -1.0);
+        assert!((sp_neg.inv_w - -1.0).abs() < f32::EPSILON);
         assert_eq!(sp_neg.x, 0);
     }
 
@@ -1827,14 +1805,14 @@ mod tests {
     fn test_vec3_normalize_zero() {
         let v = Vec3::new(0.0, 0.0, 0.0);
         let n = v.normalize();
-        assert_eq!(n.x, 0.0);
-        assert_eq!(n.y, 0.0);
-        assert_eq!(n.z, 0.0);
+        assert!((n.x - 0.0).abs() < f32::EPSILON);
+        assert!((n.y - 0.0).abs() < f32::EPSILON);
+        assert!((n.z - 0.0).abs() < f32::EPSILON);
 
         let v_small = Vec3::new(1e-5, 0.0, 0.0);
         let n_small = v_small.normalize();
         // Should return original if length < 0.0001
-        assert_eq!(n_small.x, 1e-5);
+        assert!((n_small.x - 1e-5).abs() < f32::EPSILON);
     }
 
     #[test]

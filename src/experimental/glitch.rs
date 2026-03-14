@@ -45,10 +45,7 @@ impl Default for GlitchParams {
 ///
 /// * `fb` - The target framebuffer to modify in-place.
 /// * `params` - Configuration for the effect.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_glitch(fb: &mut Framebuffer, params: &GlitchParams) {
     if params.intensity <= 0.001 {
         return;

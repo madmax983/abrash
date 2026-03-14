@@ -81,15 +81,9 @@ struct RenderableGhost {
     max_x: i32,
 }
 
-/// Bolt Performance Optimization:
     /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-    /// remainder chunk handling and bounds checking, enabling better vectorization
-    /// and measurable performance improvements.
 
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlareConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;

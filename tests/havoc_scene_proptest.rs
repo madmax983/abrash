@@ -1,11 +1,11 @@
+use abrash::framebuffer::Framebuffer;
+use abrash::math::Mat4;
+use abrash::mesh::Mesh;
+use abrash::rasterizer::tile::TileRenderer;
+use abrash::scene::{Camera, Scene, SceneObject};
+use abrash::zbuffer::ZBuffer;
 use proptest::prelude::*;
 use std::sync::Arc;
-use abrash::scene::{Scene, SceneObject, Camera};
-use abrash::mesh::Mesh;
-use abrash::math::{Mat4, Vec3};
-use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::rasterizer::tile::TileRenderer;
 
 proptest! {
     #[test]
@@ -14,8 +14,8 @@ proptest! {
         h in 16u32..200u32,
         obj_count in 0usize..5usize,
     ) {
-        if let Ok(mut fb) = Framebuffer::new(w, h) {
-            if let Ok(mut zb) = ZBuffer::new(w, h) {
+        if let Ok(mut fb) = Framebuffer::new(w, h)
+            && let Ok(mut zb) = ZBuffer::new(w, h) {
                 let mut renderer = TileRenderer::new(w, h);
                 let camera = Camera::new(Mat4::identity(), Mat4::identity());
                 let mut scene = Scene::new(camera);
@@ -25,6 +25,5 @@ proptest! {
                 }
                 scene.render(&mut renderer, &mut fb, &mut zb);
             }
-        }
     }
 }

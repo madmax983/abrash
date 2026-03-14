@@ -94,13 +94,13 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// ```
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
-    let _height = fb.height() as usize;
+    let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
 
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { simd::apply_scanlines_avx2(pixels, width, _height) };
+            unsafe { simd::apply_scanlines_avx2(pixels, width, height) };
             return;
         }
     }
@@ -247,7 +247,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
         return;
     }
     let width = fb.width() as usize;
-    let _height = fb.height() as usize;
+    let height = fb.height() as usize;
     let offset = offset as usize;
 
     let pixels = fb.as_mut_slice();
@@ -255,7 +255,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { simd::apply_chromatic_aberration_avx2(pixels, width, _height, offset) };
+            unsafe { simd::apply_chromatic_aberration_avx2(pixels, width, height, offset) };
             return;
         }
     }
@@ -546,8 +546,8 @@ pub struct FilmGrainConfig {
 /// apply_film_grain(&mut fb, &config);
 /// ```
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
-    let _width = fb.width() as usize;
-    if _width == 0 {
+    let width = fb.width() as usize;
+    if width == 0 {
         return;
     }
 
@@ -566,10 +566,10 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
         let seed = config.seed;
         pixels
-            .par_chunks_exact_mut(_width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row)| {
-                let row_offset = y * _width;
+                let row_offset = y * width;
                 for (x, p) in row.iter_mut().enumerate() {
                     let i = row_offset + x;
 

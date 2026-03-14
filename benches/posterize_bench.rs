@@ -10,9 +10,9 @@ fn bench_posterize(c: &mut Criterion) {
     // Fill with a gradient to process
     for y in 0..height {
         for x in 0..width {
-            let r = (x as u32 % 256) << 16;
-            let g = (y as u32 % 256) << 8;
-            let b = (x + y) as u32 % 256;
+            let r = (x % 256) << 16;
+            let g = (y % 256) << 8;
+            let b = (x + y) % 256;
             fb.set_pixel(x as i32, y as i32, 0xFF000000 | r | g | b);
         }
     }
@@ -22,7 +22,7 @@ fn bench_posterize(c: &mut Criterion) {
     c.bench_function("apply_posterize_800x600", |b| {
         b.iter(|| {
             apply_posterize(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 
