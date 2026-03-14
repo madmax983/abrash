@@ -92,20 +92,20 @@ impl LSystem {
                 if idx < 128 {
                     if let Some(replacement) = rules_array[idx] {
                         next_string.push_str(replacement);
-                        continue;
+                    } else {
+                        next_string.push(b as char);
                     }
                 } else if let Some(replacement) = self.rules.get(&(b as char)) {
                     // Fallback for non-ASCII
                     next_string.push_str(replacement);
-                    continue;
+                } else {
+                    next_string.push(b as char);
                 }
 
-                next_string.push(b as char);
-            }
-
-            // OOM Prevention check
-            if next_string.len() > self.max_capacity {
-                return Err("L-System expansion exceeded maximum capacity limit");
+                // OOM Prevention check
+                if next_string.len() > self.max_capacity {
+                    return Err("L-System expansion exceeded maximum capacity limit");
+                }
             }
 
             std::mem::swap(&mut current, &mut next_string);
@@ -361,6 +361,20 @@ mod tests {
 
         // 3 iterations: A -> 5 -> 25 -> 125 (should fail)
         assert!(lsys.expand(3).is_err());
+    }
+
+    #[test]
+    #[ignore = "👹 Havoc: Intentionally tests an OOM vulnerability"]
+    fn test_lsystem_havoc_oom() {
+        // 👹 Havoc: Intentionally tests an Out-Of-Memory (OOM) vulnerability by creating a
+        // runaway L-System. Handled gracefully by the system returning an Err now,
+        // but kept as an ignored test to demonstrate fragility and limit checking.
+        let mut lsys = LSystem::new("A");
+        lsys.add_rule('A', "AAAAAAAAAA"); // 10x growth per iteration
+        lsys.set_max_capacity(usize::MAX); // No limit!
+
+        // This will attempt to allocate 10^15 characters, causing an OOM abort.
+        let _ = lsys.expand(15);
     }
 
     #[test]
