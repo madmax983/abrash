@@ -88,6 +88,23 @@ impl<'a> AsciiConverter<'a> {
     ///
     /// This method generates a string where each character is prefixed with an ANSI
     /// escape code for its color (RGB), resetting color at the end of each line.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash::ascii::{AsciiConverter, AsciiCharset};
+    ///
+    /// let mut fb = Framebuffer::new(2, 1).unwrap();
+    /// fb.set_pixel(0, 0, 0xFFFF_0000); // Red
+    /// fb.set_pixel(1, 0, 0xFF00_FF00); // Green
+    ///
+    /// let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+    /// let art = converter.to_colored_string();
+    /// // The output contains ANSI escape codes for red and green.
+    /// assert!(art.contains("\x1b[38;2;255;0;0m"));
+    /// assert!(art.contains("\x1b[38;2;0;255;0m"));
+    /// ```
     #[must_use]
     pub fn to_colored_string(&self) -> String {
         let width = self.framebuffer.width();
@@ -197,6 +214,23 @@ mod tests {
     }
 
     #[test]
+    fn test_ascii_mapping_minimal() {
+        let charset = AsciiCharset::Minimal;
+        assert_eq!(charset.chars(), &[' ', '.', ':']);
+        assert_eq!(charset.map(0), ' ');
+        assert_eq!(charset.map(128), '.');
+        assert_eq!(charset.map(255), ':');
+    }
+
+    #[test]
+    fn test_ascii_mapping_binary() {
+        let charset = AsciiCharset::Binary;
+        assert_eq!(charset.chars(), &[' ', '1']);
+        assert_eq!(charset.map(0), ' ');
+        assert_eq!(charset.map(255), '1');
+    }
+
+    #[test]
     fn test_to_string() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         fb.set_pixel(0, 0, 0xFFFF_FFFF); // White -> @
@@ -208,6 +242,22 @@ mod tests {
         let s = converter.to_string();
 
         assert_eq!(s, "@ \n @\n");
+    }
+
+    #[test]
+    fn test_to_colored_string() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        fb.set_pixel(0, 0, 0xFFFF_0000); // Red -> mid brightness char
+        fb.set_pixel(1, 0, 0xFF00_FF00); // Green -> mid-high brightness char
+
+        let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+        let s = converter.to_colored_string();
+
+        // Should contain ANSI color codes for Red and Green
+        assert!(s.contains("\x1b[38;2;255;0;0m"));
+        assert!(s.contains("\x1b[38;2;0;255;0m"));
+        // Should reset at the end of the line
+        assert!(s.ends_with("\x1b[0m\n"));
     }
 
     #[test]
