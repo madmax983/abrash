@@ -22,7 +22,10 @@
 **[Performance Optimization: Zip window iterators]**
 **Learning:** Replacing manual index-based bounds checking in convolution filters (like `apply_emboss`) with `.windows(3)` iterators zipped with a mutable destination row slice completely elides bounds checking in the inner loop, yielding a ~2-3% performance improvement on large framebuffers.
 **Action:** When working with 1D slices conceptually representing 2D grids (like image processing convolutions), always prefer zipping `.windows(kernel_size)` over manual indexing (`row[x - 1]`, `row[x + 1]`) to give the compiler maximum optimization opportunities.
-**[Performance Optimization: Rayon par_extend to remove intermediate Vec collections]**\n**Learning:** When using Rayon `flat_map_iter`, using `.collect::<Vec<_>>()` followed by `.extend()` into an existing vector forces a per-frame heap allocation. Replacing this with `target_vec.par_extend(iterator)` allows Rayon to insert directly into the target collection in parallel, entirely avoiding the intermediate `Vec` heap allocation in hot paths like `TileRenderer::render_batch`.\n**Action:** Use `.par_extend()` on existing collections when accumulating results from Rayon parallel iterators to avoid creating intermediate collections.\n
+**[Performance Optimization: Rayon par_extend to remove intermediate Vec collections]**
+**Learning:** When using Rayon `flat_map_iter`, using `.collect::<Vec<_>>()` followed by `.extend()` into an existing vector forces a per-frame heap allocation. Replacing this with `target_vec.par_extend(iterator)` allows Rayon to insert directly into the target collection in parallel, entirely avoiding the intermediate `Vec` heap allocation in hot paths like `TileRenderer::render_batch`.
+**Action:** Use `.par_extend()` on existing collections when accumulating results from Rayon parallel iterators to avoid creating intermediate collections.
+
 Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel floating-point color accumulations and i32 conversions with integer accumulators using unsigned math and saturating operations (e.g. `(pos + bias).saturating_sub(neg).min(255)`) to avoid cast overheads and keep inner loops purely integer-based.
 
 **[Performance Optimization: Thread-local buffers in parallel iteration]**
@@ -99,3 +102,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Small Copy Types Pass-By-Value]**
 **Learning:** Having method parameters or the `self` receiver passed by reference (`&self`) for small `Copy` structs (like a 3-float `Vec3`) causes unnecessary pointer indirection overhead during execution and can interfere with optimal register allocation in loops.
 **Action:** Always prefer pass-by-value (`self`) instead of pass-by-reference (`&self`) for fundamental, small `Copy` math types to improve execution speed.
+
+**[Performance Optimization: Safe SWAR integer overflow]**
+**Learning:** When implementing SWAR (SIMD Within A Register) multiplication on packed color channels (e.g., Red and Blue masked within a `u32`), explicitly promote the masked values to `u64` before multiplication if the scale factor can cause the intermediate result to exceed `u32::MAX`. Failing to do so causes critical integer overflow bugs during pixel blending.
+**Action:** Promote scaled SWAR values to `u64` where intensity/scale factor causes intermediate value representation constraints.
