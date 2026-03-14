@@ -396,6 +396,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "arboretum_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "crosshatch_bench"
 harness = false
 required-features = ["nova"]
@@ -468,3 +473,8 @@ required-features = ["nova"]
 [[bench]]
 name = "vec3_reflect_bench"
 harness = false
+
+[[bench]]
+name = "autostereogram_bench"
+harness = false
+required-features = ["nova"]

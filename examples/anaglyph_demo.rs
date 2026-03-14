@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let floor_model = Mat4::translation(0.0, -1.0, 0.0) * Mat4::scale(5.0, 0.1, 5.0);
         let floor_mvp = projection * (view * floor_model);
 
-        for (_face_idx, tri_indices) in cube.indices.iter().enumerate() {
+        for tri_indices in cube.indices.iter() {
             let v0 = cube.vertices[tri_indices[0]];
             let v1 = cube.vertices[tri_indices[1]];
             let v2 = cube.vertices[tri_indices[2]];
