@@ -402,19 +402,36 @@ impl Vec3 {
     ///
     /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let v = Vec3::new(1.0, -1.0, 0.0);
+    /// let n = Vec3::new(0.0, 1.0, 0.0);
+    /// let r = v.reflect(n);
+    ///
+    /// assert!((r.x - 1.0).abs() < 1e-6);
+    /// assert!((r.y - 1.0).abs() < 1e-6);
+    /// assert!(r.z.abs() < 1e-6);
+    /// ```
+    ///
     /// # Performance
     ///
-    /// This implementation manually unfolds scalar components to avoid intermediate struct
+    /// This implementation takes `self` by value rather than by reference to avoid pointer indirection
+    /// for a small struct. It also manually unfolds scalar components to avoid intermediate struct
     /// allocations and improve scalar instruction pipelining.
     #[must_use]
     #[inline]
     pub fn reflect(self, normal: Self) -> Self {
-        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
-        let factor = 2.0 * dot;
+        // Equivalent to `self - normal * (2.0 * self.dot(normal))`
+        // but manually unfolded to avoid intermediate Vec3 allocations
+        // and allow better scalar instruction pipelining.
+        let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
         Self {
-            x: self.x - factor * normal.x,
-            y: self.y - factor * normal.y,
-            z: self.z - factor * normal.z,
+            x: self.x - normal.x * dot2,
+            y: self.y - normal.y * dot2,
+            z: self.z - normal.z * dot2,
         }
     }
 
@@ -442,37 +459,6 @@ impl Vec3 {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
             z: self.z.max(other.z),
-        }
-    }
-
-    /// Reflects this vector around a given normal.
-    ///
-    /// The normal vector must be normalized.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use abrash::math::Vec3;
-    ///
-    /// let v = Vec3::new(1.0, -1.0, 0.0);
-    /// let n = Vec3::new(0.0, 1.0, 0.0);
-    /// let r = v.reflect(n);
-    ///
-    /// assert!((r.x - 1.0).abs() < 1e-6);
-    /// assert!((r.y - 1.0).abs() < 1e-6);
-    /// assert!(r.z.abs() < 1e-6);
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn reflect(&self, normal: Self) -> Self {
-        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
-        // but manually unfolded to avoid intermediate Vec3 allocations
-        // and allow better scalar instruction pipelining.
-        let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
-        Self {
-            x: self.x - normal.x * dot2,
-            y: self.y - normal.y * dot2,
-            z: self.z - normal.z * dot2,
         }
     }
 }

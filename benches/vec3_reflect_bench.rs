@@ -1,5 +1,5 @@
 use abrash::math::Vec3;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 pub fn bench_vec3_reflect(c: &mut Criterion) {
     let mut group = c.benchmark_group("vec3_reflect");
