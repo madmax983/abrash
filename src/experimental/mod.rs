@@ -59,6 +59,7 @@ pub mod ssao;
 pub mod thermal;
 pub mod vision;
 pub mod volume;
+pub mod voronoi;
 pub mod voxel_explosion;
 pub mod voxelizer;
 pub mod water_ripple;
