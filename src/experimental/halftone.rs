@@ -16,14 +16,8 @@ use rayon::prelude::*;
 /// * `fb`: The Framebuffer to modify.
 /// * `dot_size`: The maximum radius of the halftone dots (e.g., 5.0).
 /// * `angle_radians`: The rotation angle of the dot grid (e.g., 45 degrees or PI/4).
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
     let width = fb.width() as usize;
 

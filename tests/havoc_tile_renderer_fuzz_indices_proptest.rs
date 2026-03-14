@@ -13,8 +13,8 @@ proptest! {
         i1 in any::<usize>(),
         i2 in any::<usize>(),
     ) {
-        if let Ok(mut fb) = Framebuffer::new(w, h) {
-            if let Ok(mut zb) = ZBuffer::new(w, h) {
+        if let Ok(mut fb) = Framebuffer::new(w, h)
+            && let Ok(mut zb) = ZBuffer::new(w, h) {
                 let mut renderer = TileRenderer::new(w, h);
                 let verts = vec![
                     (Vec3::new(0.0, 0.0, 0.0), 1.0),
@@ -29,6 +29,5 @@ proptest! {
                     renderer.end_frame(&mut fb, &mut zb);
                 }));
             }
-        }
     }
 }

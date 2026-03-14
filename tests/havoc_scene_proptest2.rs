@@ -17,8 +17,8 @@ proptest! {
         sx in any::<f32>(), sy in any::<f32>(), sz in any::<f32>(),
         rx in any::<f32>(), ry in any::<f32>(), rz in any::<f32>(),
     ) {
-        if let Ok(mut fb) = Framebuffer::new(w, h) {
-            if let Ok(mut zb) = ZBuffer::new(w, h) {
+        if let Ok(mut fb) = Framebuffer::new(w, h)
+            && let Ok(mut zb) = ZBuffer::new(w, h) {
                 let mut renderer = TileRenderer::new(w, h);
                 let camera = Camera::new(Mat4::identity(), Mat4::identity());
                 let mut scene = Scene::new(camera);
@@ -31,10 +31,9 @@ proptest! {
                     * Mat4::translation(tx, ty, tz);
 
                 for _ in 0..obj_count {
-                    scene.add_object(SceneObject::new(mesh.clone(), transform.clone(), 0xFFFFFFFF));
+                    scene.add_object(SceneObject::new(mesh.clone(), transform, 0xFFFFFFFF));
                 }
                 scene.render(&mut renderer, &mut fb, &mut zb);
             }
-        }
     }
 }

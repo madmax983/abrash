@@ -151,7 +151,6 @@ impl LSystem {
             let mut current_bytes = self.axiom.as_bytes().to_vec();
             let mut next_bytes = Vec::new();
             for _ in 0..iterations {
-                /// Bolt Performance Optimization:
                 /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
                 /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
                 /// memory allocations and drops that were previously happening on every single iteration.
@@ -184,7 +183,6 @@ impl LSystem {
 
         let mut next = String::new();
         for _ in 0..iterations {
-            /// Bolt Performance Optimization:
             /// Moving the `next` String allocation out of the loop and reusing it via `swap`
             /// and `clear`/`reserve` eliminates continuous string re-allocations on every iteration.
             next.clear();

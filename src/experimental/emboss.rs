@@ -21,14 +21,8 @@ use rayon::prelude::*;
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_emboss(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
