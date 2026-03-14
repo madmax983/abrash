@@ -95,3 +95,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Pre-computed ASCII Array Lookup for L-System Expansion]**
 **Learning:** In string rewriting systems (like L-Systems) that primarily use ASCII characters, iterating over `.chars()` and looking up replacements in a `HashMap<char, String>` incurs significant overhead from UTF-8 decoding, bounds checking, and `SipHash` calculations on every single character.
 **Action:** Pre-compute a fixed-size array lookup (`[Option<&str>; 128]`) for all ASCII replacement rules. Iterate over the input string using `.chars()` and use the array index for O(1) lookups if `c as u32 < 128`. Fall back to the `HashMap` only for non-ASCII characters. Additionally, hoist OOM capacity checks (`if next_string.len() > limit`) outside the inner loop. In L-System expansion, this yielded a ~75% performance improvement.
+
+**[Performance Optimization: Small Copy Types Pass-By-Value]**
+**Learning:** Having method parameters or the `self` receiver passed by reference (`&self`) for small `Copy` structs (like a 3-float `Vec3`) causes unnecessary pointer indirection overhead during execution and can interfere with optimal register allocation in loops.
+**Action:** Always prefer pass-by-value (`self`) instead of pass-by-reference (`&self`) for fundamental, small `Copy` math types to improve execution speed.
