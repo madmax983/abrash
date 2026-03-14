@@ -1,7 +1,50 @@
 use abrash::experimental::posterize::{PosterizeConfig, apply_posterize};
 use abrash::framebuffer::Framebuffer;
 use abrash::texture::Texture;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner() {
+    println!("\n{}", "🎨 Posterize Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Posterize image effect").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Features"),
+            Cell::new("Quantizes colors to specific levels").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("None"),
+            Cell::new("Static terminal output demo"),
+        ]);
+    println!("{controls}\n");
+}
+
 fn main() {
+    print_banner();
+
     let width = 256;
     let height = 256;
     let mut fb = Framebuffer::new(width, height).unwrap();
@@ -27,13 +70,18 @@ fn main() {
         }
     }
 
-    println!("Applying posterize effect with 4 levels...");
+    println!("{} Applying posterize effect with 4 levels...", "▶️".cyan());
     let config = PosterizeConfig { levels: 4.0 };
     apply_posterize(&mut fb, &config);
 
-    println!("Applying posterize effect with 8 levels...");
+    println!("{} Applying posterize effect with 8 levels...", "▶️".cyan());
     let config2 = PosterizeConfig { levels: 8.0 };
     apply_posterize(&mut fb, &config2);
 
-    println!("Posterize effect successfully applied to demo framebuffer!");
+    println!(
+        "\n{}",
+        "✅ Posterize effect successfully applied to demo framebuffer!"
+            .bold()
+            .green()
+    );
 }
