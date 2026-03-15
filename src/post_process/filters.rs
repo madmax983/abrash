@@ -1846,18 +1846,15 @@ mod tests {
             // Base was 240. So values should be between 240 - 64 = 176 and 255 (clamped)
             assert!(
                 r >= 176 && r <= 255,
-                "Red channel was clamped properly: {}",
-                r
+                "Red channel was clamped properly: {r}"
             );
             assert!(
                 g >= 176 && g <= 255,
-                "Green channel was clamped properly: {}",
-                g
+                "Green channel was clamped properly: {g}"
             );
             assert!(
                 b >= 176 && b <= 255,
-                "Blue channel was clamped properly: {}",
-                b
+                "Blue channel was clamped properly: {b}"
             );
 
             if r != 240 || g != 240 || b != 240 {
@@ -1879,9 +1876,9 @@ mod tests {
 
             // Base was 10. Delta is [-64, 63].
             // Values should be between 0 (clamped) and 10 + 63 = 73
-            assert!(r <= 73, "Red channel was clamped properly: {}", r);
-            assert!(g <= 73, "Green channel was clamped properly: {}", g);
-            assert!(b <= 73, "Blue channel was clamped properly: {}", b);
+            assert!(r <= 73, "Red channel was clamped properly: {r}");
+            assert!(g <= 73, "Green channel was clamped properly: {g}");
+            assert!(b <= 73, "Blue channel was clamped properly: {b}");
 
             if r != 10 || g != 10 || b != 10 {
                 changed = true;

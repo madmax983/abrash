@@ -28,7 +28,7 @@ fn bench_autostereogram(c: &mut Criterion) {
     c.bench_function("autostereogram_800x600", |b| {
         b.iter(|| {
             apply_autostereogram(black_box(&mut fb), black_box(&zb), black_box(config));
-        })
+        });
     });
 }
 

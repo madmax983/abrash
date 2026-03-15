@@ -304,8 +304,10 @@ pub(crate) fn draw_span_nearest(
         // (val >> 16) is the integer coordinate.
         u_min_64 >= 0
             && (u_max_64 >> 16) < i64::from(tex_w)
+            && u_max_64 <= i64::from(i32::MAX)
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(tex_h)
+            && v_max_64 <= i64::from(i32::MAX)
     } else {
         false
     };
@@ -433,8 +435,10 @@ pub(crate) fn draw_span_bilinear(
         // We need x0 < width - 1 (so x0+1 < width)
         u_min_64 >= 0
             && (u_max_64 >> 16) < i64::from(w_i32)
+            && u_max_64 <= i64::from(i32::MAX)
             && v_min_64 >= 0
             && (v_max_64 >> 16) < i64::from(h_i32)
+            && v_max_64 <= i64::from(i32::MAX)
     } else {
         false
     };

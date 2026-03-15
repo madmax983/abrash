@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::math::{Mat4, Vec3};
+use abrash::math::Mat4;
 use abrash::mesh::Mesh;
 use abrash::rasterizer::tile::TileRenderer;
 use abrash::scene::{Camera, Scene, SceneObject};
