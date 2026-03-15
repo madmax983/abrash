@@ -397,7 +397,7 @@ impl Vec3 {
     /// Useful for comparing distances.
     #[must_use]
     #[inline]
-    pub fn length_sq(&self) -> f32 {
+    pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
@@ -443,7 +443,7 @@ impl Vec3 {
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-    pub const fn min(&self, other: Self) -> Self {
+    pub const fn min(self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
             y: self.y.min(other.y),
@@ -1929,7 +1929,10 @@ mod tests {
         let v1 = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let v2 = Vec4::new(5.0, 6.0, 7.0, 8.0);
         let result = v1 + v2;
-        assert_eq!(result, Vec4::new(6.0, 8.0, 10.0, 12.0));
+        assert!((result.x - 6.0).abs() < f32::EPSILON);
+        assert!((result.y - 8.0).abs() < f32::EPSILON);
+        assert!((result.z - 10.0).abs() < f32::EPSILON);
+        assert!((result.w - 12.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1937,7 +1940,10 @@ mod tests {
         let v1 = Vec4::new(5.0, 6.0, 7.0, 8.0);
         let v2 = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let result = v1 - v2;
-        assert_eq!(result, Vec4::new(4.0, 4.0, 4.0, 4.0));
+        assert!((result.x - 4.0).abs() < f32::EPSILON);
+        assert!((result.y - 4.0).abs() < f32::EPSILON);
+        assert!((result.z - 4.0).abs() < f32::EPSILON);
+        assert!((result.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1970,7 +1976,10 @@ mod tests {
     fn test_vec4_mul_scalar() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let result = v * 2.5;
-        assert_eq!(result, Vec4::new(2.5, 5.0, 7.5, 10.0));
+        assert!((result.x - 2.5).abs() < f32::EPSILON);
+        assert!((result.y - 5.0).abs() < f32::EPSILON);
+        assert!((result.z - 7.5).abs() < f32::EPSILON);
+        assert!((result.w - 10.0).abs() < f32::EPSILON);
     }
 
     #[test]
