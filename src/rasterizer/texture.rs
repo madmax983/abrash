@@ -3712,7 +3712,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 };
 
                 let pixel_vals =
-                    _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                    _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
 
                 let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
                 let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
@@ -3756,7 +3756,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -3768,7 +3768,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
                     // Alpha blending: src * alpha + dest * inv_alpha
@@ -4102,7 +4102,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                 let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
                 let final_color =
-                    ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                    (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                 if tex_a == 255 {
                     *depth_val = z_curr;
@@ -4186,7 +4186,7 @@ fn draw_span_textured_gouraud_scalar(
             let final_g = ((tex_g * g_clamped) >> 16).clamp(0, 255) as u32;
             let final_b = ((tex_b * b_clamped) >> 16).clamp(0, 255) as u32;
 
-            let final_color = ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+            let final_color = (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
             if tex_a == 255 {
                 *depth_val = z;
@@ -4440,7 +4440,7 @@ pub fn draw_scanline_textured_gouraud(
                             let final_b = ((tex_b * b_val) >> 16).clamp(0, 255) as u32;
 
                             let final_color =
-                                ((tex_a as u32) << 24) | (final_r << 16) | (final_g << 8) | final_b;
+                                (tex_a << 24) | (final_r << 16) | (final_g << 8) | final_b;
 
                             if tex_a == 255 {
                                 *depth_val = z_curr;

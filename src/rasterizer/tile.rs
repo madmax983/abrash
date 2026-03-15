@@ -1504,24 +1504,38 @@ fn rasterize_scanline_simd(
 ///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
+    /// Thread-local tile pixel buffer (scalar mode only).
     #[cfg(not(feature = "parallel"))]
     tile_pixels: AlignedBuffer<u32>,
+    /// Thread-local tile depth buffer (scalar mode only).
     #[cfg(not(feature = "parallel"))]
     tile_depths: AlignedBuffer<f32>,
+    /// Number of tiles along the X axis.
     tiles_x: u32,
+    /// Number of tiles along the Y axis.
     tiles_y: u32,
+    /// Screen width in pixels.
     width: u32,
+    /// Screen height in pixels.
     height: u32,
+    /// Triangle bins for each tile.
     tile_bins: TileBins,
+    /// Flat-shaded prepared triangles.
     prepared: Vec<PreparedTriangle>,
+    /// Gouraud-shaded prepared triangles.
     prepared_gouraud: Vec<PreparedGouraudTriangle>,
+    /// Textured prepared triangles.
     prepared_textured: Vec<PreparedTexturedTriangle>,
+    /// Optional hierarchical z-buffer for early culling.
     hiz_buffer: Option<HiZBuffer>,
+    /// Optional GPU-accelerated binning backend.
     #[cfg(feature = "gpu-binning")]
     gpu_binner: Option<crate::gpu::GpuBinner>,
+    /// Whether two-level hierarchical software binning is enabled.
     use_two_level_binning: bool,
-    // Pre-calculated half dimensions for projection
+    /// Pre-calculated half screen width for projection.
     half_width: f32,
+    /// Pre-calculated half screen height for projection.
     half_height: f32,
 }
 

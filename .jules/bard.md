@@ -34,3 +34,7 @@ Vim: Finished.
 ## 2024-05-25 - Documentation Coverage Requirements for Crates
 **Confusion:** Sometimes modifying code inside a crate with `missing_docs` warning causes `clippy` to complain about undocumented code that wasn't modified.
 **Clarification:** `cargo clippy -p [crate] -- -W missing_docs` helps isolate and identify missing documentation across an entire crate to incrementally add module-level (`//!`) and item-level (`///`) docstrings to public APIs, ensuring the "no Black Box" rule is followed.
+
+## 2024-05-26 - The "Black Box" of Experimental Effects
+**Confusion:** Many experimental visual effects (Bloom, Edge Glow, CRT, etc.) lacked module-level (`//!`) documentation and function-level (`///`) explanations, leaving users guessing about their purpose and configuration parameters.
+**Clarification:** Added comprehensive `//!` and `///` documentation to all experimental modules (`src/experimental/`) and the `TileRenderer` to satisfy the "If it isn't documented, it doesn't exist" philosophy and resolve all `clippy::missing_docs` warnings.
