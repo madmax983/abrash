@@ -60,3 +60,15 @@
 1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
 2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
 3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
+
+## [Split the Tile.rs Blob]
+**Tangle:** The `src/rasterizer/tile.rs` file was a massive "Blob" module containing over 4600 lines of code. It mixed basic data structures, iterators, binning algorithms, internal rendering logic, and the public `TileRenderer` implementation, violating the Single Responsibility Principle and making the codebase harder to maintain.
+
+**Blueprint:**
+1.  **Encapsulate & Relocate:** Created a new `src/rasterizer/tile/` directory to act as a cohesive submodule.
+2.  **Extract Data Structures:** Moved data structures and their iterators (e.g., `PreparedTriangle`, `TileBins`) into `src/rasterizer/tile/types.rs`.
+3.  **Extract Context:** Moved pointer wrappers and context objects (`AlignedBuffer`, `SendPtr`, `TileContext`) to `src/rasterizer/tile/context.rs`.
+4.  **Extract Renderer:** Moved the massive `TileRenderer` implementation block and internal rendering functions to `src/rasterizer/tile/renderer.rs`.
+5.  **Facade:** Replaced the original `tile.rs` with `src/rasterizer/tile/mod.rs` to serve as a clean facade, re-exporting the types to preserve the existing public API without breaking downstream modules.
+
+**Stability:** Improved high cohesion within the `tile` subsystem. Reduced file size from >4600 lines to manageable chunks (~1000-3000 lines). The public API contract remains unbroken.
