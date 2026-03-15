@@ -293,9 +293,14 @@ impl Vec3 {
     /// // Perpendicular vectors
     /// assert_eq!(a.dot(c), 0.0);
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn dot(&self, other: Self) -> f32 {
+    pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
@@ -315,9 +320,14 @@ impl Vec3 {
     ///
     /// assert_eq!(z, Vec3::new(0.0, 0.0, 1.0));
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn cross(&self, other: Self) -> Self {
+    pub fn cross(self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
             y: self.z * other.x - self.x * other.z,
@@ -326,9 +336,14 @@ impl Vec3 {
     }
 
     /// Calculates the Euclidean length (magnitude) of the vector.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn length(&self) -> f32 {
+    pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
@@ -352,9 +367,14 @@ impl Vec3 {
     /// let tiny = Vec3::new(0.00001, 0.0, 0.0);
     /// assert_eq!(tiny.normalize(), tiny);
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn normalize(&self) -> Self {
+    pub fn normalize(self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
         // 0.0001^2 = 0.00000001
@@ -367,7 +387,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -375,9 +395,14 @@ impl Vec3 {
     ///
     /// This is faster than `normalize()` but slightly less accurate.
     /// Useful for lighting calculations where extreme precision is not required.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn fast_normalize(&self) -> Self {
+    pub fn fast_normalize(self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
             let inv_len = fast_inv_sqrt(len_sq);
@@ -387,7 +412,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -395,6 +420,11 @@ impl Vec3 {
     ///
     /// Faster than `length()` as it avoids a square root operation.
     /// Useful for comparing distances.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
     pub fn length_sq(self) -> f32 {
