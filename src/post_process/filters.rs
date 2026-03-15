@@ -1844,9 +1844,21 @@ mod tests {
             // Check that the clamping to 255 actually worked when it overflowed.
             // Since max_noise_shift for intensity 0.5 is 128, delta is [-64, 63].
             // Base was 240. So values should be between 240 - 64 = 176 and 255 (clamped)
-            assert!(r >= 176 && r <= 255, "Red channel was clamped properly: {}", r);
-            assert!(g >= 176 && g <= 255, "Green channel was clamped properly: {}", g);
-            assert!(b >= 176 && b <= 255, "Blue channel was clamped properly: {}", b);
+            assert!(
+                r >= 176 && r <= 255,
+                "Red channel was clamped properly: {}",
+                r
+            );
+            assert!(
+                g >= 176 && g <= 255,
+                "Green channel was clamped properly: {}",
+                g
+            );
+            assert!(
+                b >= 176 && b <= 255,
+                "Blue channel was clamped properly: {}",
+                b
+            );
 
             if r != 240 || g != 240 || b != 240 {
                 changed = true;

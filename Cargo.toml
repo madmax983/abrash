@@ -494,3 +494,13 @@ required-features = ["nova"]
 name = "voronoi_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "swirl_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "swirl_demo"
+path = "examples/swirl_demo.rs"
+required-features = ["nova"]
