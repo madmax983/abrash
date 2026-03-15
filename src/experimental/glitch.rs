@@ -234,9 +234,9 @@ fn apply_digital_noise(
         let mode = rng.next_u32() % 3;
 
         pixels[idx] = match mode {
-            0 => p ^ 0x00FFFFFF, // Invert color
-            1 => p | 0x00FF0000, // Red tint
-            2 => p & 0xFF00FF00, // Mask out Red and Blue (Green only)
+            0 => p ^ 0x00FF_FFFF, // Invert color
+            1 => p | 0x00FF_0000, // Red tint
+            2 => p & 0xFF00_FF00, // Mask out Red and Blue (Green only)
             _ => p,
         };
     }

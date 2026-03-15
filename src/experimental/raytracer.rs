@@ -155,7 +155,7 @@ impl Ray {
             point: self.at(t),
             normal,
             uv: Vec2::new(u, v),
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         })
     }
 
@@ -220,7 +220,7 @@ impl Default for RayTracer {
     fn default() -> Self {
         Self {
             max_bounces: 3,
-            background_color: 0xFF101010, // Dark Grey
+            background_color: 0xFF10_1010, // Dark Grey
         }
     }
 }
@@ -413,7 +413,7 @@ impl RayTracer {
             let mixed = final_color.lerp(reflected_color, reflectivity);
             let mixed = Vec3::new(mixed.x.min(1.0), mixed.y.min(1.0), mixed.z.min(1.0));
 
-            return 0xFF000000
+            return 0xFF00_0000
                 | ((mixed.x * 255.0) as u32) << 16
                 | ((mixed.y * 255.0) as u32) << 8
                 | ((mixed.z * 255.0) as u32);
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn should_render_object_color_on_hit() {
         let tracer = RayTracer {
-            background_color: 0xFF000000,
+            background_color: 0xFF00_0000,
             ..Default::default()
         };
 
@@ -522,7 +522,7 @@ mod tests {
         // but it should not be the background color. Let's check the middle pixel.
         let pixel = fb.get_pixel(5, 5).unwrap();
         assert_ne!(
-            pixel, 0xFF000000,
+            pixel, 0xFF00_0000,
             "Pixel should be shaded, not background color"
         );
 

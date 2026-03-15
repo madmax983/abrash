@@ -76,7 +76,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
             let b = (b_sum >> 8).clamp(0, 255) as u32;
 
             // preserve alpha
-            let a = center_c & 0xFF000000;
+            let a = center_c & 0xFF00_0000;
 
             row[x] = a | (r << 16) | (g << 8) | b;
         }

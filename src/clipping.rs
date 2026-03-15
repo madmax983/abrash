@@ -128,7 +128,7 @@ pub fn clip_triangle_to_frustum<V: Copy>(
 
     #[cfg(target_arch = "x86_64")]
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_sqrt_ps, _mm256_max_ps, _mm256_rsqrt_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_mullo_epi32, _mm256_i32gather_ps, _mm256_and_ps, _mm256_fmadd_ps, _mm256_cvtss_f32, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_rcp_ps, _mm256_fmsub_ps, _mm256_i32gather_epi32, _mm256_sub_epi32, _mm256_add_epi32, _mm256_set_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ};;
         // Layout: [v2, v1, v0, pad] or [v0, v1, v2, pad]?
         // _mm_set_ps(e3, e2, e1, e0) -> [e0, e1, e2, e3]
         // We want lanes 0, 1, 2 to correspond to v0, v1, v2.

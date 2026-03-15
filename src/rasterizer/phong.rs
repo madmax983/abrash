@@ -33,7 +33,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
     shadow_map: &ZBuffer,
     light_vp: Mat4,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_sqrt_ps, _mm256_max_ps, _mm256_rsqrt_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -400,7 +400,7 @@ unsafe fn draw_scanline_point_lit_simd(
     light_color: Vec3,
     attenuation: Vec3,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_sqrt_ps, _mm256_max_ps, _mm256_rsqrt_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -1530,7 +1530,7 @@ unsafe fn draw_scanline_phong_simd(
     ambient_255: Vec3, // Pre-scaled by 255.0
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_div_ps, _mm256_sub_ps, _mm256_sqrt_ps, _mm256_max_ps, _mm256_rsqrt_ps, _mm256_min_ps, _mm256_cvttps_epi32, _mm256_or_si256, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16};
 
         let len = fb_slice.len();
         let mut i = 0;

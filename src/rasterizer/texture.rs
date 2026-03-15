@@ -569,7 +569,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     du_fix: i32,
     dv_fix: i32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -769,7 +769,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         };
 
                         // Gather
-                        let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                        let pixels_ptr = texture.pixels.as_ptr().cast::<i32>();
                         let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                         let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                         let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -792,7 +792,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                             let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
                             _mm256_storeu_ps(depth_ptr, new_z);
 
-                            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                            let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                             let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                             let new_color =
                                 _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
@@ -810,7 +810,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         if trans_bits != 0 {
                             // Load current framebuffer (might have been updated by opaque write)
                             // Aligned load/store for pixels
-                            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                            let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                             let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                             // Alpha blending: src * alpha + dest * (1 - alpha)
@@ -923,7 +923,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     du_fix: i32,
     dv_fix: i32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -1028,23 +1028,27 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                     let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
+
+
+                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     let idx = if is_pot {
                         // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
                         // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
                         // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
                         // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+
+
                         _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                     } else {
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+
+
                         _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                     };
 
                     // Gather
                     let pixel_vals =
-                        _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                        _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
 
                     // Check Alpha
                     let alphas_shifted = _mm256_and_si256(pixel_vals, ff_mask_shifted);
@@ -1060,7 +1064,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                         let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
                         _mm256_storeu_ps(depth_ptr, new_z);
 
-                        let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                        let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                         let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                         let new_color =
                             _mm256_blendv_epi8(old_color, pixel_vals, write_opaque_mask);
@@ -1075,7 +1079,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
                     if trans_bits != 0 {
-                        let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                        let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                         let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                         let const_256 = _mm256_set1_epi32(256);
@@ -1160,7 +1164,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
     texture: &Texture,
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256};
 
         let len = fb_slice.len();
         let mut i = 0;
@@ -1254,7 +1258,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
                 let idx01 = _mm256_add_epi32(y1_w, x0);
                 let idx11 = _mm256_add_epi32(y1_w, x1);
 
-                let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                let pixels_ptr = texture.pixels.as_ptr().cast::<i32>();
                 let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                 let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                 let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -1276,7 +1280,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -1289,7 +1293,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
                     let alpha_src = a;
                     let inv_alpha_src = _mm256_sub_epi32(const_256_i, alpha_src);
@@ -1745,7 +1749,7 @@ pub fn fill_quad_textured_gouraud(
     // Trivial Acceptance Check: All inside frustum
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     let all_inside = unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32};
         let x_vec = _mm_set_ps(v3.0.0.x, v2.0.0.x, v1.0.0.x, v0.0.0.x);
         let y_vec = _mm_set_ps(v3.0.0.y, v2.0.0.y, v1.0.0.y, v0.0.0.y);
         let z_vec = _mm_set_ps(v3.0.0.z, v2.0.0.z, v1.0.0.z, v0.0.0.z);
@@ -2089,7 +2093,7 @@ pub fn fill_quad_textured(
     // -w <= x,y,z <= w
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     let all_inside = unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
         // Note: _mm_set_ps arguments are reversed: (e3, e2, e1, e0)
         let x_vec = _mm_set_ps(v3.0.0.x, v2.0.0.x, v1.0.0.x, v0.0.0.x);
         let y_vec = _mm_set_ps(v3.0.0.y, v2.0.0.y, v1.0.0.y, v0.0.0.y);
@@ -2408,7 +2412,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
     ambient: Vec3,
 ) {
     unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
         let len = fb_slice.len();
         let mut i = 0;
@@ -2518,7 +2522,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
                 };
 
                 // Gather Diffuse
-                let diff_base = texture.pixels.as_ptr() as *const i32;
+                let diff_base = texture.pixels.as_ptr().cast::<i32>();
                 let diff_packed = _mm256_i32gather_epi32(diff_base, idx, 4);
 
                 // Gather Normal Map
@@ -2620,7 +2624,7 @@ unsafe fn draw_scanline_normal_mapped_simd(
                     ),
                 );
 
-                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let mask_int = _mm256_castps_si256(mask);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
@@ -2705,7 +2709,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     dv_fix: i32,
     lod: f32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
     if lod <= 0.0 || texture.mips.is_empty() {
         // Fallback to bilinear if LOD is 0 or no mips
@@ -2944,7 +2948,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
                         let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_mask_ps);
                         _mm256_storeu_ps(depth_ptr, new_z);
 
-                        let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                        let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                         let old_color = _mm256_load_si256(fb_ptr); // Aligned load
                         let new_color =
                             _mm256_blendv_epi8(old_color, final_color, write_opaque_mask);
@@ -2959,7 +2963,7 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
                     let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(trans_mask));
 
                     if trans_bits != 0 {
-                        let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                        let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                         let current_dest = _mm256_load_si256(fb_ptr); // Aligned load
 
                         let alpha_src = a;
@@ -3629,7 +3633,7 @@ unsafe fn draw_span_textured_gouraud_simd(
     dg_dx: i32,
     db_dx: i32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -3670,7 +3674,7 @@ unsafe fn draw_span_textured_gouraud_simd(
         let max_x = _mm256_set1_epi32((texture.width - 1) as i32);
         let max_y = _mm256_set1_epi32((texture.height - 1) as i32);
         let zero_i = _mm256_setzero_si256();
-        let shift_vec = _mm256_set1_epi32(texture.width_shift as i32);
+        let shift_vec = _mm256_set1_epi32(i32::from(texture.width_shift));
         let is_pot = texture.width_shift < 32;
 
         let ff_mask = _mm256_set1_epi32(0xFF);
@@ -3685,18 +3689,22 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
-                let idx = if is_pot {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+
+
+                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+                    let idx = if is_pot {
+
+
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                 } else {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+
+
                     _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                 };
 
                 let pixel_vals =
-                    _mm256_i32gather_epi32(texture.pixels.as_ptr() as *const i32, idx, 4);
+                    _mm256_i32gather_epi32(texture.pixels.as_ptr().cast::<i32>(), idx, 4);
 
                 let tex_r_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 16), ff_mask);
                 let tex_g_i = _mm256_and_si256(_mm256_srli_epi32(pixel_vals, 8), ff_mask);
@@ -3740,7 +3748,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -3752,7 +3760,7 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
                     // Alpha blending: src * alpha + dest * inv_alpha
@@ -3824,7 +3832,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
     dg_dx: i32,
     db_dx: i32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{_mm256_sub_epi32, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_srai_epi32, _mm256_set_epi32, _mm256_set1_ps, _mm256_set_ps, _mm256_add_ps, _mm256_mul_ps, _mm256_setzero_ps, _mm256_set1_epi32, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_LT_OQ, _mm256_movemask_ps, _mm256_blendv_ps, _mm256_storeu_ps, _mm256_andnot_ps, _CMP_GT_OQ, _mm256_rcp_ps, _mm256_sub_ps, _mm256_cvttps_epi32, _mm256_and_si256, _mm256_or_si256, _mm256_sllv_epi32, _mm256_setzero_si256, _mm256_min_epi32, _mm256_max_epi32, _mm256_add_epi32, _mm256_mullo_epi32, _mm256_i32gather_epi32, _mm256_srli_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_slli_epi32, __m256i, _mm256_loadu_si256, _mm256_castps_si256, _mm256_blendv_epi8, _mm256_storeu_si256, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_cmpeq_epi32, _mm256_andnot_si256, _mm256_castsi256_ps, _mm256_sub_epi32, _mm_set_ps, _mm_sub_ps, _mm_setzero_ps, _mm_cmp_ps, _mm_and_ps, _mm_movemask_ps, _CMP_GE_OQ, _CMP_LE_OQ, _mm256_max_epi32, _mm256_sub_ps, _mm256_floor_ps, _mm256_cvtps_epi32, _mm256_cvtepi32_ps, _mm256_fmsub_ps, _mm256_rsqrt_ps, _mm256_max_ps, _mm256_fmadd_ps, _mm256_min_ps, _mm256_load_si256, _mm256_store_si256, _mm256_castsi256_ps, _mm256_andnot_si256, _mm256_cmpeq_epi32, _mm256_sra_epi32, _mm_cvtsi32_si128, _mm256_srai_epi32, _mm256_add_epi16, _mm256_mullo_epi16, _mm256_srli_epi16, _mm256_blendv_ps};
 
     let len = fb_slice.len();
     let mut i = 0;
@@ -3959,7 +3967,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                             )
                         };
 
-                        let pixels_ptr = texture.pixels.as_ptr() as *const i32;
+                        let pixels_ptr = texture.pixels.as_ptr().cast::<i32>();
                         let c00 = _mm256_i32gather_epi32(pixels_ptr, idx00, 4);
                         let c10 = _mm256_i32gather_epi32(pixels_ptr, idx10, 4);
                         let c01 = _mm256_i32gather_epi32(pixels_ptr, idx01, 4);
@@ -4012,7 +4020,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                             let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                             _mm256_storeu_ps(depth_ptr, new_z);
 
-                            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                            let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                             let old_color = _mm256_loadu_si256(fb_ptr);
                             let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                             _mm256_storeu_si256(fb_ptr, new_color);
@@ -4026,7 +4034,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
                         let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                         if trans_bits != 0 {
-                            let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
+                            let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                             let current_dest = _mm256_loadu_si256(fb_ptr);
 
                             let alpha_src = tex_a_i;

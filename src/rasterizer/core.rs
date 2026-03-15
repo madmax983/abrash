@@ -178,7 +178,7 @@ pub unsafe fn blend_swar_simd(
     inv_w: std::arch::x86_64::__m256i,
 ) -> std::arch::x86_64::__m256i {
     use std::arch::x86_64::*;
-    let mask = _mm256_set1_epi32(0x00FF00FF);
+    let mask = _mm256_set1_epi32(0x00FF_00FF);
 
     let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
     let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));

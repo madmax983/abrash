@@ -135,7 +135,7 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use abrash::post_process::filters::apply_invert;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF000000); // Black
+/// fb.set_pixel(0, 0, 0xFF00_0000); // Black
 /// apply_invert(&mut fb);
 ///
 /// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
@@ -559,14 +559,14 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             // This allows the noise to be consistent per frame (if seed is same)
             let mut lcg = config
                 .seed
-                .wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+                .wrapping_add((i as u32).wrapping_mul(0x9E37_79B9));
             lcg ^= lcg << 13;
             lcg ^= lcg >> 17;
             lcg ^= lcg << 5;
 
             // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
             // LCG sequence needs to diverge significantly
-            lcg = lcg.wrapping_add(0x12345678);
+            lcg = lcg.wrapping_add(0x1234_5678);
             lcg ^= lcg << 13;
             lcg ^= lcg >> 17;
             lcg ^= lcg << 5;
@@ -593,7 +593,7 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     #[cfg(not(feature = "parallel"))]
     {
         // A simple LCG state, mixed with the config seed
-        let mut state = config.seed.wrapping_add(0x12345678);
+        let mut state = config.seed.wrapping_add(0x1234_5678);
 
         for p in pixels.iter_mut() {
             state ^= state << 13;
@@ -917,7 +917,7 @@ mod simd {
             let mask_r = _mm256_set1_epi32(0x00FF_0000);
             let mask_b = _mm256_set1_epi32(0x0000_00FF);
             // Precompute masks combined for center: G | A
-            // G: 0x0000FF00, A: 0xFF000000
+            // G: 0x0000FF00, A: 0xFF00_0000
             let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
 
             unsafe {
@@ -1436,7 +1436,7 @@ mod tests {
 
         // Fill with pattern
         for i in 0..(width * height) {
-            let val = 0xFF000000 | 0x00FFFFFF; // White
+            let val = 0xFF00_0000 | 0x00FFFFFF; // White
             fb_scalar.as_mut_slice()[i as usize] = val;
             fb_simd.as_mut_slice()[i as usize] = val;
         }
@@ -1633,7 +1633,7 @@ mod tests {
 
         // Fill with random noise or gradient
         for i in 0..width * height {
-            let val = 0xFF000000 | (i as u32);
+            let val = 0xFF00_0000 | (i as u32);
             fb_scalar.as_mut_slice()[i as usize] = val;
             fb_simd.as_mut_slice()[i as usize] = val;
         }

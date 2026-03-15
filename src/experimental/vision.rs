@@ -47,7 +47,7 @@ struct XorShift {
 impl XorShift {
     const fn new(seed: u32) -> Self {
         Self {
-            state: if seed == 0 { 0xDEADBEEF } else { seed },
+            state: if seed == 0 { 0xDEAD_BEEF } else { seed },
         }
     }
 
@@ -62,7 +62,7 @@ impl XorShift {
 
     /// Returns a float in [0.0, 1.0).
     fn next_f32(&mut self) -> f32 {
-        (self.next_u32() >> 8) as f32 / 16777216.0
+        (self.next_u32() >> 8) as f32 / 16_777_216.0
     }
 }
 
@@ -114,7 +114,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
             // Result is mostly green, slight blue/red tint for phosphor feel
             pixels[idx] =
-                0xFF000000 | ((val_clamped / 5) << 16) | (val_clamped << 8) | (val_clamped / 5);
+                0xFF00_0000 | ((val_clamped / 5) << 16) | (val_clamped << 8) | (val_clamped / 5);
         }
     }
 }
@@ -127,7 +127,7 @@ fn apply_thermal_vision(fb: &mut Framebuffer, zb: &ZBuffer, _config: &VisionConf
 
     for (i, &depth) in depths.iter().enumerate() {
         if depth.is_infinite() {
-            pixels[i] = 0xFF000000; // Background is black (Coldest)
+            pixels[i] = 0xFF00_0000; // Background is black (Coldest)
             continue;
         }
 
@@ -180,7 +180,7 @@ fn get_thermal_color(t: f32) -> u32 {
     let g_byte = (g * 255.0) as u32;
     let b_byte = (b * 255.0) as u32;
 
-    0xFF000000 | (r_byte << 16) | (g_byte << 8) | b_byte
+    0xFF00_0000 | (r_byte << 16) | (g_byte << 8) | b_byte
 }
 
 fn apply_sonar_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig) {
@@ -198,7 +198,7 @@ fn apply_sonar_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig)
 
     for (i, &depth) in depths.iter().enumerate() {
         if depth.is_infinite() {
-            pixels[i] = 0xFF000010; // Very dim blue background
+            pixels[i] = 0xFF00_0010; // Very dim blue background
             continue;
         }
 
@@ -208,14 +208,14 @@ fn apply_sonar_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig)
             // High intensity at pulse
             let intensity = 1.0 - (dist / thickness);
             let val = (intensity * 255.0) as u32;
-            pixels[i] = 0xFF000000 | (val << 8) | val; // Cyan/Greenish
+            pixels[i] = 0xFF00_0000 | (val << 8) | val; // Cyan/Greenish
         } else {
             // Dim outline of objects
             // Edge detection logic is expensive here, so just dim the original color
             // or use a flat "wireframe" color based on depth derivative?
             // Let's just use a dark blue base.
             let base = ((depth + 1.0) * 0.5 * 50.0) as u32;
-            pixels[i] = 0xFF000000 | (base << 8) | (base + 20);
+            pixels[i] = 0xFF00_0000 | (base << 8) | (base + 20);
         }
     }
 }

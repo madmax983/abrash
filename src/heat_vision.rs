@@ -54,7 +54,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     if !has_content {
         // Nothing drawn, just clear to cold background
         for p in pixels.iter_mut() {
-            *p = 0xFF000020; // Dark Blue
+            *p = 0xFF00_0020; // Dark Blue
         }
         return;
     }
@@ -65,7 +65,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
-            *pixel = 0xFF000010; // Very Dark Blue Background
+            *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
 
@@ -100,7 +100,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         };
 
         // Combine into ARGB
-        *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
     }
 }
 
@@ -156,6 +156,6 @@ mod tests {
         apply_heat_vision(&mut fb, &zb);
 
         let p = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p, 0xFF000020, "Empty buffer should be background color");
+        assert_eq!(p, 0xFF00_0020, "Empty buffer should be background color");
     }
 }

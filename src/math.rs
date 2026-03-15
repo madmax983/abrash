@@ -354,9 +354,9 @@ impl Vec3 {
     pub fn normalize(&self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
-        // 0.0001^2 = 0.00000001
+        // 0.0001^2 = 0.000_000_01
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        if len_sq > 0.00000001 {
+        if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
