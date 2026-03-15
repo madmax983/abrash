@@ -813,6 +813,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::decimal_bitwise_operands)]
     fn draw_scanline_gouraud_interpolation() {
         let width = 100;
         let height = 1;

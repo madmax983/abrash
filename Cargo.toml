@@ -464,6 +464,7 @@ harness = false
 [[bench]]
 name = "lsystem_bench"
 harness = false
+required-features = ["nova"]
 
 [[bench]]
 name = "posterize_bench"

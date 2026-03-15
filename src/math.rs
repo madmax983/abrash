@@ -1776,6 +1776,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_project_to_screen_optimized_edge_cases() {
         let half_width = 400.0;
         let half_height = 300.0;
@@ -1810,6 +1811,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_vec3_normalize_zero() {
         let v = Vec3::new(0.0, 0.0, 0.0);
         let n = v.normalize();
