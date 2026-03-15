@@ -129,5 +129,5 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
             });
     });
 
-    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.set(source_pixels));
+    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.replace(source_pixels));
 }
