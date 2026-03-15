@@ -546,8 +546,8 @@ pub struct FilmGrainConfig {
 /// apply_film_grain(&mut fb, &config);
 /// ```
 pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
-    let _width = fb.width() as usize;
-    if _width == 0 {
+    let width = fb.width() as usize;
+    if width == 0 {
         return;
     }
 
@@ -566,10 +566,10 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
         let seed = config.seed;
         pixels
-            .par_chunks_exact_mut(_width)
+            .par_chunks_exact_mut(width)
             .enumerate()
             .for_each(|(y, row)| {
-                let row_offset = y * _width;
+                let row_offset = y * width;
                 for (x, p) in row.iter_mut().enumerate() {
                     let i = row_offset + x;
 
@@ -668,6 +668,10 @@ fn apply_vignette_scalar(
     intensity: f32,
     _roundness: f32,
 ) {
+    if width == 0 {
+        return;
+    }
+
     let width_f = width as f32;
     let height_f = height as f32;
     let center_x = width_f * 0.5;
@@ -680,12 +684,13 @@ fn apply_vignette_scalar(
         0.0
     };
 
-    for y in 0..height {
-        let row_offset = y * width;
+    // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
+    // Iterate over chunks instead of doing index calculations inside the hot loop.
+    for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
         let dy = y as f32 - center_y;
         let dy_sq = dy * dy;
 
-        for x in 0..width {
+        for (x, p_ref) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x;
             let dist_sq = dx * dx + dy_sq;
 
@@ -698,8 +703,7 @@ fn apply_vignette_scalar(
             // Fixed point approximation to match SIMD precision (8.8 fixed point)
             let factor_fixed = (factor * 256.0) as u32;
 
-            let idx = row_offset + x;
-            let p = pixels[idx];
+            let p = *p_ref;
 
             let a = p & 0xFF00_0000;
             let r = (p >> 16) & 0xFF;
@@ -711,7 +715,7 @@ fn apply_vignette_scalar(
             let new_g = (g * factor_fixed) >> 8;
             let new_b = (b * factor_fixed) >> 8;
 
-            pixels[idx] = a | (new_r << 16) | (new_g << 8) | new_b;
+            *p_ref = a | (new_r << 16) | (new_g << 8) | new_b;
         }
     }
 }
