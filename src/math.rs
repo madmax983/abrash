@@ -292,7 +292,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn dot(&self, other: Self) -> f32 {
+    pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
@@ -314,7 +314,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn cross(&self, other: Self) -> Self {
+    pub fn cross(self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
             y: self.z * other.x - self.x * other.z,
@@ -325,7 +325,7 @@ impl Vec3 {
     /// Calculates the Euclidean length (magnitude) of the vector.
     #[must_use]
     #[inline]
-    pub fn length(&self) -> f32 {
+    pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
@@ -351,7 +351,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn normalize(&self) -> Self {
+    pub fn normalize(self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
         // 0.0001^2 = 0.00000001
@@ -364,7 +364,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -374,7 +374,7 @@ impl Vec3 {
     /// Useful for lighting calculations where extreme precision is not required.
     #[must_use]
     #[inline]
-    pub fn fast_normalize(&self) -> Self {
+    pub fn fast_normalize(self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
             let inv_len = fast_inv_sqrt(len_sq);
@@ -384,7 +384,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -394,28 +394,8 @@ impl Vec3 {
     /// Useful for comparing distances.
     #[must_use]
     #[inline]
-    pub fn length_sq(&self) -> f32 {
+    pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
-    }
-
-    /// Reflects this vector around a given normal vector.
-    ///
-    /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
-    ///
-    /// # Performance
-    ///
-    /// This implementation manually unfolds scalar components to avoid intermediate struct
-    /// allocations and improve scalar instruction pipelining.
-    #[must_use]
-    #[inline]
-    pub fn reflect(self, normal: Self) -> Self {
-        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
-        let factor = 2.0 * dot;
-        Self {
-            x: self.x - factor * normal.x,
-            y: self.y - factor * normal.y,
-            z: self.z - factor * normal.z,
-        }
     }
 
     /// Linearly interpolate between this vector and another.
@@ -426,7 +406,7 @@ impl Vec3 {
 
     /// Returns a new vector containing the minimum value for each component.
 
-    pub const fn min(&self, other: Self) -> Self {
+    pub const fn min(self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
             y: self.y.min(other.y),
@@ -437,7 +417,7 @@ impl Vec3 {
     /// Returns a new vector containing the maximum value for each component.
     #[must_use]
     #[inline]
-    pub const fn max(&self, other: Self) -> Self {
+    pub const fn max(self, other: Self) -> Self {
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -464,8 +444,8 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn reflect(&self, normal: Self) -> Self {
-        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
+    pub fn reflect(self, normal: Self) -> Self {
+        // Equivalent to `self - normal * (2.0 * self.dot(normal))`
         // but manually unfolded to avoid intermediate Vec3 allocations
         // and allow better scalar instruction pipelining.
         let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
