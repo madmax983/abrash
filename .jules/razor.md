@@ -54,3 +54,8 @@
 **Bloat:** `FastU64Builder` a custom hasher builder trait implementation specifically to instantiate `FastU64Hasher` for `HashMap`.
 **Cut:** Removed `FastU64Builder` entirely and replaced it with `std::hash::BuildHasherDefault<FastU64Hasher>`.
 **Saved:** ~15 lines of redundant builder abstraction and boilerplate code.
+
+## [Reduction]
+**Bloat:** The `Lerp` trait in `benches/clipping_optimization.rs`, which was only implemented once for `(Vec3, f32)`.
+**Cut:** Deleted the `Lerp` trait entirely and replaced it with a simple inline closure inside the benchmark function using the concrete type `(Vec3, f32)`.
+**Saved:** Unnecessary trait abstraction and bounds.

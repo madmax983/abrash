@@ -3,13 +3,20 @@ use abrash::math::Vec3;
 use criterion::{Criterion, black_box, criterion_group, criterion_main}; // The new optimized implementation
 
 // Helper traits/structs copied for benchmark legacy implementation
-pub trait Lerp: Copy + Clone {
-    #[must_use]
-    fn lerp(self, other: Self, t: f32) -> Self;
+
+pub struct ClippedTriangles {
+    pub tris: [(Vec3, f32); 24],
+    pub count: usize,
 }
 
-impl Lerp for (Vec3, f32) {
-    fn lerp(self, other: Self, t: f32) -> Self {
+// Legacy implementation (slow version)
+pub fn clip_triangle_to_frustum_legacy(
+    v0: (Vec3, f32),
+    v1: (Vec3, f32),
+    v2: (Vec3, f32),
+    get_pos: impl Fn(&(Vec3, f32)) -> (Vec3, f32),
+) -> ClippedTriangles {
+    let lerp = |a: (Vec3, f32), b: (Vec3, f32), t: f32| -> (Vec3, f32) {
         fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
             a + (b - a) * t
         }
@@ -20,22 +27,9 @@ impl Lerp for (Vec3, f32) {
                 z: lerp_f32(a.z, b.z, t),
             }
         }
-        (lerp_vec3(self.0, other.0, t), lerp_f32(self.1, other.1, t))
-    }
-}
+        (lerp_vec3(a.0, b.0, t), lerp_f32(a.1, b.1, t))
+    };
 
-pub struct ClippedTriangles<V> {
-    pub tris: [V; 24],
-    pub count: usize,
-}
-
-// Legacy implementation (slow version)
-pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
-    v0: V,
-    v1: V,
-    v2: V,
-    get_pos: impl Fn(&V) -> (Vec3, f32),
-) -> ClippedTriangles<V> {
     let (p0, w0) = get_pos(&v0);
     let (p1, w1) = get_pos(&v1);
     let (p2, w2) = get_pos(&v2);
@@ -118,7 +112,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
                 if prev_d < 0.0 {
                     let t = prev_d / (prev_d - curr_d);
                     if out_count < 12 {
-                        buf2[out_count] = prev_v.lerp(curr_v, t);
+                        buf2[out_count] = lerp(prev_v, curr_v, t);
                         out_count += 1;
                     }
                 }
@@ -129,7 +123,7 @@ pub fn clip_triangle_to_frustum_legacy<V: Lerp + Copy + Default>(
             } else if prev_d >= 0.0 {
                 let t = prev_d / (prev_d - curr_d);
                 if out_count < 12 {
-                    buf2[out_count] = prev_v.lerp(curr_v, t);
+                    buf2[out_count] = lerp(prev_v, curr_v, t);
                     out_count += 1;
                 }
             }

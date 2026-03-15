@@ -398,26 +398,6 @@ impl Vec3 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
-    /// Reflects this vector around a given normal vector.
-    ///
-    /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
-    ///
-    /// # Performance
-    ///
-    /// This implementation manually unfolds scalar components to avoid intermediate struct
-    /// allocations and improve scalar instruction pipelining.
-    #[must_use]
-    #[inline]
-    pub fn reflect(self, normal: Self) -> Self {
-        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
-        let factor = 2.0 * dot;
-        Self {
-            x: self.x - factor * normal.x,
-            y: self.y - factor * normal.y,
-            z: self.z - factor * normal.z,
-        }
-    }
-
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -445,9 +425,14 @@ impl Vec3 {
         }
     }
 
-    /// Reflects this vector around a given normal.
+    /// Reflects this vector around a given normal vector.
     ///
     /// The normal vector must be normalized.
+    ///
+    /// # Performance
+    ///
+    /// This implementation manually unfolds scalar components to avoid intermediate struct
+    /// allocations and improve scalar instruction pipelining.
     ///
     /// # Examples
     ///
@@ -464,8 +449,8 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn reflect(&self, normal: Self) -> Self {
-        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
+    pub fn reflect(self, normal: Self) -> Self {
+        // Equivalent to `self - normal * (2.0 * self.dot(normal))`
         // but manually unfolded to avoid intermediate Vec3 allocations
         // and allow better scalar instruction pipelining.
         let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
