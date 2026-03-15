@@ -293,8 +293,8 @@ fn draw_scanline_reflection(
     let end_idx = y_offset + (xe as usize);
 
     // SAFETY: Clamped above.
-    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
+    let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if is_x86_feature_detected!("avx2") {

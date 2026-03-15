@@ -391,8 +391,8 @@ pub fn draw_scanline_gouraud_i32(
         // 2. y is clamped to [0, height-1] by the caller (fill_triangle_gouraud).
         // 3. We checked `xs <= xe` immediately above, so `start_idx <= end_idx`.
         // Therefore, the range is valid and within bounds.
-        let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-        let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+        let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
+        let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
         // Optimization: Check for fast path (no clamping needed)
         // If all color channels are within [0, 255] for the entire span, we can skip clamping.

@@ -82,8 +82,8 @@ pub(crate) fn prepare_scanline<'a>(
     // 1. xs and xe are clamped to [0, width-1].
     // 2. y is assumed to be within bounds by caller (clamped in fill_triangle).
     // 3. start_idx <= end_idx because xs <= xe.
-    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
+    let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     Some((fb_slice, zb_slice, z))
 }
