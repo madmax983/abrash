@@ -20,7 +20,7 @@ fn bench_apply_swirl(c: &mut Criterion) {
     c.bench_function("apply_swirl_1080p", |b| {
         b.iter(|| {
             apply_swirl(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 

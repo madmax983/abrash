@@ -75,7 +75,7 @@ fn render_scene(
 
     let models = [model1, model2];
 
-    for model in models.iter() {
+    for model in &models {
         let mvp = view_proj * *model;
 
         for (face_idx, tri_indices) in cube.indices.iter().enumerate() {

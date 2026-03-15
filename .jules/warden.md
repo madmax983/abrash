@@ -39,3 +39,7 @@
 **2025-05-15 - [Fix potential Out-of-Bounds in Kuwahara filter]**
 **Threat:** The `apply_kuwahara` function in `src/experimental/kuwahara.rs` used `unsafe { *src_fb.get_unchecked(...) }` when sampling pixels. Even though boundaries were explicitly clamped to logical limits, casting `width` to `i32` and complex row offsets calculated by hand introduced a risk of memory corruption.
 **Defense:** Replaced the `unsafe` block with safe slice indexing, ensuring bounds checks remain, deferring any optimization safely to the compiler.
+
+**2026-03-05 - [Fix Integer Overflow in Texture Fast Path]**
+**Threat:** Integer overflow in the fast path condition of `draw_span_nearest` and `draw_span_bilinear` in `src/rasterizer/texture.rs`. The code checked if the bounds calculated with `i64` were valid, but the inner loop used `i32` arithmetic. If `du_fix` or `dv_fix` were extremely large, the `i32` variables would wrap around, leading to massively out-of-bounds `usize` indices and unsafe out-of-bounds memory accesses.
+**Defense:** Added `u_max_64 <= i32::MAX as i64` and `v_max_64 <= i32::MAX as i64` to the `can_use_fast_path` conditions, ensuring that no `i32` wrap-around can occur during the loop execution.
