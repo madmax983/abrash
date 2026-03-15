@@ -109,6 +109,11 @@
 **Fate:** Merged
 **Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift efficiently prevents recursive lookbacks and allows for perfect row-by-row parallelization.
 
+## [Chromatic Aberration Filter]
+**Concept:** A retro post-processing effect that simulates camera lens imperfections by shifting the red, green, and blue color channels independently, creating a colored fringe effect.
+**Fate:** Implemented
+**Lesson:** Safely applying directional shifts to color channels without mutating the data being read requires cloning the original framebuffer to use as a source texture, while Rayon easily processes the destination buffer.
+
 ## [Vignette Filter]
 **Concept:** A retro post-processing effect that darkens the edges of the screen, creating a cinematic or CRT-like focus towards the center.
 **Fate:** Implemented
