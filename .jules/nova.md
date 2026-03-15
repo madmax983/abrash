@@ -108,3 +108,8 @@
 **Concept:** A single-image stereogram (Magic Eye) generator from a depth map (ZBuffer).
 **Fate:** Merged
 **Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift efficiently prevents recursive lookbacks and allows for perfect row-by-row parallelization.
+
+## [Voronoi Filter]
+**Concept:** A post-processing effect that calculates distance from random seeds to create a stained-glass or cellular look. Features configurable metric distance (Euclidean vs Manhattan) and border outlines based on distance comparisons.
+**Fate:** Implemented
+**Lesson:** Generalizing Minkowski distance with arbitrary exponents inside a tight per-pixel loop using `powf` is very slow. Implementing fast paths for `metric == 1.0` and `metric == 2.0` avoids exponentiation and greatly speeds up the effect. Computing border thickness accurately requires finding the difference between the closest and second-closest seed distances. Parallelization via Rayon makes processing the image row-by-row efficient.

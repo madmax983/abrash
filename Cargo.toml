@@ -142,6 +142,11 @@ name = "god_rays_demo"
 path = "examples/god_rays_demo.rs"
 required-features = ["nova", "backend-tui"]
 
+[[example]]
+name = "voronoi_demo"
+path = "examples/voronoi_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
@@ -482,5 +487,10 @@ required-features = ["nova"]
 
 [[bench]]
 name = "water_ripple_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "voronoi_bench"
 harness = false
 required-features = ["nova"]
