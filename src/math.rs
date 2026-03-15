@@ -444,37 +444,6 @@ impl Vec3 {
             z: self.z.max(other.z),
         }
     }
-
-    /// Reflects this vector around a given normal.
-    ///
-    /// The normal vector must be normalized.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use abrash::math::Vec3;
-    ///
-    /// let v = Vec3::new(1.0, -1.0, 0.0);
-    /// let n = Vec3::new(0.0, 1.0, 0.0);
-    /// let r = v.reflect(n);
-    ///
-    /// assert!((r.x - 1.0).abs() < 1e-6);
-    /// assert!((r.y - 1.0).abs() < 1e-6);
-    /// assert!(r.z.abs() < 1e-6);
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn reflect(&self, normal: Self) -> Self {
-        // Equivalent to `*self - normal * (2.0 * self.dot(normal))`
-        // but manually unfolded to avoid intermediate Vec3 allocations
-        // and allow better scalar instruction pipelining.
-        let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
-        Self {
-            x: self.x - normal.x * dot2,
-            y: self.y - normal.y * dot2,
-            z: self.z - normal.z * dot2,
-        }
-    }
 }
 
 impl Add for Vec3 {
