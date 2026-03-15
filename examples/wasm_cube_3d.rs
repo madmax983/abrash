@@ -9,6 +9,9 @@ use std::cell::RefCell;
 use std::f32::consts::PI;
 use std::rc::Rc;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
@@ -23,7 +26,32 @@ const COLORS: [u32; 6] = [
     0xFF00_FFFF, // Cyan - left
 ];
 
+fn print_banner() {
+    println!("\n{}", "🌐 WASM 3D Cube Demo".bold().cyan());
+    println!("{}", "=======================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("WASM software-rendered 3D cube").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Target"),
+            Cell::new("Web browser canvas").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+}
+
 fn main() {
+    print_banner();
     let cube = Mesh::cube(1.0);
 
     // Camera setup

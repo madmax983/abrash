@@ -12,7 +12,47 @@ use abrash::framebuffer::Framebuffer;
 use abrash::platform::{Event, Window};
 use std::f32::consts::PI;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner() {
+    println!("\n{}", "🌀 Swirl Filter Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Twisting swirl screen distortion").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("Software Rasterizer + Post-Process").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-twisting")]);
+    println!("{controls}\n");
+}
+
 fn main() {
+    print_banner();
     let mut window = Window::new("Swirl Demo", 800, 600).unwrap();
 
     let width = 800;
