@@ -107,3 +107,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Safe SWAR integer overflow]**
 **Learning:** When implementing SWAR (SIMD Within A Register) multiplication on packed color channels (e.g., Red and Blue masked within a `u32`), explicitly promote the masked values to `u64` before multiplication if the scale factor can cause the intermediate result to exceed `u32::MAX`. Failing to do so causes critical integer overflow bugs during pixel blending.
 **Action:** Promote scaled SWAR values to `u64` where intensity/scale factor causes intermediate value representation constraints.
+
+**[Performance Optimization: Eliminate per-frame memory allocation for Emboss]**
+**Learning:** Calling `.to_vec()` on the framebuffer's slice inside `apply_emboss` causes an expensive memory allocation every frame, which hurts rendering performance.
+**Action:** Use a `thread_local!` static buffer with `RefCell<Vec<u32>>`. Resize it to the required length and use `.copy_from_slice()` instead of `.to_vec()`. This effectively reuses the same allocation across all frames, functioning as a zero-cost double buffer.

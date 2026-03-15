@@ -5,6 +5,12 @@
 
 use crate::framebuffer::Framebuffer;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -31,8 +37,18 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         return; // Too small for 3x3 kernel
     }
 
-    let src = fb.as_slice().to_vec();
+    let mut source_pixels = SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.take());
+
+    let fb_slice = fb.as_slice();
+    if source_pixels.len() != fb_slice.len() {
+        source_pixels.resize(fb_slice.len(), 0);
+    }
+    source_pixels.copy_from_slice(fb_slice);
+
     let dest = fb.as_mut_slice();
+
+    // We bind it to a local variable to safely borrow it across threads
+    let src: &[u32] = &source_pixels;
 
     // Kernel:
     // -1, -1,  0
@@ -112,4 +128,6 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
                 *dest_pixel = a | (out_r << 16) | (out_g << 8) | out_b;
             });
     });
+
+    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.set(source_pixels));
 }
