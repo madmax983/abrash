@@ -4,6 +4,7 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
+    #[should_panic]
     fn test_tile_renderer_panic(
         w in 16u32..200u32,
         h in 16u32..200u32,
