@@ -55,25 +55,85 @@ impl Framebuffer {
         })
     }
 
+    /// Returns the width of the framebuffer in pixels.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(800, 600).unwrap();
+    /// assert_eq!(fb.width(), 800);
+    /// ```
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
+    /// Returns the height of the framebuffer in pixels.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(800, 600).unwrap();
+    /// assert_eq!(fb.height(), 600);
+    /// ```
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Exposes the underlying pixel buffer as an immutable slice.
+    ///
+    /// This is highly useful for copying the rendered frame into texture memory
+    /// or passing it directly to windowing system backends for display.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let fb = Framebuffer::new(2, 2).unwrap();
+    /// let pixels = fb.as_slice();
+    /// assert_eq!(pixels.len(), 4);
+    /// ```
     #[must_use]
     pub fn as_slice(&self) -> &[u32] {
         &self.pixels
     }
 
+    /// Exposes the underlying pixel buffer as a mutable slice.
+    ///
+    /// Direct mutable access to the backing slice allows for highly optimized
+    /// memory operations (like `par_chunks_mut` in Rayon) for post-processing effects,
+    /// bypassing bounds-checking overhead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(10, 10).unwrap();
+    /// let slice = fb.as_mut_slice();
+    /// slice.fill(0xFF00_00FF); // Fill the screen with blue efficiently
+    /// ```
     pub fn as_mut_slice(&mut self) -> &mut [u32] {
         &mut self.pixels
     }
 
+    /// Fills the entire framebuffer with a single color.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// // Clear the screen to a deep purple
+    /// fb.clear(0xFF80_0080);
+    /// ```
     pub fn clear(&mut self, color: u32) {
         self.pixels.fill(color);
     }
@@ -103,6 +163,22 @@ impl Framebuffer {
         self.pixels[index] = color;
     }
 
+    /// Safely gets the pixel color at (x, y) if the coordinates are within bounds.
+    ///
+    /// The engine relies on optional returns for boundary conditions rather than panicking,
+    /// enabling fast error-tolerant filtering algorithms.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(100, 100).unwrap();
+    /// fb.set_pixel(10, 10, 0xFF00_FF00); // Set to Green
+    ///
+    /// assert_eq!(fb.get_pixel(10, 10), Some(0xFF00_FF00));
+    /// assert_eq!(fb.get_pixel(200, 200), None); // Out of bounds
+    /// ```
     #[inline]
     #[must_use]
     pub fn get_pixel(&self, x: i32, y: i32) -> Option<u32> {
@@ -174,7 +250,22 @@ impl Framebuffer {
         unsafe { *self.pixels.get_unchecked(idx) }
     }
 
-    /// Clear a rectangular region
+    /// Clears a specific rectangular region of the screen to a given color.
+    ///
+    /// The coordinates automatically clamp to the visible screen bounds, making it perfectly safe
+    /// for clearing HUD elements or dirty rectangles that might straddle the screen edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::framebuffer::Framebuffer;
+    ///
+    /// let mut fb = Framebuffer::new(800, 600).unwrap();
+    /// fb.clear(0xFF00_0000); // Clear to Black
+    ///
+    /// // Draw a 100x100 Red square at the center of the screen
+    /// fb.clear_rect(350, 250, 100, 100, 0xFFFF_0000);
+    /// ```
     pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32, color: u32) {
         if width == 0 || height == 0 {
             return;

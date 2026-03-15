@@ -1,5 +1,7 @@
-// Build script for compiling HLSL shaders to DXIL bytecode
-// Only runs when gpu-binning feature is enabled
+//! Build script for compiling HLSL shaders to DXIL bytecode.
+//!
+//! Only runs when the `gpu-binning` feature is enabled.
+//! Used to precompile shaders for hardware acceleration.
 
 fn main() {
     #[cfg(feature = "gpu-binning")]

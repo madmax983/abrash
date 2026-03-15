@@ -4205,6 +4205,10 @@ fn draw_span_textured_gouraud_scalar(
     }
 }
 
+/// Renders a single horizontal scanline with combined texture mapping and gouraud shading.
+///
+/// Modulates the sampled texture color against the interpolated vertex lighting color.
+/// Crucial for rendering textured objects with diffuse/specular lighting.
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
 pub fn draw_scanline_textured_gouraud(

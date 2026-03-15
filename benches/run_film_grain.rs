@@ -1,3 +1,7 @@
+//! Benchmark binary for `FilmGrain` post-processing.
+//!
+//! Provides a baseline metric for iterating on pixel shader effects.
+
 use abrash::framebuffer::Framebuffer;
 use abrash::post_process::filters::{FilmGrainConfig, apply_film_grain};
 use std::time::Instant;
