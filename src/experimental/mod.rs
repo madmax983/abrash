@@ -58,6 +58,7 @@ pub mod sharpen;
 pub mod ssao;
 pub mod swirl;
 pub mod thermal;
+pub mod vignette;
 pub mod vision;
 pub mod volume;
 pub mod voronoi;

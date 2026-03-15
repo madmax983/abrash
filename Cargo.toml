@@ -500,6 +500,16 @@ name = "swirl_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "vignette_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "vignette_demo"
+path = "examples/vignette_demo.rs"
+required-features = ["nova"]
+
 [[example]]
 name = "swirl_demo"
 path = "examples/swirl_demo.rs"
