@@ -436,8 +436,18 @@ harness = false
 required-features = ["nova"]
 
 [[example]]
+name = "chromatic_aberration_demo"
+path = "examples/chromatic_aberration_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "directional_blur_demo"
 path = "examples/directional_blur_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "chromatic_aberration_bench"
+harness = false
 required-features = ["nova"]
 
 [[bench]]
