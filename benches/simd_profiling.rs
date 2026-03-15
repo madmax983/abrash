@@ -1,3 +1,6 @@
+//! Profiling suite for assessing SIMD performance improvements against
+//! baseline scalar rasterization loops in high-density mesh scenarios.
+
 use abrash::{
     framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, rasterizer::TileRenderer,
     zbuffer::ZBuffer,

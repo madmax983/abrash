@@ -171,6 +171,13 @@ pub fn pack_color_fixed_i32(c: (i32, i32, i32)) -> u32 {
     pack_color_channels(r, g, b)
 }
 
+/// SIMD Within A Register (SWAR) color blending optimization.
+///
+/// Blends two 32-bit colors (ARGB) using an 8-bit alpha weight, processing
+/// 8 pixels simultaneously using AVX2 instructions.
+///
+/// # Safety
+/// Caller must ensure the CPU supports AVX2 features.
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[target_feature(enable = "avx2")]
 #[inline]

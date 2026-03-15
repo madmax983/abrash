@@ -48,6 +48,22 @@ impl Default for BloomConfig {
     }
 }
 
+/// Applies a threshold-based bloom filter to the current framebuffer.
+///
+/// This simulates the physical phenomenon of light bleeding in camera lenses.
+/// Bright pixels (intensity > 1.0 threshold) are extracted, heavily blurred,
+/// and additively blended back onto the original image.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::bloom::{BloomConfig, apply_bloom};
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let config = BloomConfig::default();
+/// apply_bloom(&mut fb, &config);
+/// ```
 pub fn apply_bloom(fb: &mut Framebuffer, config: &BloomConfig) {
     if config.blur_radius == 0 || config.intensity <= 0.0 {
         return;
