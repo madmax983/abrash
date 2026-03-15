@@ -274,28 +274,37 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
             // Copy current row to scratch buffer
             row_scratch.copy_from_slice(row_pixels);
 
-            // Scalar implementation: Iterate x
-            for (x, dest_pixel) in row_pixels.iter_mut().enumerate() {
-                // Green (G) from current pixel
+            // Scalar implementation: Split loops to eliminate inner-loop bounds checks and conditions
+
+            // 1. Left Edge (x < offset): R is out of bounds (0)
+            let left_limit = offset.min(width);
+            for x in 0..left_limit {
                 let g = (row_scratch[x] >> 8) & 0xFF;
-                // Alpha (A) from current pixel
                 let a = (row_scratch[x] >> 24) & 0xFF;
+                let r = 0;
+                let b = if x + offset < width { row_scratch[x + offset] & 0xFF } else { 0 };
+                row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
 
-                // Red (R) from left (x - offset)
-                let r = if x >= offset {
-                    (row_scratch[x - offset] >> 16) & 0xFF
-                } else {
-                    0
-                };
+            // 2. Middle (offset <= x < width - offset): Both R and B are in bounds
+            if width > offset {
+                let right_limit = width.saturating_sub(offset).max(left_limit);
+                for x in left_limit..right_limit {
+                    let g = (row_scratch[x] >> 8) & 0xFF;
+                    let a = (row_scratch[x] >> 24) & 0xFF;
+                    let r = (row_scratch[x - offset] >> 16) & 0xFF;
+                    let b = row_scratch[x + offset] & 0xFF;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
 
-                // Blue (B) from right (x + offset)
-                let b = if x.saturating_add(offset) < width {
-                    row_scratch[x + offset] & 0xFF
-                } else {
-                    0
-                };
-
-                *dest_pixel = (a << 24) | (r << 16) | (g << 8) | b;
+                // 3. Right Edge (width - offset <= x < width): B is out of bounds (0)
+                for x in right_limit..width {
+                    let g = (row_scratch[x] >> 8) & 0xFF;
+                    let a = (row_scratch[x] >> 24) & 0xFF;
+                    let r = (row_scratch[x - offset] >> 16) & 0xFF;
+                    let b = 0;
+                    row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
             }
         }
     });
