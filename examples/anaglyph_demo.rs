@@ -15,16 +15,6 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
 
-// Face colors for the cube
-const COLORS: [u32; 6] = [
-    0xFFFF_0000, // Red - front
-    0xFF00_FF00, // Green - back
-    0xFF00_00FF, // Blue - top
-    0xFFFF_FF00, // Yellow - bottom
-    0xFFFF_00FF, // Magenta - right
-    0xFF00_FFFF, // Cyan - left
-];
-
 fn print_banner() {
     println!("\n{}", "👓 Anaglyph 3D Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
