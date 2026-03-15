@@ -109,6 +109,11 @@
 **Fate:** Merged
 **Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift efficiently prevents recursive lookbacks and allows for perfect row-by-row parallelization.
 
+## [Vignette Filter]
+**Concept:** A retro post-processing effect that darkens the edges of the screen, creating a cinematic or CRT-like focus towards the center.
+**Fate:** Implemented
+**Lesson:** Treating distance in UV coordinate space (0.0 to 1.0) instead of raw pixels simplifies aspect-ratio scaling for elliptical vignettes. Precalculating inverse dimensions and using fast smoothstep equations (`3t^2 - 2t^3`) significantly optimizes the inner loop when parallelized with Rayon.
+
 ## [Voronoi Filter]
 **Concept:** A post-processing effect that calculates distance from random seeds to create a stained-glass or cellular look. Features configurable metric distance (Euclidean vs Manhattan) and border outlines based on distance comparisons.
 **Fate:** Implemented
