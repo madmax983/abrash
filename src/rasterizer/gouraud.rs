@@ -813,6 +813,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::decimal_bitwise_operands)]
     fn draw_scanline_gouraud_interpolation() {
         let width = 100;
         let height = 1;
@@ -827,11 +828,11 @@ mod tests {
         draw_scanline_gouraud(&mut fb, &mut zb, 0, 0, 99, z_start, c_start, dz_dx, dc_dx);
 
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 50);
+        assert_eq!(p0, 0xFF00_0000 | (0xC8 << 16) | 0x32);
         let p50 = fb.get_pixel(50, 0).unwrap();
-        assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50);
+        assert_eq!(p50, 0xFF00_0000 | (0x96 << 16) | (0x32 << 8) | 0x32);
         let p99 = fb.get_pixel(99, 0).unwrap();
-        assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 50);
+        assert_eq!(p99, 0xFF00_0000 | (0x65 << 16) | (0x63 << 8) | 0x32);
 
         let zb_slice = zb.as_slice();
         assert!((zb_slice[0] - 5.0).abs() < 0.0001);

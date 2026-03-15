@@ -1,0 +1,1771 @@
+   Compiling abrash v0.1.0 (/app)
+error: long literal lacking separators
+   --> src/math.rs:359:21
+    |
+359 |         if len_sq > 0.00000001 {
+    |                     ^^^^^^^^^^ help: consider: `0.000_000_01`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+    = note: `-D clippy::unreadable-literal` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unreadable_literal)]`
+
+error: long literal lacking separators
+   --> src/rasterizer/core.rs:188:34
+    |
+188 |     let mask = _mm256_set1_epi32(0x00FF00FF);
+    |                                  ^^^^^^^^^^ help: consider: `0x00FF_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/rasterizer/pbr.rs:284:30
+    |
+284 |     constants.a2 / denom.max(0.0000001)
+    |                              ^^^^^^^^^ help: consider: `0.000_000_1`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/rasterizer/pbr.rs:291:21
+    |
+291 |     nom / denom.max(0.0000001)
+    |                     ^^^^^^^^^ help: consider: `0.000_000_1`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/tile.rs:3624:40
+     |
+3624 | ...[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+     |                 ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/tile.rs:3691:22
+     |
+3691 |             *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
+     |                      ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/heat_vision.rs:57:18
+   |
+57 |             *p = 0xFF000020; // Dark Blue
+   |                  ^^^^^^^^^^ help: consider: `0xFF00_0020`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/heat_vision.rs:68:22
+   |
+68 |             *pixel = 0xFF000010; // Very Dark Blue Background
+   |                      ^^^^^^^^^^ help: consider: `0xFF00_0010`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:103:18
+    |
+103 |         *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+    |                  ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/filters.rs:578:77
+    |
+578 | ....wrapping_mul(0x9E3779B9));
+    |                  ^^^^^^^^^^ help: consider: `0x9E37_79B9`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/filters.rs:585:44
+    |
+585 |                     lcg = lcg.wrapping_add(0x12345678);
+    |                                            ^^^^^^^^^^ help: consider: `0x1234_5678`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:562:20
+    |
+562 |     let mut seed = 123456789;
+    |                    ^^^^^^^^^ help: consider: `123_456_789`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:585:20
+    |
+585 |     let mut seed = 987654321;
+    |                    ^^^^^^^^^ help: consider: `987_654_321`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:641:31
+    |
+641 |     *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+    |                               ^^^^^^^ help: consider: `1_664_525`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:641:53
+    |
+641 |     *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+    |                                                     ^^^^^^^^^^ help: consider: `1_013_904_223`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/ssao.rs:642:27
+    |
+642 |     (*seed >> 9) as f32 / 8388607.0
+    |                           ^^^^^^^^^ help: consider: `8_388_607.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/skybox.rs:62:20
+   |
+62 |             return 0xFF000000;
+   |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:241:22
+    |
+241 |             0 => p ^ 0x00FFFFFF, // Invert color
+    |                      ^^^^^^^^^^ help: consider: `0x00FF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:242:22
+    |
+242 |             1 => p | 0x00FF0000, // Red tint
+    |                      ^^^^^^^^^^ help: consider: `0x00FF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:243:22
+    |
+243 |             2 => p & 0xFF00FF00, // Mask out Red and Blue (Green only)
+    |                      ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:256:28
+    |
+256 |         fb.set_pixel(5, 5, 0xAABBCCDD);
+    |                            ^^^^^^^^^^ help: consider: `0xAABB_CCDD`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+    = note: `-D clippy::unreadable-literal` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unreadable_literal)]`
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:257:45
+    |
+257 |         assert_eq!(fb.get_pixel(5, 5), Some(0xAABBCCDD));
+    |                                             ^^^^^^^^^^ help: consider: `0xAABB_CCDD`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:274:29
+    |
+274 |         fb.set_pixel(-1, 5, 0xFFFFFFFF);
+    |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:275:29
+    |
+275 |         fb.set_pixel(5, -1, 0xFFFFFFFF);
+    |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:276:29
+    |
+276 |         fb.set_pixel(10, 5, 0xFFFFFFFF);
+    |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:277:29
+    |
+277 |         fb.set_pixel(5, 10, 0xFFFFFFFF);
+    |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:290:18
+    |
+290 |         fb.clear(0x12345678);
+    |                  ^^^^^^^^^^ help: consider: `0x1234_5678`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:294:53
+    |
+294 |                 assert_eq!(fb.get_pixel(x, y), Some(0x12345678));
+    |                                                     ^^^^^^^^^^ help: consider: `0x1234_5678`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:303:35
+    |
+303 |         fb.clear_rect(2, 2, 3, 3, 0xFFFFFFFF);
+    |                                   ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:308:21
+    |
+308 |                     0xFFFFFFFF
+    |                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:322:35
+    |
+322 |         fb.clear_rect(8, 8, 5, 5, 0xFFFFFFFF);
+    |                                   ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:327:21
+    |
+327 |                     0xFFFFFFFF
+    |                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:341:37
+    |
+341 |         fb.clear_rect(-2, -2, 5, 5, 0xFFFFFFFF);
+    |                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:346:21
+    |
+346 |                     0xFFFFFFFF
+    |                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:360:37
+    |
+360 |         fb.clear_rect(15, 15, 5, 5, 0xFFFFFFFF);
+    |                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:158:20
+    |
+158 |             color: 0xFFFFFFFF,
+    |                    ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:361:39
+    |
+361 |         fb.clear_rect(-10, -10, 5, 5, 0xFFFFFFFF);
+    |                                       ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:223:31
+    |
+223 |             background_color: 0xFF101010, // Dark Grey
+    |                               ^^^^^^^^^^ help: consider: `0xFF10_1010`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:375:42
+    |
+375 |             fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
+    |                                          ^^^^^^^^^^ help: consider: `0xAABB_CCDD`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:376:54
+    |
+376 |             assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
+    |                                                      ^^^^^^^^^^ help: consider: `0xAABB_CCDD`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:501:28
+    |
+501 |         fb.set_pixel(0, 0, 0xFFFF0000); // R
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:502:28
+    |
+502 |         fb.set_pixel(1, 0, 0xFF00FF00); // G
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:503:28
+    |
+503 |         fb.set_pixel(0, 1, 0xFF0000FF); // B
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:504:28
+    |
+504 |         fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:432:20
+    |
+432 |             return 0xFF000000
+    |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:537:28
+    |
+537 |         fb.set_pixel(0, 0, 0xFFFF0000); // R
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:538:28
+    |
+538 |         fb.set_pixel(1, 0, 0xFF00FF00); // G
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:539:28
+    |
+539 |         fb.set_pixel(0, 1, 0xFF0000FF); // B
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:540:28
+    |
+540 |         fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:577:18
+    |
+577 |         fb.clear(0xFFFFFFFF); // White -> '@'
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/framebuffer.rs:593:18
+    |
+593 |         fb.clear(0xFFFF0000); // Red
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/sharpen.rs:87:32
+   |
+87 |             let a = center_c & 0xFF000000;
+   |                                ^^^^^^^^^^ help: consider: `0xFF00_0000`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/vision.rs:50:35
+   |
+50 |             state: if seed == 0 { 0xDEADBEEF } else { seed },
+   |                                   ^^^^^^^^^^ help: consider: `0xDEAD_BEEF`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/vision.rs:65:41
+   |
+65 |         (self.next_u32() >> 8) as f32 / 16777216.0
+   |                                         ^^^^^^^^^^ help: consider: `16_777_216.0`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:117:17
+    |
+117 | ...   0xFF000000 | ((val_clamped / 5) << 16) | (val_clamped << 8) | (va...
+    |       ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:130:25
+    |
+130 |             pixels[i] = 0xFF000000; // Background is black (Coldest)
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:183:5
+    |
+183 |     0xFF000000 | (r_byte << 16) | (g_byte << 8) | b_byte
+    |     ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:201:25
+    |
+201 |             pixels[i] = 0xFF000010; // Very dim blue background
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0010`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/math.rs:359:21
+    |
+359 |         if len_sq > 0.00000001 {
+    |                     ^^^^^^^^^^ help: consider: `0.000_000_01`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:211:25
+    |
+211 |             pixels[i] = 0xFF000000 | (val << 8) | val; // Cyan/Greenish
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:218:25
+    |
+218 |             pixels[i] = 0xFF000000 | (base << 8) | (base + 20);
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/voxel_explosion.rs:103:25
+    |
+103 |                         0xFFFFFFFF, // White by default
+    |                         ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1784:32
+     |
+1784 |         assert_eq!(sp_small.x, 2000400);
+     |                                ^^^^^^^ help: consider: `2_000_400`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1832:29
+     |
+1832 |         assert!(sp_inf.x == 2147483520);
+     |                             ^^^^^^^^^^ help: consider: `2_147_483_520`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1837:34
+     |
+1837 |         assert!(sp_neg_inf.x == -2147483520);
+     |                                  ^^^^^^^^^^ help: consider: `2_147_483_520`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1843:31
+     |
+1843 |         assert_eq!(sp_nan.x, -2147483520);
+     |                               ^^^^^^^^^^ help: consider: `2_147_483_520`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1849:32
+     |
+1849 |         assert_eq!(sp_large.x, 2147483520);
+     |                                ^^^^^^^^^^ help: consider: `2_147_483_520`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/math.rs:1983:40
+     |
+1983 |             (Vec3::new(1.0, 1.0, 1.0), 0.0000001, "Small w (epsilon)"),
+     |                                        ^^^^^^^^^ help: consider: `0.000_000_1`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4751:29
+     |
+4751 |         tex.set_pixel(0, 0, 0xFFFF0000);
+     |                             ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4752:29
+     |
+4752 |         tex.set_pixel(1, 0, 0xFF00FF00);
+     |                             ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4753:29
+     |
+4753 |         tex.set_pixel(0, 1, 0xFF0000FF);
+     |                             ^^^^^^^^^^ help: consider: `0xFF00_00FF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4754:29
+     |
+4754 |         tex.set_pixel(1, 1, 0xFFFFFFFF);
+     |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4790:13
+     |
+4790 |             0xFFFF0000,
+     |             ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4795:13
+     |
+4795 |             0xFFFF0000,
+     |             ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4800:13
+     |
+4800 |             0xFF00FF00,
+     |             ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4814:29
+     |
+4814 |         tex.set_pixel(0, 0, 0xFF000000);
+     |                             ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4815:29
+     |
+4815 |         tex.set_pixel(1, 0, 0xFFFFFFFF);
+     |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4909:37
+     |
+4909 |                 tex.set_pixel(x, y, 0xFFFFFFFF);
+     |                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4931:23
+     |
+4931 |         assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
+     |                       ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4946:25
+     |
+4946 |     tex.set_pixel(0, 0, 0xFF000000); // Black
+     |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4947:25
+     |
+4947 |     tex.set_pixel(1, 0, 0xFFFFFFFF); // White
+     |                         ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4948:25
+     |
+4948 |     tex.set_pixel(0, 1, 0xFFFFFFFF); // White
+     |                         ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:4949:25
+     |
+4949 |     tex.set_pixel(1, 1, 0xFF000000); // Black
+     |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:5007:33
+     |
+5007 |             tex.set_pixel(x, y, 0xFFFFFFFF);
+     |                                 ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/rasterizer/texture.rs:5016:18
+     |
+5016 |     let du_fix = 286331154; // Causes wrap around on 15 iterations: 28...
+     |                  ^^^^^^^^^ help: consider: `286_331_154`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/utils.rs:90:36
+   |
+90 |         assert_eq!(pixel_luminance(0xFF000000), 0);
+   |                                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/utils.rs:92:36
+   |
+92 | ...xel_luminance(0xFFFFFFFF), 255); // (77*255 + 150*255 + 29*255) >> 8 ...
+   |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/utils.rs:95:33
+   |
+95 |         let r = pixel_luminance(0xFFFF0000);
+   |                                 ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/utils.rs:100:33
+    |
+100 |         let g = pixel_luminance(0xFF00FF00);
+    |                                 ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/utils.rs:105:33
+    |
+105 |         let b = pixel_luminance(0xFF0000FF);
+    |                                 ^^^^^^^^^^ help: consider: `0xFF00_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/culling.rs:676:46
+    |
+676 | ...ed.wrapping_mul(1664525).wrapping_add(1013904223);
+    |                    ^^^^^^^ help: consider: `1_664_525`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/culling.rs:676:68
+    |
+676 | ...wrapping_add(1013904223);
+    |                 ^^^^^^^^^^ help: consider: `1_013_904_223`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:135:24
+    |
+135 |         assert_eq!(p0, 0xFFFF0000, "Closest pixel should be Red");
+    |                        ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:139:24
+    |
+139 |         assert_eq!(p4, 0xFF0000FF, "Furthest pixel should be Blue");
+    |                        ^^^^^^^^^^ help: consider: `0xFF00_00FF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:146:24
+    |
+146 |         assert_eq!(p2, 0xFF00FF00, "Middle pixel should be Green");
+    |                        ^^^^^^^^^^ help: consider: `0xFF00_FF00`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:154:28
+    |
+154 |         fb.set_pixel(0, 0, 0xFFFFFFFF); // White
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/heat_vision.rs:159:23
+    |
+159 | ...   assert_eq!(p, 0xFF000020, "Empty buffer should be background colo...
+    |                     ^^^^^^^^^^ help: consider: `0xFF00_0020`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: `#[ignore]` without reason
+   --> src/obj_loader.rs:592:5
+    |
+592 |     #[ignore]
+    |     ^^^^^^^^^
+    |
+    = help: add a reason with `= ".."`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#ignore_without_reason
+    = note: `-D clippy::ignore-without-reason` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::ignore_without_reason)]`
+
+error: `#[ignore]` without reason
+   --> src/obj_loader.rs:608:5
+    |
+608 |     #[ignore]
+    |     ^^^^^^^^^
+    |
+    = help: add a reason with `= ".."`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#ignore_without_reason
+
+error: long literal lacking separators
+   --> src/obj_loader.rs:717:57
+    |
+717 |         assert_eq!(fast_parse_usize(b"999999999"), Some(999999999));
+    |                                                         ^^^^^^^^^ help: consider: `999_999_999`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/obj_loader.rs:728:22
+    |
+728 |                 Some(9999999999999999999)
+    |                      ^^^^^^^^^^^^^^^^^^^ help: consider: `9_999_999_999_999_999_999`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/particles.rs:81:13
+   |
+81 |             0xFFFFFFFF,
+   |             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/particles.rs:105:13
+    |
+105 |             0xFFFFFFFF,
+    |             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1567:18
+     |
+1567 |         fb.clear(0xFFFFFFFF); // All White
+     |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1573:53
+     |
+1573 |             assert_eq!(fb.get_pixel(x, 0).unwrap(), 0xFFFFFFFF);
+     |                                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1578:24
+     |
+1578 |         let expected = 0xFF7F7F7F;
+     |                        ^^^^^^^^^^ help: consider: `0xFF7F_7F7F`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1589:53
+     |
+1589 |             assert_eq!(fb.get_pixel(x, 2).unwrap(), 0xFFFFFFFF);
+     |                                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1597:28
+     |
+1597 |         fb.set_pixel(0, 0, 0xFFFFFFFF);
+     |                            ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1615:28
+     |
+1615 |         fb.set_pixel(0, 0, 0xFFFF0000);
+     |                            ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: `#[ignore]` without reason
+    --> src/post_process/filters.rs:1703:5
+     |
+1703 |     #[ignore]
+     |     ^^^^^^^^^
+     |
+     = help: add a reason with `= ".."`
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#ignore_without_reason
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1768:28
+     |
+1768 |         fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+     |                            ^^^^^^^^^^ help: consider: `0xFF80_8080`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1769:28
+     |
+1769 |         fb.set_pixel(1, 0, 0xFF404040); // Dark Gray (64)
+     |                            ^^^^^^^^^^ help: consider: `0xFF40_4040`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1770:28
+     |
+1770 |         fb.set_pixel(2, 0, 0xFFC0C0C0); // Light Gray (192)
+     |                            ^^^^^^^^^^ help: consider: `0xFFC0_C0C0`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1825:18
+     |
+1825 |         fb.clear(0xFFF0F0F0);
+     |                  ^^^^^^^^^^ help: consider: `0xFFF0_F0F0`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1854:18
+     |
+1854 |         fb.clear(0xFF0A0A0A);
+     |                  ^^^^^^^^^^ help: consider: `0xFF0A_0A0A`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+    --> src/post_process/filters.rs:1877:18
+     |
+1877 |         fb.clear(0xFF808080);
+     |                  ^^^^^^^^^^ help: consider: `0xFF80_8080`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/dof.rs:192:18
+    |
+192 |         fb.clear(0xFFFFFFFF);
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/dof.rs:209:54
+    |
+209 |                     fb.set_pixel(x as i32, y as i32, 0xFF000000);
+    |                                                      ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/post_process/dof.rs:234:32
+    |
+234 |         let focus_pixel_orig = 0xFF000000; // (0,0) is black
+    |                                ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/scene.rs:286:53
+    |
+286 |         let obj = SceneObject::new(mesh, transform, 0xFFFFFFFF);
+    |                                                     ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/skybox.rs:236:27
+    |
+236 |             t.pixels[0] = 0xFFFFFFFF;
+    |                           ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/skybox.rs:254:27
+    |
+254 |         assert_eq!(color, 0xFFFFFFFF);
+    |                           ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/skybox.rs:258:27
+    |
+258 |         assert_eq!(color, 0xFF000000);
+    |                           ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:167:28
+    |
+167 |         fb.set_pixel(0, 0, 0xFFFFFFFF); // White pixel
+    |                            ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:168:28
+    |
+168 |         fb.set_pixel(1, 0, 0xFF000000); // Black pixels
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:169:28
+    |
+169 |         fb.set_pixel(2, 0, 0xFF000000);
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:170:28
+    |
+170 |         fb.set_pixel(3, 0, 0xFF000000);
+    |                            ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:185:23
+    |
+185 |         assert!(p0 != 0xFFFFFFFF);
+    |                       ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:186:23
+    |
+186 |         assert!(p0 != 0xFF000000);
+    |                       ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/directional_blur.rs:189:24
+    |
+189 |         assert_eq!(p1, 0xFF000000);
+    |                        ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/dither.rs:238:18
+    |
+238 |         fb.clear(0xFF808080);
+    |                  ^^^^^^^^^^ help: consider: `0xFF80_8080`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/dither.rs:276:25
+    |
+276 |             let color = 0xFF000000 | (val << 16) | (val << 8) | val;
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:256:18
+    |
+256 |         fb.clear(0xFFFFFFFF);
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:272:18
+    |
+272 |         fb.clear(0xFFFFFFFF); // White Background
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:275:33
+    |
+275 |             fb.set_pixel(10, y, 0xFF000000); // Black line at x=10
+    |                                 ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:292:25
+    |
+292 |                 && p != 0xFF000000
+    |                         ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:306:18
+    |
+306 |         fb.clear(0xFFFFFFFF); // White
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:335:18
+    |
+335 |         fb.clear(0xFF000000); // Black
+    |                  ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:339:36
+    |
+339 |                 fb.set_pixel(x, y, 0xFFFFFFFF);
+    |                                    ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/glitch.rs:353:44
+    |
+353 |             if (r != g || g != b) && *p != 0xFF000000 {
+    |                                            ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:163:18
+    |
+163 |         fb.clear(0xFFFFFFFF);
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:166:47
+    |
+166 |         assert_eq!(fb.get_pixel(50, 50), Some(0xFFFFFFFF));
+    |                                               ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:168:47
+    |
+168 |         assert_eq!(fb.get_pixel(50, 50), Some(0xFFFFFFFF));
+    |                                               ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:174:18
+    |
+174 |         fb.clear(0xFF000000); // Black
+    |                  ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:178:36
+    |
+178 |                 fb.set_pixel(x, y, 0xFFFFFFFF); // White bottom-right
+    |                                    ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kaleidoscope.rs:192:47
+    |
+192 |                 if fb.get_pixel(x, y) == Some(0xFFFFFFFF) {
+    |                                               ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/kuwahara.rs:274:22
+    |
+274 |             fb.clear(0xFFFFFFFF);
+    |                      ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:196:20
+    |
+196 |         let dark = 0xFF000000;
+    |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:197:21
+    |
+197 |         let b_mid = 0xFF808080; // Lum: ~128
+    |                     ^^^^^^^^^^ help: consider: `0xFF80_8080`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:198:21
+    |
+198 |         let b_low = 0xFF404040; // Lum: ~64
+    |                     ^^^^^^^^^^ help: consider: `0xFF40_4040`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:199:22
+    |
+199 |         let b_high = 0xFFC0C0C0; // Lum: ~192
+    |                      ^^^^^^^^^^ help: consider: `0xFFC0_C0C0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:229:20
+    |
+229 |         let dark = 0xFF000000;
+    |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:230:21
+    |
+230 |         let b_mid = 0xFF808080;
+    |                     ^^^^^^^^^^ help: consider: `0xFF80_8080`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:231:21
+    |
+231 |         let b_low = 0xFF404040;
+    |                     ^^^^^^^^^^ help: consider: `0xFF40_4040`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:232:22
+    |
+232 |         let b_high = 0xFFC0C0C0;
+    |                      ^^^^^^^^^^ help: consider: `0xFFC0_C0C0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:258:21
+    |
+258 |         let b_low = 0xFF404040;
+    |                     ^^^^^^^^^^ help: consider: `0xFF40_4040`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:259:21
+    |
+259 |         let b_mid = 0xFF808080;
+    |                     ^^^^^^^^^^ help: consider: `0xFF80_8080`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/pixel_sort.rs:260:22
+    |
+260 |         let b_high = 0xFFC0C0C0;
+    |                      ^^^^^^^^^^ help: consider: `0xFFC0_C0C0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/posterize.rs:57:28
+   |
+57 |         fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
+   |                            ^^^^^^^^^^ help: consider: `0xFF80_8080`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/posterize.rs:58:28
+   |
+58 |         fb.set_pixel(1, 0, 0xFF707070); // Slightly darker gray (112)
+   |                            ^^^^^^^^^^ help: consider: `0xFF70_7070`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/posterize.rs:72:28
+   |
+72 |         fb.set_pixel(0, 0, 0xFF6E6E6E); // 110
+   |                            ^^^^^^^^^^ help: consider: `0xFF6E_6E6E`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/posterize.rs:73:28
+   |
+73 |         fb.set_pixel(1, 0, 0xFF787878); // 120
+   |                            ^^^^^^^^^^ help: consider: `0xFF78_7878`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+  --> src/experimental/posterize.rs:82:24
+   |
+82 | ...   assert_eq!(p1, 0xFF555555, "Should be quantized to exactly 85 (0x5...
+   |                      ^^^^^^^^^^ help: consider: `0xFF55_5555`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:475:31
+    |
+475 |             background_color: 0xFF123456,
+    |                               ^^^^^^^^^^ help: consider: `0xFF12_3456`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:494:57
+    |
+494 |                 assert_eq!(fb.get_pixel(x, y).unwrap(), 0xFF123456);
+    |                                                         ^^^^^^^^^^ help: consider: `0xFF12_3456`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:502:31
+    |
+502 |             background_color: 0xFF000000,
+    |                               ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:526:19
+    |
+526 |         let red = 0xFFFF0000;
+    |                   ^^^^^^^^^^ help: consider: `0xFFFF_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/raytracer.rs:537:20
+    |
+537 |             pixel, 0xFF000000,
+    |                    ^^^^^^^^^^ help: consider: `0xFF00_0000`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:235:18
+    |
+235 |         fb.clear(0xFFFFFFFF); // White
+    |                  ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/vision.rs:246:45
+    |
+246 |         assert_eq!(fb.get_pixel(5, 5), Some(0xFFFFFFFF));
+    |                                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/experimental/voxel_explosion.rs:124:29
+    |
+124 |         texture.pixels[0] = 0xFFFFFFFF;
+    |                             ^^^^^^^^^^ help: consider: `0xFFFF_FFFF`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> src/framebuffer.rs:627:9
+    |
+627 |         use std::io::Write;
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+    = note: `-D clippy::items-after-statements` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::items_after_statements)]`
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> src/framebuffer.rs:649:9
+    |
+649 |         use std::io::Write;
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1114:13
+     |
+1114 |             use rayon::prelude::*;
+     |             ^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1117:13
+     |
+1117 |             const CHUNK_SIZE: usize = 4096;
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1286:5
+     |
+1286 |     const MAX_VAL: f32 = 2_147_483_520.0;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> src/math.rs:1287:5
+     |
+1287 |     const MIN_VAL: f32 = -2_147_483_520.0;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1399:26
+     |
+1399 |         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+     = note: `-D clippy::cast-ptr-alignment` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::cast_ptr_alignment)]`
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1400:26
+     |
+1400 |         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1500:26
+     |
+1500 |         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut i32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m128i`) (4 < 16 bytes)
+    --> src/math.rs:1501:26
+     |
+1501 |         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/platform/tui.rs:75:5
+   |
+75 |     pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+   = note: `-D clippy::missing-errors-doc` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::missing_errors_doc)]`
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+  --> src/rasterizer/flat.rs:57:30
+   |
+57 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/flat.rs:172:30
+    |
+172 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/gouraud.rs:102:30
+    |
+102 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/gouraud.rs:247:30
+    |
+247 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/phong.rs:303:30
+    |
+303 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+   --> src/rasterizer/phong.rs:558:30
+    |
+558 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/phong.rs:1685:30
+     |
+1685 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: all if blocks contain the same code at the start
+    --> src/rasterizer/texture.rs:1031:21
+     |
+1031 | /                     let idx = if is_pot {
+...    |
+1036 | |                         let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+1037 | |                         let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+     | |_________________________________________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#branches_sharing_code
+     = note: `-D clippy::branches-sharing-code` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::branches_sharing_code)]`
+help: consider moving these statements before the if
+     |
+1031 ~                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+1032 +                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+1033 +                     let idx = if is_pot {
+     |
+
+error: all if blocks contain the same code at the start
+    --> src/rasterizer/texture.rs:3699:17
+     |
+3699 | /                 let idx = if is_pot {
+3700 | |                     let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+3701 | |                     let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+     | |_____________________________________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#branches_sharing_code
+help: consider moving these statements before the if
+     |
+3699 ~                 let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+3700 +                 let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
+3701 +                 let idx = if is_pot {
+     |
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/texture.rs:3754:34
+     |
+3754 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: casting from `*mut u32` to a more-strictly-aligned pointer (`*mut std::arch::x86_64::__m256i`) (4 < 32 bytes)
+    --> src/rasterizer/texture.rs:3766:34
+     |
+3766 | ...   let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_ptr_alignment
+
+error: used underscore-prefixed binding
+   --> src/post_process/filters.rs:550:8
+    |
+550 |     if _width == 0 {
+    |        ^^^^^^
+    |
+note: binding is defined here
+   --> src/post_process/filters.rs:549:9
+    |
+549 |     let _width = fb.width() as usize;
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#used_underscore_binding
+    = note: `-D clippy::used-underscore-binding` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::used_underscore_binding)]`
+
+error: used underscore-prefixed binding
+   --> src/post_process/filters.rs:569:35
+    |
+569 |             .par_chunks_exact_mut(_width)
+    |                                   ^^^^^^
+    |
+note: binding is defined here
+   --> src/post_process/filters.rs:549:9
+    |
+549 |     let _width = fb.width() as usize;
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#used_underscore_binding
+
+error: used underscore-prefixed binding
+   --> src/post_process/filters.rs:572:38
+    |
+572 |                 let row_offset = y * _width;
+    |                                      ^^^^^^
+    |
+note: binding is defined here
+   --> src/post_process/filters.rs:549:9
+    |
+549 |     let _width = fb.width() as usize;
+    |         ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#used_underscore_binding
+
+error: first doc comment paragraph is too long
+  --> src/experimental/crepuscular.rs:48:1
+   |
+48 | / /// Bolt Performance Optimization:
+49 | | /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to e...
+50 | | /// remainder chunk handling and bounds checking, enabling better vect...
+51 | | /// and measurable performance improvements.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+   = note: `-D clippy::too-long-first-doc-paragraph` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::too_long_first_doc_paragraph)]`
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+  --> src/experimental/crt.rs:46:5
+   |
+46 |     use std::cell::RefCell;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: first doc comment paragraph is too long
+  --> src/experimental/directional_blur.rs:41:1
+   |
+41 | / /// Bolt Performance Optimization:
+42 | | /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to e...
+43 | | /// remainder chunk handling and bounds checking, enabling better vect...
+44 | | /// and measurable performance improvements.
+...  |
+48 | | /// remainder chunk handling and bounds checking, enabling better vect...
+49 | | /// and measurable performance improvements.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+
+error: first doc comment paragraph is too long
+  --> src/experimental/edge_glow.rs:43:1
+   |
+43 | / /// Bolt Performance Optimization:
+44 | | /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to e...
+45 | | /// remainder chunk handling and bounds checking, enabling better vect...
+46 | | /// and measurable performance improvements.
+...  |
+50 | | /// remainder chunk handling and bounds checking, enabling better vect...
+51 | | /// and measurable performance improvements.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+
+error: first doc comment paragraph is too long
+  --> src/experimental/pixel_sort.rs:42:1
+   |
+42 | / /// Bolt Performance Optimization:
+43 | | /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to e...
+44 | | /// remainder chunk handling and bounds checking, enabling better vect...
+45 | | /// and measurable performance improvements.
+...  |
+49 | | /// remainder chunk handling and bounds checking, enabling better vect...
+50 | | /// and measurable performance improvements.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+
+error: could not compile `abrash` (lib) due to 63 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1774:9
+     |
+1774 |         assert_eq!(sp.inv_w, 1.0);
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: `-D clippy::float-cmp` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::float_cmp)]`
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1792:9
+     |
+1792 |         assert_eq!(sp_neg.inv_w, -1.0);
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1800:9
+     |
+1800 |         assert_eq!(n.x, 0.0);
+     |         ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1801:9
+     |
+1801 |         assert_eq!(n.y, 0.0);
+     |         ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1802:9
+     |
+1802 |         assert_eq!(n.z, 0.0);
+     |         ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: strict comparison of `f32` or `f64`
+    --> src/math.rs:1807:9
+     |
+1807 |         assert_eq!(n_small.x, 1e-5);
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+     = note: this error originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: using decimal literal for bitwise operation
+   --> src/rasterizer/gouraud.rs:830:52
+    |
+830 |         assert_eq!(p0, 0xFF00_0000 | (200 << 16) | 50);
+    |                                                    ^^
+    |
+    = help: use binary (0b11_0010), hex (0x0032), or octal (0o62) notation for better readability
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#decimal_bitwise_operands
+    = note: `-D clippy::decimal-bitwise-operands` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::decimal_bitwise_operands)]`
+
+error: using decimal literal for bitwise operation
+   --> src/rasterizer/gouraud.rs:832:65
+    |
+832 |         assert_eq!(p50, 0xFF00_0000 | (150 << 16) | (50 << 8) | 50);
+    |                                                                 ^^
+    |
+    = help: use binary (0b11_0010), hex (0x0032), or octal (0o62) notation for better readability
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#decimal_bitwise_operands
+
+error: using decimal literal for bitwise operation
+   --> src/rasterizer/gouraud.rs:834:65
+    |
+834 |         assert_eq!(p99, 0xFF00_0000 | (101 << 16) | (99 << 8) | 50);
+    |                                                                 ^^
+    |
+    = help: use binary (0b11_0010), hex (0x0032), or octal (0o62) notation for better readability
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#decimal_bitwise_operands
+
+error: could not compile `abrash` (lib test) due to 209 previous errors

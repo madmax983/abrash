@@ -529,7 +529,27 @@ pub fn clip_line_to_frustum<V: Copy>(
     Some((curr_v0, curr_v1))
 }
 
-// Keep the old function for now if needed, or deprecate.
+/// Clips a single triangle against the camera's near plane (w = 0.001).
+///
+/// Ensures vertices behind the camera do not project to invalid screen coordinates.
+/// Returns either 0, 1, or 2 new triangles that make up the visible portion.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::math::Vec4;
+/// use abrash::clipping::clip_triangle_against_near_plane;
+///
+/// let v0 = Vec4::new(0.0, 0.0, -1.0, -1.0); // Behind camera
+/// let v1 = Vec4::new(1.0, 0.0, 1.0, 1.0);   // In front
+/// let v2 = Vec4::new(-1.0, 0.0, 1.0, 1.0);  // In front
+///
+/// let clipped = clip_triangle_against_near_plane(
+///     v0, v1, v2,
+///     |v| v.w,
+///     |a, b, t| a.lerp(b, t)
+/// );
+/// ```
 pub fn clip_triangle_against_near_plane<V: Copy>(
     v0: V,
     v1: V,

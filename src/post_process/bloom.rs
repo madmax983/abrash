@@ -48,6 +48,22 @@ impl Default for BloomConfig {
     }
 }
 
+/// Applies a threshold-based bloom filter to the current framebuffer.
+///
+/// This simulates the physical phenomenon of light bleeding in camera lenses.
+/// Bright pixels (intensity > 1.0 threshold) are extracted, heavily blurred,
+/// and additively blended back onto the original image.
+///
+/// # Examples
+///
+/// ```
+/// use abrash::framebuffer::Framebuffer;
+/// use abrash::post_process::bloom::{BloomConfig, apply_bloom};
+///
+/// let mut fb = Framebuffer::new(800, 600).unwrap();
+/// let config = BloomConfig::default();
+/// apply_bloom(&mut fb, &config);
+/// ```
 pub fn apply_bloom(fb: &mut Framebuffer, config: &BloomConfig) {
     if config.blur_radius == 0 || config.intensity <= 0.0 {
         return;
@@ -253,18 +269,33 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
         let d_val = *d;
         let s_val = *s;
 
-        let r_d = (d_val >> 16) & 0xFF;
-        let g_d = (d_val >> 8) & 0xFF;
-        let b_d = d_val & 0xFF;
+        // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
+        // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
+        // Using u64 for intermediate math to prevent overflow when intensity_scale > 1.0 (>= 256).
+        let d_rb = u64::from(d_val & 0x00FF00FF);
+        let d_g = u64::from(d_val & 0x0000FF00);
 
-        let r_s = (s_val >> 16) & 0xFF;
-        let g_s = (s_val >> 8) & 0xFF;
-        let b_s = s_val & 0xFF;
+        let s_rb = u64::from(s_val & 0x00FF00FF);
+        let s_g = u64::from(s_val & 0x0000FF00);
 
-        // Additive blend: dest + src * intensity
-        let r_new = (r_d + ((r_s * intensity_scale) >> 8)).min(255);
-        let g_new = (g_d + ((g_s * intensity_scale) >> 8)).min(255);
-        let b_new = (b_d + ((b_s * intensity_scale) >> 8)).min(255);
+        let intensity_scale_u64 = u64::from(intensity_scale);
+
+        let s_rb_scaled = ((s_rb * intensity_scale_u64) >> 8) & 0x00FF00FF;
+        let s_g_scaled = ((s_g * intensity_scale_u64) >> 8) & 0x0000FF00;
+
+        // Extract scaled channels (safe to cast back to u32 as mask guarantees bounds)
+        let r_s_scaled = (s_rb_scaled >> 16) as u32;
+        let g_s_scaled = (s_g_scaled >> 8) as u32;
+        let b_s_scaled = (s_rb_scaled & 0xFF) as u32;
+
+        let r_d = ((d_rb >> 16) & 0xFF) as u32;
+        let g_d = ((d_g >> 8) & 0xFF) as u32;
+        let b_d = (d_rb & 0xFF) as u32;
+
+        // Additive blend with saturation
+        let r_new = (r_d + r_s_scaled).min(255);
+        let g_new = (g_d + g_s_scaled).min(255);
+        let b_new = (b_d + b_s_scaled).min(255);
 
         *d = (d_val & 0xFF00_0000) | (r_new << 16) | (g_new << 8) | b_new;
     }

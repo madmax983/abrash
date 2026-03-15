@@ -68,10 +68,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 /// * `zb` - The depth buffer (source of geometry).
 /// * `proj` - The projection matrix used to render the scene.
 /// * `config` - Configuration for the SSAO effect.
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &SsaoConfig) {
     if fb.width() != zb.width() || fb.height() != zb.height() {
         return;

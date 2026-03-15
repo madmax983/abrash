@@ -94,13 +94,13 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// ```
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
-    let _height = fb.height() as usize;
+    let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
 
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { simd::apply_scanlines_avx2(pixels, width, _height) };
+            unsafe { simd::apply_scanlines_avx2(pixels, width, height) };
             return;
         }
     }
@@ -247,7 +247,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
         return;
     }
     let width = fb.width() as usize;
-    let _height = fb.height() as usize;
+    let height = fb.height() as usize;
     let offset = offset as usize;
 
     let pixels = fb.as_mut_slice();
@@ -255,7 +255,7 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {
         if std::is_x86_feature_detected!("avx2") {
-            unsafe { simd::apply_chromatic_aberration_avx2(pixels, width, _height, offset) };
+            unsafe { simd::apply_chromatic_aberration_avx2(pixels, width, height, offset) };
             return;
         }
     }
@@ -593,16 +593,16 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
                     // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
                     let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
-                    let a = *p & 0xFF00_0000;
-                    let r = ((*p >> 16) & 0xFF) as i32;
-                    let g = ((*p >> 8) & 0xFF) as i32;
-                    let b = (*p & 0xFF) as i32;
+                    let p_val = *p;
+                    let rb = p_val & 0x00FF00FF;
+                    let g = p_val & 0x0000FF00;
 
-                    let nr = (r + noise_delta).clamp(0, 255) as u32;
-                    let ng = (g + noise_delta).clamp(0, 255) as u32;
-                    let nb = (b + noise_delta).clamp(0, 255) as u32;
+                    // ⚡ Bolt: SWAR + `u64` prevents inner-loop float conversions and bounds-checking overhead.
+                    let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
+                    let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
+                    let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
 
-                    *p = a | (nr << 16) | (ng << 8) | nb;
+                    *p = (p_val & 0xFF000000) | (nr << 16) | (ng << 8) | nb;
                 }
             });
     }
@@ -620,16 +620,15 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             let noise = (state & 0xFF) as i32;
             let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
-            let a = *p & 0xFF00_0000;
-            let r = ((*p >> 16) & 0xFF) as i32;
-            let g = ((*p >> 8) & 0xFF) as i32;
-            let b = (*p & 0xFF) as i32;
+            let p_val = *p;
+            let rb = p_val & 0x00FF00FF;
+            let g = p_val & 0x0000FF00;
 
-            let nr = (r + noise_delta).clamp(0, 255) as u32;
-            let ng = (g + noise_delta).clamp(0, 255) as u32;
-            let nb = (b + noise_delta).clamp(0, 255) as u32;
+            let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
+            let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
+            let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
 
-            *p = a | (nr << 16) | (ng << 8) | nb;
+            *p = (p_val & 0xFF000000) | (nr << 16) | (ng << 8) | nb;
         }
     }
 }
@@ -1842,10 +1841,12 @@ mod tests {
             let g = (p >> 8) & 0xFF;
             let b = p & 0xFF;
 
-            // Check that the clamping to 255 actually worked when it overflowed
-            assert!(r <= 255, "Red channel was clamped properly");
-            assert!(g <= 255, "Green channel was clamped properly");
-            assert!(b <= 255, "Blue channel was clamped properly");
+            // Check that the clamping to 255 actually worked when it overflowed.
+            // Since max_noise_shift for intensity 0.5 is 128, delta is [-64, 63].
+            // Base was 240. So values should be between 240 - 64 = 176 and 255 (clamped)
+            assert!(r >= 176 && r <= 255, "Red channel was clamped properly: {}", r);
+            assert!(g >= 176 && g <= 255, "Green channel was clamped properly: {}", g);
+            assert!(b >= 176 && b <= 255, "Blue channel was clamped properly: {}", b);
 
             if r != 240 || g != 240 || b != 240 {
                 changed = true;
@@ -1863,6 +1864,12 @@ mod tests {
             let r = (p >> 16) & 0xFF;
             let g = (p >> 8) & 0xFF;
             let b = p & 0xFF;
+
+            // Base was 10. Delta is [-64, 63].
+            // Values should be between 0 (clamped) and 10 + 63 = 73
+            assert!(r <= 73, "Red channel was clamped properly: {}", r);
+            assert!(g <= 73, "Green channel was clamped properly: {}", g);
+            assert!(b <= 73, "Blue channel was clamped properly: {}", b);
 
             if r != 10 || g != 10 || b != 10 {
                 changed = true;

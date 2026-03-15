@@ -138,10 +138,7 @@ impl Palette {
 /// // ... render scene ...
 /// apply_palette(&mut fb, &Palette::gameboy());
 /// ```
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_palette(fb: &mut Framebuffer, palette: &Palette) {
     if palette.colors.is_empty() {
         return;

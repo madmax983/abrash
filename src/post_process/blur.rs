@@ -13,6 +13,10 @@ use rayon::prelude::*;
 /// * `acc_buffer` - Scratch buffer for vertical pass accumulators.
 /// * `width` - Width of the buffer.
 /// * `height` - Height of the buffer.
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_f32(
     src: &mut [f32],
     dest: &mut [f32],
@@ -20,6 +24,10 @@ pub fn box_blur_f32(
     width: usize,
     height: usize,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }
@@ -58,9 +66,9 @@ fn box_blur_f32_horizontal_scalar(
     // If width is too small, fallback to checked loop
     if width <= 2 * radius + 1 {
         #[cfg(feature = "parallel")]
-        let iter = dest.par_chunks_exact_mut(width).enumerate();
+        let iter = dest.par_chunks_mut(width).enumerate();
         #[cfg(not(feature = "parallel"))]
-        let iter = dest.chunks_exact_mut(width).enumerate();
+        let iter = dest.chunks_mut(width).enumerate();
 
         iter.for_each(|(y, dest_row)| {
             let row_start = y * width;
@@ -87,9 +95,9 @@ fn box_blur_f32_horizontal_scalar(
     }
 
     #[cfg(feature = "parallel")]
-    let iter = dest.par_chunks_exact_mut(width).enumerate();
+    let iter = dest.par_chunks_mut(width).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let iter = dest.chunks_exact_mut(width).enumerate();
+    let iter = dest.chunks_mut(width).enumerate();
 
     iter.for_each(|(y, dest_row)| {
         let row_start = y * width;
@@ -278,6 +286,10 @@ unsafe fn box_blur_f32_vertical_avx2(
 /// // The exact values depend on clamp-to-edge logic and integer scaling.
 /// assert!(dest[1] != 0xFFFFFFFF);
 /// ```
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_horizontal(
     src: &[u32],
     dest: &mut [u32],
@@ -285,6 +297,10 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }
@@ -302,10 +318,10 @@ pub fn box_blur_horizontal(
     {
         // Suppress unused variable warning for height if parallel is active
         let _ = height;
-        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+        // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_mut(width)` to eliminate
         // remainder chunk handling and bounds checking, providing a measurable performance improvement
         // when iterating row-by-row over a 1D slice representing a 2D grid.
-        dest.par_chunks_exact_mut(width)
+        dest.par_chunks_mut(width)
             .enumerate()
             .for_each(|(y, dst_row)| {
                 let row_offset = y * width;
@@ -415,6 +431,10 @@ fn process_row_horizontal(
 /// // The energy from the center white pixel is spread vertically.
 /// assert!(dest[1] != 0xFFFFFFFF);
 /// ```
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_vertical(
     src: &[u32],
     dest: &mut [u32],
@@ -423,6 +443,10 @@ pub fn box_blur_vertical(
     height: usize,
     radius: u32,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }

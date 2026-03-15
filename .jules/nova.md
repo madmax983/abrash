@@ -94,7 +94,22 @@
 **Fate:** Implemented
 **Lesson:** When implementing O(N^2) entity updates using parallel processing (like Rayon's `par_iter_mut`), avoid mutable aliasing errors by cloning the initial read-state (e.g., `let old_boids = self.boids.clone();`) and mapping over the mutable target array. Using `.hypot()` chained calls keeps distance calculations safe and clean.
 
+## [Water Ripple Filter]
+**Concept:** A post-processing effect that creates dynamic liquid surfaces by applying a radial sine-wave displacement to the framebuffer to simulate a water droplet ripple.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer is necessary for non-linear pixel displacement to avoid aliasing issues when parallelizing with Rayon. Replacing `round()` with fast float-to-int casts (`as i32`) prevents inner-loop bottlenecks when evaluating the sine waves per pixel.
+
 ## [Anaglyph 3D]
 **Concept:** A post-processing effect that generates stereoscopic 3D images by shifting the red channel horizontally based on Z-buffer depth.
 **Fate:** Implemented
 **Lesson:** Shifting color channels based on depth information requires a forward-write or careful reverse-lookup algorithm because multiple source pixels might attempt to shift their red value to the same destination pixel depending on depth layering. It is crucial to determine a "winning" pixel (e.g., the one closest to the camera) for each coordinate to avoid visual artifacts. Thread-local row buffers are required when processing with Rayon to safely access row data without reallocation overhead.
+
+## [Autostereogram Generator]
+**Concept:** A single-image stereogram (Magic Eye) generator from a depth map (ZBuffer).
+**Fate:** Merged
+**Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift efficiently prevents recursive lookbacks and allows for perfect row-by-row parallelization.
+
+## [Voronoi Filter]
+**Concept:** A post-processing effect that calculates distance from random seeds to create a stained-glass or cellular look. Features configurable metric distance (Euclidean vs Manhattan) and border outlines based on distance comparisons.
+**Fate:** Implemented
+**Lesson:** Generalizing Minkowski distance with arbitrary exponents inside a tight per-pixel loop using `powf` is very slow. Implementing fast paths for `metric == 1.0` and `metric == 2.0` avoids exponentiation and greatly speeds up the effect. Computing border thickness accurately requires finding the difference between the closest and second-closest seed distances. Parallelization via Rayon makes processing the image row-by-row efficient.

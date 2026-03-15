@@ -40,15 +40,9 @@ impl Default for EdgeGlowConfig {
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 
-/// Bolt Performance Optimization:
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
 pub fn apply_edge_glow(fb: &mut Framebuffer, config: &EdgeGlowConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

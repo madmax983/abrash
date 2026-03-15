@@ -240,6 +240,9 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -290,9 +293,14 @@ impl Vec3 {
     /// // Perpendicular vectors
     /// assert_eq!(a.dot(c), 0.0);
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn dot(&self, other: Self) -> f32 {
+    pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
@@ -312,9 +320,14 @@ impl Vec3 {
     ///
     /// assert_eq!(z, Vec3::new(0.0, 0.0, 1.0));
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn cross(&self, other: Self) -> Self {
+    pub fn cross(self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
             y: self.z * other.x - self.x * other.z,
@@ -323,9 +336,14 @@ impl Vec3 {
     }
 
     /// Calculates the Euclidean length (magnitude) of the vector.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn length(&self) -> f32 {
+    pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
@@ -349,9 +367,14 @@ impl Vec3 {
     /// let tiny = Vec3::new(0.00001, 0.0, 0.0);
     /// assert_eq!(tiny.normalize(), tiny);
     /// ```
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn normalize(&self) -> Self {
+    pub fn normalize(self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
         // 0.0001^2 = 0.00000001
@@ -364,7 +387,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -372,9 +395,14 @@ impl Vec3 {
     ///
     /// This is faster than `normalize()` but slightly less accurate.
     /// Useful for lighting calculations where extreme precision is not required.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn fast_normalize(&self) -> Self {
+    pub fn fast_normalize(self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
             let inv_len = fast_inv_sqrt(len_sq);
@@ -384,7 +412,7 @@ impl Vec3 {
                 z: self.z * inv_len,
             }
         } else {
-            *self
+            self
         }
     }
 
@@ -392,9 +420,14 @@ impl Vec3 {
     ///
     /// Faster than `length()` as it avoids a square root operation.
     /// Useful for comparing distances.
+    ///
+    /// # Performance
+    ///
+    /// Passes `self` by value rather than reference to avoid pointer indirection
+    /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
-    pub fn length_sq(&self) -> f32 {
+    pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
@@ -402,19 +435,36 @@ impl Vec3 {
     ///
     /// The formula used is $v - 2 \cdot (v \cdot n) \cdot n$.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash::math::Vec3;
+    ///
+    /// let v = Vec3::new(1.0, -1.0, 0.0);
+    /// let n = Vec3::new(0.0, 1.0, 0.0);
+    /// let r = v.reflect(n);
+    ///
+    /// assert!((r.x - 1.0).abs() < 1e-6);
+    /// assert!((r.y - 1.0).abs() < 1e-6);
+    /// assert!(r.z.abs() < 1e-6);
+    /// ```
+    ///
     /// # Performance
     ///
-    /// This implementation manually unfolds scalar components to avoid intermediate struct
+    /// This implementation takes `self` by value rather than by reference to avoid pointer indirection
+    /// for a small struct. It also manually unfolds scalar components to avoid intermediate struct
     /// allocations and improve scalar instruction pipelining.
     #[must_use]
     #[inline]
     pub fn reflect(self, normal: Self) -> Self {
-        let dot = self.x * normal.x + self.y * normal.y + self.z * normal.z;
-        let factor = 2.0 * dot;
+        // Equivalent to `self - normal * (2.0 * self.dot(normal))`
+        // but manually unfolded to avoid intermediate Vec3 allocations
+        // and allow better scalar instruction pipelining.
+        let dot2 = 2.0 * (self.x * normal.x + self.y * normal.y + self.z * normal.z);
         Self {
-            x: self.x - factor * normal.x,
-            y: self.y - factor * normal.y,
-            z: self.z - factor * normal.z,
+            x: self.x - normal.x * dot2,
+            y: self.y - normal.y * dot2,
+            z: self.z - normal.z * dot2,
         }
     }
 
@@ -423,10 +473,7 @@ impl Vec3 {
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline]
-
-    /// Returns a new vector containing the minimum value for each component.
-
-    pub const fn min(&self, other: Self) -> Self {
+    pub const fn min(self, other: Self) -> Self {
         Self {
             x: self.x.min(other.x),
             y: self.y.min(other.y),
@@ -1759,6 +1806,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_project_to_screen_optimized_edge_cases() {
         let half_width = 400.0;
         let half_height = 300.0;
@@ -1770,7 +1818,7 @@ mod tests {
 
         // Expected behavior: inv_w = 1.0, so x = 100.0, y = 100.0
         // ndc_x = 100.0. screen_x = (100+1)*400 = 40400.
-        assert_eq!(sp.inv_w, 1.0);
+        assert!((sp.inv_w - 1.0).abs() < f32::EPSILON);
         assert_eq!(sp.x, 40400);
 
         // Test very small w (but > epsilon)
@@ -1788,22 +1836,23 @@ mod tests {
         // screen_x = (-1+1)*400 = 0.
         let sp_neg =
             project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), -1.0, half_width, half_height);
-        assert_eq!(sp_neg.inv_w, -1.0);
+        assert!((sp_neg.inv_w - -1.0).abs() < f32::EPSILON);
         assert_eq!(sp_neg.x, 0);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_vec3_normalize_zero() {
         let v = Vec3::new(0.0, 0.0, 0.0);
         let n = v.normalize();
-        assert_eq!(n.x, 0.0);
-        assert_eq!(n.y, 0.0);
-        assert_eq!(n.z, 0.0);
+        assert!((n.x - 0.0).abs() < f32::EPSILON);
+        assert!((n.y - 0.0).abs() < f32::EPSILON);
+        assert!((n.z - 0.0).abs() < f32::EPSILON);
 
         let v_small = Vec3::new(1e-5, 0.0, 0.0);
         let n_small = v_small.normalize();
         // Should return original if length < 0.0001
-        assert_eq!(n_small.x, 1e-5);
+        assert!((n_small.x - 1e-5).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1910,7 +1959,10 @@ mod tests {
         let v1 = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let v2 = Vec4::new(5.0, 6.0, 7.0, 8.0);
         let result = v1 + v2;
-        assert_eq!(result, Vec4::new(6.0, 8.0, 10.0, 12.0));
+        assert!((result.x - 6.0).abs() < f32::EPSILON);
+        assert!((result.y - 8.0).abs() < f32::EPSILON);
+        assert!((result.z - 10.0).abs() < f32::EPSILON);
+        assert!((result.w - 12.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1918,7 +1970,10 @@ mod tests {
         let v1 = Vec4::new(5.0, 6.0, 7.0, 8.0);
         let v2 = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let result = v1 - v2;
-        assert_eq!(result, Vec4::new(4.0, 4.0, 4.0, 4.0));
+        assert!((result.x - 4.0).abs() < f32::EPSILON);
+        assert!((result.y - 4.0).abs() < f32::EPSILON);
+        assert!((result.z - 4.0).abs() < f32::EPSILON);
+        assert!((result.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1951,7 +2006,10 @@ mod tests {
     fn test_vec4_mul_scalar() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let result = v * 2.5;
-        assert_eq!(result, Vec4::new(2.5, 5.0, 7.5, 10.0));
+        assert!((result.x - 2.5).abs() < f32::EPSILON);
+        assert!((result.y - 5.0).abs() < f32::EPSILON);
+        assert!((result.z - 7.5).abs() < f32::EPSILON);
+        assert!((result.w - 10.0).abs() < f32::EPSILON);
     }
 
     #[test]

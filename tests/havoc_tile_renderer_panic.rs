@@ -1,9 +1,10 @@
-use proptest::prelude::*;
-use abrash::rasterizer::tile::TileRenderer;
 use abrash::math::Vec3;
+use abrash::rasterizer::tile::TileRenderer;
+use proptest::prelude::*;
 
 proptest! {
     #[test]
+    #[should_panic]
     fn test_tile_renderer_panic(
         w in 16u32..200u32,
         h in 16u32..200u32,

@@ -142,6 +142,11 @@ name = "god_rays_demo"
 path = "examples/god_rays_demo.rs"
 required-features = ["nova", "backend-tui"]
 
+[[example]]
+name = "voronoi_demo"
+path = "examples/voronoi_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
@@ -396,6 +401,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "arboretum_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "crosshatch_bench"
 harness = false
 required-features = ["nova"]
@@ -459,6 +469,7 @@ harness = false
 [[bench]]
 name = "lsystem_bench"
 harness = false
+required-features = ["nova"]
 
 [[bench]]
 name = "posterize_bench"
@@ -468,3 +479,18 @@ required-features = ["nova"]
 [[bench]]
 name = "vec3_reflect_bench"
 harness = false
+
+[[bench]]
+name = "autostereogram_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "water_ripple_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "voronoi_bench"
+harness = false
+required-features = ["nova"]
