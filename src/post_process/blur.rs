@@ -13,6 +13,10 @@ use rayon::prelude::*;
 /// * `acc_buffer` - Scratch buffer for vertical pass accumulators.
 /// * `width` - Width of the buffer.
 /// * `height` - Height of the buffer.
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_f32(
     src: &mut [f32],
     dest: &mut [f32],
@@ -20,6 +24,10 @@ pub fn box_blur_f32(
     width: usize,
     height: usize,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }
@@ -278,6 +286,10 @@ unsafe fn box_blur_f32_vertical_avx2(
 /// // The exact values depend on clamp-to-edge logic and integer scaling.
 /// assert!(dest[1] != 0xFFFFFFFF);
 /// ```
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_horizontal(
     src: &[u32],
     dest: &mut [u32],
@@ -285,6 +297,10 @@ pub fn box_blur_horizontal(
     height: usize,
     radius: u32,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }
@@ -415,6 +431,10 @@ fn process_row_horizontal(
 /// // The energy from the center white pixel is spread vertically.
 /// assert!(dest[1] != 0xFFFFFFFF);
 /// ```
+///
+/// # Panics
+///
+/// Panics if `src` or `dest` lengths do not match `width * height`.
 pub fn box_blur_vertical(
     src: &[u32],
     dest: &mut [u32],
@@ -423,6 +443,10 @@ pub fn box_blur_vertical(
     height: usize,
     radius: u32,
 ) {
+    let expected_len = width * height;
+    assert_eq!(src.len(), expected_len);
+    assert_eq!(dest.len(), expected_len);
+
     if width == 0 || height == 0 {
         return;
     }
