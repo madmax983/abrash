@@ -108,3 +108,8 @@
 **Concept:** A single-image stereogram (Magic Eye) generator from a depth map (ZBuffer).
 **Fate:** Merged
 **Lesson:** Using a union-find-like approach to link pixels horizontally by depth shift efficiently prevents recursive lookbacks and allows for perfect row-by-row parallelization.
+
+## [Voronoi Filter]
+**Concept:** A procedural post-processing effect that generates cellular Voronoi diagrams using various distance metrics (Euclidean, Manhattan, Chebyshev) with optional border rendering.
+**Fate:** Implemented
+**Lesson:** When calculating distance fields for hot per-pixel effects like Voronoi, avoid using generalized exponentiation (`powf`). Providing fast-paths for specific metrics (e.g., Euclidean using `dx.hypot(dy)` and Manhattan using `dx + dy`) massively speeds up the inner loops. Accurate border computation simply requires tracking and comparing the closest and second-closest seed distances.

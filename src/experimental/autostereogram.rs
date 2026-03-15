@@ -1,6 +1,6 @@
 //! Autostereogram (Magic Eye) Generator.
 //!
-//! Generates a single-image stereogram from a depth map (ZBuffer) using
+//! Generates a single-image stereogram from a depth map (`ZBuffer`) using
 //! a union-find-like approach to link pixels horizontally by depth shift,
 //! allowing for perfect row-by-row parallelization.
 
@@ -28,7 +28,7 @@ impl Default for AutostereogramConfig {
     }
 }
 
-/// Applies the Autostereogram effect to the given framebuffer based on the ZBuffer.
+/// Applies the Autostereogram effect to the given framebuffer based on the `ZBuffer`.
 ///
 /// Bolt Performance Optimization:
 /// Uses `.par_chunks_exact_mut(width)` and Thread-Local Storage for `links` and `colors`
@@ -203,7 +203,7 @@ mod tests {
         // Fill fb with a flat white pattern
         fb.clear(0xFFFF_FFFF);
 
-        // Add a shape to the ZBuffer at center
+        // Add a shape to the `ZBuffer` at center
         for y in 2..8 {
             for x in 80..120 {
                 zb.test_and_set(x, y, 0.5); // Closer depth

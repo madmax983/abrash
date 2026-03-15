@@ -35,9 +35,9 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
     }
 
     let cx = width as f32 / 2.0;
-    let cy = height as f32 / 2.0;
-
     use std::cell::RefCell;
+
+    let cy = height as f32 / 2.0;
 
     thread_local! {
         static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
