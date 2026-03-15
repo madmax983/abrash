@@ -37,7 +37,7 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
         return; // Too small for 3x3 kernel
     }
 
-    let mut source_pixels = SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.take());
+    let mut source_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
 
     let fb_slice = fb.as_slice();
     if source_pixels.len() != fb_slice.len() {
@@ -129,5 +129,5 @@ pub fn apply_emboss(fb: &mut Framebuffer) {
             });
     });
 
-    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.set(source_pixels));
+    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.replace(source_pixels));
 }

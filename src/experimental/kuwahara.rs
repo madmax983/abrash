@@ -83,30 +83,69 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             let mut sum_b2 = 0;
                             let mut count = 0;
 
-                            // Compute true y bounds
-                            let py_start = (y + dy_start).max(0).min(height - 1);
-                            let py_end = (y + dy_end).max(0).min(height - 1);
-                            let px_start = (x + dx_start).max(0).min(width - 1);
-                            let px_end = (x + dx_end).max(0).min(width - 1);
+                            // We split the image processing into a fast path for the safe interior
+                            // and a slow path with bounds checking for the borders.
+                            if y >= radius
+                                && y < height - radius
+                                && x >= radius
+                                && x < width - radius
+                            {
+                                // Fast path: No bounds checking needed
+                                let py_start = y + dy_start;
+                                let py_end = y + dy_end;
+                                let px_start = x + dx_start;
+                                let px_end = x + dx_end;
 
-                            for py in py_start..=py_end {
-                                let row_offset = (py * width) as usize;
-                                for px in px_start..=px_end {
-                                    let pixel = src_fb[row_offset + px as usize];
+                                for py in py_start..=py_end {
+                                    let row_offset = (py * width) as usize;
+                                    let px_start_u = px_start as usize;
+                                    let px_end_u = px_end as usize;
 
-                                    let r = (pixel >> 16) & 0xFF;
-                                    let g = (pixel >> 8) & 0xFF;
-                                    let b = pixel & 0xFF;
+                                    // Use chunk iteration to let LLVM vectorize when possible
+                                    for &pixel in
+                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
+                                    {
+                                        let r = (pixel >> 16) & 0xFF;
+                                        let g = (pixel >> 8) & 0xFF;
+                                        let b = pixel & 0xFF;
 
-                                    sum_r += r;
-                                    sum_g += g;
-                                    sum_b += b;
+                                        sum_r += r;
+                                        sum_g += g;
+                                        sum_b += b;
 
-                                    sum_r2 += r * r;
-                                    sum_g2 += g * g;
-                                    sum_b2 += b * b;
+                                        sum_r2 += r * r;
+                                        sum_g2 += g * g;
+                                        sum_b2 += b * b;
 
-                                    count += 1;
+                                        count += 1;
+                                    }
+                                }
+                            } else {
+                                // Slow path: Edges require bounds clamping
+                                let py_start = (y + dy_start).max(0).min(height - 1);
+                                let py_end = (y + dy_end).max(0).min(height - 1);
+                                let px_start = (x + dx_start).max(0).min(width - 1);
+                                let px_end = (x + dx_end).max(0).min(width - 1);
+
+                                for py in py_start..=py_end {
+                                    let row_offset = (py * width) as usize;
+                                    for px in px_start..=px_end {
+                                        let pixel = src_fb[row_offset + px as usize];
+
+                                        let r = (pixel >> 16) & 0xFF;
+                                        let g = (pixel >> 8) & 0xFF;
+                                        let b = pixel & 0xFF;
+
+                                        sum_r += r;
+                                        sum_g += g;
+                                        sum_b += b;
+
+                                        sum_r2 += r * r;
+                                        sum_g2 += g * g;
+                                        sum_b2 += b * b;
+
+                                        count += 1;
+                                    }
                                 }
                             }
 
@@ -185,30 +224,64 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             let mut sum_b2 = 0;
                             let mut count = 0;
 
-                            // Compute true y bounds
-                            let py_start = (y + dy_start).max(0).min(height - 1);
-                            let py_end = (y + dy_end).max(0).min(height - 1);
-                            let px_start = (x + dx_start).max(0).min(width - 1);
-                            let px_end = (x + dx_end).max(0).min(width - 1);
+                            if y >= radius
+                                && y < height - radius
+                                && x >= radius
+                                && x < width - radius
+                            {
+                                let py_start = y + dy_start;
+                                let py_end = y + dy_end;
+                                let px_start = x + dx_start;
+                                let px_end = x + dx_end;
 
-                            for py in py_start..=py_end {
-                                let row_offset = (py * width) as usize;
-                                for px in px_start..=px_end {
-                                    let pixel = src_fb[row_offset + px as usize];
+                                for py in py_start..=py_end {
+                                    let row_offset = (py * width) as usize;
+                                    let px_start_u = px_start as usize;
+                                    let px_end_u = px_end as usize;
 
-                                    let r = (pixel >> 16) & 0xFF;
-                                    let g = (pixel >> 8) & 0xFF;
-                                    let b = pixel & 0xFF;
+                                    for &pixel in
+                                        &src_fb[row_offset + px_start_u..=row_offset + px_end_u]
+                                    {
+                                        let r = (pixel >> 16) & 0xFF;
+                                        let g = (pixel >> 8) & 0xFF;
+                                        let b = pixel & 0xFF;
 
-                                    sum_r += r;
-                                    sum_g += g;
-                                    sum_b += b;
+                                        sum_r += r;
+                                        sum_g += g;
+                                        sum_b += b;
 
-                                    sum_r2 += r * r;
-                                    sum_g2 += g * g;
-                                    sum_b2 += b * b;
+                                        sum_r2 += r * r;
+                                        sum_g2 += g * g;
+                                        sum_b2 += b * b;
 
-                                    count += 1;
+                                        count += 1;
+                                    }
+                                }
+                            } else {
+                                let py_start = (y + dy_start).max(0).min(height - 1);
+                                let py_end = (y + dy_end).max(0).min(height - 1);
+                                let px_start = (x + dx_start).max(0).min(width - 1);
+                                let px_end = (x + dx_end).max(0).min(width - 1);
+
+                                for py in py_start..=py_end {
+                                    let row_offset = (py * width) as usize;
+                                    for px in px_start..=px_end {
+                                        let pixel = src_fb[row_offset + px as usize];
+
+                                        let r = (pixel >> 16) & 0xFF;
+                                        let g = (pixel >> 8) & 0xFF;
+                                        let b = pixel & 0xFF;
+
+                                        sum_r += r;
+                                        sum_g += g;
+                                        sum_b += b;
+
+                                        sum_r2 += r * r;
+                                        sum_g2 += g * g;
+                                        sum_b2 += b * b;
+
+                                        count += 1;
+                                    }
                                 }
                             }
 

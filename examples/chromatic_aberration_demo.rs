@@ -1,4 +1,6 @@
-use abrash::experimental::chromatic_aberration::{apply_chromatic_aberration, ChromaticAberrationConfig};
+use abrash::experimental::chromatic_aberration::{
+    ChromaticAberrationConfig, apply_chromatic_aberration,
+};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::Window;
 use std::time::Instant;
@@ -30,7 +32,9 @@ fn main() {
             for x in 0..w {
                 // Draw a simple grid
                 let is_grid_line = (x % 50 < 2) || (y % 50 < 2);
-                let is_circle = ((x as i32 - w as i32 / 2).pow(2) + (y as i32 - h as i32 / 2).pow(2)) < 150_i32.pow(2);
+                let is_circle = ((x as i32 - w as i32 / 2).pow(2)
+                    + (y as i32 - h as i32 / 2).pow(2))
+                    < 150_i32.pow(2);
 
                 let color = if is_grid_line {
                     0xFF_AA_AA_AA // Light grey
