@@ -25,7 +25,7 @@ fn voronoi_benchmark(c: &mut Criterion) {
     c.bench_function("voronoi 800x600 200 seeds", |b| {
         b.iter(|| {
             apply_voronoi(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 

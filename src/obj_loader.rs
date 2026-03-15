@@ -668,6 +668,27 @@ f 1//1 2 3
     }
 
     #[test]
+    fn test_invalid_uv_normal_indices() {
+        let obj_ok = "v 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvn 0 1 0\n";
+
+        // UV index 0
+        let obj_uv_zero = format!("{obj_ok}f 1/0 2/0 3/0");
+        assert!(load_obj(&obj_uv_zero).is_err());
+
+        // Normal index 0
+        let obj_vn_zero = format!("{obj_ok}f 1//0 2//0 3//0");
+        assert!(load_obj(&obj_vn_zero).is_err());
+
+        // UV index out of bounds
+        let obj_uv_oob = format!("{obj_ok}f 1/2 2/2 3/2"); // vt 2 doesn't exist
+        assert!(load_obj(&obj_uv_oob).is_err());
+
+        // Normal index out of bounds
+        let obj_vn_oob = format!("{obj_ok}f 1//2 2//2 3//2"); // vn 2 doesn't exist
+        assert!(load_obj(&obj_vn_oob).is_err());
+    }
+
+    #[test]
     fn test_finite_checks() {
         // Infinity
         assert!(load_obj("v inf 0 0").is_err());

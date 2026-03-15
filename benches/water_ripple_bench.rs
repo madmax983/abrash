@@ -29,7 +29,7 @@ fn bench_water_ripple(c: &mut Criterion) {
     c.bench_function("water_ripple_800x600", |b| {
         b.iter(|| {
             apply_water_ripple(black_box(&mut fb), black_box(config));
-        })
+        });
     });
 }
 

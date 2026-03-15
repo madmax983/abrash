@@ -78,6 +78,26 @@ use super::gouraud::{GouraudEdgeWalker, GouraudGradients};
 use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
+
+/// Groups screen space parameters to reduce function arguments and improve clarity.
+#[derive(Clone, Copy)]
+pub struct ScreenSpaceContext {
+    pub width: u32,
+    pub height: u32,
+    pub half_width: f32,
+    pub half_height: f32,
+}
+
+/// Defines the bounds and target position for merging a tile into the framebuffer.
+#[derive(Clone, Copy)]
+pub struct TileMergeBounds {
+    pub tx: u32,
+    pub ty: u32,
+    pub width: u32,
+    pub height: u32,
+    pub y_min: i32,
+    pub y_max: i32,
+}
 use super::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
@@ -1727,16 +1747,13 @@ impl TileRenderer {
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
 
-                    Self::prepare_triangle_static(
-                        v0,
-                        v1,
-                        v2,
-                        color,
+                    let ctx = ScreenSpaceContext {
                         width,
                         height,
                         half_width,
                         half_height,
-                    )
+                    };
+                    Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
                 }));
         }
 
@@ -1852,17 +1869,20 @@ impl TileRenderer {
                             &mut self.tile_pixels,
                             &mut self.tile_depths,
                         ) {
+                            let bounds = TileMergeBounds {
+                                tx,
+                                ty,
+                                width: self.width,
+                                height: self.height,
+                                y_min: clear_y_min,
+                                y_max: clear_y_max,
+                            };
                             Self::merge_tile_direct(
                                 &self.tile_pixels,
                                 &self.tile_depths,
                                 fb,
                                 zb,
-                                tx,
-                                ty,
-                                self.width,
-                                self.height,
-                                clear_y_min,
-                                clear_y_max,
+                                &bounds,
                             );
                         }
                     }
@@ -2041,16 +2061,13 @@ impl TileRenderer {
             // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
             self.prepared
                 .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2, color)| {
-                    Self::prepare_triangle_static(
-                        v0,
-                        v1,
-                        v2,
-                        color,
+                    let ctx = ScreenSpaceContext {
                         width,
                         height,
                         half_width,
                         half_height,
-                    )
+                    };
+                    Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
                 }));
         }
 
@@ -2118,16 +2135,19 @@ impl TileRenderer {
                     triangles
                         .par_iter()
                         .flat_map_iter(|&(v0, uv0, v1, uv1, v2, uv2)| {
+                            let ctx = ScreenSpaceContext {
+                                width,
+                                height,
+                                half_width,
+                                half_height,
+                            };
                             Self::prepare_triangle_textured_static(
                                 (v0, uv0),
                                 (v1, uv1),
                                 (v2, uv2),
                                 tex_w,
                                 tex_h,
-                                width,
-                                height,
-                                half_width,
-                                half_height,
+                                &ctx,
                             )
                         }),
                 );
@@ -2171,17 +2191,20 @@ impl TileRenderer {
                         &mut self.tile_pixels,
                         &mut self.tile_depths,
                     ) {
+                        let bounds = TileMergeBounds {
+                            tx,
+                            ty,
+                            width: self.width,
+                            height: self.height,
+                            y_min: clear_y_min,
+                            y_max: clear_y_max,
+                        };
                         Self::merge_tile_direct(
                             &self.tile_pixels,
                             &self.tile_depths,
                             fb,
                             zb,
-                            tx,
-                            ty,
-                            self.width,
-                            self.height,
-                            clear_y_min,
-                            clear_y_max,
+                            &bounds,
                         );
                     }
                 }
@@ -2305,15 +2328,13 @@ impl TileRenderer {
             // Bolt: Use `par_extend` to eliminate intermediate Vec heap allocations.
             self.prepared_gouraud
                 .par_extend(triangles.par_iter().flat_map_iter(|&(v0, v1, v2)| {
-                    Self::prepare_triangle_gouraud_static(
-                        v0,
-                        v1,
-                        v2,
+                    let ctx = ScreenSpaceContext {
                         width,
                         height,
                         half_width,
                         half_height,
-                    )
+                    };
+                    Self::prepare_triangle_gouraud_static(v0, v1, v2, &ctx)
                 }));
         }
 
@@ -2354,17 +2375,20 @@ impl TileRenderer {
                         &mut self.tile_pixels,
                         &mut self.tile_depths,
                     ) {
+                        let bounds = TileMergeBounds {
+                            tx,
+                            ty,
+                            width: self.width,
+                            height: self.height,
+                            y_min: clear_y_min,
+                            y_max: clear_y_max,
+                        };
                         Self::merge_tile_direct(
                             &self.tile_pixels,
                             &self.tile_depths,
                             fb,
                             zb,
-                            tx,
-                            ty,
-                            self.width,
-                            self.height,
-                            clear_y_min,
-                            clear_y_max,
+                            &bounds,
                         );
                     }
                 }
@@ -2457,27 +2481,21 @@ impl TileRenderer {
         v1: ((Vec3, f32), Vec3),
         v2: ((Vec3, f32), Vec3),
     ) {
-        let results = Self::prepare_triangle_gouraud_static(
-            v0,
-            v1,
-            v2,
-            self.width,
-            self.height,
-            self.half_width,
-            self.half_height,
-        );
+        let ctx = ScreenSpaceContext {
+            width: self.width,
+            height: self.height,
+            half_width: self.half_width,
+            half_height: self.half_height,
+        };
+        let results = Self::prepare_triangle_gouraud_static(v0, v1, v2, &ctx);
         self.prepared_gouraud.extend(results);
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn prepare_triangle_gouraud_static(
         v0: ((Vec3, f32), Vec3),
         v1: ((Vec3, f32), Vec3),
         v2: ((Vec3, f32), Vec3),
-        width: u32,
-        height: u32,
-        half_width: f32,
-        half_height: f32,
+        ctx: &ScreenSpaceContext,
     ) -> PreparedGouraudTrianglesList {
         let clipped = clip_triangle_to_frustum(
             v0,
@@ -2506,8 +2524,8 @@ impl TileRenderer {
                 v1.0.1,
                 v2.0.0,
                 v2.0.1,
-                half_width,
-                half_height,
+                ctx.half_width,
+                ctx.half_height,
             );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -2534,8 +2552,8 @@ impl TileRenderer {
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
             let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(width as i32 - 1);
-            let max_y = p2.y.min(height as i32 - 1);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(ctx.width as i32 - 1);
+            let max_y = p2.y.min(ctx.height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
                 continue;
@@ -2676,31 +2694,23 @@ impl TileRenderer {
         tex_w: f32,
         tex_h: f32,
     ) {
-        let results = Self::prepare_triangle_textured_static(
-            v0,
-            v1,
-            v2,
-            tex_w,
-            tex_h,
-            self.width,
-            self.height,
-            self.half_width,
-            self.half_height,
-        );
+        let ctx = ScreenSpaceContext {
+            width: self.width,
+            height: self.height,
+            half_width: self.half_width,
+            half_height: self.half_height,
+        };
+        let results = Self::prepare_triangle_textured_static(v0, v1, v2, tex_w, tex_h, &ctx);
         self.prepared_textured.extend(results);
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn prepare_triangle_textured_static(
         v0: ((Vec3, f32), Vec2),
         v1: ((Vec3, f32), Vec2),
         v2: ((Vec3, f32), Vec2),
         tex_w: f32,
         tex_h: f32,
-        width: u32,
-        height: u32,
-        half_width: f32,
-        half_height: f32,
+        ctx: &ScreenSpaceContext,
     ) -> PreparedTexturedTrianglesList {
         let clipped = clip_triangle_to_frustum(
             v0,
@@ -2729,8 +2739,8 @@ impl TileRenderer {
                 cv1.0.1,
                 cv2.0.0,
                 cv2.0.1,
-                half_width,
-                half_height,
+                ctx.half_width,
+                ctx.half_height,
             );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -2770,8 +2780,8 @@ impl TileRenderer {
             // AABB
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
             let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(width as i32 - 1);
-            let max_y = p2.y.min(height as i32 - 1);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(ctx.width as i32 - 1);
+            let max_y = p2.y.min(ctx.height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
                 continue;
@@ -2844,29 +2854,22 @@ impl TileRenderer {
 
     #[cfg_attr(feature = "parallel", allow(dead_code))]
     fn prepare_triangle(&mut self, v0: (Vec3, f32), v1: (Vec3, f32), v2: (Vec3, f32), color: u32) {
-        let results = Self::prepare_triangle_static(
-            v0,
-            v1,
-            v2,
-            color,
-            self.width,
-            self.height,
-            self.half_width,
-            self.half_height,
-        );
+        let ctx = ScreenSpaceContext {
+            width: self.width,
+            height: self.height,
+            half_width: self.half_width,
+            half_height: self.half_height,
+        };
+        let results = Self::prepare_triangle_static(v0, v1, v2, color, &ctx);
         self.prepared.extend(results);
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn prepare_triangle_static(
         v0: (Vec3, f32),
         v1: (Vec3, f32),
         v2: (Vec3, f32),
         color: u32,
-        width: u32,
-        height: u32,
-        half_width: f32,
-        half_height: f32,
+        ctx: &ScreenSpaceContext,
     ) -> PreparedTrianglesList {
         let clipped = clip_triangle_to_frustum(
             v0,
@@ -2890,8 +2893,8 @@ impl TileRenderer {
                 cv1.1,
                 cv2.0,
                 cv2.1,
-                half_width,
-                half_height,
+                ctx.half_width,
+                ctx.half_height,
             );
 
             if is_backface(p0_orig, p1_orig, p2_orig) {
@@ -2923,8 +2926,8 @@ impl TileRenderer {
             // AABB clamped to screen
             let min_x = p0.x.min(p1.x).min(p2.x).max(0);
             let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(width as i32 - 1);
-            let max_y = p2.y.min(height as i32 - 1);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(ctx.width as i32 - 1);
+            let max_y = p2.y.min(ctx.height as i32 - 1);
 
             if min_x > max_x || min_y > max_y {
                 continue;
@@ -3355,31 +3358,27 @@ impl TileRenderer {
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
     /// Only copies the rows between `y_min` and `y_max` (inclusive, screen coords).
-    #[allow(clippy::too_many_arguments)]
     #[cfg(not(feature = "parallel"))]
     fn merge_tile_direct(
         tile_pixels: &[u32],
         tile_depths: &[f32],
         fb: &mut Framebuffer,
         zb: &mut ZBuffer,
-        tx: u32,
-        ty: u32,
-        width: u32,
-        height: u32,
-        y_min: i32,
-        y_max: i32,
+        bounds: &TileMergeBounds,
     ) {
-        let tile_x0 = tx * TILE_SIZE;
-        let tile_y0 = ty * TILE_SIZE;
-        let tile_x_end = (tile_x0 + TILE_SIZE).min(width);
+        let tile_x0 = bounds.tx * TILE_SIZE;
+        let tile_y0 = bounds.ty * TILE_SIZE;
+        let tile_x_end = (tile_x0 + TILE_SIZE).min(bounds.width);
         let tile_cols = (tile_x_end - tile_x0) as usize;
 
         let fb_slice = fb.as_mut_slice();
         let zb_slice = zb.as_mut_slice();
-        let fb_width = width as usize;
+        let fb_width = bounds.width as usize;
 
-        let row_begin = y_min.max(tile_y0 as i32) as u32;
-        let row_end = (y_max as u32 + 1).min(tile_y0 + TILE_SIZE).min(height);
+        let row_begin = bounds.y_min.max(tile_y0 as i32) as u32;
+        let row_end = (bounds.y_max as u32 + 1)
+            .min(tile_y0 + TILE_SIZE)
+            .min(bounds.height);
 
         for row in row_begin..row_end {
             let tile_row_offset = ((row - tile_y0) * TILE_SIZE) as usize;

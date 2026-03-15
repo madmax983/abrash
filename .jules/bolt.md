@@ -111,3 +111,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate per-frame memory allocation for Emboss]**
 **Learning:** Calling `.to_vec()` on the framebuffer's slice inside `apply_emboss` causes an expensive memory allocation every frame, which hurts rendering performance.
 **Action:** Use a `thread_local!` static buffer with `RefCell<Vec<u32>>`. Resize it to the required length and use `.copy_from_slice()` instead of `.to_vec()`. This effectively reuses the same allocation across all frames, functioning as a zero-cost double buffer.
+**[Performance Optimization: Zip Iterator to elide array bounds checks in multi-slice iterations]**
+**Learning:** To elide bounds checks when simultaneously iterating over multiple slices (e.g., reading a depth buffer and modifying a color buffer), replace index-based loops (`for i in 0..len`) with pre-sliced zipped iterators (`a[..len].iter_mut().zip(&b[..len])`). This idiomatic pattern allows LLVM to remove bounds checking in hot loops for measurable performance gains.
+**Action:** Use zipped iterators bounded by exactly matching pre-slices for pixel post-processing logic that accesses `original_pixels`, `zb_slice`, or `blurred_slice` using index `[i]`.
