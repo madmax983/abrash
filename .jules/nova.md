@@ -113,3 +113,8 @@
 **Concept:** A post-processing effect that calculates distance from random seeds to create a stained-glass or cellular look. Features configurable metric distance (Euclidean vs Manhattan) and border outlines based on distance comparisons.
 **Fate:** Implemented
 **Lesson:** Generalizing Minkowski distance with arbitrary exponents inside a tight per-pixel loop using `powf` is very slow. Implementing fast paths for `metric == 1.0` and `metric == 2.0` avoids exponentiation and greatly speeds up the effect. Computing border thickness accurately requires finding the difference between the closest and second-closest seed distances. Parallelization via Rayon makes processing the image row-by-row efficient.
+
+## [Swirl Filter]
+**Concept:** A retro post-processing effect that distorts the image by displacing pixels radially based on their distance from a center point, creating a localized swirl or pinch effect.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is critical to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Additionally, calculating `distance2 < radius2` avoids an expensive `sqrt` call for the vast majority of non-affected pixels, and using fast float-to-int casts (`as i32`) prevents inner-loop bottlenecks. Precalculating `1.0 / radius` allows for multiplication instead of division in the inner loop.
