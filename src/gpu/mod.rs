@@ -62,13 +62,21 @@ impl GpuBinner {
     ) -> Result<TwoLevelBinningStats, GpuError> {
         self.sync_triangles(triangles);
 
-        let adapter = hiz_buffer.map(HiZOcclusionAdapter);
-        let trait_obj = adapter
-            .as_ref()
-            .map(|value| value as &dyn abrash_gpu::HiZOcclusion);
+        let hiz_fn = hiz_buffer.map(|hiz| {
+            move |bin_aabb: abrash_gpu::Aabb3d| {
+                hiz.is_coarse_bin_visible(AABB3D {
+                    min_x: bin_aabb.min_x,
+                    max_x: bin_aabb.max_x,
+                    min_y: bin_aabb.min_y,
+                    max_y: bin_aabb.max_y,
+                    min_depth: bin_aabb.min_depth,
+                    max_depth: bin_aabb.max_depth,
+                })
+            }
+        });
 
         self.inner
-            .bin_triangles_two_level(&self.scratch, trait_obj, tile_bins)
+            .bin_triangles_two_level(&self.scratch, hiz_fn.as_ref(), tile_bins)
     }
 
     fn sync_triangles(&mut self, triangles: &[PreparedTriangle]) {
@@ -149,34 +157,10 @@ impl GpuHiZBuilder {
 
     /// Download the GPU-built pyramid into `HiZBuffer`.
     pub fn download_pyramid(&mut self, hiz_buffer: &mut HiZBuffer) -> Result<(), GpuError> {
-        let mut writer = HiZPyramidWriterAdapter(hiz_buffer);
-        self.inner.download_pyramid(&mut writer)
-    }
-}
-
-struct HiZOcclusionAdapter<'a>(&'a HiZBuffer);
-
-impl abrash_gpu::HiZOcclusion for HiZOcclusionAdapter<'_> {
-    fn is_coarse_bin_visible(&self, bin_aabb: abrash_gpu::Aabb3d) -> bool {
-        self.0.is_coarse_bin_visible(AABB3D {
-            min_x: bin_aabb.min_x,
-            max_x: bin_aabb.max_x,
-            min_y: bin_aabb.min_y,
-            max_y: bin_aabb.max_y,
-            min_depth: bin_aabb.min_depth,
-            max_depth: bin_aabb.max_depth,
-        })
-    }
-}
-
-struct HiZPyramidWriterAdapter<'a>(&'a mut HiZBuffer);
-
-impl abrash_gpu::HiZPyramidWriter for HiZPyramidWriterAdapter<'_> {
-    fn write_level_data(&mut self, level: u32, data: &[f32]) {
-        self.0.write_level_data(level, data);
-    }
-
-    fn mark_valid(&mut self) {
-        self.0.mark_valid();
+        let mut write_level_data =
+            |level: u32, data: &[f32]| hiz_buffer.write_level_data(level, data);
+        let mut mark_valid = || hiz_buffer.mark_valid();
+        self.inner
+            .download_pyramid(&mut write_level_data, &mut mark_valid)
     }
 }
