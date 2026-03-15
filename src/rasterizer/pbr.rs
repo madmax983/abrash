@@ -992,8 +992,8 @@ fn draw_scanline_pbr_scalar(
     let end_idx = y_offset + (xe as usize);
 
     // SAFETY: Clamped above.
-    let fb_slice = unsafe { fb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
-    let zb_slice = unsafe { zb.as_mut_slice().get_unchecked_mut(start_idx..=end_idx) };
+    let fb_slice = &mut fb.as_mut_slice()[start_idx..=end_idx];
+    let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     let l = constants.neg_light_dir;
 
