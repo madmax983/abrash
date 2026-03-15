@@ -282,7 +282,11 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
                 let g = (row_scratch[x] >> 8) & 0xFF;
                 let a = (row_scratch[x] >> 24) & 0xFF;
                 let r = 0;
-                let b = if x + offset < width { row_scratch[x + offset] & 0xFF } else { 0 };
+                let b = if x + offset < width {
+                    row_scratch[x + offset] & 0xFF
+                } else {
+                    0
+                };
                 row_pixels[x] = (a << 24) | (r << 16) | (g << 8) | b;
             }
 

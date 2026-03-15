@@ -128,3 +128,8 @@
 **Concept:** A retro post-processing effect that distorts the image by displacing pixels radially based on their distance from a center point, creating a localized swirl or pinch effect.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is critical to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Additionally, calculating `distance2 < radius2` avoids an expensive `sqrt` call for the vast majority of non-affected pixels, and using fast float-to-int casts (`as i32`) prevents inner-loop bottlenecks. Precalculating `1.0 / radius` allows for multiplication instead of division in the inner loop.
+
+## [Wobble Filter]
+**Concept:** A retro post-processing effect that distorts the image by displacing pixels horizontally based on a sine wave of their Y-coordinate, simulating classic SNES-style underwater or heat haze effects.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing. Using fast float-to-int casts (`as i32`) is beneficial for the inner loop.
