@@ -107,3 +107,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Safe SWAR integer overflow]**
 **Learning:** When implementing SWAR (SIMD Within A Register) multiplication on packed color channels (e.g., Red and Blue masked within a `u32`), explicitly promote the masked values to `u64` before multiplication if the scale factor can cause the intermediate result to exceed `u32::MAX`. Failing to do so causes critical integer overflow bugs during pixel blending.
 **Action:** Promote scaled SWAR values to `u64` where intensity/scale factor causes intermediate value representation constraints.
+
+**[Performance Optimization: Zip Iterator to elide array bounds checks in multi-slice iterations]**
+**Learning:** To elide bounds checks when simultaneously iterating over multiple slices (e.g., reading a depth buffer and modifying a color buffer), replace index-based loops (`for i in 0..len`) with pre-sliced zipped iterators (`a[..len].iter_mut().zip(&b[..len])`). This idiomatic pattern allows LLVM to remove bounds checking in hot loops for measurable performance gains.
+**Action:** Use zipped iterators bounded by exactly matching pre-slices for pixel post-processing logic that accesses `original_pixels`, `zb_slice`, or `blurred_slice` using index `[i]`.
