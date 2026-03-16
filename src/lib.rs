@@ -109,6 +109,7 @@ pub mod particles;
 pub mod post_process;
 pub mod procedural;
 pub mod scene;
+pub mod render_api;
 pub mod skybox;
 pub mod texture;
 
