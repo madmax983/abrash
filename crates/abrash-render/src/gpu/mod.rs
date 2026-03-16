@@ -4,7 +4,7 @@
 
 use crate::{
     hiz_buffer::{AABB3D, HiZBuffer},
-    tile_renderer::PreparedTriangle,
+    rasterizer::tile::PreparedTriangle,
 };
 
 pub use abrash_gpu::{

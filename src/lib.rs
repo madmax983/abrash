@@ -105,22 +105,23 @@ pub use abrash_core::utils;
 pub use abrash_core::zbuffer;
 
 pub mod platform;
-pub mod rasterizer;
 
-pub mod ascii;
-pub mod heat_vision;
-pub mod particles;
-pub mod post_process;
-pub mod procedural;
-pub mod render_api;
-pub mod scene;
-pub mod skybox;
+// Re-export rendering modules from abrash-render.
+pub use abrash_render::ascii;
+pub use abrash_render::heat_vision;
+pub use abrash_render::particles;
+pub use abrash_render::post_process;
+pub use abrash_render::procedural;
+pub use abrash_render::rasterizer;
+pub use abrash_render::render_api;
+pub use abrash_render::scene;
+pub use abrash_render::skybox;
 
 #[cfg(feature = "gpu-binning")]
-pub mod gpu;
+pub use abrash_render::gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
 
 #[cfg(feature = "nova")]
-pub mod experimental;
+pub use abrash_render::experimental;
