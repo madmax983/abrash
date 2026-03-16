@@ -36,10 +36,10 @@ where
     // which scales as the 2/3 power of the total volume (total_cells).
     let total_cells = width * height * depth;
     let estimated_vertices = (total_cells as f32).powf(0.666_666_7) as usize * 3;
-    let estimated_indices = estimated_vertices * 2; // Rough estimate of triangles from vertices
+    let estimated_triangles = estimated_vertices * 2 / 3;
 
     let mut vertices = Vec::with_capacity(estimated_vertices);
-    let mut indices = Vec::with_capacity(estimated_indices);
+    let mut indices = Vec::with_capacity(estimated_triangles);
     let mut normals = Vec::with_capacity(estimated_vertices);
 
     // Cache SDF values to avoid recomputing
@@ -124,7 +124,7 @@ where
 
     Mesh {
         vertices,
-        indices: indices.chunks(3).map(|c| [c[0], c[1], c[2]]).collect(),
+        indices,
         uvs: vec![crate::math::Vec2::default(); normals.len()], // Placeholder UVs
         normals,
         tangents,
@@ -143,7 +143,7 @@ where
 
 fn polygonize_tetrahedron(
     vertices: &mut Vec<Vec3>,
-    indices: &mut Vec<usize>,
+    indices: &mut Vec<[usize; 3]>,
     p: &[Vec3; 8],
     v: &[f32; 8],
     idxs: [usize; 4],
@@ -234,8 +234,14 @@ fn polygonize_tetrahedron(
         );
 
         // Simple index buffer generation (no welding/sharing for now)
-        indices.push(vertices.len());
         vertices.push(pos);
+
+        // When we have added 3 vertices, push a triangle
+        #[allow(clippy::manual_is_multiple_of)]
+        if vertices.len() % 3 == 0 {
+            let i = vertices.len() - 3;
+            indices.push([i, i + 1, i + 2]);
+        }
     }
 }
 
