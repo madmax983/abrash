@@ -45,6 +45,10 @@ impl Default for PixelSortConfig {
 pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
+
+    if width == 0 || height == 0 {
+        return;
+    }
     let pixels = fb.as_mut_slice();
 
     // Convert 0.0-1.0 threshold to 0-255 luminance
