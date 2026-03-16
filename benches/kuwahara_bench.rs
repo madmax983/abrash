@@ -1,6 +1,6 @@
 use abrash::experimental::kuwahara::apply_kuwahara;
 use abrash::framebuffer::Framebuffer;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_kuwahara(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
@@ -19,13 +19,19 @@ fn bench_kuwahara(c: &mut Criterion) {
 
     group.bench_function("radius_1", |b| {
         b.iter(|| {
-            apply_kuwahara(&mut fb, 1);
+            apply_kuwahara(black_box(&mut fb), black_box(1));
         });
     });
 
     group.bench_function("radius_3", |b| {
         b.iter(|| {
-            apply_kuwahara(&mut fb, 3);
+            apply_kuwahara(black_box(&mut fb), black_box(3));
+        });
+    });
+
+    group.bench_function("radius_5", |b| {
+        b.iter(|| {
+            apply_kuwahara(black_box(&mut fb), black_box(5));
         });
     });
 

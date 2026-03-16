@@ -98,9 +98,9 @@ mod tests {
         fb.set_pixel(2, 2, 0xFF_FF_FF_FF);
 
         let config = ChromaticAberrationConfig {
-            red_shift: (1, 0),    // Red shifted right by 1
-            green_shift: (0, 0),  // Green stays at center
-            blue_shift: (-1, 0),  // Blue shifted left by 1
+            red_shift: (1, 0),   // Red shifted right by 1
+            green_shift: (0, 0), // Green stays at center
+            blue_shift: (-1, 0), // Blue shifted left by 1
         };
 
         apply_chromatic_aberration(&mut fb, &config);

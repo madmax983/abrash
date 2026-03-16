@@ -1,6 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use abrash::experimental::chromatic_aberration::{
+    ChromaticAberrationConfig, apply_chromatic_aberration,
+};
 use abrash::framebuffer::Framebuffer;
-use abrash::experimental::chromatic_aberration::{apply_chromatic_aberration, ChromaticAberrationConfig};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let width = 1920;
