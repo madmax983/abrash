@@ -5,7 +5,9 @@
 //! functions in [`crate::rasterizer`].
 
 pub mod handles;
+pub mod material;
 pub mod target;
 
 pub use handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
+pub use material::{Material, ShadingMode};
 pub use target::RenderTarget;
