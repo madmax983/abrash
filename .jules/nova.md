@@ -133,3 +133,8 @@
 **Concept:** A retro post-processing effect that distorts the image by displacing pixels horizontally based on a sine wave of their Y-coordinate, simulating classic SNES-style underwater or heat haze effects.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing. Using fast float-to-int casts (`as i32`) is beneficial for the inner loop.
+
+## [Tilt-Shift Filter]
+**Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
+**Fate:** Implemented
+**Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.

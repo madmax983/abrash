@@ -59,6 +59,7 @@ pub mod sharpen;
 pub mod ssao;
 pub mod swirl;
 pub mod thermal;
+pub mod tilt_shift;
 pub mod vignette;
 pub mod vision;
 pub mod volume;
