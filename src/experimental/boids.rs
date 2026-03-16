@@ -86,6 +86,12 @@ impl Flock {
 
         let old_boids = &self.old_boids;
 
+        // Bolt Performance Optimization:
+        // Pre-calculate squared radii to replace expensive hypot() calls with
+        // squared distance comparisons inside the hot spatial simulation loop.
+        let perception_radius_sq = self.config.perception_radius * self.config.perception_radius;
+        let separation_radius_sq = self.config.separation_radius * self.config.separation_radius;
+
         #[cfg(feature = "parallel")]
         let iter = self.boids.par_iter_mut();
         #[cfg(not(feature = "parallel"))]
@@ -108,9 +114,9 @@ impl Flock {
                 let dy = boid.position.y - other_boid.position.y;
                 let dz = boid.position.z - other_boid.position.z;
 
-                let distance = dx.hypot(dy).hypot(dz);
+                let distance_sq = dx * dx + dy * dy + dz * dz;
 
-                if distance > 0.0 && distance < self.config.perception_radius {
+                if distance_sq > 0.0 && distance_sq < perception_radius_sq {
                     // Alignment
                     alignment.x += other_boid.velocity.x;
                     alignment.y += other_boid.velocity.y;
@@ -122,20 +128,19 @@ impl Flock {
                     cohesion.z += other_boid.position.z;
 
                     total_boids_perceived += 1;
-                }
 
-                if distance > 0.0 && distance < self.config.separation_radius {
-                    // Separation (weighted by inverse distance)
-                    let diff_x = boid.position.x - other_boid.position.x;
-                    let diff_y = boid.position.y - other_boid.position.y;
-                    let diff_z = boid.position.z - other_boid.position.z;
+                    if distance_sq < separation_radius_sq {
+                        // Separation (weighted by inverse distance)
+                        // Calculate actual distance only when required for inverse weighting
+                        let distance = distance_sq.sqrt();
+                        let inv_dist = 1.0 / distance;
 
-                    let inv_dist = 1.0 / distance;
-                    separation.x += diff_x * inv_dist;
-                    separation.y += diff_y * inv_dist;
-                    separation.z += diff_z * inv_dist;
+                        separation.x += dx * inv_dist;
+                        separation.y += dy * inv_dist;
+                        separation.z += dz * inv_dist;
 
-                    total_boids_separated += 1;
+                        total_boids_separated += 1;
+                    }
                 }
             }
 
