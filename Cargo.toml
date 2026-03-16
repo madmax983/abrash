@@ -529,3 +529,13 @@ required-features = ["nova"]
 name = "wobble_demo"
 path = "examples/wobble_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "tilt_shift_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "tilt_shift_demo"
+path = "examples/tilt_shift_demo.rs"
+required-features = ["nova"]
