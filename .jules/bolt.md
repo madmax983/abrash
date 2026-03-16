@@ -114,3 +114,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Zip Iterator to elide array bounds checks in multi-slice iterations]**
 **Learning:** To elide bounds checks when simultaneously iterating over multiple slices (e.g., reading a depth buffer and modifying a color buffer), replace index-based loops (`for i in 0..len`) with pre-sliced zipped iterators (`a[..len].iter_mut().zip(&b[..len])`). This idiomatic pattern allows LLVM to remove bounds checking in hot loops for measurable performance gains.
 **Action:** Use zipped iterators bounded by exactly matching pre-slices for pixel post-processing logic that accesses `original_pixels`, `zb_slice`, or `blurred_slice` using index `[i]`.
+
+**LSystem state stack Vec::reserve**
+**Learning:** Initializing deep recursive algorithm stacks (like a Turtle graphics state stack in L-Systems) with `Vec::new()` causes repeated dynamic heap allocations when deep nesting strings `[...[...]]` are evaluated.
+**Action:** By scanning the command sequence upfront (e.g. `commands_bytes.iter().filter(|&&b| b == b'[').count()`), the stack can be perfectly pre-allocated (`self.stack.reserve(num_pushes)`). This eliminates dynamic memory allocations entirely for deep call trees and works as a zero-cost abstraction.

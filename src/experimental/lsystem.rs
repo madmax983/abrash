@@ -173,6 +173,11 @@ impl Turtle {
         let num_segments = commands_bytes.iter().filter(|&&b| b == b'F').count();
         let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 12);
 
+        // Pre-allocate turtle state stack to avoid dynamic allocation during deep recursive structures
+        #[allow(clippy::naive_bytecount)]
+        let num_pushes = commands_bytes.iter().filter(|&&b| b == b'[').count();
+        self.stack.reserve(num_pushes);
+
         for &c in commands_bytes {
             match c {
                 b'F' => {
