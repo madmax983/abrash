@@ -56,6 +56,9 @@
 **Saved:** ~15 lines of redundant builder abstraction and boilerplate code.
 
 ## [Reduction]
+**Bloat:** `FastSplitter` custom trait implementation in `src/obj_loader.rs` created for parsing `v/vt/vn` obj vertices.
+**Cut:** Removed the `FastSplitter` abstraction and replaced it with standard library string `split('/')` parsing methods.
+**Saved:** ~30 lines of boilerplate code, improving maintainability with no regressions.
 **Bloat:** `HiZOcclusion` and `HiZPyramidWriter` single-use adapter traits in `crates/abrash-gpu/src/d3d12_binning.rs` used to bridge methods from `HiZBuffer` in the `abrash` crate.
 **Cut:** Deleted the traits and the wrapper struct implementations (`HiZOcclusionAdapter`, `HiZPyramidWriterAdapter`) in `src/gpu/mod.rs`. Replaced trait parameters with direct closure parameters (`impl Fn` and `impl FnMut`).
 **Saved:** ~30 lines of boilerplate and removed unnecessary abstractions between crates.
