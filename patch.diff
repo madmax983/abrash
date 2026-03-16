@@ -1,0 +1,11 @@
+--- a/src/math.rs
++++ b/src/math.rs
+@@ -1314,8 +1314,6 @@
+ /// // Screen x = (0.2 + 1.0) * 400 = 480
+ /// assert_eq!(screen_point.x, 480);
+ /// ```
+-#[must_use]
+-#[inline]
+ // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
+ // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
+ // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
