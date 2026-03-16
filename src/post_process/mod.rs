@@ -83,3 +83,4 @@ pub use self::ssao::*;
 /// Depth of Field (`DoF`) implementation.
 pub mod dof;
 pub use self::dof::*;
+pub mod median;

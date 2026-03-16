@@ -87,25 +87,28 @@ impl LSystem {
             // heap reallocations as the string expands exponentially.
             next_string.reserve(current.len() * 2);
 
-            for b in current.bytes() {
-                let idx = b as usize;
-                if idx < 128 {
+            for c in current.chars() {
+                let u = c as u32;
+                if u < 128 {
+                    let idx = u as usize;
                     if let Some(replacement) = rules_array[idx] {
                         next_string.push_str(replacement);
                     } else {
-                        next_string.push(b as char);
+                        next_string.push(c);
                     }
-                } else if let Some(replacement) = self.rules.get(&(b as char)) {
+                } else if let Some(replacement) = self.rules.get(&c) {
                     // Fallback for non-ASCII
                     next_string.push_str(replacement);
                 } else {
-                    next_string.push(b as char);
+                    next_string.push(c);
                 }
+            }
 
-                // OOM Prevention check
-                if next_string.len() > self.max_capacity {
-                    return Err("L-System expansion exceeded maximum capacity limit");
-                }
+            // OOM Prevention check hoisted outside the inner loop. We check `next_string.len()`
+            // after the inner loop completes. As stated in `bolt.md`, this yields a ~75% performance
+            // improvement by removing the branch from the inner loop.
+            if next_string.len() > self.max_capacity {
+                return Err("L-System expansion exceeded maximum capacity limit");
             }
 
             std::mem::swap(&mut current, &mut next_string);
