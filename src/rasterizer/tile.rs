@@ -2047,6 +2047,17 @@ impl TileRenderer {
             self.height,
             "ZBuffer height must match TileRenderer height"
         );
+        let expected_len = (self.width as usize)
+            .checked_mul(self.height as usize)
+            .expect("TileRenderer dimensions overflow");
+        assert!(
+            fb.as_slice().len() >= expected_len,
+            "Framebuffer slice too small"
+        );
+        assert!(
+            zb.as_slice().len() >= expected_len,
+            "ZBuffer slice too small"
+        );
 
         self.begin_frame();
 
@@ -2112,6 +2123,17 @@ impl TileRenderer {
             zb.height(),
             self.height,
             "ZBuffer height must match TileRenderer height"
+        );
+        let expected_len = (self.width as usize)
+            .checked_mul(self.height as usize)
+            .expect("TileRenderer dimensions overflow");
+        assert!(
+            fb.as_slice().len() >= expected_len,
+            "Framebuffer slice too small"
+        );
+        assert!(
+            zb.as_slice().len() >= expected_len,
+            "ZBuffer slice too small"
         );
 
         self.prepared_textured.clear();
@@ -2312,6 +2334,18 @@ impl TileRenderer {
         assert_eq!(fb.height(), self.height);
         assert_eq!(zb.width(), self.width);
         assert_eq!(zb.height(), self.height);
+
+        let expected_len = (self.width as usize)
+            .checked_mul(self.height as usize)
+            .expect("TileRenderer dimensions overflow");
+        assert!(
+            fb.as_slice().len() >= expected_len,
+            "Framebuffer slice too small"
+        );
+        assert!(
+            zb.as_slice().len() >= expected_len,
+            "ZBuffer slice too small"
+        );
 
         self.prepared_gouraud.clear();
         self.tile_bins.clear();
