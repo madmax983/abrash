@@ -117,3 +117,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate Panic dropping RefMut across parallel bounds]**
 **Learning:** Using `thread_local!` with `RefCell<Vec<T>>` to eliminate per-frame allocations in functions that also use Rayon for parallelism (e.g., `apply_emboss`), do not hold the `RefMut` guard (`.borrow_mut()`) across parallel boundaries. This causes critical work-stealing panics. Additionally, dropping the value returned by `take()` using `.set()` throws compilation errors because `set` is a method on `Cell`, not `RefCell`. Use `.replace()` or mutate `.borrow_mut()` safely.
 **Action:** Use `.replace()` on a `RefCell` or mutate `.borrow_mut()` when putting a taken value back inside `thread_local!` variables in Rayon-enabled loops.
+
+**[Performance Optimization: De-optimize Slow SIMD Fallbacks]**
+**Learning:** Sometimes, vectorizing complex logic with poor memory access patterns (like random memory access for soft body springs) using SIMD commands (like gather/scatter or manual scalar extraction) can actually perform worse than a clean scalar loop due to instruction latency and register pressure.
+**Action:** Always benchmark SIMD implementations. If an algorithmic step (like soft body springs) relies heavily on random access and scalar fallbacks, and benchmarks show a regression compared to pure scalar, revert it to scalar.
