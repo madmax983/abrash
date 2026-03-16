@@ -107,3 +107,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Safe SWAR integer overflow]**
 **Learning:** When implementing SWAR (SIMD Within A Register) multiplication on packed color channels (e.g., Red and Blue masked within a `u32`), explicitly promote the masked values to `u64` before multiplication if the scale factor can cause the intermediate result to exceed `u32::MAX`. Failing to do so causes critical integer overflow bugs during pixel blending.
 **Action:** Promote scaled SWAR values to `u64` where intensity/scale factor causes intermediate value representation constraints.
+**[Hoisted Invariants in SIMD Loops]
+**Learning:** In hot inner SIMD loops, hoisting identical invariant instructions (such as vector clamping) out of conditional branches acts as a zero-cost abstraction. It reduces the instruction footprint and conditional decoding overhead, while simultaneously resolving `clippy::branches_sharing_code` warnings.
+**Action:** When inspecting hot loop conditions, look for identical pre-calculations shared by multiple branches and hoist them out.
