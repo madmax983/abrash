@@ -54,3 +54,8 @@
 **Bloat:** `FastU64Builder` a custom hasher builder trait implementation specifically to instantiate `FastU64Hasher` for `HashMap`.
 **Cut:** Removed `FastU64Builder` entirely and replaced it with `std::hash::BuildHasherDefault<FastU64Hasher>`.
 **Saved:** ~15 lines of redundant builder abstraction and boilerplate code.
+
+## [Reduction]
+**Bloat:** `FastSplitter` custom trait implementation in `src/obj_loader.rs` created for parsing `v/vt/vn` obj vertices.
+**Cut:** Removed the `FastSplitter` abstraction and replaced it with standard library string `split('/')` parsing methods.
+**Saved:** ~30 lines of boilerplate code, improving maintainability with no regressions.

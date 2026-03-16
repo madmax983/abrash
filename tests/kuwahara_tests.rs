@@ -32,14 +32,20 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     let left_pixel = fb.get_pixel(2, 5).unwrap();
     let r_left = (left_pixel >> 16) & 0xFF;
     let b_left = left_pixel & 0xFF;
-    assert!(r_left >= 0x80 && r_left <= 0x90, "Left side red channel smoothed");
+    assert!(
+        r_left >= 0x80 && r_left <= 0x90,
+        "Left side red channel smoothed"
+    );
     assert_eq!(b_left, 0, "Left side should not have blue");
 
     // Check right side (Blue) - should be smoothed
     let right_pixel = fb.get_pixel(7, 5).unwrap();
     let r_right = (right_pixel >> 16) & 0xFF;
     let b_right = right_pixel & 0xFF;
-    assert!(b_right >= 0x80 && b_right <= 0x90, "Right side blue channel smoothed");
+    assert!(
+        b_right >= 0x80 && b_right <= 0x90,
+        "Right side blue channel smoothed"
+    );
     assert_eq!(r_right, 0, "Right side should not have red");
 
     // Check the edge itself (x=4 and x=5)

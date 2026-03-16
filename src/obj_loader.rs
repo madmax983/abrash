@@ -96,33 +96,6 @@ impl Hasher for FastU64Hasher {
     }
 }
 
-struct FastSplitter<'a> {
-    bytes: &'a [u8],
-    pos: usize,
-}
-
-impl<'a> FastSplitter<'a> {
-    const fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, pos: 0 }
-    }
-
-    fn next_part(&mut self) -> Option<&'a [u8]> {
-        if self.pos >= self.bytes.len() {
-            return None;
-        }
-
-        let start = self.pos;
-        for i in self.pos..self.bytes.len() {
-            if self.bytes[i] == b'/' {
-                self.pos = i + 1;
-                return Some(&self.bytes[start..i]);
-            }
-        }
-        self.pos = self.bytes.len();
-        Some(&self.bytes[start..])
-    }
-}
-
 fn parse_float_component(
     parts: &mut std::str::SplitAsciiWhitespace,
     context: &str,
@@ -156,14 +129,14 @@ struct ObjParser {
 
 fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, String> {
     // format: v, v/vt, v//vn, v/vt/vn
-    let mut splitter = FastSplitter::new(part.as_bytes());
+    let mut splitter = part.split('/');
 
     // 1. Parse Vertex Index (always present)
-    let v_bytes = splitter
-        .next_part()
+    let v_str = splitter
+        .next()
         .ok_or_else(|| format!("Line {line_num}: Empty vertex part"))?;
 
-    let v_idx = fast_parse_usize(v_bytes)
+    let v_idx = fast_parse_usize(v_str.as_bytes())
         .ok_or_else(|| format!("Line {line_num}: Invalid vertex index"))?;
     let v_idx = v_idx
         .checked_sub(1)
@@ -173,9 +146,9 @@ fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, St
     let mut vn_idx = None;
 
     // 2. Parse UV Index (optional)
-    if let Some(vt_bytes) = splitter.next_part() {
-        if !vt_bytes.is_empty() {
-            let idx = fast_parse_usize(vt_bytes)
+    if let Some(vt_str) = splitter.next() {
+        if !vt_str.is_empty() {
+            let idx = fast_parse_usize(vt_str.as_bytes())
                 .ok_or_else(|| format!("Line {line_num}: Invalid UV index"))?;
             vt_idx = Some(
                 idx.checked_sub(1)
@@ -184,8 +157,8 @@ fn parse_vertex_indices(part: &str, line_num: usize) -> Result<ParsedIndices, St
         }
 
         // 3. Parse Normal Index (optional)
-        if let Some(vn_bytes) = splitter.next_part().filter(|b| !b.is_empty()) {
-            let idx = fast_parse_usize(vn_bytes)
+        if let Some(vn_str) = splitter.next().filter(|s| !s.is_empty()) {
+            let idx = fast_parse_usize(vn_str.as_bytes())
                 .ok_or_else(|| format!("Line {line_num}: Invalid Normal index"))?;
             vn_idx = Some(
                 idx.checked_sub(1)
