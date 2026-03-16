@@ -259,11 +259,7 @@ impl HiZBuffer {
         // Try GPU build first if enabled
         #[cfg(feature = "gpu-binning")]
         {
-            let use_gpu = self.gpu_builder.is_some();
-            if use_gpu {
-                // Take ownership temporarily to avoid borrow issues
-                let mut gpu = self.gpu_builder.take().unwrap();
-
+            if let Some(mut gpu) = self.gpu_builder.take() {
                 let result = gpu
                     .upload_zbuffer(zbuffer.as_slice())
                     .and_then(|_| gpu.build_pyramid())

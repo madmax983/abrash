@@ -212,11 +212,7 @@ impl Texture {
             let mut next_pixels = Vec::with_capacity(size);
 
             // Get previous level pixels
-            let prev_pixels = if self.mips.is_empty() {
-                &self.pixels
-            } else {
-                self.mips.last().unwrap()
-            };
+            let prev_pixels = self.mips.last().unwrap_or(&self.pixels);
 
             for y in 0..next_height {
                 for x in 0..next_width {
@@ -680,5 +676,37 @@ mod tests {
             pixel_l0, 0xFF00_0000,
             "LOD 0.0 should sample from Level 0 (Black)"
         );
+    }
+
+    #[test]
+    fn test_generate_mipmaps_edge_cases() {
+        struct TestCase {
+            width: u32,
+            height: u32,
+            expected_mips: usize,
+        }
+
+        let cases = vec![
+            TestCase { width: 1, height: 1, expected_mips: 0 },
+            TestCase { width: 2, height: 1, expected_mips: 1 },
+            TestCase { width: 1, height: 2, expected_mips: 1 },
+            TestCase { width: 3, height: 3, expected_mips: 1 }, // 1st mip: 1x1
+            TestCase { width: 4, height: 1, expected_mips: 2 }, // 1st: 2x1, 2nd: 1x1
+            TestCase { width: 5, height: 5, expected_mips: 2 }, // 1st: 2x2, 2nd: 1x1
+        ];
+
+        for case in cases {
+            let mut tex = Texture::new(case.width, case.height).unwrap();
+
+            // Should not panic on edge case dimensions
+            tex.generate_mipmaps();
+
+            assert_eq!(
+                tex.mips.len(),
+                case.expected_mips,
+                "Failed on {}x{}: expected {} mips, got {}",
+                case.width, case.height, case.expected_mips, tex.mips.len()
+            );
+        }
     }
 }
