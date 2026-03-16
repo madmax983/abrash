@@ -30,6 +30,7 @@ pub mod arboretum;
 pub mod autostereogram;
 pub mod boids;
 
+pub mod blueprint;
 pub mod chromatic_aberration;
 pub mod cloth;
 pub mod crepuscular;
