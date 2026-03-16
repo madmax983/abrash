@@ -1,9 +1,33 @@
 //! Stable engine-facing render API.
 //!
-//! This module provides the consumer-facing abstractions for the Abrash engine.
-//! External projects should depend on these types rather than the algorithm-level
-//! functions in [`crate::rasterizer`].
+//! # Quick Start
+//!
+//! ```
+//! use abrash::render_api::{RenderTarget, Renderer};
+//! use abrash::render_api::cpu_renderer::CpuRenderer;
+//! use abrash::render_api::frame::{Frame, FrameCamera};
+//! use abrash::render_api::material::Material;
+//! use abrash::mesh::Mesh;
+//! use abrash::math::{Mat4, Vec3};
+//!
+//! let mut renderer = CpuRenderer::new(800, 600);
+//! let mut target = RenderTarget::new(800, 600).unwrap();
+//!
+//! let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+//! let mat_h = renderer.create_material(Material::flat(0xFFFF0000)).unwrap();
+//!
+//! let camera = FrameCamera::new(
+//!     Mat4::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0)),
+//!     Mat4::perspective(1.57, 800.0 / 600.0, 0.1, 100.0),
+//! );
+//! let mut frame = Frame::new(camera);
+//! frame.draw(mesh_h, mat_h, Mat4::identity());
+//! renderer.render_frame(&frame, &mut target).unwrap();
+//!
+//! let pixels: &[u32] = target.pixels();
+//! ```
 
+pub mod cpu_renderer;
 pub mod frame;
 pub mod handles;
 pub mod material;

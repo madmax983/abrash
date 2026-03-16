@@ -1,0 +1,266 @@
+//! CPU software renderer implementing the [`Renderer`] trait.
+//!
+//! Bridges the render API to the existing `TileRenderer` / scanline rasterization.
+
+use crate::mesh::Mesh;
+use crate::rasterizer::TileRenderer;
+use crate::render_api::frame::Frame;
+use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
+use crate::render_api::material::Material;
+use crate::render_api::renderer::{RenderError, Renderer};
+use crate::render_api::target::RenderTarget;
+use crate::texture::Texture;
+
+struct CpuMesh {
+    mesh: Mesh,
+}
+
+/// Software rasterizer implementing the [`Renderer`] trait.
+///
+/// Uses `TileRenderer` internally for cache-efficient tile-based rendering.
+pub struct CpuRenderer {
+    tile_renderer: TileRenderer,
+    meshes: ResourcePool<CpuMesh>,
+    textures: ResourcePool<Texture>,
+    materials: ResourcePool<Material>,
+}
+
+/// Convert an internal pool handle to the public API handle type by copying
+/// the index/generation — the phantom type is zero-sized so the layout is identical.
+#[inline]
+fn to_mesh_handle(h: Handle<CpuMesh>) -> MeshHandle {
+    Handle::new(h.index, h.generation)
+}
+#[inline]
+fn from_mesh_handle(h: MeshHandle) -> Handle<CpuMesh> {
+    Handle::new(h.index, h.generation)
+}
+#[inline]
+fn to_texture_handle(h: Handle<Texture>) -> TextureHandle {
+    Handle::new(h.index, h.generation)
+}
+#[inline]
+fn from_texture_handle(h: TextureHandle) -> Handle<Texture> {
+    Handle::new(h.index, h.generation)
+}
+#[inline]
+fn to_material_handle(h: Handle<Material>) -> MaterialHandle {
+    Handle::new(h.index, h.generation)
+}
+#[inline]
+fn from_material_handle(h: MaterialHandle) -> Handle<Material> {
+    Handle::new(h.index, h.generation)
+}
+
+impl CpuRenderer {
+    /// Create a new CPU renderer for the given resolution.
+    #[must_use]
+    pub fn new(width: u32, height: u32) -> Self {
+        let mut tile_renderer = TileRenderer::new(width, height);
+        tile_renderer.enable_hiz();
+        Self {
+            tile_renderer,
+            meshes: ResourcePool::new(),
+            textures: ResourcePool::new(),
+            materials: ResourcePool::new(),
+        }
+    }
+}
+
+impl Renderer for CpuRenderer {
+    fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
+        // Validate all triangle indices are in bounds
+        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+            for &idx in indices {
+                if idx >= mesh.vertices.len() {
+                    return Err(RenderError::InvalidMesh(format!(
+                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                        mesh.vertices.len()
+                    )));
+                }
+            }
+        }
+        Ok(to_mesh_handle(
+            self.meshes.insert(CpuMesh { mesh: mesh.clone() }),
+        ))
+    }
+
+    fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
+        Ok(to_texture_handle(self.textures.insert(texture.clone())))
+    }
+
+    fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
+        Ok(to_material_handle(self.materials.insert(material)))
+    }
+
+    fn render_frame(
+        &mut self,
+        frame: &Frame,
+        target: &mut RenderTarget,
+    ) -> Result<(), RenderError> {
+        // Clear if requested
+        if let Some(color) = frame.clear_color {
+            target.clear(color);
+        }
+
+        // Compute combined view-projection matrix
+        let view_proj = frame.camera.view * frame.camera.projection;
+
+        self.tile_renderer.begin_frame();
+
+        for cmd in &frame.commands {
+            let cpu_mesh = self
+                .meshes
+                .get(from_mesh_handle(cmd.mesh))
+                .ok_or(RenderError::StaleHandle("mesh"))?;
+            let material = self
+                .materials
+                .get(from_material_handle(cmd.material))
+                .ok_or(RenderError::StaleHandle("material"))?;
+
+            let mvp = cmd.transform * view_proj;
+            let mesh = &cpu_mesh.mesh;
+
+            // Transform vertices to clip space
+            let transformed: Vec<_> = mesh
+                .vertices
+                .iter()
+                .map(|v| mvp.transform_point(*v))
+                .collect();
+
+            self.tile_renderer
+                .submit_mesh(&mesh.indices, &transformed, material.color);
+        }
+
+        self.tile_renderer
+            .end_frame(&mut target.framebuffer, &mut target.zbuffer);
+
+        Ok(())
+    }
+
+    fn destroy_mesh(&mut self, handle: MeshHandle) {
+        self.meshes.remove(from_mesh_handle(handle));
+    }
+
+    fn destroy_texture(&mut self, handle: TextureHandle) {
+        self.textures.remove(from_texture_handle(handle));
+    }
+
+    fn destroy_material(&mut self, handle: MaterialHandle) {
+        self.materials.remove(from_material_handle(handle));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::{Mat4, Vec3};
+    use crate::mesh::Mesh;
+    use crate::render_api::Renderer;
+    use crate::render_api::frame::{Frame, FrameCamera};
+    use crate::render_api::material::Material;
+    use crate::render_api::target::RenderTarget;
+
+    fn test_camera() -> FrameCamera {
+        FrameCamera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 0.0, 5.0),
+                Vec3::ZERO,
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.57, 800.0 / 600.0, 0.1, 100.0),
+        )
+    }
+
+    #[test]
+    fn test_cpu_renderer_lifecycle() {
+        let mut renderer = CpuRenderer::new(800, 600);
+        let mut target = RenderTarget::new(800, 600).unwrap();
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        assert!(renderer.render_frame(&frame, &mut target).is_ok());
+
+        renderer.destroy_mesh(mesh_h);
+        renderer.destroy_material(mat_h);
+    }
+
+    #[test]
+    fn test_cpu_renderer_stale_handle() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mut target = RenderTarget::new(100, 100).unwrap();
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        renderer.destroy_mesh(mesh_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        assert!(renderer.render_frame(&frame, &mut target).is_err());
+    }
+
+    #[test]
+    fn test_cpu_renderer_invalid_mesh() {
+        let mut renderer = CpuRenderer::new(100, 100);
+
+        let mut bad_mesh = Mesh::new();
+        bad_mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        bad_mesh.indices.push([0, 1, 2]); // indices 1, 2 are OOB
+
+        assert!(renderer.create_mesh(&bad_mesh).is_err());
+    }
+
+    #[test]
+    fn test_cpu_renderer_empty_frame() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mut target = RenderTarget::new(100, 100).unwrap();
+
+        let frame = Frame::new(test_camera());
+        assert!(renderer.render_frame(&frame, &mut target).is_ok());
+
+        // All pixels should be clear color (0xFF000000 = opaque black)
+        assert!(target.pixels().iter().all(|&p| p == 0xFF00_0000));
+    }
+
+    #[test]
+    fn test_cpu_renderer_renders_visible_pixels() {
+        let mut renderer = CpuRenderer::new(200, 200);
+        let mut target = RenderTarget::new(200, 200).unwrap();
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        let camera = FrameCamera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 0.0, 3.0),
+                Vec3::ZERO,
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.57, 1.0, 0.1, 100.0),
+        );
+
+        let mut frame = Frame::new(camera);
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        renderer.render_frame(&frame, &mut target).unwrap();
+
+        let non_black = target
+            .pixels()
+            .iter()
+            .filter(|&&p| p != 0xFF00_0000)
+            .count();
+        assert!(
+            non_black > 100,
+            "Expected visible cube pixels, got {non_black}"
+        );
+    }
+}
