@@ -1,11 +1,11 @@
+use abrash::framebuffer::Framebuffer;
+use abrash::math::{Mat4, Vec3};
+use abrash::mesh::Mesh;
+use abrash::rasterizer::tile::TileRenderer;
+use abrash::scene::{Camera, Scene, SceneObject};
+use abrash::zbuffer::ZBuffer;
 use proptest::prelude::*;
 use std::sync::Arc;
-use abrash::scene::{Scene, SceneObject, Camera};
-use abrash::mesh::Mesh;
-use abrash::math::{Mat4, Vec3};
-use abrash::framebuffer::Framebuffer;
-use abrash::zbuffer::ZBuffer;
-use abrash::rasterizer::tile::TileRenderer;
 
 proptest! {
     #[test]

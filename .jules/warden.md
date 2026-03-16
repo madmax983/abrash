@@ -39,3 +39,7 @@
 **2025-05-15 - [Fix potential Out-of-Bounds in Kuwahara filter]**
 **Threat:** The `apply_kuwahara` function in `src/experimental/kuwahara.rs` used `unsafe { *src_fb.get_unchecked(...) }` when sampling pixels. Even though boundaries were explicitly clamped to logical limits, casting `width` to `i32` and complex row offsets calculated by hand introduced a risk of memory corruption.
 **Defense:** Replaced the `unsafe` block with safe slice indexing, ensuring bounds checks remain, deferring any optimization safely to the compiler.
+
+**2026-03-01 - [Fix missing bounds checks in experimental pixel_sort]**
+**Threat:** The parallel implementation of vertical pixel sorting in `src/experimental/pixel_sort.rs` extracted and restored columns using unsafe pointer arithmetic (`*ptr.0.add(y * width + x)`). A mismatch between the provided width/height and the actual buffer size, or invalid coordinates could result in out-of-bounds reads/writes leading to Undefined Behavior.
+**Defense:** Added explicit `assert!(y * width + x < len, "Index out of bounds")` immediately before the `unsafe` pointer access to ensure memory safety while retaining the performance optimization of avoiding per-pixel safe bounds checks.

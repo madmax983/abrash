@@ -43,11 +43,10 @@ impl Default for PixelSortConfig {
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// remainder chunk handling and bounds checking, enabling better vectorization
 /// and measurable performance improvements.
-
-/// Bolt Performance Optimization:
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// remainder chunk handling and bounds checking, enabling better vectorization
-/// and measurable performance improvements.
+///
+/// # Panics
+///
+/// Panics if the framebuffer's internal slice length does not match `width * height`.
 pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
@@ -72,6 +71,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
             unsafe impl Sync for SendPtr {}
 
             let pixels_ptr = SendPtr(pixels.as_mut_ptr());
+            let len = pixels.len();
 
             // ⚡ Bolt: Eliminate per-thread dynamic heap allocation in par_iter by using a thread_local buffer.
             std::thread_local! {
@@ -93,6 +93,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
                     // Extract column
                     for (y, item) in col_slice.iter_mut().enumerate() {
+                        assert!(y * width + x < len, "Index out of bounds");
                         unsafe {
                             *item = *ptr.0.add(y * width + x);
                         }
@@ -103,6 +104,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
                     // Put column back
                     for (y, item) in col_slice.iter().enumerate() {
+                        assert!(y * width + x < len, "Index out of bounds");
                         unsafe {
                             *ptr.0.add(y * width + x) = *item;
                         }

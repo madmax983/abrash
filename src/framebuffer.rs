@@ -65,6 +65,12 @@ impl Framebuffer {
         self.height
     }
 
+    /// Used strictly for testing memory safety exploits
+    #[cfg(any(test, feature = "nova"))]
+    pub fn set_height_for_test(&mut self, height: u32) {
+        self.height = height;
+    }
+
     #[must_use]
     pub fn as_slice(&self) -> &[u32] {
         &self.pixels
