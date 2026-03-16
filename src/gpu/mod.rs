@@ -4,7 +4,7 @@
 
 use crate::{
     hiz_buffer::{AABB3D, HiZBuffer},
-    tile_renderer::PreparedTriangle,
+    rasterizer::tile::PreparedTriangle,
 };
 
 pub use abrash_gpu::{
@@ -36,10 +36,13 @@ impl GpuBinner {
     pub fn bin_triangles(
         &mut self,
         triangles: &[PreparedTriangle],
-        tile_bins: &mut Vec<Vec<usize>>,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
     ) -> Result<(), GpuError> {
         self.sync_triangles(triangles);
-        self.inner.bin_triangles(&self.scratch, tile_bins)
+        self.inner.bin_triangles(&self.scratch, heads, tails, nexts, tris)
     }
 
     /// Enable two-level hierarchical binning.
@@ -58,7 +61,10 @@ impl GpuBinner {
         &mut self,
         triangles: &[PreparedTriangle],
         hiz_buffer: Option<&HiZBuffer>,
-        tile_bins: &mut Vec<Vec<usize>>,
+        heads: &mut [u32],
+        tails: &mut [u32],
+        nexts: &mut Vec<u32>,
+        tris: &mut Vec<u32>,
     ) -> Result<TwoLevelBinningStats, GpuError> {
         self.sync_triangles(triangles);
 
@@ -68,7 +74,7 @@ impl GpuBinner {
             .map(|value| value as &dyn abrash_gpu::HiZOcclusion);
 
         self.inner
-            .bin_triangles_two_level(&self.scratch, trait_obj, tile_bins)
+            .bin_triangles_two_level(&self.scratch, trait_obj, heads, tails, nexts, tris)
     }
 
     fn sync_triangles(&mut self, triangles: &[PreparedTriangle]) {

@@ -5,7 +5,7 @@
 
 #![cfg(all(feature = "backend-win32", feature = "gpu-binning"))]
 
-use abrash::{framebuffer::Framebuffer, math::Vec3, tile_renderer::TileRenderer, zbuffer::ZBuffer};
+use abrash::{framebuffer::Framebuffer, math::Vec3, rasterizer::tile::TileRenderer, zbuffer::ZBuffer};
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::time::Duration;
 
