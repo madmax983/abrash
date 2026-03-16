@@ -2,6 +2,45 @@ use abrash::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{Event, Window};
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner() {
+    println!("\n{}", "📷 Tilt Shift Demo".bold().cyan());
+    println!("{}", "=======================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Miniature/diorama depth of field effect").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("Software Rasterizer + Post-Process").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Up/Down"), Cell::new("Move Focus Plane")])
+        .add_row(vec![Cell::new("Left/Right"), Cell::new("Change Blur Radius")]);
+    println!("{controls}\n");
+}
+
 fn generate_procedural_city(fb: &mut Framebuffer) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
@@ -48,6 +87,8 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
 }
 
 fn main() {
+    print_banner();
+
     let width = 800;
     let height = 600;
 
@@ -62,10 +103,6 @@ fn main() {
     };
 
     let mut running = true;
-
-    println!("Controls:");
-    println!("  Up/Down: Move Focus Plane");
-    println!("  Left/Right: Change Blur Radius");
 
     while running {
         for event in window.poll_events() {
