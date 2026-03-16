@@ -4,10 +4,12 @@
 //! External projects should depend on these types rather than the algorithm-level
 //! functions in [`crate::rasterizer`].
 
+pub mod frame;
 pub mod handles;
 pub mod material;
 pub mod target;
 
+pub use frame::{DrawCommand, Frame, FrameCamera, Light};
 pub use handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 pub use material::{Material, ShadingMode};
 pub use target::RenderTarget;
