@@ -66,15 +66,8 @@ pub struct Aabb3d {
 }
 
 /// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
-pub trait HiZOcclusion {
-    fn is_coarse_bin_visible(&self, bin_aabb: Aabb3d) -> bool;
-}
 
 /// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
-pub trait HiZPyramidWriter {
-    fn write_level_data(&mut self, level: u32, data: &[f32]);
-    fn mark_valid(&mut self);
-}
 
 /// GPU compute binning pipeline
 pub struct GpuBinner {
@@ -503,7 +496,7 @@ impl GpuBinner {
     pub fn bin_triangles_two_level(
         &mut self,
         triangles: &[PreparedTriangleInput],
-        hiz_buffer: Option<&dyn HiZOcclusion>,
+        hiz_buffer: Option<&impl Fn(Aabb3d) -> bool>,
         heads: &mut [u32],
         tails: &mut [u32],
         nexts: &mut Vec<u32>,
@@ -678,7 +671,7 @@ impl GpuBinner {
     fn cull_coarse_bins(
         &self,
         coarse_bins: &[CoarseBinCpu],
-        hiz_buffer: Option<&dyn HiZOcclusion>,
+        hiz_buffer: Option<&impl Fn(Aabb3d) -> bool>,
     ) -> Vec<CoarseBinCpu> {
         let Some(hiz) = hiz_buffer else {
             // No Hi-Z, all bins visible
@@ -710,7 +703,7 @@ impl GpuBinner {
                     max_depth: f32::INFINITY,
                 };
 
-                hiz.is_coarse_bin_visible(bin_aabb)
+                hiz(bin_aabb)
             })
             .cloned()
             .collect()
@@ -1892,7 +1885,8 @@ impl GpuHiZBuilder {
     /// * `hiz_buffer` - Target HiZBuffer to populate with pyramid data
     pub fn download_pyramid(
         &mut self,
-        hiz_buffer: &mut dyn HiZPyramidWriter,
+        mut write_level_data: impl FnMut(u32, &[f32]),
+        mut mark_valid: impl FnMut(),
     ) -> Result<(), GpuError> {
         unsafe {
             // Reset command list for copy operations
@@ -2106,7 +2100,7 @@ impl GpuHiZBuilder {
                     );
                 }
 
-                hiz_buffer.write_level_data(0, &level_data);
+                write_level_data(0, &level_data);
                 byte_offset += self.height as usize * row_pitch as usize;
             }
 
@@ -2134,14 +2128,14 @@ impl GpuHiZBuilder {
                     );
                 }
 
-                hiz_buffer.write_level_data(level, &level_data);
+                write_level_data(level, &level_data);
                 byte_offset += level_height as usize * row_pitch as usize;
             }
 
             self.pyramid_readback.Unmap(0, None);
 
             // Mark pyramid as valid
-            hiz_buffer.mark_valid();
+            mark_valid();
         }
 
         Ok(())
