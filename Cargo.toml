@@ -524,3 +524,8 @@ required-features = ["nova"]
 name = "swirl_demo"
 path = "examples/swirl_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "wobble_demo"
+path = "examples/wobble_demo.rs"
+required-features = ["nova"]
