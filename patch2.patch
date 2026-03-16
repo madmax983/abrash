@@ -1,0 +1,8 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -68,2 +68,4 @@ pub fn apply_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
+-            fb.set_pixel_unchecked(px, py, color);
++            unsafe {
++                fb.set_pixel_unchecked(px as usize, py as usize, color);
++            }
+         }

@@ -74,7 +74,7 @@ pub fn apply_pixel_sort(fb: &mut Framebuffer, config: &PixelSortConfig) {
 
             (0..width).into_par_iter().for_each(|x| {
                 PIXEL_SORT_COL_BUFFER.with(|buffer| {
-                    let mut col_buffer = buffer.borrow_mut();
+                    let mut col_buffer = buffer.take();
                     if col_buffer.len() < height {
                         col_buffer.resize(height, 0);
                     }

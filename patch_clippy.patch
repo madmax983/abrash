@@ -1,0 +1,13 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -32,8 +32,8 @@ impl Default for MandelbrotConfig {
+
+ /// Applies the Mandelbrot fractal to the given framebuffer.
+ pub fn apply_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
+-    let width = fb.width() as f64;
+-    let height = fb.height() as f64;
++    let width = f64::from(fb.width());
++    let height = f64::from(fb.height());
+     let aspect_ratio = width / height;
+
+     let x_min = config.center_x - (config.zoom / 2.0);

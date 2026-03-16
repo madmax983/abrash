@@ -65,3 +65,4 @@ pub mod voronoi;
 pub mod voxel_explosion;
 pub mod voxelizer;
 pub mod water_ripple;
+pub mod mandelbrot;

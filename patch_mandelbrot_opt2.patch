@@ -1,0 +1,7 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -49,4 +49,4 @@
+-        for (px, pixel) in row.iter_mut().enumerate() {
+-            let cx = x_min + (f64::from(px) + 0.5) * dx;
++        for (px, pixel) in row.iter_mut().enumerate() {
++            let cx = x_min + (px as f64 + 0.5) * dx;

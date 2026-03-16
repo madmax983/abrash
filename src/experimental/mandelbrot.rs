@@ -1,0 +1,126 @@
+//! Mandelbrot Fractal Renderer
+//!
+//! Generates a visualization of the Mandelbrot set within the framebuffer.
+
+use crate::framebuffer::Framebuffer;
+
+/// Configuration for the Mandelbrot renderer.
+#[derive(Clone, Copy, Debug)]
+pub struct MandelbrotConfig {
+    /// Maximum number of iterations per pixel.
+    pub max_iterations: u32,
+    /// Center X coordinate in the complex plane.
+    pub center_x: f64,
+    /// Center Y coordinate in the complex plane.
+    pub center_y: f64,
+    /// The zoom level (width of the complex plane visible).
+    pub zoom: f64,
+}
+
+impl Default for MandelbrotConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 100,
+            center_x: -0.5,
+            center_y: 0.0,
+            zoom: 3.0,
+        }
+    }
+}
+
+/// Applies the Mandelbrot fractal to the given framebuffer.
+pub fn apply_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
+    let width = f64::from(fb.width());
+    let height = f64::from(fb.height());
+    let aspect_ratio = width / height;
+
+    let x_min = config.center_x - (config.zoom / 2.0);
+    // Adjust y zoom by aspect ratio so circles are round
+    let y_zoom = config.zoom / aspect_ratio;
+    let y_min = config.center_y - (y_zoom / 2.0);
+
+    let dx = config.zoom / width;
+    let dy = y_zoom / height;
+
+    let w = fb.width() as usize;
+    let pixels = fb.as_mut_slice();
+
+    let render_row = |py: usize, row: &mut [u32]| {
+        let cy = y_min + (py as f64 + 0.5) * dy;
+        for (px, pixel) in row.iter_mut().enumerate() {
+            let cx = x_min + (px as f64 + 0.5) * dx;
+
+            let mut zx = 0.0;
+            let mut zy = 0.0;
+            let mut iteration = 0;
+            let mut zx2 = 0.0;
+            let mut zy2 = 0.0;
+
+            while zx2 + zy2 <= 4.0 && iteration < config.max_iterations {
+                zy = (zx + zx) * zy + cy;
+                zx = zx2 - zy2 + cx;
+                zx2 = zx * zx;
+                zy2 = zy * zy;
+                iteration += 1;
+            }
+
+            let color = if iteration == config.max_iterations {
+                0xFF00_0000 // Black for inside the set
+            } else {
+                // Simple grayscale gradient for outside
+                let intensity = (iteration * 255 / config.max_iterations) as u32 & 0xFF;
+                0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity
+            };
+
+            *pixel = color;
+        }
+    };
+
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pixels.par_chunks_exact_mut(w).enumerate().for_each(|(py, row)| {
+            render_row(py, row);
+        });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        pixels.chunks_exact_mut(w).enumerate().for_each(|(py, row)| {
+            render_row(py, row);
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mandelbrot_renders_center_black() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let config = MandelbrotConfig::default();
+
+        apply_mandelbrot(&mut fb, &config);
+
+        // Actually the exact formula for cx is:
+        // x_min = -0.5 - 1.5 = -2.0
+        // cx = -2.0 + (px + 0.5) * 3.0 / 100
+        // So 0.0 = -2.0 + (px+0.5) * 0.03
+        // 2.0 / 0.03 = 66.666 -> px = 66
+        let pixel = fb.get_pixel(66, 50).unwrap();
+        assert_eq!(pixel, 0xFF00_0000, "Point near origin should be black.");
+    }
+
+    #[test]
+    fn test_mandelbrot_renders_outside_white() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let config = MandelbrotConfig::default();
+
+        apply_mandelbrot(&mut fb, &config);
+
+        // Point far outside the set, e.g., corner (0, 0)
+        let pixel = fb.get_pixel(0, 0).unwrap();
+        assert_ne!(pixel, 0xFF00_0000, "Point outside should not be black.");
+    }
+}

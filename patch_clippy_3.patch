@@ -1,0 +1,10 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -62,7 +62,7 @@ pub fn apply_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
+                 0xFF00_0000 // Black for inside the set
+             } else {
+                 // Simple grayscale gradient for outside
+-                let intensity = u32::try_from(iteration * 255 / config.max_iterations).unwrap() & 0xFF;
++                let intensity = (iteration * 255 / config.max_iterations) as u32 & 0xFF;
+                 0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity
+             };

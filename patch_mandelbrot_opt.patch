@@ -1,0 +1,69 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -42,32 +42,43 @@
+     let dx = config.zoom / width;
+     let dy = y_zoom / height;
+
+-    for py in 0..fb.height() {
+-        let cy = y_min + (f64::from(py) + 0.5) * dy;
+-        for px in 0..fb.width() {
+-            let cx = x_min + (f64::from(px) + 0.5) * dx;
++    let w = fb.width() as usize;
++    let h = fb.height() as usize;
++    let pixels = fb.as_mut_slice();
++
++    let render_row = |py: usize, row: &mut [u32]| {
++        let cy = y_min + (py as f64 + 0.5) * dy;
++        for (px, pixel) in row.iter_mut().enumerate() {
++            let cx = x_min + (px as f64 + 0.5) * dx;
+
+             let mut zx = 0.0;
+             let mut zy = 0.0;
+             let mut iteration = 0;
++            let mut zx2 = 0.0;
++            let mut zy2 = 0.0;
+
+-            while zx * zx + zy * zy <= 4.0 && iteration < config.max_iterations {
+-                let temp_zx = zx * zx - zy * zy + cx;
+-                zy = 2.0 * zx * zy + cy;
+-                zx = temp_zx;
++            while zx2 + zy2 <= 4.0 && iteration < config.max_iterations {
++                zy = (zx + zx) * zy + cy;
++                zx = zx2 - zy2 + cx;
++                zx2 = zx * zx;
++                zy2 = zy * zy;
+                 iteration += 1;
+             }
+
+             let color = if iteration == config.max_iterations {
+                 0xFF00_0000 // Black for inside the set
+             } else {
+                 // Simple grayscale gradient for outside
+-                let intensity = (iteration * 255 / config.max_iterations) & 0xFF;
++                let intensity = (iteration * 255 / config.max_iterations) as u32 & 0xFF;
+                 0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity
+             };
+
+-            unsafe {
+-                fb.set_pixel_unchecked(px as usize, py as usize, color);
+-            }
++            *pixel = color;
+         }
+-    }
++    };
++
++    #[cfg(feature = "parallel")]
++    {
++        use rayon::prelude::*;
++        pixels.par_chunks_exact_mut(w).enumerate().for_each(|(py, row)| {
++            render_row(py, row);
++        });
++    }
++
++    #[cfg(not(feature = "parallel"))]
++    {
++        pixels.chunks_exact_mut(w).enumerate().for_each(|(py, row)| {
++            render_row(py, row);
++        });
++    }
+ }

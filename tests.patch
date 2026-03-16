@@ -1,0 +1,13 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -87,4 +87,8 @@ mod tests {
+
+-        // Origin maps approximately to (83, 50) given config.center_x = -0.5, zoom = 3.0
+-        let pixel = fb.get_pixel(83, 50).unwrap();
++        // Actually the exact formula for cx is:
++        // x_min = -0.5 - 1.5 = -2.0
++        // cx = -2.0 + (px + 0.5) * 3.0 / 100
++        // So 0.0 = -2.0 + (px+0.5) * 0.03
++        // 2.0 / 0.03 = 66.666 -> px = 66
++        let pixel = fb.get_pixel(66, 50).unwrap();
+         assert_eq!(pixel, 0xFF00_0000, "Point near origin should be black.");

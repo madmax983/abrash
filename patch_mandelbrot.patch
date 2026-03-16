@@ -1,0 +1,45 @@
+--- src/experimental/mandelbrot.rs
++++ src/experimental/mandelbrot.rs
+@@ -28,7 +28,40 @@ impl Default for MandelbrotConfig {
+
+ /// Applies the Mandelbrot fractal to the given framebuffer.
+ pub fn apply_mandelbrot(fb: &mut Framebuffer, config: &MandelbrotConfig) {
+-    // To be implemented
++    let width = fb.width() as f64;
++    let height = fb.height() as f64;
++    let aspect_ratio = width / height;
++
++    let x_min = config.center_x - (config.zoom / 2.0);
++    let y_min = config.center_y - (config.zoom / (2.0 * aspect_ratio));
++
++    let dx = config.zoom / width;
++    let dy = (config.zoom / aspect_ratio) / height;
++
++    for py in 0..fb.height() {
++        let cy = y_min + (py as f64) * dy;
++        for px in 0..fb.width() {
++            let cx = x_min + (px as f64) * dx;
++
++            let mut zx = 0.0;
++            let mut zy = 0.0;
++            let mut iteration = 0;
++
++            while zx * zx + zy * zy <= 4.0 && iteration < config.max_iterations {
++                let temp_zx = zx * zx - zy * zy + cx;
++                zy = 2.0 * zx * zy + cy;
++                zx = temp_zx;
++                iteration += 1;
++            }
++
++            let color = if iteration == config.max_iterations {
++                0xFF00_0000 // Black for inside the set
++            } else {
++                0xFF00_0000 | (0x0001_0101 * ((iteration * 255 / config.max_iterations) & 0xFF)) // Grayscale for outside
++            };
++
++            fb.set_pixel(px as i32, py as i32, color);
++        }
++    }
+ }
+
+ #[cfg(test)]

@@ -514,3 +514,8 @@ required-features = ["nova"]
 name = "swirl_demo"
 path = "examples/swirl_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "mandelbrot_bench"
+harness = false
+required-features = ["nova"]
