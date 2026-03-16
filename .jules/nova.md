@@ -123,3 +123,8 @@
 **Concept:** A retro post-processing effect that distorts the image by displacing pixels radially based on their distance from a center point, creating a localized swirl or pinch effect.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is critical to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Additionally, calculating `distance2 < radius2` avoids an expensive `sqrt` call for the vast majority of non-affected pixels, and using fast float-to-int casts (`as i32`) prevents inner-loop bottlenecks. Precalculating `1.0 / radius` allows for multiplication instead of division in the inner loop.
+
+## [Depth Fog]
+**Concept:** A post-processing effect that blends pixels with a specified fog color based on their depth in the Z-buffer. Simulates distance fog or atmospheric perspective.
+**Fate:** Implemented
+**Lesson:** Leveraging the Z-Buffer directly for post-processing effects adds significant depth without needing complex shader modifications. By storing depth as 1/Z and linearly interpolating it over a configurable min/max range, atmospheric fog seamlessly fades distant elements.

@@ -147,6 +147,11 @@ name = "voronoi_demo"
 path = "examples/voronoi_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "fog_demo"
+path = "examples/fog_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false

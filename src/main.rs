@@ -116,6 +116,13 @@ const DEMOS: &[Demo] = &[
         example_name: "particles",
     },
     Demo {
+        name: "Depth Fog",
+        category: DemoCategory::Simulation,
+        description: "Distance-based depth fog effect",
+        instructions: "Mouse: None\nKeyboard: Auto-moving camera",
+        example_name: "fog_demo",
+    },
+    Demo {
         name: "Vision Demo",
         category: DemoCategory::Simulation,
         description: "Simulates thermal, sonar, and night vision effects",
