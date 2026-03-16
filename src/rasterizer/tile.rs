@@ -329,12 +329,12 @@ fn clear_tile_bounds<T>(
 
 use std::mem::MaybeUninit;
 
-pub struct PreparedGouraudTrianglesList {
-    pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
+pub struct PreparedTrianglesList<T> {
+    pub tris: [MaybeUninit<T>; 8],
     pub count: usize,
 }
 
-impl PreparedGouraudTrianglesList {
+impl<T> PreparedTrianglesList<T> {
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -343,7 +343,7 @@ impl PreparedGouraudTrianglesList {
         }
     }
 
-    pub const fn push(&mut self, tri: PreparedGouraudTriangle) {
+    pub fn push(&mut self, tri: T) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
             self.count += 1;
@@ -351,62 +351,9 @@ impl PreparedGouraudTrianglesList {
     }
 }
 
-impl IntoIterator for PreparedGouraudTrianglesList {
-    type Item = PreparedGouraudTriangle;
-    type IntoIter = PreparedGouraudTrianglesIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        PreparedGouraudTrianglesIter {
-            list: self,
-            index: 0,
-        }
-    }
-}
-
-pub struct PreparedGouraudTrianglesIter {
-    list: PreparedGouraudTrianglesList,
-    index: usize,
-}
-
-impl Iterator for PreparedGouraudTrianglesIter {
-    type Item = PreparedGouraudTriangle;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
-            self.index += 1;
-            Some(item)
-        } else {
-            None
-        }
-    }
-}
-
-pub struct PreparedTrianglesList {
-    pub tris: [MaybeUninit<PreparedTriangle>; 8],
-    pub count: usize,
-}
-
-impl PreparedTrianglesList {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
-            count: 0,
-        }
-    }
-
-    pub const fn push(&mut self, tri: PreparedTriangle) {
-        if self.count < 8 {
-            self.tris[self.count].write(tri);
-            self.count += 1;
-        }
-    }
-}
-
-impl IntoIterator for PreparedTrianglesList {
-    type Item = PreparedTriangle;
-    type IntoIter = PreparedTrianglesIter;
+impl<T> IntoIterator for PreparedTrianglesList<T> {
+    type Item = T;
+    type IntoIter = PreparedTrianglesIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         PreparedTrianglesIter {
@@ -417,111 +364,36 @@ impl IntoIterator for PreparedTrianglesList {
 }
 
 #[cfg(feature = "parallel")]
-impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
-    type Item = PreparedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTriangle>;
+impl<T: Send> rayon::iter::IntoParallelIterator for PreparedTrianglesList<T> {
+    type Item = T;
+    type Iter = rayon::vec::IntoIter<T>;
 
     fn into_par_iter(self) -> Self::Iter {
         let mut vec = Vec::with_capacity(self.count);
         for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
+            // SAFETY: Elements up to `count` are initialized.
+            // Using `assume_init_read()` reads the value and leaves the original uninitialized conceptually.
+            // Since this consumes `self` via `into_par_iter`, this is safe.
+            vec.push(unsafe { self.tris[i].assume_init_read() });
         }
         vec.into_par_iter()
     }
 }
 
-#[cfg(feature = "parallel")]
-impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
-    type Item = PreparedTexturedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTexturedTriangle>;
-
-    fn into_par_iter(self) -> Self::Iter {
-        let mut vec = Vec::with_capacity(self.count);
-        for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
-        }
-        vec.into_par_iter()
-    }
-}
-
-#[cfg(feature = "parallel")]
-impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
-    type Item = PreparedGouraudTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedGouraudTriangle>;
-
-    fn into_par_iter(self) -> Self::Iter {
-        let mut vec = Vec::with_capacity(self.count);
-        for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
-        }
-        vec.into_par_iter()
-    }
-}
-
-pub struct PreparedTrianglesIter {
-    list: PreparedTrianglesList,
+pub struct PreparedTrianglesIter<T> {
+    list: PreparedTrianglesList<T>,
     index: usize,
 }
 
-impl Iterator for PreparedTrianglesIter {
-    type Item = PreparedTriangle;
+impl<T> Iterator for PreparedTrianglesIter<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
-            self.index += 1;
-            Some(item)
-        } else {
-            None
-        }
-    }
-}
-
-pub struct PreparedTexturedTrianglesList {
-    pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
-    pub count: usize,
-}
-
-impl PreparedTexturedTrianglesList {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
-            count: 0,
-        }
-    }
-
-    pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
-        if self.count < 8 {
-            self.tris[self.count].write(tri);
-            self.count += 1;
-        }
-    }
-}
-
-impl IntoIterator for PreparedTexturedTrianglesList {
-    type Item = PreparedTexturedTriangle;
-    type IntoIter = PreparedTexturedTrianglesIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        PreparedTexturedTrianglesIter {
-            list: self,
-            index: 0,
-        }
-    }
-}
-
-pub struct PreparedTexturedTrianglesIter {
-    list: PreparedTexturedTrianglesList,
-    index: usize,
-}
-
-impl Iterator for PreparedTexturedTrianglesIter {
-    type Item = PreparedTexturedTriangle;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.list.count {
-            let item = unsafe { self.list.tris[self.index].assume_init() };
+            // SAFETY: Elements up to `count` are initialized.
+            // Using `assume_init_read()` reads the value and leaves the original uninitialized conceptually.
+            // This is safe because `IntoIterator` takes ownership of `list` and we only read each element once.
+            let item = unsafe { self.list.tris[self.index].assume_init_read() };
             self.index += 1;
             Some(item)
         } else {
@@ -2538,7 +2410,7 @@ impl TileRenderer {
         height: u32,
         half_width: f32,
         half_height: f32,
-    ) -> PreparedGouraudTrianglesList {
+    ) -> PreparedTrianglesList<PreparedGouraudTriangle> {
         let clipped = clip_triangle_to_frustum(
             v0,
             v1,
@@ -2551,7 +2423,7 @@ impl TileRenderer {
                 )
             },
         );
-        let mut results = PreparedGouraudTrianglesList::new();
+        let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -2760,7 +2632,7 @@ impl TileRenderer {
         height: u32,
         half_width: f32,
         half_height: f32,
-    ) -> PreparedTexturedTrianglesList {
+    ) -> PreparedTrianglesList<PreparedTexturedTriangle> {
         let clipped = clip_triangle_to_frustum(
             v0,
             v1,
@@ -2773,7 +2645,7 @@ impl TileRenderer {
                 )
             },
         );
-        let mut results = PreparedTexturedTrianglesList::new();
+        let mut results = PreparedTrianglesList::new();
 
         for i in 0..clipped.count {
             let base = i * 3;
@@ -2926,7 +2798,7 @@ impl TileRenderer {
         height: u32,
         half_width: f32,
         half_height: f32,
-    ) -> PreparedTrianglesList {
+    ) -> PreparedTrianglesList<PreparedTriangle> {
         let clipped = clip_triangle_to_frustum(
             v0,
             v1,
@@ -2934,7 +2806,7 @@ impl TileRenderer {
             |v| (v.0, v.1),
             |a, b, t| (a.0.lerp(b.0, t), a.1 + (b.1 - a.1) * t),
         );
-        let mut results = PreparedTrianglesList::new();
+        let mut results = PreparedTrianglesList::<PreparedTriangle>::new();
 
         for i in 0..clipped.count {
             let base = i * 3;

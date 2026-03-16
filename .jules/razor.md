@@ -54,3 +54,8 @@
 **Bloat:** `FastU64Builder` a custom hasher builder trait implementation specifically to instantiate `FastU64Hasher` for `HashMap`.
 **Cut:** Removed `FastU64Builder` entirely and replaced it with `std::hash::BuildHasherDefault<FastU64Hasher>`.
 **Saved:** ~15 lines of redundant builder abstraction and boilerplate code.
+
+## [Reduction]
+**Bloat:** Redundant manual implementations of `PreparedTrianglesList`, `PreparedGouraudTrianglesList`, and `PreparedTexturedTrianglesList`, along with their custom `Iter` types in `src/rasterizer/tile.rs`.
+**Cut:** Deduplicated into a single generic `PreparedTrianglesList<T>` struct and `PreparedTrianglesIter<T>`.
+**Saved:** Over 100 lines of boilerplate code and removed 4 duplicate iterator implementations while maintaining `unsafe` performance boundaries with `MaybeUninit::assume_init_read()`.
