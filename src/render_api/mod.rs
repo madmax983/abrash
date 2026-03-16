@@ -7,9 +7,11 @@
 pub mod frame;
 pub mod handles;
 pub mod material;
+pub mod renderer;
 pub mod target;
 
 pub use frame::{DrawCommand, Frame, FrameCamera, Light};
 pub use handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 pub use material::{Material, ShadingMode};
+pub use renderer::{RenderError, Renderer};
 pub use target::RenderTarget;
