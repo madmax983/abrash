@@ -133,3 +133,7 @@
 **Concept:** A retro post-processing effect that distorts the image by displacing pixels horizontally based on a sine wave of their Y-coordinate, simulating classic SNES-style underwater or heat haze effects.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel lookups using Rayon without mutable aliasing. Using fast float-to-int casts (`as i32`) is beneficial for the inner loop.
+## [Glitch Filter Parallelization]
+**Concept:** A retro cyberpunk post-processing effect simulating screen tearing, chromatic aberration (RGB split), and digital noise.
+**Fate:** Optimized (Parallelized)
+**Lesson:** When parallelizing random-driven pixel effects across image slices with Rayon, avoid sharing a single non-thread-safe RNG (`XorShift32`). Pre-calculate sequential random values into an intermediary buffer before the parallel `.par_chunks_exact_mut()` pass (used for `apply_scanline_jitter` and `apply_rgb_split`), or divide the work into larger row chunks and instantiate a deterministic, locally-seeded RNG (`XorShift32::new(seed + chunk_idx)`) per chunk (used for `apply_digital_noise`).

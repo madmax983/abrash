@@ -529,3 +529,8 @@ required-features = ["nova"]
 name = "wobble_demo"
 path = "examples/wobble_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "glitch_bench"
+harness = false
+required-features = ["nova"]

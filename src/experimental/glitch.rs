@@ -12,6 +12,9 @@
 use crate::framebuffer::Framebuffer;
 use crate::utils::XorShift32;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Parameters for controlling the glitch effect intensity.
 #[derive(Debug, Clone, Copy)]
 pub struct GlitchParams {
@@ -92,28 +95,48 @@ fn apply_scanline_jitter(
     // Use max(3) to ensure we hit enough lines to be visible in tests/gameplay
     let num_jitter_lines = (height as f32 * params.intensity * 0.5).max(3.0) as usize;
 
+    // Precalculate shifts to allow parallel application
+    let mut row_shifts = vec![0i32; height];
     for _ in 0..num_jitter_lines {
         let y = (rng.next_u32() as usize) % height;
         let shift = (rng.next_f32_signed() * params.jitter_amount as f32 * params.intensity) as i32;
+        row_shifts[y] = shift;
+    }
 
-        if shift == 0 {
-            continue;
-        }
+    #[cfg(feature = "parallel")]
+    {
+        pixels
+            .par_chunks_exact_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let shift = row_shifts[y];
+                if shift != 0 {
+                    let mut temp_row = vec![0u32; width];
+                    temp_row.copy_from_slice(row);
+                    for (x, item) in row.iter_mut().enumerate().take(width) {
+                        let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
+                        *item = temp_row[src_x];
+                    }
+                }
+            });
+    }
 
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row = &mut pixels[row_start..row_end];
-
-        // Create a temporary buffer for the row
-        // Allocating per line is slow, but acceptable for experimental feature.
-        // Optimization: Use a thread-local scratch buffer if this becomes hot path.
-        let mut temp_row = vec![0u32; width];
-        temp_row.copy_from_slice(row);
-
-        for (x, item) in row.iter_mut().enumerate().take(width) {
-            let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
-            *item = temp_row[src_x];
-        }
+    #[cfg(not(feature = "parallel"))]
+    {
+        pixels
+            .chunks_exact_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let shift = row_shifts[y];
+                if shift != 0 {
+                    let mut temp_row = vec![0u32; width];
+                    temp_row.copy_from_slice(row);
+                    for (x, item) in row.iter_mut().enumerate().take(width) {
+                        let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
+                        *item = temp_row[src_x];
+                    }
+                }
+            });
     }
 }
 
@@ -127,6 +150,9 @@ fn apply_rgb_split(
     // Only apply to random bands of the screen for "glitchy" feel
     let num_bands = (rng.next_u32() % 5) + 1;
 
+    let mut row_shifts_r = vec![0i32; height];
+    let mut row_shifts_b = vec![0i32; height];
+
     for _ in 0..num_bands {
         let band_height = (rng.next_u32() % (height as u32 / 4)) as usize;
         let start_y = (rng.next_u32() as usize) % (height.saturating_sub(band_height).max(1));
@@ -136,36 +162,68 @@ fn apply_rgb_split(
         let shift_b =
             (rng.next_f32_signed() * params.color_shift_amount as f32 * params.intensity) as i32;
 
-        if shift_r == 0 && shift_b == 0 {
-            continue;
-        }
-
-        // We process the band row by row
         for y in start_y..(start_y + band_height).min(height) {
-            let row_start = y * width;
-            let row_end = row_start + width;
-            let row = &mut pixels[row_start..row_end];
-
-            // Allocation again - acceptable for prototype
-            let mut temp_row = vec![0u32; width];
-            temp_row.copy_from_slice(row);
-
-            for x in 0..width {
-                // Original Green/Alpha stays at x
-                let g = (temp_row[x] >> 8) & 0xFF;
-                let a = (temp_row[x] >> 24) & 0xFF;
-
-                // Red from shifted position
-                let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
-                let r = (temp_row[src_r_x] >> 16) & 0xFF;
-
-                // Blue from shifted position
-                let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
-                let b = temp_row[src_b_x] & 0xFF;
-
-                row[x] = (a << 24) | (r << 16) | (g << 8) | b;
-            }
+            row_shifts_r[y] = shift_r;
+            row_shifts_b[y] = shift_b;
         }
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        pixels
+            .par_chunks_exact_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let shift_r = row_shifts_r[y];
+                let shift_b = row_shifts_b[y];
+
+                if shift_r != 0 || shift_b != 0 {
+                    let mut temp_row = vec![0u32; width];
+                    temp_row.copy_from_slice(row);
+
+                    for x in 0..width {
+                        let g = (temp_row[x] >> 8) & 0xFF;
+                        let a = (temp_row[x] >> 24) & 0xFF;
+
+                        let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
+                        let r = (temp_row[src_r_x] >> 16) & 0xFF;
+
+                        let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
+                        let b = temp_row[src_b_x] & 0xFF;
+
+                        row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
+                }
+            });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        pixels
+            .chunks_exact_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let shift_r = row_shifts_r[y];
+                let shift_b = row_shifts_b[y];
+
+                if shift_r != 0 || shift_b != 0 {
+                    let mut temp_row = vec![0u32; width];
+                    temp_row.copy_from_slice(row);
+
+                    for x in 0..width {
+                        let g = (temp_row[x] >> 8) & 0xFF;
+                        let a = (temp_row[x] >> 24) & 0xFF;
+
+                        let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
+                        let r = (temp_row[src_r_x] >> 16) & 0xFF;
+
+                        let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
+                        let b = temp_row[src_b_x] & 0xFF;
+
+                        row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
+                }
+            });
     }
 }
 
@@ -219,27 +277,61 @@ fn apply_digital_noise(
     width: usize,
     height: usize,
     params: &GlitchParams,
-    rng: &mut XorShift32,
+    _rng: &mut XorShift32,
 ) {
-    // Probability of a noise pixel
     let noise_prob = 0.05 * params.intensity;
-    // Number of pixels to noise
-    let num_noise = ((width * height) as f32 * noise_prob) as usize;
+    let seed_time = params.seed_time;
 
-    for _ in 0..num_noise {
-        let idx = (rng.next_u32() as usize) % pixels.len();
+    // Use chunks to parallelize noise application
+    // 64 lines per chunk balances workload and random generator initialization overhead
+    let chunk_size = width * 64;
 
-        // Random color noise or brightness noise?
-        // Let's do brightness inversion or color tint
-        let p = pixels[idx];
-        let mode = rng.next_u32() % 3;
+    #[cfg(feature = "parallel")]
+    {
+        pixels
+            .par_chunks_mut(chunk_size)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let mut local_rng = XorShift32::new(seed_time.wrapping_add(chunk_idx as u32));
+                let num_noise = (chunk.len() as f32 * noise_prob) as usize;
 
-        pixels[idx] = match mode {
-            0 => p ^ 0x00FFFFFF, // Invert color
-            1 => p | 0x00FF0000, // Red tint
-            2 => p & 0xFF00FF00, // Mask out Red and Blue (Green only)
-            _ => p,
-        };
+                for _ in 0..num_noise {
+                    let idx = (local_rng.next_u32() as usize) % chunk.len();
+                    let p = chunk[idx];
+                    let mode = local_rng.next_u32() % 3;
+
+                    chunk[idx] = match mode {
+                        0 => p ^ 0x00FF_FFFF, // Invert color
+                        1 => p | 0x00FF_0000, // Red tint
+                        2 => p & 0xFF00_FF00, // Mask out Red and Blue (Green only)
+                        _ => p,
+                    };
+                }
+            });
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        pixels
+            .chunks_mut(chunk_size)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let mut local_rng = XorShift32::new(seed_time.wrapping_add(chunk_idx as u32));
+                let num_noise = (chunk.len() as f32 * noise_prob) as usize;
+
+                for _ in 0..num_noise {
+                    let idx = (local_rng.next_u32() as usize) % chunk.len();
+                    let p = chunk[idx];
+                    let mode = local_rng.next_u32() % 3;
+
+                    chunk[idx] = match mode {
+                        0 => p ^ 0x00FF_FFFF, // Invert color
+                        1 => p | 0x00FF_0000, // Red tint
+                        2 => p & 0xFF00_FF00, // Mask out Red and Blue (Green only)
+                        _ => p,
+                    };
+                }
+            });
     }
 }
 
