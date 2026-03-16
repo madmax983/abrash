@@ -11,6 +11,12 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::utils::XorShift32;
+use std::cell::RefCell;
+
+thread_local! {
+    static ROW_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    static BLOCK_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Parameters for controlling the glitch effect intensity.
 #[derive(Debug, Clone, Copy)]
@@ -104,16 +110,30 @@ fn apply_scanline_jitter(
         let row_end = row_start + width;
         let row = &mut pixels[row_start..row_end];
 
-        // Create a temporary buffer for the row
-        // Allocating per line is slow, but acceptable for experimental feature.
-        // Optimization: Use a thread-local scratch buffer if this becomes hot path.
-        let mut temp_row = vec![0u32; width];
-        temp_row.copy_from_slice(row);
+        // Optimization: Use a thread-local scratch buffer to eliminate per-line allocations.
+        // We avoid borrowing repeatedly in the inner loop by holding the mutable reference.
+        ROW_BUFFER.with(|buf_cell| {
+            let mut temp_row = buf_cell.borrow_mut();
+            if temp_row.len() < width {
+                temp_row.resize(width, 0);
+            }
 
-        for (x, item) in row.iter_mut().enumerate().take(width) {
-            let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
-            *item = temp_row[src_x];
-        }
+            // Fast copy
+            let slice = &mut temp_row[..width];
+            slice.copy_from_slice(row);
+
+            for (x, item) in row.iter_mut().enumerate() {
+                // Direct index without max() clamp since we know max is width - 1
+                let mut src_x = x as i32 - shift;
+                if src_x < 0 {
+                    src_x = 0;
+                } else if src_x >= width as i32 {
+                    src_x = width as i32 - 1;
+                }
+
+                *item = slice[src_x as usize];
+            }
+        });
     }
 }
 
@@ -146,25 +166,43 @@ fn apply_rgb_split(
             let row_end = row_start + width;
             let row = &mut pixels[row_start..row_end];
 
-            // Allocation again - acceptable for prototype
-            let mut temp_row = vec![0u32; width];
-            temp_row.copy_from_slice(row);
+            // Optimization: Use thread-local scratch buffer to eliminate per-row allocations.
+            ROW_BUFFER.with(|buf_cell| {
+                let mut temp_row = buf_cell.borrow_mut();
+                if temp_row.len() < width {
+                    temp_row.resize(width, 0);
+                }
+                let slice = &mut temp_row[..width];
+                slice.copy_from_slice(row);
 
-            for x in 0..width {
-                // Original Green/Alpha stays at x
-                let g = (temp_row[x] >> 8) & 0xFF;
-                let a = (temp_row[x] >> 24) & 0xFF;
+                let w_i32 = width as i32;
 
-                // Red from shifted position
-                let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
-                let r = (temp_row[src_r_x] >> 16) & 0xFF;
+                for (x, item) in row.iter_mut().enumerate() {
+                    let p = slice[x];
+                    let g = (p >> 8) & 0xFF;
+                    let a = p & 0xFF000000;
 
-                // Blue from shifted position
-                let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
-                let b = temp_row[src_b_x] & 0xFF;
+                    let mut src_r_x = x as i32 - shift_r;
+                    if src_r_x < 0 {
+                        src_r_x = 0;
+                    } else if src_r_x >= w_i32 {
+                        src_r_x = w_i32 - 1;
+                    }
 
-                row[x] = (a << 24) | (r << 16) | (g << 8) | b;
-            }
+                    let r = (slice[src_r_x as usize] >> 16) & 0xFF;
+
+                    let mut src_b_x = x as i32 - shift_b;
+                    if src_b_x < 0 {
+                        src_b_x = 0;
+                    } else if src_b_x >= w_i32 {
+                        src_b_x = w_i32 - 1;
+                    }
+
+                    let b = slice[src_b_x as usize] & 0xFF;
+
+                    *item = a | (r << 16) | (g << 8) | b;
+                }
+            });
         }
     }
 }
@@ -197,21 +235,36 @@ fn apply_block_displacement(
 
     // Copy block
     // We need to buffer the source block first because src and dst might overlap
-    let mut block_buffer = Vec::with_capacity(block_w * block_h);
-    for dy in 0..block_h {
-        for dx in 0..block_w {
-            let idx = (src_y + dy) * width + (src_x + dx);
-            block_buffer.push(pixels[idx]);
+    BLOCK_BUFFER.with(|buf_cell| {
+        let mut block_buffer = buf_cell.borrow_mut();
+        let required_len = block_w * block_h;
+        if block_buffer.len() < required_len {
+            block_buffer.resize(required_len, 0);
         }
-    }
 
-    // Write to dest
-    for dy in 0..block_h {
-        for dx in 0..block_w {
-            let idx = (dst_y + dy) * width + (dst_x + dx);
-            pixels[idx] = block_buffer[dy * block_w + dx];
+        for dy in 0..block_h {
+            let src_idx_start = (src_y + dy) * width + src_x;
+            let src_idx_end = src_idx_start + block_w;
+
+            let dst_row_start = dy * block_w;
+            let dst_row_end = dst_row_start + block_w;
+
+            block_buffer[dst_row_start..dst_row_end]
+                .copy_from_slice(&pixels[src_idx_start..src_idx_end]);
         }
-    }
+
+        // Write to dest
+        for dy in 0..block_h {
+            let src_row_start = dy * block_w;
+            let src_row_end = src_row_start + block_w;
+
+            let dst_idx_start = (dst_y + dy) * width + dst_x;
+            let dst_idx_end = dst_idx_start + block_w;
+
+            pixels[dst_idx_start..dst_idx_end]
+                .copy_from_slice(&block_buffer[src_row_start..src_row_end]);
+        }
+    });
 }
 
 fn apply_digital_noise(

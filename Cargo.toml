@@ -446,6 +446,11 @@ path = "examples/directional_blur_demo.rs"
 required-features = ["nova"]
 
 [[bench]]
+name = "glitch_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "chromatic_aberration_bench"
 harness = false
 required-features = ["nova"]
