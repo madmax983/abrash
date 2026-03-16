@@ -91,15 +91,15 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 /// A simple 2D texture.
 #[derive(Clone)]
 pub struct Texture {
-    pub(crate) width: u32,
-    pub(crate) height: u32,
+    pub width: u32,
+    pub height: u32,
     /// Shift amount for power-of-two textures (log2(width)).
     /// Used to replace multiplication with shifting for index calculation.
     /// Value is `0xFF` if width is not a power of two.
-    pub(crate) width_shift: u8,
-    pub(crate) pixels: Vec<u32>,
+    pub width_shift: u8,
+    pub pixels: Vec<u32>,
     /// Mipmap levels. Level 0 is implicit in `pixels`. `mips[0]` is Level 1, etc.
-    pub(crate) mips: Vec<Vec<u32>>,
+    pub mips: Vec<Vec<u32>>,
     /// The filtering mode to use when sampling the texture.
     pub filter_mode: FilterMode,
 }

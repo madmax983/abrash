@@ -35,7 +35,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     /// let fb = Framebuffer::new(800, 600).unwrap();
     /// ```
     pub fn new(width: u32, height: u32) -> Result<Self, &'static str> {
@@ -60,7 +60,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let fb = Framebuffer::new(800, 600).unwrap();
     /// assert_eq!(fb.width(), 800);
@@ -75,7 +75,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let fb = Framebuffer::new(800, 600).unwrap();
     /// assert_eq!(fb.height(), 600);
@@ -93,7 +93,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let fb = Framebuffer::new(2, 2).unwrap();
     /// let pixels = fb.as_slice();
@@ -113,7 +113,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(10, 10).unwrap();
     /// let slice = fb.as_mut_slice();
@@ -128,7 +128,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(100, 100).unwrap();
     /// // Clear the screen to a deep purple
@@ -145,7 +145,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(100, 100).unwrap();
     /// // Set pixel at (10, 10) to Red
@@ -171,7 +171,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(100, 100).unwrap();
     /// fb.set_pixel(10, 10, 0xFF00_FF00); // Set to Green
@@ -201,7 +201,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(100, 100).unwrap();
     /// let x = 50;
@@ -232,7 +232,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let fb = Framebuffer::new(100, 100).unwrap();
     /// let x = 10;
@@ -258,7 +258,7 @@ impl Framebuffer {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
+    /// use abrash_core::framebuffer::Framebuffer;
     ///
     /// let mut fb = Framebuffer::new(800, 600).unwrap();
     /// fb.clear(0xFF00_0000); // Clear to Black
@@ -497,9 +497,6 @@ impl Framebuffer {
         let pixels = self.as_slice();
         let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
 
-        // Optimization: Iterating over contiguous chunks and extending the row buffer
-        // using `flat_map` eliminates inner-loop bounds checking (which `push()` would incur),
-        // and enables the compiler to unroll and vectorize the RGB extraction.
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
@@ -554,10 +551,6 @@ impl Framebuffer {
         let pixels = self.as_slice();
         let mut row_buffer = Vec::with_capacity((self.width() * 3) as usize);
 
-        // Optimization: Replacing manual indexing and sequential `.push()` operations
-        // with chunked slice iteration and `.extend(.flat_map(...))` allows the compiler
-        // to bypass repetitive bounds and capacity checks on every insertion, enabling
-        // better vectorization and substantially decreasing file export latency.
         for row in pixels
             .chunks_exact(self.width() as usize)
             .take(self.height() as usize)
@@ -660,84 +653,5 @@ mod export_tests {
 
         // Cleanup
         fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn test_export_txt() {
-        let mut fb = Framebuffer::new(4, 4).unwrap();
-        fb.clear(0xFFFFFFFF); // White -> '@'
-
-        let test_path = "test_output.txt";
-        fb.export_txt(test_path).unwrap();
-
-        let content = std::fs::read_to_string(test_path).unwrap();
-        assert!(content.contains("@@@@"));
-        assert!(content.contains('\n'));
-
-        // Clean up
-        let _ = std::fs::remove_file(test_path);
-    }
-
-    #[test]
-    fn test_export_ansi() {
-        let mut fb = Framebuffer::new(2, 2).unwrap();
-        fb.clear(0xFFFF0000); // Red
-
-        let test_path = "test_output.ans";
-        fb.export_ansi(test_path).unwrap();
-
-        let content = std::fs::read_to_string(test_path).unwrap();
-        // Check for ANSI color code for Red (255;0;0)
-        assert!(content.contains("\x1b[38;2;255;0;0m"));
-        // Check for reset code
-        assert!(content.contains("\x1b[0m"));
-
-        // Clean up
-        let _ = std::fs::remove_file(test_path);
-    }
-}
-
-impl Framebuffer {
-    /// Exports the framebuffer to a plain text file using standard ASCII character mapping.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The file path to write the `.txt` file to.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if file creation or writing fails.
-    pub fn export_txt<P: std::convert::AsRef<std::path::Path>>(
-        &self,
-        path: P,
-    ) -> std::io::Result<()> {
-        let converter =
-            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
-        let content = converter.to_string();
-        let mut file = std::fs::File::create(path)?;
-        use std::io::Write;
-        file.write_all(content.as_bytes())
-    }
-
-    /// Exports the framebuffer to an ANSI colored text file.
-    /// This file can be viewed in standard terminals (e.g., via `cat`).
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The file path to write the `.ans` file to.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if file creation or writing fails.
-    pub fn export_ansi<P: std::convert::AsRef<std::path::Path>>(
-        &self,
-        path: P,
-    ) -> std::io::Result<()> {
-        let converter =
-            crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
-        let content = converter.to_colored_string();
-        let mut file = std::fs::File::create(path)?;
-        use std::io::Write;
-        file.write_all(content.as_bytes())
     }
 }

@@ -125,14 +125,14 @@ impl<T> ResourcePool<T> {
     /// Look up a resource by handle. Returns `None` if handle is stale or invalid.
     #[must_use]
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
-        self.entries.get(handle.index as usize).and_then(|entry| {
-            match entry {
+        self.entries
+            .get(handle.index as usize)
+            .and_then(|entry| match entry {
                 PoolEntry::Occupied { value, generation } if *generation == handle.generation => {
                     Some(value)
                 }
                 _ => None,
-            }
-        })
+            })
     }
 
     /// Mutable lookup by handle.
@@ -153,7 +153,12 @@ impl<T> ResourcePool<T> {
         match entry {
             PoolEntry::Occupied { generation, .. } if *generation == handle.generation => {
                 let new_gen = *generation + 1;
-                let old = std::mem::replace(entry, PoolEntry::Vacant { generation: new_gen });
+                let old = std::mem::replace(
+                    entry,
+                    PoolEntry::Vacant {
+                        generation: new_gen,
+                    },
+                );
                 self.free_list.push(handle.index);
                 match old {
                     PoolEntry::Occupied { value, .. } => Some(value),

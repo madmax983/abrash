@@ -170,7 +170,8 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
                 let g = ((o_g * inv_alpha + b_g * alpha) >> 8) as u8;
                 let b = ((o_b * inv_alpha + b_b * alpha) >> 8) as u8;
 
-                dst_row[x] = 0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
+                dst_row[x] =
+                    0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
             }
         });
     });
