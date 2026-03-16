@@ -118,8 +118,6 @@ impl LSystem {
             return Ok(self.axiom.clone());
         }
 
-        let mut current = self.axiom.clone();
-
         // Security / DoS protection limit: an L-system can grow exponentially and cause OOM.
         let limit: usize = 100_000_000; // Cap at 100MB
 
@@ -149,7 +147,8 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            // Preallocate to avoid the first inner reallocation!
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
             for _ in 0..iterations {
                 /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
                 /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
@@ -174,6 +173,7 @@ impl LSystem {
         }
 
         // Fallback for unicode
+        let mut current = self.axiom.clone();
         let mut rules_array: [Option<&str>; 128] = [None; 128];
         for (k, v) in &self.rules {
             if (*k as usize) < 128 {
