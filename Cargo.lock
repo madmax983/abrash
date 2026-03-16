@@ -42,6 +42,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "abrash-core"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+]
+
+[[package]]
 name = "abrash-gpu"
 version = "0.1.0"
 dependencies = [
@@ -56,6 +63,15 @@ dependencies = [
  "pollster",
  "wgpu",
  "winit 0.29.15",
+]
+
+[[package]]
+name = "abrash-render"
+version = "0.1.0"
+dependencies = [
+ "abrash-core",
+ "abrash-gpu",
+ "rayon",
 ]
 
 [[package]]

@@ -1,3 +1,13 @@
+[workspace]
+members = [
+    ".",
+    "crates/abrash-core",
+    "crates/abrash-render",
+    "crates/abrash-gpu",
+    "crates/abrash-gpu-render",
+]
+resolver = "2"
+
 [package]
 name = "abrash"
 version = "0.1.0"

@@ -1,0 +1,25 @@
+[package]
+name = "abrash-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+parallel = ["dep:rayon"]
+
+[dependencies]
+rayon = { version = "1.10", optional = true }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+similar_names = "allow"
+many_single_char_names = "allow"
+inline_always = "allow"
+too_many_lines = "allow"
+struct_field_names = "allow"
+suboptimal_flops = "allow"
