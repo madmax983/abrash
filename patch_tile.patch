@@ -1,0 +1,23 @@
+--- src/rasterizer/tile.rs
++++ src/rasterizer/tile.rs
+@@ -404,13 +404,17 @@
+ #[cfg(feature = "parallel")]
+ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
+     type Item = PreparedTriangle;
+-    type Iter = rayon::vec::IntoIter<PreparedTriangle>;
++    type Iter = rayon::array::IntoIter<PreparedTriangle, 8>;
+
+     fn into_par_iter(self) -> Self::Iter {
+-        let mut vec = Vec::with_capacity(self.count);
+-        for i in 0..self.count {
+-            vec.push(unsafe { self.tris[i].assume_init() });
++        let mut arr: [PreparedTriangle; 8] = unsafe { std::mem::zeroed() };
++        for i in 0..self.count {
++            arr[i] = unsafe { self.tris[i].assume_init() };
+         }
+-        vec.into_par_iter()
++        // To match length exactly, we should slice, but Rayon doesn't have slice iter for owned elements nicely without Vec.
++        // Wait, Rayon has `IntoParallelIterator` for arrays. However we need exactly `self.count` elements.
++        // Let's use `smallvec` or something?
+     }
+ }

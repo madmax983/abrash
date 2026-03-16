@@ -24,6 +24,22 @@ pub fn box_blur_f32(
         return;
     }
 
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
+
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
+
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
+
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
+
     let radius = 2; // 5x5 kernel
 
     // 1. Horizontal pass: src -> dest
@@ -289,6 +305,10 @@ pub fn box_blur_horizontal(
         return;
     }
 
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
+
     let radius = radius.min((width.max(height)) as u32).min(100_000);
     let radius = radius as usize;
     // Window size (kernel width)
@@ -426,6 +446,10 @@ pub fn box_blur_vertical(
     if width == 0 || height == 0 {
         return;
     }
+
+    // Explicitly panic if out of bounds to satisfy the havoc test
+    let expected_len = width.checked_mul(height).unwrap_or(usize::MAX);
+    assert!(!(expected_len > src.len() || expected_len > dest.len()), "Out of bounds access");
 
     let radius = radius.min((width.max(height)) as u32).min(100_000);
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]

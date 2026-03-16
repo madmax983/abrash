@@ -1,0 +1,56 @@
+--- src/rasterizer/tile.rs
++++ src/rasterizer/tile.rs
+@@ -414,40 +414,28 @@
+ #[cfg(feature = "parallel")]
+ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
+     type Item = PreparedTriangle;
+-    type Iter = rayon::vec::IntoIter<PreparedTriangle>;
++    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTriangle, 8>>;
+
+     fn into_par_iter(self) -> Self::Iter {
+-        let mut vec = Vec::with_capacity(self.count);
+-        for i in 0..self.count {
+-            vec.push(unsafe { self.tris[i].assume_init() });
+-        }
+-        vec.into_par_iter()
++        use rayon::prelude::*;
++        let arr = unsafe { std::mem::transmute_copy::<[std::mem::MaybeUninit<PreparedTriangle>; 8], [PreparedTriangle; 8]>(&self.tris) };
++        arr.into_par_iter().take(self.count)
+     }
+ }
+
+ #[cfg(feature = "parallel")]
+ impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
+     type Item = PreparedTexturedTriangle;
+-    type Iter = rayon::vec::IntoIter<PreparedTexturedTriangle>;
++    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTexturedTriangle, 8>>;
+
+     fn into_par_iter(self) -> Self::Iter {
+-        let mut vec = Vec::with_capacity(self.count);
+-        for i in 0..self.count {
+-            vec.push(unsafe { self.tris[i].assume_init() });
+-        }
+-        vec.into_par_iter()
++        use rayon::prelude::*;
++        let arr = unsafe { std::mem::transmute_copy::<[std::mem::MaybeUninit<PreparedTexturedTriangle>; 8], [PreparedTexturedTriangle; 8]>(&self.tris) };
++        arr.into_par_iter().take(self.count)
+     }
+ }
+
+ #[cfg(feature = "parallel")]
+ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
+     type Item = PreparedGouraudTriangle;
+-    type Iter = rayon::vec::IntoIter<PreparedGouraudTriangle>;
++    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedGouraudTriangle, 8>>;
+
+     fn into_par_iter(self) -> Self::Iter {
+-        let mut vec = Vec::with_capacity(self.count);
+-        for i in 0..self.count {
+-            vec.push(unsafe { self.tris[i].assume_init() });
+-        }
+-        vec.into_par_iter()
++        use rayon::prelude::*;
++        let arr = unsafe { std::mem::transmute_copy::<[std::mem::MaybeUninit<PreparedGouraudTriangle>; 8], [PreparedGouraudTriangle; 8]>(&self.tris) };
++        arr.into_par_iter().take(self.count)
+     }
+ }
