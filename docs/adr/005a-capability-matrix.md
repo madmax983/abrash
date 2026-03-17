@@ -33,7 +33,7 @@ into the engine API.
 | GPU compute binning        | ✅ (feature)       | ✅ (feature)    | ✅ (feature)   |
 | PPM/TGA export             | ✅                 | ✅              | ✅             |
 
-## Crate Dependency Map (3-crate workspace)
+## Crate Dependency Map (4-crate workspace)
 
 ```
 abrash-core
@@ -41,17 +41,21 @@ abrash-core
   obj_loader, clipping, culling, time, utils
          ↑
 abrash-render
-  render_api (Renderer trait, CpuRenderer, handles, Frame, Material)
+  render_api (Renderer trait, CpuRenderer, handles, Frame, Material, DrawList)
   rasterizer (TileRenderer, fill_triangle_*, scanline functions)
-  scene, post_process (incl. nova effects behind `nova` feature flag)
+  scene (Scene::extract() -> DrawList, Scene::render())
+  post_process (incl. nova effects behind `nova` feature flag)
   particles, skybox, heat_vision, ascii, procedural
-         ↑
-abrash-demos  (root crate)
-  platform (Win32/TUI/WASM backends — feature-gated)
-  main.rs (TUI demo launcher)
-  examples/
-  benches/
+         ↑                          ↑
+embed-demo (Phase 4 proof)     abrash-demos  (root crate)
+  AbrashBackend                  platform (Win32/TUI/WASM — feature-gated)
+  EmbedScene / EmbedDraw         main.rs (TUI demo launcher)
+  NO platform deps               examples/
+                                 benches/
 ```
+
+`embed-demo` depends ONLY on `abrash-core` + `abrash-render`. It is the live proof
+that the engine API seam is correct. See Phase 4 validation below.
 
 ## Nova Decision
 
@@ -81,14 +85,39 @@ Platform code lives exclusively in the root `abrash-demos` crate, behind feature
 
 The seam is correct when:
 ```bash
-# This shows no platform deps for the engine crates
+# Engine crates have no platform deps
 cargo tree -p abrash-core --no-default-features
 cargo tree -p abrash-render --no-default-features
+
+# Embed demo depends on nothing but the engine crates (Phase 4 proof)
+cargo tree -p embed-demo --no-default-features
 ```
 
 ## Implementation Notes
 
-3-crate workspace implemented 2026-03-16. Validation:
-- `cargo tree -p abrash-core --no-default-features` shows no platform deps ✅
-- `cargo tree -p abrash-render --no-default-features` shows no platform deps ✅
-- All 218+ tests pass across workspace ✅
+### Phase 2 — 3-crate workspace (2026-03-16)
+- `cargo tree -p abrash-core --no-default-features` → single node, no deps ✅
+- `cargo tree -p abrash-render --no-default-features` → only abrash-core, no platform libs ✅
+- All 513+ tests pass across workspace ✅
+
+### Phase 3 — DrawList IR (2026-03-17)
+- `DrawList` + `DrawBatch` added to `abrash-render::render_api::draw_list` ✅
+- `Scene::extract() -> DrawList` — frustum cull + vertex transform, 5/5 tests ✅
+- `CpuRenderer::extract_draw_list` + `execute_draw_list` — `render_frame` delegates through them ✅
+- `test_execute_draw_list_matches_render_frame` → pixel-identical ✅
+- ADR 006: DrawList is sufficient for GPU passthrough-vertex-shader backend ✅
+
+### Phase 4 — Integration proof (2026-03-17)
+
+`cargo tree -p embed-demo --no-default-features`:
+```
+embed-demo v0.1.0
+├── abrash-core v0.1.0
+└── abrash-render v0.1.0
+    └── abrash-core v0.1.0
+```
+
+- Zero platform crates in tree ✅ (no windows-sys, crossterm, ratatui, ratzilla)
+- ADR 005 acceptance criterion met: **no imports from `abrash::platform`** ✅
+- `cargo run -p embed-demo` renders 8 frames of two cubes, exports PPM ✅
+- 5/5 embed-demo unit tests pass ✅
