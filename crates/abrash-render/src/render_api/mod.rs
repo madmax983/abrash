@@ -28,12 +28,14 @@
 //! ```
 
 pub mod cpu_renderer;
+pub mod draw_list;
 pub mod frame;
 pub mod handles;
 pub mod material;
 pub mod renderer;
 pub mod target;
 
+pub use draw_list::{DrawBatch, DrawList};
 pub use frame::{DrawCommand, Frame, FrameCamera, Light};
 pub use handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 pub use material::{Material, ShadingMode};
