@@ -4,8 +4,8 @@
 //! Replaces the background with a deep blue, maps light pixels to white/cyan lines,
 //! and overlays a faint engineering grid.
 
-use crate::framebuffer::Framebuffer;
 use super::edge_glow::EdgeGlowConfig;
+use crate::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -53,15 +53,20 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
         return;
     }
 
-    let Ok(mut temp_fb) = Framebuffer::new(width as u32, height as u32) else { return; };
+    let Ok(mut temp_fb) = Framebuffer::new(width as u32, height as u32) else {
+        return;
+    };
     temp_fb.as_mut_slice().copy_from_slice(fb.as_slice());
 
-    super::edge_glow::apply_edge_glow(&mut temp_fb, &EdgeGlowConfig {
-        edge_color: config.line_color,
-        edge_threshold: 25, // Using u8 threshold
-        darken_factor: 1.0,
-        intensity: 2.0,
-    });
+    super::edge_glow::apply_edge_glow(
+        &mut temp_fb,
+        &EdgeGlowConfig {
+            edge_color: config.line_color,
+            edge_threshold: 25, // Using u8 threshold
+            darken_factor: 1.0,
+            intensity: 2.0,
+        },
+    );
 
     let src_pixels = temp_fb.as_slice();
     let dest_pixels = fb.as_mut_slice();
@@ -82,7 +87,8 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
         let src_row = &src_pixels[row_offset..row_offset + width];
 
         for (x, (dest_pixel, &src_pixel)) in row.iter_mut().zip(src_row).enumerate() {
-            let is_grid_line = grid_size > 0 && (x % grid_size as usize == 0 || y % grid_size as usize == 0);
+            let is_grid_line =
+                grid_size > 0 && (x % grid_size as usize == 0 || y % grid_size as usize == 0);
 
             let r_src = (src_pixel >> 16) & 0xFF;
             let g_src = (src_pixel >> 8) & 0xFF;
@@ -94,9 +100,9 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
             let g_bg = 0;
             let b_bg = 0;
 
-            let dist_sq = (r_src as i32 - r_bg as i32).pow(2) +
-                          (g_src as i32 - g_bg as i32).pow(2) +
-                          (b_src as i32 - b_bg as i32).pow(2);
+            let dist_sq = (r_src as i32 - r_bg as i32).pow(2)
+                + (g_src as i32 - g_bg as i32).pow(2)
+                + (b_src as i32 - b_bg as i32).pow(2);
 
             // If the pixel is very close to black, it's not an edge.
             if dist_sq < 1000 {

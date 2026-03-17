@@ -199,8 +199,23 @@ mod tests {
         assert_eq!(zb.get_depth(5, 5), Some(0.5));
         assert!(zb.get_depth(0, 0).unwrap().is_infinite());
 
+        // Bounds testing
         assert_eq!(zb.get_depth(-1, 0), None);
-        assert_eq!(zb.get_depth(10, 0), None);
+        assert_eq!(zb.get_depth(0, -1), None);
+        assert_eq!(zb.get_depth(10, 0), None); // exactly width
+        assert_eq!(zb.get_depth(0, 10), None); // exactly height
+        assert_eq!(zb.get_depth(15, 15), None);
+    }
+
+    #[test]
+    fn test_get_depth_unchecked() {
+        let mut zb = ZBuffer::new(2, 2).unwrap();
+        zb.test_and_set(1, 1, 5.5);
+
+        unsafe {
+            assert!(zb.get_depth_unchecked(0, 0).is_infinite());
+            assert!((zb.get_depth_unchecked(1, 1) - 5.5).abs() < f32::EPSILON);
+        }
     }
 
     #[test]
