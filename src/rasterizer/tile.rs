@@ -66,7 +66,7 @@
 //!     ((Vec3::new(-0.5, -0.5, 0.5), 1.0),
 //!      (Vec3::new(0.5, -0.5, 0.5), 1.0),
 //!      (Vec3::new(0.0, 0.5, 0.5), 1.0),
-//!      0xFF0000FF), // Red triangle
+//!      0xFF00_00FF), // Red triangle
 //! ];
 //!
 //! renderer.render_batch(&mut fb, &mut zb, &triangles);
@@ -2016,7 +2016,7 @@ impl TileRenderer {
     ///     ((Vec3::new(0.0, 0.0, 1.0), 1.0),
     ///      (Vec3::new(1.0, 0.0, 1.0), 1.0),
     ///      (Vec3::new(0.5, 1.0, 1.0), 1.0),
-    ///      0xFFFFFFFF),
+    ///      0xFFFF_FFFF),
     /// ];
     ///
     /// renderer.render_batch(&mut fb, &mut zb, &triangles);
@@ -3654,7 +3654,7 @@ fn process_tile_scanline_gouraud(
                 let r = (c_left.0 >> 16).clamp(0, 255) as u32;
                 let g = (c_left.1 >> 16).clamp(0, 255) as u32;
                 let b = (c_left.2 >> 16).clamp(0, 255) as u32;
-                ctx.pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                ctx.pixels[tile_idx] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
         }
     } else {
@@ -3721,7 +3721,7 @@ fn draw_scanline_gouraud_i32_tile(
             let rv = (r >> 16).clamp(0, 255) as u32;
             let gv = (g >> 16).clamp(0, 255) as u32;
             let bv = (b >> 16).clamp(0, 255) as u32;
-            *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
+            *pixel = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
         }
         z += dz_dx;
         r = r.wrapping_add(dr);

@@ -235,9 +235,9 @@ fn apply_digital_noise(
         let mode = rng.next_u32() % 3;
 
         pixels[idx] = match mode {
-            0 => p ^ 0x00FFFFFF, // Invert color
-            1 => p | 0x00FF0000, // Red tint
-            2 => p & 0xFF00FF00, // Mask out Red and Blue (Green only)
+            0 => p ^ 0x00FF_FFFF, // Invert color
+            1 => p | 0x00FF_0000, // Red tint
+            2 => p & 0xFF00_FF00, // Mask out Red and Blue (Green only)
             _ => p,
         };
     }
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn test_glitch_no_op() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
         let original = fb.as_slice().to_vec();
 
         let params = GlitchParams {
@@ -266,10 +266,10 @@ mod tests {
     #[test]
     fn test_scanline_jitter() {
         let mut fb = Framebuffer::new(20, 20).unwrap();
-        fb.clear(0xFFFFFFFF); // White Background
+        fb.clear(0xFFFF_FFFF); // White Background
         // Draw vertical stripe
         for y in 0..20 {
-            fb.set_pixel(10, y, 0xFF000000); // Black line at x=10
+            fb.set_pixel(10, y, 0xFF00_0000); // Black line at x=10
         }
 
         let params = GlitchParams {
@@ -286,7 +286,7 @@ mod tests {
         let mut perfect = true;
         for y in 0..20 {
             if let Some(p) = fb.get_pixel(10, y)
-                && p != 0xFF000000
+                && p != 0xFF00_0000
             {
                 perfect = false;
                 break;
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn test_rgb_split() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF); // White
+        fb.clear(0xFFFF_FFFF); // White
 
         let params = GlitchParams {
             intensity: 1.0,
@@ -329,11 +329,11 @@ mod tests {
         // But with white background, shifting white onto white is still white.
         // Let's use a pattern.
 
-        fb.clear(0xFF000000); // Black
+        fb.clear(0xFF00_0000); // Black
         // White square in middle
         for y in 4..6 {
             for x in 4..6 {
-                fb.set_pixel(x, y, 0xFFFFFFFF);
+                fb.set_pixel(x, y, 0xFFFF_FFFF);
             }
         }
 
@@ -347,7 +347,7 @@ mod tests {
 
             // Look for pure Red, Green or Blue pixels (or mixed but not white)
             // e.g. Cyan (G+B) means Red moved away.
-            if (r != g || g != b) && *p != 0xFF000000 {
+            if (r != g || g != b) && *p != 0xFF00_0000 {
                 found_color = true;
                 break;
             }

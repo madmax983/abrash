@@ -60,3 +60,12 @@
 1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
 2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
 3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
+
+## [Clippy Warnings Resolution]
+**Tangle:** Numerous clippy warnings scattered across multiple files, degrading code quality and preventing strict CI compliance (`clippy -D warnings`). This included missing error documentation for public Result-returning functions, confusing item declarations after statements, unreadable long literals, and misaligned SIMD pointer casts that are intentional but unannotated.
+**Blueprint:**
+1. Added missing `# Errors` sections to `TuiWindow::new`.
+2. Moved `use` and `const` declarations to the top of scopes in `framebuffer.rs`, `math.rs`, and `crt.rs`.
+3. Applied `#[allow(clippy::cast_ptr_alignment)]` where `*mut i32`/`*mut u32` to SIMD intrinsic types (`__m128i`/`__m256i`) are safe due to hardware support.
+4. Formatted long hexadecimal and floating-point literals with underscores (`_`) for readability (e.g., `0xFF00_0000`, `0.000_000_1`).
+5. Replaced redundant closures (e.g., `|c| c.take()`) with function references (`std::cell::RefCell::take`).

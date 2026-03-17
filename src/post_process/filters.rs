@@ -38,7 +38,7 @@ thread_local! {
 /// use abrash::post_process::filters::apply_grayscale;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFFFF0000); // Red
+/// fb.set_pixel(0, 0, 0xFFFF_0000); // Red
 /// apply_grayscale(&mut fb);
 /// // Red component is 255. 77*255/256 = 76.
 /// // Result should be grey (76, 76, 76).
@@ -82,15 +82,15 @@ fn apply_grayscale_scalar(pixels: &mut [u32]) {
 /// use abrash::post_process::filters::apply_scanlines;
 ///
 /// let mut fb = Framebuffer::new(1, 2).unwrap();
-/// fb.clear(0xFFFFFFFF); // White
+/// fb.clear(0xFFFF_FFFF); // White
 /// apply_scanlines(&mut fb);
 ///
 /// // Row 0 is untouched
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF);
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF);
 ///
 /// // Row 1 is darkened (halved)
 /// // 0xFF >> 1 = 0x7F
-/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F7F7F);
+/// assert_eq!(fb.get_pixel(0, 1).unwrap(), 0xFF7F_7F7F);
 /// ```
 pub fn apply_scanlines(fb: &mut Framebuffer) {
     let width = fb.width() as usize;
@@ -139,11 +139,11 @@ pub fn apply_scanlines(fb: &mut Framebuffer) {
 /// use abrash::post_process::filters::apply_invert;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF000000); // Black
+/// fb.set_pixel(0, 0, 0xFF00_0000); // Black
 /// apply_invert(&mut fb);
 ///
 /// // Alpha is preserved (FF), color is inverted (000000 -> FFFFFF)
-/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFFFFFF); // White
+/// assert_eq!(fb.get_pixel(0, 0).unwrap(), 0xFFFF_FFFF); // White
 /// ```
 pub fn apply_invert(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
@@ -179,7 +179,7 @@ pub fn apply_invert(fb: &mut Framebuffer) {
 /// use abrash::post_process::filters::apply_sepia;
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFFFFFFFF); // White
+/// fb.set_pixel(0, 0, 0xFFFF_FFFF); // White
 /// apply_sepia(&mut fb);
 /// // Result is tinted yellowish-brown.
 /// ```
@@ -239,7 +239,7 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 /// use abrash::post_process::filters::apply_chromatic_aberration;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
+/// fb.set_pixel(50, 50, 0xFFFF_FFFF); // White
 /// apply_chromatic_aberration(&mut fb, 5);
 /// ```
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
@@ -442,7 +442,7 @@ impl Default for VignetteConfig {
 /// use abrash::post_process::filters::{apply_vignette, VignetteConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
-/// fb.clear(0xFFFFFFFF); // White
+/// fb.clear(0xFFFF_FFFF); // White
 /// // Apply vignette
 /// let config = VignetteConfig { intensity: 0.5, roundness: 0.5 };
 /// apply_vignette(&mut fb, &config);
@@ -509,7 +509,7 @@ impl Default for ColorAdjustConfig {
 /// use abrash::post_process::filters::{apply_color_adjust, ColorAdjustConfig};
 ///
 /// let mut fb = Framebuffer::new(1, 1).unwrap();
-/// fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
+/// fb.set_pixel(0, 0, 0xFF80_8080); // Mid Gray (128)
 ///
 /// // Increase brightness by 20, keep contrast neutral
 /// let config = ColorAdjustConfig { brightness: 20, contrast: 1.0 };
@@ -588,14 +588,14 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
                     // Give each pixel a deterministic but pseudo-random starting state based on index
                     // This allows the noise to be consistent per frame (if seed is same)
-                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E37_79B9));
                     lcg ^= lcg << 13;
                     lcg ^= lcg >> 17;
                     lcg ^= lcg << 5;
 
                     // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
                     // LCG sequence needs to diverge significantly
-                    lcg = lcg.wrapping_add(0x12345678);
+                    lcg = lcg.wrapping_add(0x1234_5678);
                     lcg ^= lcg << 13;
                     lcg ^= lcg >> 17;
                     lcg ^= lcg << 5;
@@ -607,15 +607,15 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
                     let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
                     let p_val = *p;
-                    let rb = p_val & 0x00FF00FF;
-                    let g = p_val & 0x0000FF00;
+                    let rb = p_val & 0x00FF_00FF;
+                    let g = p_val & 0x0000_FF00;
 
                     // ⚡ Bolt: SWAR + `u64` prevents inner-loop float conversions and bounds-checking overhead.
                     let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
                     let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
                     let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
 
-                    *p = (p_val & 0xFF000000) | (nr << 16) | (ng << 8) | nb;
+                    *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
                 }
             });
     }
@@ -623,7 +623,7 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     #[cfg(not(feature = "parallel"))]
     {
         // A simple LCG state, mixed with the config seed
-        let mut state = config.seed.wrapping_add(0x12345678);
+        let mut state = config.seed.wrapping_add(0x1234_5678);
 
         for p in pixels.iter_mut() {
             state ^= state << 13;
@@ -634,14 +634,14 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
             let p_val = *p;
-            let rb = p_val & 0x00FF00FF;
-            let g = p_val & 0x0000FF00;
+            let rb = p_val & 0x00FF_00FF;
+            let g = p_val & 0x0000_FF00;
 
             let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
             let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
             let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
 
-            *p = (p_val & 0xFF000000) | (nr << 16) | (ng << 8) | nb;
+            *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
         }
     }
 }
@@ -952,7 +952,7 @@ mod simd {
             let mask_r = _mm256_set1_epi32(0x00FF_0000);
             let mask_b = _mm256_set1_epi32(0x0000_00FF);
             // Precompute masks combined for center: G | A
-            // G: 0x0000FF00, A: 0xFF000000
+            // G: 0x0000_FF00, A: 0xFF00_0000
             let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
 
             unsafe {
@@ -1471,7 +1471,7 @@ mod tests {
 
         // Fill with pattern
         for i in 0..(width * height) {
-            let val = 0xFF000000 | 0x00FFFFFF; // White
+            let val = 0xFF00_0000 | 0x00FF_FFFF; // White
             fb_scalar.as_mut_slice()[i as usize] = val;
             fb_simd.as_mut_slice()[i as usize] = val;
         }
@@ -1580,18 +1580,18 @@ mod tests {
         let width = 16;
         let height = 3;
         let mut fb = Framebuffer::new(width, height).unwrap();
-        fb.clear(0xFFFFFFFF); // All White
+        fb.clear(0xFFFF_FFFF); // All White
 
         apply_scanlines(&mut fb);
 
         // Row 0: Untouched
         for x in 0..width as i32 {
-            assert_eq!(fb.get_pixel(x, 0).unwrap(), 0xFFFFFFFF);
+            assert_eq!(fb.get_pixel(x, 0).unwrap(), 0xFFFF_FFFF);
         }
 
         // Row 1: Darkened
         // 0xFF >> 1 = 0x7F
-        let expected = 0xFF7F7F7F;
+        let expected = 0xFF7F_7F7F;
         for x in 0..width as i32 {
             assert_eq!(
                 fb.get_pixel(x, 1).unwrap(),
@@ -1602,7 +1602,7 @@ mod tests {
 
         // Row 2: Untouched
         for x in 0..width as i32 {
-            assert_eq!(fb.get_pixel(x, 2).unwrap(), 0xFFFFFFFF);
+            assert_eq!(fb.get_pixel(x, 2).unwrap(), 0xFFFF_FFFF);
         }
     }
 
@@ -1610,7 +1610,7 @@ mod tests {
     fn test_apply_sepia() {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         // Set pixel to white (255, 255, 255)
-        fb.set_pixel(0, 0, 0xFFFFFFFF);
+        fb.set_pixel(0, 0, 0xFFFF_FFFF);
         apply_sepia(&mut fb);
 
         // Expected values for White input (255, 255, 255):
@@ -1628,7 +1628,7 @@ mod tests {
         assert!((235..=240).contains(&b), "Blue channel mismatch, got {b}");
 
         // Test with Red (255, 0, 0)
-        fb.set_pixel(0, 0, 0xFFFF0000);
+        fb.set_pixel(0, 0, 0xFFFF_0000);
         apply_sepia(&mut fb);
         // R: 0.393 * 255 = 100
         // G: 0.349 * 255 = 89
@@ -1668,7 +1668,7 @@ mod tests {
 
         // Fill with random noise or gradient
         for i in 0..width * height {
-            let val = 0xFF000000 | (i as u32);
+            let val = 0xFF00_0000 | (i as u32);
             fb_scalar.as_mut_slice()[i as usize] = val;
             fb_simd.as_mut_slice()[i as usize] = val;
         }
@@ -1781,9 +1781,9 @@ mod tests {
     fn test_apply_color_adjust() {
         let mut fb = Framebuffer::new(3, 1).unwrap();
         // Base pixels
-        fb.set_pixel(0, 0, 0xFF808080); // Mid Gray (128)
-        fb.set_pixel(1, 0, 0xFF404040); // Dark Gray (64)
-        fb.set_pixel(2, 0, 0xFFC0C0C0); // Light Gray (192)
+        fb.set_pixel(0, 0, 0xFF80_8080); // Mid Gray (128)
+        fb.set_pixel(1, 0, 0xFF40_4040); // Dark Gray (64)
+        fb.set_pixel(2, 0, 0xFFC0_C0C0); // Light Gray (192)
 
         let mut fb1 = Framebuffer::new(3, 1).unwrap();
         fb1.as_mut_slice().copy_from_slice(fb.as_slice());
@@ -1838,7 +1838,7 @@ mod tests {
     fn test_apply_film_grain() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Fill with near white, enough to potentially cause overflow if not handled correctly
-        fb.clear(0xFFF0F0F0);
+        fb.clear(0xFFF0_F0F0);
 
         let config = FilmGrainConfig {
             intensity: 0.5,
@@ -1878,7 +1878,7 @@ mod tests {
         assert!(changed, "Film grain did not change the pixel values");
 
         // Fill with near black, to test underflow clamp
-        fb.clear(0xFF0A0A0A);
+        fb.clear(0xFF0A_0A0A);
         apply_film_grain(&mut fb, &config);
 
         let mut changed = false;
@@ -1907,7 +1907,7 @@ mod tests {
     #[test]
     fn test_apply_film_grain_zero_intensity() {
         let mut fb = Framebuffer::new(2, 2).unwrap();
-        fb.clear(0xFF808080);
+        fb.clear(0xFF80_8080);
 
         let config = FilmGrainConfig {
             intensity: 0.0,

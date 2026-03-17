@@ -22,6 +22,12 @@ use crate::framebuffer::Framebuffer;
 /// * `distortion` - The strength of the barrel distortion (e.g., 0.1 to 0.3).
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+use std::cell::RefCell;
+
+thread_local! {
+    static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
     if distortion <= 0.0 {
         return;
@@ -36,12 +42,6 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
 
     let cx = width as f32 / 2.0;
     let cy = height as f32 / 2.0;
-
-    use std::cell::RefCell;
-
-    thread_local! {
-        static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    }
 
     // To prevent in-place overwrite issues, we need to read from the original
     // and write to a copy, then copy back.

@@ -8,10 +8,10 @@ use std::time::Instant;
 
 fn main() {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();
-    fb.clear(0xFF808080);
+    fb.clear(0xFF80_8080);
     let config = FilmGrainConfig {
         intensity: 0.25,
-        seed: 0xBADF00D,
+        seed: 0x0BAD_F00D,
     };
 
     let start = Instant::now();

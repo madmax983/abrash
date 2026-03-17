@@ -52,7 +52,7 @@
 //!
 //! // The pixel at the center now holds the glint of gold.
 //! let center_pixel = fb.get_pixel(50, 50).unwrap();
-//! assert_ne!(center_pixel, 0xFF000000);
+//! assert_ne!(center_pixel, 0xFF00_0000);
 //! ```
 
 use crate::clipping::clip_triangle_to_frustum;
@@ -281,14 +281,14 @@ impl PbrEdgeWalker {
 fn distribution_ggx_optimized(n_dot_h2: f32, constants: &PbrConstants) -> f32 {
     let denom = n_dot_h2 * constants.a2_minus_1 + 1.0;
     let denom = PI * denom * denom;
-    constants.a2 / denom.max(0.0000001)
+    constants.a2 / denom.max(0.000_000_1)
 }
 
 // Geometry Schlick-GGX
 fn geometry_schlick_ggx_optimized(n_dot_v: f32, constants: &PbrConstants) -> f32 {
     let nom = n_dot_v;
     let denom = n_dot_v * constants.one_minus_k + constants.k;
-    nom / denom.max(0.0000001)
+    nom / denom.max(0.000_000_1)
 }
 
 fn geometry_smith_optimized(n_dot_v: f32, n_dot_l: f32, constants: &PbrConstants) -> f32 {
@@ -751,7 +751,7 @@ unsafe fn draw_scanline_pbr_simd(
                 let ndf_denom_term = _mm256_fmadd_ps(n_dot_h2, a2_minus_1_vec, one);
                 let ndf_denom =
                     _mm256_mul_ps(pi_vec, _mm256_mul_ps(ndf_denom_term, ndf_denom_term));
-                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.0000001));
+                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.000_000_1));
                 let ndf = _mm256_div_ps(a2_vec, ndf_denom);
 
                 // Geometry Smith
@@ -761,11 +761,11 @@ unsafe fn draw_scanline_pbr_simd(
                 let ggx_denom_l = _mm256_fmadd_ps(n_dot_l, one_minus_k_vec, k_vec);
                 let ggx2 = _mm256_div_ps(
                     n_dot_v,
-                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.000_000_1)),
                 );
                 let ggx1 = _mm256_div_ps(
                     n_dot_l,
-                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.000_000_1)),
                 );
                 let g = _mm256_mul_ps(ggx1, ggx2);
 

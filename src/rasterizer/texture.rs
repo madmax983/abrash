@@ -1032,17 +1032,15 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                     let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
+                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     let idx = if is_pot {
                         // Note: We clamp to match the scalar implementation (draw_span_nearest / get_pixel_texel).
                         // Although wrapping is faster and standard for PoT, we must preserve rendering parity.
                         // The existing `draw_scanline_normal_mapped_simd` uses wrapping, but that creates
                         // an inconsistency with its own scalar fallback. We choose to be consistent with scalar here.
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                         _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                     } else {
-                        let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                        let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                         _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                     };
 
@@ -3700,13 +3698,11 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let u_i = _mm256_srai_epi32(u_fix_vec, 16);
                 let v_i = _mm256_srai_epi32(v_fix_vec, 16);
 
+                let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
+                let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                 let idx = if is_pot {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_or_si256(_mm256_sllv_epi32(v_c, shift_vec), u_c)
                 } else {
-                    let u_c = _mm256_min_epi32(_mm256_max_epi32(u_i, zero_i), max_x);
-                    let v_c = _mm256_min_epi32(_mm256_max_epi32(v_i, zero_i), max_y);
                     _mm256_add_epi32(_mm256_mullo_epi32(v_c, w_vec), u_c)
                 };
 
@@ -3755,7 +3751,8 @@ unsafe fn draw_span_textured_gouraud_simd(
                     let new_z = _mm256_blendv_ps(old_z, z_vec, write_opaque_ps);
                     _mm256_storeu_ps(depth_ptr, new_z);
 
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                    #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let old_color = _mm256_loadu_si256(fb_ptr);
                     let new_color = _mm256_blendv_epi8(old_color, out_color, write_opaque);
                     _mm256_storeu_si256(fb_ptr, new_color);
@@ -3767,7 +3764,8 @@ unsafe fn draw_span_textured_gouraud_simd(
                 let trans_bits = _mm256_movemask_ps(_mm256_castsi256_ps(write_trans));
 
                 if trans_bits != 0 {
-                    let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                    #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                     let current_dest = _mm256_loadu_si256(fb_ptr);
 
                     // Alpha blending: src * alpha + dest * inv_alpha
@@ -4756,10 +4754,10 @@ mod tests {
         let mut zb = ZBuffer::new(10, 10).unwrap();
         let mut tex = Texture::new(2, 2).unwrap();
         // (0,0)=Red, (1,0)=Green, (0,1)=Blue, (1,1)=White
-        tex.set_pixel(0, 0, 0xFFFF0000);
-        tex.set_pixel(1, 0, 0xFF00FF00);
-        tex.set_pixel(0, 1, 0xFF0000FF);
-        tex.set_pixel(1, 1, 0xFFFFFFFF);
+        tex.set_pixel(0, 0, 0xFFFF_0000);
+        tex.set_pixel(1, 0, 0xFF00_FF00);
+        tex.set_pixel(0, 1, 0xFF00_00FF);
+        tex.set_pixel(1, 1, 0xFFFF_FFFF);
 
         // Simple gradient: z=1, q=1 (w=1), u=0..1, v=0
         let start = PerspectiveSpanStart {
@@ -4795,17 +4793,17 @@ mod tests {
 
         assert_eq!(
             fb.get_pixel(0, 5).unwrap(),
-            0xFFFF0000,
+            0xFFFF_0000,
             "Pixel 0 should be Red"
         );
         assert_eq!(
             fb.get_pixel(1, 5).unwrap(),
-            0xFFFF0000,
+            0xFFFF_0000,
             "Pixel 1 should be Red"
         );
         assert_eq!(
             fb.get_pixel(2, 5).unwrap(),
-            0xFF00FF00,
+            0xFF00_FF00,
             "Pixel 2 should be Green"
         );
     }
@@ -4817,10 +4815,10 @@ mod tests {
         let mut tex = Texture::new(2, 2).unwrap();
         tex.filter_mode = crate::texture::FilterMode::Bilinear;
 
-        // 0,0: Black (0x00000000)
-        // 1,0: White (0xFFFFFFFF)
-        tex.set_pixel(0, 0, 0xFF000000);
-        tex.set_pixel(1, 0, 0xFFFFFFFF);
+        // 0,0: Black (0x0000_0000)
+        // 1,0: White (0xFFFF_FFFF)
+        tex.set_pixel(0, 0, 0xFF00_0000);
+        tex.set_pixel(1, 0, 0xFFFF_FFFF);
 
         let start = PerspectiveSpanStart {
             z: 1.0,
@@ -4914,7 +4912,7 @@ mod tests {
         // Fill white to avoid sampling issues
         for y in 0..2 {
             for x in 0..2 {
-                tex.set_pixel(x, y, 0xFFFFFFFF);
+                tex.set_pixel(x, y, 0xFFFF_FFFF);
             }
         }
 
@@ -4936,7 +4934,7 @@ mod tests {
 
         // Check pixel (5, 5)
         let p = fb.get_pixel(5, 5).unwrap();
-        assert_eq!(p, 0xFFFFFFFF, "Center pixel should be set");
+        assert_eq!(p, 0xFFFF_FFFF, "Center pixel should be set");
     }
 }
 
@@ -4951,10 +4949,10 @@ fn test_draw_scanline_trilinear() {
     // Level 0:
     // B W
     // W B
-    tex.set_pixel(0, 0, 0xFF000000); // Black
-    tex.set_pixel(1, 0, 0xFFFFFFFF); // White
-    tex.set_pixel(0, 1, 0xFFFFFFFF); // White
-    tex.set_pixel(1, 1, 0xFF000000); // Black
+    tex.set_pixel(0, 0, 0xFF00_0000); // Black
+    tex.set_pixel(1, 0, 0xFFFF_FFFF); // White
+    tex.set_pixel(0, 1, 0xFFFF_FFFF); // White
+    tex.set_pixel(1, 1, 0xFF00_0000); // Black
 
     tex.generate_mipmaps();
     // Level 1 (1x1) should be Grey (approx 127/128)
@@ -5012,7 +5010,7 @@ fn test_draw_span_nearest_overflow_vulnerability() {
     let mut tex = Texture::new(2, 2).unwrap();
     for y in 0..2 {
         for x in 0..2 {
-            tex.set_pixel(x, y, 0xFFFFFFFF);
+            tex.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 

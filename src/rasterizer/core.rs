@@ -192,7 +192,7 @@ pub unsafe fn blend_swar_simd(
         _mm256_add_epi16, _mm256_and_si256, _mm256_mullo_epi16, _mm256_or_si256, _mm256_set1_epi32,
         _mm256_slli_epi32, _mm256_srli_epi16, _mm256_srli_epi32,
     };
-    let mask = _mm256_set1_epi32(0x00FF00FF);
+    let mask = _mm256_set1_epi32(0x00FF_00FF);
 
     let w_16 = _mm256_or_si256(w, _mm256_slli_epi32(w, 16));
     let inv_w_16 = _mm256_or_si256(inv_w, _mm256_slli_epi32(inv_w, 16));
