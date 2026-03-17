@@ -22,8 +22,10 @@ checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 name = "abrash"
 version = "0.1.0"
 dependencies = [
+ "abrash-core",
  "abrash-gpu",
  "abrash-gpu-render",
+ "abrash-render",
  "bevy",
  "clap",
  "comfy-table",
@@ -42,6 +44,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abrash-core"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "web-time 1.1.0",
+]
+
+[[package]]
 name = "abrash-gpu"
 version = "0.1.0"
 dependencies = [
@@ -56,6 +66,16 @@ dependencies = [
  "pollster",
  "wgpu",
  "winit 0.29.15",
+]
+
+[[package]]
+name = "abrash-render"
+version = "0.1.0"
+dependencies = [
+ "abrash-core",
+ "abrash-gpu",
+ "ratatui",
+ "rayon",
 ]
 
 [[package]]

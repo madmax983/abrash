@@ -89,34 +89,39 @@
 //! *   [`texture`]: Texture loading and sampling.
 //! *   [`obj_loader`]: Wavefront OBJ parser.
 
-pub mod framebuffer;
-pub mod geometry;
-pub mod math;
-pub mod mesh;
-pub mod platform;
-pub mod rasterizer;
-pub mod time;
-pub mod utils;
-pub mod zbuffer;
+// Core types — re-exported from abrash-core.
+// Re-exporting as modules makes `use crate::math::Vec3` in sub-modules continue to work.
+pub use abrash_core::clipping;
+pub use abrash_core::culling;
+pub use abrash_core::framebuffer;
+pub use abrash_core::geometry;
+pub use abrash_core::hiz_buffer;
+pub use abrash_core::math;
+pub use abrash_core::mesh;
+pub use abrash_core::obj_loader;
+pub use abrash_core::texture;
+pub use abrash_core::time;
+pub use abrash_core::utils;
+pub use abrash_core::zbuffer;
 
-pub mod ascii;
-pub mod clipping;
-pub mod culling;
-pub mod heat_vision;
-pub mod hiz_buffer;
-pub mod obj_loader;
-pub mod particles;
-pub mod post_process;
-pub mod procedural;
-pub mod scene;
-pub mod skybox;
-pub mod texture;
+pub mod platform;
+
+// Re-export rendering modules from abrash-render.
+pub use abrash_render::ascii;
+pub use abrash_render::heat_vision;
+pub use abrash_render::particles;
+pub use abrash_render::post_process;
+pub use abrash_render::procedural;
+pub use abrash_render::rasterizer;
+pub use abrash_render::render_api;
+pub use abrash_render::scene;
+pub use abrash_render::skybox;
 
 #[cfg(feature = "gpu-binning")]
-pub mod gpu;
+pub use abrash_render::gpu;
 
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
 
 #[cfg(feature = "nova")]
-pub mod experimental;
+pub use abrash_render::experimental;
