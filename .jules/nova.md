@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [Mandelbrot Set Explorer]
+**Concept:** A procedural texture generator that renders the Mandelbrot set directly into the Framebuffer. Maps continuous escape iterations to a smooth RGB gradient palette. Features continuous zoom configuration.
+**Fate:** Implemented
+**Lesson:** The combination of `Rayon` with `par_chunks_exact_mut(width)` on the raw `Framebuffer` enables incredibly fast per-pixel fractals rendering in software. Escaping floating point operations and continuously coloring using `nu = log(log(|z|)/log(2))/log(2)` provides smooth aesthetics without texture banding.
