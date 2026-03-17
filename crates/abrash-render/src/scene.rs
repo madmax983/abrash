@@ -68,6 +68,8 @@ use crate::geometry::AABB;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
+use crate::render_api::draw_list::{DrawBatch, DrawList};
+use crate::render_api::frame::FrameCamera;
 use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -187,21 +189,25 @@ impl Scene {
         self.objects.push(object);
     }
 
-    /// Render the scene using the provided renderer.
+    /// Extract the scene into a backend-agnostic [`DrawList`].
     ///
-    /// This method performs Object Culling (Frustum Culling) before processing vertices.
-    /// Visible objects are transformed to Clip Space and submitted to the `renderer`.
+    /// Performs frustum culling and transforms all visible object vertices to clip-space.
+    /// The returned `DrawList` is ready for rasterization by any backend — the caller
+    /// does not need scene-level concepts (cameras, transforms) to execute it.
+    ///
+    /// Use [`render`](Self::render) for a one-shot path that executes immediately.
+    /// Use `extract` when you need to inspect, sort, or route the draw list first.
     ///
     /// # Performance
     ///
-    /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
-    /// *   **Batching**: Vertex transformations are batched and (optionally) parallelized.
-    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
+    /// Each visible object allocates a `Vec<(Vec3, f32)>` for its clip-space vertices.
+    /// The culling step still uses thread-local scratch buffers to stay allocation-free.
+    #[must_use]
+    pub fn extract(&self) -> DrawList {
         let view_proj = self.camera.view * self.camera.proj;
+        let camera = FrameCamera::new(self.camera.view, self.camera.proj);
+        let mut draw_list = DrawList::new(camera);
 
-        renderer.begin_frame();
-
-        // Use thread-local scratch buffers to avoid per-frame allocations
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
             let ctx = &mut *ctx_guard;
@@ -215,12 +221,10 @@ impl Scene {
             cull_results.clear();
             cull_results.resize(num_objects, false);
 
-            // 1. Calculate all World AABBs (could be parallelized)
             for obj in &self.objects {
                 world_aabbs.push(obj.local_aabb.transform(&obj.transform));
             }
 
-            // 2. Frustum Cull (SIMD batched)
             self.camera
                 .frustum
                 .cull_aabbs_prealloc(world_aabbs, cull_results);
@@ -230,17 +234,12 @@ impl Scene {
                     continue;
                 }
 
-                // 3. Process Visible Object
                 let mvp = obj.transform * view_proj;
                 let mesh = &obj.mesh;
 
-                // Transform vertices and append to batch
-                // Optimization: Batch transform vertices to reuse calculations for shared vertices.
-                // We reuse the scratch buffer to eliminate per-object allocations.
                 transformed_verts.clear();
                 transformed_verts.reserve(mesh.vertices.len());
 
-                // Use spare_capacity_mut to get uninitialized memory safely
                 let uninit_slice = transformed_verts.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
@@ -255,11 +254,34 @@ impl Scene {
                     transformed_verts.set_len(mesh.vertices.len());
                 }
 
-                renderer.submit_mesh(&mesh.indices, transformed_verts, obj.color);
+                draw_list.push(DrawBatch::new(
+                    transformed_verts.clone(),
+                    mesh.indices.clone(),
+                    obj.color,
+                ));
             }
         });
 
-        // 4. Finish Frame (Bin & Render)
+        draw_list
+    }
+
+    /// Render the scene using the provided renderer.
+    ///
+    /// Internally calls [`extract`](Self::extract) to build a [`DrawList`], then executes
+    /// it through the tile renderer. Use `extract` directly when you need to inspect
+    /// or manipulate the draw list before rasterization.
+    ///
+    /// # Performance
+    ///
+    /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
+    /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
+    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
+        let draw_list = self.extract();
+
+        renderer.begin_frame();
+        for batch in &draw_list.batches {
+            renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+        }
         renderer.end_frame(fb, zb);
     }
 }
@@ -343,5 +365,107 @@ mod tests {
             calculated_aabb.max,
             expected_max
         );
+    }
+
+    fn test_scene() -> (Scene, Camera) {
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let camera = Camera::new(view, proj);
+        let scene = Scene::new(camera);
+        let camera2 = Camera::new(view, proj);
+        (scene, camera2)
+    }
+
+    #[test]
+    fn test_extract_empty_scene() {
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let scene = Scene::new(Camera::new(view, proj));
+        let dl = scene.extract();
+        assert!(dl.batches.is_empty());
+        assert_eq!(dl.triangle_count(), 0);
+    }
+
+    #[test]
+    fn test_extract_visible_object_produces_batch() {
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let mut scene = Scene::new(Camera::new(view, proj));
+
+        let mesh = Arc::new(Mesh::cube(1.0));
+        scene.add_object(SceneObject::new(
+            mesh.clone(),
+            Mat4::identity(),
+            0xFFFF_0000,
+        ));
+
+        let dl = scene.extract();
+        assert_eq!(dl.batches.len(), 1);
+        assert_eq!(dl.batches[0].color, 0xFFFF_0000);
+        assert_eq!(dl.batches[0].indices.len(), mesh.indices.len());
+        assert_eq!(dl.batches[0].vertices.len(), mesh.vertices.len());
+    }
+
+    #[test]
+    fn test_extract_culls_objects_behind_camera() {
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 100.0);
+        let mut scene = Scene::new(Camera::new(view, proj));
+
+        // Object far behind the camera (z = +500, camera looks toward -z)
+        let mesh = Arc::new(Mesh::cube(1.0));
+        scene.add_object(SceneObject::new(
+            mesh,
+            Mat4::translation(0.0, 0.0, 500.0),
+            0xFFFF_0000,
+        ));
+
+        let dl = scene.extract();
+        assert!(
+            dl.batches.is_empty(),
+            "Object behind camera should be culled"
+        );
+    }
+
+    #[test]
+    fn test_extract_multiple_objects() {
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 0.0, 10.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let proj = Mat4::perspective(1.57, 1.0, 0.1, 200.0);
+        let mut scene = Scene::new(Camera::new(view, proj));
+
+        let mesh = Arc::new(Mesh::cube(1.0));
+        scene.add_object(SceneObject::new(
+            mesh.clone(),
+            Mat4::translation(-2.0, 0.0, 0.0),
+            0xFFFF_0000,
+        ));
+        scene.add_object(SceneObject::new(
+            mesh.clone(),
+            Mat4::translation(2.0, 0.0, 0.0),
+            0xFF00_FF00,
+        ));
+
+        let dl = scene.extract();
+        assert_eq!(dl.batches.len(), 2);
     }
 }
