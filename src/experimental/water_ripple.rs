@@ -6,6 +6,11 @@
 #![cfg(feature = "nova")]
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    static WATER_RIPPLE_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Configuration for the Water Ripple effect.
 #[derive(Debug, Clone, Copy)]

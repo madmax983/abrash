@@ -117,3 +117,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate Panic dropping RefMut across parallel bounds]**
 **Learning:** Using `thread_local!` with `RefCell<Vec<T>>` to eliminate per-frame allocations in functions that also use Rayon for parallelism (e.g., `apply_emboss`), do not hold the `RefMut` guard (`.borrow_mut()`) across parallel boundaries. This causes critical work-stealing panics. Additionally, dropping the value returned by `take()` using `.set()` throws compilation errors because `set` is a method on `Cell`, not `RefCell`. Use `.replace()` or mutate `.borrow_mut()` safely.
 **Action:** Use `.replace()` on a `RefCell` or mutate `.borrow_mut()` when putting a taken value back inside `thread_local!` variables in Rayon-enabled loops.
+
+**[Performance Optimization: Eliminate per-frame memory allocations in filter effects]**
+**Learning:** Calling `.to_vec()` on the framebuffer slice in post-processing effects (such as swirl, chromatic aberration, crepuscular rays, etc) to prevent aliasing issues causes expensive per-frame O(N) heap allocations, heavily degrading rendering performance.
+**Action:** Replace `.to_vec()` with thread-local buffers (`thread_local! { static BUF: RefCell<Vec<u32>> = ... }`). Then resize the thread-local vector to the framebuffer's exact size and copy the slice data over (`.copy_from_slice()`), completely eliminating the dynamic heap allocations across frames while still providing a safe duplicate buffer.

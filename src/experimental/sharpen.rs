@@ -3,6 +3,11 @@
 //! A filter that enhances the edges of an image using a convolution kernel.
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    static SHARPEN_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Applies a sharpen effect to the framebuffer.
 ///

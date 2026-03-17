@@ -8,6 +8,11 @@
 //! * Customizable density, weight, decay, and exposure.
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    static GOD_RAYS_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Applies a crepuscular ray (God Rays) effect to the framebuffer.
 ///
@@ -54,81 +59,89 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
 
-    // We need a copy of the original pixels to sample from
-    // while we write accumulated values to the framebuffer.
-    let original_pixels = fb.as_slice().to_vec();
-    let pixels = fb.as_mut_slice();
+    GOD_RAYS_BUFFER.with(|buf| {
+        let mut original_pixels_vec = buf.borrow_mut();
+        let size = (width * height) as usize;
+        if original_pixels_vec.len() < size {
+            original_pixels_vec.resize(size, 0);
+        }
 
-    let inv_width = 1.0 / width as f32;
-    let inv_height = 1.0 / height as f32;
+        let original_pixels = &mut original_pixels_vec[..size];
+        original_pixels.copy_from_slice(fb.as_slice());
 
-    // Normalized light position (0.0 to 1.0)
-    let light_u = config.light_x * inv_width;
-    let light_v = config.light_y * inv_height;
+        let pixels = fb.as_mut_slice();
 
-    for y in 0..height {
-        let v = y as f32 * inv_height;
-        for x in 0..width {
-            let u = x as f32 * inv_width;
+        let inv_width = 1.0 / width as f32;
+        let inv_height = 1.0 / height as f32;
 
-            // Calculate vector from pixel to light source
-            let mut delta_u = u - light_u;
-            let mut delta_v = v - light_v;
+        // Normalized light position (0.0 to 1.0)
+        let light_u = config.light_x * inv_width;
+        let light_v = config.light_y * inv_height;
 
-            // Scale delta by density
-            delta_u *= config.density / config.num_samples as f32;
-            delta_v *= config.density / config.num_samples as f32;
+        for y in 0..height {
+            let v = y as f32 * inv_height;
+            for x in 0..width {
+                let u = x as f32 * inv_width;
 
-            let mut current_u = u;
-            let mut current_v = v;
+                // Calculate vector from pixel to light source
+                let mut delta_u = u - light_u;
+                let mut delta_v = v - light_v;
 
-            let mut illumination_decay = 1.0;
+                // Scale delta by density
+                delta_u *= config.density / config.num_samples as f32;
+                delta_v *= config.density / config.num_samples as f32;
 
-            // Get base color of current pixel
-            let base_idx = (y * width + x) as usize;
-            let base_color = original_pixels[base_idx];
-            let base_r = ((base_color >> 16) & 0xFF) as f32;
-            let base_g = ((base_color >> 8) & 0xFF) as f32;
-            let base_b = (base_color & 0xFF) as f32;
+                let mut current_u = u;
+                let mut current_v = v;
 
-            let mut accum_r = base_r;
-            let mut accum_g = base_g;
-            let mut accum_b = base_b;
+                let mut illumination_decay = 1.0;
 
-            // Sample along the ray towards the light
-            for _ in 0..config.num_samples {
-                current_u -= delta_u;
-                current_v -= delta_v;
+                // Get base color of current pixel
+                let base_idx = (y * width + x) as usize;
+                let base_color = original_pixels[base_idx];
+                let base_r = ((base_color >> 16) & 0xFF) as f32;
+                let base_g = ((base_color >> 8) & 0xFF) as f32;
+                let base_b = (base_color & 0xFF) as f32;
 
-                // Clamp UVs to screen bounds
-                if !(0.0..1.0).contains(&current_u) || !(0.0..1.0).contains(&current_v) {
-                    continue; // Skip out-of-bounds samples
+                let mut accum_r = base_r;
+                let mut accum_g = base_g;
+                let mut accum_b = base_b;
+
+                // Sample along the ray towards the light
+                for _ in 0..config.num_samples {
+                    current_u -= delta_u;
+                    current_v -= delta_v;
+
+                    // Clamp UVs to screen bounds
+                    if !(0.0..1.0).contains(&current_u) || !(0.0..1.0).contains(&current_v) {
+                        continue; // Skip out-of-bounds samples
+                    }
+
+                    let sx = (current_u * width as f32) as i32;
+                    let sy = (current_v * height as f32) as i32;
+
+                    let sample_idx = (sy * width + sx) as usize;
+                    let sample_color = original_pixels[sample_idx];
+
+                    let sample_r = ((sample_color >> 16) & 0xFF) as f32;
+                    let sample_g = ((sample_color >> 8) & 0xFF) as f32;
+                    let sample_b = (sample_color & 0xFF) as f32;
+
+                    // Accumulate scaled by weight and decay
+                    accum_r += sample_r * illumination_decay * config.weight;
+                    accum_g += sample_g * illumination_decay * config.weight;
+                    accum_b += sample_b * illumination_decay * config.weight;
+
+                    illumination_decay *= config.decay;
                 }
 
-                let sx = (current_u * width as f32) as i32;
-                let sy = (current_v * height as f32) as i32;
+                // Apply exposure and clamp to 0-255
+                let final_r = (accum_r * config.exposure).clamp(0.0, 255.0) as u32;
+                let final_g = (accum_g * config.exposure).clamp(0.0, 255.0) as u32;
+                let final_b = (accum_b * config.exposure).clamp(0.0, 255.0) as u32;
 
-                let sample_idx = (sy * width + sx) as usize;
-                let sample_color = original_pixels[sample_idx];
-
-                let sample_r = ((sample_color >> 16) & 0xFF) as f32;
-                let sample_g = ((sample_color >> 8) & 0xFF) as f32;
-                let sample_b = (sample_color & 0xFF) as f32;
-
-                // Accumulate scaled by weight and decay
-                accum_r += sample_r * illumination_decay * config.weight;
-                accum_g += sample_g * illumination_decay * config.weight;
-                accum_b += sample_b * illumination_decay * config.weight;
-
-                illumination_decay *= config.decay;
+                pixels[base_idx] = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
             }
-
-            // Apply exposure and clamp to 0-255
-            let final_r = (accum_r * config.exposure).clamp(0.0, 255.0) as u32;
-            let final_g = (accum_g * config.exposure).clamp(0.0, 255.0) as u32;
-            let final_b = (accum_b * config.exposure).clamp(0.0, 255.0) as u32;
-
-            pixels[base_idx] = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
-    }
+    });
 }

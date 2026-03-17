@@ -3,6 +3,11 @@
 //! Applies a color fringe effect by shifting RGB channels independently.
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Configuration for the Chromatic Aberration filter.
 #[derive(Debug, Clone, Copy)]
@@ -39,48 +44,57 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
 
     assert_eq!(fb.as_slice().len(), width * height);
 
-    // Clone the source framebuffer to avoid aliasing issues when parallelizing
-    let source_pixels = fb.as_slice().to_vec();
-    let dest_pixels = fb.as_mut_slice();
-
-    #[cfg(feature = "parallel")]
-    let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
-
-    let w_i32 = width as i32;
-    let h_i32 = height as i32;
-
-    row_iter.for_each(|(y, row)| {
-        let y_i32 = y as i32;
-
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let x_i32 = x as i32;
-
-            // Calculate source coordinates for each channel
-            let rx = (x_i32 - config.red_shift.0).clamp(0, w_i32 - 1);
-            let ry = (y_i32 - config.red_shift.1).clamp(0, h_i32 - 1);
-
-            let gx = (x_i32 - config.green_shift.0).clamp(0, w_i32 - 1);
-            let gy = (y_i32 - config.green_shift.1).clamp(0, h_i32 - 1);
-
-            let bx = (x_i32 - config.blue_shift.0).clamp(0, w_i32 - 1);
-            let by = (y_i32 - config.blue_shift.1).clamp(0, h_i32 - 1);
-
-            // Sample from source buffer
-            let r_pixel = source_pixels[(ry * w_i32 + rx) as usize];
-            let g_pixel = source_pixels[(gy * w_i32 + gx) as usize];
-            let b_pixel = source_pixels[(by * w_i32 + bx) as usize];
-
-            // Extract channels and maintain alpha from green channel (or original)
-            let a = g_pixel & 0xFF_00_00_00;
-            let r = r_pixel & 0x00_FF_00_00;
-            let g = g_pixel & 0x00_00_FF_00;
-            let b = b_pixel & 0x00_00_00_FF;
-
-            // Combine and write back
-            *pixel = a | r | g | b;
+    CA_BUFFER.with(|buf| {
+        let mut source_pixels_vec = buf.borrow_mut();
+        let size = width * height;
+        if source_pixels_vec.len() < size {
+            source_pixels_vec.resize(size, 0);
         }
+
+        let source_pixels = &mut source_pixels_vec[..size];
+        source_pixels.copy_from_slice(fb.as_slice());
+
+        let dest_pixels = fb.as_mut_slice();
+
+        #[cfg(feature = "parallel")]
+        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+
+        let w_i32 = width as i32;
+        let h_i32 = height as i32;
+
+        row_iter.for_each(|(y, row)| {
+            let y_i32 = y as i32;
+
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let x_i32 = x as i32;
+
+                // Calculate source coordinates for each channel
+                let rx = (x_i32 - config.red_shift.0).clamp(0, w_i32 - 1);
+                let ry = (y_i32 - config.red_shift.1).clamp(0, h_i32 - 1);
+
+                let gx = (x_i32 - config.green_shift.0).clamp(0, w_i32 - 1);
+                let gy = (y_i32 - config.green_shift.1).clamp(0, h_i32 - 1);
+
+                let bx = (x_i32 - config.blue_shift.0).clamp(0, w_i32 - 1);
+                let by = (y_i32 - config.blue_shift.1).clamp(0, h_i32 - 1);
+
+                // Sample from source buffer
+                let r_pixel = source_pixels[(ry * w_i32 + rx) as usize];
+                let g_pixel = source_pixels[(gy * w_i32 + gx) as usize];
+                let b_pixel = source_pixels[(by * w_i32 + bx) as usize];
+
+                // Extract channels and maintain alpha from green channel (or original)
+                let a = g_pixel & 0xFF_00_00_00;
+                let r = r_pixel & 0x00_FF_00_00;
+                let g = g_pixel & 0x00_00_FF_00;
+                let b = b_pixel & 0x00_00_00_FF;
+
+                // Combine and write back
+                *pixel = a | r | g | b;
+            }
+        });
     });
 }
 
