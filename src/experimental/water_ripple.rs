@@ -6,6 +6,22 @@
 #![cfg(feature = "nova")]
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    /// Thread-local buffer for the water ripple effect.
+    ///
+    /// Why this optimization matters:
+    /// In non-linear pixel displacement filters (like water ripples), we must read from the
+    /// original, unmodified pixels while writing to the destination buffer to prevent aliasing
+    /// and visual artifacts. Previously, this was achieved by cloning the entire framebuffer
+    /// into a new `Vec` via `fb.as_slice().to_vec()` on every single frame.
+    /// By using a `thread_local!` `RefCell<Vec<u32>>`, we reuse a single heap allocation across
+    /// all frames (resizing automatically as needed). Inside the hot loop, we `take()` the vector
+    /// to safely pass it into Rayon's parallel iterators without holding a `RefMut` guard across
+    /// thread boundaries, completely eliding the O(N) heap allocation per frame.
+    static WATER_BUFFER: RefCell<Vec<u32>> = RefCell::new(Vec::new());
+}
 
 /// Configuration for the Water Ripple effect.
 #[derive(Debug, Clone, Copy)]
@@ -52,7 +68,12 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
 
     // Clone the source framebuffer because non-linear displacement causes aliasing
     // when reading and writing to the same buffer concurrently.
-    let src_buffer = fb.as_slice().to_vec();
+    WATER_BUFFER.with(|buf| {
+        let mut b = buf.borrow_mut();
+        b.clear();
+        b.extend_from_slice(fb.as_slice());
+    });
+    let src_buffer = WATER_BUFFER.with(std::cell::RefCell::take);
     let dest_buffer = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -95,6 +116,8 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
             }
         }
     });
+
+    WATER_BUFFER.with(|buf| buf.replace(src_buffer));
 }
 
 #[cfg(test)]
