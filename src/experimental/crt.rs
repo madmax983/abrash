@@ -2,6 +2,7 @@
 //!
 //! Simulates the barrel distortion of a classic Cathode Ray Tube monitor.
 
+use std::cell::RefCell;
 use crate::framebuffer::Framebuffer;
 
 /// Applies a CRT monitor barrel distortion effect to the framebuffer.
@@ -37,7 +38,7 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
     let cx = width as f32 / 2.0;
     let cy = height as f32 / 2.0;
 
-    use std::cell::RefCell;
+
 
     thread_local! {
         static CRT_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };

@@ -35,7 +35,7 @@ impl Default for VoronoiConfig {
             metric: 2.0,
             seed: 0,
             border_thickness: 1.0,
-            border_color: 0xFF000000,
+            border_color: 0xFF00_0000,
         }
     }
 }
@@ -72,14 +72,14 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             if let Some(color) = fb.get_pixel(x as i32, y as i32) {
                 seed_colors.push(color);
             } else {
-                seed_colors.push(0xFF000000);
+                seed_colors.push(0xFF00_0000);
             }
         } else {
             // Generate a random color
             let r = (rng.next_u32() & 0xFF) as u32;
             let g = (rng.next_u32() & 0xFF) as u32;
             let b = (rng.next_u32() & 0xFF) as u32;
-            seed_colors.push(0xFF000000 | (r << 16) | (g << 8) | b);
+            seed_colors.push(0xFF00_0000 | (r << 16) | (g << 8) | b);
         }
     }
 

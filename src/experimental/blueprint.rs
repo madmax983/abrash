@@ -26,9 +26,9 @@ pub struct BlueprintConfig {
 impl Default for BlueprintConfig {
     fn default() -> Self {
         Self {
-            background_color: 0xFF003399, // Classic deep blue
-            line_color: 0xFFFFFFFF,       // White lines
-            grid_color: 0xFF3366CC,       // Lighter blue for grid
+            background_color: 0xFF00_3399, // Classic deep blue
+            line_color: 0xFFFF_FFFF,       // White lines
+            grid_color: 0xFF33_66CC,       // Lighter blue for grid
             grid_size: 20,                // 20px grid
         }
     }
@@ -116,7 +116,7 @@ pub fn apply_blueprint(fb: &mut Framebuffer, config: &BlueprintConfig) {
                 let g_out = ((g_src * g_line) / 255).min(255);
                 let b_out = ((b_src * b_line) / 255).min(255);
 
-                *dest_pixel = 0xFF000000 | (r_out << 16) | (g_out << 8) | b_out;
+                *dest_pixel = 0xFF00_0000 | (r_out << 16) | (g_out << 8) | b_out;
             }
         }
     });

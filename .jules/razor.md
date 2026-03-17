@@ -62,3 +62,7 @@
 **Bloat:** `HiZOcclusion` and `HiZPyramidWriter` single-use adapter traits in `crates/abrash-gpu/src/d3d12_binning.rs` used to bridge methods from `HiZBuffer` in the `abrash` crate.
 **Cut:** Deleted the traits and the wrapper struct implementations (`HiZOcclusionAdapter`, `HiZPyramidWriterAdapter`) in `src/gpu/mod.rs`. Replaced trait parameters with direct closure parameters (`impl Fn` and `impl FnMut`).
 **Saved:** ~30 lines of boilerplate and removed unnecessary abstractions between crates.
+## [Reduction]
+**Bloat:** Numerous `clippy` warnings (unreadable literals, late item declarations, pointer alignment, duplicate code branches, redundant closures).
+**Cut:** Formatted all literals with underscores (`0xFF00_0000`), hoisted `const` and `use` items, explicitly marked safe SIMD unaligned memory reads with `#[allow(clippy::cast_ptr_alignment)]`, and removed duplicated variables in branch scopes.
+**Saved:** Suppressed over 100 `clippy` compiler warnings and enforced strict `-D warnings` checking for CI compliance.

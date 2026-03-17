@@ -59,7 +59,7 @@ impl Cubemap {
 
         // Avoid division by zero
         if ma == 0.0 {
-            return 0xFF000000;
+            return 0xFF00_0000;
         }
 
         // Map to [0, 1]

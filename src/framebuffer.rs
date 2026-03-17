@@ -711,11 +711,11 @@ impl Framebuffer {
         &self,
         path: P,
     ) -> std::io::Result<()> {
+        use std::io::Write;
         let converter =
             crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
         let content = converter.to_string();
         let mut file = std::fs::File::create(path)?;
-        use std::io::Write;
         file.write_all(content.as_bytes())
     }
 
@@ -733,11 +733,11 @@ impl Framebuffer {
         &self,
         path: P,
     ) -> std::io::Result<()> {
+        use std::io::Write;
         let converter =
             crate::ascii::AsciiConverter::new(self, crate::ascii::AsciiCharset::Standard);
         let content = converter.to_colored_string();
         let mut file = std::fs::File::create(path)?;
-        use std::io::Write;
         file.write_all(content.as_bytes())
     }
 }
