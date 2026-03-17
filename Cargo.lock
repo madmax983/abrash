@@ -41,6 +41,7 @@ dependencies = [
  "web-time 1.1.0",
  "windows 0.59.0",
  "windows-sys 0.59.0",
+ "winit 0.29.15",
 ]
 
 [[package]]
@@ -62,6 +63,8 @@ dependencies = [
 name = "abrash-gpu-render"
 version = "0.1.0"
 dependencies = [
+ "abrash-core",
+ "abrash-render",
  "bytemuck",
  "pollster",
  "wgpu",

@@ -21,7 +21,7 @@ nova = ["abrash-render/nova"]
 simd = []
 parallel = ["abrash-render/parallel", "abrash-core/parallel", "dep:rayon"]
 gpu-binning = ["abrash-render/gpu-binning", "dep:windows", "backend-win32", "dep:abrash-gpu"]
-gpu-render = ["dep:abrash-gpu-render"]
+gpu-render = ["dep:abrash-gpu-render", "dep:winit"]
 gpu-engine-compare = ["gpu-render", "dep:bevy", "dep:fyrox"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys", "abrash-render/backend-tui"]
@@ -37,6 +37,7 @@ ratzilla = { version = "0.3", optional = true }
 rayon = { version = "1.10", optional = true }
 abrash-gpu = { path = "crates/abrash-gpu", optional = true, default-features = false, features = ["gpu-binning"] }
 abrash-gpu-render = { path = "crates/abrash-gpu-render", optional = true }
+winit = { version = "0.29.15", optional = true }
 bevy = { version = "0.18.0", default-features = false, optional = true }
 fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-impl"], optional = true }
 
@@ -116,6 +117,11 @@ required-features = ["gpu-render"]
 [[example]]
 name = "gpu_obj"
 path = "examples/gpu_obj.rs"
+required-features = ["gpu-render"]
+
+[[example]]
+name = "gpu_mvp_cube"
+path = "examples/gpu_mvp_cube.rs"
 required-features = ["gpu-render"]
 
 [[example]]

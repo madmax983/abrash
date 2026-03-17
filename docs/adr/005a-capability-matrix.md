@@ -31,6 +31,8 @@ into the engine API.
 | WASM display               | ❌                 | ✅ (feature)    | ❌             |
 | Event loop                 | ❌                 | ✅              | ❌             |
 | GPU compute binning        | ✅ (feature)       | ✅ (feature)    | ✅ (feature)   |
+| GPU flat shading (wgpu)    | ❌                 | ✅ (gpu-render) | ✅ (capture)   |
+| GPU debug capture          | ❌                 | ❌              | ✅ (capture)   |
 | PPM/TGA export             | ✅                 | ✅              | ✅             |
 
 ## Crate Dependency Map (4-crate workspace)
@@ -121,3 +123,13 @@ embed-demo v0.1.0
 - ADR 005 acceptance criterion met: **no imports from `abrash::platform`** ✅
 - `cargo run -p embed-demo` renders 8 frames of two cubes, exports PPM ✅
 - 5/5 embed-demo unit tests pass ✅
+
+### Phase 5 — GPU Renderer (2026-03-17)
+- `GpuRenderer::capture()` headless path with pixel readback and diagnostics ✅
+- `GpuRenderer::render_to_surface()` windowed path with swapchain present ✅
+- MVP WGSL shader uses the engine matrix convention correctly ✅
+- `GpuMeshBuffer` converts `Mesh` into GPU vertex and index buffers ✅
+- `GpuDebugCapture` emits compact diagnostic text for agent/debug workflows ✅
+- `winit` is feature-gated behind `windowed` inside `abrash-gpu-render` ✅
+- ADR 007 documents the GPU renderer design decisions ✅
+- Integration tests cover empty scene, single cube, and two-material capture ✅
