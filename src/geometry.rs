@@ -6,7 +6,7 @@ use crate::math::{Mat4, Vec3};
 ///
 /// used for coarse intersection tests before checking individual triangles.
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ```
 /// use abrash::geometry::BoundingSphere;
@@ -20,7 +20,9 @@ use crate::math::{Mat4, Vec3};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingSphere {
+    /// The center of the bounding sphere in 3D space.
     pub center: Vec3,
+    /// The radius of the bounding sphere.
     pub radius: f32,
 }
 
@@ -58,7 +60,7 @@ impl BoundingSphere {
 /// AABBs are faster to construct and test than Oriented Bounding Boxes (OBB),
 /// but may fit less tightly for rotated objects.
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ```
 /// use abrash::geometry::AABB;
@@ -71,9 +73,13 @@ impl BoundingSphere {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AABB {
+    /// The minimum extents of the bounding box.
     pub min: Vec3,
+    #[doc(hidden)]
     pub pad0: f32, // Padding to align max to 16 bytes offset
+    /// The maximum extents of the bounding box.
     pub max: Vec3,
+    #[doc(hidden)]
     pub pad1: f32, // Padding to make total size 32 bytes
 }
 

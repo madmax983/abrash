@@ -80,6 +80,7 @@ use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear}
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
 
 /// Groups screen space parameters to reduce function arguments and improve clarity.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct ScreenSpaceContext {
     pub width: u32,
@@ -89,6 +90,7 @@ pub struct ScreenSpaceContext {
 }
 
 /// Defines the bounds and target position for merging a tile into the framebuffer.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct TileMergeBounds {
     pub tx: u32,
@@ -238,6 +240,7 @@ pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f3
 ///
 /// Reduces memory usage by using i16 for coordinates (sufficient for up to 32k resolution)
 /// and omitting unused `inv_w` for flat shading.
+#[doc(hidden)]
 #[derive(Clone, Copy, Debug)]
 pub struct CompactScreenPoint {
     pub x: i32,
@@ -257,6 +260,7 @@ impl CompactScreenPoint {
 }
 
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedTriangle {
     pub p0: CompactScreenPoint,
@@ -274,6 +278,7 @@ pub struct PreparedTriangle {
 }
 
 /// A Gouraud-shaded triangle prepared for rasterization.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedGouraudTriangle {
     pub p0: CompactScreenPoint,
@@ -295,6 +300,7 @@ pub struct PreparedGouraudTriangle {
 /// A textured triangle prepared for rasterization.
 ///
 /// Optimized to fit in exactly 128 bytes (2 cache lines).
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedTexturedTriangle {
     pub p0: ScreenPoint,
@@ -346,12 +352,14 @@ fn clear_tile_bounds<T>(
 
 use std::mem::MaybeUninit;
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
     pub count: usize,
 }
 
 impl PreparedGouraudTrianglesList {
+    #[doc(hidden)]
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -360,6 +368,7 @@ impl PreparedGouraudTrianglesList {
         }
     }
 
+    #[doc(hidden)]
     pub const fn push(&mut self, tri: PreparedGouraudTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
@@ -380,6 +389,7 @@ impl IntoIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesIter {
     list: PreparedGouraudTrianglesList,
     index: usize,
@@ -399,12 +409,14 @@ impl Iterator for PreparedGouraudTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesList {
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
     pub count: usize,
 }
 
 impl PreparedTrianglesList {
+    #[doc(hidden)]
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -413,6 +425,7 @@ impl PreparedTrianglesList {
         }
     }
 
+    #[doc(hidden)]
     pub const fn push(&mut self, tri: PreparedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
@@ -475,6 +488,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesIter {
     list: PreparedTrianglesList,
     index: usize,
@@ -494,12 +508,16 @@ impl Iterator for PreparedTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesList {
+    #[doc(hidden)]
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
+    #[doc(hidden)]
     pub count: usize,
 }
 
 impl PreparedTexturedTrianglesList {
+    #[doc(hidden)]
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -508,6 +526,7 @@ impl PreparedTexturedTrianglesList {
         }
     }
 
+    #[doc(hidden)]
     pub const fn push(&mut self, tri: PreparedTexturedTriangle) {
         if self.count < 8 {
             self.tris[self.count].write(tri);
@@ -528,6 +547,7 @@ impl IntoIterator for PreparedTexturedTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesIter {
     list: PreparedTexturedTrianglesList,
     index: usize,
@@ -550,14 +570,20 @@ impl Iterator for PreparedTexturedTrianglesIter {
 /// Flattened linked-list structure for tile binning.
 ///
 /// Replaces `Vec<Vec<usize>>` to reduce heap allocations and improve cache locality.
+#[doc(hidden)]
 pub struct TileBins {
+    #[doc(hidden)]
     pub heads: Vec<u32>, // Index into nexts/tris. u32::MAX = None
+    #[doc(hidden)]
     pub tails: Vec<u32>, // Index into nexts/tris. u32::MAX = None
+    #[doc(hidden)]
     pub nexts: Vec<u32>, // Link to next node
+    #[doc(hidden)]
     pub tris: Vec<u32>,  // Triangle index
 }
 
 impl TileBins {
+    #[doc(hidden)]
     #[must_use]
     pub fn new(num_tiles: usize) -> Self {
         Self {
@@ -568,6 +594,7 @@ impl TileBins {
         }
     }
 
+    #[doc(hidden)]
     pub fn clear(&mut self) {
         self.heads.fill(u32::MAX);
         self.tails.fill(u32::MAX);
@@ -575,6 +602,7 @@ impl TileBins {
         self.tris.clear();
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn push(&mut self, tile_idx: usize, tri_idx: usize) {
         let node_idx = self.tris.len() as u32;
@@ -591,6 +619,7 @@ impl TileBins {
         self.tails[tile_idx] = node_idx;
     }
 
+    #[doc(hidden)]
     #[must_use]
     pub fn iter(&self, tile_idx: usize) -> TileBinIter<'_> {
         TileBinIter {
@@ -600,6 +629,7 @@ impl TileBins {
     }
 }
 
+#[doc(hidden)]
 pub struct TileBinIter<'a> {
     bins: &'a TileBins,
     curr: u32,
