@@ -53,10 +53,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use abrash::rasterizer::{TileRenderer, ClipTriangle};
-//! use abrash::framebuffer::Framebuffer;
-//! use abrash::zbuffer::ZBuffer;
-//! use abrash::math::Vec3;
+//! use abrash_render::rasterizer::{TileRenderer, ClipTriangle};
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_core::zbuffer::ZBuffer;
+//! use abrash_core::math::Vec3;
 //!
 //! let mut fb = Framebuffer::new(3840, 2160).unwrap(); // 4K resolution
 //! let mut zb = ZBuffer::new(3840, 2160).unwrap();
@@ -2004,10 +2004,10 @@ impl TileRenderer {
     /// # Example
     ///
     /// ```no_run
-    /// # use abrash::rasterizer::TileRenderer;
-    /// # use abrash::framebuffer::Framebuffer;
-    /// # use abrash::zbuffer::ZBuffer;
-    /// # use abrash::math::Vec3;
+    /// # use abrash_render::rasterizer::TileRenderer;
+    /// # use abrash_core::framebuffer::Framebuffer;
+    /// # use abrash_core::zbuffer::ZBuffer;
+    /// # use abrash_core::math::Vec3;
     /// let mut renderer = TileRenderer::new(1920, 1080);
     /// let mut fb = Framebuffer::new(1920, 1080).unwrap();
     /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
@@ -3450,7 +3450,7 @@ impl TileRenderer {
 /// # Examples
 ///
 /// ```
-/// use abrash::rasterizer::should_use_tiled_rendering;
+/// use abrash_render::rasterizer::should_use_tiled_rendering;
 ///
 /// // 4K resolution with 50 triangles → use tiled (27% faster in benchmarks)
 /// assert!(should_use_tiled_rendering(3840, 2160, 50));

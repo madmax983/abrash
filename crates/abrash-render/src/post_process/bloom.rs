@@ -57,8 +57,8 @@ impl Default for BloomConfig {
 /// # Examples
 ///
 /// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::post_process::bloom::{BloomConfig, apply_bloom};
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::bloom::{BloomConfig, apply_bloom};
 ///
 /// let mut fb = Framebuffer::new(800, 600).unwrap();
 /// let config = BloomConfig::default();

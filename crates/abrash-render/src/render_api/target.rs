@@ -12,7 +12,7 @@ use crate::zbuffer::ZBuffer;
 /// # Examples
 ///
 /// ```
-/// use abrash::render_api::RenderTarget;
+/// use abrash_render::render_api::RenderTarget;
 ///
 /// let mut target = RenderTarget::new(800, 600).unwrap();
 /// target.clear(0xFF000000); // Clear to black

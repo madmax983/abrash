@@ -21,8 +21,8 @@
 //! ## Examples
 //!
 //! ```rust
-//! use abrash::zbuffer::ZBuffer;
-//! use abrash::hiz_buffer::{HiZBuffer, AABB3D};
+//! use abrash_core::zbuffer::ZBuffer;
+//! use abrash_core::hiz_buffer::{HiZBuffer, AABB3D};
 //!
 //! // 1. Initialize buffers for our viewport
 //! let width = 1920;
@@ -62,7 +62,7 @@ use crate::zbuffer::ZBuffer;
 ///
 /// ## Examples
 /// ```
-/// use abrash::hiz_buffer::AABB3D;
+/// use abrash_core::hiz_buffer::AABB3D;
 ///
 /// // A box spanning pixels (10, 10) to (50, 50) at a depth range of 10.0 to 20.0
 /// let bounds = AABB3D::new(10, 50, 10, 50, 10.0, 20.0);
@@ -130,9 +130,9 @@ impl PyramidLevel {
 ///
 /// # Example
 /// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::zbuffer::ZBuffer;
-/// use abrash::hiz_buffer::HiZBuffer;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::hiz_buffer::HiZBuffer;
 ///
 /// let width = 800;
 /// let height = 600;
@@ -168,7 +168,7 @@ impl HiZBuffer {
     ///
     /// # Example
     /// ```
-    /// use abrash::hiz_buffer::HiZBuffer;
+    /// use abrash_core::hiz_buffer::HiZBuffer;
     ///
     /// let hiz = HiZBuffer::new(1920, 1080);
     /// assert_eq!(hiz.level_count(), 12); // ceil(log2(1920)) + 1 = 11 + 1 = 12
@@ -519,8 +519,8 @@ impl HiZBuffer {
     ///
     /// # Example
     /// ```
-    /// use abrash::hiz_buffer::{HiZBuffer, AABB3D};
-    /// use abrash::zbuffer::ZBuffer;
+    /// use abrash_core::hiz_buffer::{HiZBuffer, AABB3D};
+    /// use abrash_core::zbuffer::ZBuffer;
     ///
     /// let mut hiz = HiZBuffer::new(1920, 1080);
     /// let zb = ZBuffer::new(1920, 1080).unwrap();

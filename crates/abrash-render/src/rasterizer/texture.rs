@@ -1650,11 +1650,11 @@ pub fn draw_scanline_textured_perspective(
 /// # Examples
 ///
 /// ```
-/// use abrash::rasterizer::fill_triangle_textured;
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::zbuffer::ZBuffer;
-/// use abrash::math::{Vec2, Vec3};
-/// use abrash::texture::Texture;
+/// use abrash_render::rasterizer::fill_triangle_textured;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::{Vec2, Vec3};
+/// use abrash_core::texture::Texture;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();

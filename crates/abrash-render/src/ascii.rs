@@ -13,8 +13,8 @@
 //! # Examples
 //!
 //! ```
-//! use abrash::framebuffer::Framebuffer;
-//! use abrash::ascii::{AsciiConverter, AsciiCharset};
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_render::ascii::{AsciiConverter, AsciiCharset};
 //!
 //! let mut fb = Framebuffer::new(10, 5).unwrap();
 //! fb.clear(0xFFFFFFFF); // White
@@ -92,8 +92,8 @@ impl<'a> AsciiConverter<'a> {
     /// # Examples
     ///
     /// ```
-    /// use abrash::framebuffer::Framebuffer;
-    /// use abrash::ascii::{AsciiConverter, AsciiCharset};
+    /// use abrash_core::framebuffer::Framebuffer;
+    /// use abrash_render::ascii::{AsciiConverter, AsciiCharset};
     ///
     /// let mut fb = Framebuffer::new(2, 1).unwrap();
     /// fb.set_pixel(0, 0, 0xFFFF_0000); // Red

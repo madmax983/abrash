@@ -18,7 +18,7 @@
 //! This implies that the order of multiplication matches the order of transformations:
 //!
 //! ```
-//! # use abrash::math::{Mat4, Vec3};
+//! # use abrash_core::math::{Mat4, Vec3};
 //! // Scale, then Rotate, then Translate
 //! let scale = Mat4::scale(2.0, 2.0, 2.0);
 //! let rotate = Mat4::rotation_y(1.57); // 90 degrees
@@ -47,7 +47,7 @@ use std::ops::{Add, Mul, Sub};
 /// # Examples
 ///
 /// ```
-/// use abrash::math::fast_inv_sqrt;
+/// use abrash_core::math::fast_inv_sqrt;
 ///
 /// let x = 4.0;
 /// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
@@ -83,7 +83,7 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::Vec2;
+/// use abrash_core::math::Vec2;
 ///
 /// let uv = Vec2::new(0.5, 0.5);
 /// assert_eq!(uv.x, 0.5);
@@ -161,7 +161,7 @@ impl Mul<f32> for Vec2 {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::{Mat2, Vec2};
+/// use abrash_core::math::{Mat2, Vec2};
 ///
 /// // Rotate 90 degrees (PI/2)
 /// let rot = Mat2::rotation(std::f32::consts::FRAC_PI_2);
@@ -226,7 +226,7 @@ impl Mat2 {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::Vec3;
+/// use abrash_core::math::Vec3;
 ///
 /// let v = Vec3::new(1.0, 2.0, 3.0);
 /// assert_eq!(v.x, 1.0);
@@ -281,7 +281,7 @@ impl Vec3 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Vec3;
+    /// use abrash_core::math::Vec3;
     ///
     /// let a = Vec3::new(1.0, 0.0, 0.0);
     /// let b = Vec3::new(0.5, 0.0, 0.0);
@@ -311,7 +311,7 @@ impl Vec3 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Vec3;
+    /// use abrash_core::math::Vec3;
     ///
     /// // X cross Y = Z (Right-Handed)
     /// let x = Vec3::new(1.0, 0.0, 0.0);
@@ -357,7 +357,7 @@ impl Vec3 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Vec3;
+    /// use abrash_core::math::Vec3;
     ///
     /// let v = Vec3::new(0.0, 3.0, 4.0); // Length is 5
     /// let n = v.normalize();
@@ -438,7 +438,7 @@ impl Vec3 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Vec3;
+    /// use abrash_core::math::Vec3;
     ///
     /// let v = Vec3::new(1.0, -1.0, 0.0);
     /// let n = Vec3::new(0.0, 1.0, 0.0);
@@ -568,7 +568,7 @@ impl std::ops::Div<f32> for Vec3 {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::{Mat4, Vec3};
+/// use abrash_core::math::{Mat4, Vec3};
 /// use std::f32::consts::PI;
 ///
 /// // 1. Scale by 2
@@ -746,7 +746,7 @@ impl Mat4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Mat4;
+    /// use abrash_core::math::Mat4;
     /// use std::f32::consts::PI;
     ///
     /// let proj = Mat4::perspective(PI / 4.0, 1.33, 0.1, 100.0);
@@ -775,7 +775,7 @@ impl Mat4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::{Mat4, Vec3};
+    /// use abrash_core::math::{Mat4, Vec3};
     ///
     /// let eye = Vec3::new(0.0, 0.0, 5.0);
     /// let target = Vec3::new(0.0, 0.0, 0.0);
@@ -818,7 +818,7 @@ impl Mat4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::{Mat4, Vec3};
+    /// use abrash_core::math::{Mat4, Vec3};
     ///
     /// let m = Mat4::translation(1.0, 2.0, 3.0);
     /// let p = Vec3::new(0.0, 0.0, 0.0);
@@ -890,7 +890,7 @@ impl Mat4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::{Mat4, Vec3};
+    /// use abrash_core::math::{Mat4, Vec3};
     ///
     /// let m = Mat4::scale(2.0, 2.0, 2.0);
     /// let points = [Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)];
@@ -1119,7 +1119,7 @@ impl Mat4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::{Mat4, Vec3};
+    /// use abrash_core::math::{Mat4, Vec3};
     ///
     /// let m = Mat4::translation(10.0, 0.0, 0.0);
     /// let points = [Vec3::new(0.0, 0.0, 0.0); 100];
@@ -1298,7 +1298,7 @@ pub struct ScreenPoint {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::{project_to_screen_optimized, Vec3};
+/// use abrash_core::math::{project_to_screen_optimized, Vec3};
 ///
 /// let point = Vec3::new(1.0, 1.0, 5.0);
 /// let w = 5.0; // Assume we already have w from projection
@@ -2120,7 +2120,7 @@ mod tests {
 /// # Examples
 ///
 /// ```
-/// use abrash::math::Vec4;
+/// use abrash_core::math::Vec4;
 ///
 /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
 /// assert_eq!(v.x, 1.0);
@@ -2154,7 +2154,7 @@ impl Vec4 {
     /// # Examples
     ///
     /// ```
-    /// use abrash::math::Vec4;
+    /// use abrash_core::math::Vec4;
     ///
     /// let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
     /// assert_eq!(v.w, 1.0);

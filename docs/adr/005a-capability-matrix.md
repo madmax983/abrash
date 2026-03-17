@@ -1,7 +1,7 @@
 # Capability Matrix (ADR 005 Supplement)
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -85,3 +85,10 @@ The seam is correct when:
 cargo tree -p abrash-core --no-default-features
 cargo tree -p abrash-render --no-default-features
 ```
+
+## Implementation Notes
+
+3-crate workspace implemented 2026-03-16. Validation:
+- `cargo tree -p abrash-core --no-default-features` shows no platform deps ✅
+- `cargo tree -p abrash-render --no-default-features` shows no platform deps ✅
+- All 218+ tests pass across workspace ✅

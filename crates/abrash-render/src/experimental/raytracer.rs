@@ -22,10 +22,10 @@
 //! # Usage
 //!
 //! ```no_run
-//! use abrash::experimental::raytracer::RayTracer;
-//! use abrash::scene::{Scene, Camera};
-//! use abrash::math::{Mat4, Vec3};
-//! use abrash::framebuffer::Framebuffer;
+//! use abrash_render::experimental::raytracer::RayTracer;
+//! use abrash_render::scene::{Scene, Camera};
+//! use abrash_core::math::{Mat4, Vec3};
+//! use abrash_core::framebuffer::Framebuffer;
 //!
 //! // 1. Setup Scene
 //! let view = Mat4::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));

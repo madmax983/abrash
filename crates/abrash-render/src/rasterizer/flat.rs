@@ -315,10 +315,10 @@ pub fn draw_scanline_flat_blended(
 /// # Examples
 ///
 /// ```
-/// use abrash::rasterizer::fill_triangle_3d;
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::zbuffer::ZBuffer;
-/// use abrash::math::{Mat4, Vec3};
+/// use abrash_render::rasterizer::fill_triangle_3d;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::{Mat4, Vec3};
 ///
 /// let width = 100;
 /// let height = 100;

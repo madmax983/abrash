@@ -25,12 +25,12 @@
 //! # Usage
 //!
 //! ```
-//! use abrash::scene::{Scene, SceneObject, Camera};
-//! use abrash::mesh::Mesh;
-//! use abrash::math::{Mat4, Vec3};
-//! use abrash::rasterizer::TileRenderer;
-//! use abrash::framebuffer::Framebuffer;
-//! use abrash::zbuffer::ZBuffer;
+//! use abrash_render::scene::{Scene, SceneObject, Camera};
+//! use abrash_core::mesh::Mesh;
+//! use abrash_core::math::{Mat4, Vec3};
+//! use abrash_render::rasterizer::TileRenderer;
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_core::zbuffer::ZBuffer;
 //! use std::sync::Arc;
 //!
 //! // 1. Setup Renderer and Buffers

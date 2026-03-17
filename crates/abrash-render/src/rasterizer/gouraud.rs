@@ -623,10 +623,10 @@ impl GouraudEdgeWalker {
 /// # Examples
 ///
 /// ```
-/// use abrash::rasterizer::fill_triangle_gouraud;
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::zbuffer::ZBuffer;
-/// use abrash::math::Vec3;
+/// use abrash_render::rasterizer::fill_triangle_gouraud;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_core::math::Vec3;
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// let mut zb = ZBuffer::new(100, 100).unwrap();

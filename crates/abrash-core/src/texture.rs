@@ -114,7 +114,7 @@ impl Texture {
     /// # Examples
     ///
     /// ```
-    /// use abrash::texture::Texture;
+    /// use abrash_core::texture::Texture;
     ///
     /// let texture = Texture::new(256, 256).unwrap();
     /// assert_eq!(texture.width(), 256);
@@ -169,7 +169,7 @@ impl Texture {
     /// # Examples
     ///
     /// ```
-    /// use abrash::texture::Texture;
+    /// use abrash_core::texture::Texture;
     ///
     /// let mut tex = Texture::new(4, 4).unwrap();
     /// // Set pixel at (2, 2) to Red
@@ -253,7 +253,7 @@ impl Texture {
     /// # Examples
     ///
     /// ```
-    /// use abrash::texture::Texture;
+    /// use abrash_core::texture::Texture;
     ///
     /// let mut tex = Texture::new(2, 2).unwrap();
     /// tex.set_pixel(0, 0, 0xFFFF_FFFF);

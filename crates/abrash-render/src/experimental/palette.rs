@@ -131,8 +131,8 @@ impl Palette {
 /// # Examples
 ///
 /// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::experimental::palette::{apply_palette, Palette};
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::experimental::palette::{apply_palette, Palette};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// // ... render scene ...

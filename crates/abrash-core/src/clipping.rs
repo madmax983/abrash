@@ -93,8 +93,8 @@ const NEAR: f32 = 0.001;
 /// # Examples
 ///
 /// ```
-/// use abrash::clipping::clip_triangle_to_frustum;
-/// use abrash::math::Vec3;
+/// use abrash_core::clipping::clip_triangle_to_frustum;
+/// use abrash_core::math::Vec3;
 ///
 /// // Create a triangle where one vertex is behind the Near Plane (z < -w)
 /// let w = 1.0;
@@ -451,8 +451,8 @@ pub fn clip_triangle_to_frustum<V: Copy>(
 /// # Examples
 ///
 /// ```
-/// use abrash::clipping::clip_line_to_frustum;
-/// use abrash::math::Vec3;
+/// use abrash_core::clipping::clip_line_to_frustum;
+/// use abrash_core::math::Vec3;
 ///
 /// let w = 10.0;
 /// // Start point is inside
@@ -537,8 +537,8 @@ pub fn clip_line_to_frustum<V: Copy>(
 /// # Examples
 ///
 /// ```
-/// use abrash::math::Vec4;
-/// use abrash::clipping::clip_triangle_against_near_plane;
+/// use abrash_core::math::Vec4;
+/// use abrash_core::clipping::clip_triangle_against_near_plane;
 ///
 /// let v0 = Vec4::new(0.0, 0.0, -1.0, -1.0); // Behind camera
 /// let v1 = Vec4::new(1.0, 0.0, 1.0, 1.0);   // In front

@@ -416,7 +416,7 @@ fn fast_parse_usize(bytes: &[u8]) -> Option<usize> {
 /// # Examples
 ///
 /// ```
-/// use abrash::obj_loader::load_obj;
+/// use abrash_core::obj_loader::load_obj;
 ///
 /// let obj_source = "
 /// # Simple Quad (2 Triangles)

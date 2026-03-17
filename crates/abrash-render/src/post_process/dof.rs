@@ -52,9 +52,9 @@ impl Default for DepthOfFieldConfig {
 /// # Examples
 ///
 /// ```
-/// use abrash::framebuffer::Framebuffer;
-/// use abrash::zbuffer::ZBuffer;
-/// use abrash::post_process::dof::apply_depth_of_field;
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::zbuffer::ZBuffer;
+/// use abrash_render::post_process::dof::apply_depth_of_field;
 ///
 /// let width = 800;
 /// let height = 600;
@@ -66,7 +66,7 @@ impl Default for DepthOfFieldConfig {
 /// // Apply Depth of Field
 /// // Focus on objects at depth 5.0 (in View Space, converted to Z-Buffer space appropriately)
 /// // Note: ZBuffer typically stores non-linear depth.
-/// let config = abrash::post_process::dof::DepthOfFieldConfig { focus_dist: 0.5, focus_range: 0.1, blur_radius: 5 };
+/// let config = abrash_render::post_process::dof::DepthOfFieldConfig { focus_dist: 0.5, focus_range: 0.1, blur_radius: 5 };
 /// apply_depth_of_field(&mut fb, &zb, &config);
 /// ```
 pub fn apply_depth_of_field(fb: &mut Framebuffer, zb: &ZBuffer, config: &DepthOfFieldConfig) {

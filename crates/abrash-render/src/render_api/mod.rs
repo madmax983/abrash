@@ -3,12 +3,12 @@
 //! # Quick Start
 //!
 //! ```
-//! use abrash::render_api::{RenderTarget, Renderer};
-//! use abrash::render_api::cpu_renderer::CpuRenderer;
-//! use abrash::render_api::frame::{Frame, FrameCamera};
-//! use abrash::render_api::material::Material;
-//! use abrash::mesh::Mesh;
-//! use abrash::math::{Mat4, Vec3};
+//! use abrash_render::render_api::{RenderTarget, Renderer};
+//! use abrash_render::render_api::cpu_renderer::CpuRenderer;
+//! use abrash_render::render_api::frame::{Frame, FrameCamera};
+//! use abrash_render::render_api::material::Material;
+//! use abrash_core::mesh::Mesh;
+//! use abrash_core::math::{Mat4, Vec3};
 //!
 //! let mut renderer = CpuRenderer::new(800, 600);
 //! let mut target = RenderTarget::new(800, 600).unwrap();

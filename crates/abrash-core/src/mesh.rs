@@ -5,8 +5,8 @@
 //! # Examples
 //!
 //! ```
-//! use abrash::mesh::Mesh;
-//! use abrash::math::Vec3;
+//! use abrash_core::mesh::Mesh;
+//! use abrash_core::math::Vec3;
 //!
 //! let mut mesh = Mesh::new();
 //! mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
@@ -40,7 +40,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash_core::mesh::Mesh;
     /// let mesh = Mesh::new();
     /// assert!(mesh.vertices.is_empty());
     /// ```
@@ -63,7 +63,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash_core::mesh::Mesh;
     /// let mesh = Mesh::with_capacity(100, 200);
     /// assert_eq!(mesh.vertices.capacity(), 100);
     /// assert_eq!(mesh.indices.capacity(), 200);
@@ -87,7 +87,7 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
+    /// use abrash_core::mesh::Mesh;
     /// let cube = Mesh::cube(2.0);
     /// assert_eq!(cube.vertices.len(), 8);
     /// assert_eq!(cube.indices.len(), 12);
@@ -151,8 +151,8 @@ impl Mesh {
     /// # Examples
     ///
     /// ```
-    /// use abrash::mesh::Mesh;
-    /// use abrash::math::Vec3;
+    /// use abrash_core::mesh::Mesh;
+    /// use abrash_core::math::Vec3;
     ///
     /// let mut mesh = Mesh::new();
     /// mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));

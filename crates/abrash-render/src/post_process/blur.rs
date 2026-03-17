@@ -272,7 +272,7 @@ unsafe fn box_blur_f32_vertical_avx2(
 /// # Examples
 ///
 /// ```rust
-/// use abrash::post_process::blur::box_blur_horizontal;
+/// use abrash_render::post_process::blur::box_blur_horizontal;
 ///
 /// let width = 3;
 /// let height = 1;
@@ -417,7 +417,7 @@ fn process_row_horizontal(
 /// # Examples
 ///
 /// ```rust
-/// use abrash::post_process::blur::box_blur_vertical;
+/// use abrash_render::post_process::blur::box_blur_vertical;
 ///
 /// let width = 1;
 /// let height = 3;

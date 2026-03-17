@@ -9,8 +9,8 @@ use crate::math::{Mat4, Vec3};
 /// # Examples
 ///
 /// ```
-/// use abrash::geometry::BoundingSphere;
-/// use abrash::math::Vec3;
+/// use abrash_core::geometry::BoundingSphere;
+/// use abrash_core::math::Vec3;
 ///
 /// let sphere = BoundingSphere {
 ///     center: Vec3::new(0.0, 0.0, 0.0),
@@ -61,8 +61,8 @@ impl BoundingSphere {
 /// # Examples
 ///
 /// ```
-/// use abrash::geometry::AABB;
-/// use abrash::math::Vec3;
+/// use abrash_core::geometry::AABB;
+/// use abrash_core::math::Vec3;
 ///
 /// let min = Vec3::new(-1.0, -1.0, -1.0);
 /// let max = Vec3::new(1.0, 1.0, 1.0);
@@ -83,8 +83,8 @@ impl AABB {
     /// # Examples
     ///
     /// ```
-    /// use abrash::geometry::AABB;
-    /// use abrash::math::Vec3;
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
     ///
     /// let aabb = AABB::new(Vec3::ZERO, Vec3::ONE);
     /// ```
@@ -105,8 +105,8 @@ impl AABB {
     /// # Examples
     ///
     /// ```
-    /// use abrash::geometry::AABB;
-    /// use abrash::math::Vec3;
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
     ///
     /// let points = [
     ///     Vec3::new(1.0, 0.0, 0.0),
@@ -174,8 +174,8 @@ impl AABB {
     /// # Examples
     ///
     /// ```
-    /// use abrash::geometry::AABB;
-    /// use abrash::math::{Mat4, Vec3};
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::{Mat4, Vec3};
     ///
     /// let aabb = AABB::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
     /// let transform = Mat4::translation(10.0, 0.0, 0.0);

@@ -34,10 +34,10 @@
 //! Here is how you might chain multiple effects to create a cinematic look:
 //!
 //! ```
-//! use abrash::framebuffer::Framebuffer;
-//! use abrash::zbuffer::ZBuffer;
-//! use abrash::math::Mat4;
-//! use abrash::post_process::{apply_ssao, apply_depth_of_field, apply_vignette, apply_grayscale};
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_core::zbuffer::ZBuffer;
+//! use abrash_core::math::Mat4;
+//! use abrash_render::post_process::{apply_ssao, apply_depth_of_field, apply_vignette, apply_grayscale};
 //!
 //! // 1. Setup Buffers (Assuming they are filled by the rasterizer)
 //! let width = 800;
@@ -51,16 +51,16 @@
 //! // 2. Apply Post-Processing Chain
 //!
 //! // Step A: SSAO (Needs Depth) - Adds shadows to corners/crevices
-//! let ssao_config = abrash::post_process::ssao::SsaoConfig { radius: 0.5, bias: 0.025, intensity: 2.0 };
+//! let ssao_config = abrash_render::post_process::ssao::SsaoConfig { radius: 0.5, bias: 0.025, intensity: 2.0 };
 //! apply_ssao(&mut fb, &zb, &proj, &ssao_config);
 //!
 //! // Step B: Depth of Field (Needs Depth) - Blurs background
 //! // Focus at depth 5.0, range 2.0, blur radius 3
-//! let dof_config = abrash::post_process::dof::DepthOfFieldConfig { focus_dist: 5.0, focus_range: 2.0, blur_radius: 3 };
+//! let dof_config = abrash_render::post_process::dof::DepthOfFieldConfig { focus_dist: 5.0, focus_range: 2.0, blur_radius: 3 };
 //! apply_depth_of_field(&mut fb, &zb, &dof_config);
 //!
 //! // Step C: Vignette (Stylistic) - Darkens edges
-//! let vignette_config = abrash::post_process::filters::VignetteConfig { intensity: 0.5, roundness: 0.5 };
+//! let vignette_config = abrash_render::post_process::filters::VignetteConfig { intensity: 0.5, roundness: 0.5 };
 //! apply_vignette(&mut fb, &vignette_config);
 //!
 //! // Step D: Color Grading (Optional)

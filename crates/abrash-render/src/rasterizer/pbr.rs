@@ -15,10 +15,10 @@
 //! Imagine a hero, a sphere of pure gold, placed in a dark void illuminated by a single holy light.
 //!
 //! ```
-//! use abrash::framebuffer::Framebuffer;
-//! use abrash::zbuffer::ZBuffer;
-//! use abrash::math::Vec3;
-//! use abrash::rasterizer::pbr::fill_triangle_pbr;
+//! use abrash_core::framebuffer::Framebuffer;
+//! use abrash_core::zbuffer::ZBuffer;
+//! use abrash_core::math::Vec3;
+//! use abrash_render::rasterizer::pbr::fill_triangle_pbr;
 //!
 //! // 1. The Canvas
 //! let width = 100;
