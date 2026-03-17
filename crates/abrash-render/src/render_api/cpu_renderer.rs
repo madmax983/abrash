@@ -4,6 +4,7 @@
 
 use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
+use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::Frame;
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 use crate::render_api::material::Material;
@@ -65,6 +66,65 @@ impl CpuRenderer {
             materials: ResourcePool::new(),
         }
     }
+
+    /// Extract a [`Frame`] into a [`DrawList`] by resolving handles, transforming
+    /// vertices to clip-space, and resolving material colors.
+    ///
+    /// Returns an error if any handle in the frame is stale. On success the
+    /// returned `DrawList` is self-contained and can be executed or inspected
+    /// independently of this renderer's internal pools.
+    pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
+        let view_proj = frame.camera.view * frame.camera.projection;
+        let mut draw_list = DrawList::new(frame.camera);
+        draw_list.clear_color = frame.clear_color;
+        draw_list.lights = frame.lights.clone();
+
+        for cmd in &frame.commands {
+            let cpu_mesh = self
+                .meshes
+                .get(from_mesh_handle(cmd.mesh))
+                .ok_or(RenderError::StaleHandle("mesh"))?;
+            let material = self
+                .materials
+                .get(from_material_handle(cmd.material))
+                .ok_or(RenderError::StaleHandle("material"))?;
+
+            let mvp = cmd.transform * view_proj;
+            let mesh = &cpu_mesh.mesh;
+
+            let vertices: Vec<_> = mesh
+                .vertices
+                .iter()
+                .map(|v| mvp.transform_point(*v))
+                .collect();
+
+            draw_list.push(DrawBatch::new(
+                vertices,
+                mesh.indices.clone(),
+                material.color,
+            ));
+        }
+
+        Ok(draw_list)
+    }
+
+    /// Execute a pre-built [`DrawList`] into the given render target.
+    ///
+    /// Clears the target if `draw_list.clear_color` is set, then bins and
+    /// rasterizes every batch through the tile renderer.
+    pub fn execute_draw_list(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
+        if let Some(color) = draw_list.clear_color {
+            target.clear(color);
+        }
+
+        self.tile_renderer.begin_frame();
+        for batch in &draw_list.batches {
+            self.tile_renderer
+                .submit_mesh(&batch.indices, &batch.vertices, batch.color);
+        }
+        self.tile_renderer
+            .end_frame(&mut target.framebuffer, &mut target.zbuffer);
+    }
 }
 
 impl Renderer for CpuRenderer {
@@ -98,43 +158,8 @@ impl Renderer for CpuRenderer {
         frame: &Frame,
         target: &mut RenderTarget,
     ) -> Result<(), RenderError> {
-        // Clear if requested
-        if let Some(color) = frame.clear_color {
-            target.clear(color);
-        }
-
-        // Compute combined view-projection matrix
-        let view_proj = frame.camera.view * frame.camera.projection;
-
-        self.tile_renderer.begin_frame();
-
-        for cmd in &frame.commands {
-            let cpu_mesh = self
-                .meshes
-                .get(from_mesh_handle(cmd.mesh))
-                .ok_or(RenderError::StaleHandle("mesh"))?;
-            let material = self
-                .materials
-                .get(from_material_handle(cmd.material))
-                .ok_or(RenderError::StaleHandle("material"))?;
-
-            let mvp = cmd.transform * view_proj;
-            let mesh = &cpu_mesh.mesh;
-
-            // Transform vertices to clip space
-            let transformed: Vec<_> = mesh
-                .vertices
-                .iter()
-                .map(|v| mvp.transform_point(*v))
-                .collect();
-
-            self.tile_renderer
-                .submit_mesh(&mesh.indices, &transformed, material.color);
-        }
-
-        self.tile_renderer
-            .end_frame(&mut target.framebuffer, &mut target.zbuffer);
-
+        let draw_list = self.extract_draw_list(frame)?;
+        self.execute_draw_list(&draw_list, target);
         Ok(())
     }
 
@@ -261,6 +286,84 @@ mod tests {
         assert!(
             non_black > 100,
             "Expected visible cube pixels, got {non_black}"
+        );
+    }
+
+    #[test]
+    fn test_extract_draw_list_batch_count() {
+        let mut renderer = CpuRenderer::new(200, 200);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        frame.draw(mesh_h, mat_h, Mat4::translation(3.0, 0.0, 0.0));
+
+        let dl = renderer.extract_draw_list(&frame).unwrap();
+        assert_eq!(dl.batches.len(), 2, "One batch per draw command");
+        assert!(dl.triangle_count() > 0);
+    }
+
+    #[test]
+    fn test_extract_draw_list_stale_handle_error() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        renderer.destroy_mesh(mesh_h);
+
+        let mut frame = Frame::new(test_camera());
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+
+        assert!(renderer.extract_draw_list(&frame).is_err());
+    }
+
+    #[test]
+    fn test_execute_draw_list_matches_render_frame() {
+        // Both paths (render_frame vs extract+execute) must produce identical pixels.
+        let mut r1 = CpuRenderer::new(100, 100);
+        let mut r2 = CpuRenderer::new(100, 100);
+        let mut t1 = RenderTarget::new(100, 100).unwrap();
+        let mut t2 = RenderTarget::new(100, 100).unwrap();
+
+        let setup = |r: &mut CpuRenderer| -> Frame {
+            let mesh_h = r.create_mesh(&Mesh::cube(1.0)).unwrap();
+            let mat_h = r.create_material(Material::flat(0xFFAA_BBCC)).unwrap();
+            let mut frame = Frame::new(FrameCamera::new(
+                Mat4::look_at(
+                    Vec3::new(0.0, 0.0, 3.0),
+                    Vec3::ZERO,
+                    Vec3::new(0.0, 1.0, 0.0),
+                ),
+                Mat4::perspective(1.57, 1.0, 0.1, 100.0),
+            ));
+            frame.draw(mesh_h, mat_h, Mat4::identity());
+            frame
+        };
+
+        let frame1 = setup(&mut r1);
+        let frame2 = setup(&mut r2);
+
+        // Path A: render_frame (goes through extract+execute internally)
+        r1.render_frame(&frame1, &mut t1).unwrap();
+
+        // Path B: extract then execute explicitly
+        let dl = r2.extract_draw_list(&frame2).unwrap();
+        r2.execute_draw_list(&dl, &mut t2);
+
+        let mismatches = t1
+            .pixels()
+            .iter()
+            .zip(t2.pixels().iter())
+            .filter(|&(&a, &b)| a != b)
+            .count();
+        assert_eq!(
+            mismatches, 0,
+            "render_frame and extract+execute must be pixel-identical"
         );
     }
 }
