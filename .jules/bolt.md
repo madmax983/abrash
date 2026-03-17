@@ -117,3 +117,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate Panic dropping RefMut across parallel bounds]**
 **Learning:** Using `thread_local!` with `RefCell<Vec<T>>` to eliminate per-frame allocations in functions that also use Rayon for parallelism (e.g., `apply_emboss`), do not hold the `RefMut` guard (`.borrow_mut()`) across parallel boundaries. This causes critical work-stealing panics. Additionally, dropping the value returned by `take()` using `.set()` throws compilation errors because `set` is a method on `Cell`, not `RefCell`. Use `.replace()` or mutate `.borrow_mut()` safely.
 **Action:** Use `.replace()` on a `RefCell` or mutate `.borrow_mut()` when putting a taken value back inside `thread_local!` variables in Rayon-enabled loops.
+
+**[Performance Optimization: Squared Distances for Boids Perception]**
+**Learning:** In hot spatial simulation loops (e.g., Boids or flocking algorithms), calculating exact distances between entities using `dx.hypot(dy).hypot(dz)` introduces extremely expensive floating-point square root operations (`sqrt`).
+**Action:** Replace `hypot` calls with squared distance comparisons (`dx * dx + dy * dy + dz * dz < radius_sq`). Pre-calculate the squared radii (`perception_radius_sq`, `separation_radius_sq`) outside the inner loop to completely eliminate square root instructions when just checking if an entity is within a certain distance.

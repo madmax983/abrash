@@ -86,6 +86,9 @@ impl Flock {
 
         let old_boids = &self.old_boids;
 
+        let perception_radius_sq = self.config.perception_radius * self.config.perception_radius;
+        let separation_radius_sq = self.config.separation_radius * self.config.separation_radius;
+
         #[cfg(feature = "parallel")]
         let iter = self.boids.par_iter_mut();
         #[cfg(not(feature = "parallel"))]
@@ -108,9 +111,9 @@ impl Flock {
                 let dy = boid.position.y - other_boid.position.y;
                 let dz = boid.position.z - other_boid.position.z;
 
-                let distance = dx.hypot(dy).hypot(dz);
+                let distance_sq = dx * dx + dy * dy + dz * dz;
 
-                if distance > 0.0 && distance < self.config.perception_radius {
+                if distance_sq > 0.0 && distance_sq < perception_radius_sq {
                     // Alignment
                     alignment.x += other_boid.velocity.x;
                     alignment.y += other_boid.velocity.y;
@@ -124,8 +127,9 @@ impl Flock {
                     total_boids_perceived += 1;
                 }
 
-                if distance > 0.0 && distance < self.config.separation_radius {
+                if distance_sq > 0.0 && distance_sq < separation_radius_sq {
                     // Separation (weighted by inverse distance)
+                    let distance = distance_sq.sqrt();
                     let diff_x = boid.position.x - other_boid.position.x;
                     let diff_y = boid.position.y - other_boid.position.y;
                     let diff_z = boid.position.z - other_boid.position.z;
@@ -325,5 +329,50 @@ mod tests {
         assert!(flock.boids[0].velocity.x > 0.0);
         assert!(flock.boids[0].velocity.y > 0.0);
         assert!(flock.boids[0].velocity.z > 0.0);
+    }
+
+    #[test]
+    fn test_boids_edge_distances() {
+        let mut flock = Flock::new(FlockConfig {
+            separation_weight: 1.0,
+            alignment_weight: 1.0,
+            cohesion_weight: 1.0,
+            bound_weight: 0.0,
+            perception_radius: 10.0,
+            separation_radius: 5.0,
+            max_speed: 10.0,
+            min_speed: 0.0,
+            bounds: Vec3::new(100.0, 100.0, 100.0),
+        });
+
+        // Boid 0
+        flock.add_boid(Boid::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+
+        // Boid 1: Exactly at perception_radius (10.0). Since distance must be strictly less (<), this shouldn't be perceived.
+        flock.add_boid(Boid::new(
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(1.0, 1.0, 1.0),
+        ));
+
+        // Boid 2: Exactly at separation_radius (5.0). Since distance must be strictly less (<), this shouldn't be separated from, but should be perceived.
+        flock.add_boid(Boid::new(
+            Vec3::new(5.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ));
+
+        flock.update(1.0);
+
+        // Boid 0 should only perceive Boid 2 (distance 5.0), and NOT Boid 1 (distance 10.0).
+        // Since Boid 2 has 0 velocity, alignment shouldn't change velocity.
+        // Cohesion should pull it towards Boid 2 (+x).
+        // Separation shouldn't apply since distance is exactly 5.0 (must be < 5.0).
+
+        // So we expect velocity x to be > 0.0, y and z to be 0.0
+        assert!(flock.boids[0].velocity.x > 0.0, "Velocity X should be positive due to cohesion");
+        assert_eq!(flock.boids[0].velocity.y, 0.0, "Velocity Y should be 0");
+        assert_eq!(flock.boids[0].velocity.z, 0.0, "Velocity Z should be 0");
     }
 }
