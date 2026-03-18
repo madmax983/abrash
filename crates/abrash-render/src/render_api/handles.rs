@@ -53,13 +53,40 @@ impl<T> std::fmt::Debug for Handle<T> {
 }
 
 impl<T> Handle<T> {
-    /// Create a new handle (internal use only).
-    pub(crate) fn new(index: u32, generation: Generation) -> Self {
+    /// Create a handle from raw parts.
+    ///
+    /// This is primarily used by backend crates that own their own resource pools but
+    /// share the typed handle API.
+    #[must_use]
+    pub const fn from_raw_parts(index: u32, generation: Generation) -> Self {
         Self {
             index,
             generation,
             _marker: PhantomData,
         }
+    }
+
+    /// Return the slot index referenced by this handle.
+    #[must_use]
+    pub const fn index(self) -> u32 {
+        self.index
+    }
+
+    /// Return the generation stored in this handle.
+    #[must_use]
+    pub const fn generation(self) -> Generation {
+        self.generation
+    }
+
+    /// Return the raw `(index, generation)` tuple.
+    #[must_use]
+    pub const fn raw_parts(self) -> (u32, Generation) {
+        (self.index, self.generation)
+    }
+
+    /// Create a new handle (internal use only).
+    pub(crate) fn new(index: u32, generation: Generation) -> Self {
+        Self::from_raw_parts(index, generation)
     }
 }
 
@@ -185,6 +212,15 @@ mod tests {
         let mesh: MeshHandle = Handle::new(0, 0);
         let tex: TextureHandle = Handle::new(0, 0);
         assert_eq!(mesh.index, tex.index);
+    }
+
+    #[test]
+    fn test_handle_raw_parts_round_trip() {
+        let handle: MeshHandle = MeshHandle::from_raw_parts(7, 3);
+
+        assert_eq!(handle.index(), 7);
+        assert_eq!(handle.generation(), 3);
+        assert_eq!(handle.raw_parts(), (7, 3));
     }
 
     #[test]

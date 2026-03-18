@@ -3,9 +3,20 @@
 //! This crate contains portable GPU rendering primitives and demo runtime
 //! code used by the main abrash package.
 
+pub mod capture;
+pub mod device;
+pub mod mesh_buffer;
+pub mod renderer;
+pub mod shader;
+#[cfg(feature = "windowed")]
+pub mod surface;
+
 use bytemuck::{Pod, Zeroable};
-use std::{fmt, sync::Arc, time::Instant};
+use std::fmt;
+#[cfg(feature = "windowed")]
+use std::{sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
+#[cfg(feature = "windowed")]
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
@@ -138,6 +149,7 @@ impl Default for GpuDemoConfig {
 }
 
 /// Stateful keyboard/mouse interaction controller for a mesh demo camera.
+#[cfg(feature = "windowed")]
 #[derive(Debug, Clone)]
 pub struct GpuInteractionController {
     yaw: f32,
@@ -154,6 +166,7 @@ pub struct GpuInteractionController {
     auto_rotate_enabled: bool,
 }
 
+#[cfg(feature = "windowed")]
 impl GpuInteractionController {
     #[must_use]
     pub fn new(config: &GpuDemoConfig) -> Self {
@@ -258,6 +271,7 @@ impl GpuInteractionController {
         self.pitch = self.pitch.clamp(-1.45, 1.45);
     }
 
+    #[cfg(feature = "windowed")]
     pub fn handle_window_event(&mut self, event: &WindowEvent, config: &GpuDemoConfig) {
         match event {
             WindowEvent::KeyboardInput { event, .. } if config.enable_keyboard_input => {
@@ -465,6 +479,7 @@ struct SceneUniform {
     distance: f32,
 }
 
+#[cfg(feature = "windowed")]
 struct GpuMeshApp {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -485,6 +500,7 @@ struct GpuMeshApp {
     clear_color: wgpu::Color,
 }
 
+#[cfg(feature = "windowed")]
 impl GpuMeshApp {
     async fn new(
         window: Arc<Window>,
@@ -793,6 +809,7 @@ impl GpuMeshApp {
 }
 
 /// Runs a hardware-accelerated mesh demo with camera controls.
+#[cfg(feature = "windowed")]
 pub fn run_mesh_demo(
     vertices: Vec<GpuVertex>,
     indices: Vec<u16>,
@@ -847,11 +864,13 @@ pub fn run_mesh_demo(
 }
 
 /// Runs the hardware-accelerated rotating cube demo.
+#[cfg(feature = "windowed")]
 pub fn run_gpu_cube() -> Result<(), String> {
     run_gpu_cube_with_config(GpuDemoConfig::default())
 }
 
 /// Runs the hardware-accelerated rotating cube demo with custom runtime settings.
+#[cfg(feature = "windowed")]
 pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
     let (vertices, indices) = unit_cube_mesh();
     run_mesh_demo(vertices, indices, config)
