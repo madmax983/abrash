@@ -379,6 +379,7 @@ impl Vec3 {
         // We use len_sq to avoid sqrt if the vector is too small.
         // 0.0001^2 = 0.00000001
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
+        #[allow(clippy::unreadable_literal)]
         if len_sq > 0.00000001 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
@@ -1157,9 +1158,11 @@ impl Mat4 {
                 return;
             }
 
+            #[allow(clippy::items_after_statements)]
             use rayon::prelude::*;
             // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
             // implementation fed with enough data to be efficient.
+            #[allow(clippy::items_after_statements)]
             const CHUNK_SIZE: usize = 4096;
             points
                 .par_chunks(CHUNK_SIZE)
@@ -1329,7 +1332,9 @@ pub fn project_to_screen_optimized(
     // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
     // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
     // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
+    #[allow(clippy::items_after_statements)]
     const MAX_VAL: f32 = 2_147_483_520.0;
+    #[allow(clippy::items_after_statements)]
     const MIN_VAL: f32 = -2_147_483_520.0;
 
     let screen_x_f = (ndc_x + 1.0) * half_width;
@@ -1442,7 +1447,9 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
@@ -1543,7 +1550,9 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
