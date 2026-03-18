@@ -460,7 +460,7 @@ mod tests {
             0xFFFF_0000,
         ));
         scene.add_object(SceneObject::new(
-            mesh.clone(),
+            mesh,
             Mat4::translation(2.0, 0.0, 0.0),
             0xFF00_FF00,
         ));
