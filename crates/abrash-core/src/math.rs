@@ -1152,30 +1152,17 @@ impl Mat4 {
         assert_eq!(points.len(), output.len());
 
         #[cfg(feature = "parallel")]
-
-
         {
-
-
             use rayon::prelude::*;
-
 
             const CHUNK_SIZE: usize = 4096;
 
-
-
             // Fallback to scalar for small inputs to avoid Rayon overhead
 
-
             if points.len() < 1024 {
-
-
                 self.transform_points_uninit(points, output);
 
-
                 return;
-
-
             }
             points
                 .par_chunks(CHUNK_SIZE)
@@ -1459,8 +1446,12 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1560,8 +1551,12 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

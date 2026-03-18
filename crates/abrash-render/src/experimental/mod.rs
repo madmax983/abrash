@@ -30,6 +30,7 @@ pub mod arboretum;
 pub mod autostereogram;
 pub mod boids;
 
+pub mod ascii_export;
 pub mod blueprint;
 pub mod cloth;
 pub mod crepuscular;
@@ -66,4 +67,3 @@ pub mod voxel_explosion;
 pub mod voxelizer;
 pub mod water_ripple;
 pub mod wobble;
-pub mod ascii_export;

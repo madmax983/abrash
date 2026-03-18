@@ -93,11 +93,20 @@ impl CpuRenderer {
             let mvp = cmd.transform * view_proj;
             let mesh = &cpu_mesh.mesh;
 
-            let vertices: Vec<_> = mesh
-                .vertices
-                .iter()
-                .map(|v| mvp.transform_point(*v))
-                .collect();
+            let mut vertices = Vec::with_capacity(mesh.vertices.len());
+            let uninit_slice = vertices.spare_capacity_mut();
+            let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+
+            #[cfg(feature = "parallel")]
+            mvp.transform_points_uninit_parallel(&mesh.vertices, uninit_slice);
+
+            #[cfg(not(feature = "parallel"))]
+            mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+
+            // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
+            unsafe {
+                vertices.set_len(mesh.vertices.len());
+            }
 
             draw_list.push(DrawBatch::new(
                 vertices,

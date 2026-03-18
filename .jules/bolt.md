@@ -121,3 +121,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Deferring Square Roots in Boids Simulation]**
 **Learning:** In hot spatial simulation loops (e.g., Boids or flocking algorithms), distance calculations using multiple `sqrt` operations like `dx.hypot(dy).hypot(dz)` introduce massive overhead when applied across all $N^2$ entity pairs.
 **Action:** Replace `hypot` calculations with squared distance comparisons (`dx * dx + dy * dy + dz * dz < radius_sq`). Calculate the actual `sqrt` only inside the conditional block, and only for the fraction of entities that are within range and explicitly require true distance values for weighting calculations (like separation).
+
+## Optimize vertices.collect into transform_points_uninit
+**Learning:** Extracting uninitialized memory out of a `Vec::with_capacity()` using `.spare_capacity_mut()` and passing it to a bulk transformation function (`transform_points_uninit`) eliminates the overhead of iterator chains, closure invocations, and individual bounds checks.
+**Action:** Whenever a large bulk vertex mapping is done like `.iter().map(|v| mvp.transform_point(*v)).collect()`, replace it with pre-allocation and `transform_points_uninit`.
