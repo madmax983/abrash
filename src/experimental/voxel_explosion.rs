@@ -100,7 +100,7 @@ pub fn create_explosion(
                         velocity,
                         config.life,
                         config.size,
-                        0xFFFFFFFF, // White by default
+                        0xFFFF_FFFF, // White by default
                     ));
                 }
             }

@@ -375,23 +375,64 @@ fn process_row_horizontal(
         b_acc += p & 0xFF;
     }
 
-    for (x, dst_pixel) in dst_row.iter_mut().enumerate() {
-        // Write current blurred pixel
-        // Use u64 for multiplication to avoid overflow
+    // Split into 3 phases: Left edge, Fast inner loop, Right edge
+    let left_edge = radius.min(width);
+    let right_edge = width.saturating_sub(radius + 1);
+
+    // Left edge (outgoing clamped to 0)
+    for x in 0..left_edge {
         let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
         let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
         let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
-        *dst_pixel = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+        dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
 
-        // Shift window
-        // Remove outgoing pixel (x - radius)
         let outgoing_idx = (x as isize - radius as isize).max(0) as usize;
         let p_out = src_row[outgoing_idx];
         r_acc -= (p_out >> 16) & 0xFF;
         g_acc -= (p_out >> 8) & 0xFF;
         b_acc -= p_out & 0xFF;
 
-        // Add incoming pixel (x + radius + 1)
+        let incoming_idx = (x + radius + 1).min(width - 1);
+        let p_in = src_row[incoming_idx];
+        r_acc += (p_in >> 16) & 0xFF;
+        g_acc += (p_in >> 8) & 0xFF;
+        b_acc += p_in & 0xFF;
+    }
+
+    // Fast inner loop (no clamping)
+    let start_fast = left_edge;
+    let end_fast = right_edge.max(start_fast);
+    for x in start_fast..end_fast {
+        let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+        let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+        let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
+        dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+
+        let p_out = src_row[x - radius];
+        r_acc -= (p_out >> 16) & 0xFF;
+        g_acc -= (p_out >> 8) & 0xFF;
+        b_acc -= p_out & 0xFF;
+
+        let p_in = src_row[x + radius + 1];
+        r_acc += (p_in >> 16) & 0xFF;
+        g_acc += (p_in >> 8) & 0xFF;
+        b_acc += p_in & 0xFF;
+    }
+
+    // Right edge (incoming clamped to width - 1)
+    let start_right = end_fast.max(left_edge);
+    for x in start_right..width {
+        let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
+        let g_avg = ((u64::from(g_acc) * scale + bias) >> 24) as u32;
+        let b_avg = ((u64::from(b_acc) * scale + bias) >> 24) as u32;
+        dst_row[x] = 0xFF00_0000 | (r_avg << 16) | (g_avg << 8) | b_avg;
+
+        let outgoing_idx = x - radius;
+        let p_out = src_row[outgoing_idx];
+        r_acc -= (p_out >> 16) & 0xFF;
+        g_acc -= (p_out >> 8) & 0xFF;
+        b_acc -= p_out & 0xFF;
+
         let incoming_idx = (x + radius + 1).min(width - 1);
         let p_in = src_row[incoming_idx];
         r_acc += (p_in >> 16) & 0xFF;

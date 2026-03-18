@@ -588,14 +588,14 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
 
                     // Give each pixel a deterministic but pseudo-random starting state based on index
                     // This allows the noise to be consistent per frame (if seed is same)
-                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E37_79B9));
                     lcg ^= lcg << 13;
                     lcg ^= lcg >> 17;
                     lcg ^= lcg << 5;
 
                     // Re-apply state changes to match scalar implementation more closely (even though not exactly identical)
                     // LCG sequence needs to diverge significantly
-                    lcg = lcg.wrapping_add(0x12345678);
+                    lcg = lcg.wrapping_add(0x1234_5678);
                     lcg ^= lcg << 13;
                     lcg ^= lcg >> 17;
                     lcg ^= lcg << 5;
@@ -607,15 +607,15 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
                     let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
 
                     let p_val = *p;
-                    let rb = p_val & 0x00FF00FF;
-                    let g = p_val & 0x0000FF00;
+                    let rb = p_val & 0x00FF_00FF;
+                    let g = p_val & 0x0000_FF00;
 
                     // ⚡ Bolt: SWAR + `u64` prevents inner-loop float conversions and bounds-checking overhead.
                     let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
                     let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
                     let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
 
-                    *p = (p_val & 0xFF000000) | (nr << 16) | (ng << 8) | nb;
+                    *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
                 }
             });
     }
