@@ -176,6 +176,21 @@ fn test_mat4_perspective() {
 }
 
 #[test]
+fn test_mat4_inverse() {
+    let m = Mat4::rotation_y(0.5) * Mat4::translation(1.0, 2.0, 3.0) * Mat4::scale(2.0, 3.0, 4.0);
+    let inv = m.inverse();
+    let ident = m * inv;
+
+    // Check if m * m^-1 == Identity
+    for i in 0..4 {
+        for j in 0..4 {
+            let expected = if i == j { 1.0 } else { 0.0 };
+            assert!((ident.m[i][j] - expected).abs() < 1e-4, "Mismatch at [{}][{}]: {} != {}", i, j, ident.m[i][j], expected);
+        }
+    }
+}
+
+#[test]
 fn test_mat4_transform_normal() {
     let m = Mat4::rotation_y(std::f32::consts::PI / 2.0); // 90 degree Y rotation
     let normal = Vec3::new(0.0, 0.0, 1.0); // Pointing +Z

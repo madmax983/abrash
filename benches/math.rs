@@ -86,6 +86,13 @@ fn bench_mat4_orthographic(c: &mut Criterion) {
     });
 }
 
+fn bench_mat4_inverse(c: &mut Criterion) {
+    c.bench_function("mat4_inverse", |b| {
+        let m = Mat4::rotation_y(0.5) * Mat4::translation(1.0, 2.0, 3.0) * Mat4::scale(2.0, 3.0, 4.0);
+        b.iter(|| black_box(m.inverse()));
+    });
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -97,6 +104,7 @@ criterion_group!(
     bench_mat2_transform_in_place,
     bench_mat4_mul,
     bench_mat4_transform_point,
-    bench_mat4_orthographic
+    bench_mat4_orthographic,
+    bench_mat4_inverse
 );
 criterion_main!(benches);
