@@ -5,6 +5,8 @@ use abrash_core::mesh::Mesh;
 use abrash_gpu_render::renderer::GpuRenderer;
 use abrash_render::render_api::frame::{Frame, FrameCamera};
 use abrash_render::render_api::material::Material;
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
 use std::sync::Arc;
 use std::time::Instant;
 use winit::{
@@ -14,18 +16,108 @@ use winit::{
     window::WindowBuilder,
 };
 
+fn print_banner() {
+    println!("\n{}", "🧊 GPU MVP Cube Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+}
+
+fn print_error_table(error_msg: &str) {
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("❌ GPU Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![Cell::new(error_msg).fg(Color::Yellow)]);
+    eprintln!("\n{error_table}");
+}
+
+fn print_info_table() {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Hardware-accelerated MVP cube rendering").fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Backend"),
+            Cell::new("wgpu (Metal/Vulkan/DX12)").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+}
+
+fn print_controls_table() {
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Mouse"),
+            Cell::new("None"),
+        ])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating"),
+        ]);
+
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
+}
+
 fn main() -> Result<(), String> {
-    let event_loop = EventLoop::new().map_err(|error| format!("{error}"))?;
+    print_banner();
+    print_info_table();
+    print_controls_table();
+
+    let event_loop = match EventLoop::new() {
+        Ok(el) => el,
+        Err(error) => {
+            print_error_table(&format!("{error}"));
+            std::process::exit(1);
+        }
+    };
     let window = Arc::new(
-        WindowBuilder::new()
+        match WindowBuilder::new()
             .with_title("Abrash GPU MVP Cube")
             .with_inner_size(PhysicalSize::new(1280u32, 720u32))
             .build(&event_loop)
-            .map_err(|error| format!("{error}"))?,
+        {
+            Ok(w) => w,
+            Err(error) => {
+                print_error_table(&format!("{error}"));
+                std::process::exit(1);
+            }
+        },
     );
 
-    let (mut renderer, mut surface) = GpuRenderer::new_windowed(window.clone())?;
-    let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
+    let (mut renderer, mut surface) = match GpuRenderer::new_windowed(window.clone()) {
+        Ok(res) => res,
+        Err(e) => {
+            print_error_table(&e);
+            std::process::exit(1);
+        }
+    };
+
+    let mesh = match renderer.create_mesh(&Mesh::cube(1.0)) {
+        Ok(m) => m,
+        Err(e) => {
+            print_error_table(&e);
+            std::process::exit(1);
+        }
+    };
+
     let material = renderer.create_material(Material::flat(0xFFFF_4444));
     let start = Instant::now();
 
