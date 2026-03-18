@@ -18,6 +18,11 @@
 **Fate:** Merged
 **Lesson:** Modifying large meshes vertex-by-vertex can be computationally intensive, particularly for procedural displacement functions. Offloading iteration onto parallel CPU threads using Rayon greatly accelerates full-mesh deformations. Also, dynamically calculating or verifying per-vertex normals is critical, as out-of-bounds normal arrays can easily crash procedural adjustments.
 
+## [Mandelbrot Generator]
+**Concept:** A procedural Mandelbrot set generator rendering into the framebuffer using the continuous escape time algorithm.
+**Fate:** Implemented
+**Lesson:** Iterating over pixels to calculate Mandelbrot values is highly parallelizable. Using Rayon's `par_chunks_exact_mut` effectively allows parallel computation row-by-row, decreasing rendering time by ~70% over a scalar naive implementation. Using a continuous escape-time equation (e.g. `nu = log(log(|z|)/log(2))/log(2)`) allows smooth blending and avoids banding artifacts across iterations.
+
 ## [Toon Outlines]
 **Concept:** A post-processing effect that draws outlines by detecting discontinuities in the depth buffer, creating a "Toon" or "Technical Drawing" aesthetic.
 **Fate:** Merged
