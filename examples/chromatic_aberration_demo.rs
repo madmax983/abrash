@@ -1,6 +1,4 @@
-use abrash::experimental::chromatic_aberration::{
-    ChromaticAberrationConfig, apply_chromatic_aberration,
-};
+use abrash::post_process::apply_chromatic_aberration;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::Window;
 use std::time::Instant;
@@ -50,15 +48,9 @@ fn main() {
 
         // Oscillate shift amount over time
         shift_amount += dt * 5.0;
-        let shift = (shift_amount.sin() * 10.0) as i32;
+        let shift = (shift_amount.sin() * 10.0).abs() as u32;
 
-        let config = ChromaticAberrationConfig {
-            red_shift: (shift, 0),
-            green_shift: (0, 0),
-            blue_shift: (-shift, 0),
-        };
-
-        apply_chromatic_aberration(&mut fb, &config);
+        apply_chromatic_aberration(&mut fb, shift);
 
         window.blit_framebuffer(&fb);
     }
