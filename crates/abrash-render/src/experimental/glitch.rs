@@ -92,29 +92,38 @@ fn apply_scanline_jitter(
     // Use max(3) to ensure we hit enough lines to be visible in tests/gameplay
     let num_jitter_lines = (height as f32 * params.intensity * 0.5).max(3.0) as usize;
 
-    for _ in 0..num_jitter_lines {
-        let y = (rng.next_u32() as usize) % height;
-        let shift = (rng.next_f32_signed() * params.jitter_amount as f32 * params.intensity) as i32;
-
-        if shift == 0 {
-            continue;
-        }
-
-        let row_start = y * width;
-        let row_end = row_start + width;
-        let row = &mut pixels[row_start..row_end];
-
-        // Create a temporary buffer for the row
-        // Allocating per line is slow, but acceptable for experimental feature.
-        // Optimization: Use a thread-local scratch buffer if this becomes hot path.
-        let mut temp_row = vec![0u32; width];
-        temp_row.copy_from_slice(row);
-
-        for (x, item) in row.iter_mut().enumerate().take(width) {
-            let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
-            *item = temp_row[src_x];
-        }
+    use std::cell::RefCell;
+    thread_local! {
+        static ROW_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     }
+
+    ROW_BUFFER.with(|buf| {
+        let mut temp_row = buf.borrow_mut();
+        if temp_row.len() < width {
+            temp_row.resize(width, 0);
+        }
+
+        for _ in 0..num_jitter_lines {
+            let y = (rng.next_u32() as usize) % height;
+            let shift =
+                (rng.next_f32_signed() * params.jitter_amount as f32 * params.intensity) as i32;
+
+            if shift == 0 {
+                continue;
+            }
+
+            let row_start = y * width;
+            let row_end = row_start + width;
+            let row = &mut pixels[row_start..row_end];
+
+            temp_row[..width].copy_from_slice(row);
+
+            for (x, item) in row.iter_mut().enumerate().take(width) {
+                let src_x = (x as i32 - shift).clamp(0, (width - 1) as i32) as usize;
+                *item = temp_row[src_x];
+            }
+        }
+    });
 }
 
 fn apply_rgb_split(
@@ -141,30 +150,77 @@ fn apply_rgb_split(
         }
 
         // We process the band row by row
-        for y in start_y..(start_y + band_height).min(height) {
-            let row_start = y * width;
-            let row_end = row_start + width;
-            let row = &mut pixels[row_start..row_end];
+        let start = start_y * width;
+        let end = (start_y + band_height).min(height) * width;
+        let band_pixels = &mut pixels[start..end];
 
-            // Allocation again - acceptable for prototype
-            let mut temp_row = vec![0u32; width];
-            temp_row.copy_from_slice(row);
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            // We use par_chunks_mut, but we need a read-only copy of the band for lookups.
+            // Since bands are small, copying the band is cheap.
+            let mut temp_band = Vec::with_capacity(band_pixels.len());
+            temp_band.extend_from_slice(band_pixels);
 
-            for x in 0..width {
-                // Original Green/Alpha stays at x
-                let g = (temp_row[x] >> 8) & 0xFF;
-                let a = (temp_row[x] >> 24) & 0xFF;
+            band_pixels
+                .par_chunks_exact_mut(width)
+                .enumerate()
+                .for_each(|(y_in_band, row)| {
+                    let temp_row_start = y_in_band * width;
+                    let temp = &temp_band[temp_row_start..temp_row_start + width];
 
-                // Red from shifted position
-                let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
-                let r = (temp_row[src_r_x] >> 16) & 0xFF;
+                    for x in 0..width {
+                        let p = temp[x];
+                        let g = (p >> 8) & 0xFF;
+                        let a = (p >> 24) & 0xFF;
 
-                // Blue from shifted position
-                let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
-                let b = temp_row[src_b_x] & 0xFF;
+                        let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
+                        let r = (temp[src_r_x] >> 16) & 0xFF;
 
-                row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                        let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
+                        let b = temp[src_b_x] & 0xFF;
+
+                        row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
+                });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            use std::cell::RefCell;
+            thread_local! {
+                static BAND_ROW_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
             }
+
+            BAND_ROW_BUFFER.with(|buf| {
+                let mut temp_row = buf.borrow_mut();
+                if temp_row.len() < width {
+                    temp_row.resize(width, 0);
+                }
+
+                for y in start_y..(start_y + band_height).min(height) {
+                    let row_start = y * width;
+                    let row_end = row_start + width;
+                    let row = &mut pixels[row_start..row_end];
+
+                    temp_row[..width].copy_from_slice(row);
+                    let temp = &temp_row[..width];
+
+                    for x in 0..width {
+                        let p = temp[x];
+                        let g = (p >> 8) & 0xFF;
+                        let a = (p >> 24) & 0xFF;
+
+                        let src_r_x = (x as i32 - shift_r).clamp(0, (width - 1) as i32) as usize;
+                        let r = (temp[src_r_x] >> 16) & 0xFF;
+
+                        let src_b_x = (x as i32 - shift_b).clamp(0, (width - 1) as i32) as usize;
+                        let b = temp[src_b_x] & 0xFF;
+
+                        row[x] = (a << 24) | (r << 16) | (g << 8) | b;
+                    }
+                }
+            });
         }
     }
 }
@@ -197,21 +253,30 @@ fn apply_block_displacement(
 
     // Copy block
     // We need to buffer the source block first because src and dst might overlap
-    let mut block_buffer = Vec::with_capacity(block_w * block_h);
-    for dy in 0..block_h {
-        for dx in 0..block_w {
-            let idx = (src_y + dy) * width + (src_x + dx);
-            block_buffer.push(pixels[idx]);
-        }
+    use std::cell::RefCell;
+    thread_local! {
+        static BLOCK_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     }
 
-    // Write to dest
-    for dy in 0..block_h {
-        for dx in 0..block_w {
-            let idx = (dst_y + dy) * width + (dst_x + dx);
-            pixels[idx] = block_buffer[dy * block_w + dx];
+    BLOCK_BUFFER.with(|buf| {
+        let mut block_buffer = buf.borrow_mut();
+        block_buffer.clear();
+
+        for dy in 0..block_h {
+            for dx in 0..block_w {
+                let idx = (src_y + dy) * width + (src_x + dx);
+                block_buffer.push(pixels[idx]);
+            }
         }
-    }
+
+        // Write to dest
+        for dy in 0..block_h {
+            for dx in 0..block_w {
+                let idx = (dst_y + dy) * width + (dst_x + dx);
+                pixels[idx] = block_buffer[dy * block_w + dx];
+            }
+        }
+    });
 }
 
 fn apply_digital_noise(

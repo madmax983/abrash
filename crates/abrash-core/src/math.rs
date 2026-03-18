@@ -1152,30 +1152,17 @@ impl Mat4 {
         assert_eq!(points.len(), output.len());
 
         #[cfg(feature = "parallel")]
-
-
         {
-
-
             use rayon::prelude::*;
-
 
             const CHUNK_SIZE: usize = 4096;
 
-
-
             // Fallback to scalar for small inputs to avoid Rayon overhead
 
-
             if points.len() < 1024 {
-
-
                 self.transform_points_uninit(points, output);
 
-
                 return;
-
-
             }
             points
                 .par_chunks(CHUNK_SIZE)
@@ -1341,25 +1328,44 @@ impl Mat4 {
 
         inv.m[0][0] = m[1][1] * a2323 - m[1][2] * a1323 + m[1][3] * a1223;
         inv.m[0][1] = -(m[0][1] * a2323 - m[0][2] * a1323 + m[0][3] * a1223);
-        inv.m[0][2] = m[0][1] * (m[1][2] * m[3][3] - m[1][3] * m[3][2]) - m[0][2] * (m[1][1] * m[3][3] - m[1][3] * m[3][1]) + m[0][3] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]);
-        inv.m[0][3] = -(m[0][1] * (m[1][2] * m[2][3] - m[1][3] * m[2][2]) - m[0][2] * (m[1][1] * m[2][3] - m[1][3] * m[2][1]) + m[0][3] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]));
+        inv.m[0][2] = m[0][1] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            + m[0][3] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]);
+        inv.m[0][3] = -(m[0][1] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            + m[0][3] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]));
 
         inv.m[1][0] = -(m[1][0] * a2323 - m[1][2] * a0323 + m[1][3] * a0223);
         inv.m[1][1] = m[0][0] * a2323 - m[0][2] * a0323 + m[0][3] * a0223;
-        inv.m[1][2] = -(m[0][0] * (m[1][2] * m[3][3] - m[1][3] * m[3][2]) - m[0][2] * (m[1][0] * m[3][3] - m[1][3] * m[3][0]) + m[0][3] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]));
-        inv.m[1][3] = m[0][0] * (m[1][2] * m[2][3] - m[1][3] * m[2][2]) - m[0][2] * (m[1][0] * m[2][3] - m[1][3] * m[2][0]) + m[0][3] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]);
+        inv.m[1][2] = -(m[0][0] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]));
+        inv.m[1][3] = m[0][0] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]);
 
         inv.m[2][0] = m[1][0] * a1323 - m[1][1] * a0323 + m[1][3] * a0123;
         inv.m[2][1] = -(m[0][0] * a1323 - m[0][1] * a0323 + m[0][3] * a0123);
-        inv.m[2][2] = m[0][0] * (m[1][1] * m[3][3] - m[1][3] * m[3][1]) - m[0][1] * (m[1][0] * m[3][3] - m[1][3] * m[3][0]) + m[0][3] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]);
-        inv.m[2][3] = -(m[0][0] * (m[1][1] * m[2][3] - m[1][3] * m[2][1]) - m[0][1] * (m[1][0] * m[2][3] - m[1][3] * m[2][0]) + m[0][3] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
+        inv.m[2][2] = m[0][0] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]);
+        inv.m[2][3] = -(m[0][0] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
 
         inv.m[3][0] = -(m[1][0] * a1223 - m[1][1] * a0223 + m[1][2] * a0123);
         inv.m[3][1] = m[0][0] * a1223 - m[0][1] * a0223 + m[0][2] * a0123;
-        inv.m[3][2] = -(m[0][0] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]) - m[0][1] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]) + m[0][2] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]));
-        inv.m[3][3] = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+        inv.m[3][2] = -(m[0][0] * (m[1][1] * m[3][2] - m[1][2] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][2] - m[1][2] * m[3][0])
+            + m[0][2] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]));
+        inv.m[3][3] = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 
-        let det = m[0][0] * inv.m[0][0] + m[0][1] * inv.m[1][0] + m[0][2] * inv.m[2][0] + m[0][3] * inv.m[3][0];
+        let det = m[0][0] * inv.m[0][0]
+            + m[0][1] * inv.m[1][0]
+            + m[0][2] * inv.m[2][0]
+            + m[0][3] * inv.m[3][0];
 
         if det.abs() < 1e-6 {
             return Self { m: [[0.0; 4]; 4] };
@@ -1625,8 +1631,12 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1726,8 +1736,12 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

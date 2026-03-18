@@ -69,9 +69,8 @@ fn main() {
 
     while running {
         for event in window.poll_events() {
-            match event {
-                Event::Close => running = false,
-                _ => {}
+            if let Event::Close = event {
+                running = false
             }
         }
 
