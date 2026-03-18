@@ -552,3 +552,8 @@ required-features = ["nova"]
 name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "doom_fire_demo"
+path = "examples/doom_fire_demo.rs"
+required-features = ["nova"]

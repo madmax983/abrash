@@ -38,6 +38,7 @@ pub mod crosshatch;
 pub mod crt;
 pub mod directional_blur;
 pub mod dither;
+pub mod doom_fire;
 pub mod edge_glow;
 pub mod emboss;
 pub mod glitch;

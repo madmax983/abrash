@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [Doom Fire Effect]
+**Concept:** Implemented the classic Doom fire cellular automata algorithm. Heat propagates upwards with random decay and horizontal drift.
+**Fate:** Implemented
+**Lesson:** Simple 1D heat buffers with a 36-color fiery palette overlaid on the bottom of a framebuffer can produce very convincing classic retro fire without complex physics simulations.
