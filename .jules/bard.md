@@ -38,3 +38,7 @@ Vim: Finished.
 ## 2024-05-25 - Documentation Coverage Requirements for Crates
 **Confusion:** Sometimes modifying code inside a crate with `missing_docs` warning causes `clippy` to complain about undocumented code that wasn't modified.
 **Clarification:** `cargo clippy -p [crate] -- -W missing_docs` helps isolate and identify missing documentation across an entire crate to incrementally add module-level (`//!`) and item-level (`///`) docstrings to public APIs, ensuring the "no Black Box" rule is followed.
+
+## 2026-03-18 - Broken Intra-Doc Links
+**Confusion:** The documentation for `Frame` and `RenderTarget` contained broken intra-doc links to `Renderer::render_frame` due to missing imports in the file scope, causing warnings during `cargo doc`.
+**Clarification:** Fixed by using the absolute path `[crate::render_api::Renderer::render_frame]` to ensure rustdoc can resolve the item without needing to import it.
