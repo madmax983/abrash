@@ -81,6 +81,10 @@ crossterm = "0.29.0"
 name = "math"
 harness = false
 
+[[bench]]
+name = "vec2_bench"
+harness = false
+
 [lib]
 name = "abrash"
 path = "src/lib.rs"

@@ -110,7 +110,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 // Calculate Minkowski distance.
                 // Fast paths for Euclidean (metric == 2) and Manhattan (metric == 1).
                 let dist = if (metric - 2.0).abs() < f32::EPSILON {
-                    dx.hypot(dy)
+                    (dx * dx + dy * dy).sqrt()
                 } else if (metric - 1.0).abs() < f32::EPSILON {
                     dx + dy
                 } else {

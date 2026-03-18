@@ -116,7 +116,7 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn length(self) -> f32 {
-        self.x.hypot(self.y)
+        (self.x * self.x + self.y * self.y).sqrt()
     }
 }
 
