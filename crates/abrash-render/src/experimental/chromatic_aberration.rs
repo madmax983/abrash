@@ -4,6 +4,12 @@
 
 use crate::framebuffer::Framebuffer;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// Configuration for the Chromatic Aberration filter.
 #[derive(Debug, Clone, Copy)]
 pub struct ChromaticAberrationConfig {
@@ -40,7 +46,12 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
     assert_eq!(fb.as_slice().len(), width * height);
 
     // Clone the source framebuffer to avoid aliasing issues when parallelizing
-    let source_pixels = fb.as_slice().to_vec();
+    let mut source_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
+    let fb_slice = fb.as_slice();
+    if source_pixels.len() != fb_slice.len() {
+        source_pixels.resize(fb_slice.len(), 0);
+    }
+    source_pixels.copy_from_slice(fb_slice);
     let dest_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -82,6 +93,8 @@ pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberra
             *pixel = a | r | g | b;
         }
     });
+
+    SOURCE_PIXELS.with(|cell| cell.replace(source_pixels));
 }
 
 #[cfg(test)]

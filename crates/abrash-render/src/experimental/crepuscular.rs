@@ -9,6 +9,12 @@
 
 use crate::framebuffer::Framebuffer;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static ORIGINAL_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// Applies a crepuscular ray (God Rays) effect to the framebuffer.
 ///
 /// This simulates volumetric light scattering from a bright source.
@@ -56,7 +62,12 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
     // We need a copy of the original pixels to sample from
     // while we write accumulated values to the framebuffer.
-    let original_pixels = fb.as_slice().to_vec();
+    let mut original_pixels = ORIGINAL_PIXELS.with(std::cell::RefCell::take);
+    let fb_slice = fb.as_slice();
+    if original_pixels.len() != fb_slice.len() {
+        original_pixels.resize(fb_slice.len(), 0);
+    }
+    original_pixels.copy_from_slice(fb_slice);
     let pixels = fb.as_mut_slice();
 
     let inv_width = 1.0 / width as f32;
@@ -131,4 +142,6 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
             pixels[base_idx] = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
     }
+
+    ORIGINAL_PIXELS.with(|cell| cell.replace(original_pixels));
 }

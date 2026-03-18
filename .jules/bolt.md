@@ -117,3 +117,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate Panic dropping RefMut across parallel bounds]**
 **Learning:** Using `thread_local!` with `RefCell<Vec<T>>` to eliminate per-frame allocations in functions that also use Rayon for parallelism (e.g., `apply_emboss`), do not hold the `RefMut` guard (`.borrow_mut()`) across parallel boundaries. This causes critical work-stealing panics. Additionally, dropping the value returned by `take()` using `.set()` throws compilation errors because `set` is a method on `Cell`, not `RefCell`. Use `.replace()` or mutate `.borrow_mut()` safely.
 **Action:** Use `.replace()` on a `RefCell` or mutate `.borrow_mut()` when putting a taken value back inside `thread_local!` variables in Rayon-enabled loops.
+
+**[Performance Optimization: Thread-Local Buffers for Post-Processing Filters]**
+**Learning:** Re-allocating dynamic sized buffers on every frame via `.to_vec()` creates immense memory churn and slows down real-time post-processing.
+**Action:** Replaced `.to_vec()` inside `water_ripple`, `chromatic_aberration`, `swirl`, `sharpen`, and `crepuscular` with `thread_local!` instances. I utilized `std::cell::RefCell::take` and `.replace()` to take ownership of the inner `Vec<u32>` into a mutable local variable, cleanly bypassing borrow checker issues while seamlessly executing across rayon's parallel chunks.

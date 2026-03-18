@@ -7,6 +7,12 @@
 
 use crate::framebuffer::Framebuffer;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static SRC_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// Configuration for the Water Ripple effect.
 #[derive(Debug, Clone, Copy)]
 pub struct RippleConfig {
@@ -52,7 +58,12 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
 
     // Clone the source framebuffer because non-linear displacement causes aliasing
     // when reading and writing to the same buffer concurrently.
-    let src_buffer = fb.as_slice().to_vec();
+    let mut src_buffer = SRC_BUFFER.with(std::cell::RefCell::take);
+    let fb_slice = fb.as_slice();
+    if src_buffer.len() != fb_slice.len() {
+        src_buffer.resize(fb_slice.len(), 0);
+    }
+    src_buffer.copy_from_slice(fb_slice);
     let dest_buffer = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -95,6 +106,8 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
             }
         }
     });
+
+    SRC_BUFFER.with(|cell| cell.replace(src_buffer));
 }
 
 #[cfg(test)]

@@ -4,6 +4,12 @@
 
 use crate::framebuffer::Framebuffer;
 
+use std::cell::RefCell;
+
+thread_local! {
+    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// Configuration for the Swirl post-processing filter.
 #[derive(Debug, Clone, Copy)]
 pub struct SwirlConfig {
@@ -50,7 +56,12 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
 
     // Clone the source framebuffer to safely sample non-linear pixel displacements
     // without aliasing issues (as learned from the Water Ripple and Kaleidoscope filters).
-    let source_pixels = fb.as_slice().to_vec();
+    let mut source_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
+    let fb_slice = fb.as_slice();
+    if source_pixels.len() != fb_slice.len() {
+        source_pixels.resize(fb_slice.len(), 0);
+    }
+    source_pixels.copy_from_slice(fb_slice);
 
     // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
     assert_eq!(fb.as_slice().len(), width * height);
@@ -105,6 +116,8 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
             }
         }
     });
+
+    SOURCE_PIXELS.with(|cell| cell.replace(source_pixels));
 }
 
 #[cfg(test)]
