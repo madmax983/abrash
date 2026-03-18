@@ -116,7 +116,9 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn length(self) -> f32 {
-        (self.x * self.x + self.y * self.y).sqrt()
+        #[allow(clippy::imprecise_flops)]
+        let len = (self.x * self.x + self.y * self.y).sqrt();
+        len
     }
 }
 
@@ -379,7 +381,7 @@ impl Vec3 {
         // We use len_sq to avoid sqrt if the vector is too small.
         // 0.0001^2 = 0.00000001
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        if len_sq > 0.00000001 {
+        if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
@@ -1319,6 +1321,12 @@ pub fn project_to_screen_optimized(
     half_width: f32,
     half_height: f32,
 ) -> ScreenPoint {
+    // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
+    // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
+    // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
+    const MAX_VAL: f32 = 2_147_483_520.0;
+    const MIN_VAL: f32 = -2_147_483_520.0;
+
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -1326,12 +1334,6 @@ pub fn project_to_screen_optimized(
     let depth = v.z * inv_w;
 
     // NDC to screen coordinates
-    // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
-    // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
-    // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
-    const MAX_VAL: f32 = 2_147_483_520.0;
-    const MIN_VAL: f32 = -2_147_483_520.0;
-
     let screen_x_f = (ndc_x + 1.0) * half_width;
     let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
 
@@ -1442,7 +1444,9 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
@@ -1543,7 +1547,9 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+        #[allow(clippy::cast_ptr_alignment)]
         _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
