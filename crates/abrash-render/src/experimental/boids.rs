@@ -86,6 +86,9 @@ impl Flock {
 
         let old_boids = &self.old_boids;
 
+        let perception_radius_sq = self.config.perception_radius * self.config.perception_radius;
+        let separation_radius_sq = self.config.separation_radius * self.config.separation_radius;
+
         #[cfg(feature = "parallel")]
         let iter = self.boids.par_iter_mut();
         #[cfg(not(feature = "parallel"))]
@@ -108,9 +111,13 @@ impl Flock {
                 let dy = boid.position.y - other_boid.position.y;
                 let dz = boid.position.z - other_boid.position.z;
 
-                let distance = dx.hypot(dy).hypot(dz);
+                // Bolt Performance Optimization:
+                // Replace `dx.hypot(dy).hypot(dz)` distance calculation with squared distance.
+                // This avoids expensive square root operations for entities that fall entirely
+                // outside the relevant interaction radiuses.
+                let distance_sq = dx * dx + dy * dy + dz * dz;
 
-                if distance > 0.0 && distance < self.config.perception_radius {
+                if distance_sq > 0.0 && distance_sq < perception_radius_sq {
                     // Alignment
                     alignment.x += other_boid.velocity.x;
                     alignment.y += other_boid.velocity.y;
@@ -124,7 +131,8 @@ impl Flock {
                     total_boids_perceived += 1;
                 }
 
-                if distance > 0.0 && distance < self.config.separation_radius {
+                if distance_sq > 0.0 && distance_sq < separation_radius_sq {
+                    let distance = distance_sq.sqrt();
                     // Separation (weighted by inverse distance)
                     let diff_x = boid.position.x - other_boid.position.x;
                     let diff_y = boid.position.y - other_boid.position.y;

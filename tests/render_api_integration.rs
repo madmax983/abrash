@@ -4,11 +4,11 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::rasterizer::TileRenderer;
+use abrash::render_api::Renderer;
 use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;
 use abrash::render_api::target::RenderTarget;
-use abrash::render_api::Renderer;
 use abrash::zbuffer::ZBuffer;
 
 const WIDTH: u32 = 200;
@@ -43,7 +43,11 @@ fn test_cpu_renderer_matches_direct_tile_renderer() {
     zb_direct.clear();
     tile_renderer.begin_frame();
 
-    let transformed: Vec<_> = mesh.vertices.iter().map(|v| mvp.transform_point(*v)).collect();
+    let transformed: Vec<_> = mesh
+        .vertices
+        .iter()
+        .map(|v| mvp.transform_point(*v))
+        .collect();
     tile_renderer.submit_mesh(&mesh.indices, &transformed, color);
     tile_renderer.end_frame(&mut fb_direct, &mut zb_direct);
 
@@ -63,7 +67,11 @@ fn test_cpu_renderer_matches_direct_tile_renderer() {
     let direct_pixels = fb_direct.as_slice();
     let api_pixels = target.pixels();
 
-    assert_eq!(direct_pixels.len(), api_pixels.len(), "buffer size mismatch");
+    assert_eq!(
+        direct_pixels.len(),
+        api_pixels.len(),
+        "buffer size mismatch"
+    );
 
     let mut mismatches = 0usize;
     for (i, (&a, &b)) in direct_pixels.iter().zip(api_pixels.iter()).enumerate() {
