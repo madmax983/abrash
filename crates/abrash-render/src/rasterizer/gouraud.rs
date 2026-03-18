@@ -1,3 +1,10 @@
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
 //! Gouraud shading rasterizer.
 //!
 //! Per-vertex lighting calculation and color interpolation across the triangle.
@@ -128,10 +135,10 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     while i < len {
         // SAFETY: Loop bounds checked
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z < *depth_val {
                 *depth_val = z;
-                let pixel = fb_slice.get_unchecked_mut(i);
+                let pixel = &mut fb_slice[i];
                 // Fast path: direct shift, no clamp/mask (assuming valid input range)
                 let r = (r_i as u32) >> 16;
                 let g = (g_i as u32) >> 16;
@@ -273,10 +280,10 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     while i < len {
         // SAFETY: Loop bounds checked
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z < *depth_val {
                 *depth_val = z;
-                let pixel = fb_slice.get_unchecked_mut(i);
+                let pixel = &mut fb_slice[i];
 
                 // Clamped path
                 let r = r_i.clamp(0, 0x00FF_0000);

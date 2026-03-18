@@ -1,3 +1,4 @@
+#![allow(unused_unsafe)]
 //! # The PBR Rasterizer: Forging Realism 🛡️
 //!
 //! In the age of myths, rendering was a simple art of Gouraud and Phong. Surfaces were plastic,

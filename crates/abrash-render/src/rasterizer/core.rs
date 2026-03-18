@@ -1,3 +1,4 @@
+#![allow(unused_unsafe)]
 //! # Internal Rasterization Toolkit 🧰
 //!
 //! This module contains low-level primitives used by the various rasterization backends.

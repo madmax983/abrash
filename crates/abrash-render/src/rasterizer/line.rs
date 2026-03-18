@@ -1,3 +1,10 @@
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
 //! Line drawing algorithms.
 //!
 //! Implements Bresenham's line algorithm for wireframe rendering.
@@ -71,7 +78,7 @@ pub fn draw_line_3d(
                 // SAFETY: Bounds checked.
                 unsafe {
                     let idx = (y0 as usize) * (width as usize) + (x0 as usize);
-                    let z_buffer_val = zb.as_mut_slice().get_unchecked_mut(idx);
+                    let z_buffer_val = &mut zb.as_mut_slice()[idx];
                     // Use standard depth test (less is closer for negative Z, wait.
                     // Project to screen produces z = v.z / w.
                     // If using standard OpenGL conventions, z is in [-1, 1].

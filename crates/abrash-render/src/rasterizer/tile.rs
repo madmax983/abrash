@@ -1,3 +1,10 @@
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
 #![allow(clippy::collapsible_if)]
 //! Tile-based rasterizer data structures.
 //!
@@ -1268,34 +1275,34 @@ fn rasterize_scanline_scalar(
         // SAFETY: Bounds checked by loop condition
         unsafe {
             // Pixel 0
-            let d0 = depths.get_unchecked_mut(i);
+            let d0 = &mut depths[i];
             if z < *d0 {
                 *d0 = z;
-                *pixels.get_unchecked_mut(i) = color;
+                pixels[i] = color;
             }
             z += dz_dx;
 
             // Pixel 1
-            let d1 = depths.get_unchecked_mut(i + 1);
+            let d1 = &mut depths[i + 1];
             if z < *d1 {
                 *d1 = z;
-                *pixels.get_unchecked_mut(i + 1) = color;
+                pixels[i + 1] = color;
             }
             z += dz_dx;
 
             // Pixel 2
-            let d2 = depths.get_unchecked_mut(i + 2);
+            let d2 = &mut depths[i + 2];
             if z < *d2 {
                 *d2 = z;
-                *pixels.get_unchecked_mut(i + 2) = color;
+                pixels[i + 2] = color;
             }
             z += dz_dx;
 
             // Pixel 3
-            let d3 = depths.get_unchecked_mut(i + 3);
+            let d3 = &mut depths[i + 3];
             if z < *d3 {
                 *d3 = z;
-                *pixels.get_unchecked_mut(i + 3) = color;
+                pixels[i + 3] = color;
             }
             z += dz_dx;
         }
@@ -1305,10 +1312,10 @@ fn rasterize_scanline_scalar(
     // Handle remaining pixels
     for k in i..len {
         unsafe {
-            let d = depths.get_unchecked_mut(k);
+            let d = &mut depths[k];
             if z < *d {
                 *d = z;
-                *pixels.get_unchecked_mut(k) = color;
+                pixels[k] = color;
             }
         }
         z += dz_dx;
@@ -1364,10 +1371,10 @@ fn rasterize_scanline_simd(
     // Process initial unaligned pixels
     for k in 0..pre_simd_count {
         unsafe {
-            let d = depths.get_unchecked_mut(k);
+            let d = &mut depths[k];
             if z < *d {
                 *d = z;
-                *pixels.get_unchecked_mut(k) = color;
+                pixels[k] = color;
             }
         }
         z += dz_dx;
@@ -2699,8 +2706,8 @@ impl TileRenderer {
             use rayon::prelude::*;
             self.tile_bins.par_iter_mut().for_each(|bin| {
                 bin.sort_unstable_by(|&a, &b| {
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(b).min_depth };
+                    let depth_a = unsafe { &prepared_gouraud[a].min_depth };
+                    let depth_b = unsafe { &prepared_gouraud[b].min_depth };
                     depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
                 });
             });
@@ -2710,8 +2717,8 @@ impl TileRenderer {
         {
             for bin in &mut self.tile_bins {
                 bin.sort_unstable_by(|&a, &b| {
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(b).min_depth };
+                    let depth_a = unsafe { &prepared_gouraud[a].min_depth };
+                    let depth_b = unsafe { &prepared_gouraud[b].min_depth };
                     depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
                 });
             }
@@ -3227,8 +3234,8 @@ impl TileRenderer {
                 let tri_idx_a = tris[a as usize] as usize;
                 let tri_idx_b = tris[b as usize] as usize;
                 // Safety: indices guaranteed within bounds
-                let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                let depth_a = unsafe { &prepared[tri_idx_a].min_depth };
+                let depth_b = unsafe { &prepared[tri_idx_b].min_depth };
                 depth_a
                     .partial_cmp(&depth_b)
                     .unwrap_or(std::cmp::Ordering::Equal)
@@ -3289,8 +3296,8 @@ impl TileRenderer {
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                    let depth_a = unsafe { &prepared[tri_idx_a].min_depth };
+                    let depth_b = unsafe { &prepared[tri_idx_b].min_depth };
                     depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
                 });
 
@@ -3326,8 +3333,8 @@ impl TileRenderer {
                 indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                    let depth_a = unsafe { &prepared[tri_idx_a].min_depth };
+                    let depth_b = unsafe { &prepared[tri_idx_b].min_depth };
                     depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
                 });
 
@@ -3374,8 +3381,8 @@ impl TileRenderer {
             indices.sort_unstable_by(|&a, &b| {
                 let tri_idx_a = tris[a as usize] as usize;
                 let tri_idx_b = tris[b as usize] as usize;
-                let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
+                let depth_a = unsafe { &prepared_textured[tri_idx_a].min_depth };
+                let depth_b = unsafe { &prepared_textured[tri_idx_b].min_depth };
                 depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
             });
 

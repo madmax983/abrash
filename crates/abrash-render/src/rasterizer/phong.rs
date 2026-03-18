@@ -1,3 +1,4 @@
+#![allow(unused_unsafe)]
 //! Phong shading rasterizer.
 //!
 //! Per-pixel lighting interpolation and calculation.

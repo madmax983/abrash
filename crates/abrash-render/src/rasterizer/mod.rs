@@ -1,3 +1,4 @@
+#![allow(unused_unsafe)]
 //! # The Rasterizer 🎨
 //!
 //! This module is the heart of the Abrash rendering engine. It is responsible for the "Rasterization" stage

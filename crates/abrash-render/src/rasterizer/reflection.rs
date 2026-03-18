@@ -1,3 +1,4 @@
+#![allow(unused_unsafe)]
 //! Screen-space reflections.
 //!
 //! Provides basic reflection mapping based on surface normals and view vectors.

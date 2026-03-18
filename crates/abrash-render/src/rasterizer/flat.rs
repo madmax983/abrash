@@ -1,3 +1,10 @@
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
 //! Flat shading rasterizer.
 //!
 //! Renders triangles with a single solid color.
@@ -70,10 +77,10 @@ unsafe fn draw_scanline_flat_simd(
     while i < len {
         // SAFETY: Bounds checked by slice length
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z < *depth_val {
                 *depth_val = z;
-                *fb_slice.get_unchecked_mut(i) = color;
+                fb_slice[i] = color;
             }
         }
         z += dz_dx;
@@ -219,9 +226,9 @@ unsafe fn draw_scanline_flat_blended_simd(
     while i < len {
         // SAFETY: Bounds checked
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z < *depth_val {
-                let pixel = fb_slice.get_unchecked_mut(i);
+                let pixel = &mut fb_slice[i];
                 let dest = *pixel;
 
                 let rb_dest = dest & 0x00FF_00FF;

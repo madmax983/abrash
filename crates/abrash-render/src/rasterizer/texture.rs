@@ -1,3 +1,13 @@
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+#![allow(unused_unsafe)]
 //! Perspective-correct texture mapping rasterizer.
 //!
 //! This module implements scanline rasterization for textured triangles with perspective correction.
@@ -346,14 +356,14 @@ pub(crate) fn draw_span_nearest(
                 let u = (u_fix >> 16) as usize;
                 let v = (v_fix >> 16) as usize;
                 // SAFETY: Verified entire span is within bounds.
-                unsafe { *tex_pixels.get_unchecked((v << shift) + u) }
+                unsafe { tex_pixels[(v << shift) + u] }
             });
         } else {
             process_span_nearest!({
                 let u = (u_fix >> 16) as usize;
                 let v = (v_fix >> 16) as usize;
                 // SAFETY: Verified entire span is within bounds.
-                unsafe { *tex_pixels.get_unchecked(v * tex_w_usize + u) }
+                unsafe { tex_pixels[v * tex_w_usize + u] }
             });
         }
     } else {
@@ -364,7 +374,7 @@ pub(crate) fn draw_span_nearest(
                 let v = v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
-                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                    unsafe { tex_pixels[((v as usize) << shift) + (u as usize)] }
                 } else {
                     texture.get_pixel_texel(u, v)
                 }
@@ -375,7 +385,7 @@ pub(crate) fn draw_span_nearest(
                 let v = v_fix >> 16;
                 if (u as u32) < tex_w && (v as u32) < tex_h {
                     // SAFETY: Checked bounds
-                    unsafe { *tex_pixels.get_unchecked((v as usize) * tex_w_usize + (u as usize)) }
+                    unsafe { tex_pixels[(v as usize) * tex_w_usize + (u as usize)] }
                 } else {
                     texture.get_pixel_texel(u, v)
                 }
@@ -489,10 +499,10 @@ pub(crate) fn draw_span_bilinear(
                                     #[cfg(not(target_endian = "little"))]
                                     {
                                         (
-                                            *tex_pixels.get_unchecked(row0 + x0),
-                                            *tex_pixels.get_unchecked(row0 + x0 + 1),
-                                            *tex_pixels.get_unchecked(row1 + x0),
-                                            *tex_pixels.get_unchecked(row1 + x0 + 1),
+                                            tex_pixels[row0 + x0],
+                                            tex_pixels[row0 + x0 + 1],
+                                            tex_pixels[row1 + x0],
+                                            tex_pixels[row1 + x0 + 1],
                                         )
                                     }
                                 }
@@ -507,10 +517,10 @@ pub(crate) fn draw_span_bilinear(
 
                                 unsafe {
                                     (
-                                        *tex_pixels.get_unchecked(row0 + x0),
-                                        *tex_pixels.get_unchecked(row0 + x1),
-                                        *tex_pixels.get_unchecked(row1 + x0),
-                                        *tex_pixels.get_unchecked(row1 + x1),
+                                        tex_pixels[row0 + x0],
+                                        tex_pixels[row0 + x1],
+                                        tex_pixels[row1 + x0],
+                                        tex_pixels[row1 + x1],
                                     )
                                 }
                             };
@@ -596,7 +606,7 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
     // Scalar pre-loop
     for k in 0..pre_simd_count {
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(k);
+            let depth_val = &mut zb_slice[k];
             if z_curr < *depth_val {
                 // Inline scalar bilinear
                 let u_img_fixed = u_curr >> 8;
@@ -621,10 +631,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         };
                         let row1 = row0 + tex_w_usize;
                         (
-                            *texture.pixels.get_unchecked(row0 + x0),
-                            *texture.pixels.get_unchecked(row0 + x0 + 1),
-                            *texture.pixels.get_unchecked(row1 + x0),
-                            *texture.pixels.get_unchecked(row1 + x0 + 1),
+                            texture.pixels[row0 + x0],
+                            texture.pixels[row0 + x0 + 1],
+                            texture.pixels[row1 + x0],
+                            texture.pixels[row1 + x0 + 1],
                         )
                     } else {
                         let x0 = x0_raw.clamp(0, w_i32) as usize;
@@ -644,10 +654,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
                         };
 
                         (
-                            *texture.pixels.get_unchecked(row0 + x0),
-                            *texture.pixels.get_unchecked(row0 + x1),
-                            *texture.pixels.get_unchecked(row1 + x0),
-                            *texture.pixels.get_unchecked(row1 + x1),
+                            texture.pixels[row0 + x0],
+                            texture.pixels[row0 + x1],
+                            texture.pixels[row1 + x0],
+                            texture.pixels[row1 + x1],
                         )
                     };
 
@@ -659,10 +669,10 @@ pub(crate) unsafe fn draw_span_bilinear_simd(
 
                 if alpha == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(k) = final_color;
+                    fb_slice[k] = final_color;
                 } else if alpha > 0 {
-                    let dest = *fb_slice.get_unchecked(k);
-                    *fb_slice.get_unchecked_mut(k) =
+                    let dest = fb_slice[k];
+                    fb_slice[k] =
                         blend_swar(final_color, dest, 255 - alpha, alpha);
                 }
             }
@@ -950,7 +960,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
     // Scalar pre-loop
     for k in 0..pre_simd_count {
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(k);
+            let depth_val = &mut zb_slice[k];
             if z_curr < *depth_val {
                 let u = u_curr >> 16;
                 let v = v_curr >> 16;
@@ -963,17 +973,17 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     } else {
                         (v as usize) * (tex_w as usize) + (u as usize)
                     };
-                    *texture.pixels.get_unchecked(idx)
+                    texture.pixels[idx]
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
                 let alpha = (color >> 24) & 0xFF;
                 if alpha == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(k) = color;
+                    fb_slice[k] = color;
                 } else if alpha > 0 {
-                    let dest = *fb_slice.get_unchecked(k);
-                    *fb_slice.get_unchecked_mut(k) = blend_swar(color, dest, 255 - alpha, alpha);
+                    let dest = fb_slice[k];
+                    fb_slice[k] = blend_swar(color, dest, 255 - alpha, alpha);
                 }
             }
         }
@@ -1110,7 +1120,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
 
     while i < len {
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z_curr < *depth_val {
                 let u = u_curr >> 16;
                 let v = v_curr >> 16;
@@ -1125,7 +1135,7 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                     } else {
                         (v as usize) * (tex_w as usize) + (u as usize)
                     };
-                    *texture.pixels.get_unchecked(idx)
+                    texture.pixels[idx]
                 } else {
                     texture.get_pixel_texel(u, v)
                 };
@@ -1133,10 +1143,10 @@ pub(crate) unsafe fn draw_span_nearest_simd(
                 let alpha = (color >> 24) & 0xFF;
                 if alpha == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(i) = color;
+                    fb_slice[i] = color;
                 } else if alpha > 0 {
-                    let dest = *fb_slice.get_unchecked(i);
-                    *fb_slice.get_unchecked_mut(i) = blend_swar(color, dest, 255 - alpha, alpha);
+                    let dest = fb_slice[i];
+                    fb_slice[i] = blend_swar(color, dest, 255 - alpha, alpha);
                 }
             }
         }
@@ -1319,7 +1329,7 @@ unsafe fn draw_scanline_textured_perspective_simd(
             let u_curr = u + i_f * gradients.du_dx;
             let v_curr = v + i_f * gradients.dv_dx;
 
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z_curr < *depth_val {
                 let w = if q_curr.abs() > 1e-6 {
                     1.0 / q_curr
@@ -1334,10 +1344,10 @@ unsafe fn draw_scanline_textured_perspective_simd(
                 let alpha = (color >> 24) & 0xFF;
                 if alpha == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(i) = color;
+                    fb_slice[i] = color;
                 } else if alpha > 0 {
-                    let dest = *fb_slice.get_unchecked(i);
-                    *fb_slice.get_unchecked_mut(i) = blend_swar(color, dest, 255 - alpha, alpha);
+                    let dest = fb_slice[i];
+                    fb_slice[i] = blend_swar(color, dest, 255 - alpha, alpha);
                 }
             }
             i += 1;
@@ -2037,7 +2047,7 @@ fn fill_projected_triangle_textured_with_gradients(
                         if alpha == 255 {
                             let width_usize = fb.width() as usize;
                             let idx = (y as usize) * width_usize + (x_start as usize);
-                            *zb.as_mut_slice().get_unchecked_mut(idx) = z_left;
+                            zb.as_mut_slice()[idx] = z_left;
                             fb.set_pixel_unchecked(x_start as usize, y as usize, color);
                         } else if alpha > 0 {
                             let dest = fb.get_pixel_unchecked(x_start as usize, y as usize);
@@ -2808,16 +2818,16 @@ pub(crate) unsafe fn draw_span_trilinear_simd(
     // Scalar pre-loop
     for k in 0..pre_simd_count {
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(k);
+            let depth_val = &mut zb_slice[k];
             if z_curr < *depth_val {
                 let color = texture.get_pixel_trilinear_fixed(u_curr, v_curr, lod);
                 let alpha = (color >> 24) & 0xFF;
                 if alpha == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(k) = color;
+                    fb_slice[k] = color;
                 } else if alpha > 0 {
-                    let dest = *fb_slice.get_unchecked(k);
-                    *fb_slice.get_unchecked_mut(k) = blend_swar(color, dest, 255 - alpha, alpha);
+                    let dest = fb_slice[k];
+                    fb_slice[k] = blend_swar(color, dest, 255 - alpha, alpha);
                 }
             }
         }
@@ -4083,7 +4093,7 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
 
     while i < len {
         unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
+            let depth_val = &mut zb_slice[i];
             if z_curr < *depth_val {
                 let color = texture.get_pixel_bilinear_fixed(u_curr, v_curr);
 
@@ -4105,10 +4115,10 @@ unsafe fn draw_span_textured_gouraud_bilinear_simd(
 
                 if tex_a == 255 {
                     *depth_val = z_curr;
-                    *fb_slice.get_unchecked_mut(i) = final_color;
+                    fb_slice[i] = final_color;
                 } else if tex_a > 0 {
-                    let dest = *fb_slice.get_unchecked(i);
-                    *fb_slice.get_unchecked_mut(i) = blend_swar(
+                    let dest = fb_slice[i];
+                    fb_slice[i] = blend_swar(
                         final_color,
                         dest,
                         (255 - (tex_a as u8)).into(),
@@ -4158,10 +4168,10 @@ fn draw_span_textured_gouraud_scalar(
 
             let color = if (u as u32) < tex_w && (v as u32) < tex_h {
                 if is_pot {
-                    unsafe { *tex_pixels.get_unchecked(((v as usize) << shift) + (u as usize)) }
+                    unsafe { tex_pixels[((v as usize) << shift) + (u as usize)] }
                 } else {
                     unsafe {
-                        *tex_pixels.get_unchecked((v as usize) * (tex_w as usize) + (u as usize))
+                        tex_pixels[(v as usize) * (tex_w as usize) + (u as usize)]
                     }
                 }
             } else {
@@ -4410,8 +4420,8 @@ pub fn draw_scanline_textured_gouraud(
                     let mut b_curr = b_fix;
 
                     for i in 0..count {
-                        let pixel = unsafe { fb_slice.get_unchecked_mut(i as usize) };
-                        let depth_val = unsafe { zb_slice.get_unchecked_mut(i as usize) };
+                        let pixel = &mut fb_slice[i as usize];
+                        let depth_val = &mut zb_slice[i as usize];
 
                         if z_curr < *depth_val {
                             let q_curr = q + (i as f32) * gradients.dq_dx;
