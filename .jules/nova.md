@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [Fisheye Filter]
+**Concept:** A post-processing effect that simulates a wide-angle lens by mathematically warping the image spherically outward from a center point.
+**Fate:** Implemented
+**Lesson:** Normalizing spatial coordinates based on the shortest screen dimension keeps the distortion perfectly circular regardless of aspect ratio. Precalculating inverses (like `1.0 / min_dim`) and squared distances inside outer loops significantly accelerates Rayon's `par_chunks_exact_mut` per-row iteration. Fast float-to-int casts eliminate the bottleneck of rounding.

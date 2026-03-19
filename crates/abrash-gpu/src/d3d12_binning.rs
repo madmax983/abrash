@@ -66,8 +66,14 @@ pub struct Aabb3d {
 }
 
 /// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
+pub trait HiZOcclusion {
+    fn is_visible(&self, bounds: &Aabb3d) -> bool;
+}
 
 /// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
+pub trait HiZPyramidWriter {
+    fn write_level(&mut self, level: u32, width: u32, height: u32, data: &[f32]);
+}
 
 /// GPU compute binning pipeline
 pub struct GpuBinner {

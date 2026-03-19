@@ -534,6 +534,16 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "fisheye_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "fisheye_demo"
+path = "examples/fisheye_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
 name = "vignette_bench"
 harness = false
 required-features = ["nova"]
