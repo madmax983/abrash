@@ -49,6 +49,66 @@ impl ZBuffer {
         self.depths.fill(val);
     }
 
+    /// Clear a specific sub-region of the z-buffer.
+    ///
+    /// Silently handles out-of-bounds coordinates by clipping the region.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::zbuffer::ZBuffer;
+    ///
+    /// let mut zb = ZBuffer::new(1920, 1080).unwrap();
+    /// zb.clear_rect(100, 100, 500, 500); // Clears a 500x500 area
+    /// ```
+    pub fn clear_rect(&mut self, x: i32, y: i32, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let x1 = x;
+        let y1 = y;
+
+        // Prevent overflow when adding width to x
+        // Use i64 for intermediate calculation to avoid wrapping
+        let x2_i64 = i64::from(x) + i64::from(width);
+        let y2_i64 = i64::from(y) + i64::from(height);
+
+        let x2 = if x2_i64 > i64::from(i32::MAX) {
+            i32::MAX
+        } else {
+            x2_i64 as i32
+        };
+        let y2 = if y2_i64 > i64::from(i32::MAX) {
+            i32::MAX
+        } else {
+            y2_i64 as i32
+        };
+
+        let start_x = x1.clamp(0, self.width as i32) as u32;
+        let start_y = y1.clamp(0, self.height as i32) as u32;
+
+        let end_x = x2.clamp(0, self.width as i32) as u32;
+        let end_y = y2.clamp(0, self.height as i32) as u32;
+
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
+
+        let w = self.width as usize;
+        let sx = start_x as usize;
+        let ex = end_x as usize;
+
+        // Use chunks_exact_mut to safely slice the array per row, avoiding inner-loop bounds checks
+        self.depths
+            .chunks_exact_mut(w)
+            .take(end_y as usize)
+            .skip(start_y as usize)
+            .for_each(|row| {
+                row[sx..ex].fill(f32::INFINITY);
+            });
+    }
+
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
     #[inline]
     pub fn test_and_set(&mut self, x: i32, y: i32, depth: f32) -> bool {
@@ -162,6 +222,56 @@ mod tests {
 
         zb.clear();
         assert!(zb.get_depth(0, 0).unwrap().is_infinite());
+    }
+
+    #[test]
+    fn test_clear_rect() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        // Set all to 1.0
+        for y in 0..10 {
+            for x in 0..10 {
+                zb.test_and_set(x, y, 1.0);
+            }
+        }
+
+        // Clear a 5x5 area in the middle
+        zb.clear_rect(2, 2, 5, 5);
+
+        // Check bounds
+        for y in 0..10 {
+            for x in 0..10 {
+                let depth = zb.get_depth(x, y).unwrap();
+                if x >= 2 && x < 7 && y >= 2 && y < 7 {
+                    assert!(depth.is_infinite());
+                } else {
+                    assert_eq!(depth, 1.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_oob() {
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                zb.test_and_set(x, y, 1.0);
+            }
+        }
+
+        // Out of bounds start
+        zb.clear_rect(-5, -5, 10, 10);
+        // Only 0..5 should be cleared
+        for y in 0..10 {
+            for x in 0..10 {
+                let depth = zb.get_depth(x, y).unwrap();
+                if x < 5 && y < 5 {
+                    assert!(depth.is_infinite());
+                } else {
+                    assert_eq!(depth, 1.0);
+                }
+            }
+        }
     }
 
     #[test]

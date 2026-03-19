@@ -26,6 +26,20 @@ fn bench_zbuffer_clear(c: &mut Criterion) {
         });
     });
 
+    group.bench_function("clear_rect_1080p", |b| {
+        b.iter(|| {
+            zb.clear_rect(480, 270, 960, 540); // 50% of the screen
+            black_box(&zb);
+        });
+    });
+
+    group.bench_function("clear_rect_4k", |b| {
+        b.iter(|| {
+            zb_4k.clear_rect(960, 540, 1920, 1080); // 50% of the screen
+            black_box(&zb_4k);
+        });
+    });
+
     group.finish();
 }
 
