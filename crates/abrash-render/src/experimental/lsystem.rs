@@ -364,6 +364,17 @@ mod tests {
     }
 
     #[test]
+    fn test_custom_max_capacity_err() {
+        let mut lsys = LSystem::new("A");
+        lsys.add_rule('A', "AB");
+        lsys.set_max_capacity(2);
+
+        let result = lsys.expand(2);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "L-System expansion exceeded maximum capacity limit");
+    }
+
+    #[test]
     #[ignore = "👹 Havoc: Intentionally tests an OOM vulnerability"]
     fn test_lsystem_havoc_oom() {
         // 👹 Havoc: Intentionally tests an Out-Of-Memory (OOM) vulnerability by creating a

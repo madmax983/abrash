@@ -760,6 +760,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_add_spring_out_of_bounds_err() {
+        let mut mesh = Mesh::new();
+        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+        mesh.indices.push([0, 1, 0]);
+
+        let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
+
+        let result = jelly.add_spring(0, 9999, 1.0);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Spring indices out of bounds: 0, 9999");
+    }
+
+    #[test]
     fn test_jelly_creation() {
         // Create a simple triangle
         let mut mesh = Mesh::new();

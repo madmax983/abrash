@@ -148,6 +148,7 @@ mod tests {
         // Test dimensions exceeding i32::MAX
         assert!(ZBuffer::new(i32::MAX as u32 + 1, 10).is_err());
         assert!(ZBuffer::new(10, i32::MAX as u32 + 1).is_err());
+        assert!(ZBuffer::new(u32::MAX, u32::MAX).is_err());
 
         // Test total size overflow (u32::MAX pixels)
         // 65536 * 65536 = 4294967296 (exceeds u32::MAX by 1)

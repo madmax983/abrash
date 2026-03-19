@@ -65,10 +65,6 @@ pub struct Aabb3d {
     pub max_depth: f32,
 }
 
-/// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
-
-/// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
-
 /// GPU compute binning pipeline
 pub struct GpuBinner {
     device: D3D12Device,
