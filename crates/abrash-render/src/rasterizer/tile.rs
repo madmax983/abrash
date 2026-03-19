@@ -346,6 +346,9 @@ fn clear_tile_bounds<T>(
 
 use std::mem::MaybeUninit;
 
+#[cfg(feature = "parallel")]
+use rayon::iter::IndexedParallelIterator;
+
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
     pub count: usize,
@@ -436,42 +439,42 @@ impl IntoIterator for PreparedTrianglesList {
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Item = PreparedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTriangle>;
+    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut vec = Vec::with_capacity(self.count);
+        let mut arr: [PreparedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = unsafe { self.tris[i].assume_init() };
         }
-        vec.into_par_iter()
+        arr.into_par_iter().take(self.count)
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Item = PreparedTexturedTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedTexturedTriangle>;
+    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTexturedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut vec = Vec::with_capacity(self.count);
+        let mut arr: [PreparedTexturedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = unsafe { self.tris[i].assume_init() };
         }
-        vec.into_par_iter()
+        arr.into_par_iter().take(self.count)
     }
 }
 
 #[cfg(feature = "parallel")]
 impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Item = PreparedGouraudTriangle;
-    type Iter = rayon::vec::IntoIter<PreparedGouraudTriangle>;
+    type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedGouraudTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut vec = Vec::with_capacity(self.count);
+        let mut arr: [PreparedGouraudTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
-            vec.push(unsafe { self.tris[i].assume_init() });
+            arr[i] = unsafe { self.tris[i].assume_init() };
         }
-        vec.into_par_iter()
+        arr.into_par_iter().take(self.count)
     }
 }
 
