@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [Fisheye Filter]
+**Concept:** A retro post-processing effect that applies a radial distortion to the framebuffer, simulating the bulging effect of an ultra-wide fisheye lens.
+**Fate:** Implemented
+**Lesson:** When implementing perfectly circular distortion like Fisheye, normalizing spatial pixel coordinates using the shortest screen dimension (`min(width, height)`) rather than independent axis normalization is crucial to prevent elliptical warping. Additionally, cloning the source framebuffer into a thread-local buffer prevents mutable aliasing and allows safe parallel execution with Rayon's `par_chunks_exact_mut`.

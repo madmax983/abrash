@@ -1,14 +1,14 @@
-//! Demonstration of the Nova Vignette filter.
+//! Demonstration of the Nova Fisheye Lens Distortion filter.
 
+use abrash::experimental::fisheye::{FisheyeConfig, apply_fisheye};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{Event, Window};
-use abrash::post_process::{VignetteConfig, apply_vignette};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 fn print_banner() {
-    println!("\n{}", "📷 Vignette Filter Demo".bold().cyan());
+    println!("\n{}", "📷 Fisheye Filter Demo".bold().cyan());
     println!("{}", "=======================".dark_grey());
 
     let mut table = Table::new();
@@ -20,7 +20,7 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Cinematic edge-darkening effect").fg(Color::Green),
+            Cell::new("Ultra-wide lens bulging distortion").fg(Color::Green),
         ])
         .add_row(vec![
             Cell::new("Renderer"),
@@ -29,23 +29,14 @@ fn print_banner() {
 
     println!("\n{}", "⚙️  Info".bold());
     println!("{table}");
-
-    println!("\n{}", "🎮 Controls".bold());
-    let mut controls = Table::new();
-    controls
-        .load_preset(presets::UTF8_FULL)
-        .set_header(vec![
-            Cell::new("Input").fg(Color::Cyan),
-            Cell::new("Action").fg(Color::Cyan),
-        ])
-        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Auto-pulsating")]);
-    println!("{controls}\n");
+    println!("\n{}", "⌨️  Controls".bold());
+    println!("  • [ESC] to quit");
+    println!("  • Animated automatically\n");
 }
 
 fn main() {
     print_banner();
-    let mut window = Window::new("Vignette Filter Demo (Nova)", 800, 600).unwrap();
+    let mut window = Window::new("Fisheye Filter Demo (Nova)", 800, 600).unwrap();
 
     let width = 800;
     let height = 600;
@@ -82,24 +73,20 @@ fn main() {
             }
         }
 
-        angle += 0.05;
+        // Animate strength
+        angle += 0.02;
+        let animated_strength = angle.sin() * 0.5 + 0.3; // Oscillates between -0.2 and 0.8
 
-        // Reset framebuffer manually using slice copy
-        fb.as_mut_slice().copy_from_slice(original_fb.as_slice());
-
-        // Pulsate the intensity over time to make the demo dynamic
-        let intensity = 0.7 + (angle * 0.5).sin() * 0.3; // Ranges from 0.4 to 1.0
-
-        // Oscillate roundness
-        let roundness = 0.5 + (angle * 0.3).cos() * 0.2; // 0.3 to 0.7
-
-        let config = VignetteConfig {
-            intensity,
-            roundness,
+        let config = FisheyeConfig {
+            strength: animated_strength,
+            zoom: 1.1, // Slight zoom to reduce black borders
         };
 
-        // Apply the vignette filter
-        apply_vignette(&mut fb, &config);
+        // Copy the original unharmed image into the working buffer
+        fb.as_mut_slice().copy_from_slice(original_fb.as_slice());
+
+        // Apply the post processing filter
+        apply_fisheye(&mut fb, &config);
 
         window.blit_framebuffer(&fb);
     }
