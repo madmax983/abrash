@@ -1,8 +1,8 @@
 //! Demonstration of the Nova Vignette filter.
 
-use abrash::post_process::{VignetteConfig, apply_vignette};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{Event, Window};
+use abrash::post_process::{VignetteConfig, apply_vignette};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;

@@ -1,8 +1,48 @@
 use abrash::experimental::wobble::{WobbleConfig, apply_wobble};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{Event, Window};
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
+fn print_banner() {
+    println!("\n{}", "🌟 Wobble Filter Demo".bold().cyan());
+    println!("{}", "=======================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Resolution"),
+            Cell::new("640x480").fg(Color::Yellow),
+        ])
+        .add_row(vec![
+            Cell::new("Features"),
+            Cell::new("Dynamic Wobble Effect").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("None")]);
+    println!("{controls}\n");
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
+
     let width = 640;
     let height = 480;
 

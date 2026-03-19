@@ -185,7 +185,14 @@ fn test_mat4_inverse() {
     for i in 0..4 {
         for j in 0..4 {
             let expected = if i == j { 1.0 } else { 0.0 };
-            assert!((ident.m[i][j] - expected).abs() < 1e-4, "Mismatch at [{}][{}]: {} != {}", i, j, ident.m[i][j], expected);
+            assert!(
+                (ident.m[i][j] - expected).abs() < 1e-4,
+                "Mismatch at [{}][{}]: {} != {}",
+                i,
+                j,
+                ident.m[i][j],
+                expected
+            );
         }
     }
 }
