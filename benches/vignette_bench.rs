@@ -1,5 +1,5 @@
-use abrash::experimental::vignette::{VignetteConfig, apply_vignette};
 use abrash::framebuffer::Framebuffer;
+use abrash::post_process::{VignetteConfig, apply_vignette};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_vignette(c: &mut Criterion) {

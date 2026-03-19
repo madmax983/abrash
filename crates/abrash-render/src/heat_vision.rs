@@ -158,4 +158,61 @@ mod tests {
         let p = fb.get_pixel(0, 0).unwrap();
         assert_eq!(p, 0xFF00_0020, "Empty buffer should be background color");
     }
+
+    #[test]
+    fn test_heat_vision_out_of_bounds_depths() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        let mut zb = ZBuffer::new(2, 1).unwrap();
+
+        // Set depths that are extremely large and extremely small
+        zb.test_and_set(0, 0, f32::MIN);
+        zb.test_and_set(1, 0, f32::MAX);
+
+        // Should not panic
+        apply_heat_vision(&mut fb, &zb);
+
+        // We aren't asserting specific colors here because float math at extremes
+        // might underflow/overflow to inf/NaN, but we ensure it doesn't crash the renderer.
+        let _p0 = fb.get_pixel(0, 0).unwrap();
+        let _p1 = fb.get_pixel(1, 0).unwrap();
+    }
+
+    #[test]
+    fn test_heat_vision_same_depth() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        let mut zb = ZBuffer::new(2, 1).unwrap();
+
+        // Both pixels have the exact same depth
+        zb.test_and_set(0, 0, 10.0);
+        zb.test_and_set(1, 0, 10.0);
+
+        apply_heat_vision(&mut fb, &zb);
+
+        let p0 = fb.get_pixel(0, 0).unwrap();
+        let p1 = fb.get_pixel(1, 0).unwrap();
+
+        // With a fallback range of 0.0001, normalized will be 0.0 / 0.0001 = 0.0
+        // So both should be mapped to the start of the gradient (Hot/Red)
+        assert_eq!(p0, p1);
+        assert_eq!(
+            p0, 0xFFFF0000,
+            "Should map to Red when only one depth is present"
+        );
+    }
+
+    #[test]
+    fn test_heat_vision_mismatched_dimensions() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let zb = ZBuffer::new(5, 5).unwrap();
+
+        // Mismatched dimensions should early-return without doing anything or panicking
+        apply_heat_vision(&mut fb, &zb);
+
+        // First pixel should still be the default unchanged Framebuffer color (Solid Black/Transparent)
+        let p = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(
+            p, 0xFF000000,
+            "Should remain unchanged default Framebuffer color (Solid Black)"
+        );
+    }
 }

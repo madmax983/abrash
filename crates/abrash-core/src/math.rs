@@ -1194,6 +1194,187 @@ impl Mat4 {
         Vec3::new(x, y, z).normalize()
     }
 
+    /// Calculates the inverse of the matrix.
+    ///
+    /// Returns a zero matrix if the matrix is not invertible.
+    #[must_use]
+    pub fn inverse(&self) -> Self {
+        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+        {
+            unsafe {
+                use std::arch::x86_64::*;
+
+                let row0 = _mm_load_ps(self.m[0].as_ptr());
+                let row1 = _mm_load_ps(self.m[1].as_ptr());
+                let row2 = _mm_load_ps(self.m[2].as_ptr());
+                let row3 = _mm_load_ps(self.m[3].as_ptr());
+
+                let t0 = _mm_shuffle_ps(row0, row1, 0x44);
+                let t1 = _mm_shuffle_ps(row2, row3, 0x44);
+                let t2 = _mm_shuffle_ps(row0, row1, 0xEE);
+                let t3 = _mm_shuffle_ps(row2, row3, 0xEE);
+
+                let c0 = _mm_shuffle_ps(t0, t1, 0x88);
+                let c1 = _mm_shuffle_ps(t0, t1, 0xDD);
+                let c2 = _mm_shuffle_ps(t2, t3, 0x88);
+                let c3 = _mm_shuffle_ps(t2, t3, 0xDD);
+
+                let mut fac0 = _mm_shuffle_ps(c2, c2, 0x50);
+                let mut fac1 = _mm_shuffle_ps(c3, c3, 0xEE);
+                let mut fac2 = _mm_shuffle_ps(c2, c2, 0x05);
+                let mut fac3 = _mm_shuffle_ps(c3, c3, 0xAF);
+
+                let mut v0 = _mm_mul_ps(fac0, fac1);
+                v0 = _mm_sub_ps(v0, _mm_mul_ps(fac2, fac3));
+
+                fac0 = _mm_shuffle_ps(c1, c1, 0x50);
+                fac1 = _mm_shuffle_ps(c3, c3, 0xEE);
+                fac2 = _mm_shuffle_ps(c1, c1, 0x05);
+                fac3 = _mm_shuffle_ps(c3, c3, 0xAF);
+                let mut v1 = _mm_mul_ps(fac0, fac1);
+                v1 = _mm_sub_ps(v1, _mm_mul_ps(fac2, fac3));
+
+                fac0 = _mm_shuffle_ps(c1, c1, 0x50);
+                fac1 = _mm_shuffle_ps(c2, c2, 0xEE);
+                fac2 = _mm_shuffle_ps(c1, c1, 0x05);
+                fac3 = _mm_shuffle_ps(c2, c2, 0xAF);
+                let mut v2 = _mm_mul_ps(fac0, fac1);
+                v2 = _mm_sub_ps(v2, _mm_mul_ps(fac2, fac3));
+
+                let sign_a =
+                    _mm_castsi128_ps(_mm_set_epi32(-2_147_483_648_i32, 0, -2_147_483_648_i32, 0));
+                let sign_b =
+                    _mm_castsi128_ps(_mm_set_epi32(0, -2_147_483_648_i32, 0, -2_147_483_648_i32));
+
+                let mut inv0 = _mm_mul_ps(c1, _mm_shuffle_ps(v0, v0, 0x39));
+                inv0 = _mm_sub_ps(inv0, _mm_mul_ps(c2, _mm_shuffle_ps(v1, v1, 0x39)));
+                inv0 = _mm_add_ps(inv0, _mm_mul_ps(c3, _mm_shuffle_ps(v2, v2, 0x39)));
+                inv0 = _mm_xor_ps(inv0, sign_b);
+
+                let mut inv1 = _mm_mul_ps(c0, _mm_shuffle_ps(v0, v0, 0x39));
+                inv1 = _mm_sub_ps(inv1, _mm_mul_ps(c2, _mm_shuffle_ps(v1, v1, 0x8E)));
+                inv1 = _mm_add_ps(inv1, _mm_mul_ps(c3, _mm_shuffle_ps(v2, v2, 0x8E)));
+                inv1 = _mm_xor_ps(inv1, sign_a);
+
+                fac0 = _mm_shuffle_ps(c0, c0, 0x50);
+                fac1 = _mm_shuffle_ps(c3, c3, 0xEE);
+                fac2 = _mm_shuffle_ps(c0, c0, 0x05);
+                fac3 = _mm_shuffle_ps(c3, c3, 0xAF);
+                v0 = _mm_mul_ps(fac0, fac1);
+                v0 = _mm_sub_ps(v0, _mm_mul_ps(fac2, fac3));
+
+                fac0 = _mm_shuffle_ps(c0, c0, 0x50);
+                fac1 = _mm_shuffle_ps(c2, c2, 0xEE);
+                fac2 = _mm_shuffle_ps(c0, c0, 0x05);
+                fac3 = _mm_shuffle_ps(c2, c2, 0xAF);
+                v1 = _mm_mul_ps(fac0, fac1);
+                v1 = _mm_sub_ps(v1, _mm_mul_ps(fac2, fac3));
+
+                fac0 = _mm_shuffle_ps(c0, c0, 0x50);
+                fac1 = _mm_shuffle_ps(c1, c1, 0xEE);
+                fac2 = _mm_shuffle_ps(c0, c0, 0x05);
+                fac3 = _mm_shuffle_ps(c1, c1, 0xAF);
+                v2 = _mm_mul_ps(fac0, fac1);
+                v2 = _mm_sub_ps(v2, _mm_mul_ps(fac2, fac3));
+
+                let mut inv2 = _mm_mul_ps(c0, _mm_shuffle_ps(v0, v0, 0x8E));
+                inv2 = _mm_sub_ps(inv2, _mm_mul_ps(c1, _mm_shuffle_ps(v1, v1, 0x39)));
+                inv2 = _mm_add_ps(inv2, _mm_mul_ps(c3, _mm_shuffle_ps(v2, v2, 0x8E)));
+                inv2 = _mm_xor_ps(inv2, sign_b);
+
+                let mut inv3 = _mm_mul_ps(c0, _mm_shuffle_ps(v0, v0, 0x39));
+                inv3 = _mm_sub_ps(inv3, _mm_mul_ps(c1, _mm_shuffle_ps(v1, v1, 0x8E)));
+                inv3 = _mm_add_ps(inv3, _mm_mul_ps(c2, _mm_shuffle_ps(v2, v2, 0x8E)));
+                inv3 = _mm_xor_ps(inv3, sign_a);
+
+                let dot0 = _mm_mul_ps(c0, inv0);
+                let dot1 = _mm_shuffle_ps(dot0, dot0, 0x39);
+                let dot2 = _mm_shuffle_ps(dot0, dot0, 0x4E);
+                let dot3 = _mm_shuffle_ps(dot0, dot0, 0x93);
+                let det = _mm_add_ps(_mm_add_ps(dot0, dot1), _mm_add_ps(dot2, dot3));
+
+                let mut det_arr = [0.0f32; 4];
+                _mm_storeu_ps(det_arr.as_mut_ptr(), det);
+                if det_arr[0].abs() < 1e-6 {
+                    return Self { m: [[0.0; 4]; 4] };
+                }
+
+                let rcp_det = _mm_div_ps(_mm_set1_ps(1.0), det);
+
+                let mut out = Self::default();
+                _mm_store_ps(out.m[0].as_mut_ptr(), _mm_mul_ps(inv0, rcp_det));
+                _mm_store_ps(out.m[1].as_mut_ptr(), _mm_mul_ps(inv1, rcp_det));
+                _mm_store_ps(out.m[2].as_mut_ptr(), _mm_mul_ps(inv2, rcp_det));
+                _mm_store_ps(out.m[3].as_mut_ptr(), _mm_mul_ps(inv3, rcp_det));
+                return out;
+            }
+        }
+
+        let m = &self.m;
+
+        let a2323 = m[2][2] * m[3][3] - m[2][3] * m[3][2];
+        let a1323 = m[2][1] * m[3][3] - m[2][3] * m[3][1];
+        let a1223 = m[2][1] * m[3][2] - m[2][2] * m[3][1];
+        let a0323 = m[2][0] * m[3][3] - m[2][3] * m[3][0];
+        let a0223 = m[2][0] * m[3][2] - m[2][2] * m[3][0];
+        let a0123 = m[2][0] * m[3][1] - m[2][1] * m[3][0];
+
+        let mut inv = Self::default();
+
+        inv.m[0][0] = m[1][1] * a2323 - m[1][2] * a1323 + m[1][3] * a1223;
+        inv.m[0][1] = -(m[0][1] * a2323 - m[0][2] * a1323 + m[0][3] * a1223);
+        inv.m[0][2] = m[0][1] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            + m[0][3] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]);
+        inv.m[0][3] = -(m[0][1] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            + m[0][3] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]));
+
+        inv.m[1][0] = -(m[1][0] * a2323 - m[1][2] * a0323 + m[1][3] * a0223);
+        inv.m[1][1] = m[0][0] * a2323 - m[0][2] * a0323 + m[0][3] * a0223;
+        inv.m[1][2] = -(m[0][0] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]));
+        inv.m[1][3] = m[0][0] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]);
+
+        inv.m[2][0] = m[1][0] * a1323 - m[1][1] * a0323 + m[1][3] * a0123;
+        inv.m[2][1] = -(m[0][0] * a1323 - m[0][1] * a0323 + m[0][3] * a0123);
+        inv.m[2][2] = m[0][0] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]);
+        inv.m[2][3] = -(m[0][0] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
+
+        inv.m[3][0] = -(m[1][0] * a1223 - m[1][1] * a0223 + m[1][2] * a0123);
+        inv.m[3][1] = m[0][0] * a1223 - m[0][1] * a0223 + m[0][2] * a0123;
+        inv.m[3][2] = -(m[0][0] * (m[1][1] * m[3][2] - m[1][2] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][2] - m[1][2] * m[3][0])
+            + m[0][2] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]));
+        inv.m[3][3] = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+
+        let det = m[0][0] * inv.m[0][0]
+            + m[0][1] * inv.m[1][0]
+            + m[0][2] * inv.m[2][0]
+            + m[0][3] * inv.m[3][0];
+
+        if det.abs() < 1e-6 {
+            return Self { m: [[0.0; 4]; 4] };
+        }
+
+        let inv_det = 1.0 / det;
+        for i in 0..4 {
+            for j in 0..4 {
+                inv.m[i][j] *= inv_det;
+            }
+        }
+        inv
+    }
+
     /// Retrieve a column by index (0-3).
     ///
     /// # Panics

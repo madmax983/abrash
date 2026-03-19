@@ -75,6 +75,7 @@ impl CpuRenderer {
     /// Returns an error if any handle in the frame is stale. On success the
     /// returned `DrawList` is self-contained and can be executed or inspected
     /// independently of this renderer's internal pools.
+    #[allow(clippy::missing_errors_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
         let mut draw_list = DrawList::new(frame.camera);
@@ -94,11 +95,21 @@ impl CpuRenderer {
             let mvp = cmd.transform * view_proj;
             let mesh = &cpu_mesh.mesh;
 
-            let vertices: Vec<_> = mesh
-                .vertices
-                .iter()
-                .map(|v| mvp.transform_point(*v))
-                .collect();
+            let mut vertices = Vec::with_capacity(mesh.vertices.len());
+            let uninit_slice = vertices.spare_capacity_mut();
+            // We know the slice length exactly matches `mesh.vertices.len()`
+            let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+
+            #[cfg(feature = "parallel")]
+            mvp.transform_points_uninit_parallel(&mesh.vertices, uninit_slice);
+
+            #[cfg(not(feature = "parallel"))]
+            mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+
+            // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
+            unsafe {
+                vertices.set_len(mesh.vertices.len());
+            }
 
             draw_list.push(DrawBatch::new(
                 vertices,

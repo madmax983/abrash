@@ -1,9 +1,9 @@
 //! Demonstration of the Nova Vignette filter.
 
-use abrash::experimental::vignette::{VignetteConfig, apply_vignette};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::Event;
 use abrash::platform::win32::Win32Window;
+use abrash::post_process::{VignetteConfig, apply_vignette};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -91,15 +91,12 @@ fn main() {
         // Pulsate the intensity over time to make the demo dynamic
         let intensity = 0.7 + (angle * 0.5).sin() * 0.3; // Ranges from 0.4 to 1.0
 
-        // Oscillate outer radius
-        let outer_radius = 1.0 + (angle * 0.3).cos() * 0.2; // 0.8 to 1.2
+        // Oscillate roundness
+        let roundness = 0.5 + (angle * 0.3).cos() * 0.2; // 0.3 to 0.7
 
         let config = VignetteConfig {
-            center_x: 0.5,
-            center_y: 0.5,
-            inner_radius: 0.1,
-            outer_radius,
             intensity,
+            roundness,
         };
 
         // Apply the vignette filter

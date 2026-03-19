@@ -1,10 +1,8 @@
-use abrash::experimental::chromatic_aberration::{
-    ChromaticAberrationConfig, apply_chromatic_aberration,
-};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash::post_process::apply_chromatic_aberration;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -82,14 +80,9 @@ impl WindowApp for ChromaticAberrationDemo {
             }
         }
 
-        let shift = (self.shift_amount.sin() * 10.0) as i32;
-        let config = ChromaticAberrationConfig {
-            red_shift: (shift, 0),
-            green_shift: (0, 0),
-            blue_shift: (-shift, 0),
-        };
+        let shift = (self.shift_amount.sin() * 10.0).abs() as u32;
 
-        apply_chromatic_aberration(&mut self.framebuffer, &config);
+        apply_chromatic_aberration(&mut self.framebuffer, shift);
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter

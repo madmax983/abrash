@@ -123,8 +123,8 @@ mod tests {
                 shininess,
                 specular_strength,
             } => {
-                assert_eq!(shininess, 32.0);
-                assert_eq!(specular_strength, 0.5);
+                assert!((shininess - 32.0).abs() < f32::EPSILON);
+                assert!((specular_strength - 0.5).abs() < f32::EPSILON);
             }
             _ => panic!("Expected Phong shading"),
         }
