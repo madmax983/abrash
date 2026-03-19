@@ -52,7 +52,7 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
         return;
     }
 
-    let mut source_pixels = SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.take());
+    let mut source_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
 
     let fb_slice = fb.as_slice();
     if source_pixels.len() != fb_slice.len() {

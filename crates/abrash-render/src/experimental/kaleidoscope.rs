@@ -69,6 +69,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                         let dx = x as f32 - cx;
 
                         // Convert to polar coordinates
+                        #[allow(clippy::imprecise_flops)]
                         let r = (dx * dx + dy * dy).sqrt();
                         let mut theta = dy.atan2(dx);
 
@@ -112,6 +113,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let dx = x as f32 - cx;
 
                     // Convert to polar coordinates
+                    #[allow(clippy::imprecise_flops)]
                     let r = (dx * dx + dy * dy).sqrt();
                     let mut theta = dy.atan2(dx);
 

@@ -99,7 +99,8 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
                 );
 
                 // Store with mask
-                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -244,7 +245,8 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
                 );
 
                 // Store with mask
-                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, pixel_val, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);

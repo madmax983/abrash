@@ -83,12 +83,14 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
+    #[allow(clippy::imprecise_flops)]
     let max_radius = (center_x * center_x + center_y * center_y).sqrt();
 
     for y in 0..height {
         let dy = y as f32 - center_y;
         for x in 0..width {
             let dx = x as f32 - center_x;
+            #[allow(clippy::imprecise_flops)]
             let dist = (dx * dx + dy * dy).sqrt();
 
             // Vignette: Darken edges

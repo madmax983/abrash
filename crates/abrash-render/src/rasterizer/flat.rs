@@ -54,7 +54,8 @@ unsafe fn draw_scanline_flat_simd(
                 _mm256_storeu_ps(depth_ptr, new_z);
 
                 // Update Framebuffer
-                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, color_vec, mask_int);
                 _mm256_storeu_si256(fb_ptr, new_color);
@@ -169,7 +170,8 @@ unsafe fn draw_scanline_flat_blended_simd(
 
             if _mm256_movemask_ps(mask) != 0 {
                 // Load Framebuffer
-                let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
+                #[allow(clippy::cast_ptr_alignment)]
+                let fb_ptr = fb_slice.as_mut_ptr().add(i) as *mut __m256i;
                 let dest_pixels = _mm256_loadu_si256(fb_ptr);
 
                 // Separate Dest channels
