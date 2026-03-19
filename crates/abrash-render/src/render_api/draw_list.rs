@@ -53,7 +53,11 @@ pub struct DrawBatch {
 impl DrawBatch {
     /// Create a new draw batch.
     #[must_use]
-    pub const fn new(vertices: Vec<(Vec3, f32)>, indices: std::sync::Arc<[[usize; 3]]>, color: u32) -> Self {
+    pub const fn new(
+        vertices: Vec<(Vec3, f32)>,
+        indices: std::sync::Arc<[[usize; 3]]>,
+        color: u32,
+    ) -> Self {
         Self {
             vertices,
             indices,
