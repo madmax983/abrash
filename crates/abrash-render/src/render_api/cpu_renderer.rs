@@ -14,6 +14,7 @@ use crate::texture::Texture;
 
 struct CpuMesh {
     mesh: Mesh,
+    shared_indices: std::sync::Arc<[[usize; 3]]>,
 }
 
 /// Software rasterizer implementing the [`Renderer`] trait.
@@ -113,7 +114,7 @@ impl CpuRenderer {
 
             draw_list.push(DrawBatch::new(
                 vertices,
-                mesh.indices.clone(),
+                std::sync::Arc::clone(&cpu_mesh.shared_indices),
                 material.color,
             ));
         }
@@ -153,8 +154,9 @@ impl Renderer for CpuRenderer {
                 }
             }
         }
+        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
         Ok(to_mesh_handle(
-            self.meshes.insert(CpuMesh { mesh: mesh.clone() }),
+            self.meshes.insert(CpuMesh { mesh: mesh.clone(), shared_indices }),
         ))
     }
 

@@ -93,6 +93,8 @@ pub struct SceneObject {
     pub local_aabb: AABB,
     /// The color of the object (if not using textures/materials).
     pub color: u32,
+    /// Shared copy of the indices for efficient batch creation.
+    pub shared_indices: std::sync::Arc<[[usize; 3]]>,
 }
 
 impl SceneObject {
@@ -101,11 +103,13 @@ impl SceneObject {
     #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
+        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
         Self {
             mesh,
             transform,
             local_aabb,
             color,
+            shared_indices,
         }
     }
 
@@ -256,7 +260,7 @@ impl Scene {
 
                 draw_list.push(DrawBatch::new(
                     transformed_verts.clone(),
-                    mesh.indices.clone(),
+                    std::sync::Arc::clone(&obj.shared_indices),
                     obj.color,
                 ));
             }
