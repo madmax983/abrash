@@ -16,9 +16,9 @@ fn bench_draw_scanline_trilinear_100px(c: &mut Criterion) {
     for y in 0..256 {
         for x in 0..256 {
             let color = if ((x / 16) + (y / 16)) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             tex.set_pixel(x, y, color);
         }

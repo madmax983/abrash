@@ -1,10 +1,15 @@
 //! Headless GPU capture target and diagnostic output.
 
+use std::fmt::Write as _;
 use std::time::Duration;
 
 /// Compute `bytes_per_row` aligned to wgpu's 256-byte requirement.
+///
+/// # Panics
+///
+/// Panics if `width * 4` overflows `u32`.
 #[must_use]
-pub fn aligned_bytes_per_row(width: u32) -> u32 {
+pub const fn aligned_bytes_per_row(width: u32) -> u32 {
     let unpadded_bytes_per_row = width
         .checked_mul(4)
         .expect("capture width overflowed RGBA byte count");
@@ -23,8 +28,12 @@ pub struct CaptureConfig {
 
 impl CaptureConfig {
     /// Create a new capture configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `width * 4` overflows `u32`.
     #[must_use]
-    pub fn new(width: u32, height: u32) -> Self {
+    pub const fn new(width: u32, height: u32) -> Self {
         Self {
             width,
             height,
@@ -106,13 +115,13 @@ impl GpuCaptureTarget {
 
     /// Width of the capture target.
     #[must_use]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.config.width
     }
 
     /// Height of the capture target.
     #[must_use]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.config.height
     }
 }
@@ -159,7 +168,7 @@ pub struct GpuDebugCapture {
 impl GpuDebugCapture {
     /// Total pixel count.
     #[must_use]
-    pub fn total_pixels(&self) -> usize {
+    pub const fn total_pixels(&self) -> usize {
         self.stats.width as usize * self.stats.height as usize
     }
 
@@ -178,8 +187,10 @@ impl GpuDebugCapture {
     #[must_use]
     pub fn to_compact_text(&self) -> String {
         let render_time_ms = self.stats.render_time.as_secs_f64() * 1_000.0;
-        let mut output = format!(
-            "FRAME {}x{} {} batches {} tris {:.1}ms\n",
+        let mut output = String::new();
+        let _ = writeln!(
+            output,
+            "FRAME {}x{} {} batches {} tris {:.1}ms",
             self.stats.width,
             self.stats.height,
             self.stats.batch_count,
@@ -188,18 +199,20 @@ impl GpuDebugCapture {
         );
 
         for batch in &self.stats.batches {
-            output.push_str(&format!(
-                "  B{} {}t color=0x{:08X}\n",
+            let _ = writeln!(
+                output,
+                "  B{} {}t color=0x{:08X}",
                 batch.index, batch.triangle_count, batch.color,
-            ));
+            );
         }
 
-        output.push_str(&format!(
-            "COVERAGE {:.1}% ({}/{})\n",
+        let _ = writeln!(
+            output,
+            "COVERAGE {:.1}% ({}/{})",
             self.coverage_percent(),
             self.visible_pixel_count,
             self.total_pixels(),
-        ));
+        );
 
         output
     }
@@ -240,12 +253,12 @@ mod tests {
                     BatchStats {
                         index: 0,
                         triangle_count: 12,
-                        color: 0xFFFF4444,
+                        color: 0xFFFF_4444,
                     },
                     BatchStats {
                         index: 1,
                         triangle_count: 12,
-                        color: 0xFF4444FF,
+                        color: 0xFF44_44FF,
                     },
                 ],
             },

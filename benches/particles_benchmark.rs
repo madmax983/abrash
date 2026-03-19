@@ -36,7 +36,7 @@ fn bench_particles_render(c: &mut Criterion) {
         let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
 
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             sys.render(
                 black_box(&mut fb),

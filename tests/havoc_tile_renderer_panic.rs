@@ -4,6 +4,7 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
+    #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     fn test_tile_renderer_panic(
         w in 16u32..200u32,
@@ -23,6 +24,6 @@ proptest! {
 
         // This will panic internally in submit_mesh due to:
         // let v0 = vertices[i0];
-        renderer.submit_mesh(&indices, &verts, 0xFFFFFFFF);
+        renderer.submit_mesh(&indices, &verts, 0xFFFF_FFFF);
     }
 }

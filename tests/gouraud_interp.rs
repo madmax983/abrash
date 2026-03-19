@@ -15,7 +15,7 @@ fn test_draw_scanline_textured_gouraud_correctness() {
     // Texture: 2x2. (0,0)=White, others Black.
     // We will sample (0,0) mostly.
     let mut tex = Texture::new(2, 2).unwrap();
-    tex.set_pixel(0, 0, 0xFFFFFFFF); // White
+    tex.set_pixel(0, 0, 0xFFFF_FFFF); // White
 
     // Gradients
     // z=1. constant.

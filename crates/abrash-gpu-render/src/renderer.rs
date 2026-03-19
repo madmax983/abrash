@@ -31,21 +31,21 @@ struct PreparedDraw {
 /// Convert `0xAARRGGBB` into a wgpu clear color.
 #[must_use]
 pub fn argb_to_wgpu_color(argb: u32) -> wgpu::Color {
-    let a = ((argb >> 24) & 0xFF) as f64 / 255.0;
-    let r = ((argb >> 16) & 0xFF) as f64 / 255.0;
-    let g = ((argb >> 8) & 0xFF) as f64 / 255.0;
-    let b = (argb & 0xFF) as f64 / 255.0;
+    let a = f64::from((argb >> 24) & 0xFF) / 255.0;
+    let r = f64::from((argb >> 16) & 0xFF) / 255.0;
+    let g = f64::from((argb >> 8) & 0xFF) / 255.0;
+    let b = f64::from(argb & 0xFF) / 255.0;
 
     wgpu::Color { r, g, b, a }
 }
 
 #[must_use]
-fn align_to(value: u64, alignment: u64) -> u64 {
+const fn align_to(value: u64, alignment: u64) -> u64 {
     value.div_ceil(alignment) * alignment
 }
 
 #[must_use]
-fn argb_to_rgba_bytes(argb: u32) -> [u8; 4] {
+const fn argb_to_rgba_bytes(argb: u32) -> [u8; 4] {
     [
         ((argb >> 16) & 0xFF) as u8,
         ((argb >> 8) & 0xFF) as u8,
@@ -114,7 +114,7 @@ impl GpuRenderer {
 
     /// Access the underlying device.
     #[must_use]
-    pub fn device(&self) -> &wgpu::Device {
+    pub const fn device(&self) -> &wgpu::Device {
         self.gpu.device()
     }
 
@@ -134,9 +134,14 @@ impl GpuRenderer {
     /// Register a material and return a typed handle.
     #[must_use]
     pub fn create_material(&mut self, material: Material) -> MaterialHandle {
-        let color = match material.shading {
+        let Material {
+            shading,
+            color,
+            receive_light: _,
+        } = material;
+        let color = match shading {
             ShadingMode::Flat { color } => color,
-            _ => material.color,
+            _ => color,
         };
         let index = self.materials.len() as u32;
         self.materials.push(Some(GpuMaterial { color }));
@@ -163,6 +168,7 @@ impl GpuRenderer {
     ///
     /// Returns an error if the frame references stale mesh/material handles or if
     /// readback fails.
+    #[allow(clippy::too_many_lines)]
     pub fn capture(
         &mut self,
         frame: &Frame,
@@ -486,9 +492,9 @@ mod tests {
     fn test_argb_black() {
         let color = argb_to_wgpu_color(0xFF00_0000);
 
-        assert_eq!(color.r, 0.0);
-        assert_eq!(color.g, 0.0);
-        assert_eq!(color.b, 0.0);
+        assert!(color.r.abs() < f64::EPSILON);
+        assert!(color.g.abs() < f64::EPSILON);
+        assert!(color.b.abs() < f64::EPSILON);
         assert!((color.a - 1.0).abs() < 0.01);
     }
 }

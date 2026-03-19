@@ -8,14 +8,14 @@ fn test_fill_triangle_wireframe_draws_edges() {
     let width = 100;
     let height = 100;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0x00000000); // Clear to transparent black
+    fb.clear(0x0000_0000); // Clear to transparent black
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Triangle in center of screen
     let v0 = (Vec3::new(0.0, 0.5, 5.0), 5.0);
     let v1 = (Vec3::new(-0.5, -0.5, 5.0), 5.0);
     let v2 = (Vec3::new(0.5, -0.5, 5.0), 5.0);
-    let color = 0xFFFF0000; // Red
+    let color = 0xFFFF_0000; // Red
 
     fill_triangle_wireframe(&mut fb, &mut zb, v0, v1, v2, color);
 
@@ -24,7 +24,7 @@ fn test_fill_triangle_wireframe_draws_edges() {
     let center_pixel = fb.get_pixel(50, 50);
     assert_eq!(
         center_pixel,
-        Some(0x00000000),
+        Some(0x0000_0000),
         "Center pixel should be empty in wireframe"
     );
 

@@ -8,7 +8,7 @@ fn test_chromatic_aberration_shift() {
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Draw a white pixel at (50, 50)
-    fb.set_pixel(50, 50, 0xFFFFFFFF);
+    fb.set_pixel(50, 50, 0xFFFF_FFFF);
 
     // Apply effect with offset 5
     apply_chromatic_aberration(&mut fb, 5);
@@ -17,7 +17,7 @@ fn test_chromatic_aberration_shift() {
     // Red: comes from (45, 50) -> Black (0)
     // Green: comes from (50, 50) -> White (255)
     // Blue: comes from (55, 50) -> Black (0)
-    // So (50, 50) should be Green (0xFF00FF00)
+    // So (50, 50) should be Green (0xFF00_FF00)
     // Wait, let's trace carefully:
     // NewPixel(x,y).Red = OldPixel(x - offset, y).Red
     // NewPixel(x,y).Green = OldPixel(x, y).Green
@@ -29,8 +29,8 @@ fn test_chromatic_aberration_shift() {
     // B = Old(55, 50).B = 0
     // Result: 0, 255, 0 (Green)
     assert_eq!(
-        fb.get_pixel(50, 50).unwrap() & 0x00FFFFFF,
-        0x0000FF00,
+        fb.get_pixel(50, 50).unwrap() & 0x00FF_FFFF,
+        0x0000_FF00,
         "Center pixel should be Green"
     );
 
@@ -40,8 +40,8 @@ fn test_chromatic_aberration_shift() {
     // B = Old(60, 50).B = 0
     // Result: 255, 0, 0 (Red)
     assert_eq!(
-        fb.get_pixel(55, 50).unwrap() & 0x00FFFFFF,
-        0x00FF0000,
+        fb.get_pixel(55, 50).unwrap() & 0x00FF_FFFF,
+        0x00FF_0000,
         "Right-shifted pixel should receive Red"
     );
 
@@ -51,8 +51,8 @@ fn test_chromatic_aberration_shift() {
     // B = Old(50, 50).B = 255
     // Result: 0, 0, 255 (Blue)
     assert_eq!(
-        fb.get_pixel(45, 50).unwrap() & 0x00FFFFFF,
-        0x000000FF,
+        fb.get_pixel(45, 50).unwrap() & 0x00FF_FFFF,
+        0x0000_00FF,
         "Left-shifted pixel should receive Blue"
     );
 }
@@ -64,7 +64,7 @@ fn test_chromatic_aberration_boundary() {
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Draw white pixel at (0, 5)
-    fb.set_pixel(0, 5, 0xFFFFFFFF);
+    fb.set_pixel(0, 5, 0xFFFF_FFFF);
 
     apply_chromatic_aberration(&mut fb, 2);
 
@@ -73,12 +73,12 @@ fn test_chromatic_aberration_boundary() {
     // G = Old(0, 5) -> 255
     // B = Old(2, 5) -> 0
     // Result: Green
-    assert_eq!(fb.get_pixel(0, 5).unwrap() & 0x00FFFFFF, 0x0000FF00);
+    assert_eq!(fb.get_pixel(0, 5).unwrap() & 0x00FF_FFFF, 0x0000_FF00);
 
     // At (2, 5):
     // R = Old(0, 5) -> 255
     // G = Old(2, 5) -> 0
     // B = Old(4, 5) -> 0
     // Result: Red
-    assert_eq!(fb.get_pixel(2, 5).unwrap() & 0x00FFFFFF, 0x00FF0000);
+    assert_eq!(fb.get_pixel(2, 5).unwrap() & 0x00FF_FFFF, 0x00FF_0000);
 }

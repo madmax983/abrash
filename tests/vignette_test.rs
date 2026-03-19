@@ -6,7 +6,7 @@ fn test_apply_vignette_darkens_corners() {
     let width = 100;
     let height = 100;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF); // White
+    fb.clear(0xFFFF_FFFF); // White
 
     // Apply vignette with 0.5 intensity and 0.5 roundness (smoothness)
     apply_vignette(

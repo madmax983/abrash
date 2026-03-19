@@ -100,7 +100,7 @@ pub fn create_explosion(
                         velocity,
                         config.life,
                         config.size,
-                        0xFFFFFFFF, // White by default
+                        0xFFFF_FFFF, // White by default
                     ));
                 }
             }
@@ -121,7 +121,7 @@ mod tests {
 
         // Create a minimal texture
         let mut texture = Texture::new(1, 1).unwrap();
-        texture.pixels[0] = 0xFFFFFFFF;
+        texture.pixels[0] = 0xFFFF_FFFF;
 
         let config = ExplosionConfig {
             speed: 10.0,

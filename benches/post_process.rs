@@ -10,7 +10,7 @@ fn benchmark_grayscale(c: &mut Criterion) {
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
     // Fill with a pattern
-    fb.clear(0xFFFF0000);
+    fb.clear(0xFFFF_0000);
 
     c.bench_function("apply_grayscale 1080p", |b| {
         b.iter(|| {
@@ -23,7 +23,7 @@ fn benchmark_scanlines(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
 
     c.bench_function("apply_scanlines 1080p", |b| {
         b.iter(|| {
@@ -36,7 +36,7 @@ fn benchmark_invert(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFF000000);
+    fb.clear(0xFF00_0000);
 
     c.bench_function("apply_invert 1080p", |b| {
         b.iter(|| {
@@ -49,7 +49,7 @@ fn benchmark_sepia(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF); // White
+    fb.clear(0xFFFF_FFFF); // White
 
     c.bench_function("apply_sepia 1080p", |b| {
         b.iter(|| {
@@ -62,7 +62,7 @@ fn benchmark_chromatic_aberration(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF); // White
+    fb.clear(0xFFFF_FFFF); // White
 
     c.bench_function("apply_chromatic_aberration 1080p", |b| {
         b.iter(|| {
@@ -75,7 +75,7 @@ fn benchmark_bloom(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF); // White
+    fb.clear(0xFFFF_FFFF); // White
 
     let config = post_process::BloomConfig {
         threshold: 200,
@@ -97,7 +97,7 @@ fn benchmark_ssao(c: &mut Criterion) {
     let proj = Mat4::perspective(PI / 2.0, 1.0, 0.1, 100.0);
 
     // Populate buffers
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
     // Fill Z buffer with some data (gradient)
     for y in 0..height {
         for x in 0..width {
@@ -172,9 +172,9 @@ fn benchmark_sobel(c: &mut Criterion) {
     for y in 0..height {
         for x in 0..width {
             let color = if (x / 50 + y / 50) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             fb.set_pixel(x as i32, y as i32, color);
         }
@@ -194,7 +194,7 @@ fn benchmark_dof(c: &mut Criterion) {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Populate buffers
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
     // Fill Z buffer with some data (gradient)
     for y in 0..height {
         for x in 0..width {
@@ -223,7 +223,7 @@ fn benchmark_vignette(c: &mut Criterion) {
     let width = 1920;
     let height = 1080;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
 
     c.bench_function("apply_vignette 1080p", |b| {
         b.iter(|| {
@@ -274,9 +274,9 @@ fn benchmark_pixel_sort(c: &mut Criterion) {
     for y in 0..height {
         for x in 0..width {
             let color = if (x / 50 + y / 50) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             fb.set_pixel(x as i32, y as i32, color);
         }
@@ -320,9 +320,9 @@ fn benchmark_halftone(c: &mut Criterion) {
     for y in 0..height {
         for x in 0..width {
             let color = if (x / 50 + y / 50) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             fb.set_pixel(x as i32, y as i32, color);
         }

@@ -47,34 +47,37 @@ fn havoc_render_batch_crash_test() {
             (Vec3::new(f32::NAN, f32::NAN, f32::NAN), f32::NAN),
             (Vec3::new(f32::NAN, f32::NAN, f32::NAN), f32::NAN),
             (Vec3::new(f32::NAN, f32::NAN, f32::NAN), f32::NAN),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         ),
         // Infinities
         (
             (Vec3::new(f32::INFINITY, 0.0, 1.0), 1.0),
             (Vec3::new(0.0, f32::INFINITY, 1.0), 1.0),
             (Vec3::new(0.0, 0.0, 1.0), 1.0),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         ),
         // W = 0 (Divide by zero potential)
         (
             (Vec3::new(0.0, 0.0, 1.0), 0.0),
             (Vec3::new(1.0, 0.0, 1.0), 0.0),
             (Vec3::new(0.0, 1.0, 1.0), 0.0),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         ),
         // Huge coordinates
         (
             (Vec3::new(1e30, 0.0, 1.0), 1.0),
             (Vec3::new(0.0, 1e30, 1.0), 1.0),
             (Vec3::new(0.0, 0.0, 1.0), 1.0),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         ),
         // Fuzzing discovery: overflow
         (
-            (Vec3::new(-19461560000000.0, 0.0, 0.0), 311677460000000.0),
+            (
+                Vec3::new(-19_461_560_000_000.0, 0.0, 0.0),
+                311_677_460_000_000.0,
+            ),
             (Vec3::new(f32::NAN, f32::NAN, f32::NAN), -0.0),
-            (Vec3::new(0.0, 0.0, 0.0), -9.276624e37),
+            (Vec3::new(0.0, 0.0, 0.0), -9.276_624e37),
             0,
         ),
     ];

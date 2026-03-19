@@ -10,7 +10,7 @@ fn bench_clear_rect_1080p(c: &mut Criterion) {
                 black_box(100),
                 black_box(1000),
                 black_box(500),
-                black_box(0xFFFFFFFF),
+                black_box(0xFFFF_FFFF),
             );
         });
     });
@@ -25,7 +25,7 @@ fn bench_clear_rect_4k(c: &mut Criterion) {
                 black_box(500),
                 black_box(2000),
                 black_box(1000),
-                black_box(0xFFFFFFFF),
+                black_box(0xFFFF_FFFF),
             );
         });
     });

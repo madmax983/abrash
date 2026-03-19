@@ -12,14 +12,13 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     // Right side: Blue (with noise)
     for y in 0..10 {
         for x in 0..10 {
+            let noise = if y % 2 == 0 { 0x10 } else { 0x00 };
             if x < 5 {
                 // Red side with some noise
-                let noise = if y % 2 == 0 { 0x10 } else { 0x00 };
-                fb.set_pixel(x, y, 0xFF000000 | ((0x80 + noise) << 16));
+                fb.set_pixel(x, y, 0xFF00_0000 | ((0x80 + noise) << 16));
             } else {
                 // Blue side with some noise
-                let noise = if y % 2 == 0 { 0x10 } else { 0x00 };
-                fb.set_pixel(x, y, 0xFF000000 | (0x80 + noise));
+                fb.set_pixel(x, y, 0xFF00_0000 | (0x80 + noise));
             }
         }
     }
@@ -35,7 +34,7 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     let r_left = (left_pixel >> 16) & 0xFF;
     let b_left = left_pixel & 0xFF;
     assert!(
-        r_left >= 0x80 && r_left <= 0x90,
+        (0x80..=0x90).contains(&r_left),
         "Left side red channel smoothed"
     );
     assert_eq!(b_left, 0, "Left side should not have blue");
@@ -45,7 +44,7 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     let r_right = (right_pixel >> 16) & 0xFF;
     let b_right = right_pixel & 0xFF;
     assert!(
-        b_right >= 0x80 && b_right <= 0x90,
+        (0x80..=0x90).contains(&b_right),
         "Right side blue channel smoothed"
     );
     assert_eq!(r_right, 0, "Right side should not have red");
@@ -70,13 +69,13 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
 #[test]
 fn test_kuwahara_preserves_solid_color() {
     let mut fb = Framebuffer::new(10, 10).unwrap();
-    fb.clear(0xFF00FF00); // Solid green
+    fb.clear(0xFF00_FF00); // Solid green
 
     apply_kuwahara(&mut fb, 2);
 
     for y in 0..10 {
         for x in 0..10 {
-            assert_eq!(fb.get_pixel(x, y), Some(0xFF00FF00));
+            assert_eq!(fb.get_pixel(x, y), Some(0xFF00_FF00));
         }
     }
 }

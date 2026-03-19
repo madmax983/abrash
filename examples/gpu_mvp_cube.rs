@@ -1,67 +1,133 @@
-//! GPU MVP cube demo using the new renderer/surface split.
+//! GPU MVP cube demo using the shared native host seam.
 
+use abrash::platform::{WindowApp, WindowContext, WindowHostConfig, run_windowed};
 use abrash_core::math::{Mat4, Vec3};
 use abrash_core::mesh::Mesh;
 use abrash_gpu_render::renderer::GpuRenderer;
+use abrash_gpu_render::surface::GpuSurface;
 use abrash_render::render_api::frame::{Frame, FrameCamera};
+use abrash_render::render_api::handles::{MaterialHandle, MeshHandle};
 use abrash_render::render_api::material::Material;
-use std::sync::Arc;
+use std::error::Error;
+use std::fmt;
 use std::time::Instant;
-use winit::{
-    dpi::PhysicalSize,
-    event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::WindowBuilder,
-};
 
-fn main() -> Result<(), String> {
-    let event_loop = EventLoop::new().map_err(|error| format!("{error}"))?;
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title("Abrash GPU MVP Cube")
-            .with_inner_size(PhysicalSize::new(1280u32, 720u32))
-            .build(&event_loop)
-            .map_err(|error| format!("{error}"))?,
-    );
+#[derive(Debug)]
+struct DemoError(String);
 
-    let (mut renderer, mut surface) = GpuRenderer::new_windowed(window.clone())?;
-    let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
-    let material = renderer.create_material(Material::flat(0xFFFF_4444));
-    let start = Instant::now();
+impl fmt::Display for DemoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
 
-    event_loop
-        .run(move |event, elwt| match event {
-            Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
-                WindowEvent::CloseRequested => elwt.exit(),
-                WindowEvent::Resized(size) => {
-                    surface.resize(renderer.device(), size.width, size.height);
-                }
-                WindowEvent::RedrawRequested => {
-                    let elapsed = start.elapsed().as_secs_f32();
-                    let angle = elapsed * 0.8;
-                    let size = window.inner_size();
-                    let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
-                    let camera = FrameCamera::new(
-                        Mat4::look_at(
-                            Vec3::new(0.0, 2.0, 5.0),
-                            Vec3::ZERO,
-                            Vec3::new(0.0, 1.0, 0.0),
-                        ),
-                        Mat4::perspective(1.0, aspect, 0.1, 100.0),
-                    );
-                    let mut frame = Frame::new(camera);
-                    frame.draw(mesh, material, Mat4::rotation_y(angle));
+impl Error for DemoError {}
 
-                    if let Err(error) = renderer.render_to_surface(&frame, &surface) {
-                        eprintln!("render error: {error}");
-                    }
-                }
-                _ => {}
-            },
-            Event::AboutToWait => {
-                window.request_redraw();
-            }
-            _ => {}
-        })
-        .map_err(|error| format!("{error}"))
+impl From<String> for DemoError {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+struct GpuMvpCubeApp {
+    renderer: Option<GpuRenderer>,
+    surface: Option<GpuSurface>,
+    mesh: Option<MeshHandle>,
+    material: Option<MaterialHandle>,
+    start: Instant,
+}
+
+impl GpuMvpCubeApp {
+    fn new() -> Self {
+        Self {
+            renderer: None,
+            surface: None,
+            mesh: None,
+            material: None,
+            start: Instant::now(),
+        }
+    }
+}
+
+impl WindowApp for GpuMvpCubeApp {
+    type Error = DemoError;
+
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash GPU MVP Cube".to_string(),
+            width: 1280,
+            height: 720,
+            vsync: true,
+        }
+    }
+
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
+        let mesh = renderer.create_mesh(&Mesh::cube(1.0))?;
+        let material = renderer.create_material(Material::flat(0xFFFF_4444));
+
+        self.renderer = Some(renderer);
+        self.surface = Some(surface);
+        self.mesh = Some(mesh);
+        self.material = Some(material);
+
+        Ok(())
+    }
+
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        if let (Some(renderer), Some(surface)) = (self.renderer.as_ref(), self.surface.as_mut()) {
+            surface.resize(renderer.device(), width, height);
+        }
+        Ok(())
+    }
+
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let renderer = self
+            .renderer
+            .as_mut()
+            .ok_or_else(|| DemoError("renderer not initialized".to_string()))?;
+        let surface = self
+            .surface
+            .as_mut()
+            .ok_or_else(|| DemoError("surface not initialized".to_string()))?;
+        let mesh = self
+            .mesh
+            .ok_or_else(|| DemoError("mesh not initialized".to_string()))?;
+        let material = self
+            .material
+            .ok_or_else(|| DemoError("material not initialized".to_string()))?;
+
+        let elapsed = self.start.elapsed().as_secs_f32();
+        let angle = elapsed * 0.8;
+        let size = ctx.window.inner_size();
+        let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
+        let camera = FrameCamera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 2.0, 5.0),
+                Vec3::ZERO,
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.0, aspect, 0.1, 100.0),
+        );
+
+        let mut frame = Frame::new(camera);
+        frame.draw(mesh, material, Mat4::rotation_y(angle));
+
+        renderer
+            .render_to_surface(&frame, surface)
+            .map_err(DemoError::from)
+    }
+}
+
+fn main() -> Result<(), abrash::platform::HostError> {
+    run_windowed(GpuMvpCubeApp::new())
 }

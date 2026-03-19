@@ -7,8 +7,8 @@ proptest! {
         width in 0..1000usize,
         height in 0..1000usize,
         radius in 0..1000u32,
-        src_len in 0..1000000usize,
-        dest_len in 0..1000000usize,
+        src_len in 0..1_000_000_usize,
+        dest_len in 0..1_000_000_usize,
     ) {
         let src = vec![0u32; src_len];
         let mut dest = vec![0u32; dest_len];

@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+
 use abrash::geometry::BoundingSphere;
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
 use std::mem;

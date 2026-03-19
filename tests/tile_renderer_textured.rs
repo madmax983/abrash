@@ -16,10 +16,10 @@ fn test_textured_triangle_rendering() {
     // (0,0) Red, (1,0) Green
     // (0,1) Blue, (1,1) White
     let mut tex = Texture::new(2, 2).unwrap();
-    tex.set_pixel(0, 0, 0xFFFF0000); // Red
-    tex.set_pixel(1, 0, 0xFF00FF00); // Green
-    tex.set_pixel(0, 1, 0xFF0000FF); // Blue
-    tex.set_pixel(1, 1, 0xFFFFFFFF); // White
+    tex.set_pixel(0, 0, 0xFFFF_0000); // Red
+    tex.set_pixel(1, 0, 0xFF00_FF00); // Green
+    tex.set_pixel(0, 1, 0xFF00_00FF); // Blue
+    tex.set_pixel(1, 1, 0xFFFF_FFFF); // White
 
     // A single triangle covering the screen
     // Top-left (Red), Top-right (Green), Bottom-left (Blue)
@@ -89,11 +89,11 @@ fn test_textured_triangle_rendering() {
     // Nearest neighbor at (0,0) -> pixel (0,0) -> Red.
 
     let p_tl = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(p_tl, 0xFFFF0000, "Top-left should be red");
+    assert_eq!(p_tl, 0xFFFF_0000, "Top-left should be red");
 
     let p_bl = fb.get_pixel(0, 99).unwrap();
-    assert_eq!(p_bl, 0xFF0000FF, "Bottom-left should be blue");
+    assert_eq!(p_bl, 0xFF00_00FF, "Bottom-left should be blue");
 
     let p_tr = fb.get_pixel(99, 0).unwrap();
-    assert_eq!(p_tr, 0xFF00FF00, "Top-right should be green");
+    assert_eq!(p_tr, 0xFF00_FF00, "Top-right should be green");
 }

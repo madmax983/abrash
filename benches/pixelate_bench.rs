@@ -10,7 +10,7 @@ fn benchmark_pixelate(c: &mut Criterion) {
     // Fill with a gradient pattern to ensure memory is somewhat dirty
     for y in 0..height {
         for x in 0..width {
-            let color = 0xFF000000 | (x & 0xFF) << 16 | (y & 0xFF) << 8;
+            let color = 0xFF00_0000 | ((x & 0xFF) << 16) | ((y & 0xFF) << 8);
             fb.set_pixel(x as i32, y as i32, color);
         }
     }

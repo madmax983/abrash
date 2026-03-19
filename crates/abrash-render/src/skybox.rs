@@ -59,7 +59,7 @@ impl Cubemap {
 
         // Avoid division by zero
         if ma == 0.0 {
-            return 0xFF000000;
+            return 0xFF00_0000;
         }
 
         // Map to [0, 1]
@@ -233,7 +233,7 @@ mod tests {
         // Create dummy texture with 1 pixel
         let white_tex = || {
             let mut t = Texture::new(1, 1).unwrap();
-            t.pixels[0] = 0xFFFFFFFF;
+            t.pixels[0] = 0xFFFF_FFFF;
             t
         };
         let black_tex = || Texture::new(1, 1).unwrap();
@@ -251,11 +251,11 @@ mod tests {
 
         // Sample +X direction
         let color = cubemap.sample(Vec3::new(1.0, 0.0, 0.0));
-        assert_eq!(color, 0xFFFFFFFF);
+        assert_eq!(color, 0xFFFF_FFFF);
 
         // Sample -X direction
         let color = cubemap.sample(Vec3::new(-1.0, 0.0, 0.0));
-        assert_eq!(color, 0xFF000000);
+        assert_eq!(color, 0xFF00_0000);
     }
 
     #[test]

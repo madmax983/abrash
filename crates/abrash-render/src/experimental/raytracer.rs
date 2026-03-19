@@ -155,7 +155,7 @@ impl Ray {
             point: self.at(t),
             normal,
             uv: Vec2::new(u, v),
-            color: 0xFFFFFFFF,
+            color: 0xFFFF_FFFF,
         })
     }
 
@@ -220,7 +220,7 @@ impl Default for RayTracer {
     fn default() -> Self {
         Self {
             max_bounces: 3,
-            background_color: 0xFF101010, // Dark Grey
+            background_color: 0xFF10_1010, // Dark Grey
         }
     }
 }
@@ -417,7 +417,7 @@ impl RayTracer {
             let mixed = final_color.lerp(reflected_color, reflectivity);
             let mixed = Vec3::new(mixed.x.min(1.0), mixed.y.min(1.0), mixed.z.min(1.0));
 
-            return 0xFF000000
+            return 0xFF00_0000
                 | ((mixed.x * 255.0) as u32) << 16
                 | ((mixed.y * 255.0) as u32) << 8
                 | ((mixed.z * 255.0) as u32);
@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn should_return_background_color_on_miss() {
         let tracer = RayTracer {
-            background_color: 0xFF123456,
+            background_color: 0xFF12_3456,
             ..Default::default()
         };
 
@@ -479,7 +479,7 @@ mod tests {
         // Ray misses everything, so every pixel should be background_color
         for y in 0..10 {
             for x in 0..10 {
-                assert_eq!(fb.get_pixel(x, y).unwrap(), 0xFF123456);
+                assert_eq!(fb.get_pixel(x, y).unwrap(), 0xFF12_3456);
             }
         }
     }
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn should_render_object_color_on_hit() {
         let tracer = RayTracer {
-            background_color: 0xFF000000,
+            background_color: 0xFF00_0000,
             ..Default::default()
         };
 
@@ -511,7 +511,7 @@ mod tests {
         mesh.indices = vec![[0, 1, 2], [0, 2, 3]];
 
         // Base color is pure red
-        let red = 0xFFFF0000;
+        let red = 0xFFFF_0000;
         let transform = Mat4::identity();
         scene.add_object(SceneObject::new(std::sync::Arc::new(mesh), transform, red));
 
@@ -522,7 +522,7 @@ mod tests {
         // but it should not be the background color. Let's check the middle pixel.
         let pixel = fb.get_pixel(5, 5).unwrap();
         assert_ne!(
-            pixel, 0xFF000000,
+            pixel, 0xFF00_0000,
             "Pixel should be shaded, not background color"
         );
 

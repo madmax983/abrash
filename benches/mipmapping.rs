@@ -41,9 +41,9 @@ fn bench_trilinear_filter(c: &mut Criterion) {
     for y in 0..64 {
         for x in 0..64 {
             let color = if (x + y) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             texture.set_pixel(x, y, color);
         }

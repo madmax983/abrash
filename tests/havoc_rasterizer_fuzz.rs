@@ -23,7 +23,7 @@ proptest! {
         let v0 = (Vec3::new(v0_x, v0_y, v0_z), v0_w);
         let v1 = (Vec3::new(v1_x, v1_y, v1_z), v1_w);
         let v2 = (Vec3::new(v2_x, v2_y, v2_z), v2_w);
-        let color = 0xFFFFFFFF;
+        let color = 0xFFFF_FFFF;
 
         // This should not panic, crash, or cause OOB access.
         // Even with NaN, Infinity, Subnormal, or Max values.

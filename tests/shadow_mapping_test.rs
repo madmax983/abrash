@@ -42,7 +42,7 @@ mod tests {
             (v0_clip, w0),
             (v2_clip, w2), // Swap v1 and v2 to reverse winding
             (v1_clip, w1),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
         );
 
         // Check if shadow map has content at center
@@ -61,7 +61,7 @@ mod tests {
 
         let mut main_fb = Framebuffer::new(width, height).unwrap();
         let mut main_zb = ZBuffer::new(width, height).unwrap();
-        main_fb.clear(0xFFFF0000); // Red background
+        main_fb.clear(0xFFFF_0000); // Red background
 
         // Receiver: Plane at Y=0
         // -5 to 5

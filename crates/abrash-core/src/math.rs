@@ -116,9 +116,7 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn length(self) -> f32 {
-        #[allow(clippy::imprecise_flops)]
-        #[allow(clippy::imprecise_flops)]
-        (self.x * self.x + self.y * self.y).sqrt()
+        self.x.hypot(self.y)
     }
 }
 
@@ -301,7 +299,7 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
@@ -328,7 +326,7 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn cross(self, other: Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
@@ -344,7 +342,7 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -375,11 +373,11 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn normalize(self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
-        // 0.0001^2 = 0.00000001
+        // 0.0001^2 = 0.000_000_01
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
@@ -403,7 +401,7 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn fast_normalize(self) -> Self {
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.0001 {
@@ -428,7 +426,7 @@ impl Vec3 {
     /// Passes `self` by value rather than reference to avoid pointer indirection
     /// and improve register allocation for small `Copy` types.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
@@ -457,7 +455,7 @@ impl Vec3 {
     /// for a small struct. It also manually unfolds scalar components to avoid intermediate struct
     /// allocations and improve scalar instruction pipelining.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn reflect(self, normal: Self) -> Self {
         // Equivalent to `self - normal * (2.0 * self.dot(normal))`
         // but manually unfolded to avoid intermediate Vec3 allocations
@@ -1152,31 +1150,19 @@ impl Mat4 {
         assert_eq!(points.len(), output.len());
 
         #[cfg(feature = "parallel")]
-
-
         {
-
-
             use rayon::prelude::*;
 
-
+            // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
+            // implementation fed with enough data to be efficient.
             const CHUNK_SIZE: usize = 4096;
 
-
-
             // Fallback to scalar for small inputs to avoid Rayon overhead
-
-
             if points.len() < 1024 {
-
-
                 self.transform_points_uninit(points, output);
-
-
                 return;
-
-
             }
+
             points
                 .par_chunks(CHUNK_SIZE)
                 .zip(output.par_chunks_mut(CHUNK_SIZE))
@@ -1210,18 +1196,14 @@ impl Mat4 {
 
     /// Calculates the inverse of the matrix.
     ///
-    /// Returns a matrix containing all zeros if the matrix is non-invertible.
-    ///
-    /// # Performance
-    ///
-    /// Includes a fast SIMD path using AVX/SSE if compiled with the `simd` feature
-    /// on `x86_64` architectures.
+    /// Returns a zero matrix if the matrix is not invertible.
     #[must_use]
     pub fn inverse(&self) -> Self {
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
             unsafe {
                 use std::arch::x86_64::*;
+
                 let row0 = _mm_load_ps(self.m[0].as_ptr());
                 let row1 = _mm_load_ps(self.m[1].as_ptr());
                 let row2 = _mm_load_ps(self.m[2].as_ptr());
@@ -1241,8 +1223,6 @@ impl Mat4 {
                 let mut fac1 = _mm_shuffle_ps(c3, c3, 0xEE);
                 let mut fac2 = _mm_shuffle_ps(c2, c2, 0x05);
                 let mut fac3 = _mm_shuffle_ps(c3, c3, 0xAF);
-                let mut fac4 = _mm_shuffle_ps(c2, c2, 0x50);
-                let mut fac5 = _mm_shuffle_ps(c3, c3, 0xEE);
 
                 let mut v0 = _mm_mul_ps(fac0, fac1);
                 v0 = _mm_sub_ps(v0, _mm_mul_ps(fac2, fac3));
@@ -1261,8 +1241,10 @@ impl Mat4 {
                 let mut v2 = _mm_mul_ps(fac0, fac1);
                 v2 = _mm_sub_ps(v2, _mm_mul_ps(fac2, fac3));
 
-                let sign_a = _mm_castsi128_ps(_mm_set_epi32(-2147483648i32, 0, -2147483648i32, 0));
-                let sign_b = _mm_castsi128_ps(_mm_set_epi32(0, -2147483648i32, 0, -2147483648i32));
+                let sign_a =
+                    _mm_castsi128_ps(_mm_set_epi32(-2_147_483_648_i32, 0, -2_147_483_648_i32, 0));
+                let sign_b =
+                    _mm_castsi128_ps(_mm_set_epi32(0, -2_147_483_648_i32, 0, -2_147_483_648_i32));
 
                 let mut inv0 = _mm_mul_ps(c1, _mm_shuffle_ps(v0, v0, 0x39));
                 inv0 = _mm_sub_ps(inv0, _mm_mul_ps(c2, _mm_shuffle_ps(v1, v1, 0x39)));
@@ -1341,25 +1323,44 @@ impl Mat4 {
 
         inv.m[0][0] = m[1][1] * a2323 - m[1][2] * a1323 + m[1][3] * a1223;
         inv.m[0][1] = -(m[0][1] * a2323 - m[0][2] * a1323 + m[0][3] * a1223);
-        inv.m[0][2] = m[0][1] * (m[1][2] * m[3][3] - m[1][3] * m[3][2]) - m[0][2] * (m[1][1] * m[3][3] - m[1][3] * m[3][1]) + m[0][3] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]);
-        inv.m[0][3] = -(m[0][1] * (m[1][2] * m[2][3] - m[1][3] * m[2][2]) - m[0][2] * (m[1][1] * m[2][3] - m[1][3] * m[2][1]) + m[0][3] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]));
+        inv.m[0][2] = m[0][1] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            + m[0][3] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]);
+        inv.m[0][3] = -(m[0][1] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            + m[0][3] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]));
 
         inv.m[1][0] = -(m[1][0] * a2323 - m[1][2] * a0323 + m[1][3] * a0223);
         inv.m[1][1] = m[0][0] * a2323 - m[0][2] * a0323 + m[0][3] * a0223;
-        inv.m[1][2] = -(m[0][0] * (m[1][2] * m[3][3] - m[1][3] * m[3][2]) - m[0][2] * (m[1][0] * m[3][3] - m[1][3] * m[3][0]) + m[0][3] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]));
-        inv.m[1][3] = m[0][0] * (m[1][2] * m[2][3] - m[1][3] * m[2][2]) - m[0][2] * (m[1][0] * m[2][3] - m[1][3] * m[2][0]) + m[0][3] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]);
+        inv.m[1][2] = -(m[0][0] * (m[1][2] * m[3][3] - m[1][3] * m[3][2])
+            - m[0][2] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]));
+        inv.m[1][3] = m[0][0] * (m[1][2] * m[2][3] - m[1][3] * m[2][2])
+            - m[0][2] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]);
 
         inv.m[2][0] = m[1][0] * a1323 - m[1][1] * a0323 + m[1][3] * a0123;
         inv.m[2][1] = -(m[0][0] * a1323 - m[0][1] * a0323 + m[0][3] * a0123);
-        inv.m[2][2] = m[0][0] * (m[1][1] * m[3][3] - m[1][3] * m[3][1]) - m[0][1] * (m[1][0] * m[3][3] - m[1][3] * m[3][0]) + m[0][3] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]);
-        inv.m[2][3] = -(m[0][0] * (m[1][1] * m[2][3] - m[1][3] * m[2][1]) - m[0][1] * (m[1][0] * m[2][3] - m[1][3] * m[2][0]) + m[0][3] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
+        inv.m[2][2] = m[0][0] * (m[1][1] * m[3][3] - m[1][3] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][3] - m[1][3] * m[3][0])
+            + m[0][3] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]);
+        inv.m[2][3] = -(m[0][0] * (m[1][1] * m[2][3] - m[1][3] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][3] - m[1][3] * m[2][0])
+            + m[0][3] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
 
         inv.m[3][0] = -(m[1][0] * a1223 - m[1][1] * a0223 + m[1][2] * a0123);
         inv.m[3][1] = m[0][0] * a1223 - m[0][1] * a0223 + m[0][2] * a0123;
-        inv.m[3][2] = -(m[0][0] * (m[1][1] * m[3][2] - m[1][2] * m[3][1]) - m[0][1] * (m[1][0] * m[3][2] - m[1][2] * m[3][0]) + m[0][2] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]));
-        inv.m[3][3] = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+        inv.m[3][2] = -(m[0][0] * (m[1][1] * m[3][2] - m[1][2] * m[3][1])
+            - m[0][1] * (m[1][0] * m[3][2] - m[1][2] * m[3][0])
+            + m[0][2] * (m[1][0] * m[3][1] - m[1][1] * m[3][0]));
+        inv.m[3][3] = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 
-        let det = m[0][0] * inv.m[0][0] + m[0][1] * inv.m[1][0] + m[0][2] * inv.m[2][0] + m[0][3] * inv.m[3][0];
+        let det = m[0][0] * inv.m[0][0]
+            + m[0][1] * inv.m[1][0]
+            + m[0][2] * inv.m[2][0]
+            + m[0][3] * inv.m[3][0];
 
         if det.abs() < 1e-6 {
             return Self { m: [[0.0; 4]; 4] };
@@ -1625,8 +1626,11 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        {
+            _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+            _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        }
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1726,8 +1730,11 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        #[allow(clippy::cast_ptr_alignment)] #[allow(clippy::cast_ptr_alignment)] _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        {
+            _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+            _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        }
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

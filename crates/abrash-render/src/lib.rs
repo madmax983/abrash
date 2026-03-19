@@ -36,8 +36,5 @@ pub mod render_api;
 pub mod scene;
 pub mod skybox;
 
-#[cfg(feature = "gpu-binning")]
-pub mod gpu;
-
 #[cfg(feature = "nova")]
 pub mod experimental;

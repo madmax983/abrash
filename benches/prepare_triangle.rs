@@ -23,7 +23,7 @@ fn generate_small_triangles(count: usize) -> Vec<ClipTriangle> {
         let v1 = (Vec3::new(x + size, y, z), w);
         let v2 = (Vec3::new(x, y + size, z), w);
 
-        let color = 0xFFFFFFFF;
+        let color = 0xFFFF_FFFF;
         tris.push((v0, v1, v2, color));
     }
     tris

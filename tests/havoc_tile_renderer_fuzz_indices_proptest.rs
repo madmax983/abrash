@@ -25,7 +25,7 @@ proptest! {
                 // This might panic due to out of bounds access on verts slice,
                 // but let's see if submit_mesh bounds checks it
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    renderer.submit_mesh(&indices, &verts, 0xFFFFFFFF);
+                    renderer.submit_mesh(&indices, &verts, 0xFFFF_FFFF);
                     renderer.end_frame(&mut fb, &mut zb);
                 }));
             }

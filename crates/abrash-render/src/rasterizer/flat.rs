@@ -54,6 +54,7 @@ unsafe fn draw_scanline_flat_simd(
                 _mm256_storeu_ps(depth_ptr, new_z);
 
                 // Update Framebuffer
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let old_color = _mm256_loadu_si256(fb_ptr);
                 let new_color = _mm256_blendv_epi8(old_color, color_vec, mask_int);
@@ -169,6 +170,7 @@ unsafe fn draw_scanline_flat_blended_simd(
 
             if _mm256_movemask_ps(mask) != 0 {
                 // Load Framebuffer
+                #[allow(clippy::cast_ptr_alignment)]
                 let fb_ptr = fb_slice.as_mut_ptr().add(i).cast::<__m256i>();
                 let dest_pixels = _mm256_loadu_si256(fb_ptr);
 
@@ -398,7 +400,7 @@ pub fn fill_triangle_3d(
         }
 
         // Sort by y
-        let mut verts = [p0_orig, p1_orig, p2_orig];
+        let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
         sort_by_y(&mut verts, |p| p.y);
         let [p0, p1, p2] = verts;
 

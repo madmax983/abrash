@@ -13,11 +13,11 @@ fn test_verify_scanlines_correctness() {
     // Row 2: Red
     // Row 3: Semi-transparent Green
     for x in 0..width {
-        fb.set_pixel(x as i32, 0, 0xFFFFFFFF);
-        fb.set_pixel(x as i32, 1, 0xFFFFFFFF);
-        fb.set_pixel(x as i32, 2, 0xFFFF0000);
+        fb.set_pixel(x as i32, 0, 0xFFFF_FFFF);
+        fb.set_pixel(x as i32, 1, 0xFFFF_FFFF);
+        fb.set_pixel(x as i32, 2, 0xFFFF_0000);
         // Alpha 0x80, Green 0xFF -> 0x8000FF00
-        fb.set_pixel(x as i32, 3, 0x8000FF00);
+        fb.set_pixel(x as i32, 3, 0x8000_FF00);
     }
 
     apply_scanlines(&mut fb);
@@ -26,7 +26,7 @@ fn test_verify_scanlines_correctness() {
     for x in 0..width {
         assert_eq!(
             fb.get_pixel(x as i32, 0).unwrap(),
-            0xFFFFFFFF,
+            0xFFFF_FFFF,
             "Row 0 pixel {x} modified"
         );
     }
@@ -37,7 +37,7 @@ fn test_verify_scanlines_correctness() {
     for x in 0..width {
         assert_eq!(
             fb.get_pixel(x as i32, 1).unwrap(),
-            0xFF7F7F7F,
+            0xFF7F_7F7F,
             "Row 1 pixel {x} incorrect"
         );
     }
@@ -46,7 +46,7 @@ fn test_verify_scanlines_correctness() {
     for x in 0..width {
         assert_eq!(
             fb.get_pixel(x as i32, 2).unwrap(),
-            0xFFFF0000,
+            0xFFFF_0000,
             "Row 2 pixel {x} modified"
         );
     }
@@ -62,7 +62,7 @@ fn test_verify_scanlines_correctness() {
     for x in 0..width {
         assert_eq!(
             fb.get_pixel(x as i32, 3).unwrap(),
-            0xC0007F00,
+            0xC000_7F00,
             "Row 3 pixel {x} incorrect (alpha check)"
         );
     }

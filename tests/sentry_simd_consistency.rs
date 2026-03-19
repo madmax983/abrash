@@ -106,7 +106,10 @@ proptest! {
                 if a.is_nan() {
                     assert!(b.is_nan(), "{name} mismatch: SIMD=NaN, Scalar={b}");
                 } else if a.is_infinite() {
-                    assert_eq!(a, b, "{name} mismatch: SIMD={a}, Scalar={b}");
+                    assert!(
+                        b.is_infinite() && a.signum() == b.signum(),
+                        "{name} mismatch: SIMD={a}, Scalar={b}"
+                    );
                 } else {
                     let diff = (a - b).abs();
                     // Relative error for large numbers

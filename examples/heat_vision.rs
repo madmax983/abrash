@@ -2,7 +2,9 @@ use abrash::framebuffer::Framebuffer;
 use abrash::heat_vision::apply_heat_vision;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::Window;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -15,6 +17,7 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 // Use black background to make heat vision pop
 const BACKGROUND: u32 = 0xFF00_0000;
+const TITLE: &str = "Abrash - Heat Vision Demo";
 
 fn print_banner() {
     println!("\n{}", "🔥 Heat Vision Demo".bold().red());
@@ -52,57 +55,96 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Heat Vision Demo", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let mut timestep = FixedTimestep::new(60);
+struct HeatVisionApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    timestep: FixedTimestep,
+    cube: Mesh,
+    angle: f32,
+}
 
-    // Create a scene with multiple objects at different depths to show off the effect
-    let cube = Mesh::cube(1.0);
+impl HeatVisionApp {
+    fn new() -> Result<Self, HostError> {
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            timestep: FixedTimestep::new(60),
+            cube: Mesh::cube(1.0),
+            angle: 0.0,
+        })
+    }
+}
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 3.0, 6.0), // High up
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
+impl WindowApp for HeatVisionApp {
+    type Error = HostError;
 
-    let mut angle: f32 = 0.0;
-
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle += 0.5 * timestep.dt();
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
+            vsync: true,
         }
+    }
 
-        framebuffer.clear(BACKGROUND);
-        zbuffer.clear();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        // Render 3 cubes at different depths
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        self.framebuffer =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.zbuffer =
+            ZBuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        Ok(())
+    }
 
-        // Cube 1: Close (Left)
-        let model1 = Mat4::rotation_y(angle) * Mat4::translation(-2.0, 0.0, 1.0);
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
+        for _ in 0..steps {
+            self.angle += 0.5 * self.timestep.dt();
+        }
+        Ok(())
+    }
 
-        // Cube 2: Center (Mid)
-        let model2 = Mat4::rotation_x(angle * 0.5) * Mat4::rotation_z(angle * 0.3);
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let projection = Mat4::perspective(
+            PI / 3.0,
+            self.framebuffer.width() as f32 / self.framebuffer.height() as f32,
+            0.1,
+            100.0,
+        );
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 3.0, 6.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
 
-        // Cube 3: Far (Right, Back)
-        let model3 = Mat4::rotation_y(-angle * 0.5) * Mat4::translation(2.0, 0.0, -2.0);
+        self.framebuffer.clear(BACKGROUND);
+        self.zbuffer.clear();
 
-        let models = [model1, model2, model3];
+        let models = [
+            Mat4::rotation_y(self.angle) * Mat4::translation(-2.0, 0.0, 1.0),
+            Mat4::rotation_x(self.angle * 0.5) * Mat4::rotation_z(self.angle * 0.3),
+            Mat4::rotation_y(-self.angle * 0.5) * Mat4::translation(2.0, 0.0, -2.0),
+        ];
 
         for model in models {
             let mvp = projection * (view * model);
-
-            for tri_indices in &cube.indices {
-                let v0 = cube.vertices[tri_indices[0]];
-                let v1 = cube.vertices[tri_indices[1]];
-                let v2 = cube.vertices[tri_indices[2]];
+            for tri_indices in &self.cube.indices {
+                let v0 = self.cube.vertices[tri_indices[0]];
+                let v1 = self.cube.vertices[tri_indices[1]];
+                let v2 = self.cube.vertices[tri_indices[2]];
 
                 let (clip0, w0) = mvp.transform_point(v0);
                 let (clip1, w1) = mvp.transform_point(v1);
@@ -112,23 +154,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
 
-                // Color doesn't matter for heat vision, but we render white to populate Z-buffer
                 fill_triangle_3d(
-                    &mut framebuffer,
-                    &mut zbuffer,
+                    &mut self.framebuffer,
+                    &mut self.zbuffer,
                     (clip0, w0),
                     (clip1, w1),
                     (clip2, w2),
-                    0xFFFFFFFF,
+                    0xFFFF_FFFF,
                 );
             }
         }
 
-        // Apply the Heat Vision effect!
-        apply_heat_vision(&mut framebuffer, &zbuffer);
-
-        window.blit_framebuffer(&framebuffer);
+        apply_heat_vision(&mut self.framebuffer, &self.zbuffer);
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
 
-    Ok(())
+fn main() -> Result<(), HostError> {
+    print_banner();
+    run_windowed(HeatVisionApp::new()?)
 }

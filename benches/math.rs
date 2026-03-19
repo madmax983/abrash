@@ -88,7 +88,8 @@ fn bench_mat4_orthographic(c: &mut Criterion) {
 
 fn bench_mat4_inverse(c: &mut Criterion) {
     c.bench_function("mat4_inverse", |b| {
-        let m = Mat4::rotation_y(0.5) * Mat4::translation(1.0, 2.0, 3.0) * Mat4::scale(2.0, 3.0, 4.0);
+        let m =
+            Mat4::rotation_y(0.5) * Mat4::translation(1.0, 2.0, 3.0) * Mat4::scale(2.0, 3.0, 4.0);
         b.iter(|| black_box(m.inverse()));
     });
 }

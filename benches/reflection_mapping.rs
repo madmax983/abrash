@@ -15,7 +15,7 @@ fn bench_reflection(c: &mut Criterion) {
     // Access pixels using set_pixel to avoid private field access issues
     for y in 0..256 {
         for x in 0..256 {
-            tex.set_pixel(x, y, 0xFFFFFFFF);
+            tex.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 

@@ -53,17 +53,17 @@ fn main() {
 
     // Create a skybox
     let mut tex_x_pos = Texture::new(256, 256).unwrap();
-    tex_x_pos.pixels_mut().fill(0xFF0000FF); // Red
+    tex_x_pos.pixels_mut().fill(0xFF00_00FF); // Red
     let mut tex_x_neg = Texture::new(256, 256).unwrap();
-    tex_x_neg.pixels_mut().fill(0xFF00FF00); // Green
+    tex_x_neg.pixels_mut().fill(0xFF00_FF00); // Green
     let mut tex_y_pos = Texture::new(256, 256).unwrap();
-    tex_y_pos.pixels_mut().fill(0xFFFF0000); // Blue
+    tex_y_pos.pixels_mut().fill(0xFFFF_0000); // Blue
     let mut tex_y_neg = Texture::new(256, 256).unwrap();
-    tex_y_neg.pixels_mut().fill(0xFFFFFF00); // Cyan
+    tex_y_neg.pixels_mut().fill(0xFFFF_FF00); // Cyan
     let mut tex_z_pos = Texture::new(256, 256).unwrap();
-    tex_z_pos.pixels_mut().fill(0xFFFF00FF); // Magenta
+    tex_z_pos.pixels_mut().fill(0xFFFF_00FF); // Magenta
     let mut tex_z_neg = Texture::new(256, 256).unwrap();
-    tex_z_neg.pixels_mut().fill(0xFF00FFFF); // Yellow
+    tex_z_neg.pixels_mut().fill(0xFF00_FFFF); // Yellow
 
     let cubemap = Cubemap::new([
         tex_x_pos, tex_x_neg, tex_y_pos, tex_y_neg, tex_z_pos, tex_z_neg,
@@ -107,7 +107,7 @@ fn main() {
         let angle = (i as f32) * 0.05;
         let model = Mat4::rotation_y(angle) * Mat4::rotation_x(angle * 0.5);
 
-        fb.clear(0xFF333333);
+        fb.clear(0xFF33_3333);
         zb.clear();
 
         for chunk in indices.chunks(3) {

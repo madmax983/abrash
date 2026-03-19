@@ -1,4 +1,4 @@
-//! `DrawList` — backend-agnostic intermediate representation for a rendered frame.
+//! `DrawList` - backend-agnostic intermediate representation for a rendered frame.
 //!
 //! The [`DrawList`] is the seam between high-level scene description ([`Frame`], [`Scene`])
 //! and low-level rasterization ([`TileRenderer`], GPU compute). Once geometry is in a

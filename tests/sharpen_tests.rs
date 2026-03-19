@@ -9,9 +9,9 @@ fn test_apply_sharpen_basic() {
 
     // Set up a 3x3 image with a dark center and light edges
     // Background
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
     // Dark center pixel
-    fb.set_pixel(1, 1, 0xFF000000);
+    fb.set_pixel(1, 1, 0xFF00_0000);
 
     // After sharpening with a basic 3x3 kernel:
     //  0 -1  0
@@ -23,9 +23,9 @@ fn test_apply_sharpen_basic() {
 
     let mut fb2 = Framebuffer::new(3, 3).unwrap();
     // 0xAA (170) gray background
-    fb2.clear(0xFFAAAAAA);
+    fb2.clear(0xFFAA_AAAA);
     // 0x55 (85) dark center
-    fb2.set_pixel(1, 1, 0xFF555555);
+    fb2.set_pixel(1, 1, 0xFF55_5555);
 
     // Apply 1.0 (full) sharpen
     // Center pixel:
@@ -47,7 +47,7 @@ fn test_apply_sharpen_basic() {
     // Test that the border remains unmodified
     let border_pixel = fb2.get_pixel(0, 0).unwrap();
     assert_eq!(
-        border_pixel, 0xFFAAAAAA,
+        border_pixel, 0xFFAA_AAAA,
         "Border pixel should remain unmodified"
     );
 }
@@ -55,10 +55,10 @@ fn test_apply_sharpen_basic() {
 #[test]
 fn test_apply_sharpen_amount_zero() {
     let mut fb = Framebuffer::new(3, 3).unwrap();
-    fb.clear(0xFFAAAAAA);
-    fb.set_pixel(1, 1, 0xFF555555);
+    fb.clear(0xFFAA_AAAA);
+    fb.set_pixel(1, 1, 0xFF55_5555);
 
     apply_sharpen(&mut fb, 0.0);
 
-    assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFF555555);
+    assert_eq!(fb.get_pixel(1, 1).unwrap(), 0xFF55_5555);
 }

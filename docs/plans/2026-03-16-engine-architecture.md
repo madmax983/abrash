@@ -1791,7 +1791,7 @@ heat_vision, ascii, procedural into `crates/abrash-render`.
 - `abrash-render` depends on `abrash-core` for types
 - `abrash-render` has NO platform dependencies
 - Feature `parallel` propagated from `abrash-core`
-- Feature `gpu-binning` pulls in existing `abrash-gpu` crate
+- The former GPU compute binning experiment was later removed from the workspace
 
 **Verification:**
 - `cargo test -p abrash-render` passes all moved tests

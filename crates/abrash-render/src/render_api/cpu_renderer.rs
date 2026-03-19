@@ -70,6 +70,8 @@ impl CpuRenderer {
     /// Extract a [`Frame`] into a [`DrawList`] by resolving handles, transforming
     /// vertices to clip-space, and resolving material colors.
     ///
+    /// # Errors
+    ///
     /// Returns an error if any handle in the frame is stale. On success the
     /// returned `DrawList` is self-contained and can be executed or inspected
     /// independently of this renderer's internal pools.

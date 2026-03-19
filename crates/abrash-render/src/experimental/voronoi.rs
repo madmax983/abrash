@@ -35,7 +35,7 @@ impl Default for VoronoiConfig {
             metric: 2.0,
             seed: 0,
             border_thickness: 1.0,
-            border_color: 0xFF000000,
+            border_color: 0xFF00_0000,
         }
     }
 }
@@ -72,14 +72,14 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
             if let Some(color) = fb.get_pixel(x as i32, y as i32) {
                 seed_colors.push(color);
             } else {
-                seed_colors.push(0xFF000000);
+                seed_colors.push(0xFF00_0000);
             }
         } else {
             // Generate a random color
             let r = (rng.next_u32() & 0xFF) as u32;
             let g = (rng.next_u32() & 0xFF) as u32;
             let b = (rng.next_u32() & 0xFF) as u32;
-            seed_colors.push(0xFF000000 | (r << 16) | (g << 8) | b);
+            seed_colors.push(0xFF00_0000 | (r << 16) | (g << 8) | b);
         }
     }
 
@@ -110,7 +110,7 @@ pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
                 // Calculate Minkowski distance.
                 // Fast paths for Euclidean (metric == 2) and Manhattan (metric == 1).
                 let dist = if (metric - 2.0).abs() < f32::EPSILON {
-                    (dx * dx + dy * dy).sqrt()
+                    dx.hypot(dy)
                 } else if (metric - 1.0).abs() < f32::EPSILON {
                     dx + dy
                 } else {
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_voronoi_basic() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
 
         let config = VoronoiConfig {
             num_seeds: 2,
@@ -189,10 +189,10 @@ mod tests {
         // Set left half to red, right half to blue
         for y in 0..10 {
             for x in 0..5 {
-                fb.set_pixel(x, y, 0xFFFF0000);
+                fb.set_pixel(x, y, 0xFFFF_0000);
             }
             for x in 5..10 {
-                fb.set_pixel(x, y, 0xFF0000FF);
+                fb.set_pixel(x, y, 0xFF00_00FF);
             }
         }
 
@@ -209,7 +209,7 @@ mod tests {
         // All resulting pixels should be either red or blue, nothing else
         for &pixel in fb.as_slice() {
             assert!(
-                pixel == 0xFFFF0000 || pixel == 0xFF0000FF,
+                pixel == 0xFFFF_0000 || pixel == 0xFF00_00FF,
                 "Pixel color should be from the original image (red or blue)"
             );
         }
@@ -218,9 +218,9 @@ mod tests {
     #[test]
     fn test_voronoi_borders() {
         let mut fb = Framebuffer::new(20, 20).unwrap();
-        fb.clear(0xFFFFFFFF);
+        fb.clear(0xFFFF_FFFF);
 
-        let border_color = 0xFF123456;
+        let border_color = 0xFF12_3456;
         let config = VoronoiConfig {
             num_seeds: 4,
             use_image_color: false,

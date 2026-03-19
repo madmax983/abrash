@@ -7,7 +7,7 @@ use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 use std::error::Error;
 
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 mod demo {
     use abrash::experimental::cloth::Cloth;
     use abrash::framebuffer::Framebuffer;
@@ -128,6 +128,177 @@ mod demo {
     }
 }
 
+#[cfg(all(feature = "nova", feature = "backend-winit"))]
+mod winit_demo {
+    use abrash::experimental::cloth::Cloth;
+    use abrash::framebuffer::Framebuffer;
+    use abrash::math::{Mat4, Vec3};
+    use abrash::platform::{
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    };
+    use abrash::rasterizer::fill_triangle_3d;
+    use abrash::zbuffer::ZBuffer;
+    use std::f32::consts::PI;
+    use std::io;
+
+    const WIDTH: u32 = 800;
+    const HEIGHT: u32 = 600;
+
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        run_windowed(ClothApp::new()?)?;
+        Ok(())
+    }
+
+    struct ClothApp {
+        width: u32,
+        height: u32,
+        framebuffer: Framebuffer,
+        zbuffer: ZBuffer,
+        presenter: Option<SoftwarePresenter>,
+        cloth: Cloth,
+        gravity: Vec3,
+        wind: Vec3,
+        time_seconds: f32,
+    }
+
+    impl ClothApp {
+        fn new() -> Result<Self, io::Error> {
+            let mut cloth = Cloth::new(20, 20, 0.2);
+            cloth.pin(0, cloth.height - 1);
+            cloth.pin(cloth.width - 1, cloth.height - 1);
+            cloth.pin(cloth.width / 2, cloth.height - 1);
+
+            let width = WIDTH;
+            let height = HEIGHT;
+
+            let framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            let zbuffer = ZBuffer::new(width, height).map_err(io::Error::other)?;
+
+            Ok(Self {
+                width,
+                height,
+                framebuffer,
+                zbuffer,
+                presenter: None,
+                cloth,
+                gravity: Vec3::new(0.0, -9.8, 0.0),
+                wind: Vec3::new(0.0, 0.0, 2.0),
+                time_seconds: 0.0,
+            })
+        }
+
+        fn rebuild_buffers(&mut self, width: u32, height: u32) -> Result<(), io::Error> {
+            self.width = width;
+            self.height = height;
+            self.framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            self.zbuffer = ZBuffer::new(width, height).map_err(io::Error::other)?;
+            Ok(())
+        }
+
+        fn render_cloth(&mut self) {
+            self.framebuffer.clear(0xFF10_1010);
+            self.zbuffer.clear();
+
+            let projection =
+                Mat4::perspective(PI / 3.0, self.width as f32 / self.height as f32, 0.1, 100.0);
+            let view = Mat4::look_at(
+                Vec3::new(0.0, 2.0, 6.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            );
+            let view_proj = view * projection;
+            let light_dir = Vec3::new(0.5, 1.0, 1.0).normalize();
+            let mesh = self.cloth.to_mesh();
+
+            for tri in &mesh.indices {
+                let v0 = mesh.vertices[tri[0]];
+                let v1 = mesh.vertices[tri[1]];
+                let v2 = mesh.vertices[tri[2]];
+
+                let edge1 = v1 - v0;
+                let edge2 = v2 - v0;
+                let normal = edge1.cross(edge2).normalize();
+                let diffuse = normal.dot(light_dir).max(0.1);
+
+                let r = (170.0 * diffuse) as u32;
+                let g = (20.0 * diffuse) as u32;
+                let b = (20.0 * diffuse) as u32;
+                let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+
+                let (c0, w0) = view_proj.transform_point(v0);
+                let (c1, w1) = view_proj.transform_point(v1);
+                let (c2, w2) = view_proj.transform_point(v2);
+
+                if w0 < 0.1 || w1 < 0.1 || w2 < 0.1 {
+                    continue;
+                }
+
+                fill_triangle_3d(
+                    &mut self.framebuffer,
+                    &mut self.zbuffer,
+                    (c0, w0),
+                    (c1, w1),
+                    (c2, w2),
+                    color,
+                );
+            }
+        }
+    }
+
+    impl WindowApp for ClothApp {
+        type Error = io::Error;
+
+        fn config(&self) -> WindowHostConfig {
+            WindowHostConfig {
+                title: "Abrash - Cloth Simulation".to_string(),
+                width: self.width,
+                height: self.height,
+                vsync: true,
+            }
+        }
+
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
+            Ok(())
+        }
+
+        fn resize(
+            &mut self,
+            _ctx: WindowContext<'_>,
+            width: u32,
+            height: u32,
+        ) -> Result<(), Self::Error> {
+            self.rebuild_buffers(width, height)
+        }
+
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            let dt = ctx.dt_seconds.min(0.032);
+            self.time_seconds += dt;
+            self.wind.x = (self.time_seconds * 2.0).sin() * 2.0;
+            self.wind.z = 2.0 + (self.time_seconds * 1.5).cos();
+
+            let sub_steps = 5;
+            let sub_dt = dt / sub_steps as f32;
+            for _ in 0..sub_steps {
+                self.cloth.update(sub_dt, self.gravity, self.wind);
+            }
+
+            Ok(())
+        }
+
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.render_cloth();
+            let presenter = self
+                .presenter
+                .as_mut()
+                .ok_or_else(|| io::Error::other("presenter not initialized"))?;
+            presenter
+                .present(&self.framebuffer)
+                .map_err(io::Error::other)
+        }
+    }
+}
+
 fn print_banner() {
     println!("\n{}", "👗 Cloth Simulation Demo".bold().magenta());
     println!("{}", "========================".dark_grey());
@@ -171,6 +342,39 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "backend-winit")]
+fn main() -> Result<(), Box<dyn Error>> {
+    print_banner();
+
+    #[cfg(feature = "nova")]
+    {
+        winit_demo::run()
+    }
+
+    #[cfg(not(feature = "nova"))]
+    {
+        let mut error_table = Table::new();
+        error_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("⚠️  Missing Feature: Nova")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(Color::Red),
+            ])
+            .add_row(vec![
+                Cell::new("This demo requires the 'nova' feature to run.").fg(Color::White),
+            ])
+            .add_row(vec![
+                Cell::new("Try running with:\ncargo run --example cloth_demo --features nova")
+                    .fg(Color::Green),
+            ]);
+
+        eprintln!("\n{error_table}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(not(feature = "backend-winit"))]
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 

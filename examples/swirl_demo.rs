@@ -9,7 +9,8 @@
 
 use abrash::experimental::swirl::{SwirlConfig, apply_swirl};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{Event, Window};
+use abrash::platform::Event;
+use abrash::platform::win32::Win32Window;
 use std::f32::consts::PI;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -53,7 +54,7 @@ fn print_banner() {
 
 fn main() {
     print_banner();
-    let mut window = Window::new("Swirl Demo", 800, 600).unwrap();
+    let mut window = Win32Window::new("Swirl Demo", 800, 600).unwrap();
 
     let width = 800;
     let height = 600;

@@ -8,7 +8,7 @@ fn test_apply_bloom_effect() {
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Set center pixel to bright white
-    fb.set_pixel(2, 2, 0xFFFFFFFF);
+    fb.set_pixel(2, 2, 0xFFFF_FFFF);
 
     // Apply bloom with a radius of 1
     let config = BloomConfig {
@@ -20,7 +20,7 @@ fn test_apply_bloom_effect() {
 
     // Center pixel should remain bright (or brighter)
     let center = fb.get_pixel(2, 2).unwrap();
-    assert_eq!(center, 0xFFFFFFFF, "Center pixel should remain white");
+    assert_eq!(center, 0xFFFF_FFFF, "Center pixel should remain white");
 
     // Neighbor (2, 1) should be brighter than black (0xFF000000)
     let neighbor = fb.get_pixel(2, 1).unwrap();

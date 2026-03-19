@@ -1,6 +1,7 @@
 use abrash::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{Event, Window};
+use abrash::platform::Event;
+use abrash::platform::win32::Win32Window;
 
 fn generate_procedural_city(fb: &mut Framebuffer) {
     let width = fb.width() as i32;
@@ -20,11 +21,11 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
 
     // Draw some fake buildings (rectangles)
     let buildings = [
-        (100, 300, 50, 200, 0xFF404040),
-        (200, 250, 80, 250, 0xFF606060),
-        (350, 150, 60, 350, 0xFF303030),
-        (450, 350, 100, 150, 0xFF505050),
-        (600, 200, 70, 300, 0xFF707070),
+        (100, 300, 50, 200, 0xFF40_4040),
+        (200, 250, 80, 250, 0xFF60_6060),
+        (350, 150, 60, 350, 0xFF30_3030),
+        (450, 350, 100, 150, 0xFF50_5050),
+        (600, 200, 70, 300, 0xFF70_7070),
     ];
 
     for &(bx, by, bw, bh, col) in &buildings {
@@ -33,17 +34,17 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
         // Add fake windows
         for wy in (by + 10..by + bh - 10).step_by(20) {
             for wx in (bx + 10..bx + bw - 10).step_by(15) {
-                fb.clear_rect(wx, wy, 8, 12, 0xFFFFFF00); // Yellow lit windows
+                fb.clear_rect(wx, wy, 8, 12, 0xFFFF_FF00); // Yellow lit windows
             }
         }
     }
 
     // Draw foreground ground/street
-    fb.clear_rect(0, 400, width as u32, (height - 400) as u32, 0xFF202020);
+    fb.clear_rect(0, 400, width as u32, (height - 400) as u32, 0xFF20_2020);
 
     // Draw street lines
     for x in (0..width).step_by(60) {
-        fb.clear_rect(x, 480, 30, 10, 0xFFDDDDDD);
+        fb.clear_rect(x, 480, 30, 10, 0xFFDD_DDDD);
     }
 }
 
@@ -51,7 +52,8 @@ fn main() {
     let width = 800;
     let height = 600;
 
-    let mut window = Window::new("Abrash - Tilt Shift Demo", width as u32, height as u32).unwrap();
+    let mut window =
+        Win32Window::new("Abrash - Tilt Shift Demo", width as u32, height as u32).unwrap();
     let mut fb = Framebuffer::new(width as u32, height as u32).unwrap();
 
     // Configuration for tilt shift effect
@@ -69,9 +71,8 @@ fn main() {
 
     while running {
         for event in window.poll_events() {
-            match event {
-                Event::Close => running = false,
-                _ => {}
+            if matches!(event, Event::Close) {
+                running = false;
             }
         }
 

@@ -3,7 +3,7 @@ fn test_havoc_obj_huge_input() {
     // Generate a string with length 0xFFFFFF (16MB)
     // The user said "Input string with length 0xFFFFFF caused buffer overflow."
     // Let's try to make it a single token.
-    let huge_token = "a".repeat(0xFFFFFF);
+    let huge_token = "a".repeat(0xFF_FFFF);
     let obj_source = format!("v {huge_token}");
 
     // This should just fail to parse as f32, but not crash/overflow.
@@ -21,7 +21,7 @@ fn test_havoc_obj_huge_line() {
     // This should be fine in RAM.
 
     let chunk = "v 0.0 0.0 0.0\n";
-    let count = 0xFFFFFF / chunk.len();
+    let count = 0xFF_FFFF / chunk.len();
     let obj_source = chunk.repeat(count);
 
     let res = abrash::obj_loader::load_obj(&obj_source);

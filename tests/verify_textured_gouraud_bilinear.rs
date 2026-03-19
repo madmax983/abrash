@@ -12,7 +12,7 @@ fn test_textured_gouraud_bilinear_rendering() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Create a texture
-    let mut texture = Texture::checkered(16, 16, 0xFFFFFFFF, 0xFF000000).unwrap();
+    let mut texture = Texture::checkered(16, 16, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
     texture.filter_mode = FilterMode::Bilinear;
 
     // Triangle covering most of the screen
@@ -40,7 +40,7 @@ fn test_textured_gouraud_bilinear_rendering() {
     println!("Checksum: {checksum:016X}");
 
     // Checksum updated for SIMD implementation (Span-based perspective correction)
-    assert_eq!(checksum, 0x9D224A847B72F800, "Checksum mismatch!");
+    assert_eq!(checksum, 0x9D22_4A84_7B72_F800, "Checksum mismatch!");
 }
 
 fn calculate_checksum(fb: &Framebuffer) -> u64 {

@@ -25,7 +25,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const SHADER_SRC: &str = r#"
+const SHADER_SRC: &str = r"
 struct Uniforms {
     yaw: f32,
     pitch: f32,
@@ -89,7 +89,7 @@ fn vs_main(input: VsIn) -> VsOut {
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     return vec4<f32>(input.color, 1.0);
 }
-"#;
+";
 
 /// A GPU-ready vertex with position and linear color.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -105,6 +105,7 @@ pub struct GpuTriangle {
 }
 
 /// Runtime configuration for the GPU demo window and animation.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct GpuDemoConfig {
     pub title: String,
@@ -150,6 +151,7 @@ impl Default for GpuDemoConfig {
 
 /// Stateful keyboard/mouse interaction controller for a mesh demo camera.
 #[cfg(feature = "windowed")]
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct GpuInteractionController {
     yaw: f32,
@@ -169,7 +171,7 @@ pub struct GpuInteractionController {
 #[cfg(feature = "windowed")]
 impl GpuInteractionController {
     #[must_use]
-    pub fn new(config: &GpuDemoConfig) -> Self {
+    pub const fn new(config: &GpuDemoConfig) -> Self {
         Self {
             yaw: config.initial_yaw,
             pitch: config.initial_pitch,
@@ -201,19 +203,19 @@ impl GpuInteractionController {
         self.distance
     }
 
-    pub fn set_move_left(&mut self, pressed: bool) {
+    pub const fn set_move_left(&mut self, pressed: bool) {
         self.move_left = pressed;
     }
 
-    pub fn set_move_right(&mut self, pressed: bool) {
+    pub const fn set_move_right(&mut self, pressed: bool) {
         self.move_right = pressed;
     }
 
-    pub fn set_move_up(&mut self, pressed: bool) {
+    pub const fn set_move_up(&mut self, pressed: bool) {
         self.move_up = pressed;
     }
 
-    pub fn set_move_down(&mut self, pressed: bool) {
+    pub const fn set_move_down(&mut self, pressed: bool) {
         self.move_down = pressed;
     }
 
@@ -221,7 +223,7 @@ impl GpuInteractionController {
         self.distance = (self.distance + delta).clamp(config.min_distance, config.max_distance);
     }
 
-    pub fn reset(&mut self, config: &GpuDemoConfig) {
+    pub const fn reset(&mut self, config: &GpuDemoConfig) {
         self.yaw = config.initial_yaw;
         self.pitch = config.initial_pitch;
         self.distance = config
@@ -229,7 +231,7 @@ impl GpuInteractionController {
             .clamp(config.min_distance, config.max_distance);
     }
 
-    pub fn toggle_auto_rotate(&mut self) {
+    pub const fn toggle_auto_rotate(&mut self) {
         self.auto_rotate_enabled = !self.auto_rotate_enabled;
     }
 
@@ -357,6 +359,11 @@ impl fmt::Display for MeshValidationError {
 }
 
 /// Validates that a mesh is a non-empty indexed triangle list.
+///
+/// # Errors
+///
+/// Returns a [`MeshValidationError`] when the slice data is empty, not a
+/// multiple of three, or references an out-of-bounds vertex.
 pub fn validate_mesh(vertices: &[GpuVertex], indices: &[u16]) -> Result<(), MeshValidationError> {
     if vertices.is_empty() {
         return Err(MeshValidationError::EmptyVertices);
@@ -381,6 +388,10 @@ pub fn validate_mesh(vertices: &[GpuVertex], indices: &[u16]) -> Result<(), Mesh
 }
 
 /// Validates that demo configuration has a drawable window size.
+///
+/// # Errors
+///
+/// Returns an error if window dimensions or camera distance limits are invalid.
 pub fn validate_demo_config(config: &GpuDemoConfig) -> Result<(), &'static str> {
     if config.width == 0 || config.height == 0 {
         return Err("Window dimensions must be non-zero");
@@ -461,7 +472,7 @@ impl VertexRaw {
     const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 
-    fn layout() -> wgpu::VertexBufferLayout<'static> {
+    const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -502,6 +513,15 @@ struct GpuMeshApp {
 
 #[cfg(feature = "windowed")]
 impl GpuMeshApp {
+    /// # Errors
+    ///
+    /// Returns an error if the window, adapter, device, or surface cannot be
+    /// created.
+    /// # Panics
+    ///
+    /// Panics if the selected surface reports no supported formats or present
+    /// modes.
+    #[allow(clippy::too_many_lines)]
     async fn new(
         window: Arc<Window>,
         vertices: Vec<GpuVertex>,
@@ -760,7 +780,7 @@ impl GpuMeshApp {
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let frame = self.surface.get_current_texture()?;
         let view = frame
             .texture
@@ -809,6 +829,12 @@ impl GpuMeshApp {
 }
 
 /// Runs a hardware-accelerated mesh demo with camera controls.
+///
+/// # Errors
+///
+/// Returns an error if mesh validation fails or the event loop/window/GPU setup
+/// cannot be created.
+#[allow(clippy::too_many_lines)]
 #[cfg(feature = "windowed")]
 pub fn run_mesh_demo(
     vertices: Vec<GpuVertex>,
@@ -864,12 +890,22 @@ pub fn run_mesh_demo(
 }
 
 /// Runs the hardware-accelerated rotating cube demo.
+///
+/// # Errors
+///
+/// Returns an error if the default demo configuration or GPU/window setup
+/// cannot be created.
 #[cfg(feature = "windowed")]
 pub fn run_gpu_cube() -> Result<(), String> {
     run_gpu_cube_with_config(GpuDemoConfig::default())
 }
 
 /// Runs the hardware-accelerated rotating cube demo with custom runtime settings.
+///
+/// # Errors
+///
+/// Returns an error if the provided configuration or GPU/window setup cannot be
+/// created.
 #[cfg(feature = "windowed")]
 pub fn run_gpu_cube_with_config(config: GpuDemoConfig) -> Result<(), String> {
     let (vertices, indices) = unit_cube_mesh();
@@ -925,6 +961,16 @@ pub struct GpuOffscreenBench {
 
 impl GpuOffscreenBench {
     /// Creates an offscreen benchmark renderer for an indexed mesh.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mesh or benchmark configuration is invalid, or if
+    /// the GPU device cannot be created.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the adapter exposes no supported color formats.
+    #[allow(clippy::too_many_lines)]
     pub fn new(
         vertices: &[GpuVertex],
         indices: &[u16],
@@ -1119,6 +1165,10 @@ impl GpuOffscreenBench {
     }
 
     /// Renders a single offscreen frame and blocks until GPU completion.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if command submission or GPU completion fails.
     pub fn render_frame(&mut self) -> Result<(), String> {
         self.yaw += self.config.rotation_speed * (1.0 / 60.0);
         let uniform = SceneUniform {
@@ -1174,6 +1224,10 @@ impl GpuOffscreenBench {
     }
 
     /// Renders multiple offscreen frames and blocks for completion each frame.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error from the first frame that fails to render.
     pub fn render_frames(&mut self, frame_count: u32) -> Result<(), String> {
         for _ in 0..frame_count {
             self.render_frame()?;

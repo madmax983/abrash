@@ -15,10 +15,10 @@ fn verify_textured_rendering_output() {
     // Create a simple 2x2 texture
     // (0,0)=Red, (1,0)=Green, (0,1)=Blue, (1,1)=White
     let mut texture = Texture::new(2, 2).unwrap();
-    texture.set_pixel(0, 0, 0xFFFF0000);
-    texture.set_pixel(1, 0, 0xFF00FF00);
-    texture.set_pixel(0, 1, 0xFF0000FF);
-    texture.set_pixel(1, 1, 0xFFFFFFFF);
+    texture.set_pixel(0, 0, 0xFFFF_0000);
+    texture.set_pixel(1, 0, 0xFF00_FF00);
+    texture.set_pixel(0, 1, 0xFF00_00FF);
+    texture.set_pixel(1, 1, 0xFFFF_FFFF);
 
     // Define a triangle covering the center
     // v0: Top-Left (Red)
@@ -40,7 +40,7 @@ fn verify_textured_rendering_output() {
     // 1. Inside the triangle
     let p_in = fb.get_pixel(26, 37).unwrap();
     assert_ne!(
-        p_in, 0xFF000000,
+        p_in, 0xFF00_0000,
         "Pixel inside triangle should not be black background"
     );
 
@@ -48,7 +48,7 @@ fn verify_textured_rendering_output() {
     // (0.5, 0.5) -> (48, 16) is definitely outside the triangle (top right quadrant)
     let p_out = fb.get_pixel(48, 16).unwrap();
     assert_eq!(
-        p_out, 0xFF000000,
+        p_out, 0xFF00_0000,
         "Pixel outside triangle should be black opaque background"
     );
 }

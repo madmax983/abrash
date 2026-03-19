@@ -1,9 +1,9 @@
-#[cfg(all(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use abrash::math::{Vec3, project_to_screen_optimized, project_triangle_to_screen};
-#[cfg(all(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use proptest::prelude::*;
 
-#[cfg(all(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[test]
 fn test_simd_vs_scalar_overflow() {
     // Scenario: A point very far to the right, causing screen_x to overflow i32 positive range.
@@ -44,7 +44,7 @@ fn test_simd_vs_scalar_overflow() {
     assert_eq!(scalar_res.y, simd_res.y, "Y coordinates should match");
 }
 
-#[cfg(all(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[test]
 fn test_simd_vs_scalar_underflow() {
     // Scenario: A point very far to the left, causing screen_x to overflow i32 negative range.
@@ -76,7 +76,7 @@ fn test_simd_vs_scalar_underflow() {
     );
 }
 
-#[cfg(all(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 proptest! {
     #[test]
     fn test_project_triangle_consistency(

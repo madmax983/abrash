@@ -2,28 +2,176 @@
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.
 
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::experimental::raytracer::RayTracer;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::framebuffer::Framebuffer;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::math::{Mat4, Vec3};
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::mesh::Mesh;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::platform::Window;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::scene::{Camera, Scene, SceneObject};
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use abrash::time::FixedTimestep;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use std::f32::consts::PI;
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 use std::sync::Arc;
 
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;
+
+#[cfg(all(feature = "nova", feature = "backend-winit"))]
+mod winit_demo {
+    use abrash::experimental::raytracer::RayTracer;
+    use abrash::framebuffer::Framebuffer;
+    use abrash::math::{Mat4, Vec3};
+    use abrash::mesh::Mesh;
+    use abrash::platform::{
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    };
+    use abrash::scene::{Camera, Scene, SceneObject};
+    use std::f32::consts::PI;
+    use std::io;
+    use std::sync::Arc;
+
+    const WIDTH: u32 = 400;
+    const HEIGHT: u32 = 300;
+
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        run_windowed(RaytracerApp::new()?)?;
+        Ok(())
+    }
+
+    struct RaytracerApp {
+        width: u32,
+        height: u32,
+        framebuffer: Framebuffer,
+        presenter: Option<SoftwarePresenter>,
+        renderer: RayTracer,
+        scene: Scene,
+        view: Mat4,
+        angle_y: f32,
+    }
+
+    impl RaytracerApp {
+        fn new() -> Result<Self, io::Error> {
+            let width = WIDTH;
+            let height = HEIGHT;
+            let framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+
+            let projection = Mat4::perspective(PI / 3.0, width as f32 / height as f32, 0.1, 100.0);
+            let eye = Vec3::new(0.0, 3.0, 6.0);
+            let target = Vec3::new(0.0, 0.0, 0.0);
+            let up = Vec3::new(0.0, 1.0, 0.0);
+            let view = Mat4::look_at(eye, target, up);
+            let camera = Camera::new(view, projection);
+            let mut scene = Scene::new(camera);
+
+            let cube_mesh = Arc::new(Mesh::cube(1.0));
+            let floor_transform = Mat4::translation(0.0, -1.0, 0.0) * Mat4::scale(10.0, 0.1, 10.0);
+            scene.add_object(SceneObject::new(
+                cube_mesh.clone(),
+                floor_transform,
+                0xFF40_4040,
+            ));
+            scene.add_object(SceneObject::new(
+                cube_mesh.clone(),
+                Mat4::translation(0.0, 0.0, 0.0),
+                0xFFFF_0000,
+            ));
+            scene.add_object(SceneObject::new(
+                cube_mesh.clone(),
+                Mat4::translation(-2.5, 0.0, -1.0) * Mat4::rotation_y(PI / 4.0),
+                0xFF00_FF00,
+            ));
+            scene.add_object(SceneObject::new(
+                cube_mesh.clone(),
+                Mat4::translation(2.5, 0.0, -1.0) * Mat4::rotation_y(-PI / 4.0),
+                0xFF00_00FF,
+            ));
+            scene.add_object(SceneObject::new(
+                cube_mesh,
+                Mat4::translation(0.0, 0.0, 2.5) * Mat4::scale(0.5, 0.5, 0.5),
+                0xFFFF_FFFF,
+            ));
+
+            let mut renderer = RayTracer::new();
+            renderer.max_bounces = 3;
+            renderer.background_color = 0xFF10_1015;
+
+            Ok(Self {
+                width,
+                height,
+                framebuffer,
+                presenter: None,
+                renderer,
+                scene,
+                view,
+                angle_y: 0.0,
+            })
+        }
+
+        fn rebuild_buffers(&mut self, width: u32, height: u32) -> Result<(), io::Error> {
+            self.width = width;
+            self.height = height;
+            self.framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            let projection = Mat4::perspective(PI / 3.0, width as f32 / height as f32, 0.1, 100.0);
+            self.scene.camera.update(self.view, projection);
+            Ok(())
+        }
+    }
+
+    impl WindowApp for RaytracerApp {
+        type Error = io::Error;
+
+        fn config(&self) -> WindowHostConfig {
+            WindowHostConfig {
+                title: "Abrash - Raytracer".to_string(),
+                width: self.width,
+                height: self.height,
+                vsync: true,
+            }
+        }
+
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
+            Ok(())
+        }
+
+        fn resize(
+            &mut self,
+            _ctx: WindowContext<'_>,
+            width: u32,
+            height: u32,
+        ) -> Result<(), Self::Error> {
+            self.rebuild_buffers(width, height)
+        }
+
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.angle_y += ctx.dt_seconds * 0.6;
+            let rotation = Mat4::rotation_y(self.angle_y);
+            let translation = Mat4::translation(0.0, 0.5 + (self.angle_y * 2.0).sin() * 0.5, 0.0);
+            self.scene.objects[1].transform = translation * rotation;
+            Ok(())
+        }
+
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.renderer.render(&self.scene, &mut self.framebuffer);
+            let presenter = self
+                .presenter
+                .as_mut()
+                .ok_or_else(|| io::Error::other("presenter not initialized"))?;
+            presenter
+                .present(&self.framebuffer)
+                .map_err(io::Error::other)
+        }
+    }
+}
 
 #[cfg(feature = "nova")]
 const WIDTH: u32 = 400;
@@ -70,7 +218,35 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", feature = "backend-winit"))]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    print_banner();
+    winit_demo::run()
+}
+
+#[cfg(all(not(feature = "nova"), feature = "backend-winit"))]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new("Try running with:\ncargo run --example raytracer_demo --features nova")
+                .fg(Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
+}
+
+#[cfg(all(feature = "nova", not(feature = "backend-winit")))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
@@ -164,7 +340,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "nova"))]
+#[cfg(all(not(feature = "nova"), not(feature = "backend-winit")))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut error_table = Table::new();
     error_table

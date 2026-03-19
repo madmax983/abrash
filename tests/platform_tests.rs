@@ -1,10 +1,12 @@
 //! Integration tests for the platform layer.
 //!
-//! These tests verify that the platform abstractions (trait, type alias,
-//! enums) are correctly wired up. We cannot create actual Win32 or TUI
-//! windows in test mode, so we test types and trait surface only.
+//! These tests verify that the platform abstractions are correctly wired up.
+//! We cannot create actual native or TUI windows in test mode, so we test
+//! enums and the host trait surface only.
 
 use abrash::platform::{Event, WindowError};
+#[cfg(feature = "backend-winit")]
+use abrash::platform::{WindowApp, WindowContext, WindowHostConfig};
 
 // ---------- Event enum ----------
 
@@ -80,7 +82,7 @@ fn window_error_implements_std_error() {
     assert!(!err.to_string().is_empty());
 }
 
-// ---------- WindowBackend trait ----------
+// ---------- Window-like surface ----------
 
 /// Verify the `WindowBackend` trait is importable and has the expected methods
 /// by defining a compile-time-only mock. If the trait signature ever changes,
@@ -92,15 +94,12 @@ struct MockWindow {
 }
 
 impl MockWindow {
-    const fn new(_title: &str, width: u32, height: u32) -> Result<Self, WindowError>
-    where
-        Self: Sized,
-    {
-        Ok(Self {
+    const fn new(_title: &str, width: u32, height: u32) -> Self {
+        Self {
             w: width,
             h: height,
             open: true,
-        })
+        }
     }
 
     const fn is_open(&self) -> bool {
@@ -115,18 +114,20 @@ impl MockWindow {
         self.h
     }
 
-    const fn poll_events(&mut self) -> Vec<Event> {
+    const fn poll_events(&self) -> Vec<Event> {
+        let _ = self.open;
         Vec::new()
     }
 
-    const fn blit_framebuffer(&mut self, _framebuffer: &abrash::framebuffer::Framebuffer) {
+    const fn blit_framebuffer(&self, _framebuffer: &abrash::framebuffer::Framebuffer) {
+        let _ = (self.w, self.h);
         // no-op
     }
 }
 
 #[test]
 fn mock_window_backend_new() {
-    let win = MockWindow::new("Test", 800, 600).unwrap();
+    let win = MockWindow::new("Test", 800, 600);
     assert_eq!(win.width(), 800);
     assert_eq!(win.height(), 600);
     assert!(win.is_open());
@@ -134,29 +135,56 @@ fn mock_window_backend_new() {
 
 #[test]
 fn mock_window_backend_poll_events() {
-    let mut win = MockWindow::new("Test", 320, 240).unwrap();
+    let win = MockWindow::new("Test", 320, 240);
     let events = win.poll_events();
     assert!(events.is_empty());
 }
 
 #[test]
 fn mock_window_backend_blit_framebuffer() {
-    let mut win = MockWindow::new("Test", 100, 100).unwrap();
+    let win = MockWindow::new("Test", 100, 100);
     let fb = abrash::framebuffer::Framebuffer::new(100, 100).unwrap();
     win.blit_framebuffer(&fb);
     // No panic = success
 }
 
-// ---------- Window type alias ----------
+// ---------- Winit host surface ----------
 
+#[cfg(feature = "backend-winit")]
+#[derive(Default)]
+struct MockApp;
+
+#[cfg(feature = "backend-winit")]
+impl WindowApp for MockApp {
+    type Error = std::convert::Infallible;
+
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig::default()
+    }
+
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "backend-winit")]
 #[test]
-fn window_type_alias_resolves() {
-    // This test verifies that `abrash::platform::Window` is a valid type.
-    // We can't construct it (Win32 needs a real window, TUI needs a terminal),
-    // but we can confirm the type exists and has the expected trait methods
-    // by checking it at compile time via a function pointer.
+fn window_host_config_default_values() {
+    let config = WindowHostConfig::default();
+    assert_eq!(config.title, "Abrash");
+    assert_eq!(config.width, 1280);
+    assert_eq!(config.height, 720);
+    assert!(config.vsync);
+}
 
-    // but we can confirm the type exists by ensuring its size is known.
-    fn assert_window_size<T: Sized>() {}
-    assert_window_size::<abrash::platform::Window>();
+#[cfg(feature = "backend-winit")]
+#[test]
+fn window_app_trait_surface_compiles() {
+    let app = MockApp;
+    let config = app.config();
+    assert_eq!(config, WindowHostConfig::default());
 }

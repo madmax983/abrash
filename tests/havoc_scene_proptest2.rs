@@ -28,10 +28,10 @@ proptest! {
                     * Mat4::rotation_x(rx)
                     * Mat4::rotation_y(ry)
                     * Mat4::rotation_z(rz)
-                    * Mat4::translation(tx, ty, tz);
+                * Mat4::translation(tx, ty, tz);
 
                 for _ in 0..obj_count {
-                    scene.add_object(SceneObject::new(mesh.clone(), transform, 0xFFFFFFFF));
+                    scene.add_object(SceneObject::new(mesh.clone(), transform, 0xFFFF_FFFF));
                 }
                 scene.render(&mut renderer, &mut fb, &mut zb);
             }

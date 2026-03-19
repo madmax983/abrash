@@ -20,7 +20,7 @@ fn test_tile_renderer_gouraud_render() {
 
     let triangles = vec![((v0, c0), (v1, c1), (v2, c2))];
 
-    fb.clear(0xFF000000);
+    fb.clear(0xFF00_0000);
     zb.clear();
 
     // Should not panic, and should render pixels
@@ -30,5 +30,5 @@ fn test_tile_renderer_gouraud_render() {
     let center = fb.get_pixel(50, 50);
     assert!(center.is_some());
     let color = center.unwrap();
-    assert_ne!(color, 0xFF000000, "Pixel should not be background black");
+    assert_ne!(color, 0xFF00_0000, "Pixel should not be background black");
 }

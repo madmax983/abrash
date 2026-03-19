@@ -21,7 +21,7 @@ proptest! {
                 let mut scene = Scene::new(camera);
                 let mesh = Arc::new(Mesh::cube(1.0));
                 for _ in 0..obj_count {
-                    scene.add_object(SceneObject::new(mesh.clone(), Mat4::identity(), 0xFFFFFFFF));
+                    scene.add_object(SceneObject::new(mesh.clone(), Mat4::identity(), 0xFFFF_FFFF));
                 }
                 scene.render(&mut renderer, &mut fb, &mut zb);
             }

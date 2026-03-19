@@ -54,7 +54,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
     if !has_content {
         // Nothing drawn, just clear to cold background
         for p in pixels.iter_mut() {
-            *p = 0xFF000020; // Dark Blue
+            *p = 0xFF00_0020; // Dark Blue
         }
         return;
     }
@@ -65,7 +65,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
 
     for (pixel, &depth) in pixels.iter_mut().zip(depths.iter()) {
         if depth == f32::INFINITY {
-            *pixel = 0xFF000010; // Very Dark Blue Background
+            *pixel = 0xFF00_0010; // Very Dark Blue Background
             continue;
         }
 
@@ -100,7 +100,7 @@ pub fn apply_heat_vision(fb: &mut Framebuffer, zb: &ZBuffer) {
         };
 
         // Combine into ARGB
-        *pixel = 0xFF000000 | (r << 16) | (g << 8) | b;
+        *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
     }
 }
 
@@ -132,18 +132,18 @@ mod tests {
 
         // Check 0 (Closest/Red)
         let p0 = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p0, 0xFFFF0000, "Closest pixel should be Red");
+        assert_eq!(p0, 0xFFFF_0000, "Closest pixel should be Red");
 
         // Check 4 (Furthest/Blue)
         let p4 = fb.get_pixel(4, 0).unwrap();
-        assert_eq!(p4, 0xFF0000FF, "Furthest pixel should be Blue");
+        assert_eq!(p4, 0xFF00_00FF, "Furthest pixel should be Blue");
 
         // Check 2 (Middle/Green)
         let p2 = fb.get_pixel(2, 0).unwrap();
         // Middle of 1.0..5.0 is 3.0.
         // normalized = (3.0 - 1.0) / (5.0 - 1.0) = 0.5
         // At 0.5 -> Green (0, 255, 0)
-        assert_eq!(p2, 0xFF00FF00, "Middle pixel should be Green");
+        assert_eq!(p2, 0xFF00_FF00, "Middle pixel should be Green");
     }
 
     #[test]
@@ -151,12 +151,12 @@ mod tests {
         let mut fb = Framebuffer::new(1, 1).unwrap();
         let zb = ZBuffer::new(1, 1).unwrap(); // Infinity
 
-        fb.set_pixel(0, 0, 0xFFFFFFFF); // White
+        fb.set_pixel(0, 0, 0xFFFF_FFFF); // White
 
         apply_heat_vision(&mut fb, &zb);
 
         let p = fb.get_pixel(0, 0).unwrap();
-        assert_eq!(p, 0xFF000020, "Empty buffer should be background color");
+        assert_eq!(p, 0xFF00_0020, "Empty buffer should be background color");
     }
 
     #[test]

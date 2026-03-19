@@ -4,18 +4,57 @@
 
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec2, Vec3, Vec4};
-use abrash::platform::Window;
+use abrash::platform::{
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_normal_mapped;
 use abrash::texture::Texture;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
+use std::fmt;
+use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
+
+#[derive(Debug)]
+struct AppError(String);
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for AppError {}
+
+impl From<&'static str> for AppError {
+    fn from(error: &'static str) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<String> for AppError {
+    fn from(error: String) -> Self {
+        Self(error)
+    }
+}
+
+impl From<IoError> for AppError {
+    fn from(error: IoError) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<abrash::platform::HostError> for AppError {
+    fn from(error: abrash::platform::HostError) -> Self {
+        Self(error.to_string())
+    }
+}
 
 fn print_banner() {
     println!("\n{}", "🧱 Normal Mapping Demo".bold().blue());
@@ -45,136 +84,159 @@ fn print_banner() {
     println!(" • Keyboard: Auto-rotating light source\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Normal Mapping", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT).unwrap();
+struct NormalMappingDemoApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    diffuse_map: Texture,
+    normal_map: Texture,
+    projection: Mat4,
+    view: Mat4,
+    timestep: FixedTimestep,
+    light_angle: f32,
+}
 
-    // Create textures
-    // Diffuse: Grey
-    let diffuse_map = Texture::checkered(256, 256, 0xFF808080, 0xFF808080).unwrap();
+impl NormalMappingDemoApp {
+    fn new() -> Result<Self, AppError> {
+        let diffuse_map = Texture::checkered(256, 256, 0xFF80_8080, 0xFF80_8080)?;
+        let mut normal_map = Texture::new(256, 256)?;
+        let normal_map_pixels = normal_map.pixels_mut();
+        normal_map_pixels.fill(0xFFFF_8080);
 
-    // Normal Map: Create a "bump" in the center
-    // Flat normal is (0.5, 0.5, 1.0) -> 0x8080FF
-    let mut normal_map = Texture::new(256, 256).unwrap();
-    let normal_map_pixels = normal_map.pixels_mut();
+        for y in 0..256 {
+            for x in 0..256 {
+                let dx = (x as f32 - 128.0) / 128.0;
+                let dy = (y as f32 - 128.0) / 128.0;
+                let dist = dx.hypot(dy);
 
-    // Initialize default flat
-    normal_map_pixels.fill(0xFFFF8080);
+                if dist < 0.8 {
+                    let z = (1.0 - dist * dist).sqrt();
+                    let n = Vec3::new(dx, dy, z).normalize();
 
-    for y in 0..256 {
-        for x in 0..256 {
-            let dx = (x as f32 - 128.0) / 128.0;
-            let dy = (y as f32 - 128.0) / 128.0;
-            let dist = dx.hypot(dy);
+                    let r = ((n.x * 0.5 + 0.5) * 255.0) as u32;
+                    let g = ((n.y * 0.5 + 0.5) * 255.0) as u32;
+                    let b = ((n.z * 0.5 + 0.5) * 255.0) as u32;
 
-            if dist < 0.8 {
-                // Sphere/Hemisphere normal
-                // z = sqrt(1 - x^2 - y^2)
-                let z = (1.0 - dist * dist).sqrt();
-                let nx = dx; // Simplified
-                let ny = dy;
-                let nz = z;
-
-                let n = Vec3::new(nx, ny, nz).normalize();
-
-                let r = ((n.x * 0.5 + 0.5) * 255.0) as u32;
-                let g = ((n.y * 0.5 + 0.5) * 255.0) as u32;
-                let b = ((n.z * 0.5 + 0.5) * 255.0) as u32;
-
-                normal_map_pixels[y * 256 + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
-            } else {
-                normal_map_pixels[y * 256 + x] = 0xFF8080FF;
+                    normal_map_pixels[y * 256 + x] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                } else {
+                    normal_map_pixels[y * 256 + x] = 0xFF80_80FF;
+                }
             }
+        }
+
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)?,
+            diffuse_map,
+            normal_map,
+            projection: Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0),
+            view: Mat4::look_at(
+                Vec3::new(0.0, 0.0, 4.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            timestep: FixedTimestep::new(60),
+            light_angle: 0.0,
+        })
+    }
+
+    fn present(&mut self) -> Result<(), AppError> {
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| IoError::other("software presenter not initialized"))?;
+        presenter.present(framebuffer)?;
+        Ok(())
+    }
+}
+
+impl WindowApp for NormalMappingDemoApp {
+    type Error = AppError;
+
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash - Normal Mapping".to_string(),
+            width: WIDTH,
+            height: HEIGHT,
+            vsync: true,
         }
     }
 
-    // Quad vertices
-    // Position, UV, Normal, Tangent
-    let p0 = Vec3::new(-2.0, 2.0, 0.0);
-    let p1 = Vec3::new(-2.0, -2.0, 0.0);
-    let p2 = Vec3::new(2.0, -2.0, 0.0);
-    let p3 = Vec3::new(2.0, 2.0, 0.0);
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-    let uv0 = Vec2::new(0.0, 0.0);
-    let uv1 = Vec2::new(0.0, 1.0);
-    let uv2 = Vec2::new(1.0, 1.0);
-    let uv3 = Vec2::new(1.0, 0.0);
-
-    let n = Vec3::new(0.0, 0.0, 1.0);
-    let t = Vec4::new(1.0, 0.0, 0.0, 1.0);
-
-    // Camera
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 0.0, 4.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
-
-    let mut timestep = FixedTimestep::new(60);
-    let mut light_angle = 0.0f32;
-
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
         for _ in 0..steps {
-            light_angle += 0.05;
+            self.light_angle += 0.05;
         }
+        Ok(())
+    }
 
-        framebuffer.clear(0xFF000000);
-        zbuffer.clear();
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.framebuffer.clear(0xFF00_0000);
+        self.zbuffer.clear();
 
-        // Rotating light
-        let light_dir = Vec3::new(light_angle.cos(), light_angle.sin() * 0.5, -1.0).normalize();
+        let p0 = Vec3::new(-2.0, 2.0, 0.0);
+        let p1 = Vec3::new(-2.0, -2.0, 0.0);
+        let p2 = Vec3::new(2.0, -2.0, 0.0);
+        let p3 = Vec3::new(2.0, 2.0, 0.0);
+
+        let uv0 = Vec2::new(0.0, 0.0);
+        let uv1 = Vec2::new(0.0, 1.0);
+        let uv2 = Vec2::new(1.0, 1.0);
+        let uv3 = Vec2::new(1.0, 0.0);
+
+        let n = Vec3::new(0.0, 0.0, 1.0);
+        let t = Vec4::new(1.0, 0.0, 0.0, 1.0);
+
+        let light_dir =
+            Vec3::new(self.light_angle.cos(), self.light_angle.sin() * 0.5, -1.0).normalize();
         let light_color = Vec3::new(1.0, 1.0, 1.0);
         let ambient = Vec3::new(0.1, 0.1, 0.1);
+        let mvp = self.projection * self.view;
 
-        let mvp = projection * view; // Model is identity
-
-        // Transform vertices to Clip Space
         let v0 = mvp.transform_point(p0);
         let v1 = mvp.transform_point(p1);
         let v2 = mvp.transform_point(p2);
         let v3 = mvp.transform_point(p3);
 
-        // Normals/Tangents in World Space (Identity model matrix)
-        let nw = n;
-        let tw = t;
-
-        // Render Quad (2 tris)
-        // Tri 1: 0, 1, 2
         fill_triangle_normal_mapped(
-            &mut framebuffer,
-            &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v1, uv1, nw, tw),
-            (v2, uv2, nw, tw),
-            &diffuse_map,
-            &normal_map,
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            (v0, uv0, n, t),
+            (v1, uv1, n, t),
+            (v2, uv2, n, t),
+            &self.diffuse_map,
+            &self.normal_map,
             light_dir,
             light_color,
             ambient,
         );
 
-        // Tri 2: 0, 2, 3
         fill_triangle_normal_mapped(
-            &mut framebuffer,
-            &mut zbuffer,
-            (v0, uv0, nw, tw),
-            (v2, uv2, nw, tw),
-            (v3, uv3, nw, tw),
-            &diffuse_map,
-            &normal_map,
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            (v0, uv0, n, t),
+            (v2, uv2, n, t),
+            (v3, uv3, n, t),
+            &self.diffuse_map,
+            &self.normal_map,
             light_dir,
             light_color,
             ambient,
         );
 
-        window.blit_framebuffer(&framebuffer);
+        self.present()
     }
+}
 
+fn main() -> Result<(), AppError> {
+    print_banner();
+    run_windowed(NormalMappingDemoApp::new()?)?;
     Ok(())
 }

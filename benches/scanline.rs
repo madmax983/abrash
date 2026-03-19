@@ -13,7 +13,7 @@ fn bench_draw_scanline_flat_short(c: &mut Criterion) {
     let x_end = 26; // 16 pixels
     let z_start = 0.5;
     let dz_dx = 0.001;
-    let color = 0xFFFF0000;
+    let color = 0xFFFF_0000;
 
     c.bench_function("draw_scanline_flat_16px", |b| {
         b.iter(|| {
@@ -77,7 +77,7 @@ fn bench_draw_scanline_flat_medium(c: &mut Criterion) {
     let x_end = 110; // 100 pixels
     let z_start = 0.5;
     let dz_dx = 0.001;
-    let color = 0xFFFF0000;
+    let color = 0xFFFF_0000;
 
     c.bench_function("draw_scanline_flat_100px", |b| {
         b.iter(|| {
@@ -111,7 +111,7 @@ fn bench_draw_scanline_flat_long(c: &mut Criterion) {
     let x_end = 1010; // 1000 pixels
     let z_start = 0.5;
     let dz_dx = 0.001;
-    let color = 0xFFFF0000;
+    let color = 0xFFFF_0000;
 
     c.bench_function("draw_scanline_flat_1000px", |b| {
         b.iter(|| {
@@ -145,7 +145,7 @@ fn bench_draw_scanline_flat_blended_medium(c: &mut Criterion) {
     let x_end = 110; // 100 pixels
     let z_start = 0.5;
     let dz_dx = 0.001;
-    let color = 0x80FF0000; // 50% Alpha
+    let color = 0x80FF_0000; // 50% Alpha
 
     c.bench_function("draw_scanline_flat_blended_100px", |b| {
         b.iter(|| {

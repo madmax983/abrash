@@ -12,7 +12,7 @@ fn test_alpha_discontinuity() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Clear to Red (0xFFFF0000)
-    fb.clear(0xFFFF0000);
+    fb.clear(0xFFFF_0000);
 
     // Triangle (Blue) covering the screen
     // Vertices in Clip Space. w=5.0.
@@ -32,22 +32,22 @@ fn test_alpha_discontinuity() {
     // Pixel (5, 5) should be covered (Center).
 
     // Case 1: Alpha 255 (Opaque Blue)
-    let color_opaque = 0xFF0000FF;
+    let color_opaque = 0xFF00_00FF;
     fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color_opaque);
 
     let pixel_255 = fb.get_pixel(5, 5).unwrap();
 
     // Should be Blue
     assert_eq!(
-        pixel_255, 0xFF0000FF,
+        pixel_255, 0xFF00_00FF,
         "Alpha 255 should be opaque Blue. Got {pixel_255:08X}"
     );
 
     // Case 2: Alpha 254 (Almost Opaque Blue)
-    fb.clear(0xFFFF0000); // Red
+    fb.clear(0xFFFF_0000); // Red
     zb.clear();
 
-    let color_almost_opaque = 0xFE0000FF; // Alpha 254
+    let color_almost_opaque = 0xFE00_00FF; // Alpha 254
     fill_triangle_3d(&mut fb, &mut zb, v0, v1, v2, color_almost_opaque);
 
     let pixel_254 = fb.get_pixel(5, 5).unwrap();

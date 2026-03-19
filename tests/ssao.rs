@@ -12,7 +12,7 @@ fn test_apply_ssao_darkens_occluded_pixels() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Fill FB with white
-    fb.clear(0xFFFFFFFF);
+    fb.clear(0xFFFF_FFFF);
 
     // Setup Z-buffer with a "corner"
     // Let's try to simulate a corner.

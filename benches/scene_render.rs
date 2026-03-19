@@ -59,7 +59,7 @@ fn bench_scene_render(c: &mut Criterion) {
         let x = (i % 10) as f32 * 15.0 - 75.0;
         let z = (i / 10) as f32 * 15.0 - 75.0;
         let transform = Mat4::translation(x, 0.0, z);
-        let object = SceneObject::new(mesh.clone(), transform, 0xFFFFFFFF);
+        let object = SceneObject::new(mesh.clone(), transform, 0xFFFF_FFFF);
         scene.add_object(object);
     }
 
@@ -69,7 +69,7 @@ fn bench_scene_render(c: &mut Criterion) {
 
     c.bench_function("scene_render_100_objects", |b| {
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             scene.render(&mut renderer, &mut fb, &mut zb);
         });

@@ -33,6 +33,13 @@ pub struct Win32Window {
 }
 
 impl Win32Window {
+    /// Create a Win32 window with the requested title and client size.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WindowError::RegistrationFailed`] if the window class cannot be
+    /// registered or [`WindowError::CreationFailed`] if the native window cannot
+    /// be created.
     pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 || width == 0 || height == 0 {
             return Err(WindowError::CreationFailed);
@@ -85,15 +92,18 @@ impl Win32Window {
         }
     }
 
-    pub fn is_open(&self) -> bool {
+    #[must_use]
+    pub const fn is_open(&self) -> bool {
         self.is_open
     }
 
-    pub fn width(&self) -> u32 {
+    #[must_use]
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn height(&self) -> u32 {
+    #[must_use]
+    pub const fn height(&self) -> u32 {
         self.height
     }
 

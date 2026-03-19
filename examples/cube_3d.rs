@@ -1,7 +1,9 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::Window;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -13,6 +15,7 @@ use crossterm::style::Stylize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
+const TITLE: &str = "Abrash - 3D Cube";
 
 // Face colors for the cube
 const COLORS: [u32; 6] = [
@@ -60,74 +63,124 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - 3D Cube", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let mut timestep = FixedTimestep::new(60);
+struct Cube3dApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    timestep: FixedTimestep,
+    cube: Mesh,
+    angle_y: f32,
+    angle_x: f32,
+}
 
-    let cube = Mesh::cube(1.0);
+impl Cube3dApp {
+    fn new() -> Result<Self, HostError> {
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            timestep: FixedTimestep::new(60),
+            cube: Mesh::cube(1.0),
+            angle_y: 0.0,
+            angle_x: 0.0,
+        })
+    }
+}
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 1.5, 3.0), // eye
-        Vec3::new(0.0, 0.0, 0.0), // target
-        Vec3::new(0.0, 1.0, 0.0), // up
-    );
+impl WindowApp for Cube3dApp {
+    type Error = HostError;
 
-    let mut angle_y: f32 = 0.0;
-    let mut angle_x: f32 = 0.0;
-
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle_y += 1.0 * timestep.dt();
-            angle_x += 0.5 * timestep.dt();
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
+            vsync: true,
         }
+    }
 
-        framebuffer.clear(BACKGROUND);
-        zbuffer.clear();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        // Model matrix (rotation)
-        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        self.framebuffer =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.zbuffer =
+            ZBuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        Ok(())
+    }
 
-        // MVP matrix
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
+        for _ in 0..steps {
+            self.angle_y += 1.0 * self.timestep.dt();
+            self.angle_x += 0.5 * self.timestep.dt();
+        }
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let projection = Mat4::perspective(
+            PI / 3.0,
+            self.framebuffer.width() as f32 / self.framebuffer.height() as f32,
+            0.1,
+            100.0,
+        );
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 1.5, 3.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        self.framebuffer.clear(BACKGROUND);
+        self.zbuffer.clear();
+
+        let model = Mat4::rotation_y(self.angle_y) * Mat4::rotation_x(self.angle_x);
         let mvp = projection * (view * model);
 
-        // Transform and render each triangle
-        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
-            let v0 = cube.vertices[tri_indices[0]];
-            let v1 = cube.vertices[tri_indices[1]];
-            let v2 = cube.vertices[tri_indices[2]];
+        for (face_idx, tri_indices) in self.cube.indices.iter().enumerate() {
+            let v0 = self.cube.vertices[tri_indices[0]];
+            let v1 = self.cube.vertices[tri_indices[1]];
+            let v2 = self.cube.vertices[tri_indices[2]];
 
-            // Transform vertices
             let (clip0, w0) = mvp.transform_point(v0);
             let (clip1, w1) = mvp.transform_point(v1);
             let (clip2, w2) = mvp.transform_point(v2);
 
-            // Simple backface culling (check if facing camera)
-            // Skip if all w values are negative (behind camera)
             if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
                 continue;
             }
 
-            let color = COLORS[face_idx / 2]; // 2 triangles per face
             fill_triangle_3d(
-                &mut framebuffer,
-                &mut zbuffer,
+                &mut self.framebuffer,
+                &mut self.zbuffer,
                 (clip0, w0),
                 (clip1, w1),
                 (clip2, w2),
-                color,
+                COLORS[face_idx / 2],
             );
         }
 
-        window.blit_framebuffer(&framebuffer);
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
 
-    Ok(())
+fn main() -> Result<(), HostError> {
+    print_banner();
+    run_windowed(Cube3dApp::new()?)
 }

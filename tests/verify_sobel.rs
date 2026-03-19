@@ -12,12 +12,12 @@ fn test_apply_sobel_edge_detection() {
     let width = 5;
     let height = 5;
     let mut fb = Framebuffer::new(width, height).unwrap();
-    fb.clear(0xFF000000); // Black
+    fb.clear(0xFF00_0000); // Black
 
     // Draw white square (3x3)
     for y in 1..4 {
         for x in 1..4 {
-            fb.set_pixel(x, y, 0xFFFFFFFF);
+            fb.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 
@@ -28,7 +28,7 @@ fn test_apply_sobel_edge_detection() {
     // The center pixel (2,2) is surrounded by white, so it should have 0 gradient (black).
     let center = fb.get_pixel(2, 2).unwrap();
     assert_eq!(
-        center & 0xFFFFFF,
+        center & 0x00FF_FFFF,
         0,
         "Center pixel should be black (no gradient)"
     );
@@ -83,5 +83,5 @@ fn test_apply_sobel_edge_detection() {
     // Check a pixel completely outside (0,0) - border handling might leave it 0 or copy it.
     // Usually border pixels are skipped or set to 0.
     let border = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(border & 0xFFFFFF, 0, "Border pixel should be black");
+    assert_eq!(border & 0x00FF_FFFF, 0, "Border pixel should be black");
 }

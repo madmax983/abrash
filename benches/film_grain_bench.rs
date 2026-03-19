@@ -5,10 +5,10 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 fn bench_film_grain(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();
     // Fill with a uniform color
-    fb.clear(0xFF808080);
+    fb.clear(0xFF80_8080);
     let config = FilmGrainConfig {
         intensity: 0.25,
-        seed: 0xBADF00D,
+        seed: 0x0BAD_F00D,
     };
 
     c.bench_function("apply_film_grain (1080p)", |b| {

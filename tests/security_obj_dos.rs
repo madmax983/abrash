@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use abrash::obj_loader::load_obj;
+    use std::fmt::Write as _;
     use std::time::Instant;
 
     #[test]
@@ -9,14 +10,15 @@ mod tests {
         let mut obj = String::new();
         obj.push_str("v 0.0 0.0 0.0\n");
         for i in 0..n {
-            obj.push_str(&format!("vt {} {}\n", i as f32 / n as f32, 0.0));
+            writeln!(obj, "vt {} {}", i as f32 / n as f32, 0.0)
+                .expect("writing to String cannot fail");
         }
 
         for i in 0..n / 3 {
             let idx1 = i * 3 + 1;
             let idx2 = i * 3 + 2;
             let idx3 = i * 3 + 3;
-            obj.push_str(&format!("f 1/{idx1} 1/{idx2} 1/{idx3}\n"));
+            writeln!(obj, "f 1/{idx1} 1/{idx2} 1/{idx3}").expect("writing to String cannot fail");
         }
 
         let start = Instant::now();

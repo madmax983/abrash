@@ -5,12 +5,20 @@ use abrash::framebuffer::Framebuffer;
 
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use abrash::platform::tui::TuiWindow;
-#[cfg(all(feature = "nova", feature = "backend-win32"))]
+#[cfg(all(
+    feature = "nova",
+    feature = "backend-win32",
+    not(feature = "backend-winit")
+))]
 use abrash::platform::win32::Win32Window;
 #[cfg(feature = "nova")]
 use std::env;
+#[cfg(all(feature = "nova", feature = "backend-tui"))]
+use std::time::Duration;
 
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
+use crossterm::event::{self, Event, KeyCode};
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
@@ -48,6 +56,121 @@ fn print_banner() {
         ])
         .add_row(vec![Cell::new("Q / Esc"), Cell::new("Quit Demo")]);
     println!("{controls}\n");
+}
+
+#[cfg(all(feature = "nova", feature = "backend-winit"))]
+mod winit_demo {
+    use super::{EdgeGlowConfig, Framebuffer, apply_edge_glow};
+    use abrash::platform::{
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    };
+    use std::io;
+
+    pub fn run(width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        run_windowed(EdgeGlowApp::new(width, height)?)?;
+        Ok(())
+    }
+
+    struct EdgeGlowApp {
+        width: u32,
+        height: u32,
+        framebuffer: Framebuffer,
+        presenter: Option<SoftwarePresenter>,
+        config: EdgeGlowConfig,
+    }
+
+    impl EdgeGlowApp {
+        fn new(width: u32, height: u32) -> Result<Self, io::Error> {
+            let config = EdgeGlowConfig {
+                edge_color: 0x00FF_00FF,
+                intensity: 2.0,
+                edge_threshold: 30,
+                darken_factor: 0.1,
+            };
+            let framebuffer = Self::build_framebuffer(width, height, &config)?;
+            Ok(Self {
+                width,
+                height,
+                framebuffer,
+                presenter: None,
+                config,
+            })
+        }
+
+        fn build_framebuffer(
+            width: u32,
+            height: u32,
+            config: &EdgeGlowConfig,
+        ) -> Result<Framebuffer, io::Error> {
+            let mut framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            framebuffer.clear(0xFF20_2020);
+
+            for y in 100..200 {
+                for x in 100..200 {
+                    framebuffer.set_pixel(x, y, 0xFFFF_FFFF);
+                }
+            }
+
+            for y in 300..400 {
+                for x in 300..500 {
+                    if (x + y) % 10 < 5 {
+                        framebuffer.set_pixel(x, y, 0xFFAA_AAAA);
+                    }
+                }
+            }
+
+            apply_edge_glow(&mut framebuffer, config);
+            Ok(framebuffer)
+        }
+
+        fn rebuild_framebuffer(&mut self, width: u32, height: u32) -> Result<(), io::Error> {
+            self.width = width;
+            self.height = height;
+            self.framebuffer = Self::build_framebuffer(width, height, &self.config)?;
+            Ok(())
+        }
+    }
+
+    impl WindowApp for EdgeGlowApp {
+        type Error = io::Error;
+
+        fn config(&self) -> WindowHostConfig {
+            WindowHostConfig {
+                title: "Edge Glow Demo".to_string(),
+                width: self.width,
+                height: self.height,
+                vsync: true,
+            }
+        }
+
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
+            Ok(())
+        }
+
+        fn resize(
+            &mut self,
+            _ctx: WindowContext<'_>,
+            width: u32,
+            height: u32,
+        ) -> Result<(), Self::Error> {
+            self.rebuild_framebuffer(width, height)
+        }
+
+        fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            let presenter = self
+                .presenter
+                .as_mut()
+                .ok_or_else(|| io::Error::other("presenter not initialized"))?;
+            presenter
+                .present(&self.framebuffer)
+                .map_err(io::Error::other)
+        }
+    }
 }
 
 #[cfg(feature = "nova")]
@@ -95,9 +218,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut window = TuiWindow::new("Edge Glow Demo", width, height)?;
             window.blit_framebuffer(&fb);
 
-            use crossterm::event::{self, Event, KeyCode};
-            use std::time::Duration;
-
             loop {
                 if event::poll(Duration::from_millis(100))?
                     && let Event::Key(key) = event::read()?
@@ -114,7 +234,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("TUI backend not enabled.");
         }
     } else {
-        #[cfg(feature = "backend-win32")]
+        #[cfg(feature = "backend-winit")]
+        {
+            return winit_demo::run(width, height);
+        }
+
+        #[cfg(all(not(feature = "backend-winit"), feature = "backend-win32"))]
         {
             let mut window = Win32Window::new("Edge Glow Demo", width, height)?;
             window.blit_framebuffer(&fb);
@@ -124,7 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::thread::sleep(std::time::Duration::from_millis(16));
             }
         }
-        #[cfg(not(feature = "backend-win32"))]
+        #[cfg(all(not(feature = "backend-winit"), not(feature = "backend-win32")))]
         {
             println!(
                 "Win32 backend not enabled. Please use --tui or build with --features backend-win32"

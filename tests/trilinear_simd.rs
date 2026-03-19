@@ -18,7 +18,7 @@ fn test_trilinear_simd_correctness() {
         for x in 0..64 {
             let r = (x * 4) as u8;
             let g = (y * 4) as u8;
-            let color = 0xFF000000 | (u32::from(r) << 16) | (u32::from(g) << 8);
+            let color = 0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8);
             tex.set_pixel(x, y, color);
         }
     }

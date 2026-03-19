@@ -78,7 +78,7 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
             let v1 = (u * 0.1).sin();
             let v2 = (v * 0.1).sin();
             let v3 = ((u + v) * 0.1).sin();
-            let v4 = ((u * u + v * v).sqrt() * 0.1).sin();
+            let v4 = (u.hypot(v) * 0.1).sin();
 
             let val = (v1 + v2 + v3 + v4) * 0.25; // -1 to 1
             let normalized = (val + 1.0) * 0.5; // 0 to 1
