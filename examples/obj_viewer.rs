@@ -3,8 +3,10 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::obj_loader::load_obj;
+#[cfg(all(not(feature = "backend-winit"), not(feature = "backend-tui")))]
 use abrash::platform::Window;
 use abrash::rasterizer::fill_triangle_3d;
+#[cfg(all(not(feature = "backend-winit"), not(feature = "backend-tui")))]
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use clap::Parser;
@@ -27,9 +29,11 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
+#[cfg_attr(feature = "backend-tui", allow(dead_code))]
 const WIDTH: u32 = 800;
+#[cfg_attr(feature = "backend-tui", allow(dead_code))]
 const HEIGHT: u32 = 600;
-const BACKGROUND: u32 = 0xFF101010;
+const BACKGROUND: u32 = 0xFF10_1010;
 
 // Embed a simple spaceship-like OBJ
 const SPACESHIP_OBJ: &str = r"
@@ -126,7 +130,7 @@ fn render_mesh(
         let r = (color_vec.x * 255.0).min(255.0) as u32;
         let g = (color_vec.y * 255.0).min(255.0) as u32;
         let b = (color_vec.z * 255.0).min(255.0) as u32;
-        let color = 0xFF000000 | (r << 16) | (g << 8) | b;
+        let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
 
         fill_triangle_3d(
             framebuffer,
@@ -193,13 +197,146 @@ impl Widget for AsciiWidget<'_> {
     }
 }
 
+#[cfg(feature = "backend-winit")]
+mod winit_demo {
+    use super::{
+        BACKGROUND, Framebuffer, HEIGHT, Mat4, Mesh, PI, Vec3, WIDTH, ZBuffer, render_mesh,
+    };
+    use abrash::platform::{
+        SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+    };
+    use std::io;
+
+    pub fn run(
+        mesh: Mesh,
+        normals: Vec<Vec3>,
+        source_name: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        run_windowed(ObjViewerApp::new(mesh, normals, source_name)?)?;
+        Ok(())
+    }
+
+    struct ObjViewerApp {
+        width: u32,
+        height: u32,
+        framebuffer: Framebuffer,
+        zbuffer: ZBuffer,
+        presenter: Option<SoftwarePresenter>,
+        mesh: Mesh,
+        normals: Vec<Vec3>,
+        base_color: Vec3,
+        angle_y: f32,
+        source_name: String,
+    }
+
+    impl ObjViewerApp {
+        fn new(mesh: Mesh, normals: Vec<Vec3>, source_name: String) -> Result<Self, io::Error> {
+            let width = WIDTH;
+            let height = HEIGHT;
+            let framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            let zbuffer = ZBuffer::new(width, height).map_err(io::Error::other)?;
+
+            Ok(Self {
+                width,
+                height,
+                framebuffer,
+                zbuffer,
+                presenter: None,
+                mesh,
+                normals,
+                base_color: Vec3::new(0.4, 0.6, 1.0),
+                angle_y: 0.0,
+                source_name,
+            })
+        }
+
+        fn rebuild_buffers(&mut self, width: u32, height: u32) -> Result<(), io::Error> {
+            self.width = width;
+            self.height = height;
+            self.framebuffer = Framebuffer::new(width, height).map_err(io::Error::other)?;
+            self.zbuffer = ZBuffer::new(width, height).map_err(io::Error::other)?;
+            Ok(())
+        }
+
+        fn render_frame(&mut self) {
+            self.framebuffer.clear(BACKGROUND);
+            self.zbuffer.clear();
+
+            let projection =
+                Mat4::perspective(PI / 3.0, self.width as f32 / self.height as f32, 0.1, 100.0);
+            let view = Mat4::look_at(
+                Vec3::new(0.0, 1.0, 3.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            );
+            let model = Mat4::rotation_y(self.angle_y);
+            let mvp = projection * (view * model);
+            let normal_mat = model;
+
+            render_mesh(
+                &mut self.framebuffer,
+                &mut self.zbuffer,
+                &self.mesh,
+                &self.normals,
+                &mvp,
+                &normal_mat,
+                self.base_color,
+            );
+        }
+    }
+
+    impl WindowApp for ObjViewerApp {
+        type Error = io::Error;
+
+        fn config(&self) -> WindowHostConfig {
+            WindowHostConfig {
+                title: format!("Abrash - OBJ Viewer - {}", self.source_name),
+                width: self.width,
+                height: self.height,
+                vsync: true,
+            }
+        }
+
+        fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.presenter = Some(SoftwarePresenter::new(ctx.window).map_err(io::Error::other)?);
+            Ok(())
+        }
+
+        fn resize(
+            &mut self,
+            _ctx: WindowContext<'_>,
+            width: u32,
+            height: u32,
+        ) -> Result<(), Self::Error> {
+            self.rebuild_buffers(width, height)
+        }
+
+        fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.angle_y += ctx.dt_seconds;
+            Ok(())
+        }
+
+        fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+            self.render_frame();
+            let presenter = self
+                .presenter
+                .as_mut()
+                .ok_or_else(|| io::Error::other("presenter not initialized"))?;
+            presenter
+                .present(&self.framebuffer)
+                .map_err(io::Error::other)
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     println!("\n🎨 Abrash OBJ Viewer");
 
-    let (mesh_source, source_name) = match args.input {
-        Some(path) => {
+    let (mesh_source, source_name) = args.input.map_or_else(
+        || (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
+        |path| {
             let content = match fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(e) => {
@@ -220,9 +357,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
             (content, path.display().to_string())
-        }
-        None => (SPACESHIP_OBJ.to_string(), "Built-in Spaceship".to_string()),
-    };
+        },
+    );
 
     // Load the mesh
     let mesh = match load_obj(&mesh_source) {
@@ -388,45 +524,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         terminal.show_cursor()?;
     } else {
-        let window_title = format!("Abrash - OBJ Viewer - {source_name}");
-        let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
-        let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-        let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-        let mut timestep = FixedTimestep::new(60);
+        #[cfg(feature = "backend-winit")]
+        {
+            return winit_demo::run(mesh, normals, source_name);
+        }
 
-        let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-        let view = Mat4::look_at(
-            Vec3::new(0.0, 1.0, 3.0),
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        );
+        #[cfg(all(not(feature = "backend-winit"), not(feature = "backend-tui")))]
+        {
+            let window_title = format!("Abrash - OBJ Viewer - {source_name}");
+            let mut window = Window::new(&window_title, WIDTH, HEIGHT)?;
+            let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
+            let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
+            let mut timestep = FixedTimestep::new(60);
 
-        while window.is_open() {
-            window.poll_events();
-
-            let steps = timestep.update();
-            for _ in 0..steps {
-                angle_y += 1.0 * timestep.dt();
-            }
-
-            framebuffer.clear(BACKGROUND);
-            zbuffer.clear();
-
-            let model = Mat4::rotation_y(angle_y);
-            let mvp = projection * (view * model);
-            let normal_mat = model;
-
-            render_mesh(
-                &mut framebuffer,
-                &mut zbuffer,
-                &mesh,
-                &normals,
-                &mvp,
-                &normal_mat,
-                base_color,
+            let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+            let view = Mat4::look_at(
+                Vec3::new(0.0, 1.0, 3.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
             );
 
-            window.blit_framebuffer(&framebuffer);
+            while window.is_open() {
+                window.poll_events();
+
+                let steps = timestep.update();
+                for _ in 0..steps {
+                    angle_y += 1.0 * timestep.dt();
+                }
+
+                framebuffer.clear(BACKGROUND);
+                zbuffer.clear();
+
+                let model = Mat4::rotation_y(angle_y);
+                let mvp = projection * (view * model);
+                let normal_mat = model;
+
+                render_mesh(
+                    &mut framebuffer,
+                    &mut zbuffer,
+                    &mesh,
+                    &normals,
+                    &mvp,
+                    &normal_mat,
+                    base_color,
+                );
+
+                window.blit_framebuffer(&framebuffer);
+            }
+        }
+
+        #[cfg(all(not(feature = "backend-winit"), feature = "backend-tui"))]
+        {
+            eprintln!(
+                "Graphical window mode is unavailable with backend-tui. Use --ascii or --colored-ascii."
+            );
+            std::process::exit(1);
         }
     }
 

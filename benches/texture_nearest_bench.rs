@@ -17,7 +17,7 @@ fn bench_texture_nearest(c: &mut Criterion) {
     // Fill texture to force page faults / cache population
     for y in 0..tex_size {
         for x in 0..tex_size {
-            texture.set_pixel(x, y, 0xFFFFFFFF);
+            texture.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
     texture.filter_mode = FilterMode::Nearest;

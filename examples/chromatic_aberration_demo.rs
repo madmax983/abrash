@@ -2,64 +2,104 @@ use abrash::experimental::chromatic_aberration::{
     ChromaticAberrationConfig, apply_chromatic_aberration,
 };
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::Window;
-use std::time::Instant;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 
-fn main() {
-    let width = 800;
-    let height = 600;
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const TITLE: &str = "🌟 Nova: Chromatic Aberration Demo";
 
-    let mut window = Window::new("🌟 Nova: Chromatic Aberration Demo", width, height).unwrap();
-    let mut fb = Framebuffer::new(width, height).unwrap();
+struct ChromaticAberrationDemo {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    shift_amount: f32,
+}
 
-    let mut shift_amount = 0.0f32;
-    let mut last_time = Instant::now();
+impl ChromaticAberrationDemo {
+    fn new() -> Result<Self, HostError> {
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            shift_amount: 0.0,
+        })
+    }
+}
 
-    while window.is_open() {
-        let current_time = Instant::now();
-        let dt = current_time.duration_since(last_time).as_secs_f32();
-        last_time = current_time;
+impl WindowApp for ChromaticAberrationDemo {
+    type Error = HostError;
 
-        // Process window events
-        window.poll_events();
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
+            vsync: true,
+        }
+    }
 
-        // Draw background grid (procedural generation into framebuffer)
-        let w = fb.width() as usize;
-        let h = fb.height() as usize;
-        let pixels = fb.as_mut_slice();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        for y in 0..h {
-            for x in 0..w {
-                // Draw a simple grid
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        self.framebuffer =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        Ok(())
+    }
+
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.shift_amount += ctx.dt_seconds * 5.0;
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let width = self.framebuffer.width() as usize;
+        let height = self.framebuffer.height() as usize;
+        let pixels = self.framebuffer.as_mut_slice();
+
+        for y in 0..height {
+            for x in 0..width {
                 let is_grid_line = (x % 50 < 2) || (y % 50 < 2);
-                let is_circle = ((x as i32 - w as i32 / 2).pow(2)
-                    + (y as i32 - h as i32 / 2).pow(2))
+                let is_circle = ((x as i32 - width as i32 / 2).pow(2)
+                    + (y as i32 - height as i32 / 2).pow(2))
                     < 150_i32.pow(2);
 
-                let color = if is_grid_line {
-                    0xFF_AA_AA_AA // Light grey
+                pixels[y * width + x] = if is_grid_line {
+                    0xFF_AA_AA_AA
                 } else if is_circle {
-                    0xFF_FF_FF_FF // White circle
+                    0xFF_FF_FF_FF
                 } else {
-                    0xFF_22_22_22 // Dark grey
+                    0xFF_22_22_22
                 };
-
-                pixels[y * w + x] = color;
             }
         }
 
-        // Oscillate shift amount over time
-        shift_amount += dt * 5.0;
-        let shift = (shift_amount.sin() * 10.0) as i32;
-
+        let shift = (self.shift_amount.sin() * 10.0) as i32;
         let config = ChromaticAberrationConfig {
             red_shift: (shift, 0),
             green_shift: (0, 0),
             blue_shift: (-shift, 0),
         };
 
-        apply_chromatic_aberration(&mut fb, &config);
-
-        window.blit_framebuffer(&fb);
+        apply_chromatic_aberration(&mut self.framebuffer, &config);
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
+
+fn main() -> Result<(), HostError> {
+    run_windowed(ChromaticAberrationDemo::new()?)
 }

@@ -15,7 +15,7 @@ fn bench_scanline_lengths(c: &mut Criterion) {
     // Fill with pattern
     for y in 0..256 {
         for x in 0..256 {
-            tex.set_pixel(x, y, (x ^ y) | 0xFF000000);
+            tex.set_pixel(x, y, (x ^ y) | 0xFF00_0000);
         }
     }
     // Use Bilinear to stress the SIMD path more (if it supports it)

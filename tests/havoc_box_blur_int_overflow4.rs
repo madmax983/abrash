@@ -5,7 +5,7 @@ fn test_box_blur_vertical_avx2_int_overflow() {
     let width = 5;
     let height = 5;
     // Max u32 value for pixels
-    let src = vec![0xFFFFFFFFu32; width * height];
+    let src = vec![0xFFFF_FFFF_u32; width * height];
     let mut dest = vec![0u32; width * height];
     let mut acc = vec![0i32; width * 3];
     let radius = 10_000_000u32;

@@ -181,11 +181,11 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
             // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
             // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
             let orig = *p;
-            let rb = orig & 0x00FF00FF;
-            let g = orig & 0x0000FF00;
+            let rb = orig & 0x00FF_00FF;
+            let g = orig & 0x0000_FF00;
 
-            let rb_new = ((rb * factor_fixed) >> 8) & 0x00FF00FF;
-            let g_new = ((g * factor_fixed) >> 8) & 0x0000FF00;
+            let rb_new = ((rb * factor_fixed) >> 8) & 0x00FF_00FF;
+            let g_new = ((g * factor_fixed) >> 8) & 0x0000_FF00;
 
             *p = (orig & 0xFF00_0000) | rb_new | g_new;
         }
@@ -558,7 +558,7 @@ unsafe fn apply_ssao_avx2(
 /// Generates a deterministic pseudo-random kernel for SSAO sampling.
 fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
     let mut kernel = [Vec3::default(); KERNEL_SIZE];
-    let mut seed = 123456789;
+    let mut seed = 123_456_789;
 
     for (i, v) in kernel.iter_mut().enumerate() {
         let r1 = rand_f32(&mut seed) * 2.0 - 1.0; // x: -1..1
@@ -581,7 +581,7 @@ fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
 /// Generates a noise texture for kernel rotation.
 fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     let mut noise = [Vec3::default(); NOISE_SIZE * NOISE_SIZE];
-    let mut seed = 987654321;
+    let mut seed = 987_654_321;
 
     for v in &mut noise {
         let x = rand_f32(&mut seed) * 2.0 - 1.0;
@@ -637,8 +637,8 @@ fn generate_precomputed_kernels(kernel: &[Vec3], noise: &[Vec3]) -> Vec<f32> {
 
 /// Simple Linear Congruential Generator for deterministic randomness.
 fn rand_f32(seed: &mut u32) -> f32 {
-    *seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-    (*seed >> 9) as f32 / 8388607.0
+    *seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+    (*seed >> 9) as f32 / 8_388_607.0
 }
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {

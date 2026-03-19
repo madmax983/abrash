@@ -33,9 +33,9 @@ fn test_draw_scanline_textured_perspective_oob() {
         &mut fb,
         &mut zb,
         &tex,
-        5,             // y
-        std::i32::MIN, // x_start
-        50,            // x_end
+        5,        // y
+        i32::MIN, // x_start
+        50,       // x_end
         start,
         &gradients,
     );
@@ -51,11 +51,11 @@ fn test_draw_scanline_flat_oob() {
     draw_scanline_flat(
         &mut fb,
         &mut zb,
-        5,             // y
-        std::i32::MIN, // x_start
-        50,            // x_end
-        1.0,           // z_start
-        0.0,           // dz_dx
-        0xFFFFFFFF,    // color
+        5,           // y
+        i32::MIN,    // x_start
+        50,          // x_end
+        1.0,         // z_start
+        0.0,         // dz_dx
+        0xFFFF_FFFF, // color
     );
 }

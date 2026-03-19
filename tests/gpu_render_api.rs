@@ -107,10 +107,10 @@ fn interaction_controller_clamps_distance() {
     let mut controller = GpuInteractionController::new(&config);
 
     controller.adjust_zoom(-10.0, &config);
-    assert_eq!(controller.distance(), 2.0);
+    assert!((controller.distance() - 2.0).abs() < f32::EPSILON);
 
     controller.adjust_zoom(10.0, &config);
-    assert_eq!(controller.distance(), 4.0);
+    assert!((controller.distance() - 4.0).abs() < f32::EPSILON);
 }
 
 #[test]

@@ -51,11 +51,9 @@ fn measure_cycles<F: FnMut()>(_f: F, _iterations: usize) -> u64 {
 }
 
 /// Generate test scene with triangles
-fn generate_test_scene(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+type RasterTriangle = ((Vec3, f32), (Vec3, f32), (Vec3, f32), u32);
+
+fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<RasterTriangle> {
     let mut triangles = Vec::new();
 
     for i in 0..count {
@@ -94,19 +92,15 @@ fn test_hiz_pyramid_performance_threshold() {
     );
 
     let pixels = width * height;
-    let cycles_per_pixel = cycles as f64 / pixels as f64;
+    let cycles_per_pixel = cycles as f64 / f64::from(pixels);
 
     // With SIMD optimizations, we should see:
     // - Less than 5 cycles per pixel for pyramid build
     // - This is a conservative threshold - good SIMD should be ~2-3 cycles/pixel
-    println!(
-        "Hi-Z pyramid build: {} cycles ({:.2} cycles/pixel)",
-        cycles, cycles_per_pixel
-    );
+    println!("Hi-Z pyramid build: {cycles} cycles ({cycles_per_pixel:.2} cycles/pixel)");
     assert!(
         cycles_per_pixel < 5.0,
-        "Hi-Z pyramid build too slow: {:.2} cycles/pixel (threshold: 5.0)",
-        cycles_per_pixel
+        "Hi-Z pyramid build too slow: {cycles_per_pixel:.2} cycles/pixel (threshold: 5.0)"
     );
 }
 
@@ -133,18 +127,14 @@ fn test_scanline_rasterization_performance() {
     );
 
     let pixels = width * height;
-    let cycles_per_pixel = cycles as f64 / pixels as f64;
+    let cycles_per_pixel = cycles as f64 / f64::from(pixels);
 
     // With tiled rendering and SIMD, we should see reasonable performance
     // Conservative threshold: <50 cycles per pixel for full pipeline
-    println!(
-        "Tile rendering: {} cycles ({:.2} cycles/pixel)",
-        cycles, cycles_per_pixel
-    );
+    println!("Tile rendering: {cycles} cycles ({cycles_per_pixel:.2} cycles/pixel)");
     assert!(
         cycles_per_pixel < 50.0,
-        "Tile rendering too slow: {:.2} cycles/pixel (threshold: 50.0)",
-        cycles_per_pixel
+        "Tile rendering too slow: {cycles_per_pixel:.2} cycles/pixel (threshold: 50.0)"
     );
 }
 
@@ -188,17 +178,13 @@ fn test_hiz_culling_effectiveness() {
 
     let speedup = cycles_no_hiz as f64 / cycles_with_hiz as f64;
 
-    println!(
-        "Hi-Z culling speedup: {:.2}× ({} -> {} cycles)",
-        speedup, cycles_no_hiz, cycles_with_hiz
-    );
+    println!("Hi-Z culling speedup: {speedup:.2}× ({cycles_no_hiz} -> {cycles_with_hiz} cycles)");
 
     // Hi-Z should provide at least 1.1× speedup for scenes with overlapping geometry
     // (10% improvement minimum, accounting for pyramid build overhead)
     assert!(
         speedup >= 1.05,
-        "Hi-Z culling not effective: {:.2}× speedup (threshold: 1.05×)",
-        speedup
+        "Hi-Z culling not effective: {speedup:.2}× speedup (threshold: 1.05×)"
     );
 }
 
@@ -220,28 +206,20 @@ fn test_memory_access_efficiency() {
         200,
     );
 
-    let cycles_per_pixel = cycles as f64 / pixels as f64;
+    let cycles_per_pixel = cycles as f64 / f64::from(pixels);
 
-    println!(
-        "Framebuffer clear: {} cycles ({:.2} cycles/pixel)",
-        cycles, cycles_per_pixel
-    );
+    println!("Framebuffer clear: {cycles} cycles ({cycles_per_pixel:.2} cycles/pixel)");
 
     // Sequential memory writes should be very fast (<1 cycle/pixel with good caching)
     // Conservative threshold: <2 cycles/pixel
     assert!(
         cycles_per_pixel < 2.0,
-        "Memory clear too slow: {:.2} cycles/pixel (threshold: 2.0)",
-        cycles_per_pixel
+        "Memory clear too slow: {cycles_per_pixel:.2} cycles/pixel (threshold: 2.0)"
     );
 }
 
 /// Generate overlapping triangles to test Hi-Z culling
-fn generate_overlapping_triangles(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_overlapping_triangles(count: usize, width: u32, height: u32) -> Vec<RasterTriangle> {
     let mut triangles = Vec::new();
 
     // Create layers of triangles at different depths

@@ -90,7 +90,7 @@ impl GpuSurface {
 
     /// Surface format used for presentation.
     #[must_use]
-    pub fn format(&self) -> wgpu::TextureFormat {
+    pub const fn format(&self) -> wgpu::TextureFormat {
         self.config.format
     }
 

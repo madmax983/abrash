@@ -1,4 +1,4 @@
-//! Integration test: CpuRenderer produces pixel-identical output to direct TileRenderer usage.
+//! Integration test: `CpuRenderer` produces pixel-identical output to direct `TileRenderer` usage.
 
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};

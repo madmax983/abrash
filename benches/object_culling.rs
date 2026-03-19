@@ -43,7 +43,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
     // Naive rendering: process all objects
     c.bench_function("render_scene_naive", |b| {
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
 
             let mut triangles: Vec<ClipTriangle> = Vec::with_capacity(1000 * 12);
@@ -64,7 +64,7 @@ fn object_culling_benchmark(c: &mut Criterion) {
                     let (v1_clip, w1) = mvp.transform_point(v1_local);
                     let (v2_clip, w2) = mvp.transform_point(v2_local);
 
-                    triangles.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), 0xFFFFFFFF));
+                    triangles.push(((v0_clip, w0), (v1_clip, w1), (v2_clip, w2), 0xFFFF_FFFF));
                 }
             }
 
@@ -79,11 +79,11 @@ fn object_culling_benchmark(c: &mut Criterion) {
 
         for pos in &objects {
             let model = Mat4::translation(pos.x, pos.y, pos.z);
-            scene.add_object(SceneObject::new(mesh_arc.clone(), model, 0xFFFFFFFF));
+            scene.add_object(SceneObject::new(mesh_arc.clone(), model, 0xFFFF_FFFF));
         }
 
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             scene.render(&mut renderer, &mut fb, &mut zb);
         });

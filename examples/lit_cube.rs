@@ -5,7 +5,9 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::Window;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_lit;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
@@ -16,6 +18,7 @@ use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
+const TITLE: &str = "Abrash - Lit Cube";
 
 // Face colors for the cube
 const FACE_COLORS: [Vec3; 6] = [
@@ -90,80 +93,130 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Lit Cube", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT).unwrap();
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT).unwrap();
-    let cube = Mesh::cube(1.5);
-    let face_normals = cube.compute_face_normals();
+struct LitCubeApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    cube: Mesh,
+    face_normals: Vec<Vec3>,
+    timestep: FixedTimestep,
+    angle_y: f32,
+    angle_x: f32,
+}
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 2.0, 4.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
+impl LitCubeApp {
+    fn new() -> Result<Self, HostError> {
+        let cube = Mesh::cube(1.5);
+        let face_normals = cube.compute_face_normals();
 
-    // Lighting setup
-    let ambient_color = Vec3::new(0.15, 0.15, 0.15);
-    let sun_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
-    let sun_color = Vec3::new(1.0, 0.95, 0.9);
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            cube,
+            face_normals,
+            timestep: FixedTimestep::new(60),
+            angle_y: 0.0,
+            angle_x: 0.0,
+        })
+    }
+}
 
-    let mut timestep = FixedTimestep::new(60);
-    let mut angle_y = 0.0f32;
-    let mut angle_x = 0.0f32;
+impl WindowApp for LitCubeApp {
+    type Error = HostError;
 
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle_y += 0.02;
-            angle_x += 0.008;
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
+            vsync: true,
         }
+    }
 
-        // Clear buffers
-        framebuffer.clear(0xFF1A_1A2E); // Dark blue background
-        zbuffer.clear();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        // Build model matrix
-        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        self.framebuffer =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.zbuffer =
+            ZBuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        Ok(())
+    }
+
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
+        for _ in 0..steps {
+            self.angle_y += 0.02;
+            self.angle_x += 0.008;
+        }
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let projection = Mat4::perspective(
+            PI / 3.0,
+            self.framebuffer.width() as f32 / self.framebuffer.height() as f32,
+            0.1,
+            100.0,
+        );
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 2.0, 4.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let ambient_color = Vec3::new(0.15, 0.15, 0.15);
+        let sun_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
+        let sun_color = Vec3::new(1.0, 0.95, 0.9);
+
+        self.framebuffer.clear(0xFF1A_1A2E);
+        self.zbuffer.clear();
+
+        let model = Mat4::rotation_y(self.angle_y) * Mat4::rotation_x(self.angle_x);
         let mvp = projection * (view * model);
 
-        // Render each face
-        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
+        for (face_idx, tri_indices) in self.cube.indices.iter().enumerate() {
             let [i0, i1, i2] = *tri_indices;
+            let v0 = mvp.transform_point(self.cube.vertices[i0]);
+            let v1 = mvp.transform_point(self.cube.vertices[i1]);
+            let v2 = mvp.transform_point(self.cube.vertices[i2]);
+            let world_normal = model.transform_normal(self.face_normals[face_idx]);
 
-            // Transform vertices
-            let v0 = mvp.transform_point(cube.vertices[i0]);
-            let v1 = mvp.transform_point(cube.vertices[i1]);
-            let v2 = mvp.transform_point(cube.vertices[i2]);
-
-            // Transform normal to world space (use model matrix only)
-            let world_normal = model.transform_normal(face_normals[face_idx]);
-
-            // Get face color (2 triangles per face)
-            let face_color = FACE_COLORS[face_idx / 2];
-
-            // Render with lighting
             fill_triangle_lit(
-                &mut framebuffer,
-                &mut zbuffer,
+                &mut self.framebuffer,
+                &mut self.zbuffer,
                 v0,
                 v1,
                 v2,
                 world_normal,
-                face_color,
+                FACE_COLORS[face_idx / 2],
                 ambient_color,
                 sun_dir,
                 sun_color,
             );
         }
 
-        window.blit_framebuffer(&framebuffer);
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
 
-    Ok(())
+fn main() -> Result<(), HostError> {
+    print_banner();
+    run_windowed(LitCubeApp::new()?)
 }

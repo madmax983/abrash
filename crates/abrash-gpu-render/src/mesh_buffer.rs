@@ -99,7 +99,7 @@ mod tests {
 
         assert_eq!(vertices.len(), mesh.vertices.len());
         assert_eq!(indices.len(), mesh.indices.len() * 3);
-        assert_eq!(vertices[0].position[0], -0.5);
+        assert!((vertices[0].position[0] - (-0.5)).abs() < f32::EPSILON);
     }
 
     #[test]

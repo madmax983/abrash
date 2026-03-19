@@ -29,27 +29,27 @@ pub struct CpuRenderer {
 /// Convert an internal pool handle to the public API handle type by copying
 /// the index/generation — the phantom type is zero-sized so the layout is identical.
 #[inline]
-fn to_mesh_handle(h: Handle<CpuMesh>) -> MeshHandle {
+const fn to_mesh_handle(h: Handle<CpuMesh>) -> MeshHandle {
     Handle::new(h.index, h.generation)
 }
 #[inline]
-fn from_mesh_handle(h: MeshHandle) -> Handle<CpuMesh> {
+const fn from_mesh_handle(h: MeshHandle) -> Handle<CpuMesh> {
     Handle::new(h.index, h.generation)
 }
 #[inline]
-fn to_texture_handle(h: Handle<Texture>) -> TextureHandle {
+const fn to_texture_handle(h: Handle<Texture>) -> TextureHandle {
     Handle::new(h.index, h.generation)
 }
 #[inline]
-fn from_texture_handle(h: TextureHandle) -> Handle<Texture> {
+const fn from_texture_handle(h: TextureHandle) -> Handle<Texture> {
     Handle::new(h.index, h.generation)
 }
 #[inline]
-fn to_material_handle(h: Handle<Material>) -> MaterialHandle {
+const fn to_material_handle(h: Handle<Material>) -> MaterialHandle {
     Handle::new(h.index, h.generation)
 }
 #[inline]
-fn from_material_handle(h: MaterialHandle) -> Handle<Material> {
+const fn from_material_handle(h: MaterialHandle) -> Handle<Material> {
     Handle::new(h.index, h.generation)
 }
 
@@ -70,6 +70,8 @@ impl CpuRenderer {
     /// Extract a [`Frame`] into a [`DrawList`] by resolving handles, transforming
     /// vertices to clip-space, and resolving material colors.
     ///
+    /// # Errors
+    ///
     /// Returns an error if any handle in the frame is stale. On success the
     /// returned `DrawList` is self-contained and can be executed or inspected
     /// independently of this renderer's internal pools.
@@ -77,7 +79,7 @@ impl CpuRenderer {
         let view_proj = frame.camera.view * frame.camera.projection;
         let mut draw_list = DrawList::new(frame.camera);
         draw_list.clear_color = frame.clear_color;
-        draw_list.lights = frame.lights.clone();
+        draw_list.lights.clone_from(&frame.lights);
 
         for cmd in &frame.commands {
             let cpu_mesh = self

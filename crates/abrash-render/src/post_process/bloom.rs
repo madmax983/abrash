@@ -272,16 +272,16 @@ fn blend_additive(dest: &mut [u32], src: &[u32], intensity: f32) {
         // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
         // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
         // Using u64 for intermediate math to prevent overflow when intensity_scale > 1.0 (>= 256).
-        let d_rb = u64::from(d_val & 0x00FF00FF);
-        let d_g = u64::from(d_val & 0x0000FF00);
+        let d_rb = u64::from(d_val & 0x00FF_00FF);
+        let d_g = u64::from(d_val & 0x0000_FF00);
 
-        let s_rb = u64::from(s_val & 0x00FF00FF);
-        let s_g = u64::from(s_val & 0x0000FF00);
+        let s_rb = u64::from(s_val & 0x00FF_00FF);
+        let s_g = u64::from(s_val & 0x0000_FF00);
 
         let intensity_scale_u64 = u64::from(intensity_scale);
 
-        let s_rb_scaled = ((s_rb * intensity_scale_u64) >> 8) & 0x00FF00FF;
-        let s_g_scaled = ((s_g * intensity_scale_u64) >> 8) & 0x0000FF00;
+        let s_rb_scaled = ((s_rb * intensity_scale_u64) >> 8) & 0x00FF_00FF;
+        let s_g_scaled = ((s_g * intensity_scale_u64) >> 8) & 0x0000_FF00;
 
         // Extract scaled channels (safe to cast back to u32 as mask guarantees bounds)
         let r_s_scaled = (s_rb_scaled >> 16) as u32;

@@ -32,21 +32,21 @@ fn hiz_produces_identical_output() {
             (Vec3::new(-0.5, -0.5, 0.3), 1.0),
             (Vec3::new(0.5, -0.5, 0.3), 1.0),
             (Vec3::new(0.0, 0.5, 0.3), 1.0),
-            0xFF0000FF,
+            0xFF00_00FF,
         ),
         // Triangle 2: Back, green (should be occluded by triangle 1 in center)
         (
             (Vec3::new(-0.3, -0.3, 0.7), 1.0),
             (Vec3::new(0.3, -0.3, 0.7), 1.0),
             (Vec3::new(0.0, 0.3, 0.7), 1.0),
-            0x00FF00FF,
+            0x00FF_00FF,
         ),
         // Triangle 3: Side, blue (partially visible)
         (
             (Vec3::new(0.3, 0.0, 0.5), 1.0),
             (Vec3::new(0.9, 0.0, 0.5), 1.0),
             (Vec3::new(0.6, 0.6, 0.5), 1.0),
-            0x0000FFFF,
+            0x0000_FFFF,
         ),
     ];
 
@@ -108,7 +108,7 @@ fn hiz_no_false_negatives() {
         (Vec3::new(-0.8, -0.8, 0.5), 1.0),
         (Vec3::new(0.8, -0.8, 0.5), 1.0),
         (Vec3::new(0.0, 0.8, 0.5), 1.0),
-        0xFF0000FF, // Red
+        0xFF00_00FF, // Red
     )];
 
     renderer.render_batch(&mut fb, &mut zb, &triangles);
@@ -116,7 +116,7 @@ fn hiz_no_false_negatives() {
     // Count non-background pixels
     let mut drawn_pixels = 0;
     for &pixel in fb.as_slice() {
-        if pixel != 0xFF000000 {
+        if pixel != 0xFF00_0000 {
             // Not background
             drawn_pixels += 1;
         }
@@ -133,8 +133,8 @@ fn hiz_no_false_negatives() {
     let center_y = height / 2;
     let center_pixel = fb.as_slice()[(center_y * width + center_x) as usize];
     assert_eq!(
-        center_pixel & 0x00FFFFFF,
-        0x000000FF, // Blue component only (BGRA format)
+        center_pixel & 0x00FF_FFFF,
+        0x0000_00FF, // Blue component only (BGRA format)
         "Center pixel should be red, got 0x{center_pixel:08X}"
     );
 }
@@ -155,7 +155,7 @@ fn hiz_culls_occluded_geometry_across_frames() {
         (Vec3::new(-0.5, -0.5, 0.2), 1.0),
         (Vec3::new(0.5, -0.5, 0.2), 1.0),
         (Vec3::new(0.0, 0.5, 0.2), 1.0),
-        0xFF0000FF, // Red (closer)
+        0xFF00_00FF, // Red (closer)
     )];
 
     renderer.render_batch(&mut fb, &mut zb, &front_triangles);
@@ -167,13 +167,13 @@ fn hiz_culls_occluded_geometry_across_frames() {
             (Vec3::new(-0.5, -0.5, 0.2), 1.0),
             (Vec3::new(0.5, -0.5, 0.2), 1.0),
             (Vec3::new(0.0, 0.5, 0.2), 1.0),
-            0xFF0000FF, // Red (closer)
+            0xFF00_00FF, // Red (closer)
         ),
         (
             (Vec3::new(-0.4, -0.4, 0.8), 1.0), // Back triangle
             (Vec3::new(0.4, -0.4, 0.8), 1.0),
             (Vec3::new(0.0, 0.4, 0.8), 1.0),
-            0x00FF00FF, // Green (farther, should be culled)
+            0x00FF_00FF, // Green (farther, should be culled)
         ),
     ];
 
@@ -240,7 +240,7 @@ fn hiz_handles_high_triangle_count() {
             (Vec3::new(offset_x - 0.1, offset_y - 0.1, depth), 1.0),
             (Vec3::new(offset_x + 0.1, offset_y - 0.1, depth), 1.0),
             (Vec3::new(offset_x, offset_y + 0.1, depth), 1.0),
-            0xFF000000 | ((i * 2) << 16) | ((i * 3) << 8) | (i * 5), // Unique color
+            0xFF00_0000 | ((i * 2) << 16) | ((i * 3) << 8) | (i * 5), // Unique color
         ));
     }
 
@@ -250,7 +250,7 @@ fn hiz_handles_high_triangle_count() {
     // Verify something was drawn
     let mut drawn_pixels = 0;
     for &pixel in fb.as_slice() {
-        if pixel != 0xFF000000 {
+        if pixel != 0xFF00_0000 {
             drawn_pixels += 1;
         }
     }

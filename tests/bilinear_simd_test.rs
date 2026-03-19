@@ -18,7 +18,7 @@ fn test_bilinear_scanline_output() {
     for y in 0..4 {
         for x in 0..4 {
             let val = x * 85; // 0, 85, 170, 255
-            let color = 0xFF000000 | val; // Blue channel gradient
+            let color = 0xFF00_0000 | val; // Blue channel gradient
             tex.set_pixel(x, y, color);
         }
     }

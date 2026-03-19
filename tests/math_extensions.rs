@@ -13,7 +13,7 @@ mod tests {
 
         // Test length_sq
         let v3 = Vec3::new(1.0, 2.0, 3.0);
-        assert_eq!(v3.length_sq(), 14.0);
+        assert!((v3.length_sq() - 14.0).abs() < f32::EPSILON);
 
         // Test Div<f32>
         let v4 = Vec3::new(10.0, 20.0, 30.0);

@@ -6,6 +6,7 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
+    #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     fn test_tile_renderer_fuzz_indices(
         w in 16u32..200u32,
@@ -23,7 +24,7 @@ proptest! {
                     (Vec3::new(0.0, 1.0, 0.0), 1.0),
                 ];
                 let indices = vec![[i0, i1, i2]];
-                renderer.submit_mesh(&indices, &verts, 0xFFFFFFFF);
+                renderer.submit_mesh(&indices, &verts, 0xFFFF_FFFF);
             }
     }
 }

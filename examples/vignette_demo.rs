@@ -2,7 +2,8 @@
 
 use abrash::experimental::vignette::{VignetteConfig, apply_vignette};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{Event, Window};
+use abrash::platform::Event;
+use abrash::platform::win32::Win32Window;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -45,7 +46,7 @@ fn print_banner() {
 
 fn main() {
     print_banner();
-    let mut window = Window::new("Vignette Filter Demo (Nova)", 800, 600).unwrap();
+    let mut window = Win32Window::new("Vignette Filter Demo (Nova)", 800, 600).unwrap();
 
     let width = 800;
     let height = 600;

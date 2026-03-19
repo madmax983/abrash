@@ -2,11 +2,15 @@ use abrash::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::Window;
+use abrash::platform::{
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
+use std::fmt;
+use std::io::Error as IoError;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -14,6 +18,41 @@ use crossterm::style::Stylize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF00_0000;
+
+#[derive(Debug)]
+struct AppError(String);
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for AppError {}
+
+impl From<&'static str> for AppError {
+    fn from(error: &'static str) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<String> for AppError {
+    fn from(error: String) -> Self {
+        Self(error)
+    }
+}
+
+impl From<IoError> for AppError {
+    fn from(error: IoError) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<abrash::platform::HostError> for AppError {
+    fn from(error: abrash::platform::HostError) -> Self {
+        Self(error.to_string())
+    }
+}
 
 fn print_banner() {
     println!("\n{}", "👓 Anaglyph 3D Demo".bold().cyan());
@@ -51,74 +90,105 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Anaglyph 3D", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let mut timestep = FixedTimestep::new(60);
+struct AnaglyphDemoApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    timestep: FixedTimestep,
+    cube: Mesh,
+    projection: Mat4,
+    view: Mat4,
+    angle_y: f32,
+    angle_x: f32,
+    anaglyph_config: AnaglyphConfig,
+}
 
-    let cube = Mesh::cube(1.0);
+impl AnaglyphDemoApp {
+    fn new() -> Result<Self, AppError> {
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)?,
+            timestep: FixedTimestep::new(60),
+            cube: Mesh::cube(1.0),
+            projection: Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0),
+            view: Mat4::look_at(
+                Vec3::new(0.0, 1.5, 3.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            angle_y: 0.0,
+            angle_x: 0.0,
+            anaglyph_config: AnaglyphConfig {
+                max_offset: 20,
+                focal_depth: 3.5,
+            },
+        })
+    }
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 1.5, 3.0), // eye
-        Vec3::new(0.0, 0.0, 0.0), // target
-        Vec3::new(0.0, 1.0, 0.0), // up
-    );
+    fn present(&mut self) -> Result<(), AppError> {
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| IoError::other("software presenter not initialized"))?;
+        presenter.present(framebuffer)?;
+        Ok(())
+    }
+}
 
-    let mut angle_y: f32 = 0.0;
-    let mut angle_x: f32 = 0.0;
+impl WindowApp for AnaglyphDemoApp {
+    type Error = AppError;
 
-    let anaglyph_config = AnaglyphConfig {
-        max_offset: 20,   // Strong enough to be visible
-        focal_depth: 3.5, // Depth where image converges (roughly around the cube)
-    };
-
-    while window.is_open() {
-        window.poll_events();
-
-        let steps = timestep.update();
-        for _ in 0..steps {
-            angle_y += 1.0 * timestep.dt();
-            angle_x += 0.5 * timestep.dt();
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash - Anaglyph 3D".to_string(),
+            width: WIDTH,
+            height: HEIGHT,
+            vsync: true,
         }
+    }
 
-        framebuffer.clear(BACKGROUND);
-        zbuffer.clear();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        // Model matrix (rotation)
-        let model = Mat4::rotation_y(angle_y) * Mat4::rotation_x(angle_x);
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
+        for _ in 0..steps {
+            self.angle_y += 1.0 * self.timestep.dt();
+            self.angle_x += 0.5 * self.timestep.dt();
+        }
+        Ok(())
+    }
 
-        // MVP matrix
-        let mvp = projection * (view * model);
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.framebuffer.clear(BACKGROUND);
+        self.zbuffer.clear();
 
-        // Transform and render each triangle
-        for (face_idx, tri_indices) in cube.indices.iter().enumerate() {
-            let v0 = cube.vertices[tri_indices[0]];
-            let v1 = cube.vertices[tri_indices[1]];
-            let v2 = cube.vertices[tri_indices[2]];
+        let model = Mat4::rotation_y(self.angle_y) * Mat4::rotation_x(self.angle_x);
+        let mvp = self.projection * (self.view * model);
 
-            // Transform vertices
+        for (face_idx, tri_indices) in self.cube.indices.iter().enumerate() {
+            let v0 = self.cube.vertices[tri_indices[0]];
+            let v1 = self.cube.vertices[tri_indices[1]];
+            let v2 = self.cube.vertices[tri_indices[2]];
+
             let (clip0, w0) = mvp.transform_point(v0);
             let (clip1, w1) = mvp.transform_point(v1);
             let (clip2, w2) = mvp.transform_point(v2);
 
-            // Simple backface culling (check if facing camera)
-            // Skip if all w values are negative (behind camera)
             if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
                 continue;
             }
 
-            // We use grayscale colors to make the stereoscopic effect cleaner
-            // Standard colors can cause issues in anaglyph if they lack red or blue/green
             let intensity = (face_idx as u32 * 30 + 100).min(255);
             let color = 0xFF00_0000 | (intensity << 16) | (intensity << 8) | intensity;
 
             fill_triangle_3d(
-                &mut framebuffer,
-                &mut zbuffer,
+                &mut self.framebuffer,
+                &mut self.zbuffer,
                 (clip0, w0),
                 (clip1, w1),
                 (clip2, w2),
@@ -126,15 +196,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
-        // Add some more depth layers
-        // Let's add a floor
         let floor_model = Mat4::translation(0.0, -1.0, 0.0) * Mat4::scale(5.0, 0.1, 5.0);
-        let floor_mvp = projection * (view * floor_model);
+        let floor_mvp = self.projection * (self.view * floor_model);
 
-        for tri_indices in &cube.indices {
-            let v0 = cube.vertices[tri_indices[0]];
-            let v1 = cube.vertices[tri_indices[1]];
-            let v2 = cube.vertices[tri_indices[2]];
+        for tri_indices in &self.cube.indices {
+            let v0 = self.cube.vertices[tri_indices[0]];
+            let v1 = self.cube.vertices[tri_indices[1]];
+            let v2 = self.cube.vertices[tri_indices[2]];
 
             let (clip0, w0) = floor_mvp.transform_point(v0);
             let (clip1, w1) = floor_mvp.transform_point(v1);
@@ -144,10 +212,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
 
-            // Dark grey floor
             fill_triangle_3d(
-                &mut framebuffer,
-                &mut zbuffer,
+                &mut self.framebuffer,
+                &mut self.zbuffer,
                 (clip0, w0),
                 (clip1, w1),
                 (clip2, w2),
@@ -155,11 +222,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
-        // Apply Anaglyph 3D post-processing
-        apply_anaglyph(&mut framebuffer, &zbuffer, anaglyph_config);
-
-        window.blit_framebuffer(&framebuffer);
+        apply_anaglyph(&mut self.framebuffer, &self.zbuffer, self.anaglyph_config);
+        self.present()
     }
+}
 
+fn main() -> Result<(), AppError> {
+    print_banner();
+    run_windowed(AnaglyphDemoApp::new()?)?;
     Ok(())
 }

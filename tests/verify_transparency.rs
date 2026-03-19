@@ -14,7 +14,7 @@ fn test_textured_transparency() {
     // 1. Fill framebuffer with Red background
     for y in 0..height {
         for x in 0..width {
-            fb.set_pixel(x as i32, y as i32, 0xFFFF0000); // Red
+            fb.set_pixel(x as i32, y as i32, 0xFFFF_0000); // Red
         }
     }
 
@@ -25,10 +25,10 @@ fn test_textured_transparency() {
     // (0,1) Opaque Blue (0xFF0000FF)
     // (1,1) Semi-transparent White (0x80FFFFFF)
     let mut tex = Texture::new(2, 2).unwrap();
-    tex.set_pixel(0, 0, 0x00000000);
-    tex.set_pixel(1, 0, 0xFF00FF00);
-    tex.set_pixel(0, 1, 0xFF0000FF);
-    tex.set_pixel(1, 1, 0x80FFFFFF);
+    tex.set_pixel(0, 0, 0x0000_0000);
+    tex.set_pixel(1, 0, 0xFF00_FF00);
+    tex.set_pixel(0, 1, 0xFF00_00FF);
+    tex.set_pixel(1, 1, 0x80FF_FFFF);
 
     // 3. Define a quad covering the framebuffer
     // Use two triangles to form a quad covering the screen
@@ -52,17 +52,17 @@ fn test_textured_transparency() {
     // Top-Left (0,0) maps to UV (0,0) -> Transparent. Should be Red.
     let tl = fb.get_pixel(0, 0).unwrap();
     assert_eq!(
-        tl, 0xFFFF0000,
+        tl, 0xFFFF_0000,
         "Top-Left pixel should remain Red (background)"
     );
 
     // Top-Right (9,0) maps to UV (1,0) -> Green. Should be Green.
     let tr = fb.get_pixel(9, 0).unwrap();
-    assert_eq!(tr, 0xFF00FF00, "Top-Right pixel should be Green");
+    assert_eq!(tr, 0xFF00_FF00, "Top-Right pixel should be Green");
 
     // Bottom-Left (0,9) maps to UV (0,1) -> Blue. Should be Blue.
     let bl = fb.get_pixel(0, 9).unwrap();
-    assert_eq!(bl, 0xFF0000FF, "Bottom-Left pixel should be Blue");
+    assert_eq!(bl, 0xFF00_00FF, "Bottom-Left pixel should be Blue");
 
     // Bottom-Right (9,9) maps to UV (1,1) -> Semi-Transparent White blended with Red.
     // White (255, 255, 255) with alpha 128 (0x80) over Red (255, 0, 0).
@@ -74,11 +74,11 @@ fn test_textured_transparency() {
     // Let's just check it's not Red and not White.
     let br = fb.get_pixel(9, 9).unwrap();
     assert_ne!(
-        br, 0xFFFF0000,
+        br, 0xFFFF_0000,
         "Bottom-Right pixel should blended (not pure Red)"
     );
     assert_ne!(
-        br, 0xFFFFFFFF,
+        br, 0xFFFF_FFFF,
         "Bottom-Right pixel should blended (not pure White)"
     );
 

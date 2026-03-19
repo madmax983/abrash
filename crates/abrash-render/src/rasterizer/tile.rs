@@ -1541,8 +1541,6 @@ pub struct TileRenderer {
     prepared_gouraud: Vec<PreparedGouraudTriangle>,
     prepared_textured: Vec<PreparedTexturedTriangle>,
     hiz_buffer: Option<HiZBuffer>,
-    #[cfg(feature = "gpu-binning")]
-    gpu_binner: Option<crate::gpu::GpuBinner>,
     use_two_level_binning: bool,
     // Pre-calculated half dimensions for projection
     half_width: f32,
@@ -1597,8 +1595,6 @@ impl TileRenderer {
             prepared_gouraud: Vec::new(),
             prepared_textured: Vec::new(),
             hiz_buffer: None,
-            #[cfg(feature = "gpu-binning")]
-            gpu_binner: None,
             use_two_level_binning: false,
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
@@ -1635,64 +1631,6 @@ impl TileRenderer {
         if self.hiz_buffer.is_none() {
             self.enable_hiz();
         }
-    }
-
-    /// Enable GPU-accelerated triangle binning via DirectX 12 compute shaders.
-    ///
-    /// When enabled, the tile renderer will use a D3D12 compute shader to bin triangles
-    /// to tiles on the GPU, which can provide 10-20× faster binning for triangle-heavy scenes.
-    ///
-    /// **Requirements:**
-    /// - `gpu-binning` feature must be enabled
-    /// - Windows platform with DirectX 12 support
-    /// - Suitable GPU adapter (non-software)
-    ///
-    /// **Performance:**
-    /// - Binning: 100 triangles <0.05ms, 1000 triangles <0.5ms
-    /// - Overall: 2-3× speedup for scenes with 100+ triangles
-    ///
-    /// # Errors
-    ///
-    /// Returns `GpuError` if GPU initialization fails (e.g., no suitable adapter, device creation failure).
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_gpu_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        self.gpu_binner = Some(crate::gpu::GpuBinner::new(
-            self.width,
-            self.height,
-            TILE_SIZE,
-            1000, // Max triangles per batch
-        )?);
-        Ok(())
-    }
-
-    /// Enable two-level hierarchical GPU binning with Hi-Z culling.
-    ///
-    /// This method enables GPU compute shader binning with two-level hierarchical binning:
-    /// 1. Coarse binning pass: Bin triangles to 128×128 pixel coarse bins (GPU)
-    /// 2. Hi-Z culling pass: Cull occluded coarse bins using Hi-Z pyramid (CPU)
-    /// 3. Fine binning pass: Bin visible triangles to 32×32 fine tiles (GPU)
-    ///
-    /// Two-level binning can provide additional speedup over single-level GPU binning
-    /// by avoiding fine binning work for occluded regions of the screen.
-    ///
-    /// # Prerequisites
-    ///
-    /// - GPU binning must be enabled first via `enable_gpu_binning()`
-    /// - Hi-Z buffer should be enabled via `enable_hiz()` for effective culling
-    ///
-    /// # Returns
-    ///
-    /// `GpuError` if two-level binning initialization fails or GPU binning is not enabled.
-    #[cfg(feature = "gpu-binning")]
-    pub fn enable_two_level_binning(&mut self) -> Result<(), crate::gpu::GpuError> {
-        let gpu = self.gpu_binner.as_mut().ok_or_else(|| {
-            crate::gpu::GpuError::DeviceCreation(windows::core::Error::from_hresult(
-                windows::core::HRESULT(0x8007_0057u32 as i32), // E_INVALIDARG
-            ))
-        })?;
-
-        gpu.enable_two_level_binning()?;
-        Ok(())
     }
 
     /// Returns the number of tiles in X direction.
@@ -1807,46 +1745,7 @@ impl TileRenderer {
         // Currently, TileRenderer handles either flat or textured batches per frame (via tile_bins index reuse).
         // If 'prepared' is non-empty, we assume flat rendering mode.
         if !self.prepared.is_empty() {
-            // Phase 2: Bin (GPU or CPU with optional Hi-Z occlusion culling)
-            #[cfg(feature = "gpu-binning")]
-            if let Some(ref mut gpu) = self.gpu_binner {
-                // GPU binning path - check if two-level binning is enabled
-                if gpu.is_two_level_enabled() {
-                    // Two-level hierarchical binning with Hi-Z culling
-                    match gpu.bin_triangles_two_level(
-                        &self.prepared,
-                        self.hiz_buffer.as_ref(),
-                        &mut self.tile_bins.heads,
-                        &mut self.tile_bins.tails,
-                        &mut self.tile_bins.nexts,
-                        &mut self.tile_bins.tris,
-                    ) {
-                        Ok(_stats) => {
-                            // Two-level binning succeeded
-                        }
-                        Err(e) => {
-                            eprintln!("Two-level GPU binning failed: {e}, falling back to CPU");
-                            self.bin_triangles_cpu();
-                        }
-                    }
-                } else {
-                    // Single-level GPU binning
-                    if let Err(e) = gpu.bin_triangles(
-                        &self.prepared,
-                        &mut self.tile_bins.heads,
-                        &mut self.tile_bins.tails,
-                        &mut self.tile_bins.nexts,
-                        &mut self.tile_bins.tris,
-                    ) {
-                        eprintln!("GPU binning failed: {e}, falling back to CPU");
-                        self.bin_triangles_cpu();
-                    }
-                }
-            } else {
-                self.bin_triangles_cpu();
-            }
-
-            #[cfg(not(feature = "gpu-binning"))]
+            // Phase 2: Bin with optional Hi-Z-assisted software two-level culling.
             self.bin_triangles_cpu();
 
             // Sort triangles front-to-back for early-Z optimization
@@ -2935,7 +2834,7 @@ impl TileRenderer {
                 continue;
             }
 
-            let mut verts = [p0_orig, p1_orig, p2_orig];
+            let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
             sort_by_y(&mut verts, |p| p.y);
             let [p0, p1, p2] = verts;
 
@@ -3654,7 +3553,7 @@ fn process_tile_scanline_gouraud(
                 let r = (c_left.0 >> 16).clamp(0, 255) as u32;
                 let g = (c_left.1 >> 16).clamp(0, 255) as u32;
                 let b = (c_left.2 >> 16).clamp(0, 255) as u32;
-                ctx.pixels[tile_idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                ctx.pixels[tile_idx] = 0xFF00_0000 | (r << 16) | (g << 8) | b;
             }
         }
     } else {
@@ -3721,7 +3620,7 @@ fn draw_scanline_gouraud_i32_tile(
             let rv = (r >> 16).clamp(0, 255) as u32;
             let gv = (g >> 16).clamp(0, 255) as u32;
             let bv = (b >> 16).clamp(0, 255) as u32;
-            *pixel = 0xFF000000 | (rv << 16) | (gv << 8) | bv;
+            *pixel = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
         }
         z += dz_dx;
         r = r.wrapping_add(dr);

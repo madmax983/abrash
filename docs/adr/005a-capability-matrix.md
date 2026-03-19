@@ -26,11 +26,10 @@ into the engine API.
 | Post-processing effects    | ✅                 | ✅              | ✅             |
 | Nova effects (feature flag)| ✅                 | ✅              | ✅             |
 | OBJ loading                | ✅                 | ✅              | ✅             |
-| Win32 window               | ❌                 | ✅ (feature)    | ❌             |
-| TUI display                | ❌                 | ✅ (feature)    | ❌             |
+| Winit desktop window       | ❌                 | ✅ (default)    | ❌             |
+| TUI display                | ❌                 | ✅ (opt-in)     | ❌             |
 | WASM display               | ❌                 | ✅ (feature)    | ❌             |
 | Event loop                 | ❌                 | ✅              | ❌             |
-| GPU compute binning        | ✅ (feature)       | ✅ (feature)    | ✅ (feature)   |
 | GPU flat shading (wgpu)    | ❌                 | ✅ (gpu-render) | ✅ (capture)   |
 | GPU debug capture          | ❌                 | ❌              | ✅ (capture)   |
 | PPM/TGA export             | ✅                 | ✅              | ✅             |
@@ -133,3 +132,10 @@ embed-demo v0.1.0
 - `winit` is feature-gated behind `windowed` inside `abrash-gpu-render` ✅
 - ADR 007 documents the GPU renderer design decisions ✅
 - Integration tests cover empty scene, single cube, and two-material capture ✅
+
+### Phase 6 — Root Winit Host (2026-03-18)
+- `backend-winit` is the root default desktop backend ✅
+- `backend-tui` remains explicit opt-in via CLI flag ✅
+- Root platform host is thin and callback-based, not an app shell ✅
+- CPU framebuffer presentation uses `softbuffer` on `winit` ✅
+- ADR 008 documents the platform host split ✅

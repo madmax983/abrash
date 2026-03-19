@@ -2,12 +2,15 @@ use abrash::experimental::vision::{VisionConfig, VisionMode, apply_vision};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::platform::Window;
+use abrash::platform::{
+    SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
-use std::io::{Write, stdout};
+use std::fmt;
+use std::io::{Error as IoError, Write, stdout};
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::{
@@ -18,17 +21,51 @@ use crossterm::{
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const BACKGROUND: u32 = 0xFF10_1010; // Dark grey
+const BACKGROUND: u32 = 0xFF10_1010;
 
-// Face colors for the cube
 const COLORS: [u32; 6] = [
-    0xFFFF_0000, // Red
-    0xFF00_FF00, // Green
-    0xFF00_00FF, // Blue
-    0xFFFF_FF00, // Yellow
-    0xFFFF_00FF, // Magenta
-    0xFF00_FFFF, // Cyan
+    0xFFFF_0000,
+    0xFF00_FF00,
+    0xFF00_00FF,
+    0xFFFF_FF00,
+    0xFFFF_00FF,
+    0xFF00_FFFF,
 ];
+
+#[derive(Debug)]
+struct AppError(String);
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for AppError {}
+
+impl From<&'static str> for AppError {
+    fn from(error: &'static str) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<String> for AppError {
+    fn from(error: String) -> Self {
+        Self(error)
+    }
+}
+
+impl From<IoError> for AppError {
+    fn from(error: IoError) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl From<abrash::platform::HostError> for AppError {
+    fn from(error: abrash::platform::HostError) -> Self {
+        Self(error.to_string())
+    }
+}
 
 fn print_banner() {
     println!("\n{}", "👁️  Vision Demo".bold().cyan());
@@ -77,7 +114,6 @@ fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4,
         let (clip1, w1) = mvp.transform_point(v1);
         let (clip2, w2) = mvp.transform_point(v2);
 
-        // Simple backface culling
         if w0 < 0.0 && w1 < 0.0 && w2 < 0.0 {
             continue;
         }
@@ -87,83 +123,137 @@ fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4,
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Vision Demo", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
-    let mut timestep = FixedTimestep::new(60);
+struct VisionDemoApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    timestep: FixedTimestep,
+    cube: Mesh,
+    view_proj: Mat4,
+    angle_y: f32,
+    vision_config: VisionConfig,
+    frame_count: u32,
+}
 
-    let cube = Mesh::cube(1.0);
+impl VisionDemoApp {
+    fn new() -> Result<Self, AppError> {
+        let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+        let view = Mat4::look_at(
+            Vec3::new(0.0, 2.0, 5.0),
+            Vec3::new(0.0, 0.0, -5.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
 
-    // Camera setup
-    let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
-    let view = Mat4::look_at(
-        Vec3::new(0.0, 2.0, 5.0),
-        Vec3::new(0.0, 0.0, -5.0),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
-    let view_proj = projection * view;
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)?,
+            timestep: FixedTimestep::new(60),
+            cube: Mesh::cube(1.0),
+            view_proj: projection * view,
+            angle_y: 0.0,
+            vision_config: VisionConfig {
+                mode: VisionMode::Night,
+                time: 0.0,
+                intensity: 1.0,
+            },
+            frame_count: 0,
+        })
+    }
 
-    let mut angle_y: f32 = 0.0;
+    fn present(&mut self) -> Result<(), AppError> {
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| IoError::other("software presenter not initialized"))?;
+        presenter.present(framebuffer)?;
+        Ok(())
+    }
+}
 
-    let mut vision_config = VisionConfig {
-        mode: VisionMode::Night,
-        time: 0.0,
-        intensity: 1.0,
-    };
+impl WindowApp for VisionDemoApp {
+    type Error = AppError;
 
-    let mut frame_count = 0;
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash - Vision Demo".to_string(),
+            width: WIDTH,
+            height: HEIGHT,
+            vsync: true,
+        }
+    }
 
-    while window.is_open() {
-        window.poll_events();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        let steps = timestep.update();
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let steps = self.timestep.update();
         for _ in 0..steps {
-            angle_y += 1.0 * timestep.dt();
-            vision_config.time += timestep.dt();
+            self.angle_y += 1.0 * self.timestep.dt();
+            self.vision_config.time += self.timestep.dt();
         }
 
-        // Cycle modes every 180 frames (3 seconds at 60fps)
-        frame_count += 1;
-        if frame_count % 180 == 0 {
-            vision_config.mode = match vision_config.mode {
+        self.frame_count += 1;
+        if self.frame_count.is_multiple_of(180) {
+            self.vision_config.mode = match self.vision_config.mode {
                 VisionMode::Night => VisionMode::Thermal,
                 VisionMode::Thermal => VisionMode::Sonar,
                 VisionMode::Sonar => VisionMode::Night,
             };
-            // Print to console to inform user cleanly
+
             let mut out = stdout();
             let _ = execute!(out, cursor::MoveToColumn(0), Clear(ClearType::CurrentLine));
             print!(
                 "🔄 Mode Switched to: {}",
-                format!("{:?}", vision_config.mode).bold().green()
+                format!("{:?}", self.vision_config.mode).bold().green()
             );
             let _ = out.flush();
         }
 
-        framebuffer.clear(BACKGROUND);
-        zbuffer.clear();
-
-        // Render 3 cubes at different depths
-
-        // Cube 1: Close (-2.0)
-        let model1 = Mat4::translation(-2.0, 0.0, -2.0) * Mat4::rotation_y(angle_y);
-        render_cube(&mut framebuffer, &mut zbuffer, &cube, model1, view_proj);
-
-        // Cube 2: Medium (-7.0)
-        let model2 = Mat4::translation(0.0, 0.0, -7.0) * Mat4::rotation_x(angle_y * 0.5);
-        render_cube(&mut framebuffer, &mut zbuffer, &cube, model2, view_proj);
-
-        // Cube 3: Far (-12.0)
-        let model3 = Mat4::translation(2.0, 0.0, -12.0) * Mat4::rotation_z(angle_y * 0.3);
-        render_cube(&mut framebuffer, &mut zbuffer, &cube, model3, view_proj);
-
-        // Apply Vision Effect
-        apply_vision(&mut framebuffer, &zbuffer, &vision_config);
-
-        window.blit_framebuffer(&framebuffer);
+        Ok(())
     }
 
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.framebuffer.clear(BACKGROUND);
+        self.zbuffer.clear();
+
+        let model1 = Mat4::translation(-2.0, 0.0, -2.0) * Mat4::rotation_y(self.angle_y);
+        render_cube(
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            &self.cube,
+            model1,
+            self.view_proj,
+        );
+
+        let model2 = Mat4::translation(0.0, 0.0, -7.0) * Mat4::rotation_x(self.angle_y * 0.5);
+        render_cube(
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            &self.cube,
+            model2,
+            self.view_proj,
+        );
+
+        let model3 = Mat4::translation(2.0, 0.0, -12.0) * Mat4::rotation_z(self.angle_y * 0.3);
+        render_cube(
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            &self.cube,
+            model3,
+            self.view_proj,
+        );
+
+        apply_vision(&mut self.framebuffer, &self.zbuffer, &self.vision_config);
+        self.present()
+    }
+}
+
+fn main() -> Result<(), AppError> {
+    print_banner();
+    run_windowed(VisionDemoApp::new()?)?;
     Ok(())
 }

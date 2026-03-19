@@ -281,14 +281,14 @@ impl PbrEdgeWalker {
 fn distribution_ggx_optimized(n_dot_h2: f32, constants: &PbrConstants) -> f32 {
     let denom = n_dot_h2 * constants.a2_minus_1 + 1.0;
     let denom = PI * denom * denom;
-    constants.a2 / denom.max(0.0000001)
+    constants.a2 / denom.max(0.000_000_1)
 }
 
 // Geometry Schlick-GGX
 fn geometry_schlick_ggx_optimized(n_dot_v: f32, constants: &PbrConstants) -> f32 {
     let nom = n_dot_v;
     let denom = n_dot_v * constants.one_minus_k + constants.k;
-    nom / denom.max(0.0000001)
+    nom / denom.max(0.000_000_1)
 }
 
 fn geometry_smith_optimized(n_dot_v: f32, n_dot_l: f32, constants: &PbrConstants) -> f32 {

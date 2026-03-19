@@ -5,7 +5,7 @@ fn test_box_blur_int_overflow2() {
     let width = 5;
     let height = 5;
     // Max u32 value for pixels
-    let src = vec![0xFFFFFFFFu32; width * height];
+    let src = vec![0xFFFF_FFFF_u32; width * height];
     let mut dest = vec![0u32; width * height];
 
     // radius controls how many items are added to accumulator

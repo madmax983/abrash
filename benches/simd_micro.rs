@@ -4,7 +4,10 @@
 //! to identify bottlenecks and validate optimization effectiveness.
 
 use abrash::{
-    framebuffer::Framebuffer, hiz_buffer::HiZBuffer, math::Vec3, rasterizer::TileRenderer,
+    framebuffer::Framebuffer,
+    hiz_buffer::HiZBuffer,
+    math::Vec3,
+    rasterizer::{ClipTriangle, TileRenderer},
     zbuffer::ZBuffer,
 };
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
@@ -218,10 +221,7 @@ fn bench_tile_locality(c: &mut Criterion) {
 }
 
 /// Generate horizontal triangles of specific scanline length
-fn generate_horizontal_triangles(
-    scanline_len: u32,
-    count: usize,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_horizontal_triangles(scanline_len: u32, count: usize) -> Vec<ClipTriangle> {
     let mut triangles = Vec::with_capacity(count);
     let width = scanline_len as f32;
 
@@ -243,11 +243,7 @@ fn generate_horizontal_triangles(
 }
 
 /// Generate scattered triangles across the framebuffer
-fn generate_scattered_triangles(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_scattered_triangles(count: usize, width: u32, height: u32) -> Vec<ClipTriangle> {
     let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {
@@ -269,11 +265,7 @@ fn generate_scattered_triangles(
 }
 
 /// Generate test scene with triangles
-fn generate_test_scene(
-    count: usize,
-    width: u32,
-    height: u32,
-) -> Vec<((Vec3, f32), (Vec3, f32), (Vec3, f32), u32)> {
+fn generate_test_scene(count: usize, width: u32, height: u32) -> Vec<ClipTriangle> {
     let mut triangles = Vec::with_capacity(count);
 
     for i in 0..count {

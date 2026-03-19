@@ -23,14 +23,14 @@ fn create_occluder_scene() -> Vec<ClipTriangle> {
             make_clip_vertex(-0.6, -0.6, 0.2, 1.0), // Close to camera
             make_clip_vertex(0.6, -0.6, 0.2, 1.0),
             make_clip_vertex(0.0, 0.6, 0.2, 1.0),
-            0xFF0000FF, // Red
+            0xFF00_00FF, // Red
         ),
         // Occluded: Triangle behind the occluder
         (
             make_clip_vertex(-0.4, -0.4, 0.8, 1.0), // Far from camera
             make_clip_vertex(0.4, -0.4, 0.8, 1.0),
             make_clip_vertex(0.0, 0.4, 0.8, 1.0),
-            0x00FF00FF, // Green (should be hidden)
+            0x00FF_00FF, // Green (should be hidden)
         ),
     ]
 }
@@ -44,8 +44,7 @@ fn test_software_two_level_matches_single_level() {
     let mut renderer_single = TileRenderer::new(width, height);
     let mut renderer_two_level = TileRenderer::new(width, height);
 
-    // Enable two-level binning for the second renderer
-    // This method doesn't exist yet, so this is the "Red" phase
+    // Enable the software two-level binning path for the second renderer.
     renderer_two_level.enable_software_two_level_binning();
 
     // Create framebuffers

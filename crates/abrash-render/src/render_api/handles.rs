@@ -85,7 +85,7 @@ impl<T> Handle<T> {
     }
 
     /// Create a new handle (internal use only).
-    pub(crate) fn new(index: u32, generation: Generation) -> Self {
+    pub(crate) const fn new(index: u32, generation: Generation) -> Self {
         Self::from_raw_parts(index, generation)
     }
 }
@@ -124,7 +124,7 @@ enum PoolEntry<T> {
 impl<T> ResourcePool<T> {
     /// Create a new empty resource pool.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             entries: Vec::new(),
             free_list: Vec::new(),
@@ -189,7 +189,7 @@ impl<T> ResourcePool<T> {
                 self.free_list.push(handle.index);
                 match old {
                     PoolEntry::Occupied { value, .. } => Some(value),
-                    _ => unreachable!(),
+                    PoolEntry::Vacant { .. } => unreachable!(),
                 }
             }
             _ => None,

@@ -17,9 +17,9 @@ fn bench_draw_scanline_bilinear_pot(c: &mut Criterion) {
     for y in 0..256 {
         for x in 0..256 {
             let color = if ((x / 16) + (y / 16)) % 2 == 0 {
-                0xFFFFFFFF
+                0xFFFF_FFFF
             } else {
-                0xFF000000
+                0xFF00_0000
             };
             tex.set_pixel(x, y, color);
         }
@@ -80,7 +80,7 @@ fn bench_draw_scanline_bilinear_npot(c: &mut Criterion) {
     let mut tex = Texture::new(255, 255).unwrap();
     for y in 0..255 {
         for x in 0..255 {
-            let color = 0xFFFFFFFF;
+            let color = 0xFFFF_FFFF;
             tex.set_pixel(x, y, color);
         }
     }

@@ -10,7 +10,11 @@ fn test_apply_radial_blur_basic() {
     // Fill the framebuffer with an alternating pattern
     for y in 0..4 {
         for x in 0..4 {
-            let color = if (x + y) % 2 == 0 { 0xFFFFFF } else { 0x000000 };
+            let color = if (x + y) % 2 == 0 {
+                0x00FF_FFFF
+            } else {
+                0x0000_0000
+            };
             fb.set_pixel(x, y, color);
         }
     }
@@ -28,40 +32,40 @@ fn test_apply_radial_blur_basic() {
 
     unsafe {
         // The center pixel shouldn't change
-        assert_eq!(fb.get_pixel_unchecked(2, 2), 0xFFFFFF);
+        assert_eq!(fb.get_pixel_unchecked(2, 2), 0x00FF_FFFF);
 
         // Edge pixels should be blurred (no longer pure white or black)
         // For (0,1), it will sample from (0,1) towards (2,2).
         // (0,1) is 0x000000
         // (1,1) is 0xFFFFFF
         let edge_pixel = fb.get_pixel_unchecked(0, 1);
-        assert_ne!(edge_pixel, 0xFFFFFF);
-        assert_ne!(edge_pixel, 0x000000);
+        assert_ne!(edge_pixel, 0x00FF_FFFF);
+        assert_ne!(edge_pixel, 0x0000_0000);
     }
 }
 
 #[test]
 fn test_apply_radial_blur_no_effect() {
     let mut fb = Framebuffer::new(4, 4).unwrap();
-    fb.set_pixel(0, 0, 0xFF0000);
+    fb.set_pixel(0, 0, 0x00FF_0000);
 
     // Zero strength or zero samples should not modify the image
     apply_radial_blur(&mut fb, 2, 2, 0.0, 4);
     unsafe {
-        assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFF0000);
+        assert_eq!(fb.get_pixel_unchecked(0, 0), 0x00FF_0000);
     }
 
     apply_radial_blur(&mut fb, 2, 2, 0.5, 0);
     unsafe {
-        assert_eq!(fb.get_pixel_unchecked(0, 0), 0xFF0000);
+        assert_eq!(fb.get_pixel_unchecked(0, 0), 0x00FF_0000);
     }
 }
 
 #[test]
 fn test_apply_radial_blur_fixed_point_rounding() {
     let mut fb = Framebuffer::new(5, 5).unwrap();
-    fb.set_pixel(0, 0, 0xFF0000); // Red at corner
-    fb.set_pixel(2, 2, 0x00FF00); // Green at center
+    fb.set_pixel(0, 0, 0x00FF_0000); // Red at corner
+    fb.set_pixel(2, 2, 0x0000_FF00); // Green at center
 
     // With 5 samples and strength 1.0 from (0,0) to (2,2)
     // The samples should be (0,0), (0.5,0.5)->(0,0), (1,1), (1.5,1.5)->(1,1), (2,2)

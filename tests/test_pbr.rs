@@ -53,5 +53,5 @@ fn test_pbr_rasterization() {
 
     // Check if something was drawn (center pixel should be red-ish)
     let center_pixel = fb.get_pixel(50, 50).unwrap();
-    assert_ne!(center_pixel, 0xFF000000); // Not black
+    assert_ne!(center_pixel, 0xFF00_0000); // Not black
 }

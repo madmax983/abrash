@@ -23,13 +23,13 @@ fn bench_overdraw_sorting(c: &mut Criterion) {
         let v0 = (Vec3::new(-0.5, 0.5, z), z);
         let v1 = (Vec3::new(0.5, 0.5, z), z);
         let v2 = (Vec3::new(0.0, -0.5, z), z);
-        triangles.push((v0, v1, v2, 0xFFFFFFFF));
+        triangles.push((v0, v1, v2, 0xFFFF_FFFF));
     }
 
     // Benchmark the full render pipeline, which includes sorting
     c.bench_function("tile_render_overdraw_500", |b| {
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             renderer.render_batch(&mut fb, &mut zb, &triangles);
         });

@@ -18,7 +18,7 @@ fn bench_culling(c: &mut Criterion) {
     // Deterministic random generation for repeatable benchmarks
     let mut rng_seed = 12345u32;
     let mut rand_f32 = || {
-        rng_seed = rng_seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        rng_seed = rng_seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
         (rng_seed as f32) / (u32::MAX as f32)
     };
 

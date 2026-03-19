@@ -1,6 +1,8 @@
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
-use abrash::platform::Window;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 use abrash::skybox::{Cubemap, draw_skybox};
 use abrash::texture::Texture;
 use abrash::zbuffer::ZBuffer;
@@ -11,6 +13,7 @@ use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
+const TITLE: &str = "Abrash - Skybox Demo";
 
 fn print_banner() {
     println!("\n{}", "🌌 Skybox Demo".bold().cyan());
@@ -51,52 +54,112 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_banner();
-    let mut window = Window::new("Abrash - Skybox Demo", WIDTH, HEIGHT)?;
-    let mut framebuffer = Framebuffer::new(WIDTH, HEIGHT)?;
-    let mut zbuffer = ZBuffer::new(WIDTH, HEIGHT)?;
+struct SkyboxDemoApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    zbuffer: ZBuffer,
+    cubemap: Cubemap,
+    start_time: Instant,
+}
 
-    // Create 6 face textures with checkerboard patterns
-    // Faces: +X (Right), -X (Left), +Y (Top), -Y (Bottom), +Z (Front), -Z (Back)
-    let size = 64;
-    let faces = [
-        Texture::checkered(size, size, 0xFFFF0000, 0xFFFFFFFF).unwrap(), // Right: Red/White
-        Texture::checkered(size, size, 0xFF00FFFF, 0xFFFFFFFF).unwrap(), // Left: Cyan/White
-        Texture::checkered(size, size, 0xFF0000FF, 0xFFFFFFFF).unwrap(), // Top: Blue/White
-        Texture::checkered(size, size, 0xFFFFFF00, 0xFFFFFFFF).unwrap(), // Bottom: Yellow/White
-        Texture::checkered(size, size, 0xFF00FF00, 0xFFFFFFFF).unwrap(), // Front: Green/White
-        Texture::checkered(size, size, 0xFFFF00FF, 0xFFFFFFFF).unwrap(), // Back: Magenta/White
-    ];
-    let cubemap = Cubemap::new(faces);
+impl SkyboxDemoApp {
+    fn new() -> Result<Self, HostError> {
+        let size = 64;
+        let faces = [
+            Texture::checkered(size, size, 0xFFFF_0000, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            Texture::checkered(size, size, 0xFF00_FFFF, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            Texture::checkered(size, size, 0xFF00_00FF, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            Texture::checkered(size, size, 0xFFFF_FF00, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            Texture::checkered(size, size, 0xFF00_FF00, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            Texture::checkered(size, size, 0xFFFF_00FF, 0xFFFF_FFFF)
+                .map_err(|error| HostError::App(error.to_string()))?,
+        ];
 
-    // Camera setup
-    // FOV 90 degrees (1.57 rad)
-    let proj = Mat4::perspective(1.57, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            zbuffer: ZBuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            cubemap: Cubemap::new(faces),
+            start_time: Instant::now(),
+        })
+    }
+}
 
-    let start_time = Instant::now();
+impl WindowApp for SkyboxDemoApp {
+    type Error = HostError;
 
-    while window.is_open() {
-        window.poll_events();
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
+            vsync: true,
+        }
+    }
 
-        let t = start_time.elapsed().as_secs_f32();
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
 
-        // Rotate view direction
-        // Camera at origin, looking around
+    fn resize(
+        &mut self,
+        _ctx: WindowContext<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Self::Error> {
+        self.framebuffer =
+            Framebuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        self.zbuffer =
+            ZBuffer::new(width, height).map_err(|error| HostError::App(error.to_string()))?;
+        Ok(())
+    }
+
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        let t = self.start_time.elapsed().as_secs_f32();
+        let proj = Mat4::perspective(
+            1.57,
+            self.framebuffer.width() as f32 / self.framebuffer.height() as f32,
+            0.1,
+            100.0,
+        );
+
         let eye = Vec3::new(0.0, 0.0, 0.0);
         let target = Vec3::new(t.sin(), (t * 0.3).cos() * 0.5, t.cos());
         let up = Vec3::new(0.0, 1.0, 0.0);
-
         let view = Mat4::look_at(eye, target, up);
 
-        framebuffer.clear(0xFF000000);
-        zbuffer.clear();
-
-        // Draw Skybox
-        draw_skybox(&mut framebuffer, &mut zbuffer, view, proj, &cubemap);
-
-        window.blit_framebuffer(&framebuffer);
+        self.framebuffer.clear(0xFF00_0000);
+        self.zbuffer.clear();
+        draw_skybox(
+            &mut self.framebuffer,
+            &mut self.zbuffer,
+            view,
+            proj,
+            &self.cubemap,
+        );
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
 
-    Ok(())
+fn main() -> Result<(), HostError> {
+    print_banner();
+    run_windowed(SkyboxDemoApp::new()?)
 }

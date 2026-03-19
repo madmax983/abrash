@@ -27,7 +27,7 @@ fn generate_triangle_grid(count: usize, depth: f32) -> Vec<ClipTriangle> {
                 (Vec3::new(x - size, y - size, depth), 1.0),
                 (Vec3::new(x + size, y - size, depth), 1.0),
                 (Vec3::new(x, y + size, depth), 1.0),
-                0xFF0000FF,
+                0xFF00_00FF,
             ));
         }
     }
@@ -40,7 +40,7 @@ fn generate_large_triangle(depth: f32) -> Vec<ClipTriangle> {
         (Vec3::new(-2.0, -2.0, depth), 1.0),
         (Vec3::new(2.0, -2.0, depth), 1.0),
         (Vec3::new(0.0, 2.0, depth), 1.0),
-        0xFF0000FF,
+        0xFF00_00FF,
     )]
 }
 

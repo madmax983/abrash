@@ -15,12 +15,12 @@ fn bench_skybox_render(c: &mut Criterion) {
     // 512x512 textures to simulate reasonable load
     let tex_size = 512;
     let faces = [
-        Texture::checkered(tex_size, tex_size, 0xFFFF0000, 0xFFFFFFFF).unwrap(),
-        Texture::checkered(tex_size, tex_size, 0xFF00FFFF, 0xFFFFFFFF).unwrap(),
-        Texture::checkered(tex_size, tex_size, 0xFF0000FF, 0xFFFFFFFF).unwrap(),
-        Texture::checkered(tex_size, tex_size, 0xFFFFFF00, 0xFFFFFFFF).unwrap(),
-        Texture::checkered(tex_size, tex_size, 0xFF00FF00, 0xFFFFFFFF).unwrap(),
-        Texture::checkered(tex_size, tex_size, 0xFFFF00FF, 0xFFFFFFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFFFF_0000, 0xFFFF_FFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFF00_FFFF, 0xFFFF_FFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFF00_00FF, 0xFFFF_FFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFFFF_FF00, 0xFFFF_FFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFF00_FF00, 0xFFFF_FFFF).unwrap(),
+        Texture::checkered(tex_size, tex_size, 0xFFFF_00FF, 0xFFFF_FFFF).unwrap(),
     ];
     let cubemap = Cubemap::new(faces);
 
@@ -34,7 +34,7 @@ fn bench_skybox_render(c: &mut Criterion) {
 
     c.bench_function("skybox_render_full_hd", |b| {
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             draw_skybox(
                 black_box(&mut fb),

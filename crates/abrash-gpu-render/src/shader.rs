@@ -5,7 +5,7 @@ use bytemuck::{Pod, Zeroable};
 use std::num::NonZeroU64;
 
 /// WGSL shader source for flat-color MVP rendering.
-pub const MVP_SHADER_SRC: &str = r#"
+pub const MVP_SHADER_SRC: &str = r"
 struct Uniforms {
     mvp: mat4x4<f32>,
     color: vec4<f32>,
@@ -35,7 +35,7 @@ fn vs_main(input: VsIn) -> VsOut {
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     return input.color;
 }
-"#;
+";
 
 /// GPU uniform data for a single draw: MVP matrix plus flat RGBA color.
 #[repr(C)]
@@ -83,7 +83,7 @@ impl MvpVertex {
         wgpu::vertex_attr_array![0 => Float32x3];
 
     #[must_use]
-    pub(crate) fn layout() -> wgpu::VertexBufferLayout<'static> {
+    pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -190,11 +190,11 @@ mod tests {
         let identity = Mat4::identity();
         let uniform = MvpUniform::new(&identity, 0xFFFF_0000);
 
-        assert_eq!(uniform.mvp[0], 1.0);
-        assert_eq!(uniform.mvp[1], 0.0);
-        assert_eq!(uniform.color[0], 1.0);
-        assert_eq!(uniform.color[1], 0.0);
-        assert_eq!(uniform.color[2], 0.0);
+        assert!((uniform.mvp[0] - 1.0).abs() < f32::EPSILON);
+        assert!(uniform.mvp[1].abs() < f32::EPSILON);
+        assert!((uniform.color[0] - 1.0).abs() < f32::EPSILON);
+        assert!(uniform.color[1].abs() < f32::EPSILON);
+        assert!(uniform.color[2].abs() < f32::EPSILON);
         assert!((uniform.color[3] - 1.0).abs() < 0.01);
     }
 

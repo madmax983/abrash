@@ -37,7 +37,7 @@ fn test_scene_render() {
     let mesh = Arc::new(mesh);
 
     let transform = Mat4::identity();
-    let object = SceneObject::new(mesh, transform, 0xFFFF0000); // Red
+    let object = SceneObject::new(mesh, transform, 0xFFFF_0000); // Red
     scene.add_object(object);
 
     // 5. Render
@@ -46,5 +46,5 @@ fn test_scene_render() {
     // 6. Verify
     // Check center pixel
     let center = fb.get_pixel(50, 50);
-    assert_eq!(center, Some(0xFFFF0000), "Center pixel should be red");
+    assert_eq!(center, Some(0xFFFF_0000), "Center pixel should be red");
 }

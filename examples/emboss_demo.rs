@@ -2,6 +2,7 @@
 use abrash::experimental::emboss::apply_emboss;
 #[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;
@@ -64,9 +65,9 @@ fn main() {
     for y in 0..height {
         for x in 0..width {
             let color = if (x / 50 + y / 50) % 2 == 0 {
-                0xFFFFFFFF // White
+                0xFFFF_FFFF // White
             } else {
-                0xFF808080 // Gray
+                0xFF80_8080 // Gray
             };
             fb.set_pixel(x as i32, y as i32, color);
         }

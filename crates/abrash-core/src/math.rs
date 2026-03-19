@@ -377,9 +377,9 @@ impl Vec3 {
     pub fn normalize(self) -> Self {
         // Optimization: Use rsqrt instead of 1.0/sqrt.
         // We use len_sq to avoid sqrt if the vector is too small.
-        // 0.0001^2 = 0.00000001
+        // 0.0001^2 = 0.000_000_01
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        if len_sq > 0.00000001 {
+        if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
@@ -1151,16 +1151,18 @@ impl Mat4 {
 
         #[cfg(feature = "parallel")]
         {
+            use rayon::prelude::*;
+
+            // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
+            // implementation fed with enough data to be efficient.
+            const CHUNK_SIZE: usize = 4096;
+
             // Fallback to scalar for small inputs to avoid Rayon overhead
             if points.len() < 1024 {
                 self.transform_points_uninit(points, output);
                 return;
             }
 
-            use rayon::prelude::*;
-            // Chunk size of 4096 ensures we amortize task overhead and keep the AVX2
-            // implementation fed with enough data to be efficient.
-            const CHUNK_SIZE: usize = 4096;
             points
                 .par_chunks(CHUNK_SIZE)
                 .zip(output.par_chunks_mut(CHUNK_SIZE))
@@ -1319,6 +1321,9 @@ pub fn project_to_screen_optimized(
     half_width: f32,
     half_height: f32,
 ) -> ScreenPoint {
+    const MAX_VAL: f32 = 2_147_483_520.0;
+    const MIN_VAL: f32 = -2_147_483_520.0;
+
     // Perspective divide
     let inv_w = if w.abs() > 0.0001 { 1.0 / w } else { 1.0 };
     let ndc_x = v.x * inv_w;
@@ -1329,8 +1334,6 @@ pub fn project_to_screen_optimized(
     // Clamp to [i32::MIN + 1, i32::MAX] to avoid integer overflow when negating i32::MIN.
     // We clamp the float value BEFORE casting to i32 to avoid Undefined Behavior with NaN/Inf.
     // 2147483520.0 is the largest f32 strictly less than i32::MAX + 1 that is exactly representable.
-    const MAX_VAL: f32 = 2_147_483_520.0;
-    const MIN_VAL: f32 = -2_147_483_520.0;
 
     let screen_x_f = (ndc_x + 1.0) * half_width;
     let screen_y_f = (1.0 - ndc_y) * half_height; // Flip Y
@@ -1442,8 +1445,11 @@ pub fn project_triangle_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        {
+            _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+            _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        }
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 
@@ -1543,8 +1549,11 @@ pub fn project_quad_to_screen(
         let mut z_arr = [0f32; 4];
         let mut iw_arr = [0f32; 4];
 
-        _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
-        _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        #[allow(clippy::cast_ptr_alignment)]
+        {
+            _mm_storeu_si128(x_arr.as_mut_ptr().cast::<__m128i>(), sx_i);
+            _mm_storeu_si128(y_arr.as_mut_ptr().cast::<__m128i>(), sy_i);
+        }
         _mm_storeu_ps(z_arr.as_mut_ptr(), depth);
         _mm_storeu_ps(iw_arr.as_mut_ptr(), inv_w);
 

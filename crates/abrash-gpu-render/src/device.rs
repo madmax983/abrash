@@ -28,8 +28,11 @@ impl Default for GpuDeviceConfig {
 impl GpuDeviceConfig {
     /// Configuration for headless rendering.
     #[must_use]
-    pub fn headless() -> Self {
-        Self::default()
+    pub const fn headless() -> Self {
+        Self {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback: false,
+        }
     }
 }
 
@@ -115,25 +118,25 @@ impl GpuDevice {
 
     /// Access the underlying instance.
     #[must_use]
-    pub fn instance(&self) -> &wgpu::Instance {
+    pub const fn instance(&self) -> &wgpu::Instance {
         &self.instance
     }
 
     /// Access the underlying adapter.
     #[must_use]
-    pub fn adapter(&self) -> &wgpu::Adapter {
+    pub const fn adapter(&self) -> &wgpu::Adapter {
         &self.adapter
     }
 
     /// Access the underlying device.
     #[must_use]
-    pub fn device(&self) -> &wgpu::Device {
+    pub const fn device(&self) -> &wgpu::Device {
         &self.device
     }
 
     /// Access the underlying queue.
     #[must_use]
-    pub fn queue(&self) -> &wgpu::Queue {
+    pub const fn queue(&self) -> &wgpu::Queue {
         &self.queue
     }
 }

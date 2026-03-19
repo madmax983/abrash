@@ -1,4 +1,4 @@
-//! DrawList — backend-agnostic intermediate representation for a rendered frame.
+//! `DrawList` - backend-agnostic intermediate representation for a rendered frame.
 //!
 //! The [`DrawList`] is the seam between high-level scene description ([`Frame`], [`Scene`])
 //! and low-level rasterization ([`TileRenderer`], GPU compute). Once geometry is in a
@@ -53,7 +53,7 @@ pub struct DrawBatch {
 impl DrawBatch {
     /// Create a new draw batch.
     #[must_use]
-    pub fn new(vertices: Vec<(Vec3, f32)>, indices: Vec<[usize; 3]>, color: u32) -> Self {
+    pub const fn new(vertices: Vec<(Vec3, f32)>, indices: Vec<[usize; 3]>, color: u32) -> Self {
         Self {
             vertices,
             indices,
@@ -105,7 +105,7 @@ pub struct DrawList {
 impl DrawList {
     /// Create an empty draw list for the given camera.
     #[must_use]
-    pub fn new(camera: FrameCamera) -> Self {
+    pub const fn new(camera: FrameCamera) -> Self {
         Self {
             camera,
             lights: Vec::new(),
@@ -186,7 +186,7 @@ mod tests {
     fn test_draw_batch_new() {
         let verts = vec![(Vec3::new(1.0, 2.0, 3.0), 1.0)];
         let indices = vec![[0usize, 0, 0]];
-        let batch = DrawBatch::new(verts.clone(), indices.clone(), 0xFFFF_FFFF);
+        let batch = DrawBatch::new(verts, indices, 0xFFFF_FFFF);
         assert_eq!(batch.vertices.len(), 1);
         assert_eq!(batch.indices.len(), 1);
         assert_eq!(batch.color, 0xFFFF_FFFF);

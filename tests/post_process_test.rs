@@ -10,7 +10,7 @@ fn test_apply_bloom_simple() {
     // Set a single bright pixel in the center
     // Format: 0xAARRGGBB
     // White pixel with full alpha
-    fb.set_pixel(5, 5, 0xFFFFFFFF);
+    fb.set_pixel(5, 5, 0xFFFF_FFFF);
 
     // Apply bloom
     // Threshold = 200 (white passes)
@@ -26,7 +26,7 @@ fn test_apply_bloom_simple() {
     // Check center pixel (should be bright + bloom)
     let center = fb.get_pixel(5, 5).unwrap();
     // It should be white (clamped to 255)
-    assert_eq!(center, 0xFFFFFFFF, "Center pixel should remain white");
+    assert_eq!(center, 0xFFFF_FFFF, "Center pixel should remain white");
 
     // Check neighbors
     // At (3, 5), it should have received some bloom
@@ -55,7 +55,7 @@ fn test_apply_bloom_simple() {
     // Check outside bloom radius
     // At (0, 0), it should be black (too far)
     let far = fb.get_pixel(0, 0).unwrap();
-    assert_eq!(far & 0x00FFFFFF, 0, "Far pixel should be black");
+    assert_eq!(far & 0x00FF_FFFF, 0, "Far pixel should be black");
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_apply_bloom_no_change() {
     let mut fb = Framebuffer::new(width, height).unwrap();
 
     // Set a dim pixel
-    fb.set_pixel(5, 5, 0xFF404040); // Dark gray (64, 64, 64)
+    fb.set_pixel(5, 5, 0xFF40_4040); // Dark gray (64, 64, 64)
 
     // Apply bloom with high threshold
     let config = BloomConfig {
@@ -77,5 +77,5 @@ fn test_apply_bloom_no_change() {
 
     // Should not have bloomed
     let neighbor = fb.get_pixel(3, 5).unwrap();
-    assert_eq!(neighbor & 0x00FFFFFF, 0, "No bloom expected for dim pixel");
+    assert_eq!(neighbor & 0x00FF_FFFF, 0, "No bloom expected for dim pixel");
 }

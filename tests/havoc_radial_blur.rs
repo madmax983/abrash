@@ -35,13 +35,13 @@ fn test_apply_radial_blur_swar_equivalence() {
 #[test]
 fn test_apply_radial_blur_extreme_samples() {
     let mut fb = Framebuffer::new(4, 4).unwrap();
-    fb.set_pixel(0, 0, 0xFFFFFFFF);
+    fb.set_pixel(0, 0, 0xFFFF_FFFF);
 
     // This will trigger the fallback scalar path (> 256 samples)
     apply_radial_blur(&mut fb, 2, 2, 1.0, 300);
 
     unsafe {
         let blurred = fb.get_pixel_unchecked(0, 0);
-        assert_ne!(blurred, 0xFFFFFFFF);
+        assert_ne!(blurred, 0xFFFF_FFFF);
     }
 }

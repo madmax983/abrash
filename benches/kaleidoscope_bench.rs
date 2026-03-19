@@ -17,7 +17,7 @@ fn bench_kaleidoscope(c: &mut Criterion) {
     for y in 0..height {
         for x in 0..width {
             let color = x ^ y;
-            fb.set_pixel(x as i32, y as i32, 0xFF000000 | color);
+            fb.set_pixel(x as i32, y as i32, 0xFF00_0000 | color);
         }
     }
 

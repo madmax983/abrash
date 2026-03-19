@@ -1,56 +1,94 @@
 use abrash::experimental::wobble::{WobbleConfig, apply_wobble};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::{Event, Window};
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let width = 640;
-    let height = 480;
+const WIDTH: u32 = 640;
+const HEIGHT: u32 = 480;
+const TITLE: &str = "Nova: Wobble Filter Demo";
 
-    let mut window = Window::new("🌟 Nova: Wobble Filter Demo", width, height)?;
-    let mut fb = Framebuffer::new(width, height)?;
-    let mut background_fb = Framebuffer::new(width, height)?;
+struct WobbleDemoApp {
+    presenter: Option<SoftwarePresenter>,
+    framebuffer: Framebuffer,
+    background_fb: Framebuffer,
+    config: WobbleConfig,
+    time: f32,
+}
 
-    // Generate a simple procedural background (e.g. checkerboard)
-    for y in 0..height {
-        for x in 0..width {
-            let color = if (x / 32 + y / 32) % 2 == 0 {
-                0xFF_222222 // Dark Gray
-            } else {
-                0xFF_DDDDDD // Light Gray
-            };
-            background_fb.set_pixel(x as i32, y as i32, color);
-        }
-    }
+impl WobbleDemoApp {
+    fn new() -> Result<Self, HostError> {
+        let mut background_fb =
+            Framebuffer::new(WIDTH, HEIGHT).map_err(|error| HostError::App(error.to_string()))?;
 
-    let mut config = WobbleConfig {
-        amplitude: 20.0,
-        frequency: 4.0,
-        time: 0.0,
-    };
-
-    let mut time = 0.0;
-    let time_step = 0.05;
-
-    'main: loop {
-        for event in window.poll_events() {
-            if matches!(event, Event::Close) {
-                break 'main;
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let color = if (x / 32 + y / 32) % 2 == 0 {
+                    0xFF_22_22_22
+                } else {
+                    0xFF_DD_DD_DD
+                };
+                background_fb.set_pixel(x as i32, y as i32, color);
             }
         }
 
-        // Copy the pristine background into our working framebuffer
-        fb.as_mut_slice().copy_from_slice(background_fb.as_slice());
-
-        // Update time
-        time += time_step;
-        config.time = time;
-
-        // Apply wobble effect
-        apply_wobble(&mut fb, &config);
-
-        // Blit to window
-        window.blit_framebuffer(&fb);
+        Ok(Self {
+            presenter: None,
+            framebuffer: Framebuffer::new(WIDTH, HEIGHT)
+                .map_err(|error| HostError::App(error.to_string()))?,
+            background_fb,
+            config: WobbleConfig {
+                amplitude: 20.0,
+                frequency: 4.0,
+                time: 0.0,
+            },
+            time: 0.0,
+        })
     }
 
-    Ok(())
+    fn present(&mut self) -> Result<(), HostError> {
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
+    }
+}
+
+impl WindowApp for WobbleDemoApp {
+    type Error = HostError;
+
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: TITLE.to_string(),
+            width: WIDTH,
+            height: HEIGHT,
+            vsync: true,
+        }
+    }
+
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
+
+    fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.time += ctx.dt_seconds.max(0.0);
+        self.config.time = self.time;
+        Ok(())
+    }
+
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.framebuffer
+            .as_mut_slice()
+            .copy_from_slice(self.background_fb.as_slice());
+        apply_wobble(&mut self.framebuffer, &self.config);
+        self.present()
+    }
+}
+
+fn main() -> Result<(), HostError> {
+    run_windowed(WobbleDemoApp::new()?)
 }

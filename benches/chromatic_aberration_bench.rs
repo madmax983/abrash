@@ -19,7 +19,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("apply_chromatic_aberration_1080p", |b| {
         b.iter(|| {
             apply_chromatic_aberration(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 

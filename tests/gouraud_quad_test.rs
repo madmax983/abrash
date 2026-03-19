@@ -13,7 +13,7 @@ fn test_gouraud_quad_rendering() {
     let mut tex = Texture::new(2, 2).unwrap();
     for y in 0..2 {
         for x in 0..2 {
-            tex.set_pixel(x, y, 0xFFFFFFFF);
+            tex.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 

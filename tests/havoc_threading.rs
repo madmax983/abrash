@@ -30,7 +30,7 @@ fn test_post_process_concurrency() {
                 let zb = ZBuffer::new(w, h).unwrap();
 
                 // Fill with garbage
-                fb.clear(0xFF00FFFF);
+                fb.clear(0xFF00_FFFF);
 
                 // Call Bloom
                 // threshold, blur_radius, intensity

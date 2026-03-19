@@ -117,9 +117,6 @@ pub use abrash_render::render_api;
 pub use abrash_render::scene;
 pub use abrash_render::skybox;
 
-#[cfg(feature = "gpu-binning")]
-pub use abrash_render::gpu;
-
 #[cfg(feature = "gpu-render")]
 pub mod gpu_render;
 

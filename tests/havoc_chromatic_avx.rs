@@ -1,9 +1,7 @@
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 #[test]
 fn test_chromatic_aberration_simd_bounds() {
-    if !std::is_x86_feature_detected!("avx2") {
-        return;
-    }
+    if !std::is_x86_feature_detected!("avx2") {}
 
     // Test that the SIMD wrapper in `filters` catches the offset > width check.
     // wait, does `apply_chromatic_aberration` use SIMD automatically?

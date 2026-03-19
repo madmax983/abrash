@@ -3,7 +3,7 @@ use abrash::obj_loader::load_obj;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
-const SPACESHIP_OBJ: &str = r#"
+const SPACESHIP_OBJ: &str = r"
 # Simple Spacerocket
 v 0.0 1.5 0.0
 v 0.5 -0.5 0.5
@@ -21,7 +21,7 @@ f 6 3 2
 f 6 4 3
 f 6 5 4
 f 6 2 5
-"#;
+";
 
 fn print_banner() {
     println!("\n{}", "🎨 Abrash GPU Loader".bold().cyan());
@@ -43,7 +43,7 @@ fn main() {
                         .add_attribute(comfy_table::Attribute::Bold)
                         .fg(Color::Red),
                 ])
-                .add_row(vec![Cell::new(e.to_string()).fg(Color::Yellow)]);
+                .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
             eprintln!("\n{error_table}");
             std::process::exit(1);
         }

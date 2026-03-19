@@ -10,7 +10,7 @@ fn bench_kuwahara(c: &mut Criterion) {
             let r = (x % 255) as u32;
             let g = (y % 255) as u32;
             unsafe {
-                fb.set_pixel_unchecked(x, y, 0xFF000000 | (r << 16) | (g << 8));
+                fb.set_pixel_unchecked(x, y, 0xFF00_0000 | (r << 16) | (g << 8));
             }
         }
     }

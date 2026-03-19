@@ -1,10 +1,15 @@
 #[cfg(feature = "nova")]
 use abrash::experimental::posterize::{PosterizeConfig, apply_posterize};
+#[cfg(feature = "nova")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "nova")]
 use abrash::texture::Texture;
+#[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "nova")]
 fn print_banner() {
     println!("\n{}", "🎨 Posterize Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
@@ -46,6 +51,7 @@ fn print_banner() {
 fn main() {
     #[cfg(feature = "nova")]
     {
+        print_banner();
         let width = 256;
         let height = 256;
         let mut fb = Framebuffer::new(width, height).unwrap();
@@ -59,7 +65,7 @@ fn main() {
                 let r = (x % 256) << 16;
                 let g = (y % 256) << 8;
                 let b = (x + y) % 256;
-                tex.set_pixel(x, y, 0xFF000000 | r | g | b);
+                tex.set_pixel(x, y, 0xFF00_0000 | r | g | b);
             }
         }
 

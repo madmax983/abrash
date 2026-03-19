@@ -72,6 +72,13 @@ fn query_refresh_rate() -> u32 {
 }
 
 impl TuiWindow {
+    /// Create a terminal-backed window surface in the alternate screen.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WindowError::RegistrationFailed`] if raw mode cannot be enabled
+    /// or [`WindowError::CreationFailed`] if the terminal backend cannot be
+    /// initialized.
     pub fn new(title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         if width > i32::MAX as u32 || height > i32::MAX as u32 || width == 0 || height == 0 {
             return Err(WindowError::CreationFailed);

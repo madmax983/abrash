@@ -36,6 +36,10 @@ struct Args {
     /// List all available demos
     #[arg(long, short)]
     list: bool,
+
+    /// Run the interactive TUI dashboard
+    #[arg(long)]
+    tui: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,7 +51,7 @@ enum DemoCategory {
 }
 
 impl DemoCategory {
-    const fn icon(&self) -> char {
+    const fn icon(self) -> char {
         match self {
             Self::Cpu3D => '🧊',
             Self::Gpu3D => '🚀',
@@ -159,31 +163,47 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "jelly_demo"
 }
 
-fn demo_command(example_name: &str) -> String {
+fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
+    let mut args = vec![
+        "cargo".to_string(),
+        "run".to_string(),
+        "--release".to_string(),
+        "--example".to_string(),
+        example_name.to_string(),
+    ];
+
     if is_gpu_render_example(example_name) {
-        format!("cargo run --release --example {example_name} --features gpu-render")
-    } else if is_nova_example(example_name) {
-        if std::env::consts::OS == "windows" {
-            format!("cargo run --release --example {example_name} --features nova")
-        } else {
-            format!(
-                "cargo run --release --example {example_name} --no-default-features --features backend-tui,nova"
-            )
-        }
-    } else if std::env::consts::OS == "windows" {
-        format!("cargo run --release --example {example_name}")
-    } else {
-        format!(
-            "cargo run --release --example {example_name} --no-default-features --features backend-tui"
-        )
+        args.push("--features".to_string());
+        args.push("gpu-render".to_string());
+        return args;
     }
+
+    let mut features = Vec::new();
+    if use_tui_backend {
+        args.push("--no-default-features".to_string());
+        features.push("backend-tui");
+    }
+    if is_nova_example(example_name) {
+        features.push("nova");
+    }
+
+    if !features.is_empty() {
+        args.push("--features".to_string());
+        args.push(features.join(","));
+    }
+
+    args
+}
+
+fn demo_command(example_name: &str, use_tui_backend: bool) -> String {
+    build_demo_command_args(example_name, use_tui_backend).join(" ")
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     if let Some(demo_name) = args.demo {
-        run_demo(&demo_name)?;
+        run_demo(&demo_name, false)?;
         return Ok(());
     }
 
@@ -192,7 +212,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    // TUI Mode
+    if args.tui {
+        return run_tui_dashboard();
+    }
+
+    print_demo_list();
+    Ok(())
+}
+
+fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -416,7 +444,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                                 .add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
-                            demo_command(demo.example_name),
+                            demo_command(demo.example_name, true),
                             Style::default().fg(Color::DarkGray),
                         ),
                     ]),
@@ -464,7 +492,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                         )?;
                         terminal.show_cursor()?;
 
-                        let _ = run_demo(demo.example_name);
+                        let _ = run_demo(demo.example_name, true);
 
                         // Re-enable TUI
                         enable_raw_mode()?;
@@ -483,7 +511,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
     }
 }
 
-fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
+fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
@@ -497,31 +525,9 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
         ))]);
     println!("\n{table}");
 
-    let mut cmd = Command::new("cargo");
-    cmd.arg("run").arg("--release").arg("--example").arg(name);
-
-    if is_gpu_render_example(name) {
-        cmd.arg("--features").arg("gpu-render");
-    } else if is_nova_example(name) {
-        cmd.arg("--features").arg("nova");
-    }
-
-    // Smart Launch: On non-Windows systems, default to TUI backend to ensure
-    // the example runs (as Win32 API is not available).
-    if std::env::consts::OS != "windows" && !is_gpu_render_example(name) {
-        let mut info_table = ComfyTable::new();
-        info_table
-            .load_preset(ComfyPresets::UTF8_FULL)
-            .add_row(vec![
-                ComfyCell::new("ℹ️  Non-Windows OS detected").fg(ComfyColor::Blue),
-                ComfyCell::new("Enabling TUI backend...").fg(ComfyColor::DarkGrey),
-            ]);
-        println!("{info_table}");
-
-        cmd.arg("--no-default-features")
-            .arg("--features")
-            .arg("backend-tui");
-    }
+    let args = build_demo_command_args(name, use_tui_backend);
+    let mut cmd = Command::new(&args[0]);
+    cmd.args(&args[1..]);
 
     println!(); // Spacer
 
@@ -550,4 +556,48 @@ fn run_demo(name: &str) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_args_accepts_tui_flag() {
+        let parsed = Args::try_parse_from(["abrash", "--tui"]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn test_demo_command_uses_default_features_for_cpu() {
+        assert_eq!(
+            demo_command("cube_3d", false),
+            "cargo run --release --example cube_3d"
+        );
+    }
+
+    #[test]
+    fn test_demo_command_uses_backend_tui_when_requested_for_cpu() {
+        assert_eq!(
+            demo_command("cube_3d", true),
+            "cargo run --release --example cube_3d --no-default-features --features backend-tui"
+        );
+    }
+
+    #[test]
+    fn test_demo_command_keeps_gpu_render_feature_in_tui_mode() {
+        assert_eq!(
+            demo_command("gpu_cube", true),
+            "cargo run --release --example gpu_cube --features gpu-render"
+        );
+    }
+
+    #[test]
+    fn test_demo_command_preserves_nova_feature_in_tui_mode() {
+        assert_eq!(
+            demo_command("vision_demo", true),
+            "cargo run --release --example vision_demo --no-default-features --features backend-tui,nova"
+        );
+    }
 }

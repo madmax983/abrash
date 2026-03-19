@@ -13,7 +13,7 @@ fn bench_posterize(c: &mut Criterion) {
             let r = (x % 256) << 16;
             let g = (y % 256) << 8;
             let b = (x + y) % 256;
-            fb.set_pixel(x as i32, y as i32, 0xFF000000 | r | g | b);
+            fb.set_pixel(x as i32, y as i32, 0xFF00_0000 | r | g | b);
         }
     }
 

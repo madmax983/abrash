@@ -7,19 +7,19 @@ fn test_xor_pattern() {
     assert_eq!(tex.height(), 256);
     // Check specific pixel
     // 0^0 = 0 -> Black
-    assert_eq!(tex.get_pixel_texel(0, 0) & 0xFFFFFF, 0);
+    assert_eq!(tex.get_pixel_texel(0, 0) & 0x00FF_FFFF, 0);
     // 10^10 = 0 -> Black
-    assert_eq!(tex.get_pixel_texel(10, 10) & 0xFFFFFF, 0);
+    assert_eq!(tex.get_pixel_texel(10, 10) & 0x00FF_FFFF, 0);
 }
 
 #[test]
 fn test_grid_pattern() {
-    let tex = grid_pattern(100, 100, 10, 0xFFFFFFFF, 0xFF000000).unwrap();
+    let tex = grid_pattern(100, 100, 10, 0xFFFF_FFFF, 0xFF00_0000).unwrap();
     assert_eq!(tex.width(), 100);
     // (0,0) should be line color (white)
-    assert_eq!(tex.get_pixel_texel(0, 0), 0xFFFFFFFF);
+    assert_eq!(tex.get_pixel_texel(0, 0), 0xFFFF_FFFF);
     // (5,5) should be bg color (black)
-    assert_eq!(tex.get_pixel_texel(5, 5), 0xFF000000);
+    assert_eq!(tex.get_pixel_texel(5, 5), 0xFF00_0000);
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn test_plasma() {
     // Just ensure it generates *something* (not all black)
     let mut non_black = false;
     for &p in tex.pixels() {
-        if (p & 0xFFFFFF) != 0 {
+        if (p & 0x00FF_FFFF) != 0 {
             non_black = true;
             break;
         }
@@ -52,6 +52,6 @@ fn test_plasma() {
 
 #[test]
 fn test_grid_zero_cell_size() {
-    let res = grid_pattern(100, 100, 0, 0xFFFFFFFF, 0xFF000000);
+    let res = grid_pattern(100, 100, 0, 0xFFFF_FFFF, 0xFF00_0000);
     assert!(res.is_err());
 }

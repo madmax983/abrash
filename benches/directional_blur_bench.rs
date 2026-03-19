@@ -8,7 +8,11 @@ fn bench_directional_blur(c: &mut Criterion) {
     // Fill with a checkerboard pattern
     for y in 0..1024 {
         for x in 0..1024 {
-            let color = if (x + y) % 2 == 0 { 0xFFFFFF } else { 0x000000 };
+            let color = if (x + y) % 2 == 0 {
+                0xFF_FF_FF
+            } else {
+                0x00_00_00
+            };
             fb.set_pixel(x, y, color);
         }
     }

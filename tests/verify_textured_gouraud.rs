@@ -12,7 +12,7 @@ fn test_textured_gouraud_rendering() {
     let mut zb = ZBuffer::new(width, height).unwrap();
 
     // Create a simple 2x2 white texture
-    let texture = Texture::checkered(2, 2, 0xFFFFFFFF, 0xFFFFFFFF).unwrap();
+    let texture = Texture::checkered(2, 2, 0xFFFF_FFFF, 0xFFFF_FFFF).unwrap();
 
     // Triangle
     // v0: Top, Red, UV(0.5, 0)
@@ -42,7 +42,7 @@ fn test_textured_gouraud_rendering() {
     println!("Checksum: {checksum:016X}");
 
     // Placeholder checksum
-    assert_eq!(checksum, 0x99602810C9602FB9, "Checksum mismatch!");
+    assert_eq!(checksum, 0x9960_2810_C960_2FB9, "Checksum mismatch!");
 }
 
 fn calculate_checksum(fb: &Framebuffer) -> u64 {

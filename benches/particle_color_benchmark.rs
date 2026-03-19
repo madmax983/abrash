@@ -28,7 +28,7 @@ fn bench_colored_particles_render(c: &mut Criterion) {
             let r = (i * 123) % 255;
             let g = (i * 456) % 255;
             let b = (i * 789) % 255;
-            let color: u32 = 0xFF000000 | (r << 16) | (g << 8) | b;
+            let color: u32 = 0xFF00_0000 | (r << 16) | (g << 8) | b;
 
             sys.particles.push(Particle::new(
                 Vec3::new(x, y, z),
@@ -48,7 +48,7 @@ fn bench_colored_particles_render(c: &mut Criterion) {
         let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 1000.0);
 
         b.iter(|| {
-            fb.clear(0xFF000000);
+            fb.clear(0xFF00_0000);
             zb.clear();
             sys.render(
                 black_box(&mut fb),
