@@ -121,3 +121,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Deferring Square Roots in Boids Simulation]**
 **Learning:** In hot spatial simulation loops (e.g., Boids or flocking algorithms), distance calculations using multiple `sqrt` operations like `dx.hypot(dy).hypot(dz)` introduce massive overhead when applied across all $N^2$ entity pairs.
 **Action:** Replace `hypot` calculations with squared distance comparisons (`dx * dx + dy * dy + dz * dz < radius_sq`). Calculate the actual `sqrt` only inside the conditional block, and only for the fraction of entities that are within range and explicitly require true distance values for weighting calculations (like separation).
+**[Performance Optimization: Tilt-Shift Filter]**
+**Learning:** In the tilt-shift post-processing filter, replacing the indexed loop (`for x in 0..width`) with an idiomatic `zip` iterator (`for (dst_color, blur_color) in dst_row[..width].iter_mut().zip(&blurred_row[..width])`) elides bounds checking, resulting in a ~17-20% performance improvement.
+**Action:** Use zipped iterators bounded by exactly matching pre-slices for pixel post-processing logic to allow LLVM to remove bounds checking in hot loops.

@@ -16,7 +16,7 @@ fn bench_tilt_shift(c: &mut Criterion) {
     c.bench_function("tilt_shift_1080p", |b| {
         b.iter(|| {
             apply_tilt_shift(black_box(&mut fb), black_box(&config));
-        })
+        });
     });
 }
 

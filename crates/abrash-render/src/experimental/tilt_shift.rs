@@ -154,9 +154,8 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
             let alpha = (t * 256.0) as u32;
             let inv_alpha = 256 - alpha;
 
-            for x in 0..width {
-                let orig_color = dst_row[x];
-                let blur_color = blurred_row[x];
+            for (dst_color, blur_color) in dst_row[..width].iter_mut().zip(&blurred_row[..width]) {
+                let orig_color = *dst_color;
 
                 let o_r = (orig_color >> 16) & 0xFF;
                 let o_g = (orig_color >> 8) & 0xFF;
@@ -170,7 +169,7 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
                 let g = ((o_g * inv_alpha + b_g * alpha) >> 8) as u8;
                 let b = ((o_b * inv_alpha + b_b * alpha) >> 8) as u8;
 
-                dst_row[x] =
+                *dst_color =
                     0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
             }
         });

@@ -35,7 +35,7 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     let r_left = (left_pixel >> 16) & 0xFF;
     let b_left = left_pixel & 0xFF;
     assert!(
-        r_left >= 0x80 && r_left <= 0x90,
+        (0x80..=0x90).contains(&r_left),
         "Left side red channel smoothed"
     );
     assert_eq!(b_left, 0, "Left side should not have blue");
@@ -45,7 +45,7 @@ fn test_kuwahara_smoothes_noise_preserves_edge() {
     let r_right = (right_pixel >> 16) & 0xFF;
     let b_right = right_pixel & 0xFF;
     assert!(
-        b_right >= 0x80 && b_right <= 0x90,
+        (0x80..=0x90).contains(&b_right),
         "Right side blue channel smoothed"
     );
     assert_eq!(r_right, 0, "Right side should not have red");

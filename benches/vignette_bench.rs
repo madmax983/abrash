@@ -1,4 +1,4 @@
-use abrash::experimental::vignette::{VignetteConfig, apply_vignette};
+use abrash::post_process::{VignetteConfig, apply_vignette};
 use abrash::framebuffer::Framebuffer;
 use criterion::{Criterion, criterion_group, criterion_main};
 

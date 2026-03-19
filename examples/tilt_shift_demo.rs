@@ -69,10 +69,7 @@ fn main() {
 
     while running {
         for event in window.poll_events() {
-            match event {
-                Event::Close => running = false,
-                _ => {}
-            }
+            if matches!(event, Event::Close) { running = false }
         }
 
         // In a real input system we would check keys here
