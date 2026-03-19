@@ -583,12 +583,14 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             .enumerate()
             .for_each(|(y, row)| {
                 let row_offset = y * width;
-                for (x, p) in row.iter_mut().enumerate() {
-                    let i = row_offset + x;
+                // Give each row a deterministic but pseudo-random starting state based on index
+                // This allows the noise to be consistent per frame (if seed is same)
+                let mut lcg = seed.wrapping_add((row_offset as u32).wrapping_mul(0x9E3779B9));
+                if lcg == 0 {
+                    lcg = 1;
+                }
 
-                    // Give each pixel a deterministic but pseudo-random starting state based on index
-                    // This allows the noise to be consistent per frame (if seed is same)
-                    let mut lcg = seed.wrapping_add((i as u32).wrapping_mul(0x9E3779B9));
+                for p in row.iter_mut() {
                     lcg ^= lcg << 13;
                     lcg ^= lcg >> 17;
                     lcg ^= lcg << 5;
@@ -624,6 +626,9 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     {
         // A simple LCG state, mixed with the config seed
         let mut state = config.seed.wrapping_add(0x12345678);
+        if state == 0 {
+            state = 1;
+        }
 
         for p in pixels.iter_mut() {
             state ^= state << 13;
@@ -1902,6 +1907,32 @@ mod tests {
             changed,
             "Film grain did not change the pixel values on black"
         );
+    }
+
+    #[test]
+    fn test_apply_film_grain_zero_state() {
+        let width = 100;
+        let mut fb = Framebuffer::new(width, 1).unwrap();
+        fb.clear(0xFF808080); // Mid gray
+
+        let config = FilmGrainConfig {
+            intensity: 1.0,
+            // (row_offset as u32).wrapping_mul(0x9E3779B9) for row_offset = 0 is 0.
+            // seed + 0 == 0 -> seed = 0. So seed = 0 tests the zero state handling on row 0.
+            seed: 0,
+        };
+
+        apply_film_grain(&mut fb, &config);
+
+        // Verify the entire row is NOT identical and still gets some noise.
+        // If the state was stuck at 0, the first random value produced would be predictable and all identical.
+        // Let's count how many distinct values there are. It should be >> 1.
+        let mut unique_values = std::collections::HashSet::new();
+        for p in fb.as_slice() {
+            unique_values.insert(*p);
+        }
+
+        assert!(unique_values.len() > 10, "Row was stuck in zero state, expected >10 unique values but found {}", unique_values.len());
     }
 
     #[test]
