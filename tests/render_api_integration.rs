@@ -5,7 +5,6 @@ use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::rasterizer::TileRenderer;
 use abrash::render_api::Renderer;
-use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;
 use abrash::render_api::target::RenderTarget;
@@ -52,7 +51,7 @@ fn test_cpu_renderer_matches_direct_tile_renderer() {
     tile_renderer.end_frame(&mut fb_direct, &mut zb_direct);
 
     // --- CpuRenderer path ---
-    let mut renderer = CpuRenderer::new(WIDTH, HEIGHT);
+    let mut renderer = Renderer::new(WIDTH, HEIGHT);
     let mut target = RenderTarget::new(WIDTH, HEIGHT).unwrap();
 
     let mesh_h = renderer.create_mesh(&mesh).unwrap();

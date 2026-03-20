@@ -1,4 +1,4 @@
-//! CPU software renderer implementing the [`Renderer`] trait.
+//! CPU software renderer implementing the `Renderer`.
 //!
 //! Bridges the render API to the existing `TileRenderer` / scanline rasterization.
 
@@ -8,7 +8,7 @@ use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::Frame;
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 use crate::render_api::material::Material;
-use crate::render_api::renderer::{RenderError, Renderer};
+use crate::render_api::renderer::RenderError;
 use crate::render_api::target::RenderTarget;
 use crate::texture::Texture;
 
@@ -17,7 +17,7 @@ struct CpuMesh {
     shared_indices: std::sync::Arc<[[usize; 3]]>,
 }
 
-/// Software rasterizer implementing the [`Renderer`] trait.
+/// Software rasterizer implementing the `Renderer`.
 ///
 /// Uses `TileRenderer` internally for cache-efficient tile-based rendering.
 pub struct CpuRenderer {
@@ -66,6 +66,79 @@ impl CpuRenderer {
             textures: ResourcePool::new(),
             materials: ResourcePool::new(),
         }
+    }
+
+    /// Upload a mesh and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
+    pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
+        // Validate all triangle indices are in bounds
+        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+            for &idx in indices {
+                if idx >= mesh.vertices.len() {
+                    return Err(RenderError::InvalidMesh(format!(
+                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                        mesh.vertices.len()
+                    )));
+                }
+            }
+        }
+        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
+        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
+            mesh: mesh.clone(),
+            shared_indices,
+        })))
+    }
+
+    /// Upload a texture and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
+    pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
+        Ok(to_texture_handle(self.textures.insert(texture.clone())))
+    }
+
+    /// Register a material and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::Internal`] if the material cannot be registered.
+    pub fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
+        Ok(to_material_handle(self.materials.insert(material)))
+    }
+
+    /// Render a frame into the render target.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if any handle in the frame is invalid,
+    /// or [`RenderError::Internal`] for backend-specific failures.
+    pub fn render_frame(
+        &mut self,
+        frame: &Frame,
+        target: &mut RenderTarget,
+    ) -> Result<(), RenderError> {
+        let draw_list = self.extract_draw_list(frame)?;
+        self.execute_draw_list(&draw_list, target);
+        Ok(())
+    }
+
+    /// Release a mesh resource.
+    pub fn destroy_mesh(&mut self, handle: MeshHandle) {
+        self.meshes.remove(from_mesh_handle(handle));
+    }
+
+    /// Release a texture resource.
+    pub fn destroy_texture(&mut self, handle: TextureHandle) {
+        self.textures.remove(from_texture_handle(handle));
+    }
+
+    /// Release a material resource.
+    pub fn destroy_material(&mut self, handle: MaterialHandle) {
+        self.materials.remove(from_material_handle(handle));
     }
 
     /// Extract a [`Frame`] into a [`DrawList`] by resolving handles, transforming
@@ -141,63 +214,11 @@ impl CpuRenderer {
     }
 }
 
-impl Renderer for CpuRenderer {
-    fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
-        // Validate all triangle indices are in bounds
-        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
-            for &idx in indices {
-                if idx >= mesh.vertices.len() {
-                    return Err(RenderError::InvalidMesh(format!(
-                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
-                        mesh.vertices.len()
-                    )));
-                }
-            }
-        }
-        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
-        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
-            mesh: mesh.clone(),
-            shared_indices,
-        })))
-    }
-
-    fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
-        Ok(to_texture_handle(self.textures.insert(texture.clone())))
-    }
-
-    fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
-        Ok(to_material_handle(self.materials.insert(material)))
-    }
-
-    fn render_frame(
-        &mut self,
-        frame: &Frame,
-        target: &mut RenderTarget,
-    ) -> Result<(), RenderError> {
-        let draw_list = self.extract_draw_list(frame)?;
-        self.execute_draw_list(&draw_list, target);
-        Ok(())
-    }
-
-    fn destroy_mesh(&mut self, handle: MeshHandle) {
-        self.meshes.remove(from_mesh_handle(handle));
-    }
-
-    fn destroy_texture(&mut self, handle: TextureHandle) {
-        self.textures.remove(from_texture_handle(handle));
-    }
-
-    fn destroy_material(&mut self, handle: MaterialHandle) {
-        self.materials.remove(from_material_handle(handle));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::math::{Mat4, Vec3};
     use crate::mesh::Mesh;
-    use crate::render_api::Renderer;
     use crate::render_api::frame::{Frame, FrameCamera};
     use crate::render_api::material::Material;
     use crate::render_api::target::RenderTarget;

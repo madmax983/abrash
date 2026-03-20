@@ -35,9 +35,10 @@ pub mod material;
 pub mod renderer;
 pub mod target;
 
+pub use cpu_renderer::CpuRenderer as Renderer;
 pub use draw_list::{DrawBatch, DrawList};
 pub use frame::{DrawCommand, Frame, FrameCamera, Light};
 pub use handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 pub use material::{Material, ShadingMode};
-pub use renderer::{RenderError, Renderer};
+pub use renderer::RenderError;
 pub use target::RenderTarget;

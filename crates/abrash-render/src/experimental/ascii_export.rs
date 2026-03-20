@@ -6,46 +6,45 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-/// Trait to allow exporting a Framebuffer to ASCII files.
-pub trait AsciiExporter {
-    /// Exports the framebuffer as plain text ASCII art to a file.
-    ///
-    /// The brightness of each pixel determines the chosen ASCII character.
-    ///
-    /// # Errors
-    /// Returns an error if the file cannot be created or written to.
-    fn export_ascii<P: AsRef<Path>>(&self, path: P, charset: AsciiCharset) -> io::Result<()>;
+/// Exports the framebuffer as plain text ASCII art to a file.
+///
+/// The brightness of each pixel determines the chosen ASCII character.
+///
+/// # Errors
+/// Returns an error if the file cannot be created or written to.
+pub fn export_ascii<P: AsRef<Path>>(
+    framebuffer: &Framebuffer,
+    path: P,
+    charset: AsciiCharset,
+) -> io::Result<()> {
+    let converter = AsciiConverter::new(framebuffer, charset);
+    let ascii_str = converter.to_string();
 
-    /// Exports the framebuffer as colored ANSI text to a file.
-    ///
-    /// This uses the same characters as `export_ascii`, but adds ANSI escape codes
-    /// so that it appears in color when printed in a terminal.
-    ///
-    /// # Errors
-    /// Returns an error if the file cannot be created or written to.
-    fn export_ansi<P: AsRef<Path>>(&self, path: P, charset: AsciiCharset) -> io::Result<()>;
+    let mut file = File::create(path)?;
+    file.write_all(ascii_str.as_bytes())?;
+
+    Ok(())
 }
 
-impl AsciiExporter for Framebuffer {
-    fn export_ascii<P: AsRef<Path>>(&self, path: P, charset: AsciiCharset) -> io::Result<()> {
-        let converter = AsciiConverter::new(self, charset);
-        let ascii_str = converter.to_string();
+/// Exports the framebuffer as colored ANSI text to a file.
+///
+/// This uses the same characters as `export_ascii`, but adds ANSI escape codes
+/// so that it appears in color when printed in a terminal.
+///
+/// # Errors
+/// Returns an error if the file cannot be created or written to.
+pub fn export_ansi<P: AsRef<Path>>(
+    framebuffer: &Framebuffer,
+    path: P,
+    charset: AsciiCharset,
+) -> io::Result<()> {
+    let converter = AsciiConverter::new(framebuffer, charset);
+    let ansi_str = converter.to_colored_string();
 
-        let mut file = File::create(path)?;
-        file.write_all(ascii_str.as_bytes())?;
+    let mut file = File::create(path)?;
+    file.write_all(ansi_str.as_bytes())?;
 
-        Ok(())
-    }
-
-    fn export_ansi<P: AsRef<Path>>(&self, path: P, charset: AsciiCharset) -> io::Result<()> {
-        let converter = AsciiConverter::new(self, charset);
-        let ansi_str = converter.to_colored_string();
-
-        let mut file = File::create(path)?;
-        file.write_all(ansi_str.as_bytes())?;
-
-        Ok(())
-    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -63,7 +62,7 @@ mod tests {
         fb.set_pixel(1, 1, 0xFFFF_FFFF); // White
 
         let path = "test_ascii_export.txt";
-        fb.export_ascii(path, AsciiCharset::Standard).unwrap();
+        export_ascii(&fb, path, AsciiCharset::Standard).unwrap();
 
         let mut file = File::open(path).unwrap();
         let mut contents = String::new();
@@ -81,7 +80,7 @@ mod tests {
         fb.set_pixel(1, 0, 0xFF00_FF00); // Green
 
         let path = "test_ansi_export.ans";
-        fb.export_ansi(path, AsciiCharset::Standard).unwrap();
+        export_ansi(&fb, path, AsciiCharset::Standard).unwrap();
 
         let mut file = File::open(path).unwrap();
         let mut contents = String::new();
