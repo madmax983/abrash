@@ -210,7 +210,7 @@ mod tests {
         ];
 
         for (y, x, expected) in points.iter() {
-            let mut std_atan2 = y.atan2(*x);
+            let mut std_atan2 = (*y as f32).atan2(*x as f32);
             if std_atan2 < 0.0 {
                 std_atan2 += std::f32::consts::TAU;
             }
