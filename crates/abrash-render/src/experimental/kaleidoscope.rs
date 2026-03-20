@@ -183,14 +183,30 @@ mod tests {
         // fast_atan2 returns [0, TAU] where 0 is the positive X axis.
         // std atan2 returns [-PI, PI], so we adjust std to [0, TAU].
         let points = [
-            (1.0, 0.0, std::f32::consts::FRAC_PI_2),   // +Y (up)
-            (0.0, 1.0, 0.0),                           // +X (right)
-            (-1.0, 0.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_2), // -Y (down)
-            (0.0, -1.0, std::f32::consts::PI),         // -X (left)
-            (1.0, 1.0, std::f32::consts::FRAC_PI_4),   // Top-Right
-            (-1.0, 1.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4), // Bottom-Right
-            (1.0, -1.0, std::f32::consts::PI - std::f32::consts::FRAC_PI_4), // Top-Left
-            (-1.0, -1.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_4), // Bottom-Left
+            (1.0, 0.0, std::f32::consts::FRAC_PI_2), // +Y (up)
+            (0.0, 1.0, 0.0),                         // +X (right)
+            (
+                -1.0,
+                0.0,
+                std::f32::consts::PI + std::f32::consts::FRAC_PI_2,
+            ), // -Y (down)
+            (0.0, -1.0, std::f32::consts::PI),       // -X (left)
+            (1.0, 1.0, std::f32::consts::FRAC_PI_4), // Top-Right
+            (
+                -1.0,
+                1.0,
+                std::f32::consts::PI + std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4,
+            ), // Bottom-Right
+            (
+                1.0,
+                -1.0,
+                std::f32::consts::PI - std::f32::consts::FRAC_PI_4,
+            ), // Top-Left
+            (
+                -1.0,
+                -1.0,
+                std::f32::consts::PI + std::f32::consts::FRAC_PI_4,
+            ), // Bottom-Left
         ];
 
         for (y, x, expected) in points.iter() {
@@ -201,7 +217,14 @@ mod tests {
             let fast = fast_atan2(*y, *x);
 
             // Allow for a max error of about 4 degrees (0.07 rads) for the approximation
-            assert!((fast - expected).abs() < 0.08, "fast_atan2({}, {}) = {} vs expected std {}", y, x, fast, expected);
+            assert!(
+                (fast - expected).abs() < 0.08,
+                "fast_atan2({}, {}) = {} vs expected std {}",
+                y,
+                x,
+                fast,
+                expected
+            );
         }
     }
 
