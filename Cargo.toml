@@ -537,6 +537,10 @@ name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
 required-features = ["nova"]
 
+[[bench]]
+name = "fast_hypot_bench"
+harness = false
+
 [[example]]
 name = "halftone_demo"
 path = "examples/halftone_demo.rs"

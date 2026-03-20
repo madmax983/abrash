@@ -105,3 +105,20 @@ Previously, `TileRenderer` used a custom scalar loop for textured rendering.
 - Reusing existing optimized code reduces duplication and maintenance burden.
 
 **Conclusion**: Applied changes. `TileRenderer` now benefits from AVX2 texture rendering.
+
+## 6. Fast hypot mathematical approximation
+
+**Goal**: Optimize `f32::hypot` calculations in hot loops in vision, kaleidoscope, voronoi and procedural generation.
+
+**Implementation**:
+- Replaced `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` and applied `#[allow(clippy::imprecise_flops)]`.
+- `fast_hypot` avoids standard library overhead.
+
+**Result**: **Improvement (~33% faster)**
+- Baseline (std_hypot): ~4.28 µs
+- Fast Hypot: ~2.87 µs
+
+**Analysis**:
+- `f32::hypot` calls down to the C math library, introducing expensive underflow/overflow bounds checking that prevents inlining and vectorization. By doing manual multiplication and `sqrt`, we regain vectorization opportunities.
+
+**Conclusion**: Applied changes. Avoids expensive library call in loops.
