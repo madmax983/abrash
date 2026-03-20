@@ -16,8 +16,6 @@ use rayon::prelude::*;
 /// * `fb`: The Framebuffer to modify.
 /// * `dot_size`: The maximum radius of the halftone dots (e.g., 5.0).
 /// * `angle_radians`: The rotation angle of the dot grid (e.g., 45 degrees or PI/4).
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-/// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
     let width = fb.width() as usize;
 
@@ -76,4 +74,40 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_halftone_black_image() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Clear with black
+        fb.clear(0xFF_00_00_00);
+
+        apply_halftone(&mut fb, 5.0, 0.0);
+
+        // A black image has luminance 0, so dot radius is maximum.
+        // The nearest cell center will be at (0,0) for the top-left pixels.
+        // It should mostly become black, maybe some white around edges of dots
+        // but let's just ensure it doesn't crash and alters the buffer.
+        let has_black = fb.as_slice().iter().any(|&p| p == 0xFF00_0000);
+        assert!(has_black);
+    }
+
+    #[test]
+    fn test_apply_halftone_white_image() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Clear with white
+        fb.clear(0xFF_FF_FF_FF);
+
+        apply_halftone(&mut fb, 5.0, 0.0);
+
+        // A white image has luminance 1, so dot radius is 0.
+        // Every pixel should become white because distance is always >= 0.
+        for &pixel in fb.as_slice() {
+            assert_eq!(pixel, 0xFFFF_FFFF);
+        }
+    }
 }

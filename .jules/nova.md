@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [Halftone Filter Demo]
+**Concept:** A retro post-processing effect that converts the image into a pattern of black dots on a white background, simulating CMYK or grayscale newspaper printing techniques.
+**Fate:** Implemented
+**Lesson:** By utilizing a simple demo with a gradient background and shapes, it's easy to visualize the effect of the halftone filter in action, allowing users to tweak dot size and rotation angle to understand its behavior.
