@@ -155,9 +155,10 @@ impl Renderer for CpuRenderer {
             }
         }
         let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
-        Ok(to_mesh_handle(
-            self.meshes.insert(CpuMesh { mesh: mesh.clone(), shared_indices }),
-        ))
+        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
+            mesh: mesh.clone(),
+            shared_indices,
+        })))
     }
 
     fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
