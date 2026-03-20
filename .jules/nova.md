@@ -147,3 +147,8 @@
 **Concept:** A retro post-processing effect that converts the image into a pattern of black dots on a white background, simulating CMYK or grayscale newspaper printing techniques.
 **Fate:** Implemented
 **Lesson:** By utilizing a simple demo with a gradient background and shapes, it's easy to visualize the effect of the halftone filter in action, allowing users to tweak dot size and rotation angle to understand its behavior.
+
+## [Fisheye Lens Filter]
+**Concept:** A post-processing effect that simulates an ultra-wide-angle lens by applying barrel distortion to the framebuffer. It pushes pixels away from the center based on distance.
+**Fate:** Implemented
+**Lesson:** Using normalized space based on the shortest dimension of the framebuffer (`min_dim = min(half_w, half_h)`) is crucial to keep the radial distortion perfectly circular, regardless of the window's aspect ratio. Additionally, because the distortion remaps source coordinates non-linearly, cloning the source framebuffer is required to allow safe parallel processing with Rayon without mutable aliasing conflicts.
