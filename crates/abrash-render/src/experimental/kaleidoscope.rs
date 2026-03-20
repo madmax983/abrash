@@ -69,8 +69,27 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                         let dx = x as f32 - cx;
 
                         // Convert to polar coordinates
-                        let r = dx.hypot(dy);
-                        let mut theta = dy.atan2(dx);
+                        #[allow(clippy::imprecise_flops)]
+                        let r = (dx * dx + dy * dy).sqrt();
+
+                        // Use fast mathematical approximation for atan2 in hot loops
+                        let abs_x = dx.abs();
+                        let abs_y = dy.abs();
+                        let a = (abs_x - abs_y) / (abs_x + abs_y);
+                        let mut angle =
+                            std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_4 * a;
+
+                        if abs_y > abs_x {
+                            angle = std::f32::consts::FRAC_PI_2 - angle;
+                        }
+                        if dx < 0.0 {
+                            angle = std::f32::consts::PI - angle;
+                        }
+                        if dy < 0.0 {
+                            angle = -angle;
+                        }
+
+                        let mut theta = angle;
 
                         // Normalize angle to [0, TAU]
                         if theta < 0.0 {
@@ -113,7 +132,24 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                     // Convert to polar coordinates
                     let r = (dx * dx + dy * dy).sqrt();
-                    let mut theta = dy.atan2(dx);
+
+                    // Use fast mathematical approximation for atan2 in hot loops
+                    let abs_x = dx.abs();
+                    let abs_y = dy.abs();
+                    let a = (abs_x - abs_y) / (abs_x + abs_y);
+                    let mut angle = std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_4 * a;
+
+                    if abs_y > abs_x {
+                        angle = std::f32::consts::FRAC_PI_2 - angle;
+                    }
+                    if dx < 0.0 {
+                        angle = std::f32::consts::PI - angle;
+                    }
+                    if dy < 0.0 {
+                        angle = -angle;
+                    }
+
+                    let mut theta = angle;
 
                     // Normalize angle to [0, TAU]
                     if theta < 0.0 {

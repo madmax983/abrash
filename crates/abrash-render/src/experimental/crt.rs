@@ -54,6 +54,9 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
 
         let pixels = fb.as_slice();
 
+        let inv_cx = 1.0 / cx;
+        let inv_cy = 1.0 / cy;
+
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
@@ -61,12 +64,12 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
                 .par_chunks_exact_mut(width)
                 .enumerate()
                 .for_each(|(y, row)| {
-                    let ny = (y as f32 - cy) / cy;
+                    let ny = (y as f32 - cy) * inv_cy;
                     let ny2 = ny * ny;
 
                     for (x, pixel) in row.iter_mut().enumerate().take(width) {
                         // Normalize x coordinate to [-1, 1] relative to center
-                        let nx = (x as f32 - cx) / cx;
+                        let nx = (x as f32 - cx) * inv_cx;
 
                         // Calculate radial distance squared
                         let r2 = nx * nx + ny2;
@@ -93,12 +96,12 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
         #[cfg(not(feature = "parallel"))]
         {
             for y in 0..height {
-                let ny = (y as f32 - cy) / cy;
+                let ny = (y as f32 - cy) * inv_cy;
                 let ny2 = ny * ny;
 
                 for x in 0..width {
                     // Normalize coordinates to [-1, 1] relative to center
-                    let nx = (x as f32 - cx) / cx;
+                    let nx = (x as f32 - cx) * inv_cx;
 
                     // Calculate radial distance squared
                     let r2 = nx * nx + ny2;

@@ -126,3 +126,11 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::hypot vs Manual Math
 **Learning:** In hot math paths (like vector magnitude calculation), `f32::hypot` calls down to the C math library, introducing expensive underflow/overflow bounds checking that prevents inlining and vectorization.
 **Action:** Replace `f32::hypot(x, y)` with `(x*x + y*y).sqrt()`. While this sacrifices protection against intermediate overflow at the extreme limits of f32, it drastically improves execution speed (e.g. ~74% reduction in execution time for `Vec2::length`). Add `#[allow(clippy::imprecise_flops)]` to suppress the warning.
+
+**[Performance Optimization: Fast `atan2` approximation in hot pixel loops]**
+**Learning:** In hot pixel loops, replacing standard `f32::atan2` calls with a fast mathematical approximation `(abs_x - abs_y) / (abs_x + abs_y)` (with quadrant adjustments) drastically reduces floating-point overhead and improves performance.
+**Action:** Replace `dy.atan2(dx)` with the fast mathematical approximation in hot rendering loops, such as the `apply_kaleidoscope` post-processing filter.
+
+**[Performance Optimization: Pre-computing inverted divisions]**
+**Learning:** Performing floating-point divisions (e.g., `x / width`) inside a hot loop across millions of pixels is significantly slower than multiplying by a pre-computed inverse (`inv_width = 1.0 / width`).
+**Action:** Pre-compute the inverted division factors outside the pixel iteration loops, and multiply the pixels inside the loop instead (e.g., `nx = (x as f32 - cx) * inv_cx`).

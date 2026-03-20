@@ -87,7 +87,7 @@ impl DrawBatch {
 /// draw_list.clear_color = Some(0xFF00_0000);
 ///
 /// // Normally produced by Frame/Scene extraction — here we stub it:
-/// let batch = DrawBatch::new(vec![], vec![], 0xFFFF_0000);
+/// let batch = DrawBatch::new(vec![], vec![].into(), 0xFFFF_0000);
 /// draw_list.push(batch);
 /// assert_eq!(draw_list.batches.len(), 1);
 /// ```
