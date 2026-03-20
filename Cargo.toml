@@ -418,6 +418,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "fast_atan2_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "directional_blur_bench"
 harness = false
 required-features = ["nova"]

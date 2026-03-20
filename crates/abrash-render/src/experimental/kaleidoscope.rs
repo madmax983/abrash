@@ -22,6 +22,38 @@ thread_local! {
 /// * `segments` - The number of mirror segments (e.g. 6). Must be > 1 to have an effect.
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+#[inline(always)]
+#[must_use]
+pub fn fast_atan2(y: f32, x: f32) -> f32 {
+    let abs_y = y.abs();
+    let abs_x = x.abs();
+
+    if abs_x == 0.0 && abs_y == 0.0 {
+        return 0.0;
+    }
+
+    let mut theta = if abs_x > abs_y {
+        let ratio = (abs_x - abs_y) / (abs_x + abs_y);
+        0.25 * std::f32::consts::PI * (1.0 - ratio)
+    } else {
+        let ratio = (abs_y - abs_x) / (abs_x + abs_y);
+        0.25 * std::f32::consts::PI * (1.0 + ratio)
+    };
+
+    if x < 0.0 {
+        theta = std::f32::consts::PI - theta;
+    }
+    if y < 0.0 {
+        theta = -theta;
+    }
+
+    if theta < 0.0 {
+        theta += std::f32::consts::TAU;
+    }
+
+    theta
+}
+
 pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
     if segments <= 1 {
         return;
@@ -70,12 +102,9 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Convert to polar coordinates
                         let r = dx.hypot(dy);
-                        let mut theta = dy.atan2(dx);
 
-                        // Normalize angle to [0, TAU]
-                        if theta < 0.0 {
-                            theta += std::f32::consts::TAU;
-                        }
+                        // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
+                        let mut theta = fast_atan2(dy, dx);
 
                         // Apply modulo to find the angle within the first segment
                         let original_theta = theta;
@@ -113,12 +142,9 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                     // Convert to polar coordinates
                     let r = (dx * dx + dy * dy).sqrt();
-                    let mut theta = dy.atan2(dx);
 
-                    // Normalize angle to [0, TAU]
-                    if theta < 0.0 {
-                        theta += std::f32::consts::TAU;
-                    }
+                    // ⚡ Bolt: Fast mathematical approximation for atan2 to reduce overhead
+                    let mut theta = fast_atan2(dy, dx);
 
                     // Apply modulo to find the angle within the first segment
                     let original_theta = theta;
@@ -150,6 +176,34 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 #[cfg(feature = "nova")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_fast_atan2_cardinal_directions() {
+        let epsilon = 0.001;
+        // fast_atan2 returns [0, TAU] where 0 is the positive X axis.
+        // std atan2 returns [-PI, PI], so we adjust std to [0, TAU].
+        let points = [
+            (1.0, 0.0, std::f32::consts::FRAC_PI_2),   // +Y (up)
+            (0.0, 1.0, 0.0),                           // +X (right)
+            (-1.0, 0.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_2), // -Y (down)
+            (0.0, -1.0, std::f32::consts::PI),         // -X (left)
+            (1.0, 1.0, std::f32::consts::FRAC_PI_4),   // Top-Right
+            (-1.0, 1.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4), // Bottom-Right
+            (1.0, -1.0, std::f32::consts::PI - std::f32::consts::FRAC_PI_4), // Top-Left
+            (-1.0, -1.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_4), // Bottom-Left
+        ];
+
+        for (y, x, expected) in points.iter() {
+            let mut std_atan2 = y.atan2(*x);
+            if std_atan2 < 0.0 {
+                std_atan2 += std::f32::consts::TAU;
+            }
+            let fast = fast_atan2(*y, *x);
+
+            // Allow for a max error of about 4 degrees (0.07 rads) for the approximation
+            assert!((fast - expected).abs() < 0.08, "fast_atan2({}, {}) = {} vs expected std {}", y, x, fast, expected);
+        }
+    }
 
     #[test]
     fn test_kaleidoscope_segments_zero_one() {
