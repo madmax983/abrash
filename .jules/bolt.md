@@ -134,3 +134,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Fixed-Point Raymarching and Row Iteration in Volumetric Lighting]**
 **Learning:** In screen-space volumetric lighting algorithms (like God Rays/Crepuscular Rays) that require iterative sub-pixel sampling along a ray, using floating point math inside the inner accumulation loop is extremely slow. Moreover, iterating over coordinates with nested `x`/`y` loops introduces bounds checking overhead.
 **Action:** Replace nested loops with `.par_chunks_exact_mut(width).enumerate()` across rows. For the sub-pixel raymarching, calculate step sizes in floating point outside the loop, but convert them to 16.16 fixed-point arithmetic (`(step * 65536.0) as i32`) for the actual accumulation loop. Pre-compute fractional intensity weights as well. This eliminates `f32` overhead per sample, improving execution speeds by ~85%.
+
+**[Fast Hypot Approximation]**
+**Learning:** In hot math operations where floating-point overflow/underflow is practically impossible (like normalized coordinates), replacing `f32::hypot(x, y)` with `(x * x + y * y).sqrt()` bypasses expensive safety checks in the standard library.
+**Action:** Replaced `dx.hypot(dy)` with `(dx * dx + dy * dy).sqrt()` in `apply_kaleidoscope` hot pixel rendering loop and added `#[allow(clippy::imprecise_flops)]`.
