@@ -147,6 +147,142 @@ const DEMOS: &[Demo] = &[
         instructions: "Mouse: None\nKeyboard: Auto-rotating scene",
         example_name: "raytracer_demo",
     },
+    Demo {
+        name: "Cloth Simulation",
+        category: DemoCategory::Simulation,
+        description: "Soft-body physics cloth simulation",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "cloth_demo",
+    },
+    Demo {
+        name: "Pixel Sort",
+        category: DemoCategory::Simulation,
+        description: "Post-processing pixel sorting effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "pixel_sort_demo",
+    },
+    Demo {
+        name: "Directional Blur",
+        category: DemoCategory::Simulation,
+        description: "Post-processing directional blur effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "directional_blur_demo",
+    },
+    Demo {
+        name: "God Rays",
+        category: DemoCategory::Simulation,
+        description: "Post-processing god rays (volumetric light) effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "god_rays_demo",
+    },
+    Demo {
+        name: "Jelly Physics",
+        category: DemoCategory::Simulation,
+        description: "Soft-body jelly physics simulation",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "jelly_demo",
+    },
+    Demo {
+        name: "Anaglyph 3D",
+        category: DemoCategory::Simulation,
+        description: "Post-processing anaglyph 3D effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "anaglyph_demo",
+    },
+    Demo {
+        name: "Chromatic Aberration",
+        category: DemoCategory::Simulation,
+        description: "Post-processing chromatic aberration effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "chromatic_aberration_demo",
+    },
+    Demo {
+        name: "Voronoi Diagram",
+        category: DemoCategory::Simulation,
+        description: "Post-processing Voronoi effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "voronoi_demo",
+    },
+    Demo {
+        name: "Vignette Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing vignette effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "vignette_demo",
+    },
+    Demo {
+        name: "Swirl Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing swirl distortion effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "swirl_demo",
+    },
+    Demo {
+        name: "Wobble Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing wobble distortion effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "wobble_demo",
+    },
+    Demo {
+        name: "Tilt Shift",
+        category: DemoCategory::Simulation,
+        description: "Post-processing tilt shift depth-of-field effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "tilt_shift_demo",
+    },
+    Demo {
+        name: "Posterize Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing posterization effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "posterize_demo",
+    },
+    Demo {
+        name: "Emboss Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing emboss effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "emboss_demo",
+    },
+    Demo {
+        name: "Edge Glow",
+        category: DemoCategory::Simulation,
+        description: "Post-processing edge detection and glow effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "edge_glow_demo",
+    },
+    Demo {
+        name: "Reflection Demo",
+        category: DemoCategory::Cpu3D,
+        description: "3D scene demonstrating planar reflections",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "reflection_demo",
+    },
+    Demo {
+        name: "GPU MVP Cube",
+        category: DemoCategory::Gpu3D,
+        description: "Hardware-accelerated cube with Model-View-Projection matrix",
+        instructions: "Mouse: Drag to orbit, wheel to zoom
+Keyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
+        example_name: "gpu_mvp_cube",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -161,6 +297,16 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "directional_blur_demo"
         || example_name == "god_rays_demo"
         || example_name == "jelly_demo"
+        || example_name == "anaglyph_demo"
+        || example_name == "chromatic_aberration_demo"
+        || example_name == "voronoi_demo"
+        || example_name == "vignette_demo"
+        || example_name == "swirl_demo"
+        || example_name == "wobble_demo"
+        || example_name == "tilt_shift_demo"
+        || example_name == "posterize_demo"
+        || example_name == "emboss_demo"
+        || example_name == "edge_glow_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
