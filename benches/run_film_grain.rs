@@ -3,8 +3,10 @@
 //! Provides a baseline metric for iterating on pixel shader effects.
 
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::filters::{apply_film_grain, FilmGrainConfig};
-use comfy_table::{Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL};
+use abrash::post_process::filters::{FilmGrainConfig, apply_film_grain};
+use comfy_table::{
+    Attribute, Cell, Color, Table, modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL,
+};
 use std::time::Instant;
 
 fn main() {
@@ -34,21 +36,19 @@ fn main() {
             Cell::new("Value").add_attribute(Attribute::Bold),
         ]);
 
-    table.add_row(vec![
-        Cell::new("Resolution"),
-        Cell::new("1920x1080"),
-    ]);
-    table.add_row(vec![
-        Cell::new("Iterations"),
-        Cell::new(iterations),
-    ]);
+    table.add_row(vec![Cell::new("Resolution"), Cell::new("1920x1080")]);
+    table.add_row(vec![Cell::new("Iterations"), Cell::new(iterations)]);
     table.add_row(vec![
         Cell::new("Total Time").fg(Color::Cyan),
         Cell::new(format!("{duration:?}")).fg(Color::Cyan),
     ]);
     table.add_row(vec![
-        Cell::new("Avg Time/Iteration").fg(Color::Green).add_attribute(Attribute::Bold),
-        Cell::new(format!("{avg_duration:?}")).fg(Color::Green).add_attribute(Attribute::Bold),
+        Cell::new("Avg Time/Iteration")
+            .fg(Color::Green)
+            .add_attribute(Attribute::Bold),
+        Cell::new(format!("{avg_duration:?}"))
+            .fg(Color::Green)
+            .add_attribute(Attribute::Bold),
     ]);
 
     println!("{table}\n");

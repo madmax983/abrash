@@ -163,7 +163,6 @@ thread_local! {
 
 #[derive(Default)]
 struct SceneRenderContext {
-    transformed_verts: Vec<(Vec3, f32)>,
     world_aabbs: Vec<AABB>,
     cull_results: Vec<bool>,
 }
@@ -215,7 +214,6 @@ impl Scene {
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
             let ctx = &mut *ctx_guard;
-            let transformed_verts = &mut ctx.transformed_verts;
             let world_aabbs = &mut ctx.world_aabbs;
             let cull_results = &mut ctx.cull_results;
 
@@ -241,8 +239,10 @@ impl Scene {
                 let mvp = obj.transform * view_proj;
                 let mesh = &obj.mesh;
 
-                transformed_verts.clear();
-                transformed_verts.reserve(mesh.vertices.len());
+                // Allocate exactly the needed capacity.
+                // This avoids the overhead of a thread-local buffer that would otherwise require
+                // a `.clone()` memory copy to satisfy `DrawBatch::new`'s owned vector requirement.
+                let mut transformed_verts = Vec::with_capacity(mesh.vertices.len());
 
                 let uninit_slice = transformed_verts.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
@@ -259,7 +259,7 @@ impl Scene {
                 }
 
                 draw_list.push(DrawBatch::new(
-                    transformed_verts.clone(),
+                    transformed_verts,
                     std::sync::Arc::clone(&obj.shared_indices),
                     obj.color,
                 ));

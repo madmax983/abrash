@@ -134,3 +134,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Fixed-Point Raymarching and Row Iteration in Volumetric Lighting]**
 **Learning:** In screen-space volumetric lighting algorithms (like God Rays/Crepuscular Rays) that require iterative sub-pixel sampling along a ray, using floating point math inside the inner accumulation loop is extremely slow. Moreover, iterating over coordinates with nested `x`/`y` loops introduces bounds checking overhead.
 **Action:** Replace nested loops with `.par_chunks_exact_mut(width).enumerate()` across rows. For the sub-pixel raymarching, calculate step sizes in floating point outside the loop, but convert them to 16.16 fixed-point arithmetic (`(step * 65536.0) as i32`) for the actual accumulation loop. Pre-compute fractional intensity weights as well. This eliminates `f32` overhead per sample, improving execution speeds by ~85%.
+
+**[Thread-Local Buffers vs Owned Requirements]
+**Learning:** Using a `thread_local!` buffer to avoid temporary allocations is counterproductive if the data must immediately be `.clone()`d to satisfy an owned value requirement (e.g., passing to a struct constructor like `DrawBatch::new`). The `clone()` performs a heap allocation anyway, making the thread-local buffer redundant overhead.
+**Action:** In these cases, it is more efficient to directly allocate the required `Vec::with_capacity()` and pass it by value to avoid the redundant memory copy.
