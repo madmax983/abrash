@@ -191,6 +191,84 @@ fn bench_rasterize_integrated_clear(c: &mut Criterion) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Production resolution benchmarks (integrated clear, realistic workloads)
+// ---------------------------------------------------------------------------
+
+fn build_scene_cfg(width: u32, height: u32, obj_count: usize, grid_size: usize) -> Scene {
+    let mesh = Arc::new(generate_grid_mesh(grid_size));
+    let view = Mat4::look_at(
+        Vec3::new(0.0, 50.0, 50.0),
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+    );
+    let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
+    let mut scene = Scene::new(Camera::new(view, proj));
+    let cols = (obj_count as f32).sqrt().ceil() as usize;
+    for i in 0..obj_count {
+        let x = (i % cols) as f32 * 15.0 - (cols as f32 * 7.5);
+        let z = (i / cols) as f32 * 15.0 - (cols as f32 * 7.5);
+        scene.add_object(SceneObject::new(
+            mesh.clone(),
+            Mat4::translation(x, 0.0, z),
+            0xFFFF_FFFF,
+        ));
+    }
+    scene
+}
+
+/// 1080p, 100 objects × 200 tris = 20K tris (same geometry, production resolution)
+fn bench_1080p_20k(c: &mut Criterion) {
+    let (w, h) = (1920, 1080);
+    let scene = build_scene_cfg(w, h, 100, 10);
+    let mut renderer = TileRenderer::new(w, h);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(w, h).unwrap();
+    let mut zb = ZBuffer::new(w, h).unwrap();
+    c.bench_function("1080p_20k_tris_100obj", |b| {
+        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+    });
+}
+
+/// 1080p, 400 objects × 200 tris = 80K tris (indie game territory)
+fn bench_1080p_80k(c: &mut Criterion) {
+    let (w, h) = (1920, 1080);
+    let scene = build_scene_cfg(w, h, 400, 10);
+    let mut renderer = TileRenderer::new(w, h);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(w, h).unwrap();
+    let mut zb = ZBuffer::new(w, h).unwrap();
+    c.bench_function("1080p_80k_tris_400obj", |b| {
+        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+    });
+}
+
+/// 4K, 100 objects × 200 tris = 20K tris
+fn bench_4k_20k(c: &mut Criterion) {
+    let (w, h) = (3840, 2160);
+    let scene = build_scene_cfg(w, h, 100, 10);
+    let mut renderer = TileRenderer::new(w, h);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(w, h).unwrap();
+    let mut zb = ZBuffer::new(w, h).unwrap();
+    c.bench_function("4k_20k_tris_100obj", |b| {
+        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+    });
+}
+
+/// 1080p, 100 objects × 800 tris = 80K tris (denser meshes, same object count)
+fn bench_1080p_80k_dense(c: &mut Criterion) {
+    let (w, h) = (1920, 1080);
+    let scene = build_scene_cfg(w, h, 100, 20); // 20×20 grid = 441 verts, 800 tris each
+    let mut renderer = TileRenderer::new(w, h);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(w, h).unwrap();
+    let mut zb = ZBuffer::new(w, h).unwrap();
+    c.bench_function("1080p_80k_tris_dense_100obj", |b| {
+        b.iter(|| scene.render(&mut renderer, &mut fb, &mut zb));
+    });
+}
+
 criterion_group!(
     benches,
     bench_scene_render,
@@ -199,6 +277,11 @@ criterion_group!(
     bench_clear_only,
     bench_rasterize_only,
     bench_rasterize_integrated_clear,
-    bench_submit_only
+    bench_submit_only,
+    // Production resolution
+    bench_1080p_20k,
+    bench_1080p_80k,
+    bench_1080p_80k_dense,
+    bench_4k_20k,
 );
 criterion_main!(benches);
