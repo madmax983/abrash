@@ -4,7 +4,9 @@
 //! code used by the main abrash package.
 
 pub mod capture;
+pub mod deferred;
 pub mod device;
+pub mod gbuffer;
 pub mod mesh_buffer;
 pub mod postprocess;
 pub mod renderer;
