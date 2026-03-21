@@ -8,6 +8,7 @@ pub mod device;
 pub mod mesh_buffer;
 pub mod renderer;
 pub mod shader;
+pub mod shadow;
 #[cfg(feature = "windowed")]
 pub mod surface;
 

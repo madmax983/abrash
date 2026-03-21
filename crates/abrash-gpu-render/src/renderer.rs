@@ -95,6 +95,8 @@ pub struct GpuRenderer {
     texture_bind_group_layout: wgpu::BindGroupLayout,
     default_sampler: wgpu::Sampler,
     textures: Vec<Option<GpuTexture>>,
+    // Shadow mapping
+    shadow_map: crate::shadow::ShadowMap,
     // Shared resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
@@ -175,6 +177,9 @@ impl GpuRenderer {
         let textured_lit_pipeline =
             TexturedLitPipeline::new(device, color_format, &texture_bind_group_layout);
 
+        // Shadow map
+        let shadow_map = crate::shadow::ShadowMap::new(device);
+
         let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Default Bilinear Sampler"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -204,6 +209,7 @@ impl GpuRenderer {
             texture_bind_group_layout,
             default_sampler,
             textures: Vec::new(),
+            shadow_map,
             meshes: Vec::new(),
             materials: Vec::new(),
         }
@@ -453,6 +459,9 @@ impl GpuRenderer {
                     label: Some("GpuRenderer Capture Encoder"),
                 });
 
+        // Pass 1: Shadow depth pass (render scene from first directional light)
+        self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("GpuRenderer Capture Pass"),
@@ -650,6 +659,9 @@ impl GpuRenderer {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("GpuRenderer Surface Encoder"),
                 });
+
+        // Pass 1: Shadow depth pass
+        self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -929,6 +941,93 @@ impl GpuRenderer {
             draw_uniform_bytes,
             total_triangles,
         ))
+    }
+
+    /// Encode the shadow depth pass into the command encoder.
+    ///
+    /// Renders all meshes from the first directional light's perspective into the shadow map.
+    fn encode_shadow_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &Frame,
+        prepared_draws: &[PreparedDraw],
+    ) -> Result<(), String> {
+        use crate::shadow::ShadowMap;
+
+        // Find the first directional light for shadow casting
+        let dir_light = frame.lights.iter().find_map(|l| match l {
+            Light::Directional(d) => Some(d),
+            _ => None,
+        });
+
+        let Some(dir_light) = dir_light else {
+            return Ok(()); // No directional light → no shadows
+        };
+
+        // Compute light-space VP
+        let light_vp = ShadowMap::compute_directional_light_vp(
+            abrash_core::math::Vec3::new(
+                dir_light.direction.x,
+                dir_light.direction.y,
+                dir_light.direction.z,
+            ),
+            100.0, // scene extent — covers a 200×200 unit area
+        );
+        self.shadow_map.light_vp = light_vp;
+
+        // Upload light VP for main-pass sampling
+        let light_vp_flat: [f32; 16] = bytemuck::cast(light_vp.m);
+        // The sample bind group has the light VP at binding 2
+        // We need to write to the buffer that's bound there
+        // For now, recreate the buffer content inline
+        // (The shadow map's sample_bind_group was created with a buffer — we need to write to it)
+
+        // Shadow depth pass
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Shadow Depth Pass"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.shadow_map.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            pass.set_pipeline(&self.shadow_map.pipeline);
+
+            for draw in prepared_draws {
+                let gpu_mesh = self.meshes[draw.mesh_index].as_ref().ok_or_else(|| {
+                    format!("stale mesh in shadow pass cmd {}", draw.command_index)
+                })?;
+
+                // Upload per-draw shadow uniforms (light_vp + model)
+                let command = &frame.commands[draw.command_index];
+                let model_flat: [f32; 16] = bytemuck::cast(command.transform.m);
+                let shadow_uniform = crate::shadow::ShadowUniforms {
+                    light_vp: light_vp_flat,
+                    model: model_flat,
+                };
+                self.gpu.queue().write_buffer(
+                    &self.shadow_map.uniform_buffer,
+                    0,
+                    bytemuck::bytes_of(&shadow_uniform),
+                );
+
+                pass.set_bind_group(0, &self.shadow_map.uniform_bind_group, &[]);
+                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+                pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
+            }
+        }
+
+        Ok(())
     }
 }
 
