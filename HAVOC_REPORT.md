@@ -125,3 +125,35 @@ fn test_havoc_softbody_panic() {
 
 ## 😈 Comment
 You verified structural synchronicity in `update()` but blindly assumed the user wouldn't touch the public `velocities` vector before throwing them into an SDF collision! You trusted public state. You were wrong.
+
+# 👺 Havoc: Arboretum L-System OOM Vulnerability
+
+## 🧨 The Trigger
+Expanding an L-System string exclusively filled with `[` characters using `arboretum::LSystem::generate_mesh()`. While the module limits string expansion memory to 100MB, it does not limit the Turtle interpretation phase. The `[` instruction endlessly pushes `Turtle` state to a stack without bounds checking. Additionally, `Mesh::with_capacity` pre-allocates based on the string length.
+
+## 📉 The Stack Trace
+```
+memory allocation of 9600000000 bytes failed
+stack backtrace:
+   0: std::alloc::rust_oom
+   1: __rustc::__rust_alloc_error_handler
+   2: alloc::alloc::handle_alloc_error::rt_error
+   3: alloc::alloc::handle_alloc_error
+   4: alloc::raw_vec::handle_error
+   5: <alloc::raw_vec::RawVecInner>::with_capacity_in
+   6: <alloc::raw_vec::RawVec<[usize; 3]>>::with_capacity_in
+   7: <alloc::vec::Vec<[usize; 3]>>::with_capacity_in
+   8: <alloc::vec::Vec<[usize; 3]>>::with_capacity
+   9: <abrash_core::mesh::Mesh>::with_capacity
+  10: <abrash_render::experimental::arboretum::LSystem>::generate_mesh
+  11: havoc_arboretum_oom::test_havoc_arboretum_oom
+```
+
+## 🧪 Reproduction
+Run the following test command:
+```bash
+cargo test --test havoc_arboretum_oom --features nova -- --ignored
+```
+
+## 😈 Comment
+You remembered to limit the string expansion, but forgot that strings are executable code. You let the Turtle walk straight off a 9.6-Gigabyte cliff via pre-allocation and infinite stacks. You were wrong.
