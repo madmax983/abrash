@@ -67,7 +67,11 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
         // Block-based glitching (groups of rows glitch together)
         // We simulate this by blending the row index into the PRNG differently
         let block_idx = y / 10;
-        let mut block_prng = XorShift32::new(global_seed.wrapping_add((block_idx as u32).wrapping_mul(31337)).max(1));
+        let mut block_prng = XorShift32::new(
+            global_seed
+                .wrapping_add((block_idx as u32).wrapping_mul(31337))
+                .max(1),
+        );
         let is_glitched = (block_prng.next_u32() % 100) as f32 / 100.0 < intensity;
 
         if !is_glitched {
@@ -84,18 +88,24 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
         let row_shift = (prng.next_u32() % (max_shift.max(1) as u32 * 2 + 1)) as i32 - max_shift;
 
         // Random color channel offsets
-        let r_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32 - channel_shift_max;
-        let g_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32 - channel_shift_max;
-        let b_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32 - channel_shift_max;
+        let r_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+            - channel_shift_max;
+        let g_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+            - channel_shift_max;
+        let b_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+            - channel_shift_max;
 
         for x in 0..width {
             // Base x coordinate after the entire row is shifted
             let base_x = x as i32 - row_shift;
 
             // Sample each channel independently
-            let sample_r = get_channel_safe(&src_pixels, width, height, base_x - r_shift, y as i32, 16);
-            let sample_g = get_channel_safe(&src_pixels, width, height, base_x - g_shift, y as i32, 8);
-            let sample_b = get_channel_safe(&src_pixels, width, height, base_x - b_shift, y as i32, 0);
+            let sample_r =
+                get_channel_safe(&src_pixels, width, height, base_x - r_shift, y as i32, 16);
+            let sample_g =
+                get_channel_safe(&src_pixels, width, height, base_x - g_shift, y as i32, 8);
+            let sample_b =
+                get_channel_safe(&src_pixels, width, height, base_x - b_shift, y as i32, 0);
 
             // Reconstruct the ARGB pixel
             row[x] = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
