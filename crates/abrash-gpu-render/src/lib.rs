@@ -6,6 +6,7 @@
 pub mod capture;
 pub mod device;
 pub mod mesh_buffer;
+pub mod postprocess;
 pub mod renderer;
 pub mod shader;
 pub mod shadow;

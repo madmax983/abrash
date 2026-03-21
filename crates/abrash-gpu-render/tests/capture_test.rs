@@ -15,6 +15,18 @@ fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {
     pixels.chunks_exact(4).any(|pixel| pixel == rgba)
 }
 
+/// Check if any pixel has a dominant channel matching the expected color.
+/// Accounts for tone mapping + gamma changing exact values.
+fn contains_dominant_color(pixels: &[u8], dominant_channel: usize) -> bool {
+    pixels.chunks_exact(4).any(|pixel| {
+        let v = pixel[dominant_channel];
+        let others = (0..3)
+            .filter(|&i| i != dominant_channel)
+            .all(|i| pixel[i] < v / 2);
+        v > 50 && others && pixel[3] > 200
+    })
+}
+
 #[test]
 fn test_capture_cube_has_visible_pixels() {
     let Some(mut renderer) = try_create_renderer() else {
@@ -106,12 +118,14 @@ fn test_capture_two_cubes_preserves_both_material_colors() {
     assert_eq!(capture.stats.total_triangles, 24);
     assert!(capture.visible_pixel_count > 0);
     assert!(capture.to_compact_text().contains("2 batches"));
-    assert!(contains_rgba(
-        &capture.pixels_rgba,
-        [0xFF, 0x00, 0x00, 0xFF]
-    ));
-    assert!(contains_rgba(
-        &capture.pixels_rgba,
-        [0x00, 0xFF, 0x00, 0xFF]
-    ));
+    // After tone mapping + gamma, exact 0xFF values become ~0xBA.
+    // Check for dominant red/green channels instead of exact values.
+    assert!(
+        contains_dominant_color(&capture.pixels_rgba, 0),
+        "should contain red-dominant pixels"
+    );
+    assert!(
+        contains_dominant_color(&capture.pixels_rgba, 1),
+        "should contain green-dominant pixels"
+    );
 }

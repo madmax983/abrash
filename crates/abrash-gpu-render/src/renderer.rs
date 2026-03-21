@@ -97,6 +97,9 @@ pub struct GpuRenderer {
     textures: Vec<Option<GpuTexture>>,
     // Shadow mapping
     shadow_map: crate::shadow::ShadowMap,
+    // Post-processing (HDR → LDR)
+    hdr_target: Option<crate::postprocess::HdrTarget>,
+    tone_map_pass: crate::postprocess::ToneMapPass,
     // Shared resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
@@ -109,8 +112,12 @@ impl GpuRenderer {
         let device = gpu.device();
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
 
-        // Flat pipeline (existing)
-        let flat_pipeline = MvpPipeline::new(device, color_format);
+        // All scene pipelines target the HDR format (Rgba16Float).
+        // The tone map pass converts HDR → the final LDR color_format.
+        let hdr_format = wgpu::TextureFormat::Rgba16Float;
+
+        // Flat pipeline
+        let flat_pipeline = MvpPipeline::new(device, hdr_format);
         let flat_uniform_stride = align_to(std::mem::size_of::<MvpUniform>() as u64, min_align);
         let (flat_uniform_buffer, flat_uniform_bind_group) =
             Self::create_flat_uniform_resources(device, &flat_pipeline, flat_uniform_stride, 1);
@@ -120,7 +127,7 @@ impl GpuRenderer {
 
         // Lit pipeline (with shadow at group 2)
         let lit_pipeline =
-            LitPipeline::new(device, color_format, &shadow_map.sample_bind_group_layout);
+            LitPipeline::new(device, hdr_format, &shadow_map.sample_bind_group_layout);
         let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
 
         // Per-frame buffers (group 0)
@@ -180,7 +187,7 @@ impl GpuRenderer {
 
         let textured_lit_pipeline = TexturedLitPipeline::new(
             device,
-            color_format,
+            hdr_format,
             &texture_bind_group_layout,
             &shadow_map.sample_bind_group_layout,
         );
@@ -194,6 +201,9 @@ impl GpuRenderer {
             address_mode_v: wgpu::AddressMode::Repeat,
             ..Default::default()
         });
+
+        // Post-processing (tone mapping)
+        let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
 
         Self {
             gpu,
@@ -215,6 +225,8 @@ impl GpuRenderer {
             default_sampler,
             textures: Vec::new(),
             shadow_map,
+            hdr_target: None, // Created lazily at first render
+            tone_map_pass,
             meshes: Vec::new(),
             materials: Vec::new(),
         }
@@ -467,11 +479,15 @@ impl GpuRenderer {
         // Pass 1: Shadow depth pass (render scene from first directional light)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
+        // Pass 2: Main scene → HDR target
+        self.ensure_hdr_target(target.config.width, target.config.height);
+        let hdr = self.hdr_target.as_ref().unwrap();
+
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GpuRenderer Capture Pass"),
+                label: Some("GpuRenderer HDR Scene Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target.color_view,
+                    view: &hdr.color_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear_color),
@@ -480,11 +496,9 @@ impl GpuRenderer {
                     depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &target.depth_view,
+                    view: &hdr.depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        // Depth is never read back from capture targets — discard to
-                        // skip the writeback and save bandwidth.
                         store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
@@ -524,6 +538,16 @@ impl GpuRenderer {
                 pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
             }
+        }
+
+        // Pass 3: Tone mapping (HDR → LDR capture target)
+        {
+            let hdr = self.hdr_target.as_ref().unwrap();
+            let tonemap_bg = self
+                .tone_map_pass
+                .create_bind_group(self.gpu.device(), &hdr.color_view);
+            self.tone_map_pass
+                .encode(&mut encoder, &tonemap_bg, &target.color_view);
         }
 
         encoder.copy_texture_to_buffer(
@@ -670,11 +694,16 @@ impl GpuRenderer {
         // Pass 1: Shadow depth pass
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
+        // Pass 2: Main scene → HDR target
+        let (sw, sh) = (surface.width, surface.height);
+        self.ensure_hdr_target(sw, sh);
+        let hdr = self.hdr_target.as_ref().unwrap();
+
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GpuRenderer Surface Pass"),
+                label: Some("GpuRenderer HDR Surface Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &hdr.color_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear_color),
@@ -683,11 +712,9 @@ impl GpuRenderer {
                     depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &surface.depth_view,
+                    view: &hdr.depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        // Depth is consumed in-pass for correct ordering; the final
-                        // depth values are not needed after presentation.
                         store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
@@ -709,10 +736,12 @@ impl GpuRenderer {
                     if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
                         pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
                     }
+                    pass.set_bind_group(3, &self.shadow_map.sample_bind_group, &[]);
                 } else if draw.lit {
                     pass.set_pipeline(&self.lit_pipeline.pipeline);
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
+                    pass.set_bind_group(2, &self.shadow_map.sample_bind_group, &[]);
                 } else {
                     pass.set_pipeline(&self.flat_pipeline.pipeline);
                     pass.set_bind_group(0, &self.flat_uniform_bind_group, &[draw.uniform_offset]);
@@ -722,6 +751,15 @@ impl GpuRenderer {
                 pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
             }
+        }
+
+        // Pass 3: Tone mapping (HDR → LDR surface)
+        {
+            let hdr = self.hdr_target.as_ref().unwrap();
+            let tonemap_bg = self
+                .tone_map_pass
+                .create_bind_group(self.gpu.device(), &hdr.color_view);
+            self.tone_map_pass.encode(&mut encoder, &tonemap_bg, &view);
         }
 
         self.gpu.queue().submit(Some(encoder.finish()));
@@ -814,6 +852,21 @@ impl GpuRenderer {
             self.draw_uniform_buffer = buf;
             self.draw_bind_group = bg;
             self.draw_uniform_capacity = new_capacity;
+        }
+    }
+
+    /// Ensure the HDR render target matches the given dimensions.
+    fn ensure_hdr_target(&mut self, width: u32, height: u32) {
+        let needs_create = match &self.hdr_target {
+            Some(t) => t.width != width || t.height != height,
+            None => true,
+        };
+        if needs_create {
+            self.hdr_target = Some(crate::postprocess::HdrTarget::new(
+                self.gpu.device(),
+                width,
+                height,
+            ));
         }
     }
 
