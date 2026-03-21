@@ -154,12 +154,51 @@ fn bench_submit_only(c: &mut Criterion) {
     });
 }
 
+/// Full pipeline with integrated tile-level clearing (no separate fb.clear + zb.clear).
+fn bench_scene_render_integrated_clear(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+    let scene = build_scene(width, height);
+    let mut renderer = TileRenderer::new(width, height);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    c.bench_function("scene_render_integrated_clear_100_objects", |b| {
+        b.iter(|| {
+            scene.render(&mut renderer, &mut fb, &mut zb);
+        });
+    });
+}
+
+/// Rasterize with integrated clear — measures end_frame clearing ALL tiles.
+fn bench_rasterize_integrated_clear(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+    let scene = build_scene(width, height);
+    let draw_list = scene.extract();
+    let mut renderer = TileRenderer::new(width, height);
+    renderer.set_clear_color(Some(0xFF00_0000));
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    c.bench_function("scene_rasterize_integrated_clear_100_objects", |b| {
+        b.iter(|| {
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_scene_render,
+    bench_scene_render_integrated_clear,
     bench_extract_only,
     bench_clear_only,
     bench_rasterize_only,
+    bench_rasterize_integrated_clear,
     bench_submit_only
 );
 criterion_main!(benches);
