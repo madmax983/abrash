@@ -236,6 +236,13 @@ Keyboard: Auto-rotating",
         example_name: "wobble_demo",
     },
     Demo {
+        name: "Fisheye Lens",
+        category: DemoCategory::Simulation,
+        description: "Post-processing ultra-wide barrel distortion effect",
+        instructions: "Mouse: None\nKeyboard: Auto-rotating",
+        example_name: "fisheye_demo",
+    },
+    Demo {
         name: "Tilt Shift",
         category: DemoCategory::Simulation,
         description: "Post-processing tilt shift depth-of-field effect",
@@ -303,6 +310,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "vignette_demo"
         || example_name == "swirl_demo"
         || example_name == "wobble_demo"
+        || example_name == "fisheye_demo"
         || example_name == "tilt_shift_demo"
         || example_name == "posterize_demo"
         || example_name == "emboss_demo"

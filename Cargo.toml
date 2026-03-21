@@ -542,6 +542,11 @@ name = "halftone_demo"
 path = "examples/halftone_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "fisheye_demo"
+path = "examples/fisheye_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "vision_bench"
 harness = false
