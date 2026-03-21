@@ -77,6 +77,7 @@ impl GpuDevice {
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::default(),
+                #[allow(clippy::default_trait_access)]
                 experimental_features: Default::default(),
                 trace: wgpu::Trace::Off,
             },

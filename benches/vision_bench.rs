@@ -18,6 +18,7 @@ fn bench_vision(c: &mut Criterion) {
 
     // Fill with dummy data
     let fb_slice = fb.as_mut_slice();
+    #[allow(clippy::needless_range_loop)]
     for i in 0..fb_slice.len() {
         fb_slice[i] = 0xFF80_8080;
     }
