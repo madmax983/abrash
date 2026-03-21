@@ -1,3 +1,4 @@
+#![cfg(feature = "nova")]
 use abrash_render::experimental::arboretum::LSystem;
 
 #[test]

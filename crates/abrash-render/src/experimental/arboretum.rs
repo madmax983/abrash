@@ -215,11 +215,32 @@ impl LSystem {
     pub fn generate_mesh(&self, iterations: u32) -> Result<Mesh, String> {
         let instructions = self.expand(iterations)?;
 
-        // Estimate capacities from total length without needing a second O(N) pass
-        let num_segments = instructions.len() / 2;
-        let mut mesh = Mesh::with_capacity(num_segments * 8, num_segments * 8);
+        // Pre-flight check to count segments to avoid over-allocating memory for meshes
+        // that only contain state commands (like '[', ']', '+', '-').
+        let mut num_segments: usize = 0;
+        let mut current_depth: usize = 0;
+        let mut max_reached_depth: usize = 0;
+        for &b in instructions.as_bytes() {
+            if b == b'F' {
+                num_segments += 1;
+            } else if b == b'[' {
+                current_depth += 1;
+                if current_depth > max_reached_depth {
+                    max_reached_depth = current_depth;
+                }
+            } else if b == b']' {
+                current_depth = current_depth.saturating_sub(1);
+            }
+        }
 
-        let mut stack: Vec<Turtle> = Vec::with_capacity(instructions.len() / 8);
+        let max_stack_depth: usize = 100_000;
+        if max_reached_depth > max_stack_depth {
+             return Err("L-system exceeded maximum stack depth".to_string());
+        }
+
+        // Limit the capacities to prevent OOM
+        let mut mesh = Mesh::with_capacity(std::cmp::min(num_segments * 8, 10_000_000), std::cmp::min(num_segments * 8, 10_000_000));
+        let mut stack: Vec<Turtle> = Vec::with_capacity(std::cmp::min(instructions.len() / 8, max_stack_depth));
         let mut turtle = Turtle::new(self.step_length, self.radius);
 
         // F, f, +, -, &, ^, \, /, |, [, ] are all 1-byte ascii characters in UTF-8
@@ -278,6 +299,9 @@ impl LSystem {
                     turtle.left = turtle.up.cross(turtle.heading).normalize();
                 }
                 b'[' => {
+                    if stack.len() >= max_stack_depth {
+                        return Err("L-system exceeded maximum stack depth".to_string());
+                    }
                     stack.push(turtle);
                 }
                 b']' => {

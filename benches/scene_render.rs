@@ -136,7 +136,7 @@ fn bench_rasterize_only(c: &mut Criterion) {
     });
 }
 
-/// Measures submit_mesh only (prepare_triangle × 20K) — no binning or rasterization.
+/// Measures `submit_mesh` only (`prepare_triangle` × 20K) — no binning or rasterization.
 fn bench_submit_only(c: &mut Criterion) {
     let width = 640;
     let height = 480;
