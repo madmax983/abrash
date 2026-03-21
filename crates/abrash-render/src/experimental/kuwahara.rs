@@ -55,7 +55,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;
 
-                    for x in 0..width {
+                    for (x_usize, pixel_out) in row.iter_mut().enumerate() {
+                        let x = x_usize as i32;
+
                         // The four regions around the center pixel (x, y):
                         // 0: Top-Left
                         // 1: Top-Right
@@ -183,7 +185,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             }
                         }
 
-                        row[x as usize] = best_color;
+                        *pixel_out = best_color;
                     }
                 });
         }
@@ -196,7 +198,9 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                 .for_each(|(y_usize, row)| {
                     let y = y_usize as i32;
 
-                    for x in 0..width {
+                    for (x_usize, pixel_out) in row.iter_mut().enumerate() {
+                        let x = x_usize as i32;
+
                         // The four regions around the center pixel (x, y):
                         // 0: Top-Left
                         // 1: Top-Right
@@ -319,7 +323,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
                             }
                         }
 
-                        row[x as usize] = best_color;
+                        *pixel_out = best_color;
                     }
                 });
         }

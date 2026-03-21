@@ -141,3 +141,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Draw List Memory Allocation]
 **Learning:** Using a `thread_local!` buffer to avoid temporary allocations is counterproductive if the data must immediately be `.clone()`d to satisfy an owned value requirement (e.g., passing to a struct constructor like `DrawBatch::new`). In these cases, it is more efficient to directly allocate the required `Vec::with_capacity()` or use `.reserve()` on the target collection to avoid the redundant memory copy.
 **Action:** When creating new owned `Vec` instances that are immediately moved, prefer direct allocation with `Vec::with_capacity` combined with `spare_capacity_mut()` for uninitialized writes instead of staging through a thread-local buffer that requires a subsequent `.clone()`. Always use `.reserve()` before batch insertions.
+**[Eliminate Bounds Checks with iter_mut().enumerate()]
+**Learning:** In hot pixel loops that write to exactly-sized slices (like ), manual indexing () incurs per-pixel bounds checks. Replacing this with  provides the index while allowing the compiler to mathematically prove safety and elide bounds checks.
+**Action:** Always prefer  when you need both the index and mutable access to a 1D slice or sub-slice.
+
+**[Eliminate Bounds Checks with iter_mut().enumerate()]**
+**Learning:** In hot pixel loops that write to exactly-sized slices (like `row`), manual indexing (`for x in 0..width { row[x] = ... }`) incurs per-pixel bounds checks. Replacing this with `row.iter_mut().enumerate()` provides the index while allowing the compiler to mathematically prove safety and elide bounds checks.
+**Action:** Always prefer `for (i, p) in row.iter_mut().enumerate()` when you need both the index and mutable access to a 1D slice or sub-slice.
