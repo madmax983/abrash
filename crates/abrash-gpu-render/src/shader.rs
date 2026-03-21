@@ -51,12 +51,8 @@ impl MvpUniform {
     /// Build a uniform packet from a matrix and `0xAARRGGBB` color.
     #[must_use]
     pub fn new(mvp: &Mat4, argb: u32) -> Self {
-        let mut flat = [0.0; 16];
-        for (row_index, row) in mvp.m.iter().enumerate() {
-            for (column_index, value) in row.iter().copied().enumerate() {
-                flat[row_index * 4 + column_index] = value;
-            }
-        }
+        // Mat4 is repr(C) with [[f32; 4]; 4] — identical layout to [f32; 16].
+        let flat: [f32; 16] = bytemuck::cast(mvp.m);
 
         let a = ((argb >> 24) & 0xFF) as f32 / 255.0;
         let r = ((argb >> 16) & 0xFF) as f32 / 255.0;
