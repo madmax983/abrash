@@ -19,6 +19,8 @@ pub struct ShadowMap {
     /// Bind group for sampling the shadow map in the main pass.
     pub(crate) sample_bind_group: wgpu::BindGroup,
     pub(crate) sample_bind_group_layout: wgpu::BindGroupLayout,
+    /// Buffer holding the light VP matrix for main-pass shadow sampling.
+    pub(crate) light_vp_buffer: wgpu::Buffer,
     /// Light-space view-projection matrix (updated per frame).
     pub(crate) light_vp: Mat4,
 }
@@ -228,6 +230,7 @@ impl ShadowMap {
             bind_group_layout,
             sample_bind_group,
             sample_bind_group_layout,
+            light_vp_buffer,
             light_vp: Mat4::identity(),
         }
     }

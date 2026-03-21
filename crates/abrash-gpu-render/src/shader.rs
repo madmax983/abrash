@@ -256,6 +256,14 @@ struct DrawUniforms {
 @group(0) @binding(1) var<uniform> lights: array<LightData, 8>;
 @group(1) @binding(0) var<uniform> draw: DrawUniforms;
 
+// Shadow map (group 2)
+struct ShadowData {
+    light_vp: mat4x4<f32>,
+};
+@group(2) @binding(0) var shadow_depth: texture_depth_2d;
+@group(2) @binding(1) var shadow_sampler: sampler_comparison;
+@group(2) @binding(2) var<uniform> shadow: ShadowData;
+
 struct VsIn {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -268,14 +276,27 @@ struct VsOut {
     @location(2) color: vec4<f32>,
 };
 
+fn compute_shadow(world_pos: vec3<f32>) -> f32 {
+    let light_clip = shadow.light_vp * vec4<f32>(world_pos, 1.0);
+    let ndc = light_clip.xyz / light_clip.w;
+    // NDC [-1,1] → UV [0,1], flip Y for texture coordinates
+    let shadow_uv = vec2<f32>(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
+
+    // Outside shadow map = fully lit
+    if shadow_uv.x < 0.0 || shadow_uv.x > 1.0 || shadow_uv.y < 0.0 || shadow_uv.y > 1.0 {
+        return 1.0;
+    }
+
+    // Hardware comparison + bilinear PCF via comparison sampler
+    return textureSampleCompareLevel(shadow_depth, shadow_sampler, shadow_uv, ndc.z);
+}
+
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
     var out: VsOut;
     let world_pos = draw.model * vec4<f32>(input.position, 1.0);
     out.clip_position = frame.view_proj * world_pos;
     out.world_pos = world_pos.xyz;
-    // For uniform scale, model matrix transforms normals correctly.
-    // For non-uniform scale, use transpose(inverse(model)) — deferred to Phase 5.
     out.world_normal = (draw.model * vec4<f32>(input.normal, 0.0)).xyz;
     out.color = draw.color;
     return out;
@@ -287,7 +308,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     let V = normalize(frame.camera_pos.xyz - input.world_pos);
     let base_color = input.color.rgb;
 
-    // Ambient
+    let shadow = compute_shadow(input.world_pos);
+
+    // Ambient (unaffected by shadows)
     var result = base_color * 0.08;
 
     for (var i = 0u; i < frame.light_count; i = i + 1u) {
@@ -295,12 +318,17 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
         var L: vec3<f32>;
         var attenuation: f32 = 1.0;
+        // Only the first directional light casts shadows
+        var light_shadow: f32 = 1.0;
 
         if (light.light_type == 0u) {
             // Directional light
             L = normalize(-light.position_or_direction);
+            if (i == 0u) {
+                light_shadow = shadow;
+            }
         } else {
-            // Point light
+            // Point light (no shadows yet)
             let to_light = light.position_or_direction - input.world_pos;
             let dist = length(to_light);
             L = to_light / max(dist, 0.0001);
@@ -317,7 +345,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
         let NdotH = max(dot(N, H), 0.0);
         let specular = vec3<f32>(draw.specular_strength) * pow(NdotH, draw.shininess);
 
-        result = result + (diffuse + specular) * light.color * light.intensity * attenuation;
+        result = result + (diffuse + specular) * light.color * light.intensity * attenuation * light_shadow;
     }
 
     return vec4<f32>(result, input.color.a);
@@ -341,8 +369,14 @@ pub struct LitPipeline {
 
 impl LitPipeline {
     /// Create a lit render pipeline for the given color target format.
+    ///
+    /// Requires the shadow sample bind group layout for group 2.
     #[must_use]
-    pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        color_format: wgpu::TextureFormat,
+        shadow_sample_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Abrash Lit Shader"),
             source: wgpu::ShaderSource::Wgsl(LIT_SHADER_SRC.into()),
@@ -405,6 +439,7 @@ impl LitPipeline {
             bind_group_layouts: &[
                 Some(&frame_bind_group_layout),
                 Some(&draw_bind_group_layout),
+                Some(shadow_sample_layout),
             ],
             immediate_size: 0,
         });
@@ -494,6 +529,14 @@ struct DrawUniforms {
 @group(2) @binding(0) var albedo_texture: texture_2d<f32>;
 @group(2) @binding(1) var albedo_sampler: sampler;
 
+// Shadow map (group 3)
+struct ShadowData {
+    light_vp: mat4x4<f32>,
+};
+@group(3) @binding(0) var shadow_depth: texture_depth_2d;
+@group(3) @binding(1) var shadow_sampler: sampler_comparison;
+@group(3) @binding(2) var<uniform> shadow: ShadowData;
+
 struct VsIn {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -507,6 +550,16 @@ struct VsOut {
     @location(2) uv: vec2<f32>,
     @location(3) color: vec4<f32>,
 };
+
+fn compute_shadow(world_pos: vec3<f32>) -> f32 {
+    let light_clip = shadow.light_vp * vec4<f32>(world_pos, 1.0);
+    let ndc = light_clip.xyz / light_clip.w;
+    let shadow_uv = vec2<f32>(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
+    if shadow_uv.x < 0.0 || shadow_uv.x > 1.0 || shadow_uv.y < 0.0 || shadow_uv.y > 1.0 {
+        return 1.0;
+    }
+    return textureSampleCompareLevel(shadow_depth, shadow_sampler, shadow_uv, ndc.z);
+}
 
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
@@ -525,11 +578,12 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     let N = normalize(input.world_normal);
     let V = normalize(frame.camera_pos.xyz - input.world_pos);
 
-    // Sample texture and multiply with vertex/material color
     let tex_color = textureSample(albedo_texture, albedo_sampler, input.uv);
     let base_color = tex_color.rgb * input.color.rgb;
 
-    // Ambient
+    let shadow = compute_shadow(input.world_pos);
+
+    // Ambient (unaffected by shadows)
     var result = base_color * 0.08;
 
     for (var i = 0u; i < frame.light_count; i = i + 1u) {
@@ -537,9 +591,11 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
         var L: vec3<f32>;
         var attenuation: f32 = 1.0;
+        var light_shadow: f32 = 1.0;
 
         if (light.light_type == 0u) {
             L = normalize(-light.position_or_direction);
+            if (i == 0u) { light_shadow = shadow; }
         } else {
             let to_light = light.position_or_direction - input.world_pos;
             let dist = length(to_light);
@@ -555,7 +611,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
         let NdotH = max(dot(N, H), 0.0);
         let specular = vec3<f32>(draw.specular_strength) * pow(NdotH, draw.shininess);
 
-        result = result + (diffuse + specular) * light.color * light.intensity * attenuation;
+        result = result + (diffuse + specular) * light.color * light.intensity * attenuation * light_shadow;
     }
 
     return vec4<f32>(result, tex_color.a * input.color.a);
@@ -571,15 +627,16 @@ pub struct TexturedLitPipeline {
 }
 
 impl TexturedLitPipeline {
-    /// Create a textured lit render pipeline.
+    /// Create a textured lit render pipeline with shadow support.
     ///
-    /// Takes an externally-created texture bind group layout so it can be shared
-    /// with the renderer's texture upload code.
+    /// Takes externally-created bind group layouts for texture (group 2) and
+    /// shadow sampling (group 3).
     #[must_use]
     pub fn new(
         device: &wgpu::Device,
         color_format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
+        shadow_sample_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Abrash Textured Lit Shader"),
@@ -641,6 +698,7 @@ impl TexturedLitPipeline {
                 Some(&frame_bind_group_layout),
                 Some(&draw_bind_group_layout),
                 Some(texture_bind_group_layout),
+                Some(shadow_sample_layout),
             ],
             immediate_size: 0,
         });

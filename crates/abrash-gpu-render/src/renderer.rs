@@ -115,8 +115,12 @@ impl GpuRenderer {
         let (flat_uniform_buffer, flat_uniform_bind_group) =
             Self::create_flat_uniform_resources(device, &flat_pipeline, flat_uniform_stride, 1);
 
-        // Lit pipeline
-        let lit_pipeline = LitPipeline::new(device, color_format);
+        // Shadow map (must be created before lit/textured pipelines that reference its layout)
+        let shadow_map = crate::shadow::ShadowMap::new(device);
+
+        // Lit pipeline (with shadow at group 2)
+        let lit_pipeline =
+            LitPipeline::new(device, color_format, &shadow_map.sample_bind_group_layout);
         let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
 
         // Per-frame buffers (group 0)
@@ -174,11 +178,12 @@ impl GpuRenderer {
                 ],
             });
 
-        let textured_lit_pipeline =
-            TexturedLitPipeline::new(device, color_format, &texture_bind_group_layout);
-
-        // Shadow map
-        let shadow_map = crate::shadow::ShadowMap::new(device);
+        let textured_lit_pipeline = TexturedLitPipeline::new(
+            device,
+            color_format,
+            &texture_bind_group_layout,
+            &shadow_map.sample_bind_group_layout,
+        );
 
         let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Default Bilinear Sampler"),
@@ -495,20 +500,22 @@ impl GpuRenderer {
                 })?;
 
                 if let Some(tex_idx) = draw.texture_index {
-                    // Textured + lit pipeline (3 bind groups)
+                    // Textured + lit + shadow pipeline (4 bind groups)
                     pass.set_pipeline(&self.textured_lit_pipeline.pipeline);
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
                     if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
                         pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
                     }
+                    pass.set_bind_group(3, &self.shadow_map.sample_bind_group, &[]);
                 } else if draw.lit {
-                    // Lit pipeline (2 bind groups)
+                    // Lit + shadow pipeline (3 bind groups)
                     pass.set_pipeline(&self.lit_pipeline.pipeline);
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
+                    pass.set_bind_group(2, &self.shadow_map.sample_bind_group, &[]);
                 } else {
-                    // Flat pipeline (1 bind group)
+                    // Flat pipeline (1 bind group, no shadows)
                     pass.set_pipeline(&self.flat_pipeline.pipeline);
                     pass.set_bind_group(0, &self.flat_uniform_bind_group, &[draw.uniform_offset]);
                 }
@@ -975,12 +982,13 @@ impl GpuRenderer {
         );
         self.shadow_map.light_vp = light_vp;
 
-        // Upload light VP for main-pass sampling
+        // Upload light VP for main-pass shadow sampling (binding 2 in sample_bind_group)
         let light_vp_flat: [f32; 16] = bytemuck::cast(light_vp.m);
-        // The sample bind group has the light VP at binding 2
-        // We need to write to the buffer that's bound there
-        // For now, recreate the buffer content inline
-        // (The shadow map's sample_bind_group was created with a buffer — we need to write to it)
+        self.gpu.queue().write_buffer(
+            &self.shadow_map.light_vp_buffer,
+            0,
+            bytemuck::cast_slice(&light_vp_flat),
+        );
 
         // Shadow depth pass
         {
