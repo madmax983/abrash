@@ -541,3 +541,8 @@ required-features = ["nova"]
 name = "halftone_demo"
 path = "examples/halftone_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "vision_bench"
+harness = false
+required-features = ["nova"]
