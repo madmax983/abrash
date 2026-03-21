@@ -298,6 +298,22 @@ Keyboard: Auto-rotating",
 Keyboard: Arrows/WASD orbit, Q/E zoom, Space toggle auto-rotate, R reset",
         example_name: "gpu_mvp_cube",
     },
+    Demo {
+        name: "Halftone Filter",
+        category: DemoCategory::Simulation,
+        description: "Post-processing halftone effect",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "halftone_demo",
+    },
+    Demo {
+        name: "Arboretum",
+        category: DemoCategory::Simulation,
+        description: "Procedural L-System plant generator",
+        instructions: "Mouse: None
+Keyboard: Interactive",
+        example_name: "arboretum_cli",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -324,6 +340,8 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "emboss_demo"
         || example_name == "edge_glow_demo"
         || example_name == "glitch_demo"
+        || example_name == "halftone_demo"
+        || example_name == "arboretum_cli"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
@@ -433,22 +451,24 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
 
 fn print_demo_list() {
     let mut table = ComfyTable::new();
-    table.load_preset(ComfyPresets::UTF8_FULL).set_header(vec![
-        ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold),
-        ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold),
-        ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold),
-        ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold),
-        ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold),
+    table.load_preset(ComfyPresets::UTF8_BORDERS_ONLY).set_header(vec![
+        ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
+        ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
+        ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
+        ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
+        ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
     ]);
 
     for demo in DEMOS {
-        table.add_row(vec![
+        let row = vec![
             ComfyCell::new(demo.category.icon()),
             ComfyCell::new(demo.name).fg(ComfyColor::Cyan),
             ComfyCell::new(format!("{:?}", demo.category)).fg(ComfyColor::Yellow),
             ComfyCell::new(demo.description),
             ComfyCell::new(format!("abrash --demo {}", demo.example_name)).fg(ComfyColor::DarkGrey),
-        ]);
+        ];
+
+        table.add_row(row);
     }
 
     println!("{table}");
@@ -524,7 +544,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
             let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
                 .style(
                     Style::default()
-                        .fg(Color::Cyan)
+                        .fg(Color::Magenta)
                         .add_modifier(Modifier::BOLD),
                 )
                 .block(Block::default().borders(Borders::ALL))
@@ -558,7 +578,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 .block(Block::default().borders(Borders::ALL).title(" Demos "))
                 .highlight_style(
                     Style::default()
-                        .bg(Color::Blue)
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 )
                 .highlight_symbol(">> ");
@@ -631,7 +652,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
 
             // Help Bar
             let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
-                .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+                .style(Style::default().fg(Color::Black).bg(Color::White))
                 .alignment(ratatui::layout::Alignment::Center)
                 .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
             f.render_widget(help, main_chunks[2]);
@@ -698,7 +719,21 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
 
     let status = child.wait()?;
 
-    if !status.success() {
+    if status.success() {
+        let mut success_table = ComfyTable::new();
+        success_table
+            .load_preset(ComfyPresets::UTF8_FULL)
+            .set_header(vec![
+                ComfyCell::new("✅ Demo Exited Successfully")
+                    .add_attribute(comfy_table::Attribute::Bold)
+                    .fg(ComfyColor::Green),
+            ]);
+        println!("
+{success_table}");
+        println!("
+{}", "Press Enter to return to dashboard...".grey());
+        let _ = std::io::stdin().read_line(&mut String::new());
+    } else {
         let mut error_table = ComfyTable::new();
         error_table
             .load_preset(ComfyPresets::UTF8_FULL)
