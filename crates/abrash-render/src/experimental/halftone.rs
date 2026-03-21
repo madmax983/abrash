@@ -67,7 +67,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dot_radius_sq = (1.0 - lum) * max_dist_sq;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
-            if dist_sq <= dot_radius_sq {
+            if dist_sq < dot_radius_sq {
                 *pixel = 0xFF00_0000; // Black
             } else {
                 *pixel = 0xFFFF_FFFF; // White

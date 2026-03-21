@@ -13,6 +13,19 @@ type Generation = u32;
 ///
 /// The `T` phantom type prevents mixing handle types at compile time.
 /// The generation field detects use-after-free at runtime.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::render_api::{MeshHandle, TextureHandle};
+/// use abrash_render::render_api::Handle;
+///
+/// let mesh_h: MeshHandle = Handle::from_raw_parts(0, 1);
+/// let tex_h: TextureHandle = Handle::from_raw_parts(0, 1);
+///
+/// // Even though both handles have index 0 and generation 1, they are distinct types.
+/// // The compiler will reject passing `mesh_h` to a function expecting `TextureHandle`.
+/// ```
 pub struct Handle<T> {
     pub(crate) index: u32,
     pub(crate) generation: Generation,
@@ -111,6 +124,26 @@ pub type MaterialHandle = Handle<MaterialResource>;
 ///
 /// Supports O(1) insert, lookup, and remove with generation-based
 /// stale handle detection.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::render_api::{ResourcePool, Handle};
+///
+/// let mut pool: ResourcePool<String> = ResourcePool::new();
+///
+/// // Insert a resource, get a handle back.
+/// let handle: Handle<String> = pool.insert("Hello".to_string());
+/// assert_eq!(pool.get(handle), Some(&"Hello".to_string()));
+///
+/// // Remove the resource. The pool reclaims the memory slot and increments the generation.
+/// let removed = pool.remove(handle);
+/// assert_eq!(removed, Some("Hello".to_string()));
+///
+/// // Trying to use the old handle now returns `None` safely.
+/// // We've prevented a use-after-free!
+/// assert_eq!(pool.get(handle), None);
+/// ```
 pub struct ResourcePool<T> {
     entries: Vec<PoolEntry<T>>,
     free_list: Vec<u32>,
@@ -266,5 +299,29 @@ mod tests {
         }
 
         assert_eq!(pool.get(h), Some(&"hello world".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "free list pointed to occupied slot")]
+    fn test_pool_free_list_occupied_slot_panic() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h1 = pool.insert(42);
+        pool.remove(h1);
+
+        // Tamper with the internal state to simulate a bug in the free list logic
+        pool.entries[h1.index as usize] = PoolEntry::Occupied {
+            value: 99,
+            generation: h1.generation + 1,
+        };
+
+        // This insert should pull from the free list and encounter the illegally occupied slot
+        pool.insert(100);
+    }
+
+    #[test]
+    fn test_pool_default() {
+        let pool: ResourcePool<i32> = ResourcePool::default();
+        assert!(pool.entries.is_empty());
+        assert!(pool.free_list.is_empty());
     }
 }

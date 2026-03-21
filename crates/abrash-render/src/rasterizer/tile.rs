@@ -129,13 +129,14 @@ use std::ops::{Deref, DerefMut};
 ///
 /// SAFETY: This is safe because each thread writes to a non-overlapping region determined
 /// by its tile coordinates (tx, ty). The tile renderer ensures that no two tiles overlap.
-struct SendPtr<T>(*mut T);
+struct SendPtr<T>(*mut T, usize);
 
 #[cfg(feature = "parallel")]
 impl<T> SendPtr<T> {
     /// SAFETY: Caller must ensure the index is within bounds and writes are to non-overlapping regions
     #[inline]
     unsafe fn write(&self, index: usize, value: T) {
+        assert!(index < self.1, "Index out of bounds");
         // SAFETY: Caller guarantees index is within bounds and writes are non-overlapping
         unsafe {
             *self.0.add(index) = value;
@@ -1903,8 +1904,8 @@ impl TileRenderer {
 
                 // SAFETY: Each tile writes to a non-overlapping region of the framebuffer/zbuffer.
                 unsafe {
-                    let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                    let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                    let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr(), fb.as_slice().len());
+                    let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr(), zb.as_slice().len());
                     let width = self.width;
                     let height = self.height;
                     let tiles_x = self.tiles_x;
@@ -2246,8 +2247,8 @@ impl TileRenderer {
             use rayon::prelude::*;
 
             unsafe {
-                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr(), fb.as_slice().len());
+                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr(), zb.as_slice().len());
                 let width = self.width;
                 let height = self.height;
                 let tiles_x = self.tiles_x;
@@ -2442,8 +2443,8 @@ impl TileRenderer {
             use rayon::prelude::*;
 
             unsafe {
-                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr());
-                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr());
+                let fb_ptr = SendPtr(fb.as_mut_slice().as_mut_ptr(), fb.as_slice().len());
+                let zb_ptr = SendPtr(zb.as_mut_slice().as_mut_ptr(), zb.as_slice().len());
                 let width = self.width;
                 let height = self.height;
                 let tiles_x = self.tiles_x;
@@ -4591,5 +4592,22 @@ mod tests {
             "Expected at least 100 pixels rendered, got {}",
             pixels_changed
         );
+    }
+}
+
+#[cfg(all(test, feature = "parallel"))]
+mod warden_tests {
+    use super::SendPtr;
+
+    #[test]
+    #[should_panic(expected = "Index out of bounds")]
+    fn exploit_sendptr_oob() {
+        let mut buffer = vec![0u32; 10];
+        let ptr = SendPtr(buffer.as_mut_ptr(), buffer.len());
+
+        // Attempt to write out of bounds
+        unsafe {
+            ptr.write(15, 0xFFFFFFFF);
+        }
     }
 }

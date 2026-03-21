@@ -42,3 +42,7 @@ Vim: Finished.
 ## 2026-03-18 - Broken Intra-Doc Links
 **Confusion:** The documentation for `Frame` and `RenderTarget` contained broken intra-doc links to `Renderer::render_frame` due to missing imports in the file scope, causing warnings during `cargo doc`.
 **Clarification:** Fixed by using the absolute path `[crate::render_api::Renderer::render_frame]` to ensure rustdoc can resolve the item without needing to import it.
+
+## 2026-03-18 - Handle and Generation Architecture
+**Confusion:** Rust users are often confused by "Handles" and why they are used instead of `Rc`/`Arc` or raw pointers, and how they prevent use-after-free.
+**Clarification:** Added module-level documentation to `crates/abrash-render/src/render_api/mod.rs` to explain the Render API's "Three Pillars" (Resources, Frame, Renderer) and added executable doctests to `ResourcePool` and `Handle` in `crates/abrash-render/src/render_api/handles.rs` that explicitly demonstrate how the generational index increments upon removal, safely returning `None` instead of causing memory corruption or panics.

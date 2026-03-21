@@ -267,6 +267,14 @@ Keyboard: Auto-rotating",
         example_name: "emboss_demo",
     },
     Demo {
+        name: "Glitch Effect",
+        category: DemoCategory::Simulation,
+        description: "Post-processing digital corruption and RGB separation",
+        instructions: "Mouse: None
+Keyboard: Auto-rotating",
+        example_name: "glitch_demo",
+    },
+    Demo {
         name: "Edge Glow",
         category: DemoCategory::Simulation,
         description: "Post-processing edge detection and glow effect",
@@ -315,6 +323,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "posterize_demo"
         || example_name == "emboss_demo"
         || example_name == "edge_glow_demo"
+        || example_name == "glitch_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
