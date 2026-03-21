@@ -451,13 +451,25 @@ fn run_tui_dashboard() -> Result<(), Box<dyn Error>> {
 
 fn print_demo_list() {
     let mut table = ComfyTable::new();
-    table.load_preset(ComfyPresets::UTF8_BORDERS_ONLY).set_header(vec![
-        ComfyCell::new("Icon").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
-        ComfyCell::new("Name").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
-        ComfyCell::new("Category").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
-        ComfyCell::new("Description").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
-        ComfyCell::new("Command").add_attribute(comfy_table::Attribute::Bold).fg(ComfyColor::Magenta),
-    ]);
+    table
+        .load_preset(ComfyPresets::UTF8_BORDERS_ONLY)
+        .set_header(vec![
+            ComfyCell::new("Icon")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Magenta),
+            ComfyCell::new("Name")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Magenta),
+            ComfyCell::new("Category")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Magenta),
+            ComfyCell::new("Description")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Magenta),
+            ComfyCell::new("Command")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Magenta),
+        ]);
 
     for demo in DEMOS {
         let row = vec![
@@ -728,10 +740,15 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
                     .add_attribute(comfy_table::Attribute::Bold)
                     .fg(ComfyColor::Green),
             ]);
-        println!("
-{success_table}");
-        println!("
-{}", "Press Enter to return to dashboard...".grey());
+        println!(
+            "
+{success_table}"
+        );
+        println!(
+            "
+{}",
+            "Press Enter to return to dashboard...".grey()
+        );
         let _ = std::io::stdin().read_line(&mut String::new());
     } else {
         let mut error_table = ComfyTable::new();
