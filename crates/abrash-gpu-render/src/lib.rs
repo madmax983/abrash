@@ -548,16 +548,14 @@ impl GpuMeshApp {
             .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("GPU Cube Device"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                    memory_hints: wgpu::MemoryHints::default(),
-                    experimental_features: Default::default(),
-                    trace: wgpu::Trace::Off,
-                },
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("GPU Cube Device"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                experimental_features: Default::default(),
+                trace: wgpu::Trace::Off,
+            })
             .await
             .map_err(|e| format!("Failed to create device: {e}"))?;
 
@@ -876,9 +874,7 @@ pub fn run_mesh_demo(
                         app.update();
                         match app.render() {
                             Ok(()) => {}
-                            Err(ref e)
-                                if e.contains("Lost") || e.contains("Outdated") =>
-                            {
+                            Err(ref e) if e.contains("Lost") || e.contains("Outdated") => {
                                 app.resize(app.size);
                             }
                             Err(ref e) if e.contains("OutOfMemory") => {
@@ -1003,16 +999,14 @@ impl GpuOffscreenBench {
         }))
         .map_err(|e| format!("No suitable GPU adapter found for offscreen benchmark: {e:?}"))?;
 
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Offscreen GPU Bench Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-                experimental_features: Default::default(),
-                trace: wgpu::Trace::Off,
-            },
-        ))
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("Offscreen GPU Bench Device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::default(),
+            experimental_features: Default::default(),
+            trace: wgpu::Trace::Off,
+        }))
         .map_err(|e| format!("Failed to create offscreen benchmark device: {e}"))?;
 
         let color_texture = device.create_texture(&wgpu::TextureDescriptor {

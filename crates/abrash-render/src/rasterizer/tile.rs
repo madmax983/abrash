@@ -1700,14 +1700,119 @@ impl TileRenderer {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for &[i0, i1, i2] in indices {
-                // Using direct indexing which panics on out-of-bounds, ensuring safety
-                let v0 = vertices[i0];
-                let v1 = vertices[i1];
-                let v2 = vertices[i2];
+            // Fast path: if ALL vertices are inside the view frustum, no triangle
+            // needs clipping. Pre-project all vertices once and reuse across shared
+            // triangles (121 projections instead of 600 for a 10×10 grid mesh).
+            let all_inside = vertices.iter().all(|&(p, w)| {
+                w > 0.0 && p.x >= -w && p.x <= w && p.y >= -w && p.y <= w && p.z >= -w && p.z <= w
+            });
 
-                self.prepare_triangle(v0, v1, v2, color);
+            if all_inside {
+                self.submit_mesh_unclipped(indices, vertices, color);
+            } else {
+                for &[i0, i1, i2] in indices {
+                    let v0 = vertices[i0];
+                    let v1 = vertices[i1];
+                    let v2 = vertices[i2];
+                    self.prepare_triangle(v0, v1, v2, color);
+                }
             }
+        }
+    }
+
+    /// Fast path for meshes fully inside the frustum: pre-project all vertices once,
+    /// then prepare triangles without clipping. Shared vertices are projected only once
+    /// instead of once per triangle.
+    fn submit_mesh_unclipped(
+        &mut self,
+        indices: &[[usize; 3]],
+        vertices: &[(Vec3, f32)],
+        color: u32,
+    ) {
+        use crate::math::project_to_screen_optimized;
+
+        let hw = self.half_width;
+        let hh = self.half_height;
+        let width_i32 = self.width as i32 - 1;
+        let height_i32 = self.height as i32 - 1;
+
+        // Phase 1: Project all vertices to screen space (once per vertex)
+        let projected: Vec<ScreenPoint> = vertices
+            .iter()
+            .map(|&(v, w)| project_to_screen_optimized(v, w, hw, hh))
+            .collect();
+
+        // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
+        for &[i0, i1, i2] in indices {
+            let p0_orig = projected[i0];
+            let p1_orig = projected[i1];
+            let p2_orig = projected[i2];
+
+            if is_backface(p0_orig, p1_orig, p2_orig) {
+                continue;
+            }
+
+            let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
+            sort_by_y(&mut verts, |p| p.y);
+            let [p0, p1, p2] = verts;
+
+            let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            if total_height == 0.0 {
+                continue;
+            }
+
+            // Compute dz/dx
+            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+            let uz = p1.z - p0.z;
+            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+            let vz = p2.z - p0.z;
+            let nx = uy * vz - uz * vy;
+            let nz = ux * vy - uy * vx;
+
+            let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+            let long_edge_is_left = nz > 0.0;
+
+            // AABB clamped to screen
+            let min_x = p0.x.min(p1.x).min(p2.x).max(0);
+            let min_y = p0.y.max(0);
+            let max_x = p0.x.max(p1.x).max(p2.x).min(width_i32);
+            let max_y = p2.y.min(height_i32);
+
+            if min_x > max_x || min_y > max_y {
+                continue;
+            }
+
+            let min_depth = p0.z.min(p1.z).min(p2.z);
+            let max_depth = p0.z.max(p1.z).max(p2.z);
+
+            self.prepared.push(PreparedTriangle {
+                p0: CompactScreenPoint {
+                    x: p0.x,
+                    y: p0.y,
+                    z: p0.z,
+                },
+                p1: CompactScreenPoint {
+                    x: p1.x,
+                    y: p1.y,
+                    z: p1.z,
+                },
+                p2: CompactScreenPoint {
+                    x: p2.x,
+                    y: p2.y,
+                    z: p2.z,
+                },
+                dz_dx,
+                long_edge_is_left,
+                color,
+                aabb_min_x: min_x.clamp(0, 65535) as u16,
+                aabb_min_y: min_y.clamp(0, 65535) as u16,
+                aabb_max_x: max_x.clamp(0, 65535) as u16,
+                aabb_max_y: max_y.clamp(0, 65535) as u16,
+                min_depth,
+                max_depth,
+            });
         }
     }
 

@@ -76,5 +76,90 @@ fn bench_scene_render(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_scene_render);
+fn build_scene(width: u32, height: u32) -> Scene {
+    let mesh = Arc::new(generate_grid_mesh(10));
+    let view = Mat4::look_at(
+        Vec3::new(0.0, 50.0, 50.0),
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+    );
+    let proj = Mat4::perspective(1.0, width as f32 / height as f32, 0.1, 1000.0);
+    let mut scene = Scene::new(Camera::new(view, proj));
+    for i in 0..100 {
+        let x = (i % 10) as f32 * 15.0 - 75.0;
+        let z = (i / 10) as f32 * 15.0 - 75.0;
+        scene.add_object(SceneObject::new(
+            mesh.clone(),
+            Mat4::translation(x, 0.0, z),
+            0xFFFF_FFFF,
+        ));
+    }
+    scene
+}
+
+fn bench_extract_only(c: &mut Criterion) {
+    let scene = build_scene(640, 480);
+    c.bench_function("scene_extract_only_100_objects", |b| {
+        b.iter(|| scene.extract());
+    });
+}
+
+fn bench_clear_only(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    c.bench_function("scene_clear_only", |b| {
+        b.iter(|| {
+            fb.clear(0xFF00_0000);
+            zb.clear();
+        });
+    });
+}
+
+fn bench_rasterize_only(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+    let scene = build_scene(width, height);
+    let draw_list = scene.extract();
+    let mut renderer = TileRenderer::new(width, height);
+    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut zb = ZBuffer::new(width, height).unwrap();
+    c.bench_function("scene_rasterize_only_100_objects", |b| {
+        b.iter(|| {
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        });
+    });
+}
+
+/// Measures submit_mesh only (prepare_triangle × 20K) — no binning or rasterization.
+fn bench_submit_only(c: &mut Criterion) {
+    let width = 640;
+    let height = 480;
+    let scene = build_scene(width, height);
+    let draw_list = scene.extract();
+    let mut renderer = TileRenderer::new(width, height);
+    c.bench_function("submit_mesh_only_20k_tris", |b| {
+        b.iter(|| {
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            }
+            // Skip end_frame — isolates clipping + projection + backface cull
+        });
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_scene_render,
+    bench_extract_only,
+    bench_clear_only,
+    bench_rasterize_only,
+    bench_submit_only
+);
 criterion_main!(benches);
