@@ -147,6 +147,13 @@ impl AbrashBackend {
         let camera = FrameCamera::new(view, proj);
 
         let mut frame = Frame::new(camera);
+        frame.clear_color = Some(0xFF00_0000);
+
+        // CpuRenderer uses TileRenderer which requires manual target clear when no tiles overlap,
+        // or if we rely on Target's own clear method.
+        if let Some(color) = frame.clear_color {
+            self.target.clear(color);
+        }
 
         // Collect transient material handles so we can destroy them after the frame.
         let mut mat_handles = Vec::with_capacity(scene.draws.len());

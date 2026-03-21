@@ -73,7 +73,7 @@ impl GpuDevice {
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("Abrash GpuDevice"),
-            required_features: wgpu::Features::empty(),
+            required_features: wgpu::Features::FLOAT32_BLENDABLE,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             #[allow(clippy::default_trait_access)]
