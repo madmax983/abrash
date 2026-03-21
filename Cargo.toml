@@ -546,3 +546,8 @@ required-features = ["nova"]
 name = "fisheye_demo"
 path = "examples/fisheye_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "vision_bench"
+harness = false
+required-features = ["nova"]

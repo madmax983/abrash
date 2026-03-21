@@ -163,7 +163,6 @@ thread_local! {
 
 #[derive(Default)]
 struct SceneRenderContext {
-    transformed_verts: Vec<(Vec3, f32)>,
     world_aabbs: Vec<AABB>,
     cull_results: Vec<bool>,
 }
@@ -212,10 +211,14 @@ impl Scene {
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
         let mut draw_list = DrawList::new(camera);
 
+        // Pre-allocate assuming roughly half the objects might be visible on average,
+        // or up to all objects to avoid reallocation
+        draw_list.batches.reserve(self.objects.len());
+
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
             let ctx = &mut *ctx_guard;
-            let transformed_verts = &mut ctx.transformed_verts;
+
             let world_aabbs = &mut ctx.world_aabbs;
             let cull_results = &mut ctx.cull_results;
 
@@ -241,10 +244,8 @@ impl Scene {
                 let mvp = obj.transform * view_proj;
                 let mesh = &obj.mesh;
 
-                transformed_verts.clear();
-                transformed_verts.reserve(mesh.vertices.len());
-
-                let uninit_slice = transformed_verts.spare_capacity_mut();
+                let mut vertices = Vec::with_capacity(mesh.vertices.len());
+                let uninit_slice = vertices.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
                 #[cfg(feature = "parallel")]
@@ -255,11 +256,11 @@ impl Scene {
 
                 // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
                 unsafe {
-                    transformed_verts.set_len(mesh.vertices.len());
+                    vertices.set_len(mesh.vertices.len());
                 }
 
                 draw_list.push(DrawBatch::new(
-                    transformed_verts.clone(),
+                    vertices,
                     std::sync::Arc::clone(&obj.shared_indices),
                     obj.color,
                 ));

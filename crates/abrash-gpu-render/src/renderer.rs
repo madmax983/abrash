@@ -210,7 +210,9 @@ impl GpuRenderer {
                     view: &target.depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+                        // Depth is never read back from capture targets — discard to
+                        // skip the writeback and save bandwidth.
+                        store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
@@ -270,10 +272,18 @@ impl GpuRenderer {
         let padded_stride = target.config.padded_bytes_per_row as usize;
         let unpadded_stride = target.config.unpadded_bytes_per_row as usize;
         let height = target.config.height as usize;
-        let mut pixels_rgba = Vec::with_capacity(unpadded_stride * height);
-        for row in 0..height {
-            let row_start = row * padded_stride;
-            pixels_rgba.extend_from_slice(&mapped[row_start..row_start + unpadded_stride]);
+        let total_bytes = unpadded_stride * height;
+        let mut pixels_rgba = vec![0u8; total_bytes];
+        if padded_stride == unpadded_stride {
+            // No row padding — bulk copy the entire buffer at once.
+            pixels_rgba.copy_from_slice(&mapped[..total_bytes]);
+        } else {
+            for row in 0..height {
+                let src = row * padded_stride;
+                let dst = row * unpadded_stride;
+                pixels_rgba[dst..dst + unpadded_stride]
+                    .copy_from_slice(&mapped[src..src + unpadded_stride]);
+            }
         }
         drop(mapped);
         target.readback_buffer.unmap();
@@ -357,7 +367,9 @@ impl GpuRenderer {
                     view: &surface.depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+                        // Depth is consumed in-pass for correct ordering; the final
+                        // depth values are not needed after presentation.
+                        store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
@@ -417,15 +429,19 @@ impl GpuRenderer {
             return;
         }
 
+        // Amortized growth: next power of two aligns to GPU-friendly sizes
+        // and bounds total reallocations to O(log n).
+        let new_capacity = required.next_power_of_two();
+
         let (uniform_buffer, uniform_bind_group) = Self::create_uniform_resources(
             self.gpu.device(),
             &self.pipeline,
             self.uniform_stride,
-            required,
+            new_capacity,
         );
         self.uniform_buffer = uniform_buffer;
         self.uniform_bind_group = uniform_bind_group;
-        self.uniform_capacity = required;
+        self.uniform_capacity = new_capacity;
     }
 
     fn prepare_draws(&self, frame: &Frame) -> Result<(Vec<PreparedDraw>, Vec<u8>, u32), String> {
