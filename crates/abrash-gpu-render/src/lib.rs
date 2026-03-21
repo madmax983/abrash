@@ -6,6 +6,7 @@
 pub mod capture;
 pub mod deferred;
 pub mod device;
+pub mod environment;
 pub mod gbuffer;
 pub mod mesh_buffer;
 pub mod postprocess;

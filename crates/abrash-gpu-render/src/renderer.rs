@@ -97,6 +97,10 @@ pub struct GpuRenderer {
     textures: Vec<Option<GpuTexture>>,
     // Shadow mapping
     shadow_map: crate::shadow::ShadowMap,
+    // Environment / skybox
+    skybox_pass: crate::environment::SkyboxPass,
+    skybox_cubemap: Option<crate::environment::GpuCubemap>,
+    skybox_bind_group: Option<wgpu::BindGroup>,
     // Render targets (lazily created/resized)
     gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
@@ -194,6 +198,9 @@ impl GpuRenderer {
         // Tone mapping (HDR → LDR)
         let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
 
+        // Skybox
+        let skybox_pass = crate::environment::SkyboxPass::new(device, hdr_format);
+
         Self {
             gpu,
             gbuffer_pipeline,
@@ -209,6 +216,9 @@ impl GpuRenderer {
             point_sampler,
             textures: Vec::new(),
             shadow_map,
+            skybox_pass,
+            skybox_cubemap: None,
+            skybox_bind_group: None,
             gbuffer: None,
             hdr_target: None,
             tone_map_pass,
@@ -403,6 +413,31 @@ impl GpuRenderer {
         }
     }
 
+    /// Set the environment cubemap for skybox rendering.
+    ///
+    /// The skybox is rendered after deferred lighting, filling background pixels
+    /// where no geometry was written to the G-Buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cubemap faces have mismatched dimensions.
+    pub fn set_environment(
+        &mut self,
+        cubemap: &abrash_render::skybox::Cubemap,
+    ) -> Result<(), String> {
+        let gpu_cubemap = crate::environment::GpuCubemap::from_faces(
+            self.gpu.device(),
+            self.gpu.queue(),
+            &cubemap.faces,
+        )?;
+        let bind_group = self
+            .skybox_pass
+            .create_bind_group(self.gpu.device(), &gpu_cubemap);
+        self.skybox_cubemap = Some(gpu_cubemap);
+        self.skybox_bind_group = Some(bind_group);
+        Ok(())
+    }
+
     // -----------------------------------------------------------------------
     // Rendering
     // -----------------------------------------------------------------------
@@ -446,6 +481,9 @@ impl GpuRenderer {
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
         self.encode_deferred_lighting(&mut encoder);
+
+        // Pass 3.5: Skybox (fills background pixels in HDR target)
+        self.encode_skybox(&mut encoder, frame);
 
         // Pass 4: Tone mapping → LDR capture target
         self.encode_tone_map(&mut encoder, &target.color_view);
@@ -969,6 +1007,29 @@ impl GpuRenderer {
             &self.shadow_map.sample_bind_group,
             &hdr.color_view,
         );
+    }
+
+    fn encode_skybox(&self, encoder: &mut wgpu::CommandEncoder, frame: &Frame) {
+        let Some(ref bind_group) = self.skybox_bind_group else {
+            return; // No environment map set
+        };
+        let hdr = self.hdr_target.as_ref().unwrap();
+
+        // Upload inverse view-projection for direction reconstruction
+        let view_proj = frame.camera.view * frame.camera.projection;
+        let inv_vp = view_proj.inverse();
+        let inv_vp_flat: [f32; 16] = bytemuck::cast(inv_vp.m);
+        let uniform = crate::environment::SkyboxUniforms {
+            inv_view_proj: inv_vp_flat,
+        };
+        self.gpu.queue().write_buffer(
+            &self.skybox_pass.uniform_buffer,
+            0,
+            bytemuck::bytes_of(&uniform),
+        );
+
+        self.skybox_pass
+            .encode(encoder, bind_group, &hdr.color_view);
     }
 
     fn encode_tone_map(&self, encoder: &mut wgpu::CommandEncoder, output_view: &wgpu::TextureView) {
