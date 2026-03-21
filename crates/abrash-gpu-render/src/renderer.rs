@@ -205,6 +205,7 @@ impl GpuRenderer {
                         load: wgpu::LoadOp::Clear(clear_color),
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &target.depth_view,
@@ -218,6 +219,7 @@ impl GpuRenderer {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.pipeline.pipeline);
@@ -235,15 +237,15 @@ impl GpuRenderer {
         }
 
         encoder.copy_texture_to_buffer(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 texture: &target.color_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            wgpu::ImageCopyBuffer {
+            wgpu::TexelCopyBufferInfo {
                 buffer: &target.readback_buffer,
-                layout: wgpu::ImageDataLayout {
+                layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(target.config.padded_bytes_per_row),
                     rows_per_image: Some(target.config.height),
@@ -263,7 +265,7 @@ impl GpuRenderer {
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = tx.send(result);
         });
-        let _ = self.gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = self.gpu.device().poll(wgpu::PollType::wait_indefinitely());
         rx.recv()
             .map_err(|error| format!("readback channel error: {error}"))?
             .map_err(|error| format!("readback map error: {error}"))?;
@@ -327,10 +329,11 @@ impl GpuRenderer {
         frame: &Frame,
         surface: &crate::surface::GpuSurface,
     ) -> Result<(), String> {
-        let output = surface
-            .surface
-            .get_current_texture()
-            .map_err(|error| format!("surface error: {error}"))?;
+        let output = match surface.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            e => return Err(format!("surface unavailable: {e:?}")),
+        };
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -362,6 +365,7 @@ impl GpuRenderer {
                         load: wgpu::LoadOp::Clear(clear_color),
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &surface.depth_view,
@@ -375,6 +379,7 @@ impl GpuRenderer {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.pipeline.pipeline);

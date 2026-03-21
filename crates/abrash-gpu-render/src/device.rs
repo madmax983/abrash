@@ -69,15 +69,17 @@ impl GpuDevice {
             compatible_surface,
             force_fallback_adapter: config.force_fallback,
         }))
-        .ok_or_else(|| "No suitable GPU adapter found".to_string())?;
+        .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
 
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Abrash GpuDevice"),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                experimental_features: Default::default(),
+                trace: wgpu::Trace::Off,
             },
-            None,
         ))
         .map_err(|error| format!("Failed to create GPU device: {error}"))?;
 

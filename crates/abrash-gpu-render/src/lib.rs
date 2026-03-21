@@ -545,7 +545,7 @@ impl GpuMeshApp {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| "No suitable GPU adapter found".to_string())?;
+            .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
 
         let (device, queue) = adapter
             .request_device(
@@ -553,8 +553,10 @@ impl GpuMeshApp {
                     label: Some("GPU Cube Device"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::default(),
+                    experimental_features: Default::default(),
+                    trace: wgpu::Trace::Off,
                 },
-                None,
             )
             .await
             .map_err(|e| format!("Failed to create device: {e}"))?;
@@ -630,8 +632,8 @@ impl GpuMeshApp {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("GPU Cube Pipeline Layout"),
-            bind_group_layouts: &[&uniform_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&uniform_layout)],
+            immediate_size: 0,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -639,7 +641,7 @@ impl GpuMeshApp {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[VertexRaw::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
@@ -654,15 +656,15 @@ impl GpuMeshApp {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
@@ -670,7 +672,8 @@ impl GpuMeshApp {
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
+            cache: None,
         });
 
         let raw_vertices: Vec<VertexRaw> = vertices
@@ -780,8 +783,12 @@ impl GpuMeshApp {
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
     }
 
-    fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        let frame = self.surface.get_current_texture()?;
+    fn render(&self) -> Result<(), String> {
+        let frame = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            e => return Err(format!("surface unavailable: {e:?}")),
+        };
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -802,6 +809,7 @@ impl GpuMeshApp {
                         load: wgpu::LoadOp::Clear(self.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_view,
@@ -813,6 +821,7 @@ impl GpuMeshApp {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.pipeline);
@@ -867,14 +876,16 @@ pub fn run_mesh_demo(
                         app.update();
                         match app.render() {
                             Ok(()) => {}
-                            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                            Err(ref e)
+                                if e.contains("Lost") || e.contains("Outdated") =>
+                            {
                                 app.resize(app.size);
                             }
-                            Err(wgpu::SurfaceError::OutOfMemory) => {
+                            Err(ref e) if e.contains("OutOfMemory") => {
                                 elwt.exit();
                             }
-                            Err(wgpu::SurfaceError::Timeout) => {
-                                eprintln!("Surface timeout; skipping frame");
+                            Err(ref e) => {
+                                eprintln!("Render error: {e}; skipping frame");
                             }
                         }
                     }
@@ -990,15 +1001,17 @@ impl GpuOffscreenBench {
             compatible_surface: None,
             force_fallback_adapter: false,
         }))
-        .ok_or_else(|| "No suitable GPU adapter found for offscreen benchmark".to_string())?;
+        .map_err(|e| format!("No suitable GPU adapter found for offscreen benchmark: {e:?}"))?;
 
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Offscreen GPU Bench Device"),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                experimental_features: Default::default(),
+                trace: wgpu::Trace::Off,
             },
-            None,
         ))
         .map_err(|e| format!("Failed to create offscreen benchmark device: {e}"))?;
 
@@ -1077,8 +1090,8 @@ impl GpuOffscreenBench {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Offscreen Bench Pipeline Layout"),
-            bind_group_layouts: &[&uniform_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&uniform_layout)],
+            immediate_size: 0,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -1086,7 +1099,7 @@ impl GpuOffscreenBench {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[VertexRaw::layout()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
@@ -1101,15 +1114,15 @@ impl GpuOffscreenBench {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
                     blend: Some(wgpu::BlendState::REPLACE),
@@ -1117,7 +1130,8 @@ impl GpuOffscreenBench {
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
+            cache: None,
         });
 
         let raw_vertices: Vec<VertexRaw> = vertices
@@ -1197,6 +1211,7 @@ impl GpuOffscreenBench {
                         // No readback in the benchmark path — skip the writeback.
                         store: wgpu::StoreOp::Discard,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_view,
@@ -1209,6 +1224,7 @@ impl GpuOffscreenBench {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.pipeline);
@@ -1221,7 +1237,7 @@ impl GpuOffscreenBench {
         }
 
         self.queue.submit(Some(encoder.finish()));
-        let _ = self.device.poll(wgpu::Maintain::Wait);
+        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
         Ok(())
     }
 
