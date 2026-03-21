@@ -112,7 +112,7 @@ impl WindowApp for GlitchDemo {
         let light_dir = Vec3::new(1.0, 1.0, 1.0).normalize();
 
         // 4. Rasterize Mesh with flat shading
-        for face in self.mesh.indices.iter() {
+        for face in &self.mesh.indices {
             let i0 = face[0];
             let i1 = face[1];
             let i2 = face[2];
