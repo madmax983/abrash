@@ -154,24 +154,22 @@ pub fn apply_tilt_shift(fb: &mut Framebuffer, config: &TiltShiftConfig) {
             let alpha = (t * 256.0) as u32;
             let inv_alpha = 256 - alpha;
 
+            // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color blending.
+            // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
             for x in 0..width {
                 let orig_color = dst_row[x];
                 let blur_color = blurred_row[x];
 
-                let o_r = (orig_color >> 16) & 0xFF;
-                let o_g = (orig_color >> 8) & 0xFF;
-                let o_b = orig_color & 0xFF;
+                let o_rb = orig_color & 0x00FF_00FF;
+                let o_g = orig_color & 0x0000_FF00;
 
-                let b_r = (blur_color >> 16) & 0xFF;
-                let b_g = (blur_color >> 8) & 0xFF;
-                let b_b = blur_color & 0xFF;
+                let b_rb = blur_color & 0x00FF_00FF;
+                let b_g = blur_color & 0x0000_FF00;
 
-                let r = ((o_r * inv_alpha + b_r * alpha) >> 8) as u8;
-                let g = ((o_g * inv_alpha + b_g * alpha) >> 8) as u8;
-                let b = ((o_b * inv_alpha + b_b * alpha) >> 8) as u8;
+                let out_rb = ((o_rb * inv_alpha + b_rb * alpha) >> 8) & 0x00FF_00FF;
+                let out_g = ((o_g * inv_alpha + b_g * alpha) >> 8) & 0x0000_FF00;
 
-                dst_row[x] =
-                    0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
+                dst_row[x] = (orig_color & 0xFF00_0000) | out_rb | out_g;
             }
         });
     });
