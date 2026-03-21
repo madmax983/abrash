@@ -44,6 +44,37 @@ pub struct GpuDevice {
     queue: wgpu::Queue,
 }
 
+pub(crate) async fn request_device_and_adapter(
+    instance: &wgpu::Instance,
+    compatible_surface: Option<&wgpu::Surface<'_>>,
+    power_preference: wgpu::PowerPreference,
+    force_fallback_adapter: bool,
+    label: &str,
+) -> Result<(wgpu::Adapter, wgpu::Device, wgpu::Queue), String> {
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference,
+            compatible_surface,
+            force_fallback_adapter,
+        })
+        .await
+        .map_err(|e| format!("No suitable GPU adapter found for {label}: {e:?}"))?;
+
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some(label),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::default(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
+            trace: wgpu::Trace::Off,
+        })
+        .await
+        .map_err(|e| format!("Failed to create {label} device: {e}"))?;
+
+    Ok((adapter, device, queue))
+}
+
 impl GpuDevice {
     /// Create a headless device without a presentation surface.
     ///
@@ -64,24 +95,13 @@ impl GpuDevice {
         instance: wgpu::Instance,
         compatible_surface: Option<&wgpu::Surface<'_>>,
     ) -> Result<Self, String> {
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: config.power_preference,
+        let (adapter, device, queue) = pollster::block_on(request_device_and_adapter(
+            &instance,
             compatible_surface,
-            force_fallback_adapter: config.force_fallback,
-        }))
-        .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
-
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Abrash GpuDevice"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-                experimental_features: Default::default(),
-                trace: wgpu::Trace::Off,
-            },
-        ))
-        .map_err(|error| format!("Failed to create GPU device: {error}"))?;
+            config.power_preference,
+            config.force_fallback,
+            "Abrash GpuDevice",
+        ))?;
 
         Ok(Self {
             instance,

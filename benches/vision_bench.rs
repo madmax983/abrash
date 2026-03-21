@@ -1,9 +1,9 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 #[cfg(feature = "nova")]
-use abrash_render::experimental::vision::{apply_vision, VisionConfig, VisionMode};
+use abrash_render::experimental::vision::{VisionConfig, VisionMode, apply_vision};
 
 #[cfg(feature = "nova")]
 fn bench_vision(c: &mut Criterion) {
@@ -18,8 +18,8 @@ fn bench_vision(c: &mut Criterion) {
 
     // Fill with dummy data
     let fb_slice = fb.as_mut_slice();
-    for i in 0..fb_slice.len() {
-        fb_slice[i] = 0xFF80_8080;
+    for pixel in fb_slice {
+        *pixel = 0xFF80_8080;
     }
 
     let config = VisionConfig {

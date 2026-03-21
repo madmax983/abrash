@@ -538,28 +538,14 @@ impl GpuMeshApp {
             .create_surface(window)
             .map_err(|e| format!("Failed to create surface: {e}"))?;
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
-
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("GPU Cube Device"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                    memory_hints: wgpu::MemoryHints::default(),
-                    experimental_features: Default::default(),
-                    trace: wgpu::Trace::Off,
-                },
-            )
-            .await
-            .map_err(|e| format!("Failed to create device: {e}"))?;
+        let (adapter, device, queue) = crate::device::request_device_and_adapter(
+            &instance,
+            Some(&surface),
+            wgpu::PowerPreference::HighPerformance,
+            false,
+            "GPU Cube",
+        )
+        .await?;
 
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
@@ -876,9 +862,7 @@ pub fn run_mesh_demo(
                         app.update();
                         match app.render() {
                             Ok(()) => {}
-                            Err(ref e)
-                                if e.contains("Lost") || e.contains("Outdated") =>
-                            {
+                            Err(ref e) if e.contains("Lost") || e.contains("Outdated") => {
                                 app.resize(app.size);
                             }
                             Err(ref e) if e.contains("OutOfMemory") => {
@@ -996,24 +980,14 @@ impl GpuOffscreenBench {
         validate_mesh(vertices, indices).map_err(|err| format!("Invalid benchmark mesh: {err}"))?;
 
         let instance = wgpu::Instance::default();
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        }))
-        .map_err(|e| format!("No suitable GPU adapter found for offscreen benchmark: {e:?}"))?;
-
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Offscreen GPU Bench Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-                experimental_features: Default::default(),
-                trace: wgpu::Trace::Off,
-            },
-        ))
-        .map_err(|e| format!("Failed to create offscreen benchmark device: {e}"))?;
+        let (_adapter, device, queue) =
+            pollster::block_on(crate::device::request_device_and_adapter(
+                &instance,
+                None,
+                wgpu::PowerPreference::HighPerformance,
+                false,
+                "Offscreen GPU Bench",
+            ))?;
 
         let color_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Offscreen Bench Color"),
