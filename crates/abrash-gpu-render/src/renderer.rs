@@ -5,10 +5,12 @@ use crate::device::{GpuDevice, GpuDeviceConfig};
 use crate::mesh_buffer::GpuMeshBuffer;
 use crate::shader::{
     DrawUniforms, FrameUniforms, GpuLightData, LitPipeline, MAX_LIGHTS, MvpPipeline, MvpUniform,
+    TexturedLitPipeline,
 };
 use abrash_core::mesh::Mesh;
+use abrash_core::texture::Texture;
 use abrash_render::render_api::frame::{Frame, Light};
-use abrash_render::render_api::handles::{MaterialHandle, MeshHandle};
+use abrash_render::render_api::handles::{MaterialHandle, MeshHandle, TextureHandle};
 use abrash_render::render_api::material::{Material, ShadingMode};
 use bytemuck::Zeroable;
 use std::num::NonZeroU64;
@@ -24,6 +26,13 @@ struct GpuMaterial {
     lit: bool,
     shininess: f32,
     specular_strength: f32,
+    texture: Option<u32>, // index into textures pool
+}
+
+/// A texture uploaded to the GPU with its view and bind group.
+struct GpuTexture {
+    _texture: wgpu::Texture,
+    bind_group: wgpu::BindGroup,
 }
 
 struct PreparedDraw {
@@ -33,6 +42,7 @@ struct PreparedDraw {
     triangle_count: u32,
     color: u32,
     lit: bool,
+    texture_index: Option<u32>,
 }
 
 /// Convert `0xAARRGGBB` into a wgpu clear color.
@@ -70,8 +80,10 @@ pub struct GpuRenderer {
     flat_uniform_bind_group: wgpu::BindGroup,
     flat_uniform_stride: u64,
     flat_uniform_capacity: usize,
-    // Lit pipeline (new)
+    // Lit pipeline
     lit_pipeline: LitPipeline,
+    // Textured + lit pipeline
+    textured_lit_pipeline: TexturedLitPipeline,
     frame_uniform_buffer: wgpu::Buffer,
     light_buffer: wgpu::Buffer,
     frame_bind_group: wgpu::BindGroup,
@@ -79,6 +91,10 @@ pub struct GpuRenderer {
     draw_bind_group: wgpu::BindGroup,
     draw_uniform_stride: u64,
     draw_uniform_capacity: usize,
+    // Texture support
+    texture_bind_group_layout: wgpu::BindGroupLayout,
+    default_sampler: wgpu::Sampler,
+    textures: Vec<Option<GpuTexture>>,
     // Shared resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
@@ -131,6 +147,44 @@ impl GpuRenderer {
         let (draw_uniform_buffer, draw_bind_group) =
             Self::create_draw_uniform_resources(device, &lit_pipeline, draw_uniform_stride, 1);
 
+        // Textured + lit pipeline (uses all 3 bind groups)
+        // Must create texture_bind_group_layout first since it's shared
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let textured_lit_pipeline =
+            TexturedLitPipeline::new(device, color_format, &texture_bind_group_layout);
+
+        let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Default Bilinear Sampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            ..Default::default()
+        });
+
         Self {
             gpu,
             flat_pipeline,
@@ -139,6 +193,7 @@ impl GpuRenderer {
             flat_uniform_stride,
             flat_uniform_capacity: 1,
             lit_pipeline,
+            textured_lit_pipeline,
             frame_uniform_buffer,
             light_buffer,
             frame_bind_group,
@@ -146,6 +201,9 @@ impl GpuRenderer {
             draw_bind_group,
             draw_uniform_stride,
             draw_uniform_capacity: 1,
+            texture_bind_group_layout,
+            default_sampler,
+            textures: Vec::new(),
             meshes: Vec::new(),
             materials: Vec::new(),
         }
@@ -192,6 +250,104 @@ impl GpuRenderer {
         Ok(MeshHandle::from_raw_parts(index, 0))
     }
 
+    /// Upload a mesh with UV coordinates to GPU buffers.
+    ///
+    /// Uses `TexturedVertex` format (32 bytes: position + normal + UV).
+    /// Required for textured materials.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mesh data is invalid.
+    pub fn create_mesh_textured(&mut self, mesh: &Mesh) -> Result<MeshHandle, String> {
+        let gpu_mesh = GpuMeshBuffer::from_mesh_textured(self.gpu.device(), mesh)?;
+        let index = u32::try_from(self.meshes.len())
+            .map_err(|_| "mesh pool index exceeds u32".to_string())?;
+        self.meshes.push(Some(gpu_mesh));
+        Ok(MeshHandle::from_raw_parts(index, 0))
+    }
+
+    /// Upload a texture to the GPU and return a typed handle.
+    ///
+    /// Converts from `0xAARRGGBB` pixel format to RGBA8 for the GPU.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the texture dimensions are zero.
+    pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, String> {
+        if texture.width == 0 || texture.height == 0 {
+            return Err("texture dimensions must be positive".to_string());
+        }
+
+        // Convert ARGB → RGBA
+        let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
+        for &argb in &texture.pixels {
+            rgba.push(((argb >> 16) & 0xFF) as u8); // R
+            rgba.push(((argb >> 8) & 0xFF) as u8); // G
+            rgba.push((argb & 0xFF) as u8); // B
+            rgba.push(((argb >> 24) & 0xFF) as u8); // A
+        }
+
+        let device = self.gpu.device();
+        let gpu_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("User Texture"),
+            size: wgpu::Extent3d {
+                width: texture.width,
+                height: texture.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        self.gpu.queue().write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &gpu_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(texture.width * 4),
+                rows_per_image: Some(texture.height),
+            },
+            wgpu::Extent3d {
+                width: texture.width,
+                height: texture.height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Texture Bind Group"),
+            layout: &self.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.default_sampler),
+                },
+            ],
+        });
+
+        let index = u32::try_from(self.textures.len())
+            .map_err(|_| "texture pool index exceeds u32".to_string())?;
+        self.textures.push(Some(GpuTexture {
+            _texture: gpu_texture,
+            bind_group,
+        }));
+        Ok(TextureHandle::from_raw_parts(index, 0))
+    }
+
     /// Register a material and return a typed handle.
     #[must_use]
     pub fn create_material(&mut self, material: Material) -> MaterialHandle {
@@ -200,14 +356,20 @@ impl GpuRenderer {
             color,
             receive_light,
         } = material;
-        let (color, lit, shininess, specular_strength) = match shading {
-            ShadingMode::Flat { color } => (color, false, 1.0, 0.0),
+        let (color, lit, shininess, specular_strength, texture) = match shading {
+            ShadingMode::Flat { color } => (color, false, 1.0, 0.0, None),
             ShadingMode::Phong {
                 shininess,
                 specular_strength,
-            } => (color, receive_light, shininess, specular_strength),
-            ShadingMode::Pbr { .. } => (color, receive_light, 32.0, 0.5),
-            _ => (color, receive_light, 32.0, 0.3),
+            } => (color, receive_light, shininess, specular_strength, None),
+            ShadingMode::Textured { texture } => (color, false, 1.0, 0.0, Some(texture.index())),
+            ShadingMode::TexturedGouraud { texture } => {
+                (color, receive_light, 32.0, 0.3, Some(texture.index()))
+            }
+            ShadingMode::Pbr {
+                albedo, roughness, ..
+            } => (color, receive_light, 32.0, 0.5, Some(albedo.index())),
+            _ => (color, receive_light, 32.0, 0.3, None),
         };
         let index = self.materials.len() as u32;
         self.materials.push(Some(GpuMaterial {
@@ -215,6 +377,7 @@ impl GpuRenderer {
             lit,
             shininess,
             specular_strength,
+            texture,
         }));
         MaterialHandle::from_raw_parts(index, 0)
     }
@@ -258,7 +421,9 @@ impl GpuRenderer {
         }
 
         // Upload lit per-frame + per-draw uniforms
-        let has_lit_draws = prepared_draws.iter().any(|d| d.lit);
+        let has_lit_draws = prepared_draws
+            .iter()
+            .any(|d| d.lit || d.texture_index.is_some());
         if has_lit_draws {
             let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
             self.gpu.queue().write_buffer(
@@ -320,11 +485,21 @@ impl GpuRenderer {
                     format!("stale mesh handle at command {}", draw.command_index)
                 })?;
 
-                if draw.lit {
+                if let Some(tex_idx) = draw.texture_index {
+                    // Textured + lit pipeline (3 bind groups)
+                    pass.set_pipeline(&self.textured_lit_pipeline.pipeline);
+                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
+                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
+                    if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
+                        pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
+                    }
+                } else if draw.lit {
+                    // Lit pipeline (2 bind groups)
                     pass.set_pipeline(&self.lit_pipeline.pipeline);
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
                 } else {
+                    // Flat pipeline (1 bind group)
                     pass.set_pipeline(&self.flat_pipeline.pipeline);
                     pass.set_bind_group(0, &self.flat_uniform_bind_group, &[draw.uniform_offset]);
                 }
@@ -446,7 +621,9 @@ impl GpuRenderer {
                 .write_buffer(&self.flat_uniform_buffer, 0, &flat_uniform_bytes);
         }
 
-        let has_lit_draws = prepared_draws.iter().any(|d| d.lit);
+        let has_lit_draws = prepared_draws
+            .iter()
+            .any(|d| d.lit || d.texture_index.is_some());
         if has_lit_draws {
             let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
             self.gpu.queue().write_buffer(
@@ -506,7 +683,14 @@ impl GpuRenderer {
                     format!("stale mesh handle at command {}", draw.command_index)
                 })?;
 
-                if draw.lit {
+                if let Some(tex_idx) = draw.texture_index {
+                    pass.set_pipeline(&self.textured_lit_pipeline.pipeline);
+                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
+                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
+                    if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
+                        pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
+                    }
+                } else if draw.lit {
                     pass.set_pipeline(&self.lit_pipeline.pipeline);
                     pass.set_bind_group(0, &self.frame_bind_group, &[]);
                     pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
@@ -717,18 +901,20 @@ impl GpuRenderer {
                 .map_err(|_| "uniform buffer offset exceeds u32".to_string())?;
             let draw_uniform_offset = u32::try_from(draw_offset)
                 .map_err(|_| "draw uniform buffer offset exceeds u32".to_string())?;
+            let uses_lit_pipeline = material.lit || material.texture.is_some();
             prepared_draws.push(PreparedDraw {
                 command_index,
                 mesh_index,
-                uniform_offset,
+                uniform_offset: if uses_lit_pipeline {
+                    draw_uniform_offset
+                } else {
+                    uniform_offset
+                },
                 triangle_count: gpu_mesh.triangle_count,
                 color: material.color,
                 lit: material.lit,
+                texture_index: material.texture,
             });
-            // Store the draw uniform offset in the same field for lit draws
-            if material.lit {
-                prepared_draws.last_mut().unwrap().uniform_offset = draw_uniform_offset;
-            }
             total_triangles = total_triangles.saturating_add(gpu_mesh.triangle_count);
         }
 

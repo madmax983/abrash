@@ -1,6 +1,6 @@
 //! Converts `abrash_core::mesh::Mesh` to GPU vertex/index buffers.
 
-use crate::shader::{LitVertex, MvpVertex};
+use crate::shader::{LitVertex, MvpVertex, TexturedVertex};
 use abrash_core::mesh::Mesh;
 use wgpu::util::DeviceExt;
 
@@ -10,6 +10,8 @@ pub struct GpuMeshBuffer {
     pub(crate) index_buffer: wgpu::Buffer,
     pub(crate) index_count: u32,
     pub(crate) triangle_count: u32,
+    /// True when uploaded with UVs (TexturedVertex format).
+    pub(crate) has_uvs: bool,
 }
 
 /// Convert a mesh into position-only GPU vertices and flattened `u32` indices.
@@ -115,6 +117,52 @@ fn generate_smooth_normals(
     normals
 }
 
+/// Convert a mesh into textured GPU vertices (position + normal + UV) and flattened indices.
+///
+/// Generates normals and UVs when missing (normals: smooth averaging, UVs: zero).
+///
+/// # Errors
+///
+/// Returns an error if the mesh is empty or contains invalid indices.
+pub fn prepare_textured_mesh_data(mesh: &Mesh) -> Result<(Vec<TexturedVertex>, Vec<u32>), String> {
+    if mesh.vertices.is_empty() {
+        return Err("mesh must contain at least one vertex".to_string());
+    }
+    if mesh.indices.is_empty() {
+        return Err("mesh must contain at least one triangle".to_string());
+    }
+
+    let normals = if mesh.normals.len() == mesh.vertices.len() {
+        mesh.normals.clone()
+    } else {
+        generate_smooth_normals(&mesh.vertices, &mesh.indices)
+    };
+
+    let has_uvs = mesh.uvs.len() == mesh.vertices.len();
+
+    let vertices = mesh
+        .vertices
+        .iter()
+        .enumerate()
+        .zip(normals.iter())
+        .map(|((i, pos), norm)| {
+            let uv = if has_uvs {
+                [mesh.uvs[i].x, mesh.uvs[i].y]
+            } else {
+                [0.0, 0.0]
+            };
+            TexturedVertex {
+                position: [pos.x, pos.y, pos.z],
+                normal: [norm.x, norm.y, norm.z],
+                uv,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let indices = flatten_indices(mesh)?;
+    Ok((vertices, indices))
+}
+
 fn flatten_indices(mesh: &Mesh) -> Result<Vec<u32>, String> {
     let mut indices = Vec::with_capacity(mesh.indices.len() * 3);
     for (triangle_index, triangle) in mesh.indices.iter().enumerate() {
@@ -166,6 +214,42 @@ impl GpuMeshBuffer {
             index_buffer,
             index_count,
             triangle_count,
+            has_uvs: false,
+        })
+    }
+
+    /// Upload a mesh with UVs to GPU vertex and index buffers.
+    ///
+    /// Uses `TexturedVertex` format (position + normal + UV, 32 bytes).
+    /// Generates smooth normals and zero UVs when the mesh lacks them.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mesh data is invalid.
+    pub fn from_mesh_textured(device: &wgpu::Device, mesh: &Mesh) -> Result<Self, String> {
+        let (vertices, indices) = prepare_textured_mesh_data(mesh)?;
+        let index_count =
+            u32::try_from(indices.len()).map_err(|_| "index count exceeds u32".to_string())?;
+        let triangle_count = u32::try_from(mesh.indices.len())
+            .map_err(|_| "triangle count exceeds u32".to_string())?;
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("GpuMeshBuffer Textured Vertex"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("GpuMeshBuffer Index"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        Ok(Self {
+            vertex_buffer,
+            index_buffer,
+            index_count,
+            triangle_count,
+            has_uvs: true,
         })
     }
 }

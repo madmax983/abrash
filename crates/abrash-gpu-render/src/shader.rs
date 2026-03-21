@@ -113,6 +113,32 @@ impl LitVertex {
     }
 }
 
+/// Position + normal + UV vertex for textured lit rendering.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct TexturedVertex {
+    /// Local-space position.
+    pub position: [f32; 3],
+    /// Vertex normal (unit-length).
+    pub normal: [f32; 3],
+    /// Texture coordinate (u, v).
+    pub uv: [f32; 2],
+}
+
+impl TexturedVertex {
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x2];
+
+    #[must_use]
+    pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBUTES,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Lit rendering: per-frame + per-draw uniforms with light support
 // ---------------------------------------------------------------------------
@@ -427,6 +453,243 @@ impl LitPipeline {
             pipeline,
             frame_bind_group_layout,
             draw_bind_group_layout,
+        }
+    }
+}
+
+/// WGSL shader source for textured + lit rendering.
+pub const TEXTURED_LIT_SHADER_SRC: &str = r"
+struct FrameUniforms {
+    view_proj: mat4x4<f32>,
+    camera_pos: vec4<f32>,
+    light_count: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+};
+
+struct LightData {
+    position_or_direction: vec3<f32>,
+    light_type: u32,
+    color: vec3<f32>,
+    intensity: f32,
+    radius: f32,
+    _pad0: f32,
+    _pad1: f32,
+    _pad2: f32,
+};
+
+struct DrawUniforms {
+    model: mat4x4<f32>,
+    color: vec4<f32>,
+    shininess: f32,
+    specular_strength: f32,
+    metallic: f32,
+    roughness: f32,
+};
+
+@group(0) @binding(0) var<uniform> frame: FrameUniforms;
+@group(0) @binding(1) var<uniform> lights: array<LightData, 8>;
+@group(1) @binding(0) var<uniform> draw: DrawUniforms;
+@group(2) @binding(0) var albedo_texture: texture_2d<f32>;
+@group(2) @binding(1) var albedo_sampler: sampler;
+
+struct VsIn {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+};
+
+struct VsOut {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) world_pos: vec3<f32>,
+    @location(1) world_normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) color: vec4<f32>,
+};
+
+@vertex
+fn vs_main(input: VsIn) -> VsOut {
+    var out: VsOut;
+    let world_pos = draw.model * vec4<f32>(input.position, 1.0);
+    out.clip_position = frame.view_proj * world_pos;
+    out.world_pos = world_pos.xyz;
+    out.world_normal = (draw.model * vec4<f32>(input.normal, 0.0)).xyz;
+    out.uv = input.uv;
+    out.color = draw.color;
+    return out;
+}
+
+@fragment
+fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
+    let N = normalize(input.world_normal);
+    let V = normalize(frame.camera_pos.xyz - input.world_pos);
+
+    // Sample texture and multiply with vertex/material color
+    let tex_color = textureSample(albedo_texture, albedo_sampler, input.uv);
+    let base_color = tex_color.rgb * input.color.rgb;
+
+    // Ambient
+    var result = base_color * 0.08;
+
+    for (var i = 0u; i < frame.light_count; i = i + 1u) {
+        let light = lights[i];
+
+        var L: vec3<f32>;
+        var attenuation: f32 = 1.0;
+
+        if (light.light_type == 0u) {
+            L = normalize(-light.position_or_direction);
+        } else {
+            let to_light = light.position_or_direction - input.world_pos;
+            let dist = length(to_light);
+            L = to_light / max(dist, 0.0001);
+            let r = max(light.radius, 0.0001);
+            attenuation = 1.0 / (1.0 + (dist * dist) / (r * r));
+        }
+
+        let NdotL = max(dot(N, L), 0.0);
+        let diffuse = base_color * NdotL;
+
+        let H = normalize(L + V);
+        let NdotH = max(dot(N, H), 0.0);
+        let specular = vec3<f32>(draw.specular_strength) * pow(NdotH, draw.shininess);
+
+        result = result + (diffuse + specular) * light.color * light.intensity * attenuation;
+    }
+
+    return vec4<f32>(result, tex_color.a * input.color.a);
+}
+";
+
+/// Textured + lit render pipeline using all 3 bind groups.
+pub struct TexturedLitPipeline {
+    pub(crate) pipeline: wgpu::RenderPipeline,
+    pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
+    pub(crate) draw_bind_group_layout: wgpu::BindGroupLayout,
+    pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl TexturedLitPipeline {
+    /// Create a textured lit render pipeline.
+    ///
+    /// Takes an externally-created texture bind group layout so it can be shared
+    /// with the renderer's texture upload code.
+    #[must_use]
+    pub fn new(
+        device: &wgpu::Device,
+        color_format: wgpu::TextureFormat,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Abrash Textured Lit Shader"),
+            source: wgpu::ShaderSource::Wgsl(TEXTURED_LIT_SHADER_SRC.into()),
+        });
+
+        // Reuse the same group 0 and group 1 layouts as LitPipeline
+        let frame_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Textured Frame Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(
+                                std::mem::size_of::<FrameUniforms>() as u64
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(
+                                (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
+                            ),
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let draw_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Textured Draw Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: NonZeroU64::new(
+                            std::mem::size_of::<DrawUniforms>() as u64
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Abrash Textured Lit Pipeline Layout"),
+            bind_group_layouts: &[
+                Some(&frame_bind_group_layout),
+                Some(&draw_bind_group_layout),
+                Some(texture_bind_group_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Abrash Textured Lit Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[TexturedVertex::layout()],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24Plus,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: color_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        Self {
+            pipeline,
+            frame_bind_group_layout,
+            draw_bind_group_layout,
+            texture_bind_group_layout: texture_bind_group_layout.clone(),
         }
     }
 }
