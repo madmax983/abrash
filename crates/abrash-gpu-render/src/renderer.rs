@@ -1,12 +1,14 @@
-//! `GpuRenderer` - the GPU rendering backend.
+//! `GpuRenderer` - deferred rendering backend.
+//!
+//! All geometry passes through the G-Buffer. Lighting is computed in a single
+//! fullscreen deferred pass. No forward pipeline — deferred is the only path.
 
 use crate::capture::{BatchStats, FrameStats, GpuCaptureTarget, GpuDebugCapture};
+use crate::deferred::DeferredLightingPass;
 use crate::device::{GpuDevice, GpuDeviceConfig};
+use crate::gbuffer::{GBuffer, GBufferGeometryPipeline, GBufferTexturedPipeline};
 use crate::mesh_buffer::GpuMeshBuffer;
-use crate::shader::{
-    DrawUniforms, FrameUniforms, GpuLightData, LitPipeline, MAX_LIGHTS, MvpPipeline, MvpUniform,
-    TexturedLitPipeline,
-};
+use crate::shader::{DrawUniforms, FrameUniforms, GpuLightData, MAX_LIGHTS};
 use abrash_core::mesh::Mesh;
 use abrash_core::texture::Texture;
 use abrash_render::render_api::frame::{Frame, Light};
@@ -23,10 +25,11 @@ use winit::window::Window;
 
 struct GpuMaterial {
     color: u32,
-    lit: bool,
     shininess: f32,
     specular_strength: f32,
-    texture: Option<u32>, // index into textures pool
+    metallic: f32,
+    roughness: f32,
+    texture: Option<u32>,
 }
 
 /// A texture uploaded to the GPU with its view and bind group.
@@ -41,7 +44,6 @@ struct PreparedDraw {
     uniform_offset: u32,
     triangle_count: u32,
     color: u32,
-    lit: bool,
     texture_index: Option<u32>,
 }
 
@@ -71,36 +73,35 @@ const fn argb_to_rgba_bytes(argb: u32) -> [u8; 4] {
     ]
 }
 
-/// GPU rendering backend for shared `Frame` submission.
+/// GPU deferred rendering backend.
+///
+/// Pipeline: Shadow depth → G-Buffer geometry → Deferred lighting → Tone mapping.
 pub struct GpuRenderer {
     gpu: GpuDevice,
-    // Flat-color pipeline (existing)
-    flat_pipeline: MvpPipeline,
-    flat_uniform_buffer: wgpu::Buffer,
-    flat_uniform_bind_group: wgpu::BindGroup,
-    flat_uniform_stride: u64,
-    flat_uniform_capacity: usize,
-    // Lit pipeline
-    lit_pipeline: LitPipeline,
-    // Textured + lit pipeline
-    textured_lit_pipeline: TexturedLitPipeline,
+    // G-Buffer geometry pipelines
+    gbuffer_pipeline: GBufferGeometryPipeline,
+    gbuffer_textured_pipeline: GBufferTexturedPipeline,
+    // Deferred lighting
+    deferred_pass: DeferredLightingPass,
+    // Per-frame uniforms (shared by geometry + lighting passes)
     frame_uniform_buffer: wgpu::Buffer,
     light_buffer: wgpu::Buffer,
-    frame_bind_group: wgpu::BindGroup,
+    // Per-draw uniforms (dynamic offset)
     draw_uniform_buffer: wgpu::Buffer,
-    draw_bind_group: wgpu::BindGroup,
     draw_uniform_stride: u64,
     draw_uniform_capacity: usize,
     // Texture support
     texture_bind_group_layout: wgpu::BindGroupLayout,
     default_sampler: wgpu::Sampler,
+    point_sampler: wgpu::Sampler,
     textures: Vec<Option<GpuTexture>>,
     // Shadow mapping
     shadow_map: crate::shadow::ShadowMap,
-    // Post-processing (HDR → LDR)
+    // Render targets (lazily created/resized)
+    gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
     tone_map_pass: crate::postprocess::ToneMapPass,
-    // Shared resources
+    // Resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
 }
@@ -111,57 +112,14 @@ impl GpuRenderer {
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
         let device = gpu.device();
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
-
-        // All scene pipelines target the HDR format (Rgba16Float).
-        // The tone map pass converts HDR → the final LDR color_format.
         let hdr_format = wgpu::TextureFormat::Rgba16Float;
 
-        // Flat pipeline
-        let flat_pipeline = MvpPipeline::new(device, hdr_format);
-        let flat_uniform_stride = align_to(std::mem::size_of::<MvpUniform>() as u64, min_align);
-        let (flat_uniform_buffer, flat_uniform_bind_group) =
-            Self::create_flat_uniform_resources(device, &flat_pipeline, flat_uniform_stride, 1);
-
-        // Shadow map (must be created before lit/textured pipelines that reference its layout)
+        // Shadow map
         let shadow_map = crate::shadow::ShadowMap::new(device);
 
-        // Lit pipeline (with shadow at group 2)
-        let lit_pipeline =
-            LitPipeline::new(device, hdr_format, &shadow_map.sample_bind_group_layout);
-        let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
+        // G-Buffer geometry pipelines
+        let gbuffer_pipeline = GBufferGeometryPipeline::new(device);
 
-        // Per-frame buffers (group 0)
-        let frame_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Lit Frame Uniforms"),
-            contents: &[0u8; std::mem::size_of::<FrameUniforms>()],
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Lit Light Buffer"),
-            contents: &[0u8; std::mem::size_of::<GpuLightData>() * MAX_LIGHTS],
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let frame_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Lit Frame Bind Group"),
-            layout: &lit_pipeline.frame_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: frame_uniform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: light_buffer.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Per-draw buffer (group 1)
-        let (draw_uniform_buffer, draw_bind_group) =
-            Self::create_draw_uniform_resources(device, &lit_pipeline, draw_uniform_stride, 1);
-
-        // Textured + lit pipeline (uses all 3 bind groups)
-        // Must create texture_bind_group_layout first since it's shared
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Texture Bind Group Layout"),
@@ -185,12 +143,36 @@ impl GpuRenderer {
                 ],
             });
 
-        let textured_lit_pipeline = TexturedLitPipeline::new(
+        let gbuffer_textured_pipeline = GBufferTexturedPipeline::new(
             device,
-            hdr_format,
+            &gbuffer_pipeline.frame_bind_group_layout,
+            &gbuffer_pipeline.draw_bind_group_layout,
             &texture_bind_group_layout,
-            &shadow_map.sample_bind_group_layout,
         );
+
+        // Deferred lighting pass (outputs to HDR)
+        let deferred_pass =
+            DeferredLightingPass::new(device, hdr_format, &shadow_map.sample_bind_group_layout);
+
+        // Per-frame buffers
+        let frame_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Frame Uniforms"),
+            contents: &[0u8; std::mem::size_of::<FrameUniforms>()],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Buffer"),
+            contents: &[0u8; std::mem::size_of::<GpuLightData>() * MAX_LIGHTS],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Per-draw uniforms
+        let draw_uniform_stride = align_to(std::mem::size_of::<DrawUniforms>() as u64, min_align);
+        let draw_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Draw Uniform Buffer"),
+            contents: &vec![0u8; draw_uniform_stride as usize],
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Default Bilinear Sampler"),
@@ -202,30 +184,33 @@ impl GpuRenderer {
             ..Default::default()
         });
 
-        // Post-processing (tone mapping)
+        let point_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Point Sampler (GBuffer)"),
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        // Tone mapping (HDR → LDR)
         let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
 
         Self {
             gpu,
-            flat_pipeline,
-            flat_uniform_buffer,
-            flat_uniform_bind_group,
-            flat_uniform_stride,
-            flat_uniform_capacity: 1,
-            lit_pipeline,
-            textured_lit_pipeline,
+            gbuffer_pipeline,
+            gbuffer_textured_pipeline,
+            deferred_pass,
             frame_uniform_buffer,
             light_buffer,
-            frame_bind_group,
             draw_uniform_buffer,
-            draw_bind_group,
             draw_uniform_stride,
             draw_uniform_capacity: 1,
             texture_bind_group_layout,
             default_sampler,
+            point_sampler,
             textures: Vec::new(),
             shadow_map,
-            hdr_target: None, // Created lazily at first render
+            gbuffer: None,
+            hdr_target: None,
             tone_map_pass,
             meshes: Vec::new(),
             materials: Vec::new(),
@@ -275,9 +260,6 @@ impl GpuRenderer {
 
     /// Upload a mesh with UV coordinates to GPU buffers.
     ///
-    /// Uses `TexturedVertex` format (32 bytes: position + normal + UV).
-    /// Required for textured materials.
-    ///
     /// # Errors
     ///
     /// Returns an error if the mesh data is invalid.
@@ -291,8 +273,6 @@ impl GpuRenderer {
 
     /// Upload a texture to the GPU and return a typed handle.
     ///
-    /// Converts from `0xAARRGGBB` pixel format to RGBA8 for the GPU.
-    ///
     /// # Errors
     ///
     /// Returns an error if the texture dimensions are zero.
@@ -301,13 +281,12 @@ impl GpuRenderer {
             return Err("texture dimensions must be positive".to_string());
         }
 
-        // Convert ARGB → RGBA
         let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
         for &argb in &texture.pixels {
-            rgba.push(((argb >> 16) & 0xFF) as u8); // R
-            rgba.push(((argb >> 8) & 0xFF) as u8); // G
-            rgba.push((argb & 0xFF) as u8); // B
-            rgba.push(((argb >> 24) & 0xFF) as u8); // A
+            rgba.push(((argb >> 16) & 0xFF) as u8);
+            rgba.push(((argb >> 8) & 0xFF) as u8);
+            rgba.push((argb & 0xFF) as u8);
+            rgba.push(((argb >> 24) & 0xFF) as u8);
         }
 
         let device = self.gpu.device();
@@ -377,29 +356,34 @@ impl GpuRenderer {
         let Material {
             shading,
             color,
-            receive_light,
+            receive_light: _,
         } = material;
-        let (color, lit, shininess, specular_strength, texture) = match shading {
-            ShadingMode::Flat { color } => (color, false, 1.0, 0.0, None),
+        let (color, shininess, spec, metallic, roughness, texture) = match shading {
+            ShadingMode::Flat { color } => (color, 1.0, 0.0, 0.0, 1.0, None),
             ShadingMode::Phong {
                 shininess,
                 specular_strength,
-            } => (color, receive_light, shininess, specular_strength, None),
-            ShadingMode::Textured { texture } => (color, false, 1.0, 0.0, Some(texture.index())),
+            } => (color, shininess, specular_strength, 0.0, 0.5, None),
+            ShadingMode::Textured { texture } => {
+                (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
+            }
             ShadingMode::TexturedGouraud { texture } => {
-                (color, receive_light, 32.0, 0.3, Some(texture.index()))
+                (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
             }
             ShadingMode::Pbr {
-                albedo, roughness, ..
-            } => (color, receive_light, 32.0, 0.5, Some(albedo.index())),
-            _ => (color, receive_light, 32.0, 0.3, None),
+                albedo,
+                roughness,
+                metallic,
+            } => (color, 32.0, 0.5, metallic, roughness, Some(albedo.index())),
+            _ => (color, 32.0, 0.3, 0.0, 0.5, None),
         };
         let index = self.materials.len() as u32;
         self.materials.push(Some(GpuMaterial {
             color,
-            lit,
             shininess,
-            specular_strength,
+            specular_strength: spec,
+            metallic,
+            roughness,
             texture,
         }));
         MaterialHandle::from_raw_parts(index, 0)
@@ -419,12 +403,17 @@ impl GpuRenderer {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Rendering
+    // -----------------------------------------------------------------------
+
     /// Render a frame into an offscreen capture target and read it back.
+    ///
+    /// Pipeline: Shadow → G-Buffer → Deferred Lighting → Tone Map → Readback.
     ///
     /// # Errors
     ///
-    /// Returns an error if the frame references stale mesh/material handles or if
-    /// readback fails.
+    /// Returns an error if the frame references stale handles or readback fails.
     #[allow(clippy::too_many_lines)]
     pub fn capture(
         &mut self,
@@ -432,124 +421,36 @@ impl GpuRenderer {
         target: &mut GpuCaptureTarget,
     ) -> Result<GpuDebugCapture, String> {
         let start = Instant::now();
-        let (prepared_draws, flat_uniform_bytes, draw_uniform_bytes, total_triangles) =
-            self.prepare_draws(frame)?;
-        self.ensure_uniform_capacity(prepared_draws.len());
+        let w = target.config.width;
+        let h = target.config.height;
+        let (prepared_draws, draw_uniform_bytes, total_triangles) = self.prepare_draws(frame)?;
 
-        // Upload flat uniforms
-        if !flat_uniform_bytes.is_empty() {
-            self.gpu
-                .queue()
-                .write_buffer(&self.flat_uniform_buffer, 0, &flat_uniform_bytes);
-        }
+        self.upload_uniforms(frame, &draw_uniform_bytes, prepared_draws.len());
 
-        // Upload lit per-frame + per-draw uniforms
-        let has_lit_draws = prepared_draws
-            .iter()
-            .any(|d| d.lit || d.texture_index.is_some());
-        if has_lit_draws {
-            let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
-            self.gpu.queue().write_buffer(
-                &self.frame_uniform_buffer,
-                0,
-                bytemuck::bytes_of(&frame_uniforms),
-            );
-            self.gpu
-                .queue()
-                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&gpu_lights));
-            if !draw_uniform_bytes.is_empty() {
-                self.gpu
-                    .queue()
-                    .write_buffer(&self.draw_uniform_buffer, 0, &draw_uniform_bytes);
-            }
-        }
-
-        let clear_color = frame
-            .clear_color
-            .map_or(wgpu::Color::BLACK, argb_to_wgpu_color);
         let background = argb_to_rgba_bytes(frame.clear_color.unwrap_or(0xFF00_0000));
 
         let mut encoder =
             self.gpu
                 .device()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("GpuRenderer Capture Encoder"),
+                    label: Some("Deferred Capture Encoder"),
                 });
 
-        // Pass 1: Shadow depth pass (render scene from first directional light)
+        // Pass 1: Shadow depth
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
-        // Pass 2: Main scene → HDR target
-        self.ensure_hdr_target(target.config.width, target.config.height);
-        let hdr = self.hdr_target.as_ref().unwrap();
+        // Pass 2: G-Buffer geometry
+        self.ensure_gbuffer(w, h);
+        self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
 
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GpuRenderer HDR Scene Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &hdr.color_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear_color),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &hdr.depth_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Discard,
-                    }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+        // Pass 3: Deferred lighting → HDR
+        self.ensure_hdr_target(w, h);
+        self.encode_deferred_lighting(&mut encoder);
 
-            for draw in &prepared_draws {
-                let gpu_mesh = self.meshes[draw.mesh_index].as_ref().ok_or_else(|| {
-                    format!("stale mesh handle at command {}", draw.command_index)
-                })?;
+        // Pass 4: Tone mapping → LDR capture target
+        self.encode_tone_map(&mut encoder, &target.color_view);
 
-                if let Some(tex_idx) = draw.texture_index {
-                    // Textured + lit + shadow pipeline (4 bind groups)
-                    pass.set_pipeline(&self.textured_lit_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
-                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
-                    if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
-                        pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
-                    }
-                    pass.set_bind_group(3, &self.shadow_map.sample_bind_group, &[]);
-                } else if draw.lit {
-                    // Lit + shadow pipeline (3 bind groups)
-                    pass.set_pipeline(&self.lit_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
-                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
-                    pass.set_bind_group(2, &self.shadow_map.sample_bind_group, &[]);
-                } else {
-                    // Flat pipeline (1 bind group, no shadows)
-                    pass.set_pipeline(&self.flat_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.flat_uniform_bind_group, &[draw.uniform_offset]);
-                }
-
-                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-                pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
-            }
-        }
-
-        // Pass 3: Tone mapping (HDR → LDR capture target)
-        {
-            let hdr = self.hdr_target.as_ref().unwrap();
-            let tonemap_bg = self
-                .tone_map_pass
-                .create_bind_group(self.gpu.device(), &hdr.color_view);
-            self.tone_map_pass
-                .encode(&mut encoder, &tonemap_bg, &target.color_view);
-        }
-
+        // Readback
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: &target.color_texture,
@@ -562,12 +463,12 @@ impl GpuRenderer {
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(target.config.padded_bytes_per_row),
-                    rows_per_image: Some(target.config.height),
+                    rows_per_image: Some(h),
                 },
             },
             wgpu::Extent3d {
-                width: target.config.width,
-                height: target.config.height,
+                width: w,
+                height: h,
                 depth_or_array_layers: 1,
             },
         );
@@ -587,11 +488,10 @@ impl GpuRenderer {
         let mapped = buffer_slice.get_mapped_range();
         let padded_stride = target.config.padded_bytes_per_row as usize;
         let unpadded_stride = target.config.unpadded_bytes_per_row as usize;
-        let height = target.config.height as usize;
+        let height = h as usize;
         let total_bytes = unpadded_stride * height;
         let mut pixels_rgba = vec![0u8; total_bytes];
         if padded_stride == unpadded_stride {
-            // No row padding — bulk copy the entire buffer at once.
             pixels_rgba.copy_from_slice(&mapped[..total_bytes]);
         } else {
             for row in 0..height {
@@ -620,8 +520,8 @@ impl GpuRenderer {
 
         Ok(GpuDebugCapture {
             stats: FrameStats {
-                width: target.config.width,
-                height: target.config.height,
+                width: w,
+                height: h,
                 batch_count: prepared_draws.len(),
                 total_triangles,
                 render_time: start.elapsed(),
@@ -651,217 +551,97 @@ impl GpuRenderer {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let (prepared_draws, flat_uniform_bytes, draw_uniform_bytes, _) =
-            self.prepare_draws(frame)?;
-        self.ensure_uniform_capacity(prepared_draws.len());
 
-        if !flat_uniform_bytes.is_empty() {
-            self.gpu
-                .queue()
-                .write_buffer(&self.flat_uniform_buffer, 0, &flat_uniform_bytes);
-        }
+        let (w, h) = (surface.width, surface.height);
+        let (prepared_draws, draw_uniform_bytes, _) = self.prepare_draws(frame)?;
+        self.upload_uniforms(frame, &draw_uniform_bytes, prepared_draws.len());
 
-        let has_lit_draws = prepared_draws
-            .iter()
-            .any(|d| d.lit || d.texture_index.is_some());
-        if has_lit_draws {
-            let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
-            self.gpu.queue().write_buffer(
-                &self.frame_uniform_buffer,
-                0,
-                bytemuck::bytes_of(&frame_uniforms),
-            );
-            self.gpu
-                .queue()
-                .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&gpu_lights));
-            if !draw_uniform_bytes.is_empty() {
-                self.gpu
-                    .queue()
-                    .write_buffer(&self.draw_uniform_buffer, 0, &draw_uniform_bytes);
-            }
-        }
-
-        let clear_color = frame
-            .clear_color
-            .map_or(wgpu::Color::BLACK, argb_to_wgpu_color);
         let mut encoder =
             self.gpu
                 .device()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("GpuRenderer Surface Encoder"),
+                    label: Some("Deferred Surface Encoder"),
                 });
 
-        // Pass 1: Shadow depth pass
+        // Pass 1: Shadow depth
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
-        // Pass 2: Main scene → HDR target
-        let (sw, sh) = (surface.width, surface.height);
-        self.ensure_hdr_target(sw, sh);
-        let hdr = self.hdr_target.as_ref().unwrap();
+        // Pass 2: G-Buffer geometry
+        self.ensure_gbuffer(w, h);
+        self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
 
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GpuRenderer HDR Surface Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &hdr.color_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear_color),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &hdr.depth_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Discard,
-                    }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
+        // Pass 3: Deferred lighting → HDR
+        self.ensure_hdr_target(w, h);
+        self.encode_deferred_lighting(&mut encoder);
 
-            for draw in &prepared_draws {
-                let gpu_mesh = self.meshes[draw.mesh_index].as_ref().ok_or_else(|| {
-                    format!("stale mesh handle at command {}", draw.command_index)
-                })?;
-
-                if let Some(tex_idx) = draw.texture_index {
-                    pass.set_pipeline(&self.textured_lit_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
-                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
-                    if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
-                        pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
-                    }
-                    pass.set_bind_group(3, &self.shadow_map.sample_bind_group, &[]);
-                } else if draw.lit {
-                    pass.set_pipeline(&self.lit_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.frame_bind_group, &[]);
-                    pass.set_bind_group(1, &self.draw_bind_group, &[draw.uniform_offset]);
-                    pass.set_bind_group(2, &self.shadow_map.sample_bind_group, &[]);
-                } else {
-                    pass.set_pipeline(&self.flat_pipeline.pipeline);
-                    pass.set_bind_group(0, &self.flat_uniform_bind_group, &[draw.uniform_offset]);
-                }
-
-                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-                pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
-            }
-        }
-
-        // Pass 3: Tone mapping (HDR → LDR surface)
-        {
-            let hdr = self.hdr_target.as_ref().unwrap();
-            let tonemap_bg = self
-                .tone_map_pass
-                .create_bind_group(self.gpu.device(), &hdr.color_view);
-            self.tone_map_pass.encode(&mut encoder, &tonemap_bg, &view);
-        }
+        // Pass 4: Tone mapping → surface
+        self.encode_tone_map(&mut encoder, &view);
 
         self.gpu.queue().submit(Some(encoder.finish()));
         output.present();
         Ok(())
     }
 
-    fn create_flat_uniform_resources(
-        device: &wgpu::Device,
-        pipeline: &MvpPipeline,
-        uniform_stride: u64,
-        slot_count: usize,
-    ) -> (wgpu::Buffer, wgpu::BindGroup) {
-        let initial_contents = vec![0; (uniform_stride * slot_count.max(1) as u64) as usize];
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Flat Uniform Buffer"),
-            contents: &initial_contents,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Flat Uniform Bind Group"),
-            layout: &pipeline.uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: NonZeroU64::new(std::mem::size_of::<MvpUniform>() as u64),
-                }),
-            }],
-        });
+    // -----------------------------------------------------------------------
+    // Internal: uniform management
+    // -----------------------------------------------------------------------
 
-        (uniform_buffer, uniform_bind_group)
+    fn upload_uniforms(&mut self, frame: &Frame, draw_bytes: &[u8], draw_count: usize) {
+        // Frame uniforms + lights
+        let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
+        self.gpu.queue().write_buffer(
+            &self.frame_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&frame_uniforms),
+        );
+        self.gpu
+            .queue()
+            .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&gpu_lights));
+
+        // Per-draw uniforms
+        self.ensure_draw_capacity(draw_count);
+        if !draw_bytes.is_empty() {
+            self.gpu
+                .queue()
+                .write_buffer(&self.draw_uniform_buffer, 0, draw_bytes);
+        }
     }
 
-    fn create_draw_uniform_resources(
-        device: &wgpu::Device,
-        pipeline: &LitPipeline,
-        uniform_stride: u64,
-        slot_count: usize,
-    ) -> (wgpu::Buffer, wgpu::BindGroup) {
-        let initial_contents = vec![0; (uniform_stride * slot_count.max(1) as u64) as usize];
-        let draw_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Lit Draw Uniform Buffer"),
-            contents: &initial_contents,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let draw_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Lit Draw Bind Group"),
-            layout: &pipeline.draw_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &draw_buffer,
-                    offset: 0,
-                    size: NonZeroU64::new(std::mem::size_of::<DrawUniforms>() as u64),
-                }),
-            }],
-        });
-
-        (draw_buffer, draw_bind_group)
-    }
-
-    fn ensure_uniform_capacity(&mut self, draw_count: usize) {
+    fn ensure_draw_capacity(&mut self, draw_count: usize) {
         let required = draw_count.max(1);
-
-        // Flat pipeline uniforms
-        if required > self.flat_uniform_capacity {
-            let new_capacity = required.next_power_of_two();
-            let (buf, bg) = Self::create_flat_uniform_resources(
-                self.gpu.device(),
-                &self.flat_pipeline,
-                self.flat_uniform_stride,
-                new_capacity,
-            );
-            self.flat_uniform_buffer = buf;
-            self.flat_uniform_bind_group = bg;
-            self.flat_uniform_capacity = new_capacity;
+        if required <= self.draw_uniform_capacity {
+            return;
         }
+        let new_capacity = required.next_power_of_two();
+        let contents = vec![0u8; (self.draw_uniform_stride * new_capacity as u64) as usize];
+        let draw_uniform_buffer =
+            self.gpu
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Draw Uniform Buffer"),
+                    contents: &contents,
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+        self.draw_uniform_buffer = draw_uniform_buffer;
+        self.draw_uniform_capacity = new_capacity;
+    }
 
-        // Lit pipeline draw uniforms
-        if required > self.draw_uniform_capacity {
-            let new_capacity = required.next_power_of_two();
-            let (buf, bg) = Self::create_draw_uniform_resources(
-                self.gpu.device(),
-                &self.lit_pipeline,
-                self.draw_uniform_stride,
-                new_capacity,
-            );
-            self.draw_uniform_buffer = buf;
-            self.draw_bind_group = bg;
-            self.draw_uniform_capacity = new_capacity;
+    fn ensure_gbuffer(&mut self, width: u32, height: u32) {
+        let needs = match &self.gbuffer {
+            Some(g) => g.width != width || g.height != height,
+            None => true,
+        };
+        if needs {
+            self.gbuffer = Some(GBuffer::new(self.gpu.device(), width, height));
         }
     }
 
-    /// Ensure the HDR render target matches the given dimensions.
     fn ensure_hdr_target(&mut self, width: u32, height: u32) {
-        let needs_create = match &self.hdr_target {
+        let needs = match &self.hdr_target {
             Some(t) => t.width != width || t.height != height,
             None => true,
         };
-        if needs_create {
+        if needs {
             self.hdr_target = Some(crate::postprocess::HdrTarget::new(
                 self.gpu.device(),
                 width,
@@ -870,13 +650,9 @@ impl GpuRenderer {
         }
     }
 
-    /// Prepare per-frame uniform data (camera + lights) for the lit pipeline.
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
         let view_proj = frame.camera.view * frame.camera.projection;
         let vp_flat: [f32; 16] = bytemuck::cast(view_proj.m);
-
-        // Extract camera position from view matrix inverse
-        // For a look-at view matrix, the camera position is embedded in the last row.
         let inv_view = frame.camera.view.inverse();
         let cam_pos = [inv_view.m[3][0], inv_view.m[3][1], inv_view.m[3][2], 0.0];
 
@@ -923,17 +699,10 @@ impl GpuRenderer {
         (frame_uniforms, gpu_lights)
     }
 
-    fn prepare_draws(
-        &self,
-        frame: &Frame,
-    ) -> Result<(Vec<PreparedDraw>, Vec<u8>, Vec<u8>, u32), String> {
-        let view_proj = frame.camera.view * frame.camera.projection;
-        let flat_uniform_size = std::mem::size_of::<MvpUniform>();
+    fn prepare_draws(&self, frame: &Frame) -> Result<(Vec<PreparedDraw>, Vec<u8>, u32), String> {
         let draw_uniform_size = std::mem::size_of::<DrawUniforms>();
         let mut prepared_draws = Vec::with_capacity(frame.commands.len());
-        let mut flat_uniform_bytes =
-            vec![0u8; (self.flat_uniform_stride * frame.commands.len().max(1) as u64) as usize];
-        let mut draw_uniform_bytes =
+        let mut draw_bytes =
             vec![0u8; (self.draw_uniform_stride * frame.commands.len().max(1) as u64) as usize];
         let mut total_triangles = 0u32;
 
@@ -950,62 +719,44 @@ impl GpuRenderer {
                 .and_then(Option::as_ref)
                 .ok_or_else(|| format!("stale material handle at command {command_index}"))?;
 
-            // Always prepare flat uniforms (needed for flat-shaded draws)
-            let flat_uniform = MvpUniform::new(&(command.transform * view_proj), material.color);
-            let flat_offset = command_index as u64 * self.flat_uniform_stride;
-            let flat_dest = &mut flat_uniform_bytes
-                [flat_offset as usize..flat_offset as usize + flat_uniform_size];
-            flat_dest.copy_from_slice(bytemuck::bytes_of(&flat_uniform));
-
-            // Always prepare draw uniforms (needed for lit draws)
-            let draw_uniform = DrawUniforms::new(
+            let mut draw_uniform = DrawUniforms::new(
                 &command.transform,
                 material.color,
                 material.shininess,
                 material.specular_strength,
             );
-            let draw_offset = command_index as u64 * self.draw_uniform_stride;
-            let draw_dest = &mut draw_uniform_bytes
-                [draw_offset as usize..draw_offset as usize + draw_uniform_size];
-            draw_dest.copy_from_slice(bytemuck::bytes_of(&draw_uniform));
+            draw_uniform.metallic = material.metallic;
+            draw_uniform.roughness = material.roughness;
 
-            let uniform_offset = u32::try_from(flat_offset)
-                .map_err(|_| "uniform buffer offset exceeds u32".to_string())?;
-            let draw_uniform_offset = u32::try_from(draw_offset)
-                .map_err(|_| "draw uniform buffer offset exceeds u32".to_string())?;
-            let uses_lit_pipeline = material.lit || material.texture.is_some();
+            let offset = command_index as u64 * self.draw_uniform_stride;
+            let dest = &mut draw_bytes[offset as usize..offset as usize + draw_uniform_size];
+            dest.copy_from_slice(bytemuck::bytes_of(&draw_uniform));
+
+            let uniform_offset =
+                u32::try_from(offset).map_err(|_| "draw uniform offset exceeds u32".to_string())?;
+
             prepared_draws.push(PreparedDraw {
                 command_index,
                 mesh_index,
-                uniform_offset: if uses_lit_pipeline {
-                    draw_uniform_offset
-                } else {
-                    uniform_offset
-                },
+                uniform_offset,
                 triangle_count: gpu_mesh.triangle_count,
                 color: material.color,
-                lit: material.lit,
                 texture_index: material.texture,
             });
             total_triangles = total_triangles.saturating_add(gpu_mesh.triangle_count);
         }
 
         if frame.commands.is_empty() {
-            flat_uniform_bytes.clear();
-            draw_uniform_bytes.clear();
+            draw_bytes.clear();
         }
 
-        Ok((
-            prepared_draws,
-            flat_uniform_bytes,
-            draw_uniform_bytes,
-            total_triangles,
-        ))
+        Ok((prepared_draws, draw_bytes, total_triangles))
     }
 
-    /// Encode the shadow depth pass into the command encoder.
-    ///
-    /// Renders all meshes from the first directional light's perspective into the shadow map.
+    // -----------------------------------------------------------------------
+    // Internal: pass encoding
+    // -----------------------------------------------------------------------
+
     fn encode_shadow_pass(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -1014,28 +765,25 @@ impl GpuRenderer {
     ) -> Result<(), String> {
         use crate::shadow::ShadowMap;
 
-        // Find the first directional light for shadow casting
         let dir_light = frame.lights.iter().find_map(|l| match l {
             Light::Directional(d) => Some(d),
             _ => None,
         });
 
         let Some(dir_light) = dir_light else {
-            return Ok(()); // No directional light → no shadows
+            return Ok(());
         };
 
-        // Compute light-space VP
         let light_vp = ShadowMap::compute_directional_light_vp(
             abrash_core::math::Vec3::new(
                 dir_light.direction.x,
                 dir_light.direction.y,
                 dir_light.direction.z,
             ),
-            100.0, // scene extent — covers a 200×200 unit area
+            100.0,
         );
         self.shadow_map.light_vp = light_vp;
 
-        // Upload light VP for main-pass shadow sampling (binding 2 in sample_bind_group)
         let light_vp_flat: [f32; 16] = bytemuck::cast(light_vp.m);
         self.gpu.queue().write_buffer(
             &self.shadow_map.light_vp_buffer,
@@ -1043,7 +791,6 @@ impl GpuRenderer {
             bytemuck::cast_slice(&light_vp_flat),
         );
 
-        // Shadow depth pass
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Shadow Depth Pass"),
@@ -1068,7 +815,6 @@ impl GpuRenderer {
                     format!("stale mesh in shadow pass cmd {}", draw.command_index)
                 })?;
 
-                // Upload per-draw shadow uniforms (light_vp + model)
                 let command = &frame.commands[draw.command_index];
                 let model_flat: [f32; 16] = bytemuck::cast(command.transform.m);
                 let shadow_uniform = crate::shadow::ShadowUniforms {
@@ -1090,6 +836,148 @@ impl GpuRenderer {
 
         Ok(())
     }
+
+    fn encode_gbuffer_pass(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        prepared_draws: &[PreparedDraw],
+    ) -> Result<(), String> {
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+
+        // Create bind groups for G-Buffer pass
+        let frame_bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("GBuffer Frame BG"),
+                layout: &self.gbuffer_pipeline.frame_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.frame_uniform_buffer.as_entire_binding(),
+                }],
+            });
+
+        let draw_bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("GBuffer Draw BG"),
+                layout: &self.gbuffer_pipeline.draw_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.draw_uniform_buffer,
+                        offset: 0,
+                        size: NonZeroU64::new(std::mem::size_of::<DrawUniforms>() as u64),
+                    }),
+                }],
+            });
+
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("G-Buffer Pass"),
+                color_attachments: &[
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &gbuffer.position_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &gbuffer.normal_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &gbuffer.albedo_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &gbuffer.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            for draw in prepared_draws {
+                let gpu_mesh = self.meshes[draw.mesh_index]
+                    .as_ref()
+                    .ok_or_else(|| format!("stale mesh at command {}", draw.command_index))?;
+
+                if let Some(tex_idx) = draw.texture_index {
+                    // Textured G-Buffer pipeline
+                    pass.set_pipeline(&self.gbuffer_textured_pipeline.pipeline);
+                    pass.set_bind_group(0, &frame_bg, &[]);
+                    pass.set_bind_group(1, &draw_bg, &[draw.uniform_offset]);
+                    if let Some(Some(gpu_tex)) = self.textures.get(tex_idx as usize) {
+                        pass.set_bind_group(2, &gpu_tex.bind_group, &[]);
+                    }
+                } else {
+                    // Standard G-Buffer pipeline
+                    pass.set_pipeline(&self.gbuffer_pipeline.pipeline);
+                    pass.set_bind_group(0, &frame_bg, &[]);
+                    pass.set_bind_group(1, &draw_bg, &[draw.uniform_offset]);
+                }
+
+                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+                pass.set_index_buffer(gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref().unwrap();
+
+        let gbuffer_bg = self.deferred_pass.create_gbuffer_bind_group(
+            self.gpu.device(),
+            gbuffer,
+            &self.point_sampler,
+        );
+        let frame_bg = self.deferred_pass.create_frame_bind_group(
+            self.gpu.device(),
+            &self.frame_uniform_buffer,
+            &self.light_buffer,
+        );
+
+        self.deferred_pass.encode(
+            encoder,
+            &gbuffer_bg,
+            &frame_bg,
+            &self.shadow_map.sample_bind_group,
+            &hdr.color_view,
+        );
+    }
+
+    fn encode_tone_map(&self, encoder: &mut wgpu::CommandEncoder, output_view: &wgpu::TextureView) {
+        let hdr = self.hdr_target.as_ref().unwrap();
+        let tonemap_bg = self
+            .tone_map_pass
+            .create_bind_group(self.gpu.device(), &hdr.color_view);
+        self.tone_map_pass.encode(encoder, &tonemap_bg, output_view);
+    }
 }
 
 #[cfg(test)]
@@ -1099,7 +987,6 @@ mod tests {
     #[test]
     fn test_argb_to_clear_color() {
         let color = argb_to_wgpu_color(0xFF80_4020);
-
         assert!((color.r - 0.502).abs() < 0.01);
         assert!((color.g - 0.251).abs() < 0.01);
         assert!((color.b - 0.125).abs() < 0.01);
@@ -1109,7 +996,6 @@ mod tests {
     #[test]
     fn test_argb_black() {
         let color = argb_to_wgpu_color(0xFF00_0000);
-
         assert!(color.r.abs() < f64::EPSILON);
         assert!(color.g.abs() < f64::EPSILON);
         assert!(color.b.abs() < f64::EPSILON);
