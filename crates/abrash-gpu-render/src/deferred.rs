@@ -46,9 +46,16 @@ struct ShadowData {
 @group(1) @binding(1) var<uniform> lights: array<LightData, 8>;
 
 // Group 2: Shadow map
+// Group 2: Shadow map
 @group(2) @binding(0) var shadow_depth: texture_depth_2d;
 @group(2) @binding(1) var shadow_sampler: sampler_comparison;
 @group(2) @binding(2) var<uniform> shadow: ShadowData;
+
+// Group 3: IBL (image-based lighting)
+@group(3) @binding(0) var irradiance_map: texture_cube<f32>;
+@group(3) @binding(1) var prefiltered_map: texture_cube<f32>;
+@group(3) @binding(2) var brdf_lut: texture_2d<f32>;
+@group(3) @binding(3) var ibl_sampler: sampler;
 
 struct VsOut {
     @builtin(position) position: vec4<f32>,
@@ -93,11 +100,30 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     let metallic = albedo_sample.a;
 
     let V = normalize(frame.camera_pos.xyz - world_pos);
+    let NdotV = max(dot(N, V), 0.0);
     let shadow_val = compute_shadow(world_pos);
 
-    // Ambient
-    var result = base_color * 0.08;
+    // Fresnel at normal incidence: dielectric = 0.04, metal = base_color
+    let F0 = mix(vec3(0.04), base_color, metallic);
 
+    // ----- IBL ambient -----
+    // Diffuse IBL: irradiance map provides pre-convolved cosine-weighted hemisphere
+    // Minimum ambient ensures geometry is visible even without an environment map
+    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
+    let min_ambient = vec3(0.03);
+    let kD = (1.0 - metallic); // metals have no diffuse
+    let ambient_diffuse = kD * base_color * max(irradiance, min_ambient);
+
+    // Specular IBL: prefiltered env map (roughness → mip) + BRDF LUT (split-sum)
+    let R = reflect(-V, N);
+    let max_mip = 4.0; // PREFILTERED_MIP_LEVELS - 1
+    let prefiltered = textureSampleLevel(prefiltered_map, ibl_sampler, R, roughness * max_mip).rgb;
+    let brdf = textureSample(brdf_lut, ibl_sampler, vec2(NdotV, roughness)).rg;
+    let ambient_specular = prefiltered * (F0 * brdf.x + brdf.y);
+
+    var result = ambient_diffuse + ambient_specular;
+
+    // ----- Direct lighting -----
     for (var i = 0u; i < frame.light_count; i = i + 1u) {
         let light = lights[i];
 
@@ -133,11 +159,12 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 }
 ";
 
-/// Deferred lighting pass: fullscreen triangle reading G-Buffer + lights.
+/// Deferred lighting pass: fullscreen triangle reading G-Buffer + lights + IBL.
 pub struct DeferredLightingPass {
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) gbuffer_bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
+    pub(crate) ibl_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl DeferredLightingPass {
@@ -236,12 +263,61 @@ impl DeferredLightingPass {
                 ],
             });
 
+        // Group 3: IBL textures (irradiance cube, prefiltered cube, BRDF LUT, sampler)
+        let ibl_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Deferred IBL Layout"),
+                entries: &[
+                    // irradiance cubemap
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::Cube,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // prefiltered env cubemap
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::Cube,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // BRDF LUT
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Deferred Lighting Pipeline Layout"),
             bind_group_layouts: &[
                 Some(&gbuffer_bind_group_layout),
                 Some(&frame_bind_group_layout),
                 Some(shadow_sample_layout),
+                Some(&ibl_bind_group_layout),
             ],
             immediate_size: 0,
         });
@@ -279,7 +355,40 @@ impl DeferredLightingPass {
             pipeline,
             gbuffer_bind_group_layout,
             frame_bind_group_layout,
+            ibl_bind_group_layout,
         }
+    }
+
+    /// Create a bind group for IBL textures.
+    #[must_use]
+    pub fn create_ibl_bind_group(
+        &self,
+        device: &wgpu::Device,
+        ibl: &crate::ibl::IblTextures,
+        sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Deferred IBL Bind Group"),
+            layout: &self.ibl_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&ibl.irradiance_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&ibl.prefiltered_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&ibl.brdf_lut_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(sampler),
+                },
+            ],
+        })
     }
 
     /// Create a bind group for reading the G-Buffer textures.
@@ -345,6 +454,7 @@ impl DeferredLightingPass {
         gbuffer_bg: &wgpu::BindGroup,
         frame_bg: &wgpu::BindGroup,
         shadow_bg: &wgpu::BindGroup,
+        ibl_bg: &wgpu::BindGroup,
         output_view: &wgpu::TextureView,
     ) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -368,6 +478,7 @@ impl DeferredLightingPass {
         pass.set_bind_group(0, gbuffer_bg, &[]);
         pass.set_bind_group(1, frame_bg, &[]);
         pass.set_bind_group(2, shadow_bg, &[]);
+        pass.set_bind_group(3, ibl_bg, &[]);
         pass.draw(0..3, 0..1);
     }
 }

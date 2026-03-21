@@ -97,10 +97,12 @@ pub struct GpuRenderer {
     textures: Vec<Option<GpuTexture>>,
     // Shadow mapping
     shadow_map: crate::shadow::ShadowMap,
-    // Environment / skybox
+    // Environment / skybox / IBL
     skybox_pass: crate::environment::SkyboxPass,
     skybox_cubemap: Option<crate::environment::GpuCubemap>,
     skybox_bind_group: Option<wgpu::BindGroup>,
+    ibl_textures: Option<crate::ibl::IblTextures>,
+    ibl_bind_group: Option<wgpu::BindGroup>,
     // Render targets (lazily created/resized)
     gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
@@ -201,6 +203,11 @@ impl GpuRenderer {
         // Skybox
         let skybox_pass = crate::environment::SkyboxPass::new(device, hdr_format);
 
+        // Default IBL (black environment — replaced when set_environment is called)
+        let default_ibl = crate::ibl::IblTextures::default_black(device);
+        let default_ibl_bg =
+            deferred_pass.create_ibl_bind_group(device, &default_ibl, &default_sampler);
+
         Self {
             gpu,
             gbuffer_pipeline,
@@ -219,6 +226,8 @@ impl GpuRenderer {
             skybox_pass,
             skybox_cubemap: None,
             skybox_bind_group: None,
+            ibl_textures: Some(default_ibl),
+            ibl_bind_group: Some(default_ibl_bg),
             gbuffer: None,
             hdr_target: None,
             tone_map_pass,
@@ -430,11 +439,26 @@ impl GpuRenderer {
             self.gpu.queue(),
             &cubemap.faces,
         )?;
-        let bind_group = self
+        let skybox_bg = self
             .skybox_pass
             .create_bind_group(self.gpu.device(), &gpu_cubemap);
+
+        // Run IBL precomputation (irradiance, prefiltered env, BRDF LUT)
+        let ibl = crate::ibl::IblTextures::precompute(
+            self.gpu.device(),
+            self.gpu.queue(),
+            &gpu_cubemap.view,
+        );
+        let ibl_bg = self.deferred_pass.create_ibl_bind_group(
+            self.gpu.device(),
+            &ibl,
+            &self.default_sampler,
+        );
+
         self.skybox_cubemap = Some(gpu_cubemap);
-        self.skybox_bind_group = Some(bind_group);
+        self.skybox_bind_group = Some(skybox_bg);
+        self.ibl_textures = Some(ibl);
+        self.ibl_bind_group = Some(ibl_bg);
         Ok(())
     }
 
@@ -1000,11 +1024,15 @@ impl GpuRenderer {
             &self.light_buffer,
         );
 
+        // IBL bind group (uses precomputed IBL if environment is set)
+        let ibl_bg = self.ibl_bind_group.as_ref().unwrap();
+
         self.deferred_pass.encode(
             encoder,
             &gbuffer_bg,
             &frame_bg,
             &self.shadow_map.sample_bind_group,
+            ibl_bg,
             &hdr.color_view,
         );
     }

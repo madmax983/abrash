@@ -8,6 +8,7 @@ pub mod deferred;
 pub mod device;
 pub mod environment;
 pub mod gbuffer;
+pub mod ibl;
 pub mod mesh_buffer;
 pub mod postprocess;
 pub mod renderer;
