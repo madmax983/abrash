@@ -1737,84 +1737,98 @@ impl TileRenderer {
         let width_i32 = self.width as i32 - 1;
         let height_i32 = self.height as i32 - 1;
 
-        // Phase 1: Project all vertices to screen space (once per vertex)
-        let projected: Vec<ScreenPoint> = vertices
-            .iter()
-            .map(|&(v, w)| project_to_screen_optimized(v, w, hw, hh))
-            .collect();
-
-        // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
-        for &[i0, i1, i2] in indices {
-            let p0_orig = projected[i0];
-            let p1_orig = projected[i1];
-            let p2_orig = projected[i2];
-
-            if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
-            }
-
-            let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
-            sort_by_y(&mut verts, |p| p.y);
-            let [p0, p1, p2] = verts;
-
-            let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            if total_height == 0.0 {
-                continue;
-            }
-
-            // Compute dz/dx
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let uz = p1.z - p0.z;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let vz = p2.z - p0.z;
-            let nx = uy * vz - uz * vy;
-            let nz = ux * vy - uy * vx;
-
-            let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
-            let long_edge_is_left = nz > 0.0;
-
-            // AABB clamped to screen
-            let min_x = p0.x.min(p1.x).min(p2.x).max(0);
-            let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(width_i32);
-            let max_y = p2.y.min(height_i32);
-
-            if min_x > max_x || min_y > max_y {
-                continue;
-            }
-
-            let min_depth = p0.z.min(p1.z).min(p2.z);
-            let max_depth = p0.z.max(p1.z).max(p2.z);
-
-            self.prepared.push(PreparedTriangle {
-                p0: CompactScreenPoint {
-                    x: p0.x,
-                    y: p0.y,
-                    z: p0.z,
-                },
-                p1: CompactScreenPoint {
-                    x: p1.x,
-                    y: p1.y,
-                    z: p1.z,
-                },
-                p2: CompactScreenPoint {
-                    x: p2.x,
-                    y: p2.y,
-                    z: p2.z,
-                },
-                dz_dx,
-                long_edge_is_left,
-                color,
-                aabb_min_x: min_x.clamp(0, 65535) as u16,
-                aabb_min_y: min_y.clamp(0, 65535) as u16,
-                aabb_max_x: max_x.clamp(0, 65535) as u16,
-                aabb_max_y: max_y.clamp(0, 65535) as u16,
-                min_depth,
-                max_depth,
-            });
+        // Bolt Performance Optimization:
+        // By hoisting the `projected` vertex buffer into a thread-local static `RefCell`,
+        // we eliminate a dynamic heap allocation (`Vec::new()` via `.collect()`) per mesh per frame
+        // in the hot rendering path. Reusing the capacity avoids thousands of allocations per second.
+        thread_local! {
+            static PROJECTED_BUFFER: std::cell::RefCell<Vec<ScreenPoint>> = const { std::cell::RefCell::new(Vec::new()) };
         }
+
+        PROJECTED_BUFFER.with(|buf| {
+            let mut projected = buf.borrow_mut();
+            projected.clear();
+
+            // Phase 1: Project all vertices to screen space (once per vertex)
+            projected.extend(
+                vertices
+                    .iter()
+                    .map(|&(v, w)| project_to_screen_optimized(v, w, hw, hh)),
+            );
+
+            // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
+            for &[i0, i1, i2] in indices {
+                let p0_orig = projected[i0];
+                let p1_orig = projected[i1];
+                let p2_orig = projected[i2];
+
+                if is_backface(p0_orig, p1_orig, p2_orig) {
+                    continue;
+                }
+
+                let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
+                sort_by_y(&mut verts, |p| p.y);
+                let [p0, p1, p2] = verts;
+
+                let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+                if total_height == 0.0 {
+                    continue;
+                }
+
+                // Compute dz/dx
+                let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+                let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+                let uz = p1.z - p0.z;
+                let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+                let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+                let vz = p2.z - p0.z;
+                let nx = uy * vz - uz * vy;
+                let nz = ux * vy - uy * vx;
+
+                let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+                let long_edge_is_left = nz > 0.0;
+
+                // AABB clamped to screen
+                let min_x = p0.x.min(p1.x).min(p2.x).max(0);
+                let min_y = p0.y.max(0);
+                let max_x = p0.x.max(p1.x).max(p2.x).min(width_i32);
+                let max_y = p2.y.min(height_i32);
+
+                if min_x > max_x || min_y > max_y {
+                    continue;
+                }
+
+                let min_depth = p0.z.min(p1.z).min(p2.z);
+                let max_depth = p0.z.max(p1.z).max(p2.z);
+
+                self.prepared.push(PreparedTriangle {
+                    p0: CompactScreenPoint {
+                        x: p0.x,
+                        y: p0.y,
+                        z: p0.z,
+                    },
+                    p1: CompactScreenPoint {
+                        x: p1.x,
+                        y: p1.y,
+                        z: p1.z,
+                    },
+                    p2: CompactScreenPoint {
+                        x: p2.x,
+                        y: p2.y,
+                        z: p2.z,
+                    },
+                    dz_dx,
+                    long_edge_is_left,
+                    color,
+                    aabb_min_x: min_x.clamp(0, 65535) as u16,
+                    aabb_min_y: min_y.clamp(0, 65535) as u16,
+                    aabb_max_x: max_x.clamp(0, 65535) as u16,
+                    aabb_max_y: max_y.clamp(0, 65535) as u16,
+                    min_depth,
+                    max_depth,
+                });
+            }
+        });
     }
 
     /// Finish the frame: bin triangles, build Hi-Z, render tiles, and merge to framebuffer.
