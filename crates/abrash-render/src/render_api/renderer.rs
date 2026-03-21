@@ -46,6 +46,42 @@ impl std::error::Error for RenderError {}
 /// 3. Each frame: build a `Frame`, call `render_frame`
 /// 4. Read pixels from `RenderTarget` for display or export
 /// 5. Clean up resources when done
+///
+/// # Examples
+///
+/// ```
+/// use abrash_render::render_api::{RenderTarget, Renderer};
+/// use abrash_render::render_api::cpu_renderer::CpuRenderer;
+/// use abrash_render::render_api::frame::{Frame, FrameCamera};
+/// use abrash_render::render_api::material::Material;
+/// use abrash_core::mesh::Mesh;
+/// use abrash_core::math::{Mat4, Vec3};
+///
+/// // Create our blank canvas and our artist (the renderer)
+/// let mut target = RenderTarget::new(800, 600).unwrap();
+/// let mut renderer = CpuRenderer::new(800, 600);
+///
+/// // Hand the artist a mesh and a color, getting back "claim checks" (handles)
+/// let my_cube = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+/// let my_paint = renderer.create_material(Material::flat(0xFFFF_0000)).unwrap(); // Red
+///
+/// // Tell the artist where to stand
+/// let camera = FrameCamera::new(
+///     Mat4::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0)),
+///     Mat4::perspective(1.57, 800.0 / 600.0, 0.1, 100.0),
+/// );
+///
+/// // Describe the scene
+/// let mut frame = Frame::new(camera);
+/// frame.draw(my_cube, my_paint, Mat4::identity());
+///
+/// // Render!
+/// renderer.render_frame(&frame, &mut target).unwrap();
+///
+/// // Clean up when we're done with the resources
+/// renderer.destroy_mesh(my_cube);
+/// renderer.destroy_material(my_paint);
+/// ```
 pub trait Renderer {
     /// Upload a mesh and return a handle.
     ///
