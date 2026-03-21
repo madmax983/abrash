@@ -127,12 +127,11 @@ impl CpuRenderer {
 
     /// Execute a pre-built [`DrawList`] into the given render target.
     ///
-    /// Clears the target if `draw_list.clear_color` is set, then bins and
-    /// rasterizes every batch through the tile renderer.
+    /// Uses tile-integrated clearing when `draw_list.clear_color` is set,
+    /// eliminating the separate full-frame memset by writing clear color
+    /// per-tile during `end_frame`.
     pub fn execute_draw_list(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
-        if let Some(color) = draw_list.clear_color {
-            target.clear(color);
-        }
+        self.tile_renderer.set_clear_color(draw_list.clear_color);
 
         self.tile_renderer.begin_frame();
         for batch in &draw_list.batches {
