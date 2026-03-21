@@ -267,4 +267,28 @@ mod tests {
 
         assert_eq!(pool.get(h), Some(&"hello world".to_string()));
     }
+
+    #[test]
+    #[should_panic(expected = "free list pointed to occupied slot")]
+    fn test_pool_free_list_occupied_slot_panic() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h1 = pool.insert(42);
+        pool.remove(h1);
+
+        // Tamper with the internal state to simulate a bug in the free list logic
+        pool.entries[h1.index as usize] = PoolEntry::Occupied {
+            value: 99,
+            generation: h1.generation + 1,
+        };
+
+        // This insert should pull from the free list and encounter the illegally occupied slot
+        pool.insert(100);
+    }
+
+    #[test]
+    fn test_pool_default() {
+        let pool: ResourcePool<i32> = ResourcePool::default();
+        assert!(pool.entries.is_empty());
+        assert!(pool.free_list.is_empty());
+    }
 }
