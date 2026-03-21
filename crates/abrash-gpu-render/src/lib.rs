@@ -1194,14 +1194,16 @@ impl GpuOffscreenBench {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
-                        store: wgpu::StoreOp::Store,
+                        // No readback in the benchmark path — skip the writeback.
+                        store: wgpu::StoreOp::Discard,
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+                        // Depth is consumed in-pass; discard saves the writeback.
+                        store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
