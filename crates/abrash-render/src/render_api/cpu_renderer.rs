@@ -83,6 +83,9 @@ impl CpuRenderer {
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
+        // Pre-allocate the batches vector if we know how many commands there are
+        draw_list.batches.reserve(frame.commands.len());
+
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
