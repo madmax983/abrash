@@ -4852,3 +4852,80 @@ mod warden_tests {
         }
     }
 }
+#[cfg(test)]
+mod tile_bins_tests {
+    use super::*;
+
+    #[test]
+    fn test_tile_bins_empty_iter() {
+        let bins = TileBins::new(4);
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(3).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_single_push() {
+        let mut bins = TileBins::new(4);
+        bins.push(1, 42);
+
+        let mut iter = bins.iter(1);
+        assert_eq!(iter.next(), Some(42));
+        assert_eq!(iter.next(), None);
+
+        // Other bins should still be empty
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(2).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_multiple_push_same_bin() {
+        let mut bins = TileBins::new(2);
+        bins.push(0, 10);
+        bins.push(0, 20);
+        bins.push(0, 30);
+
+        let items: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items, vec![10, 20, 30]);
+
+        assert_eq!(bins.iter(1).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_multiple_bins() {
+        let mut bins = TileBins::new(3);
+        bins.push(0, 100);
+        bins.push(1, 200);
+        bins.push(2, 300);
+        bins.push(1, 201);
+        bins.push(0, 101);
+
+        let items_0: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items_0, vec![100, 101]);
+
+        let items_1: Vec<usize> = bins.iter(1).collect();
+        assert_eq!(items_1, vec![200, 201]);
+
+        let items_2: Vec<usize> = bins.iter(2).collect();
+        assert_eq!(items_2, vec![300]);
+    }
+
+    #[test]
+    fn test_tile_bins_clear() {
+        let mut bins = TileBins::new(2);
+        bins.push(0, 1);
+        bins.push(1, 2);
+
+        bins.clear();
+
+        // Should be empty after clear
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(1).next(), None);
+        assert_eq!(bins.tris.len(), 0);
+        assert_eq!(bins.nexts.len(), 0);
+
+        // Pushing again should work correctly from scratch
+        bins.push(0, 10);
+        let items: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items, vec![10]);
+    }
+}
