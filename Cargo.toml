@@ -565,3 +565,8 @@ required-features = ["nova"]
 name = "slitscan_demo"
 path = "examples/slitscan_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "melt_demo"
+path = "examples/melt_demo.rs"
+required-features = ["nova"]
