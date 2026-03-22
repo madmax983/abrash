@@ -1276,55 +1276,10 @@ fn rasterize_scanline_scalar(
 ) {
     let mut z = z_start;
     let len = pixels.len();
-    let mut i = 0;
-
-    // Unroll loop 4x for better pipeline utilization
-    while i + 4 <= len {
-        // SAFETY: Bounds checked by loop condition
-        unsafe {
-            // Pixel 0
-            let d0 = depths.get_unchecked_mut(i);
-            if z < *d0 {
-                *d0 = z;
-                *pixels.get_unchecked_mut(i) = color;
-            }
-            z += dz_dx;
-
-            // Pixel 1
-            let d1 = depths.get_unchecked_mut(i + 1);
-            if z < *d1 {
-                *d1 = z;
-                *pixels.get_unchecked_mut(i + 1) = color;
-            }
-            z += dz_dx;
-
-            // Pixel 2
-            let d2 = depths.get_unchecked_mut(i + 2);
-            if z < *d2 {
-                *d2 = z;
-                *pixels.get_unchecked_mut(i + 2) = color;
-            }
-            z += dz_dx;
-
-            // Pixel 3
-            let d3 = depths.get_unchecked_mut(i + 3);
-            if z < *d3 {
-                *d3 = z;
-                *pixels.get_unchecked_mut(i + 3) = color;
-            }
-            z += dz_dx;
-        }
-        i += 4;
-    }
-
-    // Handle remaining pixels
-    for k in i..len {
-        unsafe {
-            let d = depths.get_unchecked_mut(k);
-            if z < *d {
-                *d = z;
-                *pixels.get_unchecked_mut(k) = color;
-            }
+    for (pixel, depth) in pixels[..len].iter_mut().zip(&mut depths[..len]) {
+        if z < *depth {
+            *depth = z;
+            *pixel = color;
         }
         z += dz_dx;
     }
@@ -1626,7 +1581,7 @@ impl TileRenderer {
     /// get the clear color, non-empty tiles get a full clear + render + merge.
     /// This eliminates the separate `fb.clear()` + `zb.clear()` calls, replacing
     /// a cold-cache 2.46 MB memset with 300 × 8 KB L1-friendly tile writes.
-    pub fn set_clear_color(&mut self, color: Option<u32>) {
+    pub const fn set_clear_color(&mut self, color: Option<u32>) {
         self.clear_color = color;
     }
 
