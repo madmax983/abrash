@@ -822,7 +822,21 @@ impl GpuRenderer {
     }
 
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
-        let view_proj = frame.camera.view * frame.camera.projection;
+        let mut view_proj = frame.camera.view * frame.camera.projection;
+
+        // Apply TAA sub-pixel jitter to the projection matrix.
+        // This shifts the rendered image by a fraction of a pixel each frame,
+        // which the TAA resolve pass then accumulates for anti-aliasing.
+        if self.taa_enabled && self.taa_pass.width > 0 {
+            let (jx, jy) = self.taa_pass.current_jitter();
+            // In row-vector convention, the projection's translation is in row 3.
+            // The jitter offsets NDC x/y, which maps to row 2 (the projection row
+            // that produces clip.x and clip.y). We add the jitter to m[2][0] and m[2][1]
+            // which shifts the clip-space output by the sub-pixel amount.
+            view_proj.m[2][0] += jx;
+            view_proj.m[2][1] += jy;
+        }
+
         let vp_flat: [f32; 16] = bytemuck::cast(view_proj.m);
         let inv_view = frame.camera.view.inverse();
         let cam_pos = [inv_view.m[3][0], inv_view.m[3][1], inv_view.m[3][2], 0.0];
