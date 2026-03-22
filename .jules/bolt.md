@@ -148,3 +148,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate Bounds Checks with iter_mut().enumerate()]**
 **Learning:** In hot pixel loops that write to exactly-sized slices (like `row`), manual indexing (`for x in 0..width { row[x] = ... }`) incurs per-pixel bounds checks. Replacing this with `row.iter_mut().enumerate()` provides the index while allowing the compiler to mathematically prove safety and elide bounds checks.
 **Action:** Always prefer `for (i, p) in row.iter_mut().enumerate()` when you need both the index and mutable access to a 1D slice or sub-slice.
+
+**[Optimize Mesh Preparation with `Cow` and `with_capacity`]**
+**Learning:** `mesh.normals.clone()` inside of `prepare_lit_mesh_data` and `prepare_textured_mesh_data` caused unnecessary heap allocations when `mesh.normals` was already available. Further, mapping via an iterator chain into `.collect::<Vec<_>>()` forced re-allocations along the way, rather than optimally building up the target `Vec`.
+**Action:** Replace `.clone()` with `std::borrow::Cow` to either borrow existing normals or own the generated ones without an unconditional allocation. Replace `.collect::<Vec<_>>()` chains with a manual loop into a `Vec::with_capacity()` to pre-allocate exactly the right size in memory, completely eliminating reallocation overhead and preventing cloning when unnecessary.
