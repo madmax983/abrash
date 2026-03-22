@@ -113,6 +113,11 @@ path = "examples/gpu_mvp_cube.rs"
 required-features = ["gpu-render"]
 
 [[example]]
+name = "gpu_deferred_showcase"
+path = "examples/gpu_deferred_showcase.rs"
+required-features = ["gpu-render"]
+
+[[example]]
 name = "normal_mapping_demo"
 path = "examples/normal_mapping_demo.rs"
 
