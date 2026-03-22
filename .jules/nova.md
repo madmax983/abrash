@@ -152,3 +152,7 @@
 **Concept:** A post-processing effect that simulates an ultra-wide-angle lens by applying barrel distortion to the framebuffer. It pushes pixels away from the center based on distance.
 **Fate:** Implemented
 **Lesson:** Using normalized space based on the shortest dimension of the framebuffer (`min_dim = min(half_w, half_h)`) is crucial to keep the radial distortion perfectly circular, regardless of the window's aspect ratio. Additionally, because the distortion remaps source coordinates non-linearly, cloning the source framebuffer is required to allow safe parallel processing with Rayon without mutable aliasing conflicts.
+## [Slit-Scan Filter]
+**Concept:** A post-processing effect that simulates an analog slit-scan camera by storing a history buffer of framebuffers and creating a time-stretched composite frame based on pixel rows.
+**Fate:** Implemented
+**Lesson:** Using `Vec<Vec<u32>>` as a circular history buffer combined with `rayon::par_chunks_exact_mut` allows for efficient per-row time offset calculations. Pre-calculating variables before the `rayon` closure ensures zero borrowing conflicts.

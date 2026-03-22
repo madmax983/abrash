@@ -556,3 +556,8 @@ required-features = ["nova"]
 name = "vision_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "slitscan_demo"
+path = "examples/slitscan_demo.rs"
+required-features = ["nova"]
