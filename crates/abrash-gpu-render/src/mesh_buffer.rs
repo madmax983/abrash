@@ -17,6 +17,11 @@ pub struct GpuMeshBuffer {
 /// When the mesh has no normals, generates smooth per-vertex normals by averaging
 /// the face normals of all adjacent triangles.
 ///
+/// ⚡ Bolt: Uses `std::borrow::Cow` to avoid an expensive heap allocation
+/// and `.clone()` when the mesh already provides its own normals.
+/// ⚡ Bolt: Uses manual iteration with `Vec::with_capacity` to prevent
+/// intermediate reallocation chains during vertex mapping.
+///
 /// # Errors
 ///
 /// Returns an error if the mesh is empty, contains out-of-bounds indices, or cannot fit
@@ -31,21 +36,19 @@ pub fn prepare_lit_mesh_data(mesh: &Mesh) -> Result<(Vec<LitVertex>, Vec<u32>), 
 
     let normals = if mesh.normals.len() == mesh.vertices.len() {
         // Use provided normals directly
-        mesh.normals.clone()
+        std::borrow::Cow::Borrowed(&mesh.normals[..])
     } else {
         // Generate smooth normals by averaging face normals
-        generate_smooth_normals(&mesh.vertices, &mesh.indices)
+        std::borrow::Cow::Owned(generate_smooth_normals(&mesh.vertices, &mesh.indices))
     };
 
-    let vertices = mesh
-        .vertices
-        .iter()
-        .zip(normals.iter())
-        .map(|(pos, norm)| LitVertex {
+    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+    for (pos, norm) in mesh.vertices.iter().zip(normals.iter()) {
+        vertices.push(LitVertex {
             position: [pos.x, pos.y, pos.z],
             normal: [norm.x, norm.y, norm.z],
-        })
-        .collect::<Vec<_>>();
+        });
+    }
 
     let indices = flatten_indices(mesh)?;
     Ok((vertices, indices))
@@ -93,6 +96,11 @@ fn generate_smooth_normals(
 ///
 /// Generates normals and UVs when missing (normals: smooth averaging, UVs: zero).
 ///
+/// ⚡ Bolt: Uses `std::borrow::Cow` to avoid an expensive heap allocation
+/// and `.clone()` when the mesh already provides its own normals.
+/// ⚡ Bolt: Uses manual iteration with `Vec::with_capacity` to prevent
+/// intermediate reallocation chains during vertex mapping.
+///
 /// # Errors
 ///
 /// Returns an error if the mesh is empty or contains invalid indices.
@@ -105,31 +113,26 @@ pub fn prepare_textured_mesh_data(mesh: &Mesh) -> Result<(Vec<TexturedVertex>, V
     }
 
     let normals = if mesh.normals.len() == mesh.vertices.len() {
-        mesh.normals.clone()
+        std::borrow::Cow::Borrowed(&mesh.normals[..])
     } else {
-        generate_smooth_normals(&mesh.vertices, &mesh.indices)
+        std::borrow::Cow::Owned(generate_smooth_normals(&mesh.vertices, &mesh.indices))
     };
 
     let has_uvs = mesh.uvs.len() == mesh.vertices.len();
 
-    let vertices = mesh
-        .vertices
-        .iter()
-        .enumerate()
-        .zip(normals.iter())
-        .map(|((i, pos), norm)| {
-            let uv = if has_uvs {
-                [mesh.uvs[i].x, mesh.uvs[i].y]
-            } else {
-                [0.0, 0.0]
-            };
-            TexturedVertex {
-                position: [pos.x, pos.y, pos.z],
-                normal: [norm.x, norm.y, norm.z],
-                uv,
-            }
-        })
-        .collect::<Vec<_>>();
+    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+    for (i, (pos, norm)) in mesh.vertices.iter().zip(normals.iter()).enumerate() {
+        let uv = if has_uvs {
+            [mesh.uvs[i].x, mesh.uvs[i].y]
+        } else {
+            [0.0, 0.0]
+        };
+        vertices.push(TexturedVertex {
+            position: [pos.x, pos.y, pos.z],
+            normal: [norm.x, norm.y, norm.z],
+            uv,
+        });
+    }
 
     let indices = flatten_indices(mesh)?;
     Ok((vertices, indices))
@@ -247,7 +250,10 @@ mod tests {
 
         // Generated normals should be unit-length
         for v in &vertices {
-            let len = (v.normal[0].powi(2) + v.normal[1].powi(2) + v.normal[2].powi(2)).sqrt();
+            let len = v.normal[2].mul_add(
+                v.normal[2],
+                v.normal[0].mul_add(v.normal[0], v.normal[1].powi(2)),
+            ).sqrt();
             assert!(
                 (len - 1.0).abs() < 0.01,
                 "normal should be unit-length, got {len}"
