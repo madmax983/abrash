@@ -6,7 +6,7 @@
 #[cfg(feature = "ray-tracing")]
 pub mod accel_structure;
 pub mod capture;
-
+pub mod composition;
 pub mod deferred;
 pub mod device;
 pub mod environment;
@@ -24,6 +24,7 @@ pub mod shadow;
 #[cfg(feature = "windowed")]
 pub mod surface;
 pub mod svgf;
+pub mod taa;
 pub mod temporal;
 
 use bytemuck::{Pod, Zeroable};
