@@ -10,12 +10,12 @@ pub const SHADOW_MAP_SIZE: u32 = 2048;
 
 /// Shadow map depth texture + depth-only pipeline + light-space matrix.
 pub struct ShadowMap {
-    pub(crate) depth_texture: wgpu::Texture,
+    pub(crate) _depth_texture: wgpu::Texture,
     pub(crate) depth_view: wgpu::TextureView,
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) uniform_buffer: wgpu::Buffer,
     pub(crate) uniform_bind_group: wgpu::BindGroup,
-    pub(crate) bind_group_layout: wgpu::BindGroupLayout,
+    pub(crate) _bind_group_layout: wgpu::BindGroupLayout,
     /// Bind group for sampling the shadow map in the main pass.
     pub(crate) sample_bind_group: wgpu::BindGroup,
     pub(crate) sample_bind_group_layout: wgpu::BindGroupLayout,
@@ -222,12 +222,12 @@ impl ShadowMap {
         });
 
         Self {
-            depth_texture,
+            _depth_texture: depth_texture,
             depth_view,
             pipeline,
             uniform_buffer,
             uniform_bind_group,
-            bind_group_layout,
+            _bind_group_layout: bind_group_layout,
             sample_bind_group,
             sample_bind_group_layout,
             light_vp_buffer,

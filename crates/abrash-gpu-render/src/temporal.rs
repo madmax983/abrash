@@ -110,6 +110,7 @@ pub struct TemporalParams {
 }
 
 /// Temporal accumulation pass for SVGF denoising.
+#[allow(dead_code)] // Fields used when temporal accumulation is wired into renderer
 pub struct TemporalAccumulationPass {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,

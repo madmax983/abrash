@@ -117,6 +117,7 @@ pub struct CompositionParams {
 }
 
 /// Final composition pass with debug visualization support.
+#[allow(dead_code)] // Fields used when composition is wired into renderer
 pub struct CompositionPass {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,

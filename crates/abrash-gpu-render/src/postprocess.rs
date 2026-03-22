@@ -4,8 +4,6 @@
 //! texture, then applies fullscreen passes (tone mapping, gamma correction) to produce
 //! the final LDR image.
 
-use std::num::NonZeroU64;
-
 /// Reinhard tone mapping + gamma correction WGSL shader.
 ///
 /// Uses a fullscreen triangle generated from `vertex_index` — no vertex buffer needed.
@@ -47,10 +45,10 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
 /// An HDR render target that the scene renders into before post-processing.
 pub struct HdrTarget {
-    pub(crate) texture: wgpu::Texture,
+    pub(crate) _texture: wgpu::Texture,
     pub(crate) color_view: wgpu::TextureView,
-    pub(crate) depth_texture: wgpu::Texture,
-    pub(crate) depth_view: wgpu::TextureView,
+    pub(crate) _depth_texture: wgpu::Texture,
+    pub(crate) _depth_view: wgpu::TextureView,
     pub(crate) width: u32,
     pub(crate) height: u32,
 }
@@ -92,10 +90,10 @@ impl HdrTarget {
         let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         Self {
-            texture,
+            _texture: texture,
             color_view,
-            depth_texture,
-            depth_view,
+            _depth_texture: depth_texture,
+            _depth_view: depth_view,
             width,
             height,
         }

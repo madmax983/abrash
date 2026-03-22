@@ -23,10 +23,10 @@ pub fn halton_jitter(frame_index: u32, width: u32, height: u32) -> (f32, f32) {
 }
 
 /// Halton sequence value for index `i` with the given `base`.
-fn halton(mut index: u32, base: u32) -> f32 {
+fn halton(index: u32, base: u32) -> f32 {
     let mut result = 0.0;
     let mut f = 1.0 / base as f32;
-    let mut i = index;
+    let mut i: u32 = index;
     while i > 0 {
         result += f * (i % base) as f32;
         i /= base;
@@ -124,6 +124,7 @@ pub struct TaaParams {
 }
 
 /// Temporal Anti-Aliasing pass.
+#[allow(dead_code)] // Fields used when TAA is wired into renderer
 pub struct TaaPass {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,

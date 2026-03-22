@@ -121,6 +121,7 @@ pub struct AtrousParams {
 }
 
 /// SVGF spatial filter: multi-iteration À-Trous wavelet transform.
+#[allow(dead_code)] // Fields used when SVGF is wired into renderer
 pub struct SvgfSpatialFilter {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,

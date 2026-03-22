@@ -25,13 +25,13 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 /// G-Buffer render targets.
 pub struct GBuffer {
-    pub(crate) position_texture: wgpu::Texture,
+    pub(crate) _position_texture: wgpu::Texture,
     pub(crate) position_view: wgpu::TextureView,
-    pub(crate) normal_texture: wgpu::Texture,
+    pub(crate) _normal_texture: wgpu::Texture,
     pub(crate) normal_view: wgpu::TextureView,
-    pub(crate) albedo_texture: wgpu::Texture,
+    pub(crate) _albedo_texture: wgpu::Texture,
     pub(crate) albedo_view: wgpu::TextureView,
-    pub(crate) depth_texture: wgpu::Texture,
+    pub(crate) _depth_texture: wgpu::Texture,
     pub(crate) depth_view: wgpu::TextureView,
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -76,13 +76,13 @@ impl GBuffer {
         let (depth_texture, depth_view) = make_texture("GBuffer Depth", DEPTH_FORMAT, depth_usage);
 
         Self {
-            position_texture,
+            _position_texture: position_texture,
             position_view,
-            normal_texture,
+            _normal_texture: normal_texture,
             normal_view,
-            albedo_texture,
+            _albedo_texture: albedo_texture,
             albedo_view,
-            depth_texture,
+            _depth_texture: depth_texture,
             depth_view,
             width,
             height,

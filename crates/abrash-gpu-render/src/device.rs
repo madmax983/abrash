@@ -72,6 +72,7 @@ impl GpuDevice {
         .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
 
         // Request RT features when ray-tracing feature is enabled and hardware supports it
+        #[allow(unused_mut)]
         let mut features = wgpu::Features::empty();
         #[cfg(feature = "ray-tracing")]
         {
