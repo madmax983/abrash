@@ -71,9 +71,19 @@ impl GpuDevice {
         }))
         .map_err(|e| format!("No suitable GPU adapter found: {e:?}"))?;
 
+        // Request RT features when ray-tracing feature is enabled and hardware supports it
+        let mut features = wgpu::Features::empty();
+        #[cfg(feature = "ray-tracing")]
+        {
+            let rt_feature = wgpu::Features::EXPERIMENTAL_RAY_QUERY;
+            if adapter.features().contains(rt_feature) {
+                features |= rt_feature;
+            }
+        }
+
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("Abrash GpuDevice"),
-            required_features: wgpu::Features::empty(),
+            required_features: features,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             #[allow(clippy::default_trait_access)]

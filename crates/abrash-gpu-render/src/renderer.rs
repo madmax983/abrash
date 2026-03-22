@@ -107,6 +107,13 @@ pub struct GpuRenderer {
     gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
     tone_map_pass: crate::postprocess::ToneMapPass,
+    // RT (feature-gated)
+    #[cfg(feature = "ray-tracing")]
+    rt_shadow_pass: crate::raytracing::RtShadowPass,
+    #[cfg(feature = "ray-tracing")]
+    rt_enabled: bool,
+    #[cfg(feature = "ray-tracing")]
+    mesh_blas: Vec<Option<crate::accel_structure::MeshBlas>>,
     // Resources
     meshes: Vec<Option<GpuMeshBuffer>>,
     materials: Vec<Option<GpuMaterial>>,
@@ -208,6 +215,14 @@ impl GpuRenderer {
         let default_ibl_bg =
             deferred_pass.create_ibl_bind_group(device, &default_ibl, &default_sampler);
 
+        // RT (feature-gated)
+        #[cfg(feature = "ray-tracing")]
+        let rt_shadow_pass = crate::raytracing::RtShadowPass::new(device);
+        #[cfg(feature = "ray-tracing")]
+        let rt_enabled = device
+            .features()
+            .contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY);
+
         Self {
             gpu,
             gbuffer_pipeline,
@@ -231,6 +246,12 @@ impl GpuRenderer {
             gbuffer: None,
             hdr_target: None,
             tone_map_pass,
+            #[cfg(feature = "ray-tracing")]
+            rt_shadow_pass,
+            #[cfg(feature = "ray-tracing")]
+            rt_enabled,
+            #[cfg(feature = "ray-tracing")]
+            mesh_blas: Vec::new(),
             meshes: Vec::new(),
             materials: Vec::new(),
         }
@@ -271,6 +292,28 @@ impl GpuRenderer {
     /// Returns an error if the mesh data is invalid.
     pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, String> {
         let gpu_mesh = GpuMeshBuffer::from_mesh(self.gpu.device(), mesh)?;
+
+        // Build BLAS for ray tracing (if RT hardware available)
+        #[cfg(feature = "ray-tracing")]
+        {
+            if self.rt_enabled {
+                let blas = crate::accel_structure::MeshBlas::build(
+                    self.gpu.device(),
+                    self.gpu.queue(),
+                    &gpu_mesh.vertex_buffer,
+                    mesh.vertices.len() as u32,
+                    std::mem::size_of::<crate::shader::LitVertex>() as u64,
+                    &gpu_mesh.index_buffer,
+                    (mesh.indices.len() * 3) as u32,
+                );
+                // Keep mesh_blas in sync with meshes
+                while self.mesh_blas.len() < self.meshes.len() {
+                    self.mesh_blas.push(None);
+                }
+                self.mesh_blas.push(Some(blas));
+            }
+        }
+
         let index = u32::try_from(self.meshes.len())
             .map_err(|_| "mesh pool index exceeds u32".to_string())?;
         self.meshes.push(Some(gpu_mesh));
@@ -495,12 +538,16 @@ impl GpuRenderer {
                     label: Some("Deferred Capture Encoder"),
                 });
 
-        // Pass 1: Shadow depth
+        // Pass 1: Shadow depth (fallback, always runs)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         // Pass 2: G-Buffer geometry
         self.ensure_gbuffer(w, h);
         self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
+
+        // Pass 2.5: RT shadows (replaces shadow map when RT available)
+        #[cfg(feature = "ray-tracing")]
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -625,16 +672,23 @@ impl GpuRenderer {
                     label: Some("Deferred Surface Encoder"),
                 });
 
-        // Pass 1: Shadow depth
+        // Pass 1: Shadow depth (fallback)
         self.encode_shadow_pass(&mut encoder, frame, &prepared_draws)?;
 
         // Pass 2: G-Buffer geometry
         self.ensure_gbuffer(w, h);
         self.encode_gbuffer_pass(&mut encoder, &prepared_draws)?;
 
+        // Pass 2.5: RT shadows (when RT available)
+        #[cfg(feature = "ray-tracing")]
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
         self.encode_deferred_lighting(&mut encoder);
+
+        // Pass 3.5: Skybox
+        self.encode_skybox(&mut encoder, frame);
 
         // Pass 4: Tone mapping → surface
         self.encode_tone_map(&mut encoder, &view);
@@ -1005,6 +1059,70 @@ impl GpuRenderer {
                 pass.draw_indexed(0..gpu_mesh.index_count, 0, 0..1);
             }
         }
+
+        Ok(())
+    }
+
+    /// Build TLAS from current draw commands and encode RT shadow compute pass.
+    #[cfg(feature = "ray-tracing")]
+    fn encode_rt_shadow_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &Frame,
+        prepared_draws: &[PreparedDraw],
+    ) -> Result<(), String> {
+        if !self.rt_enabled {
+            return Ok(());
+        }
+
+        // Find directional light for shadow rays
+        let dir_light = frame.lights.iter().find_map(|l| match l {
+            Light::Directional(d) => Some(d),
+            _ => None,
+        });
+
+        let Some(dir_light) = dir_light else {
+            return Ok(());
+        };
+
+        // Build TLAS from all draw instances
+        let mut instances: Vec<(&crate::accel_structure::MeshBlas, &abrash_core::math::Mat4)> =
+            Vec::new();
+
+        for draw in prepared_draws {
+            if let Some(Some(blas)) = self.mesh_blas.get(draw.mesh_index) {
+                instances.push((blas, &frame.commands[draw.command_index].transform));
+            }
+        }
+
+        if instances.is_empty() {
+            return Ok(());
+        }
+
+        let tlas = crate::accel_structure::SceneTlas::build(
+            self.gpu.device(),
+            self.gpu.queue(),
+            &instances,
+        );
+
+        // Ensure RT shadow output texture
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+        self.rt_shadow_pass
+            .ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
+
+        // Encode the RT shadow compute pass
+        self.rt_shadow_pass.encode(
+            self.gpu.device(),
+            self.gpu.queue(),
+            encoder,
+            &gbuffer.position_view,
+            &tlas,
+            [
+                dir_light.direction.x,
+                dir_light.direction.y,
+                dir_light.direction.z,
+            ],
+        );
 
         Ok(())
     }

@@ -226,7 +226,7 @@ impl WindowApp for ShowcaseApp {
         let (mut renderer, surface) = GpuRenderer::new_windowed(ctx.window)?;
 
         // Upload meshes
-        let sphere = renderer.create_mesh(&Mesh::cube(1.0))?; // cube as sphere stand-in
+        let sphere = renderer.create_mesh(&Mesh::sphere(1.0, 24, 48))?;
         let cube = renderer.create_mesh(&Mesh::cube(1.0))?;
 
         // Ground plane (flat cube)

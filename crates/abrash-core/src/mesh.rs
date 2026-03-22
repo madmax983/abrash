@@ -143,6 +143,72 @@ impl Mesh {
         }
     }
 
+    /// Create a UV sphere centered at origin with the given radius.
+    ///
+    /// Generates a sphere with `stacks` horizontal rings and `sectors` vertical slices.
+    /// Includes normals (unit sphere positions) and UV coordinates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// let sphere = Mesh::sphere(1.0, 16, 32);
+    /// assert!(sphere.vertices.len() > 100);
+    /// assert_eq!(sphere.normals.len(), sphere.vertices.len());
+    /// ```
+    #[must_use]
+    pub fn sphere(radius: f32, stacks: u32, sectors: u32) -> Self {
+        use std::f32::consts::PI;
+
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        for i in 0..=stacks {
+            let stack_angle = PI / 2.0 - (i as f32 / stacks as f32) * PI; // π/2 to -π/2
+            let xy = stack_angle.cos();
+            let z = stack_angle.sin();
+
+            for j in 0..=sectors {
+                let sector_angle = (j as f32 / sectors as f32) * 2.0 * PI;
+
+                let x = xy * sector_angle.cos();
+                let y = xy * sector_angle.sin();
+
+                vertices.push(Vec3::new(x * radius, z * radius, y * radius));
+                normals.push(Vec3::new(x, z, y));
+                uvs.push(Vec2::new(
+                    j as f32 / sectors as f32,
+                    i as f32 / stacks as f32,
+                ));
+            }
+        }
+
+        let row = sectors + 1;
+        for i in 0..stacks {
+            for j in 0..sectors {
+                let k1 = i * row + j;
+                let k2 = k1 + row;
+
+                if i != 0 {
+                    indices.push([k1 as usize, k2 as usize, (k1 + 1) as usize]);
+                }
+                if i != stacks - 1 {
+                    indices.push([(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize]);
+                }
+            }
+        }
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+            normals,
+            tangents: Vec::new(),
+        }
+    }
+
     /// Compute face normal for each triangle.
     ///
     /// Returns a vector of normals, one per triangle (in `indices` order).
