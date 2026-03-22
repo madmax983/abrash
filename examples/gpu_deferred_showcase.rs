@@ -13,6 +13,7 @@
 use abrash::platform::{WindowApp, WindowContext, WindowHostConfig, run_windowed};
 use abrash_core::math::{Mat4, Vec3};
 use abrash_core::mesh::Mesh;
+use abrash_gpu_render::composition::DebugMode;
 use abrash_gpu_render::renderer::GpuRenderer;
 use abrash_gpu_render::surface::GpuSurface;
 use abrash_render::render_api::frame::{DirectionalLight, Frame, FrameCamera, Light, PointLight};
@@ -21,6 +22,8 @@ use abrash_render::render_api::material::{Material, ShadingMode};
 use std::error::Error;
 use std::fmt;
 use std::time::Instant;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::keyboard::{Key, NamedKey};
 
 #[derive(Debug)]
 struct DemoError(String);
@@ -55,14 +58,42 @@ struct MaterialSet {
     ground: MaterialHandle,
 }
 
+const DEBUG_MODES: [DebugMode; 8] = [
+    DebugMode::None,
+    DebugMode::GBufferPosition,
+    DebugMode::GBufferNormal,
+    DebugMode::GBufferAlbedo,
+    DebugMode::Roughness,
+    DebugMode::Metallic,
+    DebugMode::Shadows,
+    DebugMode::Depth,
+];
+
+const DEBUG_MODE_NAMES: [&str; 8] = [
+    "Normal Rendering",
+    "G-Buffer: Position",
+    "G-Buffer: Normal",
+    "G-Buffer: Albedo",
+    "G-Buffer: Roughness",
+    "G-Buffer: Metallic",
+    "Shadows",
+    "Depth",
+];
+
 struct ShowcaseApp {
     renderer: Option<GpuRenderer>,
     surface: Option<GpuSurface>,
     sphere_mesh: Option<MeshHandle>,
     cube_mesh: Option<MeshHandle>,
+    cylinder_mesh: Option<MeshHandle>,
+    torus_mesh: Option<MeshHandle>,
     ground_mesh: Option<MeshHandle>,
     materials: Option<MaterialSet>,
-    start: Instant,
+    anim_time: f32,
+    last_frame: Instant,
+    taa_enabled: bool,
+    debug_mode_index: usize,
+    paused: bool,
 }
 
 impl ShowcaseApp {
@@ -72,9 +103,15 @@ impl ShowcaseApp {
             surface: None,
             sphere_mesh: None,
             cube_mesh: None,
+            cylinder_mesh: None,
+            torus_mesh: None,
             ground_mesh: None,
             materials: None,
-            start: Instant::now(),
+            anim_time: 0.0,
+            last_frame: Instant::now(),
+            taa_enabled: false,
+            debug_mode_index: 0,
+            paused: false,
         }
     }
 
@@ -137,14 +174,12 @@ impl ShowcaseApp {
         let mats = self.materials.as_ref().unwrap();
         let sphere = self.sphere_mesh.unwrap();
         let cube = self.cube_mesh.unwrap();
+        let cylinder = self.cylinder_mesh.unwrap();
+        let torus = self.torus_mesh.unwrap();
         let ground = self.ground_mesh.unwrap();
 
-        // --- Ground plane ---
-        frame.draw(
-            ground,
-            mats.ground,
-            Mat4::translation(0.0, -0.5, 0.0) * Mat4::scale(20.0, 0.1, 20.0),
-        );
+        // --- Ground plane (proper plane mesh) ---
+        frame.draw(ground, mats.ground, Mat4::translation(0.0, -0.5, 0.0));
 
         // --- Center pedestal: large chrome sphere ---
         let bob = (elapsed * 0.8).sin() * 0.3;
@@ -163,12 +198,15 @@ impl ShowcaseApp {
             let z = angle.sin() * radius;
             let spin = elapsed * (0.5 + i as f32 * 0.1);
 
-            let (mesh, mat) = match i % 5 {
+            let (mesh, mat) = match i % 8 {
                 0 => (cube, mats.gold),
                 1 => (sphere, mats.red_plastic),
-                2 => (cube, mats.blue_rubber),
-                3 => (sphere, mats.marble),
-                _ => (cube, mats.chrome),
+                2 => (cylinder, mats.blue_rubber),
+                3 => (torus, mats.marble),
+                4 => (sphere, mats.chrome),
+                5 => (cube, mats.red_plastic),
+                6 => (cylinder, mats.gold),
+                _ => (torus, mats.chrome),
             };
 
             let scale = 0.6 + (i as f32 * 0.37 + elapsed * 0.3).sin().abs() * 0.4;
@@ -183,21 +221,22 @@ impl ShowcaseApp {
             );
         }
 
-        // --- Floating cubes (upper ring) ---
-        for i in 0..5 {
-            let angle = (i as f32 / 5.0) * std::f32::consts::TAU + elapsed * 0.4;
+        // --- Floating shapes (upper ring) ---
+        for i in 0..6 {
+            let angle = (i as f32 / 6.0) * std::f32::consts::TAU + elapsed * 0.4;
             let x = angle.cos() * 2.5;
             let z = angle.sin() * 2.5;
             let y = 3.5 + (elapsed * 1.2 + i as f32).sin() * 0.5;
 
-            let mat = match i % 3 {
-                0 => mats.gold,
-                1 => mats.chrome,
-                _ => mats.red_plastic,
+            let (mesh, mat) = match i % 4 {
+                0 => (torus, mats.gold),
+                1 => (sphere, mats.chrome),
+                2 => (cylinder, mats.red_plastic),
+                _ => (cube, mats.marble),
             };
 
             frame.draw(
-                cube,
+                mesh,
                 mat,
                 Mat4::translation(x, y, z)
                     * Mat4::rotation_y(elapsed * 2.0)
@@ -228,9 +267,9 @@ impl WindowApp for ShowcaseApp {
         // Upload meshes
         let sphere = renderer.create_mesh(&Mesh::sphere(1.0, 24, 48))?;
         let cube = renderer.create_mesh(&Mesh::cube(1.0))?;
-
-        // Ground plane (flat cube)
-        let ground = renderer.create_mesh(&Mesh::cube(1.0))?;
+        let cylinder = renderer.create_mesh(&Mesh::cylinder(0.5, 1.5, 24, 1))?;
+        let torus = renderer.create_mesh(&Mesh::torus(0.6, 0.2, 24, 12))?;
+        let ground = renderer.create_mesh(&Mesh::plane(20.0, 4))?;
 
         // Create PBR-style materials
         // Chrome: high specular, high shininess
@@ -297,6 +336,8 @@ impl WindowApp for ShowcaseApp {
         self.surface = Some(surface);
         self.sphere_mesh = Some(sphere);
         self.cube_mesh = Some(cube);
+        self.cylinder_mesh = Some(cylinder);
+        self.torus_mesh = Some(torus);
         self.ground_mesh = Some(ground);
         self.materials = Some(MaterialSet {
             chrome,
@@ -311,7 +352,14 @@ impl WindowApp for ShowcaseApp {
         println!("  ===================================");
         println!("  Pipeline: Shadow > G-Buffer > Deferred Lighting > Tone Map");
         println!("  Lights: 1 directional (shadows) + 3 point (orbiting)");
-        println!("  Objects: 14 objects, 6 materials\n");
+        println!("  Meshes: sphere, cube, cylinder, torus, plane");
+        println!("  Objects: 15 objects, 6 materials");
+        println!();
+        println!("  Controls:");
+        println!("    D     — Cycle debug modes (position/normal/albedo/roughness/metallic/depth)");
+        println!("    T     — Toggle TAA (temporal anti-aliasing)");
+        println!("    Space — Pause/resume animation");
+        println!("    Esc   — Quit\n");
 
         Ok(())
     }
@@ -328,16 +376,65 @@ impl WindowApp for ShowcaseApp {
         Ok(())
     }
 
+    fn input(&mut self, _ctx: WindowContext<'_>, event: &WindowEvent) -> Result<(), Self::Error> {
+        if let WindowEvent::KeyboardInput {
+            event:
+                KeyEvent {
+                    logical_key,
+                    state: ElementState::Pressed,
+                    ..
+                },
+            ..
+        } = event
+        {
+            match logical_key {
+                // D — cycle debug modes
+                Key::Character(c) if c.as_str() == "d" => {
+                    self.debug_mode_index = (self.debug_mode_index + 1) % DEBUG_MODES.len();
+                    let mode = DEBUG_MODES[self.debug_mode_index];
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.set_debug_mode(mode);
+                    }
+                    println!("  Debug: {}", DEBUG_MODE_NAMES[self.debug_mode_index]);
+                }
+                // T — toggle TAA
+                Key::Character(c) if c.as_str() == "t" => {
+                    self.taa_enabled = !self.taa_enabled;
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.set_taa_enabled(self.taa_enabled);
+                    }
+                    println!("  TAA: {}", if self.taa_enabled { "ON" } else { "OFF" });
+                }
+                // Space — pause animation
+                Key::Named(NamedKey::Space) => {
+                    self.paused = !self.paused;
+                    println!(
+                        "  Animation: {}",
+                        if self.paused { "PAUSED" } else { "PLAYING" }
+                    );
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        let elapsed = self.start.elapsed().as_secs_f32();
+        let now = Instant::now();
+        let dt = (now - self.last_frame).as_secs_f32();
+        self.last_frame = now;
+        if !self.paused {
+            self.anim_time += dt;
+        }
+
         let size = ctx.window.inner_size();
         let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
 
-        let frame = self.build_frame(elapsed, aspect);
+        let frame = self.build_frame(self.anim_time, aspect);
 
         let renderer = self.renderer.as_mut().unwrap();
         let surface = self.surface.as_ref().unwrap();

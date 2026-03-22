@@ -1747,7 +1747,10 @@ pub fn fill_quad_textured_gouraud(
     // Trivial Acceptance Check: All inside frustum
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     let all_inside = unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            _CMP_GE_OQ, _CMP_LE_OQ, _mm_and_ps, _mm_cmp_ps, _mm_movemask_ps, _mm_set_ps,
+            _mm_setzero_ps, _mm_sub_ps,
+        };
         let x_vec = _mm_set_ps(v3.0.0.x, v2.0.0.x, v1.0.0.x, v0.0.0.x);
         let y_vec = _mm_set_ps(v3.0.0.y, v2.0.0.y, v1.0.0.y, v0.0.0.y);
         let z_vec = _mm_set_ps(v3.0.0.z, v2.0.0.z, v1.0.0.z, v0.0.0.z);
@@ -2091,7 +2094,10 @@ pub fn fill_quad_textured(
     // -w <= x,y,z <= w
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     let all_inside = unsafe {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            _CMP_GE_OQ, _CMP_LE_OQ, _mm_and_ps, _mm_cmp_ps, _mm_movemask_ps, _mm_set_ps,
+            _mm_setzero_ps, _mm_sub_ps,
+        };
         // Note: _mm_set_ps arguments are reversed: (e3, e2, e1, e0)
         let x_vec = _mm_set_ps(v3.0.0.x, v2.0.0.x, v1.0.0.x, v0.0.0.x);
         let y_vec = _mm_set_ps(v3.0.0.y, v2.0.0.y, v1.0.0.y, v0.0.0.y);

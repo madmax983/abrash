@@ -30,22 +30,20 @@ pub fn prepare_lit_mesh_data(mesh: &Mesh) -> Result<(Vec<LitVertex>, Vec<u32>), 
     }
 
     let normals = if mesh.normals.len() == mesh.vertices.len() {
-        // Use provided normals directly
-        mesh.normals.clone()
+        // Use provided normals directly without allocating a new Vec
+        std::borrow::Cow::Borrowed(&mesh.normals)
     } else {
         // Generate smooth normals by averaging face normals
-        generate_smooth_normals(&mesh.vertices, &mesh.indices)
+        std::borrow::Cow::Owned(generate_smooth_normals(&mesh.vertices, &mesh.indices))
     };
 
-    let vertices = mesh
-        .vertices
-        .iter()
-        .zip(normals.iter())
-        .map(|(pos, norm)| LitVertex {
+    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+    for (pos, norm) in mesh.vertices.iter().zip(normals.iter()) {
+        vertices.push(LitVertex {
             position: [pos.x, pos.y, pos.z],
             normal: [norm.x, norm.y, norm.z],
-        })
-        .collect::<Vec<_>>();
+        });
+    }
 
     let indices = flatten_indices(mesh)?;
     Ok((vertices, indices))
@@ -105,31 +103,26 @@ pub fn prepare_textured_mesh_data(mesh: &Mesh) -> Result<(Vec<TexturedVertex>, V
     }
 
     let normals = if mesh.normals.len() == mesh.vertices.len() {
-        mesh.normals.clone()
+        std::borrow::Cow::Borrowed(&mesh.normals)
     } else {
-        generate_smooth_normals(&mesh.vertices, &mesh.indices)
+        std::borrow::Cow::Owned(generate_smooth_normals(&mesh.vertices, &mesh.indices))
     };
 
     let has_uvs = mesh.uvs.len() == mesh.vertices.len();
+    let fallback_uv = [0.0, 0.0];
 
-    let vertices = mesh
-        .vertices
-        .iter()
-        .enumerate()
-        .zip(normals.iter())
-        .map(|((i, pos), norm)| {
-            let uv = if has_uvs {
+    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+    for (i, (pos, norm)) in mesh.vertices.iter().zip(normals.iter()).enumerate() {
+        vertices.push(TexturedVertex {
+            position: [pos.x, pos.y, pos.z],
+            normal: [norm.x, norm.y, norm.z],
+            uv: if has_uvs {
                 [mesh.uvs[i].x, mesh.uvs[i].y]
             } else {
-                [0.0, 0.0]
-            };
-            TexturedVertex {
-                position: [pos.x, pos.y, pos.z],
-                normal: [norm.x, norm.y, norm.z],
-                uv,
-            }
-        })
-        .collect::<Vec<_>>();
+                fallback_uv
+            },
+        });
+    }
 
     let indices = flatten_indices(mesh)?;
     Ok((vertices, indices))

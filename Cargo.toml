@@ -152,7 +152,6 @@ required-features = ["nova"]
 [[example]]
 name = "god_rays_demo"
 path = "examples/god_rays_demo.rs"
-required-features = ["nova", "backend-tui"]
 
 [[example]]
 name = "voronoi_demo"
@@ -560,4 +559,9 @@ required-features = ["nova"]
 [[bench]]
 name = "vision_bench"
 harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "slitscan_demo"
+path = "examples/slitscan_demo.rs"
 required-features = ["nova"]

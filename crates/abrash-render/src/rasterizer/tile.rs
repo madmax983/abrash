@@ -1626,7 +1626,7 @@ impl TileRenderer {
     /// get the clear color, non-empty tiles get a full clear + render + merge.
     /// This eliminates the separate `fb.clear()` + `zb.clear()` calls, replacing
     /// a cold-cache 2.46 MB memset with 300 × 8 KB L1-friendly tile writes.
-    pub fn set_clear_color(&mut self, color: Option<u32>) {
+    pub const fn set_clear_color(&mut self, color: Option<u32>) {
         self.clear_color = color;
     }
 
@@ -1762,84 +1762,98 @@ impl TileRenderer {
         let width_i32 = self.width as i32 - 1;
         let height_i32 = self.height as i32 - 1;
 
-        // Phase 1: Project all vertices to screen space (once per vertex)
-        let projected: Vec<ScreenPoint> = vertices
-            .iter()
-            .map(|&(v, w)| project_to_screen_optimized(v, w, hw, hh))
-            .collect();
-
-        // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
-        for &[i0, i1, i2] in indices {
-            let p0_orig = projected[i0];
-            let p1_orig = projected[i1];
-            let p2_orig = projected[i2];
-
-            if is_backface(p0_orig, p1_orig, p2_orig) {
-                continue;
-            }
-
-            let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
-            sort_by_y(&mut verts, |p| p.y);
-            let [p0, p1, p2] = verts;
-
-            let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            if total_height == 0.0 {
-                continue;
-            }
-
-            // Compute dz/dx
-            let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
-            let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
-            let uz = p1.z - p0.z;
-            let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
-            let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
-            let vz = p2.z - p0.z;
-            let nx = uy * vz - uz * vy;
-            let nz = ux * vy - uy * vx;
-
-            let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
-            let long_edge_is_left = nz > 0.0;
-
-            // AABB clamped to screen
-            let min_x = p0.x.min(p1.x).min(p2.x).max(0);
-            let min_y = p0.y.max(0);
-            let max_x = p0.x.max(p1.x).max(p2.x).min(width_i32);
-            let max_y = p2.y.min(height_i32);
-
-            if min_x > max_x || min_y > max_y {
-                continue;
-            }
-
-            let min_depth = p0.z.min(p1.z).min(p2.z);
-            let max_depth = p0.z.max(p1.z).max(p2.z);
-
-            self.prepared.push(PreparedTriangle {
-                p0: CompactScreenPoint {
-                    x: p0.x,
-                    y: p0.y,
-                    z: p0.z,
-                },
-                p1: CompactScreenPoint {
-                    x: p1.x,
-                    y: p1.y,
-                    z: p1.z,
-                },
-                p2: CompactScreenPoint {
-                    x: p2.x,
-                    y: p2.y,
-                    z: p2.z,
-                },
-                dz_dx,
-                long_edge_is_left,
-                color,
-                aabb_min_x: min_x.clamp(0, 65535) as u16,
-                aabb_min_y: min_y.clamp(0, 65535) as u16,
-                aabb_max_x: max_x.clamp(0, 65535) as u16,
-                aabb_max_y: max_y.clamp(0, 65535) as u16,
-                min_depth,
-                max_depth,
-            });
+        // Bolt Performance Optimization:
+        // By hoisting the `projected` vertex buffer into a thread-local static `RefCell`,
+        // we eliminate a dynamic heap allocation (`Vec::new()` via `.collect()`) per mesh per frame
+        // in the hot rendering path. Reusing the capacity avoids thousands of allocations per second.
+        thread_local! {
+            static PROJECTED_BUFFER: std::cell::RefCell<Vec<ScreenPoint>> = const { std::cell::RefCell::new(Vec::new()) };
         }
+
+        PROJECTED_BUFFER.with(|buf| {
+            let mut projected = buf.borrow_mut();
+            projected.clear();
+
+            // Phase 1: Project all vertices to screen space (once per vertex)
+            projected.extend(
+                vertices
+                    .iter()
+                    .map(|&(v, w)| project_to_screen_optimized(v, w, hw, hh)),
+            );
+
+            // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
+            for &[i0, i1, i2] in indices {
+                let p0_orig = projected[i0];
+                let p1_orig = projected[i1];
+                let p2_orig = projected[i2];
+
+                if is_backface(p0_orig, p1_orig, p2_orig) {
+                    continue;
+                }
+
+                let mut verts = <[_; 3]>::from((p0_orig, p1_orig, p2_orig));
+                sort_by_y(&mut verts, |p| p.y);
+                let [p0, p1, p2] = verts;
+
+                let total_height = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+                if total_height == 0.0 {
+                    continue;
+                }
+
+                // Compute dz/dx
+                let ux = (i64::from(p1.x) - i64::from(p0.x)) as f32;
+                let uy = (i64::from(p1.y) - i64::from(p0.y)) as f32;
+                let uz = p1.z - p0.z;
+                let vx = (i64::from(p2.x) - i64::from(p0.x)) as f32;
+                let vy = (i64::from(p2.y) - i64::from(p0.y)) as f32;
+                let vz = p2.z - p0.z;
+                let nx = uy * vz - uz * vy;
+                let nz = ux * vy - uy * vx;
+
+                let dz_dx = if nz.abs() > 0.0001 { -nx / nz } else { 0.0 };
+                let long_edge_is_left = nz > 0.0;
+
+                // AABB clamped to screen
+                let min_x = p0.x.min(p1.x).min(p2.x).max(0);
+                let min_y = p0.y.max(0);
+                let max_x = p0.x.max(p1.x).max(p2.x).min(width_i32);
+                let max_y = p2.y.min(height_i32);
+
+                if min_x > max_x || min_y > max_y {
+                    continue;
+                }
+
+                let min_depth = p0.z.min(p1.z).min(p2.z);
+                let max_depth = p0.z.max(p1.z).max(p2.z);
+
+                self.prepared.push(PreparedTriangle {
+                    p0: CompactScreenPoint {
+                        x: p0.x,
+                        y: p0.y,
+                        z: p0.z,
+                    },
+                    p1: CompactScreenPoint {
+                        x: p1.x,
+                        y: p1.y,
+                        z: p1.z,
+                    },
+                    p2: CompactScreenPoint {
+                        x: p2.x,
+                        y: p2.y,
+                        z: p2.z,
+                    },
+                    dz_dx,
+                    long_edge_is_left,
+                    color,
+                    aabb_min_x: min_x.clamp(0, 65535) as u16,
+                    aabb_min_y: min_y.clamp(0, 65535) as u16,
+                    aabb_max_x: max_x.clamp(0, 65535) as u16,
+                    aabb_max_y: max_y.clamp(0, 65535) as u16,
+                    min_depth,
+                    max_depth,
+                });
+            }
+        });
     }
 
     /// Finish the frame: bin triangles, build Hi-Z, render tiles, and merge to framebuffer.
@@ -4746,5 +4760,82 @@ mod warden_tests {
         unsafe {
             ptr.write(15, 0xFFFFFFFF);
         }
+    }
+}
+#[cfg(test)]
+mod tile_bins_tests {
+    use super::*;
+
+    #[test]
+    fn test_tile_bins_empty_iter() {
+        let bins = TileBins::new(4);
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(3).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_single_push() {
+        let mut bins = TileBins::new(4);
+        bins.push(1, 42);
+
+        let mut iter = bins.iter(1);
+        assert_eq!(iter.next(), Some(42));
+        assert_eq!(iter.next(), None);
+
+        // Other bins should still be empty
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(2).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_multiple_push_same_bin() {
+        let mut bins = TileBins::new(2);
+        bins.push(0, 10);
+        bins.push(0, 20);
+        bins.push(0, 30);
+
+        let items: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items, vec![10, 20, 30]);
+
+        assert_eq!(bins.iter(1).next(), None);
+    }
+
+    #[test]
+    fn test_tile_bins_multiple_bins() {
+        let mut bins = TileBins::new(3);
+        bins.push(0, 100);
+        bins.push(1, 200);
+        bins.push(2, 300);
+        bins.push(1, 201);
+        bins.push(0, 101);
+
+        let items_0: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items_0, vec![100, 101]);
+
+        let items_1: Vec<usize> = bins.iter(1).collect();
+        assert_eq!(items_1, vec![200, 201]);
+
+        let items_2: Vec<usize> = bins.iter(2).collect();
+        assert_eq!(items_2, vec![300]);
+    }
+
+    #[test]
+    fn test_tile_bins_clear() {
+        let mut bins = TileBins::new(2);
+        bins.push(0, 1);
+        bins.push(1, 2);
+
+        bins.clear();
+
+        // Should be empty after clear
+        assert_eq!(bins.iter(0).next(), None);
+        assert_eq!(bins.iter(1).next(), None);
+        assert_eq!(bins.tris.len(), 0);
+        assert_eq!(bins.nexts.len(), 0);
+
+        // Pushing again should work correctly from scratch
+        bins.push(0, 10);
+        let items: Vec<usize> = bins.iter(0).collect();
+        assert_eq!(items, vec![10]);
     }
 }

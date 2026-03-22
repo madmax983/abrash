@@ -58,6 +58,7 @@ pub mod radial_blur;
 pub mod raytracer;
 pub mod sdf;
 pub mod sharpen;
+pub mod slitscan;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;

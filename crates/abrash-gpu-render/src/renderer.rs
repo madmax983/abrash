@@ -103,6 +103,13 @@ pub struct GpuRenderer {
     skybox_bind_group: Option<wgpu::BindGroup>,
     ibl_textures: Option<crate::ibl::IblTextures>,
     ibl_bind_group: Option<wgpu::BindGroup>,
+    // TAA + composition
+    taa_pass: crate::taa::TaaPass,
+    composition_pass: crate::composition::CompositionPass,
+    /// Previous frame's view-projection matrix (for TAA reprojection).
+    prev_view_proj: [f32; 16],
+    /// TAA enabled flag (toggled via `set_taa_enabled`).
+    taa_enabled: bool,
     // Render targets (lazily created/resized)
     gbuffer: Option<GBuffer>,
     hdr_target: Option<crate::postprocess::HdrTarget>,
@@ -207,6 +214,10 @@ impl GpuRenderer {
         // Tone mapping (HDR → LDR)
         let tone_map_pass = crate::postprocess::ToneMapPass::new(device, color_format);
 
+        // TAA + composition
+        let taa_pass = crate::taa::TaaPass::new(device);
+        let composition_pass = crate::composition::CompositionPass::new(device);
+
         // Skybox
         let skybox_pass = crate::environment::SkyboxPass::new(device, hdr_format);
 
@@ -243,6 +254,10 @@ impl GpuRenderer {
             skybox_bind_group: None,
             ibl_textures: Some(default_ibl),
             ibl_bind_group: Some(default_ibl_bg),
+            taa_pass,
+            composition_pass,
+            prev_view_proj: [0.0; 16],
+            taa_enabled: false,
             gbuffer: None,
             hdr_target: None,
             tone_map_pass,
@@ -505,6 +520,23 @@ impl GpuRenderer {
         Ok(())
     }
 
+    /// Enable or disable temporal anti-aliasing.
+    ///
+    /// When enabled, the projection matrix is jittered per-frame and the result
+    /// is temporally resolved via neighborhood-clamped history blending.
+    pub fn set_taa_enabled(&mut self, enabled: bool) {
+        self.taa_enabled = enabled;
+    }
+
+    /// Set the debug visualization mode.
+    ///
+    /// When set to anything other than `DebugMode::None`, the composition pass
+    /// replaces the final output with a visualization of the selected G-Buffer
+    /// channel or intermediate render target.
+    pub fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
+        self.composition_pass.set_debug_mode(mode);
+    }
+
     // -----------------------------------------------------------------------
     // Rendering
     // -----------------------------------------------------------------------
@@ -556,8 +588,18 @@ impl GpuRenderer {
         // Pass 3.5: Skybox (fills background pixels in HDR target)
         self.encode_skybox(&mut encoder, frame);
 
-        // Pass 4: Tone mapping → LDR capture target
-        self.encode_tone_map(&mut encoder, &target.color_view);
+        // Pass 4: TAA (if enabled)
+        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
+
+        // Pass 5: Composition (debug visualization)
+        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+
+        // Pass 6: Tone mapping → LDR capture target
+        self.encode_tone_map_final(&mut encoder, &target.color_view);
+
+        // Store current VP for next frame's TAA reprojection
+        let vp = frame.camera.view * frame.camera.projection;
+        self.prev_view_proj = bytemuck::cast(vp.m);
 
         // Readback
         encoder.copy_texture_to_buffer(
@@ -690,10 +732,23 @@ impl GpuRenderer {
         // Pass 3.5: Skybox
         self.encode_skybox(&mut encoder, frame);
 
-        // Pass 4: Tone mapping → surface
-        self.encode_tone_map(&mut encoder, &view);
+        // Pass 4: TAA (if enabled)
+        let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
+
+        // Pass 5: Composition (debug visualization)
+        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+
+        // Pass 6: Tone mapping → surface
+        self.encode_tone_map_final(&mut encoder, &view);
+
+        // Store current VP for next frame's TAA reprojection
+        let vp = frame.camera.view * frame.camera.projection;
+        self.prev_view_proj = bytemuck::cast(vp.m);
 
         self.gpu.queue().submit(Some(encoder.finish()));
+        if self.taa_enabled {
+            self.taa_pass.advance_frame();
+        }
         output.present();
         Ok(())
     }
@@ -767,7 +822,21 @@ impl GpuRenderer {
     }
 
     fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
-        let view_proj = frame.camera.view * frame.camera.projection;
+        let mut view_proj = frame.camera.view * frame.camera.projection;
+
+        // Apply TAA sub-pixel jitter to the projection matrix.
+        // This shifts the rendered image by a fraction of a pixel each frame,
+        // which the TAA resolve pass then accumulates for anti-aliasing.
+        if self.taa_enabled && self.taa_pass.width > 0 {
+            let (jx, jy) = self.taa_pass.current_jitter();
+            // In row-vector convention, the projection's translation is in row 3.
+            // The jitter offsets NDC x/y, which maps to row 2 (the projection row
+            // that produces clip.x and clip.y). We add the jitter to m[2][0] and m[2][1]
+            // which shifts the clip-space output by the sub-pixel amount.
+            view_proj.m[2][0] += jx;
+            view_proj.m[2][1] += jy;
+        }
+
         let vp_flat: [f32; 16] = bytemuck::cast(view_proj.m);
         let inv_view = frame.camera.view.inverse();
         let cam_pos = [inv_view.m[3][0], inv_view.m[3][1], inv_view.m[3][2], 0.0];
@@ -1178,11 +1247,214 @@ impl GpuRenderer {
             .encode(encoder, bind_group, &hdr.color_view);
     }
 
-    fn encode_tone_map(&self, encoder: &mut wgpu::CommandEncoder, output_view: &wgpu::TextureView) {
+    /// Encode TAA resolve pass. Returns the texture view to use for tone mapping.
+    ///
+    /// When TAA is disabled, returns the HDR target's color view directly.
+    /// When TAA is enabled, jitters the projection, resolves against history,
+    /// and returns the TAA output view.
+    fn encode_taa_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        _frame: &Frame,
+        w: u32,
+        h: u32,
+    ) -> wgpu::TextureView {
+        if !self.taa_enabled {
+            // No TAA — return a view of the HDR target
+            let hdr = self.hdr_target.as_ref().unwrap();
+            return hdr
+                ._texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+        }
+
+        self.taa_pass.ensure_textures(self.gpu.device(), w, h);
+
+        // Upload TAA params
+        let (jx, jy) = self.taa_pass.current_jitter();
+        let params = crate::taa::TaaParams {
+            prev_view_proj: self.prev_view_proj,
+            jitter: [jx, jy],
+            feedback: 0.9,
+            _pad: 0.0,
+        };
+        self.gpu
+            .queue()
+            .write_buffer(&self.taa_pass.params_buffer, 0, bytemuck::bytes_of(&params));
+
         let hdr = self.hdr_target.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+
+        let bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("TAA BG"),
+                layout: &self.taa_pass.bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&hdr.color_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(
+                            self.taa_pass.history_view.as_ref().unwrap(),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer.position_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: self.taa_pass.params_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::TextureView(
+                            self.taa_pass.output_view.as_ref().unwrap(),
+                        ),
+                    },
+                ],
+            });
+
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("TAA Resolve"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.taa_pass.pipeline);
+            pass.set_bind_group(0, &bg, &[]);
+            pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
+        }
+
+        // Return the TAA output for subsequent passes
+        self.taa_pass
+            .output_texture
+            .as_ref()
+            .unwrap()
+            .create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    /// Encode composition pass (debug visualization).
+    ///
+    /// When debug mode is None, this is a no-op (HDR passes through to tone map).
+    /// When set to a debug mode, writes the visualization to the HDR target.
+    fn encode_composition(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        _hdr_view: &wgpu::TextureView,
+        w: u32,
+        h: u32,
+    ) {
+        if matches!(
+            self.composition_pass.debug_mode,
+            crate::composition::DebugMode::None
+        ) {
+            return; // No-op: normal rendering
+        }
+
+        let hdr = self.hdr_target.as_ref().unwrap();
+        let gbuffer = self.gbuffer.as_ref().unwrap();
+
+        // Upload debug mode
+        let params = crate::composition::CompositionParams {
+            debug_mode: self.composition_pass.debug_mode as u32,
+            _pad: [0; 3],
+        };
+        self.gpu.queue().write_buffer(
+            &self.composition_pass.params_buffer,
+            0,
+            bytemuck::bytes_of(&params),
+        );
+
+        // We need a separate output texture since we can't read+write the same texture.
+        // Use the TAA output as scratch (it's the right format and size).
+        self.taa_pass.ensure_textures(self.gpu.device(), w, h);
+        let scratch_view = self
+            .taa_pass
+            .output_texture
+            .as_ref()
+            .unwrap()
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let bg = self
+            .gpu
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Composition BG"),
+                layout: &self.composition_pass.bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&hdr.color_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer.position_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer.normal_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer.albedo_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: self.composition_pass.params_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: wgpu::BindingResource::TextureView(&scratch_view),
+                    },
+                ],
+            });
+
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Composition"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.composition_pass.pipeline);
+            pass.set_bind_group(0, &bg, &[]);
+            pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
+        }
+    }
+
+    /// Tone map from the current HDR result to the final LDR output.
+    fn encode_tone_map_final(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        output_view: &wgpu::TextureView,
+    ) {
+        // If debug mode or TAA produced output into TAA texture, read from there
+        let source_view = if !matches!(
+            self.composition_pass.debug_mode,
+            crate::composition::DebugMode::None
+        ) {
+            // Debug output went to TAA scratch texture
+            self.taa_pass
+                .output_texture
+                .as_ref()
+                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()))
+        } else if self.taa_enabled {
+            // TAA output
+            self.taa_pass
+                .output_texture
+                .as_ref()
+                .map(|t| t.create_view(&wgpu::TextureViewDescriptor::default()))
+        } else {
+            None
+        };
+
+        let hdr = self.hdr_target.as_ref().unwrap();
+        let view = source_view.as_ref().unwrap_or(&hdr.color_view);
+
         let tonemap_bg = self
             .tone_map_pass
-            .create_bind_group(self.gpu.device(), &hdr.color_view);
+            .create_bind_group(self.gpu.device(), view);
         self.tone_map_pass.encode(encoder, &tonemap_bg, output_view);
     }
 }
