@@ -17,10 +17,14 @@ pub mod postprocess;
 #[cfg(feature = "ray-tracing")]
 pub mod raytracing;
 pub mod renderer;
+#[cfg(feature = "ray-tracing")]
+pub mod rt_reflections;
 pub mod shader;
 pub mod shadow;
 #[cfg(feature = "windowed")]
 pub mod surface;
+pub mod svgf;
+pub mod temporal;
 
 use bytemuck::{Pod, Zeroable};
 use std::fmt;
