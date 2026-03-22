@@ -7,7 +7,7 @@ use crate::zbuffer::ZBuffer;
 /// A render target combining pixel buffer, depth buffer, and optional Hi-Z pyramid.
 ///
 /// This is the primary output surface for the renderer. External consumers create
-/// a `RenderTarget` and pass it to [`crate::render_api::Renderer::render_frame`].
+/// a `RenderTarget` and pass it to [`crate::render_api::CpuRenderer::render_frame`].
 ///
 /// # Examples
 ///

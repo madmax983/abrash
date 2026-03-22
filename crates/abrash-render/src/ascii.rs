@@ -26,7 +26,8 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::utils::pixel_luminance;
-use std::fmt::{self, Write};
+use std::fmt::{self, Write as FmtWrite};
+use std::io::Write as IoWrite;
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]
 use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
@@ -125,6 +126,33 @@ impl<'a> AsciiConverter<'a> {
             result.push_str("\x1b[0m\n");
         }
         result
+    }
+
+    /// Exports the framebuffer as plain text ASCII art to a file.
+    ///
+    /// The brightness of each pixel determines the chosen ASCII character.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be created or written to.
+    pub fn export_ascii<P: AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+        let ascii_str = self.to_string();
+        let mut file = std::fs::File::create(path)?;
+        file.write_all(ascii_str.as_bytes())?;
+        Ok(())
+    }
+
+    /// Exports the framebuffer as colored ANSI text to a file.
+    ///
+    /// This uses the same characters as `export_ascii`, but adds ANSI escape codes
+    /// so that it appears in color when printed in a terminal.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be created or written to.
+    pub fn export_ansi<P: AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+        let ansi_str = self.to_colored_string();
+        let mut file = std::fs::File::create(path)?;
+        file.write_all(ansi_str.as_bytes())?;
+        Ok(())
     }
 }
 
@@ -270,5 +298,46 @@ mod tests {
 
         // Should use one of the middle block characters
         assert!(s.contains('▒') || s.contains('▓'), "Got {s}");
+    }
+
+    #[test]
+    fn test_export_ascii_file() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.set_pixel(0, 0, 0xFFFF_FFFF); // White
+        fb.set_pixel(1, 0, 0xFF00_0000); // Black
+        fb.set_pixel(0, 1, 0xFF00_0000); // Black
+        fb.set_pixel(1, 1, 0xFFFF_FFFF); // White
+
+        let path = "test_ascii_export.txt";
+        let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+        converter.export_ascii(path).unwrap();
+
+        let mut file = std::fs::File::open(path).unwrap();
+        let mut contents = String::new();
+        std::io::Read::read_to_string(&mut file, &mut contents).unwrap();
+
+        assert_eq!(contents, "@ \n @\n");
+
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_export_ansi_file() {
+        let mut fb = Framebuffer::new(2, 1).unwrap();
+        fb.set_pixel(0, 0, 0xFFFF_0000); // Red
+        fb.set_pixel(1, 0, 0xFF00_FF00); // Green
+
+        let path = "test_ansi_export.ans";
+        let converter = AsciiConverter::new(&fb, AsciiCharset::Standard);
+        converter.export_ansi(path).unwrap();
+
+        let mut file = std::fs::File::open(path).unwrap();
+        let mut contents = String::new();
+        std::io::Read::read_to_string(&mut file, &mut contents).unwrap();
+
+        assert!(contents.contains("\x1b[38;2;255;0;0m"));
+        assert!(contents.contains("\x1b[38;2;0;255;0m"));
+
+        std::fs::remove_file(path).unwrap();
     }
 }

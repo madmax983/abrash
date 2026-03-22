@@ -8,9 +8,34 @@ use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::Frame;
 use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePool, TextureHandle};
 use crate::render_api::material::Material;
-use crate::render_api::renderer::{RenderError, Renderer};
 use crate::render_api::target::RenderTarget;
 use crate::texture::Texture;
+
+/// Errors from renderer operations.
+#[derive(Debug)]
+pub enum RenderError {
+    /// A handle referenced a resource that no longer exists.
+    StaleHandle(&'static str),
+    /// The mesh data was invalid (e.g., index out of bounds).
+    InvalidMesh(String),
+    /// The texture data was invalid.
+    InvalidTexture(String),
+    /// Internal renderer error.
+    Internal(String),
+}
+
+impl std::fmt::Display for RenderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::StaleHandle(kind) => write!(f, "stale {kind} handle"),
+            Self::InvalidMesh(msg) => write!(f, "invalid mesh: {msg}"),
+            Self::InvalidTexture(msg) => write!(f, "invalid texture: {msg}"),
+            Self::Internal(msg) => write!(f, "renderer error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for RenderError {}
 
 struct CpuMesh {
     mesh: Mesh,
@@ -146,10 +171,13 @@ impl CpuRenderer {
         self.tile_renderer
             .end_frame(&mut target.framebuffer, &mut target.zbuffer);
     }
-}
 
-impl Renderer for CpuRenderer {
-    fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
+    /// Upload a mesh and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
+    pub fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError> {
         // Validate all triangle indices are in bounds
         for (tri_idx, indices) in mesh.indices.iter().enumerate() {
             for &idx in indices {
@@ -168,15 +196,31 @@ impl Renderer for CpuRenderer {
         })))
     }
 
-    fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
+    /// Upload a texture and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
+    pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
 
-    fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
+    /// Register a material and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::Internal`] if the material cannot be registered.
+    pub fn create_material(&mut self, material: Material) -> Result<MaterialHandle, RenderError> {
         Ok(to_material_handle(self.materials.insert(material)))
     }
 
-    fn render_frame(
+    /// Render a frame into the render target.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if any handle in the frame is invalid,
+    /// or [`RenderError::Internal`] for backend-specific failures.
+    pub fn render_frame(
         &mut self,
         frame: &Frame,
         target: &mut RenderTarget,
@@ -186,15 +230,18 @@ impl Renderer for CpuRenderer {
         Ok(())
     }
 
-    fn destroy_mesh(&mut self, handle: MeshHandle) {
+    /// Release a mesh resource.
+    pub fn destroy_mesh(&mut self, handle: MeshHandle) {
         self.meshes.remove(from_mesh_handle(handle));
     }
 
-    fn destroy_texture(&mut self, handle: TextureHandle) {
+    /// Release a texture resource.
+    pub fn destroy_texture(&mut self, handle: TextureHandle) {
         self.textures.remove(from_texture_handle(handle));
     }
 
-    fn destroy_material(&mut self, handle: MaterialHandle) {
+    /// Release a material resource.
+    pub fn destroy_material(&mut self, handle: MaterialHandle) {
         self.materials.remove(from_material_handle(handle));
     }
 }
@@ -204,10 +251,24 @@ mod tests {
     use super::*;
     use crate::math::{Mat4, Vec3};
     use crate::mesh::Mesh;
-    use crate::render_api::Renderer;
     use crate::render_api::frame::{Frame, FrameCamera};
     use crate::render_api::material::Material;
     use crate::render_api::target::RenderTarget;
+
+    #[test]
+    fn test_render_error_display() {
+        assert_eq!(
+            format!("{}", RenderError::StaleHandle("mesh")),
+            "stale mesh handle"
+        );
+        assert_eq!(
+            format!(
+                "{}",
+                RenderError::InvalidMesh("index out of bounds".to_string())
+            ),
+            "invalid mesh: index out of bounds"
+        );
+    }
 
     fn test_camera() -> FrameCamera {
         FrameCamera::new(

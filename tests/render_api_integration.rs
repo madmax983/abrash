@@ -4,7 +4,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
 use abrash::rasterizer::TileRenderer;
-use abrash::render_api::Renderer;
+
 use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;

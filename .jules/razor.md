@@ -62,3 +62,13 @@
 **Bloat:** `HiZOcclusion` and `HiZPyramidWriter` single-use adapter traits in `crates/abrash-gpu/src/d3d12_binning.rs` used to bridge methods from `HiZBuffer` in the `abrash` crate.
 **Cut:** Deleted the traits and the wrapper struct implementations (`HiZOcclusionAdapter`, `HiZPyramidWriterAdapter`) in `src/gpu/mod.rs`. Replaced trait parameters with direct closure parameters (`impl Fn` and `impl FnMut`).
 **Saved:** ~30 lines of boilerplate and removed unnecessary abstractions between crates.
+
+## [Reduction]
+**Bloat:** The `Renderer` trait in `crates/abrash-render/src/render_api/renderer.rs` which was only implemented by `CpuRenderer`.
+**Cut:** Deleted the `Renderer` trait entirely. Replaced its usage with the concrete `CpuRenderer` struct and moved `RenderError` to `cpu_renderer.rs`.
+**Saved:** 50 lines of trait and mock test boilerplate, flattened the core render API abstraction.
+
+## [Reduction]
+**Bloat:** The `AsciiExporter` single-implementation trait in `crates/abrash-render/src/experimental/ascii_export.rs`.
+**Cut:** Removed the trait and `ascii_export.rs` entirely. Moved the implementations of `export_ascii` and `export_ansi` directly to a concrete `impl AsciiConverter` block in `src/ascii.rs`.
+**Saved:** Removed 1 file, eliminated the trait abstraction, and lowered cognitive overhead by attaching the methods directly to the converter struct.

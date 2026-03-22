@@ -30,7 +30,6 @@ pub mod arboretum;
 pub mod autostereogram;
 pub mod boids;
 
-pub mod ascii_export;
 pub mod blueprint;
 pub mod cloth;
 pub mod crepuscular;

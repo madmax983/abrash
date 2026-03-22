@@ -64,7 +64,7 @@ pub struct DrawCommand {
 
 /// A complete frame to be rendered.
 ///
-/// The `Frame` is the unit of work submitted to [`crate::render_api::Renderer::render_frame`].
+/// The `Frame` is the unit of work submitted to [`crate::render_api::CpuRenderer::render_frame`].
 /// It is backend-agnostic — both CPU and GPU renderers consume the same `Frame`.
 pub struct Frame {
     /// Camera for this frame.
