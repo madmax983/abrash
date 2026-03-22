@@ -3,7 +3,10 @@
 //! This crate contains portable GPU rendering primitives and demo runtime
 //! code used by the main abrash package.
 
+#[cfg(feature = "ray-tracing")]
+pub mod accel_structure;
 pub mod capture;
+
 pub mod deferred;
 pub mod device;
 pub mod environment;
@@ -11,6 +14,8 @@ pub mod gbuffer;
 pub mod ibl;
 pub mod mesh_buffer;
 pub mod postprocess;
+#[cfg(feature = "ray-tracing")]
+pub mod raytracing;
 pub mod renderer;
 pub mod shader;
 pub mod shadow;
