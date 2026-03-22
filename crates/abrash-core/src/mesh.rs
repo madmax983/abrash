@@ -209,6 +209,250 @@ impl Mesh {
         }
     }
 
+    /// Create a flat plane centered at origin in the XZ plane.
+    ///
+    /// The plane is subdivided into `subdivisions × subdivisions` quads.
+    /// Normals point up (+Y). Includes UV coordinates [0,1].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// let plane = Mesh::plane(10.0, 4);
+    /// assert_eq!(plane.vertices.len(), 25); // 5×5 grid
+    /// assert_eq!(plane.indices.len(), 32);  // 4×4×2 triangles
+    /// ```
+    #[must_use]
+    pub fn plane(size: f32, subdivisions: u32) -> Self {
+        let half = size / 2.0;
+        let divs = subdivisions.max(1);
+        let step = size / divs as f32;
+
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        for z in 0..=divs {
+            for x in 0..=divs {
+                let px = -half + x as f32 * step;
+                let pz = -half + z as f32 * step;
+                vertices.push(Vec3::new(px, 0.0, pz));
+                normals.push(Vec3::new(0.0, 1.0, 0.0));
+                uvs.push(Vec2::new(x as f32 / divs as f32, z as f32 / divs as f32));
+            }
+        }
+
+        let row = divs + 1;
+        for z in 0..divs {
+            for x in 0..divs {
+                let i0 = (z * row + x) as usize;
+                let i1 = i0 + 1;
+                let i2 = ((z + 1) * row + x) as usize;
+                let i3 = i2 + 1;
+                indices.push([i0, i2, i1]);
+                indices.push([i1, i2, i3]);
+            }
+        }
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+            normals,
+            tangents: Vec::new(),
+        }
+    }
+
+    /// Create a cylinder centered at origin along the Y axis.
+    ///
+    /// The cylinder has `sectors` vertical slices and `stacks` horizontal rings.
+    /// Includes normals and UV coordinates. End caps are generated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// let cyl = Mesh::cylinder(0.5, 2.0, 16, 1);
+    /// assert!(cyl.vertices.len() > 30);
+    /// assert_eq!(cyl.normals.len(), cyl.vertices.len());
+    /// ```
+    #[must_use]
+    pub fn cylinder(radius: f32, height: f32, sectors: u32, stacks: u32) -> Self {
+        use std::f32::consts::PI;
+
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        let half_h = height / 2.0;
+        let sectors = sectors.max(3);
+        let stacks = stacks.max(1);
+
+        // Side vertices
+        for i in 0..=stacks {
+            let y = -half_h + (i as f32 / stacks as f32) * height;
+            let v = i as f32 / stacks as f32;
+
+            for j in 0..=sectors {
+                let angle = (j as f32 / sectors as f32) * 2.0 * PI;
+                let x = angle.cos();
+                let z = angle.sin();
+
+                vertices.push(Vec3::new(x * radius, y, z * radius));
+                normals.push(Vec3::new(x, 0.0, z));
+                uvs.push(Vec2::new(j as f32 / sectors as f32, v));
+            }
+        }
+
+        // Side indices
+        let row = sectors + 1;
+        for i in 0..stacks {
+            for j in 0..sectors {
+                let k1 = i * row + j;
+                let k2 = k1 + row;
+                indices.push([k1 as usize, k2 as usize, (k1 + 1) as usize]);
+                indices.push([(k1 + 1) as usize, k2 as usize, (k2 + 1) as usize]);
+            }
+        }
+
+        // Top cap
+        let top_center = vertices.len();
+        vertices.push(Vec3::new(0.0, half_h, 0.0));
+        normals.push(Vec3::new(0.0, 1.0, 0.0));
+        uvs.push(Vec2::new(0.5, 0.5));
+
+        for j in 0..sectors {
+            let angle = (j as f32 / sectors as f32) * 2.0 * PI;
+            let idx = vertices.len();
+            vertices.push(Vec3::new(
+                angle.cos() * radius,
+                half_h,
+                angle.sin() * radius,
+            ));
+            normals.push(Vec3::new(0.0, 1.0, 0.0));
+            uvs.push(Vec2::new(angle.cos() * 0.5 + 0.5, angle.sin() * 0.5 + 0.5));
+
+            let next = if j + 1 < sectors {
+                idx + 1
+            } else {
+                top_center + 1
+            };
+            indices.push([top_center, idx, next]);
+        }
+
+        // Bottom cap
+        let bot_center = vertices.len();
+        vertices.push(Vec3::new(0.0, -half_h, 0.0));
+        normals.push(Vec3::new(0.0, -1.0, 0.0));
+        uvs.push(Vec2::new(0.5, 0.5));
+
+        for j in 0..sectors {
+            let angle = (j as f32 / sectors as f32) * 2.0 * PI;
+            let idx = vertices.len();
+            vertices.push(Vec3::new(
+                angle.cos() * radius,
+                -half_h,
+                angle.sin() * radius,
+            ));
+            normals.push(Vec3::new(0.0, -1.0, 0.0));
+            uvs.push(Vec2::new(angle.cos() * 0.5 + 0.5, angle.sin() * 0.5 + 0.5));
+
+            let next = if j + 1 < sectors {
+                idx + 1
+            } else {
+                bot_center + 1
+            };
+            indices.push([bot_center, next, idx]); // reversed winding for bottom
+        }
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+            normals,
+            tangents: Vec::new(),
+        }
+    }
+
+    /// Create a torus centered at origin in the XZ plane.
+    ///
+    /// `major_radius` is the distance from the center to the tube center.
+    /// `minor_radius` is the tube radius. `major_segments` controls the ring count,
+    /// `minor_segments` controls the tube cross-section detail.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::mesh::Mesh;
+    /// let torus = Mesh::torus(1.0, 0.3, 24, 12);
+    /// assert!(torus.vertices.len() > 200);
+    /// assert_eq!(torus.normals.len(), torus.vertices.len());
+    /// ```
+    #[must_use]
+    pub fn torus(
+        major_radius: f32,
+        minor_radius: f32,
+        major_segments: u32,
+        minor_segments: u32,
+    ) -> Self {
+        use std::f32::consts::PI;
+
+        let maj = major_segments.max(3);
+        let min = minor_segments.max(3);
+
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        for i in 0..=maj {
+            let theta = (i as f32 / maj as f32) * 2.0 * PI;
+            let cos_t = theta.cos();
+            let sin_t = theta.sin();
+
+            for j in 0..=min {
+                let phi = (j as f32 / min as f32) * 2.0 * PI;
+                let cos_p = phi.cos();
+                let sin_p = phi.sin();
+
+                // Vertex position
+                let x = (major_radius + minor_radius * cos_p) * cos_t;
+                let y = minor_radius * sin_p;
+                let z = (major_radius + minor_radius * cos_p) * sin_t;
+
+                // Normal (points outward from tube surface)
+                let nx = cos_p * cos_t;
+                let ny = sin_p;
+                let nz = cos_p * sin_t;
+
+                vertices.push(Vec3::new(x, y, z));
+                normals.push(Vec3::new(nx, ny, nz));
+                uvs.push(Vec2::new(i as f32 / maj as f32, j as f32 / min as f32));
+            }
+        }
+
+        // Indices
+        let row = min + 1;
+        for i in 0..maj {
+            for j in 0..min {
+                let k1 = (i * row + j) as usize;
+                let k2 = ((i + 1) * row + j) as usize;
+                indices.push([k1, k2, k1 + 1]);
+                indices.push([k1 + 1, k2, k2 + 1]);
+            }
+        }
+
+        Self {
+            vertices,
+            indices,
+            uvs,
+            normals,
+            tangents: Vec::new(),
+        }
+    }
+
     /// Compute face normal for each triangle.
     ///
     /// Returns a vector of normals, one per triangle (in `indices` order).

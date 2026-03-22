@@ -60,6 +60,8 @@ struct ShowcaseApp {
     surface: Option<GpuSurface>,
     sphere_mesh: Option<MeshHandle>,
     cube_mesh: Option<MeshHandle>,
+    cylinder_mesh: Option<MeshHandle>,
+    torus_mesh: Option<MeshHandle>,
     ground_mesh: Option<MeshHandle>,
     materials: Option<MaterialSet>,
     start: Instant,
@@ -72,6 +74,8 @@ impl ShowcaseApp {
             surface: None,
             sphere_mesh: None,
             cube_mesh: None,
+            cylinder_mesh: None,
+            torus_mesh: None,
             ground_mesh: None,
             materials: None,
             start: Instant::now(),
@@ -137,14 +141,12 @@ impl ShowcaseApp {
         let mats = self.materials.as_ref().unwrap();
         let sphere = self.sphere_mesh.unwrap();
         let cube = self.cube_mesh.unwrap();
+        let cylinder = self.cylinder_mesh.unwrap();
+        let torus = self.torus_mesh.unwrap();
         let ground = self.ground_mesh.unwrap();
 
-        // --- Ground plane ---
-        frame.draw(
-            ground,
-            mats.ground,
-            Mat4::translation(0.0, -0.5, 0.0) * Mat4::scale(20.0, 0.1, 20.0),
-        );
+        // --- Ground plane (proper plane mesh) ---
+        frame.draw(ground, mats.ground, Mat4::translation(0.0, -0.5, 0.0));
 
         // --- Center pedestal: large chrome sphere ---
         let bob = (elapsed * 0.8).sin() * 0.3;
@@ -163,12 +165,15 @@ impl ShowcaseApp {
             let z = angle.sin() * radius;
             let spin = elapsed * (0.5 + i as f32 * 0.1);
 
-            let (mesh, mat) = match i % 5 {
+            let (mesh, mat) = match i % 8 {
                 0 => (cube, mats.gold),
                 1 => (sphere, mats.red_plastic),
-                2 => (cube, mats.blue_rubber),
-                3 => (sphere, mats.marble),
-                _ => (cube, mats.chrome),
+                2 => (cylinder, mats.blue_rubber),
+                3 => (torus, mats.marble),
+                4 => (sphere, mats.chrome),
+                5 => (cube, mats.red_plastic),
+                6 => (cylinder, mats.gold),
+                _ => (torus, mats.chrome),
             };
 
             let scale = 0.6 + (i as f32 * 0.37 + elapsed * 0.3).sin().abs() * 0.4;
@@ -183,21 +188,22 @@ impl ShowcaseApp {
             );
         }
 
-        // --- Floating cubes (upper ring) ---
-        for i in 0..5 {
-            let angle = (i as f32 / 5.0) * std::f32::consts::TAU + elapsed * 0.4;
+        // --- Floating shapes (upper ring) ---
+        for i in 0..6 {
+            let angle = (i as f32 / 6.0) * std::f32::consts::TAU + elapsed * 0.4;
             let x = angle.cos() * 2.5;
             let z = angle.sin() * 2.5;
             let y = 3.5 + (elapsed * 1.2 + i as f32).sin() * 0.5;
 
-            let mat = match i % 3 {
-                0 => mats.gold,
-                1 => mats.chrome,
-                _ => mats.red_plastic,
+            let (mesh, mat) = match i % 4 {
+                0 => (torus, mats.gold),
+                1 => (sphere, mats.chrome),
+                2 => (cylinder, mats.red_plastic),
+                _ => (cube, mats.marble),
             };
 
             frame.draw(
-                cube,
+                mesh,
                 mat,
                 Mat4::translation(x, y, z)
                     * Mat4::rotation_y(elapsed * 2.0)
@@ -228,9 +234,9 @@ impl WindowApp for ShowcaseApp {
         // Upload meshes
         let sphere = renderer.create_mesh(&Mesh::sphere(1.0, 24, 48))?;
         let cube = renderer.create_mesh(&Mesh::cube(1.0))?;
-
-        // Ground plane (flat cube)
-        let ground = renderer.create_mesh(&Mesh::cube(1.0))?;
+        let cylinder = renderer.create_mesh(&Mesh::cylinder(0.5, 1.5, 24, 1))?;
+        let torus = renderer.create_mesh(&Mesh::torus(0.6, 0.2, 24, 12))?;
+        let ground = renderer.create_mesh(&Mesh::plane(20.0, 4))?;
 
         // Create PBR-style materials
         // Chrome: high specular, high shininess
@@ -297,6 +303,8 @@ impl WindowApp for ShowcaseApp {
         self.surface = Some(surface);
         self.sphere_mesh = Some(sphere);
         self.cube_mesh = Some(cube);
+        self.cylinder_mesh = Some(cylinder);
+        self.torus_mesh = Some(torus);
         self.ground_mesh = Some(ground);
         self.materials = Some(MaterialSet {
             chrome,
@@ -311,7 +319,8 @@ impl WindowApp for ShowcaseApp {
         println!("  ===================================");
         println!("  Pipeline: Shadow > G-Buffer > Deferred Lighting > Tone Map");
         println!("  Lights: 1 directional (shadows) + 3 point (orbiting)");
-        println!("  Objects: 14 objects, 6 materials\n");
+        println!("  Meshes: sphere, cube, cylinder, torus, plane");
+        println!("  Objects: 15 objects, 6 materials\n");
 
         Ok(())
     }
