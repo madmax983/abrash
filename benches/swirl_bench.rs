@@ -22,6 +22,22 @@ fn bench_apply_swirl(c: &mut Criterion) {
             apply_swirl(black_box(&mut fb), black_box(&config));
         });
     });
+
+    let mut fb_720 = Framebuffer::new(1280, 720).unwrap();
+    fb_720.clear(0xFF_FF_00_FF);
+
+    let config_720 = SwirlConfig {
+        center_x: 0.5,
+        center_y: 0.5,
+        radius: 200.0,
+        angle: PI,
+    };
+
+    c.bench_function("apply_swirl_720p", |b| {
+        b.iter(|| {
+            apply_swirl(black_box(&mut fb_720), black_box(&config_720));
+        });
+    });
 }
 
 #[cfg(not(feature = "nova"))]
