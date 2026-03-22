@@ -74,6 +74,12 @@ impl GpuDevice {
         // Request RT features when ray-tracing feature is enabled and hardware supports it
         #[allow(unused_mut)]
         let mut features = wgpu::Features::empty();
+
+        let blendable_feature = wgpu::Features::FLOAT32_BLENDABLE;
+        if adapter.features().contains(blendable_feature) {
+            features |= blendable_feature;
+        }
+
         #[cfg(feature = "ray-tracing")]
         {
             let rt_feature = wgpu::Features::EXPERIMENTAL_RAY_QUERY;
