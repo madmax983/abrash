@@ -147,7 +147,6 @@ required-features = ["nova"]
 [[example]]
 name = "god_rays_demo"
 path = "examples/god_rays_demo.rs"
-required-features = ["nova", "backend-tui"]
 
 [[example]]
 name = "voronoi_demo"
