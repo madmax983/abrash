@@ -13,6 +13,7 @@
 use abrash::platform::{WindowApp, WindowContext, WindowHostConfig, run_windowed};
 use abrash_core::math::{Mat4, Vec3};
 use abrash_core::mesh::Mesh;
+use abrash_gpu_render::composition::DebugMode;
 use abrash_gpu_render::renderer::GpuRenderer;
 use abrash_gpu_render::surface::GpuSurface;
 use abrash_render::render_api::frame::{DirectionalLight, Frame, FrameCamera, Light, PointLight};
@@ -21,6 +22,8 @@ use abrash_render::render_api::material::{Material, ShadingMode};
 use std::error::Error;
 use std::fmt;
 use std::time::Instant;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::keyboard::{Key, NamedKey};
 
 #[derive(Debug)]
 struct DemoError(String);
@@ -55,6 +58,28 @@ struct MaterialSet {
     ground: MaterialHandle,
 }
 
+const DEBUG_MODES: [DebugMode; 8] = [
+    DebugMode::None,
+    DebugMode::GBufferPosition,
+    DebugMode::GBufferNormal,
+    DebugMode::GBufferAlbedo,
+    DebugMode::Roughness,
+    DebugMode::Metallic,
+    DebugMode::Shadows,
+    DebugMode::Depth,
+];
+
+const DEBUG_MODE_NAMES: [&str; 8] = [
+    "Normal Rendering",
+    "G-Buffer: Position",
+    "G-Buffer: Normal",
+    "G-Buffer: Albedo",
+    "G-Buffer: Roughness",
+    "G-Buffer: Metallic",
+    "Shadows",
+    "Depth",
+];
+
 struct ShowcaseApp {
     renderer: Option<GpuRenderer>,
     surface: Option<GpuSurface>,
@@ -65,6 +90,11 @@ struct ShowcaseApp {
     ground_mesh: Option<MeshHandle>,
     materials: Option<MaterialSet>,
     start: Instant,
+    anim_time: f32,
+    last_frame: Instant,
+    taa_enabled: bool,
+    debug_mode_index: usize,
+    paused: bool,
 }
 
 impl ShowcaseApp {
@@ -79,6 +109,11 @@ impl ShowcaseApp {
             ground_mesh: None,
             materials: None,
             start: Instant::now(),
+            anim_time: 0.0,
+            last_frame: Instant::now(),
+            taa_enabled: false,
+            debug_mode_index: 0,
+            paused: false,
         }
     }
 
@@ -320,7 +355,13 @@ impl WindowApp for ShowcaseApp {
         println!("  Pipeline: Shadow > G-Buffer > Deferred Lighting > Tone Map");
         println!("  Lights: 1 directional (shadows) + 3 point (orbiting)");
         println!("  Meshes: sphere, cube, cylinder, torus, plane");
-        println!("  Objects: 15 objects, 6 materials\n");
+        println!("  Objects: 15 objects, 6 materials");
+        println!();
+        println!("  Controls:");
+        println!("    D     — Cycle debug modes (position/normal/albedo/roughness/metallic/depth)");
+        println!("    T     — Toggle TAA (temporal anti-aliasing)");
+        println!("    Space — Pause/resume animation");
+        println!("    Esc   — Quit\n");
 
         Ok(())
     }
@@ -337,16 +378,65 @@ impl WindowApp for ShowcaseApp {
         Ok(())
     }
 
+    fn input(&mut self, _ctx: WindowContext<'_>, event: &WindowEvent) -> Result<(), Self::Error> {
+        if let WindowEvent::KeyboardInput {
+            event:
+                KeyEvent {
+                    logical_key,
+                    state: ElementState::Pressed,
+                    ..
+                },
+            ..
+        } = event
+        {
+            match logical_key {
+                // D — cycle debug modes
+                Key::Character(c) if c.as_str() == "d" => {
+                    self.debug_mode_index = (self.debug_mode_index + 1) % DEBUG_MODES.len();
+                    let mode = DEBUG_MODES[self.debug_mode_index];
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.set_debug_mode(mode);
+                    }
+                    println!("  Debug: {}", DEBUG_MODE_NAMES[self.debug_mode_index]);
+                }
+                // T — toggle TAA
+                Key::Character(c) if c.as_str() == "t" => {
+                    self.taa_enabled = !self.taa_enabled;
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.set_taa_enabled(self.taa_enabled);
+                    }
+                    println!("  TAA: {}", if self.taa_enabled { "ON" } else { "OFF" });
+                }
+                // Space — pause animation
+                Key::Named(NamedKey::Space) => {
+                    self.paused = !self.paused;
+                    println!(
+                        "  Animation: {}",
+                        if self.paused { "PAUSED" } else { "PLAYING" }
+                    );
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        let elapsed = self.start.elapsed().as_secs_f32();
+        let now = Instant::now();
+        let dt = (now - self.last_frame).as_secs_f32();
+        self.last_frame = now;
+        if !self.paused {
+            self.anim_time += dt;
+        }
+
         let size = ctx.window.inner_size();
         let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
 
-        let frame = self.build_frame(elapsed, aspect);
+        let frame = self.build_frame(self.anim_time, aspect);
 
         let renderer = self.renderer.as_mut().unwrap();
         let surface = self.surface.as_ref().unwrap();
