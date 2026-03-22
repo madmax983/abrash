@@ -131,7 +131,12 @@ impl CpuRenderer {
     /// eliminating the separate full-frame memset by writing clear color
     /// per-tile during `end_frame`.
     pub fn execute_draw_list(&mut self, draw_list: &DrawList, target: &mut RenderTarget) {
-        self.tile_renderer.set_clear_color(draw_list.clear_color);
+        if let Some(color) = draw_list.clear_color {
+            target.framebuffer.clear(color);
+            target.zbuffer.clear();
+        }
+
+        self.tile_renderer.set_clear_color(None); // Disable integrated clearing since we just did a full clear
 
         self.tile_renderer.begin_frame();
         for batch in &draw_list.batches {
