@@ -83,8 +83,7 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
                 let theta = percent * percent * config.angle;
 
                 // Using standard sine and cosine
-                let sin_theta = theta.sin();
-                let cos_theta = theta.cos();
+                let (sin_theta, cos_theta) = theta.sin_cos();
 
                 // Rotate the coordinate around the center
                 let source_x = cx + (dx * cos_theta - dy * sin_theta);
@@ -135,5 +134,24 @@ mod tests {
         // and that some change occurs in the neighborhood.
         let neighbor = fb.get_pixel(1, 1).unwrap();
         assert!(p == 0xFF_FF_00_00 || neighbor == 0xFF_FF_00_00 || p == 0xFF_00_00_00);
+    }
+
+    #[test]
+    fn test_apply_swirl_zero_angle() {
+        let mut fb = Framebuffer::new(5, 5).unwrap();
+        fb.clear(0xFF_00_00_00);
+        fb.set_pixel(2, 2, 0xFF_FF_00_00);
+
+        let config = SwirlConfig {
+            center_x: 0.5,
+            center_y: 0.5,
+            radius: 3.0,
+            angle: 0.0, // 0 degree twist, should do nothing
+        };
+
+        apply_swirl(&mut fb, &config);
+
+        let p = fb.get_pixel(2, 2).unwrap();
+        assert_eq!(p, 0xFF_FF_00_00, "Pixel should not move with 0 angle");
     }
 }
