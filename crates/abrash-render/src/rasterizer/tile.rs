@@ -2900,38 +2900,46 @@ impl TileRenderer {
     }
 
     /// Sorts gouraud triangles in each bin by depth.
-    #[allow(clippy::unused_self)]
-    const fn sort_bins_gouraud(&self) {
-        // FIXME: Sorting disabled
-        /*
+    fn sort_bins_gouraud(&mut self) {
         let prepared_gouraud = &self.prepared_gouraud;
         if prepared_gouraud.is_empty() {
             return;
         }
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            self.tile_bins.par_iter_mut().for_each(|bin| {
-                bin.sort_unstable_by(|&a, &b| {
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(b).min_depth };
-                    depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
-                });
-            });
-        }
+        let heads = &mut self.tile_bins.heads;
+        let nexts = &mut self.tile_bins.nexts;
+        let tails = &mut self.tile_bins.tails;
+        let tris = &self.tile_bins.tris;
 
-        #[cfg(not(feature = "parallel"))]
-        {
-            for bin in &mut self.tile_bins {
-                bin.sort_unstable_by(|&a, &b| {
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(b).min_depth };
+        let mut indices = Vec::with_capacity(64);
+        for (tile_idx, head) in heads.iter_mut().enumerate() {
+            if *head == u32::MAX { continue; }
+
+            indices.clear();
+            let mut curr = *head;
+            while curr != u32::MAX {
+                indices.push(curr);
+                curr = nexts[curr as usize];
+            }
+
+            if indices.len() > 1 {
+                indices.sort_unstable_by(|&a, &b| {
+                    let tri_idx_a = tris[a as usize] as usize;
+                    let tri_idx_b = tris[b as usize] as usize;
+                    let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
+                    let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
                     depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
                 });
+
+                *head = indices[0];
+                let len = indices.len();
+                for i in 0..len - 1 {
+                    nexts[indices[i] as usize] = indices[i + 1];
+                }
+                nexts[indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = indices[len - 1];
             }
         }
-        */
     }
 
     #[cfg_attr(feature = "parallel", allow(dead_code))]
@@ -3408,163 +3416,9 @@ impl TileRenderer {
     }
 
     /// Sorts flat triangles in each bin by depth.
-    #[allow(clippy::unused_self)]
-    const fn sort_bins_flat(&self) {
-        // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
-        // Needs proper implementation for linked-list sorting or reverting to Vec<Vec>.
-        /*
+    fn sort_bins_flat(&mut self) {
         let prepared = &self.prepared;
         if prepared.is_empty() {
-            return;
-        }
-
-        // Helper to sort a single bin (linked list)
-        // Bolt: Use thread_local here since this closure is called from par_iter_mut
-        let sort_bin = |head: &mut u32, nexts: &mut [u32], tris: &[u32]| {
-            if *head == u32::MAX {
-                return;
-            }
-
-            // 1. Collect indices into a temporary vector
-            thread_local! { static SCRATCH: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) }; }
-            SCRATCH.with(|scratch| {
-                let mut indices = scratch.borrow_mut();
-                indices.clear();
-                let mut curr = *head;
-                while curr != u32::MAX {
-                    indices.push(curr);
-                    curr = nexts[curr as usize];
-                }
-
-            // 2. Sort indices by depth
-            indices.sort_unstable_by(|&a, &b| {
-                // tris[a] is the index into `prepared`
-                let tri_idx_a = tris[a as usize] as usize;
-                let tri_idx_b = tris[b as usize] as usize;
-                // Safety: indices guaranteed within bounds
-                let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                depth_a
-                    .partial_cmp(&depth_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-
-            // 3. Rebuild linked list
-            *head = indices[0];
-            let len = indices.len();
-            for i in 0..len - 1 {
-                nexts[indices[i] as usize] = indices[i + 1];
-            }
-            nexts[indices[len - 1] as usize] = u32::MAX;
-            // Tail update is not strictly needed unless we append more, but TileBins struct has tails.
-            // We should update tails if we want to support appending after sorting (unlikely).
-            // But let's keep it consistent if possible.
-            // Accessing self.tails here is hard due to borrow check if we are iterating.
-            // We are iterating indices, so we can't easily update tails unless we pass tails slice.
-        };
-
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            // We need to split the struct to mutate parts in parallel
-            let heads = &mut self.tile_bins.heads;
-            let nexts = &mut self.tile_bins.nexts;
-            let tris = &self.tile_bins.tris; // Read-only
-
-            // Rayon doesn't like splitting mutable slices with disjoint indices easily without unsafe.
-            // Or we can just iterate over indices 0..heads.len()
-            // But nexts is a single big vector. Parallel mutation of nexts is safe ONLY if disjoint.
-            // Since each bin owns a disjoint set of nodes in the linked list, it IS disjoint.
-            // But the borrow checker doesn't know that `nexts` indices are disjoint per bin.
-            // We would need UnsafeCell or similar wrapper.
-
-            // For now, let's use the sequential sort or a "safe" parallel approach if possible.
-            // Since we can't easily prove disjointness to Rust, we might have to fallback to sequential
-            // OR use a `par_chunks` on `heads` but we need mutable access to `nexts` everywhere.
-            // Actually, sorting bins is important for performance but maybe not critical to parallelize
-            // if the bin count is high and per-bin count is low.
-            //
-            // Let's implement sequential sort first to restore correctness.
-
-            let mut tails = &mut self.tile_bins.tails;
-
-            let mut indices = Vec::with_capacity(64);
-            for (tile_idx, head) in heads.iter_mut().enumerate() {
-                if *head == u32::MAX { continue; }
-
-                // Collect
-                indices.clear();
-                let mut curr = *head;
-                while curr != u32::MAX {
-                    indices.push(curr);
-                    curr = nexts[curr as usize];
-                }
-
-                // Sort
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                // Rebuild
-                *head = indices[0];
-                let len = indices.len();
-                for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
-                }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
-            }
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            let heads = &mut self.tile_bins.heads;
-            let nexts = &mut self.tile_bins.nexts;
-            let tails = &mut self.tile_bins.tails;
-            let tris = &self.tile_bins.tris;
-
-            let mut indices = Vec::with_capacity(64);
-            for (tile_idx, head) in heads.iter_mut().enumerate() {
-                if *head == u32::MAX { continue; }
-
-                indices.clear();
-                let mut curr = *head;
-                while curr != u32::MAX {
-                    indices.push(curr);
-                    curr = nexts[curr as usize];
-                }
-
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                *head = indices[0];
-                let len = indices.len();
-                for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
-                }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
-            }
-        }
-        */
-    }
-
-    /// Sorts textured triangles in each bin by depth.
-    #[allow(clippy::unused_self)]
-    const fn sort_bins_textured(&self) {
-        // FIXME: Sorting is temporarily disabled due to TileBins SoA refactor breaking the iterator.
-        /*
-        let prepared_textured = &self.prepared_textured;
-        if prepared_textured.is_empty() {
             return;
         }
 
@@ -3573,8 +3427,6 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        // Sequential implementation for both parallel/not parallel features for now
-        // to avoid code duplication and safety issues with parallel linked list modification.
         let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX { continue; }
@@ -3586,23 +3438,67 @@ impl TileRenderer {
                 curr = nexts[curr as usize];
             }
 
-            indices.sort_unstable_by(|&a, &b| {
-                let tri_idx_a = tris[a as usize] as usize;
-                let tri_idx_b = tris[b as usize] as usize;
-                let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
-            });
+            if indices.len() > 1 {
+                indices.sort_unstable_by(|&a, &b| {
+                    let tri_idx_a = tris[a as usize] as usize;
+                    let tri_idx_b = tris[b as usize] as usize;
+                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
+                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                    depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
+                });
 
-            *head = indices[0];
-            let len = indices.len();
-            for i in 0..len - 1 {
-                nexts[indices[i] as usize] = indices[i + 1];
+                *head = indices[0];
+                let len = indices.len();
+                for i in 0..len - 1 {
+                    nexts[indices[i] as usize] = indices[i + 1];
+                }
+                nexts[indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = indices[len - 1];
             }
-            nexts[indices[len - 1] as usize] = u32::MAX;
-            tails[tile_idx] = indices[len - 1];
         }
-        */
+    }
+
+    /// Sorts textured triangles in each bin by depth.
+    fn sort_bins_textured(&mut self) {
+        let prepared_textured = &self.prepared_textured;
+        if prepared_textured.is_empty() {
+            return;
+        }
+
+        let heads = &mut self.tile_bins.heads;
+        let nexts = &mut self.tile_bins.nexts;
+        let tails = &mut self.tile_bins.tails;
+        let tris = &self.tile_bins.tris;
+
+        let mut indices = Vec::with_capacity(64);
+        for (tile_idx, head) in heads.iter_mut().enumerate() {
+            if *head == u32::MAX { continue; }
+
+            indices.clear();
+            let mut curr = *head;
+            while curr != u32::MAX {
+                indices.push(curr);
+                curr = nexts[curr as usize];
+            }
+
+            if indices.len() > 1 {
+                indices.sort_unstable_by(|&a, &b| {
+                    let tri_idx_a = tris[a as usize] as usize;
+                    let tri_idx_b = tris[b as usize] as usize;
+                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
+                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
+                    depth_a.partial_cmp(&depth_b).unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                *head = indices[0];
+                let len = indices.len();
+                for i in 0..len - 1 {
+                    nexts[indices[i] as usize] = indices[i + 1];
+                }
+                nexts[indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = indices[len - 1];
+            }
+        }
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
