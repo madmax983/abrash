@@ -324,4 +324,60 @@ mod tests {
         assert!(pool.entries.is_empty());
         assert!(pool.free_list.is_empty());
     }
+
+    #[test]
+    #[ignore = "👹 Havoc: Generation Overflow allows Use-After-Free"]
+    fn test_pool_generation_overflow_use_after_free() {
+        let mut pool: ResourcePool<String> = ResourcePool::new();
+
+        // 1. Insert a string and hold onto the handle
+        let handle_to_exploit = pool.insert("Sensitive Data".to_string());
+
+        // 2. Remove the string (memory is now technically free from the user's perspective)
+        let _ = pool.remove(handle_to_exploit);
+
+        // 3. Overflow the generation counter for this specific slot manually.
+        // We simulate a long running server that cycles through `u32::MAX` creations/deletions
+        // on the same slot. We do this directly to avoid waiting 4 hours in the test.
+        if let Some(entry) = pool.entries.get_mut(handle_to_exploit.index as usize) {
+            *entry = PoolEntry::Vacant {
+                // By wrapping exactly around to the original generation
+                generation: handle_to_exploit.generation,
+            };
+        }
+
+        // 4. Insert a completely different piece of data.
+        // It will reuse the same slot because of the free list.
+        // Because we overflowed the generation exactly back to where it was,
+        // the old handle_to_exploit is now VALID again and points to the new data!
+        let _new_handle = pool.insert("Attacker Controlled Data".to_string());
+
+        // 5. Exploit! Use the old handle to read or modify the new data.
+        let exploited_value = pool.get(handle_to_exploit);
+        assert_eq!(
+            exploited_value,
+            Some(&"Attacker Controlled Data".to_string()),
+            "👹 Havoc: Generation overflow allowed use-after-free!"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    #[ignore = "👹 Havoc: Generation Overflow causes Denial of Service"]
+    fn test_pool_generation_overflow_panic() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let mut handle = pool.insert(42);
+
+        // Set generation to u32::MAX to simulate 4 billion insertions/deletions
+        if let Some(entry) = pool.entries.get_mut(handle.index as usize) {
+            *entry = PoolEntry::Occupied {
+                value: 42,
+                generation: u32::MAX,
+            };
+        }
+        handle.generation = u32::MAX;
+
+        // This triggers `let new_gen = *generation + 1;` which panics in debug mode.
+        pool.remove(handle);
+    }
 }
