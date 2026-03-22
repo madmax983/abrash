@@ -190,8 +190,7 @@ impl Mat2 {
     /// * `angle`: Rotation angle in radians (counter-clockwise).
     #[must_use]
     pub fn rotation(angle: f32) -> Self {
-        let cos = angle.cos();
-        let sin = angle.sin();
+        let (sin, cos) = angle.sin_cos();
 
         Self {
             m: [[cos, -sin], [sin, cos]],
@@ -660,8 +659,7 @@ impl Mat4 {
     #[must_use]
     #[inline]
     pub fn rotation_x(angle: f32) -> Self {
-        let c = angle.cos();
-        let s = angle.sin();
+        let (s, c) = angle.sin_cos();
         Self {
             m: [
                 [1.0, 0.0, 0.0, 0.0],
@@ -678,8 +676,7 @@ impl Mat4 {
     #[must_use]
     #[inline]
     pub fn rotation_y(angle: f32) -> Self {
-        let c = angle.cos();
-        let s = angle.sin();
+        let (s, c) = angle.sin_cos();
         Self {
             m: [
                 [c, 0.0, -s, 0.0],
@@ -696,8 +693,7 @@ impl Mat4 {
     #[must_use]
     #[inline]
     pub fn rotation_z(angle: f32) -> Self {
-        let c = angle.cos();
-        let s = angle.sin();
+        let (s, c) = angle.sin_cos();
         Self {
             m: [
                 [c, s, 0.0, 0.0],

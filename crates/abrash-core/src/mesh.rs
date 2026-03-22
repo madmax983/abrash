@@ -167,14 +167,14 @@ impl Mesh {
 
         for i in 0..=stacks {
             let stack_angle = PI / 2.0 - (i as f32 / stacks as f32) * PI; // π/2 to -π/2
-            let xy = stack_angle.cos();
-            let z = stack_angle.sin();
+            let (z, xy) = stack_angle.sin_cos();
 
             for j in 0..=sectors {
                 let sector_angle = (j as f32 / sectors as f32) * 2.0 * PI;
 
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
+                let (sin_sector, cos_sector) = sector_angle.sin_cos();
+                let x = xy * cos_sector;
+                let y = xy * sin_sector;
 
                 vertices.push(Vec3::new(x * radius, z * radius, y * radius));
                 normals.push(Vec3::new(x, z, y));
@@ -297,8 +297,7 @@ impl Mesh {
 
             for j in 0..=sectors {
                 let angle = (j as f32 / sectors as f32) * 2.0 * PI;
-                let x = angle.cos();
-                let z = angle.sin();
+                let (z, x) = angle.sin_cos();
 
                 vertices.push(Vec3::new(x * radius, y, z * radius));
                 normals.push(Vec3::new(x, 0.0, z));
@@ -325,14 +324,15 @@ impl Mesh {
 
         for j in 0..sectors {
             let angle = (j as f32 / sectors as f32) * 2.0 * PI;
+            let (sin_angle, cos_angle) = angle.sin_cos();
             let idx = vertices.len();
             vertices.push(Vec3::new(
-                angle.cos() * radius,
+                cos_angle * radius,
                 half_h,
-                angle.sin() * radius,
+                sin_angle * radius,
             ));
             normals.push(Vec3::new(0.0, 1.0, 0.0));
-            uvs.push(Vec2::new(angle.cos() * 0.5 + 0.5, angle.sin() * 0.5 + 0.5));
+            uvs.push(Vec2::new(cos_angle * 0.5 + 0.5, sin_angle * 0.5 + 0.5));
 
             let next = if j + 1 < sectors {
                 idx + 1
@@ -350,14 +350,15 @@ impl Mesh {
 
         for j in 0..sectors {
             let angle = (j as f32 / sectors as f32) * 2.0 * PI;
+            let (sin_angle, cos_angle) = angle.sin_cos();
             let idx = vertices.len();
             vertices.push(Vec3::new(
-                angle.cos() * radius,
+                cos_angle * radius,
                 -half_h,
-                angle.sin() * radius,
+                sin_angle * radius,
             ));
             normals.push(Vec3::new(0.0, -1.0, 0.0));
-            uvs.push(Vec2::new(angle.cos() * 0.5 + 0.5, angle.sin() * 0.5 + 0.5));
+            uvs.push(Vec2::new(cos_angle * 0.5 + 0.5, sin_angle * 0.5 + 0.5));
 
             let next = if j + 1 < sectors {
                 idx + 1
@@ -409,13 +410,11 @@ impl Mesh {
 
         for i in 0..=maj {
             let theta = (i as f32 / maj as f32) * 2.0 * PI;
-            let cos_t = theta.cos();
-            let sin_t = theta.sin();
+            let (sin_t, cos_t) = theta.sin_cos();
 
             for j in 0..=min {
                 let phi = (j as f32 / min as f32) * 2.0 * PI;
-                let cos_p = phi.cos();
-                let sin_p = phi.sin();
+                let (sin_p, cos_p) = phi.sin_cos();
 
                 // Vertex position
                 let x = (major_radius + minor_radius * cos_p) * cos_t;

@@ -72,6 +72,31 @@ fn bench_vec3_normalize(c: &mut Criterion) {
     });
 }
 
+fn bench_vec3_fast_normalize(c: &mut Criterion) {
+    c.bench_function("vec3_fast_normalize", |b| {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        b.iter(|| black_box(v.fast_normalize()));
+    });
+}
+
+fn bench_sin_cos_separate(c: &mut Criterion) {
+    c.bench_function("sin_cos_separate", |b| {
+        let angle: f32 = 0.785;
+        b.iter(|| {
+            let sin = black_box(angle).sin();
+            let cos = black_box(angle).cos();
+            black_box((sin, cos))
+        });
+    });
+}
+
+fn bench_sin_cos_combined(c: &mut Criterion) {
+    c.bench_function("sin_cos_combined", |b| {
+        let angle: f32 = 0.785;
+        b.iter(|| black_box(black_box(angle).sin_cos()));
+    });
+}
+
 fn bench_vec3_reflect(c: &mut Criterion) {
     c.bench_function("vec3_reflect", |b| {
         let v = Vec3::new(1.0, -1.0, 0.0);
@@ -99,6 +124,9 @@ criterion_group!(
     bench_vec2_add,
     bench_vec2_mul,
     bench_vec3_normalize,
+    bench_vec3_fast_normalize,
+    bench_sin_cos_separate,
+    bench_sin_cos_combined,
     bench_vec3_reflect,
     bench_mat2_transform,
     bench_mat2_batch_transform,
