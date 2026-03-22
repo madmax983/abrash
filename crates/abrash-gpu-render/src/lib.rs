@@ -556,7 +556,7 @@ impl GpuMeshApp {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("GPU Cube Device"),
-                required_features: wgpu::Features::empty(),
+                required_features: wgpu::Features::FLOAT32_BLENDABLE,
                 required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::default(),
                 #[allow(clippy::default_trait_access)]
@@ -1008,7 +1008,7 @@ impl GpuOffscreenBench {
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("Offscreen GPU Bench Device"),
-            required_features: wgpu::Features::empty(),
+            required_features: wgpu::Features::FLOAT32_BLENDABLE,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             #[allow(clippy::default_trait_access)]

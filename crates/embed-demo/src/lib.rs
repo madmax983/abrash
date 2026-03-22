@@ -308,7 +308,8 @@ mod tests {
 
         // Render 3 frames with different rotations — mesh handle stays valid.
         for i in 0..3u32 {
-            let angle = i as f32 * std::f32::consts::FRAC_PI_4;
+            // Use different target positions so the cube doesn't rotate out of view!
+            let angle = i as f32 * 0.1;
             let pixels = backend.render(&EmbedScene {
                 camera: EmbedCamera {
                     position: camera.position,
