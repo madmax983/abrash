@@ -9,16 +9,20 @@ use crate::transform::Transform;
 /// Implement this for any type you want to animate with `abrash-anim`.
 pub trait Animatable: Clone + 'static {
     /// Interpolate between `self` and `other`.
-    /// `t` is clamped to 0.0–1.0. At t=0 returns self, at t=1 returns other.
+    /// `t` is clamped to 0.0-1.0. At t=0 returns self, at t=1 returns other.
+    #[must_use]
     fn interpolate(&self, other: &Self, t: f32) -> Self;
 
     /// Scale the value by a scalar factor.
+    #[must_use]
     fn anim_scale(&self, scalar: f32) -> Self;
 
     /// Add another value to this one.
+    #[must_use]
     fn anim_add(&self, other: &Self) -> Self;
 
     /// Subtract another value from this one.
+    #[must_use]
     fn anim_sub(&self, other: &Self) -> Self;
 
     /// The additive identity (zero value).
@@ -100,7 +104,7 @@ impl Animatable for Vec3 {
     }
 
     fn zero() -> Self {
-        Vec3::ZERO
+        Self::ZERO
     }
 
     fn distance_squared(&self, other: &Self) -> f32 {
@@ -117,7 +121,7 @@ impl Animatable for Quat {
     }
 
     fn anim_scale(&self, scalar: f32) -> Self {
-        Quat::identity().slerp(self, scalar)
+        Self::identity().slerp(self, scalar)
     }
 
     fn anim_add(&self, other: &Self) -> Self {
@@ -129,7 +133,7 @@ impl Animatable for Quat {
     }
 
     fn zero() -> Self {
-        Quat::identity()
+        Self::identity()
     }
 
     fn distance_squared(&self, other: &Self) -> f32 {
