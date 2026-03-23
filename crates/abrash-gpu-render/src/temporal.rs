@@ -106,7 +106,7 @@ pub struct TemporalParams {
     pub prev_view_proj: [f32; 16],
     /// Blend factor (0.05 = 95% history, 1.0 = no history).
     pub alpha: f32,
-    pub _pad: [f32; 3],
+    pub pad: [f32; 3],
 }
 
 /// Temporal accumulation pass for SVGF denoising.
@@ -131,6 +131,7 @@ pub struct TemporalAccumulationPass {
 impl TemporalAccumulationPass {
     /// Create the temporal accumulation pass.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Temporal Accumulation Compute"),
@@ -288,7 +289,7 @@ impl TemporalAccumulationPass {
     }
 
     /// Swap output → history for the next frame.
-    pub fn swap_history(&mut self) {
+    pub const fn swap_history(&mut self) {
         std::mem::swap(&mut self.history_texture, &mut self.output_texture);
         std::mem::swap(&mut self.history_view, &mut self.output_view);
     }
