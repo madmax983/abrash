@@ -18,6 +18,14 @@ impl Pose {
             local_transforms: transforms,
         }
     }
+
+    /// Create a bind pose from a skeleton's rest transforms.
+    #[must_use]
+    pub fn from_bind(skeleton: &crate::skeleton::Skeleton) -> Self {
+        Self {
+            local_transforms: skeleton.joints.iter().map(|j| j.bind_transform).collect(),
+        }
+    }
 }
 
 /// Joint matrices ready for vertex skinning.
@@ -34,7 +42,33 @@ pub struct SkinMatrices {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::skeleton::{Joint, JointId, Skeleton};
     use abrash_core::math::Vec3;
+
+    #[test]
+    fn pose_from_bind_matches_joint_transforms() {
+        let joints = vec![
+            Joint {
+                name: "root".to_string(),
+                parent: None,
+                inverse_bind_matrix: Mat4::identity(),
+                bind_transform: Transform::from_position(Vec3::new(1.0, 2.0, 3.0)),
+            },
+            Joint {
+                name: "child".to_string(),
+                parent: Some(JointId(0)),
+                inverse_bind_matrix: Mat4::identity(),
+                bind_transform: Transform::from_position(Vec3::new(4.0, 5.0, 6.0)),
+            },
+        ];
+        let skel = Skeleton::new(joints);
+        let pose = Pose::from_bind(&skel);
+
+        assert_eq!(pose.local_transforms.len(), 2);
+        let epsilon = 1e-5;
+        assert!((pose.local_transforms[0].position.x - 1.0).abs() < epsilon);
+        assert!((pose.local_transforms[1].position.x - 4.0).abs() < epsilon);
+    }
 
     #[test]
     fn pose_new_stores_transforms() {
