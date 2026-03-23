@@ -80,6 +80,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "abrash-skeletal"
+version = "0.1.0"
+dependencies = [
+ "abrash-anim",
+ "abrash-core",
+ "gltf",
+ "image",
+ "rayon",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -539,6 +550,12 @@ checksum = "375082f007bd67184fb9c0374614b29f9aaa604ec301635f72338bb65386a53d"
 dependencies = [
  "arrayvec",
 ]
+
+[[package]]
+name = "base64"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
@@ -2475,7 +2492,7 @@ checksum = "eef60474a1040d561940ca8cdebae4d8596d5d0c3a2064c886e6355425cf5474"
 dependencies = [
  "android-activity 0.6.0",
  "arrayvec",
- "base64",
+ "base64 0.22.1",
  "bincode",
  "bitflags 2.11.0",
  "bytemuck",
@@ -2566,7 +2583,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4126bb1cf54bc2cbc39deed7fd04dfa0d1228c76762d1c1555665b36a1494aa"
 dependencies = [
  "approx",
- "base64",
+ "base64 0.22.1",
  "bitflags 2.11.0",
  "bytemuck",
  "cargo_metadata",
@@ -2936,10 +2953,13 @@ version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3ce1918195723ce6ac74e80542c5a96a40c2b26162c1957a5cd70799b8cacf7"
 dependencies = [
+ "base64 0.13.1",
  "byteorder",
  "gltf-json",
+ "image",
  "lazy_static",
  "serde_json",
+ "urlencoding",
 ]
 
 [[package]]
@@ -5596,7 +5616,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db09040cc89e461f1a265139777a2bde7f8d8c67c4936f700c63ce3e2904d468"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bitflags 2.11.0",
  "serde",
  "serde_derive",
@@ -6499,7 +6519,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4676b37242ccbd1aabf56edb093a4827dc49086c0ffd764a5705899e0f35f8f7"
 dependencies = [
  "anyhow",
- "base64",
+ "base64 0.22.1",
  "bitflags 2.11.0",
  "fancy-regex",
  "filedescriptor",
@@ -6931,6 +6951,12 @@ dependencies = [
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "utf8_iter"
