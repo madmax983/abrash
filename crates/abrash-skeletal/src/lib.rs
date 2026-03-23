@@ -4,5 +4,7 @@
 //! via `abrash-anim`, and optional glTF loading.
 
 pub mod pose;
+pub mod skeleton;
 
 pub use pose::{Pose, SkinMatrices};
+pub use skeleton::{Joint, JointId, Skeleton};
