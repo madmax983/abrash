@@ -42,12 +42,6 @@ pub use winit::{
     run_windowed,
 };
 
-#[cfg(feature = "backend-win32")]
-pub mod win32;
-
-#[cfg(feature = "backend-win32")]
-pub use win32::Win32Window as Window;
-
 #[cfg(feature = "backend-tui")]
 pub mod tui;
 
@@ -57,10 +51,7 @@ pub mod wasm;
 // Compile-time check: at least one native backend must be selected (WASM has its own entry point)
 #[cfg(not(any(
     feature = "backend-winit",
-    feature = "backend-win32",
     feature = "backend-tui",
     feature = "backend-wasm"
 )))]
-compile_error!(
-    "No backend selected. Enable one of: backend-winit, backend-win32, backend-tui, backend-wasm"
-);
+compile_error!("No backend selected. Enable one of: backend-winit, backend-tui, backend-wasm");

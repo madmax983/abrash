@@ -1,3 +1,4 @@
+use abrash::anim::Timeline;
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -8,6 +9,7 @@ use abrash::rasterizer::fill_triangle_3d;
 use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
@@ -69,8 +71,8 @@ struct Cube3dApp {
     zbuffer: ZBuffer,
     timestep: FixedTimestep,
     cube: Mesh,
-    angle_y: f32,
-    angle_x: f32,
+    rotation_y: Timeline<f32>,
+    rotation_x: Timeline<f32>,
 }
 
 impl Cube3dApp {
@@ -83,8 +85,10 @@ impl Cube3dApp {
                 .map_err(|error| HostError::App(error.to_string()))?,
             timestep: FixedTimestep::new(60),
             cube: Mesh::cube(1.0),
-            angle_y: 0.0,
-            angle_x: 0.0,
+            rotation_y: Timeline::tween(0.0, std::f32::consts::TAU, Duration::from_secs(6))
+                .loop_forever(),
+            rotation_x: Timeline::tween(0.0, std::f32::consts::TAU, Duration::from_secs(12))
+                .loop_forever(),
         })
     }
 }
@@ -122,8 +126,9 @@ impl WindowApp for Cube3dApp {
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         for _ in 0..steps {
-            self.angle_y += 1.0 * self.timestep.dt();
-            self.angle_x += 0.5 * self.timestep.dt();
+            let dt = self.timestep.dt();
+            self.rotation_y.tick(dt);
+            self.rotation_x.tick(dt);
         }
         Ok(())
     }
@@ -144,7 +149,8 @@ impl WindowApp for Cube3dApp {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
-        let model = Mat4::rotation_y(self.angle_y) * Mat4::rotation_x(self.angle_x);
+        let model = Mat4::rotation_y(self.rotation_y.current_value())
+            * Mat4::rotation_x(self.rotation_x.current_value());
         let mvp = projection * (view * model);
 
         for (face_idx, tri_indices) in self.cube.indices.iter().enumerate() {

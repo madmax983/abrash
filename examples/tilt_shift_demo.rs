@@ -1,7 +1,8 @@
 use abrash::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
 use abrash::framebuffer::Framebuffer;
-use abrash::platform::Event;
-use abrash::platform::win32::Win32Window;
+use abrash::platform::{
+    HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
+};
 
 fn generate_procedural_city(fb: &mut Framebuffer) {
     let width = fb.width() as i32;
@@ -48,48 +49,80 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
     }
 }
 
-fn main() {
-    let width = 800;
-    let height = 600;
+struct TiltShiftApp {
+    framebuffer: Framebuffer,
+    presenter: Option<SoftwarePresenter>,
+    config: TiltShiftConfig,
+}
 
-    let mut window =
-        Win32Window::new("Abrash - Tilt Shift Demo", width as u32, height as u32).unwrap();
-    let mut fb = Framebuffer::new(width as u32, height as u32).unwrap();
+impl TiltShiftApp {
+    fn new() -> Result<Self, HostError> {
+        let width = 800;
+        let height = 600;
 
-    // Configuration for tilt shift effect
-    let mut config = TiltShiftConfig {
-        focus_dist: 0.5,
-        focus_range: 0.1,
-        blur_radius: 8,
-    };
+        let framebuffer = Framebuffer::new(width, height)
+            .map_err(|e| HostError::App(format!("Failed to create framebuffer: {:?}", e)))?;
 
-    let mut running = true;
+        Ok(Self {
+            framebuffer,
+            presenter: None,
+            config: TiltShiftConfig {
+                focus_dist: 0.5,
+                focus_range: 0.1,
+                blur_radius: 8,
+            },
+        })
+    }
+}
 
-    println!("Controls:");
-    println!("  Up/Down: Move Focus Plane");
-    println!("  Left/Right: Change Blur Radius");
+impl WindowApp for TiltShiftApp {
+    type Error = HostError;
 
-    while running {
-        for event in window.poll_events() {
-            if matches!(event, Event::Close) {
-                running = false;
-            }
+    fn config(&self) -> WindowHostConfig {
+        WindowHostConfig {
+            title: "Abrash - Tilt Shift Demo".to_string(),
+            width: 800,
+            height: 600,
+            vsync: true,
         }
+    }
 
-        // In a real input system we would check keys here
+    fn init(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
+        self.presenter = Some(SoftwarePresenter::new(ctx.window)?);
+        Ok(())
+    }
+
+    fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         // For this simple demo, we just animate the focus point slowly
         let time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs_f32();
-        config.focus_dist = 0.5 + (time * 0.5).sin() * 0.3;
+        self.config.focus_dist = 0.5 + (time * 0.5).sin() * 0.3;
+        Ok(())
+    }
 
+    fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         // Render base image
-        generate_procedural_city(&mut fb);
+        generate_procedural_city(&mut self.framebuffer);
 
         // Apply effect
-        apply_tilt_shift(&mut fb, &config);
+        apply_tilt_shift(&mut self.framebuffer, &self.config);
 
-        window.blit_framebuffer(&fb);
+        let framebuffer = &self.framebuffer;
+        let presenter = self
+            .presenter
+            .as_mut()
+            .ok_or_else(|| HostError::Present("software presenter not initialized".to_string()))?;
+        presenter.present(framebuffer)?;
+        Ok(())
     }
+}
+
+fn main() -> Result<(), HostError> {
+    println!("Controls:");
+    println!("  Up/Down: Move Focus Plane");
+    println!("  Left/Right: Change Blur Radius");
+
+    run_windowed(TiltShiftApp::new()?)
 }

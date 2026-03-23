@@ -159,3 +159,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate Arc Slice Intermediate Heap Allocations]**
 **Learning:** When creating an `Arc<[T]>` from an existing `Vec<T>` where the original vector must be kept, `std::sync::Arc::from(vec.clone().into_boxed_slice())` performs two expensive heap allocations: one for the `.clone()` into a new `Vec`, and one for `into_boxed_slice()` (if capacity doesn't match length) or within `Arc::from(Box<[T]>)` to allocate the ref-counted `ArcInner` block.
 **Action:** Use `std::sync::Arc::from(vec.as_slice())` instead. This extracts an immutable slice reference (`&[T]`) from the original `Vec`, and `Arc::from(&[T])` will allocate the `ArcInner` block and copy the elements directly into it in a single step, saving an entire intermediate heap allocation.
+**[Performance Optimization: Eliminate redundant allocation when creating Arc from Vec]**
+**Learning:** Using `Arc::from(vec.clone().into_boxed_slice())` performs two allocations (one for the temporary `Vec`, one for the `Arc`).
+**Action:** Use `Arc::from(vec.as_slice())` to allocate directly into the `Arc` block, avoiding the intermediate allocation entirely.
+**[Performance] Slicing to Elide Bounds Checks in 2D Neighborhood Operations**
+**Learning:** When performing 2D image convolution or neighborhood operations (like Sobel edge detection) on a flat 1D buffer, manually calculating the absolute index for every pixel in a 3x3 kernel (e.g. `prev_row_offset + x`) prevents LLVM from proving safety, resulting in 9 bounds checks per pixel.
+**Action:** Extract explicit 1D slices for the `prev_row`, `curr_row`, and `next_row` *outside* the inner loop (e.g. `&lum_slice[offset..offset+width]`). Inside the loop, access them via `row[x]`. The compiler will recognize `x` is strictly bounded by `width` and safely eliminate all bounds checks, yielding measurable speedups.

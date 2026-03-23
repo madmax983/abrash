@@ -60,3 +60,10 @@
 1.  **Extract:** Created `SsaoConfig` and `DepthOfFieldConfig` structs to encapsulate these parameters.
 2.  **Refactor:** Updated function signatures to take a reference to the respective config struct. Updated all callers (examples, tests, doc comments) to instantiate and pass the new structs.
 3.  **Result:** Lowered argument count, cohesive configurations for these post-processing effects, easier to extend.
+
+## [Removing Windows-Sys OS Coupling]
+**Tangle:** The project had a `backend-win32` platform feature utilizing unsafe FFI via `windows-sys` for direct Win32/GDI execution. Concurrently, it had a `backend-winit` feature providing safe, cross-platform functionality via `winit` and `softbuffer`. Several examples (`swirl_demo`, `vignette_demo`, `tilt_shift_demo`, `edge_glow_demo`) explicitly relied on the unsafe `Win32Window` abstraction. This duplicated windowing logic, bound those examples strictly to Windows environments, and caused workspace failures on Unix/Linux systems when developers ran workspace tests.
+**Blueprint:**
+1.  **Cut Obsolete Abstraction:** Deleted `src/platform/win32.rs` entirely, dropping the custom Win32 fallback implementation.
+2.  **Prune Dependency Graph:** Removed `windows-sys` and the `backend-win32` feature flag from `Cargo.toml`.
+3.  **Modernize Call Sites:** Migrated the aforementioned examples to rely directly on `winit`'s standard event-driven approach by mapping their procedural update loops to `WindowApp` implementations.

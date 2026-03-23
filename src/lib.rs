@@ -104,6 +104,14 @@ pub use abrash_core::time;
 pub use abrash_core::utils;
 pub use abrash_core::zbuffer;
 
+// Animation-related re-exports from abrash-core.
+pub use abrash_core::animatable;
+pub use abrash_core::quat;
+pub use abrash_core::transform;
+
+// Animation system — re-exported from abrash-anim.
+pub use abrash_anim as anim;
+
 pub mod platform;
 
 // Re-export rendering modules from abrash-render.
