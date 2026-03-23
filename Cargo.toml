@@ -4,6 +4,7 @@ members = [
     "crates/abrash-core",
     "crates/abrash-render",
     "crates/abrash-gpu-render",
+    "crates/abrash-anim",
     "crates/embed-demo",
 ]
 resolver = "2"
