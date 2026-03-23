@@ -48,6 +48,7 @@ pub mod jelly;
 pub mod kaleidoscope;
 pub mod kuwahara;
 pub mod lsystem;
+pub mod melt;
 pub mod modifiers;
 pub mod palette;
 pub mod pixel_sort;

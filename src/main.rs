@@ -314,6 +314,13 @@ Keyboard: Auto-rotating",
 Keyboard: Interactive",
         example_name: "arboretum_cli",
     },
+    Demo {
+        name: "Screen Melt",
+        category: DemoCategory::Simulation,
+        description: "Post-processing classic screen melt effect",
+        instructions: "Mouse: None\nKeyboard: None",
+        example_name: "melt_demo",
+    },
 ];
 
 fn is_gpu_render_example(example_name: &str) -> bool {
@@ -342,6 +349,7 @@ fn is_nova_example(example_name: &str) -> bool {
         || example_name == "glitch_demo"
         || example_name == "halftone_demo"
         || example_name == "arboretum_cli"
+        || example_name == "melt_demo"
 }
 
 fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<String> {
