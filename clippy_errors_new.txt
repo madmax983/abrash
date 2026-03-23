@@ -1,0 +1,160 @@
+    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+error: field marked as public but also inferred as unused because it's prefixed with `_`
+   --> crates/abrash-gpu-render/src/composition.rs:118:5
+    |
+118 |     pub _pad: [u32; 3],
+    |     ^^^^^^^^
+    |
+    = help: consider removing the underscore, or making the field private
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
+    = note: `-D clippy::pub-underscore-fields` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::pub_underscore_fields)]`
+
+error: this could be a `const fn`
+   --> crates/abrash-gpu-render/src/composition.rs:248:5
+    |
+248 | /     pub fn set_debug_mode(&mut self, mode: DebugMode) {
+249 | |         self.debug_mode = mode;
+250 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+    = note: `-D clippy::missing-const-for-fn` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+    |
+248 |     pub const fn set_debug_mode(&mut self, mode: DebugMode) {
+    |         +++++
+
+error: item in documentation is missing backticks
+   --> crates/abrash-gpu-render/src/deferred.rs:173:49
+    |
+173 |     /// Output format should be the HDR format (Rgba16Float) since tone...
+    |                                                 ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+    = note: `-D clippy::doc-markdown` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::doc_markdown)]`
+help: try
+    |
+173 -     /// Output format should be the HDR format (Rgba16Float) since tone mapping
+173 +     /// Output format should be the HDR format (`Rgba16Float`) since tone mapping
+    |
+
+error: this function has too many lines (162/100)
+   --> crates/abrash-gpu-render/src/deferred.rs:176:5
+    |
+176 | /     pub fn new(
+177 | |         device: &wgpu::Device,
+178 | |         output_format: wgpu::TextureFormat,
+179 | |         shadow_sample_layout: &wgpu::BindGroupLayout,
+180 | |     ) -> Self {
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = note: `-D clippy::too-many-lines` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_lines)]`
+
+error: item in documentation is missing backticks
+ --> crates/abrash-gpu-render/src/ibl.rs:6:53
+  |
+6 | //! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → s...
+  |                                                     ^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+  |
+6 - //! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → scale + bias)
+6 + //! 3. **BRDF integration LUT** — split-sum lookup (`NdotV` × roughness → scale + bias)
+  |
+
+error: item in documentation is missing backticks
+   --> crates/abrash-gpu-render/src/ibl.rs:261:31
+    |
+261 |     /// BRDF integration LUT (NdotV × roughness → scale + bias).
+    |                               ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+    |
+261 -     /// BRDF integration LUT (NdotV × roughness → scale + bias).
+261 +     /// BRDF integration LUT (`NdotV` × roughness → scale + bias).
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> crates/abrash-gpu-render/src/ibl.rs:274:12
+    |
+274 |     pub fn precompute(
+    |            ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+    = note: `-D clippy::must-use-candidate` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::must_use_candidate)]`
+help: add the attribute
+    |
+274 ~     #[must_use]
+275 ~     pub fn precompute(
+    |
+
+error: this method could have a `#[must_use]` attribute
+   --> crates/abrash-gpu-render/src/ibl.rs:365:12
+    |
+365 |     pub fn default_black(device: &wgpu::Device) -> Self {
+    |            ^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+    |
+365 ~     #[must_use]
+366 ~     pub fn default_black(device: &wgpu::Device) -> Self {
+    |
+
+error: this function has too many lines (125/100)
+   --> crates/abrash-gpu-render/src/ibl.rs:512:5
+    |
+512 | /     fn dispatch_prefilter(
+513 | |         device: &wgpu::Device,
+514 | |         queue: &wgpu::Queue,
+515 | |         env_view: &wgpu::TextureView,
+516 | |         sampler: &wgpu::Sampler,
+517 | |         output_tex: &wgpu::Texture,
+518 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+error: this function has too many lines (115/100)
+   --> crates/abrash-gpu-render/src/renderer.rs:132:5
+    |
+132 |     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+error: field marked as public but also inferred as unused because it's prefixed with `_`
+  --> crates/abrash-gpu-render/src/shader.rs:69:5
+   |
+69 |     pub _pad: [u32; 3],
+   |     ^^^^^^^^
+   |
+   = help: consider removing the underscore, or making the field private
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
+
+error: field marked as public but also inferred as unused because it's prefixed with `_`
+  --> crates/abrash-gpu-render/src/shader.rs:81:5
+   |
+81 |     pub _pad: [f32; 3],
+   |     ^^^^^^^^
+   |
+   = help: consider removing the underscore, or making the field private
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
+
+error: this function has too many lines (155/100)
+  --> crates/abrash-gpu-render/src/shadow.rs:62:5
+   |
+62 |     pub fn new(device: &wgpu::Device) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+
+error: could not compile `abrash-gpu-render` (lib) due to 13 previous errors

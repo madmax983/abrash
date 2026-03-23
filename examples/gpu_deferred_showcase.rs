@@ -134,14 +134,14 @@ impl ShowcaseApp {
         );
 
         let mut frame = Frame::new(camera);
-        frame.clear_color = Some(0xFF0A0A12); // dark blue-black
+        frame.clear_color = Some(0xFF0A_0A12); // dark blue-black
 
         // --- Lights ---
 
         // Warm directional sun (casts shadows)
         frame.add_light(Light::Directional(DirectionalLight {
             direction: Vec3::new(0.4, -0.8, -0.3),
-            color: 0xFFF5E6C8, // warm white
+            color: 0xFFF5_E6C8, // warm white
             intensity: 1.2,
         }));
 
@@ -149,7 +149,7 @@ impl ShowcaseApp {
         let red_angle = elapsed * 1.5;
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(red_angle.cos() * 4.0, 2.5, red_angle.sin() * 4.0),
-            color: 0xFFFF3333,
+            color: 0xFFFF_3333,
             intensity: 3.0,
             radius: 8.0,
         }));
@@ -158,7 +158,7 @@ impl ShowcaseApp {
         let blue_angle = elapsed * 1.5 + std::f32::consts::PI;
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(blue_angle.cos() * 3.5, 1.5, blue_angle.sin() * 3.5),
-            color: 0xFF3366FF,
+            color: 0xFF33_66FF,
             intensity: 2.5,
             radius: 7.0,
         }));
@@ -166,7 +166,7 @@ impl ShowcaseApp {
         // Green point light (static, above)
         frame.add_light(Light::Point(PointLight {
             position: Vec3::new(0.0, 5.0, 0.0),
-            color: 0xFF33FF66,
+            color: 0xFF33_FF66,
             intensity: 1.5,
             radius: 12.0,
         }));
@@ -278,7 +278,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 256.0,
                 specular_strength: 0.95,
             },
-            color: 0xFFCCCCCC,
+            color: 0xFFCC_CCCC,
             receive_light: true,
         });
 
@@ -288,7 +288,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 128.0,
                 specular_strength: 0.8,
             },
-            color: 0xFFD4AF37,
+            color: 0xFFD4_AF37,
             receive_light: true,
         });
 
@@ -298,7 +298,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 32.0,
                 specular_strength: 0.4,
             },
-            color: 0xFFCC2222,
+            color: 0xFFCC_2222,
             receive_light: true,
         });
 
@@ -308,7 +308,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 8.0,
                 specular_strength: 0.1,
             },
-            color: 0xFF2244AA,
+            color: 0xFF22_44AA,
             receive_light: true,
         });
 
@@ -318,7 +318,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 64.0,
                 specular_strength: 0.5,
             },
-            color: 0xFFE8E0D8,
+            color: 0xFFE8_E0D8,
             receive_light: true,
         });
 
@@ -328,7 +328,7 @@ impl WindowApp for ShowcaseApp {
                 shininess: 4.0,
                 specular_strength: 0.05,
             },
-            color: 0xFF222222,
+            color: 0xFF22_2222,
             receive_light: true,
         });
 

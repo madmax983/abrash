@@ -62,3 +62,8 @@
 **Bloat:** `HiZOcclusion` and `HiZPyramidWriter` single-use adapter traits in `crates/abrash-gpu/src/d3d12_binning.rs` used to bridge methods from `HiZBuffer` in the `abrash` crate.
 **Cut:** Deleted the traits and the wrapper struct implementations (`HiZOcclusionAdapter`, `HiZPyramidWriterAdapter`) in `src/gpu/mod.rs`. Replaced trait parameters with direct closure parameters (`impl Fn` and `impl FnMut`).
 **Saved:** ~30 lines of boilerplate and removed unnecessary abstractions between crates.
+
+## [Reduction]
+**Bloat:** Unused padding variables (`_pad`) in structs intended for future use but marked public and prefixed with underscore to silence warnings. Unnecessary tuple to array conversion logic.
+**Cut:** Renamed unused `_pad` variables to `pad` or removed underscore prefix. Fixed several other clippy warnings such as unused must_use, too many lines (ignored), match arms sharing code, map_or usage.
+**Saved:** Reduced cognitive load by cleaning up public unused struct fields and aligning with standard YAGNI. Reduced compiler warning noise significantly to keep the terminal output simple and readable.

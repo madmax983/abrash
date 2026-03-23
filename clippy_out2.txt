@@ -1,0 +1,18 @@
+    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+error: this could be a `const fn`
+   --> crates/abrash-gpu-render/src/renderer.rs:534:5
+    |
+534 | /     pub fn set_debug_mode(&mut self, mode: crate::composition::DebugM...
+535 | |         self.composition_pass.set_debug_mode(mode);
+536 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+    = note: `-D clippy::missing-const-for-fn` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+    |
+534 |     pub const fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
+    |         +++++
+
+error: could not compile `abrash-gpu-render` (lib) due to 1 previous error
