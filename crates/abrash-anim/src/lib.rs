@@ -9,9 +9,11 @@ pub mod easing;
 pub mod evaluable;
 pub mod hold;
 pub mod keyframe;
+pub mod sequence;
 
 pub use clock::{AnimationClock, ClockEvent, PlaybackMode};
 pub use easing::Easing;
 pub use evaluable::{Evaluable, Sample};
 pub use hold::Hold;
 pub use keyframe::Keyframe;
+pub use sequence::Sequence;
