@@ -1,0 +1,98 @@
+//! Trait for types that can be smoothly interpolated in animations.
+
+/// A type that supports interpolation, arithmetic, and distance for animation.
+///
+/// Implement this for any type you want to animate with `abrash-anim`.
+pub trait Animatable: Clone + 'static {
+    /// Interpolate between `self` and `other`.
+    /// `t` is clamped to 0.0–1.0. At t=0 returns self, at t=1 returns other.
+    fn interpolate(&self, other: &Self, t: f32) -> Self;
+
+    /// Scale the value by a scalar factor.
+    fn anim_scale(&self, scalar: f32) -> Self;
+
+    /// Add another value to this one.
+    fn anim_add(&self, other: &Self) -> Self;
+
+    /// Subtract another value from this one.
+    fn anim_sub(&self, other: &Self) -> Self;
+
+    /// The additive identity (zero value).
+    fn zero() -> Self;
+
+    /// Squared distance between two values. Used for settling detection.
+    fn distance_squared(&self, other: &Self) -> f32;
+}
+
+impl Animatable for f32 {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self + (other - self) * t
+    }
+
+    fn anim_scale(&self, scalar: f32) -> Self {
+        self * scalar
+    }
+
+    fn anim_add(&self, other: &Self) -> Self {
+        self + other
+    }
+
+    fn anim_sub(&self, other: &Self) -> Self {
+        self - other
+    }
+
+    fn zero() -> Self {
+        0.0
+    }
+
+    fn distance_squared(&self, other: &Self) -> f32 {
+        (self - other).powi(2)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn f32_interpolate_midpoint() {
+        let a: f32 = 0.0;
+        let result = a.interpolate(&10.0, 0.5);
+        assert!((result - 5.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn f32_interpolate_boundaries() {
+        let a: f32 = 2.0;
+        let b: f32 = 8.0;
+        assert!((a.interpolate(&b, 0.0) - 2.0).abs() < f32::EPSILON);
+        assert!((a.interpolate(&b, 1.0) - 8.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn f32_zero() {
+        assert!((f32::zero()).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn f32_add_sub_roundtrip() {
+        let a: f32 = 3.0;
+        let b: f32 = 7.0;
+        let sum = a.anim_add(&b);
+        let diff = sum.anim_sub(&b);
+        assert!((diff - a).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn f32_scale() {
+        let a: f32 = 5.0;
+        assert!((a.anim_scale(2.0) - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn f32_distance_squared() {
+        let a: f32 = 3.0;
+        let b: f32 = 7.0;
+        assert!((a.distance_squared(&b) - 16.0).abs() < f32::EPSILON);
+    }
+}
