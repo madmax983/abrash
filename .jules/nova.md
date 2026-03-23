@@ -161,3 +161,8 @@
 **Concept:** A post-processing effect simulating gravitational lensing. A central mass warps the coordinate space around it radially, bending light (pixel samples) inward, while creating a pitch-black event horizon in the center.
 **Fate:** Implemented
 **Lesson:** Spatial distortion effects (where destination pixels sample from arbitrary source locations) require cloning the original framebuffer to prevent read/write tearing and allow for safe parallel execution via Rayon. Clamping the distortion equation prevents dividing by zero or sampling infinitely far away at the exact edge of the event horizon.
+
+## [ASCII Display Render]
+**Concept:** A post-processing effect that converts the framebuffer into an ASCII art display, mapping luminance to characters and rendering them using a built-in bitmap font.
+**Fate:** Implemented
+**Lesson:** Rendering simple pixel-art text efficiently across a framebuffer requires avoiding naive scaling operations or complex string allocations, and instead directly mapping pixel locations and checking simple bitmaps using shifts and masks.
