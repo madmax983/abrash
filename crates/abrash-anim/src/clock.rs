@@ -6,7 +6,7 @@
 
 /// Maximum delta per tick (seconds). Caps frame-time spikes from
 /// tab-backgrounding or debugger pauses to prevent massive phase jumps.
-const MAX_DELTA_SECS: f32 = 10.1;
+const MAX_DELTA_SECS: f32 = 0.1;
 
 /// How the animation repeats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,84 +133,108 @@ mod tests {
         assert!((c.phase()).abs() < EPSILON);
     }
 
+    /// Helper: tick the clock multiple times with small deltas to reach target_secs.
+    fn tick_to(c: &mut AnimationClock, target_secs: f32, duration: f32) -> ClockEvent {
+        let step = 0.05; // 50ms steps, well under MAX_DELTA_SECS
+        let steps = (target_secs / step) as u32;
+        let remainder = target_secs - (steps as f32 * step);
+        let mut last_event = ClockEvent::Normal;
+        for _ in 0..steps {
+            let e = c.tick(step, duration);
+            if matches!(e, ClockEvent::CycleBoundary { .. }) {
+                last_event = e;
+            }
+        }
+        if remainder > f32::EPSILON {
+            let e = c.tick(remainder, duration);
+            if matches!(e, ClockEvent::CycleBoundary { .. }) {
+                last_event = e;
+            }
+        }
+        last_event
+    }
+
     #[test]
     fn tick_advances_phase() {
         let mut c = AnimationClock::new();
-        let event = c.tick(0.5, 1.0); // half-second into 1-second duration
+        let event = c.tick(0.05, 1.0); // 50ms into 1-second duration
         assert!(matches!(event, ClockEvent::Normal));
-        assert!((c.phase() - 0.5).abs() < EPSILON);
+        assert!((c.phase() - 0.05).abs() < EPSILON);
     }
 
     #[test]
     fn tick_past_one_triggers_cycle_boundary() {
         let mut c = AnimationClock::new();
-        let event = c.tick(1.5, 1.0); // 1.5 seconds into 1-second duration
-        assert!(matches!(event, ClockEvent::CycleBoundary { completed: 1 }));
+        tick_to(&mut c, 1.5, 1.0);
         assert_eq!(c.cycle(), 1);
-        assert!((c.phase() - 0.5).abs() < EPSILON);
+        assert!((c.phase() - 0.5).abs() < 0.01);
     }
 
     #[test]
-    fn multiple_cycles_in_one_tick() {
+    fn multiple_cycles() {
         let mut c = AnimationClock::new();
-        let event = c.tick(3.5, 1.0);
-        assert!(matches!(event, ClockEvent::CycleBoundary { completed: 3 }));
+        tick_to(&mut c, 3.5, 1.0);
         assert_eq!(c.cycle(), 3);
-        assert!((c.phase() - 0.5).abs() < EPSILON);
+        assert!((c.phase() - 0.5).abs() < 0.01);
     }
 
     #[test]
     fn delta_clamped_to_max() {
         let mut c = AnimationClock::new();
-        c.tick(999.0, 1.0); // huge delta, clamped to MAX_DELTA_SECS (10.1)
-        assert!((c.phase() - 0.1).abs() < EPSILON); // 10.1.fract() ≈ 0.1
+        c.tick(999.0, 1.0); // huge delta, clamped to MAX_DELTA_SECS (0.1)
+        assert!((c.phase() - 0.1).abs() < EPSILON);
+        assert_eq!(c.cycle(), 0); // 0.1 phase, no cycle crossed
     }
 
     #[test]
     fn effective_phase_ping_pong_reverses_odd_cycle() {
         let mut c = AnimationClock::new();
-        c.tick(1.3, 1.0); // cycle=1, phase=0.3
+        tick_to(&mut c, 1.3, 1.0); // cycle=1, phase≈0.3
         assert_eq!(c.cycle(), 1);
         let ep = c.effective_phase(&PlaybackMode::PingPong);
-        assert!((ep - 0.7).abs() < EPSILON); // 1.0 - 0.3
+        // phase should be ~0.3, effective = 1.0 - 0.3 = 0.7
+        assert!((ep - 0.7).abs() < 0.01);
     }
 
     #[test]
     fn effective_phase_loop_is_just_phase() {
         let mut c = AnimationClock::new();
-        c.tick(1.3, 1.0);
+        tick_to(&mut c, 1.3, 1.0);
         let ep = c.effective_phase(&PlaybackMode::Loop);
-        assert!((ep - 0.3).abs() < EPSILON);
+        assert!((ep - 0.3).abs() < 0.01);
     }
 
     #[test]
     fn is_finished_once() {
         let mut c = AnimationClock::new();
         assert!(!c.is_finished(&PlaybackMode::Once));
-        c.tick(1.0, 1.0);
+        tick_to(&mut c, 1.0, 1.0);
         assert!(c.is_finished(&PlaybackMode::Once));
     }
 
     #[test]
     fn is_finished_count() {
         let mut c = AnimationClock::new();
-        c.tick(2.0, 1.0);
+        tick_to(&mut c, 2.0, 1.0);
         assert!(!c.is_finished(&PlaybackMode::Count(3)));
-        c.tick(1.0, 1.0);
+        tick_to(&mut c, 1.0, 1.0);
         assert!(c.is_finished(&PlaybackMode::Count(3)));
     }
 
     #[test]
     fn loop_never_finishes() {
         let mut c = AnimationClock::new();
-        c.tick(100.0, 0.01); // many cycles
+        // Tick many times to accumulate cycles
+        for _ in 0..200 {
+            c.tick(0.05, 0.01); // 5 cycles per tick
+        }
         assert!(!c.is_finished(&PlaybackMode::Loop));
     }
 
     #[test]
     fn reset_clears_state() {
         let mut c = AnimationClock::new();
-        c.tick(1.5, 1.0);
+        tick_to(&mut c, 1.5, 1.0);
         c.reset();
         assert_eq!(c.cycle(), 0);
         assert!((c.phase()).abs() < EPSILON);
