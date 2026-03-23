@@ -156,3 +156,8 @@
 **Concept:** A post-processing effect that simulates an analog slit-scan camera by storing a history buffer of framebuffers and creating a time-stretched composite frame based on pixel rows.
 **Fate:** Implemented
 **Lesson:** Using `Vec<Vec<u32>>` as a circular history buffer combined with `rayon::par_chunks_exact_mut` allows for efficient per-row time offset calculations. Pre-calculating variables before the `rayon` closure ensures zero borrowing conflicts.
+
+## [Black Hole Filter]
+**Concept:** A post-processing effect simulating gravitational lensing. A central mass warps the coordinate space around it radially, bending light (pixel samples) inward, while creating a pitch-black event horizon in the center.
+**Fate:** Implemented
+**Lesson:** Spatial distortion effects (where destination pixels sample from arbitrary source locations) require cloning the original framebuffer to prevent read/write tearing and allow for safe parallel execution via Rayon. Clamping the distortion equation prevents dividing by zero or sampling infinitely far away at the exact edge of the event horizon.
