@@ -1,6 +1,7 @@
 //! Trait for types that can be smoothly interpolated in animations.
 
 use crate::math::{Vec2, Vec3};
+use crate::quat::Quat;
 
 /// A type that supports interpolation, arithmetic, and distance for animation.
 ///
@@ -109,6 +110,33 @@ impl Animatable for Vec3 {
     }
 }
 
+impl Animatable for Quat {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(other, t)
+    }
+
+    fn anim_scale(&self, scalar: f32) -> Self {
+        Quat::identity().slerp(self, scalar)
+    }
+
+    fn anim_add(&self, other: &Self) -> Self {
+        *self * *other
+    }
+
+    fn anim_sub(&self, other: &Self) -> Self {
+        *self * other.conjugate()
+    }
+
+    fn zero() -> Self {
+        Quat::identity()
+    }
+
+    fn distance_squared(&self, other: &Self) -> f32 {
+        let dot = self.dot(*other).abs();
+        1.0 - dot * dot
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,5 +227,29 @@ mod tests {
         let a = Vec3::new(0.0, 0.0, 0.0);
         let b = Vec3::new(3.0, 4.0, 0.0);
         assert!((a.distance_squared(&b) - 25.0).abs() < f32::EPSILON);
+    }
+
+    use crate::quat::Quat;
+
+    #[test]
+    fn quat_interpolate_uses_slerp() {
+        let a = Quat::identity();
+        let b = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), std::f32::consts::FRAC_PI_2);
+        let mid = a.interpolate(&b, 0.5);
+        let v = mid.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
+        let expected_x = (std::f32::consts::FRAC_PI_2 / 2.0).cos();
+        assert!((v.x - expected_x).abs() < 1e-5);
+    }
+
+    #[test]
+    fn quat_zero_is_identity() {
+        let z = Quat::zero();
+        assert!((z.w - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn quat_distance_squared_same_is_zero() {
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), 0.5);
+        assert!(q.distance_squared(&q) < 1e-10);
     }
 }
