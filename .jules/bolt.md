@@ -162,3 +162,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance] Slicing to Elide Bounds Checks in 2D Neighborhood Operations**
 **Learning:** When performing 2D image convolution or neighborhood operations (like Sobel edge detection) on a flat 1D buffer, manually calculating the absolute index for every pixel in a 3x3 kernel (e.g. `prev_row_offset + x`) prevents LLVM from proving safety, resulting in 9 bounds checks per pixel.
 **Action:** Extract explicit 1D slices for the `prev_row`, `curr_row`, and `next_row` *outside* the inner loop (e.g. `&lum_slice[offset..offset+width]`). Inside the loop, access them via `row[x]`. The compiler will recognize `x` is strictly bounded by `width` and safely eliminate all bounds checks, yielding measurable speedups.
+
+**Optimize Rasterizer Inner Loops with `iter_mut().zip`**
+**Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
+**Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.

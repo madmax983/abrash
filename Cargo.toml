@@ -316,6 +316,10 @@ name = "point_light"
 harness = false
 
 [[bench]]
+name = "flat_scanline"
+harness = false
+
+[[bench]]
 name = "texture_scanline"
 harness = false
 [[bench]]

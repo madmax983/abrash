@@ -798,20 +798,20 @@ impl GpuRenderer {
     }
 
     fn ensure_gbuffer(&mut self, width: u32, height: u32) {
-        let needs = match &self.gbuffer {
-            Some(g) => g.width != width || g.height != height,
-            None => true,
-        };
+        let needs = self
+            .gbuffer
+            .as_ref()
+            .map_or(true, |g| g.width != width || g.height != height);
         if needs {
             self.gbuffer = Some(GBuffer::new(self.gpu.device(), width, height));
         }
     }
 
     fn ensure_hdr_target(&mut self, width: u32, height: u32) {
-        let needs = match &self.hdr_target {
-            Some(t) => t.width != width || t.height != height,
-            None => true,
-        };
+        let needs = self
+            .hdr_target
+            .as_ref()
+            .map_or(true, |t| t.width != width || t.height != height);
         if needs {
             self.hdr_target = Some(crate::postprocess::HdrTarget::new(
                 self.gpu.device(),
@@ -1262,9 +1262,9 @@ impl GpuRenderer {
         if !self.taa_enabled {
             // No TAA — return a view of the HDR target
             let hdr = self.hdr_target.as_ref().unwrap();
-            return hdr
-                ._texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
+            #[allow(clippy::used_underscore_binding)]
+            let tex = &hdr._texture;
+            return tex.create_view(&wgpu::TextureViewDescriptor::default());
         }
 
         self.taa_pass.ensure_textures(self.gpu.device(), w, h);
@@ -1273,7 +1273,7 @@ impl GpuRenderer {
         let (jx, jy) = self.taa_pass.current_jitter();
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
-            jitter: [jx, jy],
+            jitter: [jx, jy].into(),
             feedback: 0.9,
             _pad: 0.0,
         };

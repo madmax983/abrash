@@ -126,25 +126,19 @@ pub(crate) unsafe fn draw_scanline_gouraud_simd_fast(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    while i < len {
-        // SAFETY: Loop bounds checked
-        unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
-            if z < *depth_val {
-                *depth_val = z;
-                let pixel = fb_slice.get_unchecked_mut(i);
-                // Fast path: direct shift, no clamp/mask (assuming valid input range)
-                let r = (r_i as u32) >> 16;
-                let g = (g_i as u32) >> 16;
-                let b = (b_i as u32) >> 16;
-                *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
-            }
+    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
+            // Fast path: direct shift, no clamp/mask (assuming valid input range)
+            let r = (r_i as u32) >> 16;
+            let g = (g_i as u32) >> 16;
+            let b = (b_i as u32) >> 16;
+            *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
         }
         z += dz_dx;
         r_i = r_i.wrapping_add(dr);
         g_i = g_i.wrapping_add(dg);
         b_i = b_i.wrapping_add(db);
-        i += 1;
     }
 }
 
@@ -272,30 +266,24 @@ unsafe fn draw_scanline_gouraud_simd_clamped(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    while i < len {
-        // SAFETY: Loop bounds checked
-        unsafe {
-            let depth_val = zb_slice.get_unchecked_mut(i);
-            if z < *depth_val {
-                *depth_val = z;
-                let pixel = fb_slice.get_unchecked_mut(i);
+    for (depth_val, pixel) in zb_slice[i..len].iter_mut().zip(fb_slice[i..len].iter_mut()) {
+        if z < *depth_val {
+            *depth_val = z;
 
-                // Clamped path
-                let r = r_i.clamp(0, 0x00FF_0000);
-                let g = g_i.clamp(0, 0x00FF_0000);
-                let b = b_i.clamp(0, 0x00FF_0000);
+            // Clamped path
+            let r = r_i.clamp(0, 0x00FF_0000);
+            let g = g_i.clamp(0, 0x00FF_0000);
+            let b = b_i.clamp(0, 0x00FF_0000);
 
-                *pixel = 0xFF00_0000
-                    | ((r as u32) & 0x00FF_0000)
-                    | (((g as u32) & 0x00FF_0000) >> 8)
-                    | (((b as u32) & 0x00FF_0000) >> 16);
-            }
+            *pixel = 0xFF00_0000
+                | ((r as u32) & 0x00FF_0000)
+                | (((g as u32) & 0x00FF_0000) >> 8)
+                | (((b as u32) & 0x00FF_0000) >> 16);
         }
         z += dz_dx;
         r_i = r_i.wrapping_add(dr);
         g_i = g_i.wrapping_add(dg);
         b_i = b_i.wrapping_add(db);
-        i += 1;
     }
 }
 
