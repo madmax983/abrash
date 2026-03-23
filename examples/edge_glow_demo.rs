@@ -5,19 +5,13 @@ use abrash::framebuffer::Framebuffer;
 
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use abrash::platform::tui::TuiWindow;
-#[cfg(all(
-    feature = "nova",
-    feature = "backend-win32",
-    not(feature = "backend-winit")
-))]
-use abrash::platform::win32::Win32Window;
 #[cfg(feature = "nova")]
 use std::env;
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 use std::time::Duration;
 
 use comfy_table::{Cell, Color, Table, presets};
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", feature = "backend-tui"))]
 use crossterm::event::{self, Event, KeyCode};
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;
@@ -239,20 +233,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return winit_demo::run(width, height);
         }
 
-        #[cfg(all(not(feature = "backend-winit"), feature = "backend-win32"))]
-        {
-            let mut window = Win32Window::new("Edge Glow Demo", width, height)?;
-            window.blit_framebuffer(&fb);
-
-            while window.is_open() {
-                window.poll_events();
-                std::thread::sleep(std::time::Duration::from_millis(16));
-            }
-        }
-        #[cfg(all(not(feature = "backend-winit"), not(feature = "backend-win32")))]
+        #[cfg(not(feature = "backend-winit"))]
         {
             println!(
-                "Win32 backend not enabled. Please use --tui or build with --features backend-win32"
+                "Winit backend not enabled. Please use --tui or build with --features backend-winit"
             );
         }
     }

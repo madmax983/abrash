@@ -40,7 +40,6 @@ dependencies = [
  "rayon",
  "softbuffer",
  "web-time 1.1.0",
- "windows-sys 0.59.0",
  "winit 0.29.15",
 ]
 
