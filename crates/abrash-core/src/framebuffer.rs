@@ -299,18 +299,19 @@ impl Framebuffer {
             return;
         }
 
-        let start_x_usize = start_x as usize;
-        let end_x_usize = end_x as usize;
-        let start_y_usize = start_y as usize;
-        let end_y_usize = end_y as usize;
-        let row_width = self.width as usize;
+        let sx = start_x as usize;
+        let ex = end_x as usize;
+        let sy = start_y as usize;
+        let ey = end_y as usize;
+        let w = self.width as usize;
 
-        let start_idx = start_y_usize * row_width;
-        let end_idx = end_y_usize * row_width;
-
-        for row in self.pixels[start_idx..end_idx].chunks_exact_mut(row_width) {
-            row[start_x_usize..end_x_usize].fill(color);
-        }
+        self.pixels
+            .chunks_exact_mut(w)
+            .take(ey)
+            .skip(sy)
+            .for_each(|row| {
+                row[sx..ex].fill(color);
+            });
     }
 }
 
