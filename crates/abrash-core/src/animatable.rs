@@ -1,5 +1,7 @@
 //! Trait for types that can be smoothly interpolated in animations.
 
+use crate::math::{Vec2, Vec3};
+
 /// A type that supports interpolation, arithmetic, and distance for animation.
 ///
 /// Implement this for any type you want to animate with `abrash-anim`.
@@ -50,6 +52,63 @@ impl Animatable for f32 {
     }
 }
 
+impl Animatable for Vec2 {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.lerp(*other, t)
+    }
+
+    fn anim_scale(&self, scalar: f32) -> Self {
+        *self * scalar
+    }
+
+    fn anim_add(&self, other: &Self) -> Self {
+        *self + *other
+    }
+
+    fn anim_sub(&self, other: &Self) -> Self {
+        *self - *other
+    }
+
+    fn zero() -> Self {
+        Self::new(0.0, 0.0)
+    }
+
+    fn distance_squared(&self, other: &Self) -> f32 {
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        dx * dx + dy * dy
+    }
+}
+
+impl Animatable for Vec3 {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.lerp(*other, t)
+    }
+
+    fn anim_scale(&self, scalar: f32) -> Self {
+        *self * scalar
+    }
+
+    fn anim_add(&self, other: &Self) -> Self {
+        *self + *other
+    }
+
+    fn anim_sub(&self, other: &Self) -> Self {
+        *self - *other
+    }
+
+    fn zero() -> Self {
+        Vec3::ZERO
+    }
+
+    fn distance_squared(&self, other: &Self) -> f32 {
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        dx * dx + dy * dy + dz * dz
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,5 +153,51 @@ mod tests {
         let a: f32 = 3.0;
         let b: f32 = 7.0;
         assert!((a.distance_squared(&b) - 16.0).abs() < f32::EPSILON);
+    }
+
+    use crate::math::{Vec2, Vec3};
+
+    #[test]
+    fn vec2_interpolate_midpoint() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(10.0, 20.0);
+        let mid = a.interpolate(&b, 0.5);
+        assert!((mid.x - 5.0).abs() < f32::EPSILON);
+        assert!((mid.y - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn vec2_zero() {
+        let z = Vec2::zero();
+        assert!((z.x).abs() < f32::EPSILON);
+        assert!((z.y).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn vec3_interpolate_midpoint() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(10.0, 20.0, 30.0);
+        let mid = a.interpolate(&b, 0.5);
+        assert!((mid.x - 5.0).abs() < f32::EPSILON);
+        assert!((mid.y - 10.0).abs() < f32::EPSILON);
+        assert!((mid.z - 15.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn vec3_add_sub_roundtrip() {
+        let a = Vec3::new(1.0, 2.0, 3.0);
+        let b = Vec3::new(4.0, 5.0, 6.0);
+        let sum = a.anim_add(&b);
+        let diff = sum.anim_sub(&b);
+        assert!((diff.x - a.x).abs() < f32::EPSILON);
+        assert!((diff.y - a.y).abs() < f32::EPSILON);
+        assert!((diff.z - a.z).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn vec3_distance_squared() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(3.0, 4.0, 0.0);
+        assert!((a.distance_squared(&b) - 25.0).abs() < f32::EPSILON);
     }
 }
