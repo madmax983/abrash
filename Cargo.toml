@@ -570,3 +570,13 @@ required-features = ["nova"]
 name = "melt_demo"
 path = "examples/melt_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "black_hole_demo"
+path = "examples/black_hole_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "black_hole_bench"
+harness = false
+required-features = ["nova"]
