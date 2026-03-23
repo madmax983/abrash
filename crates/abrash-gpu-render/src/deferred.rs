@@ -170,7 +170,7 @@ pub struct DeferredLightingPass {
 impl DeferredLightingPass {
     /// Create the deferred lighting pass.
     ///
-    /// Output format should be the HDR format (Rgba16Float) since tone mapping
+    /// Output format should be the HDR format (`Rgba16Float`) since tone mapping
     /// happens in a separate pass.
     #[must_use]
     pub fn new(
