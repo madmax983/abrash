@@ -22,8 +22,7 @@ parallel = ["abrash-render/parallel", "abrash-core/parallel", "dep:rayon"]
 backend-winit = ["dep:winit", "dep:softbuffer"]
 gpu-render = ["dep:abrash-gpu-render", "dep:winit"]
 gpu-engine-compare = ["gpu-render", "dep:bevy", "dep:fyrox"]
-backend-win32 = ["dep:windows-sys"]
-backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys", "abrash-render/backend-tui"]
+backend-tui = ["dep:crossterm", "dep:ratatui", "abrash-render/backend-tui"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui", "abrash-render/backend-wasm"]
 
 [dependencies]
@@ -39,15 +38,6 @@ winit = { version = "0.29.15", optional = true }
 softbuffer = { version = "0.4.8", optional = true }
 bevy = { version = "0.18.0", default-features = false, optional = true }
 fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-impl"], optional = true }
-
-# Win32 API bindings
-windows-sys = { version = "0.59", optional = true, features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Dwm",
-    "Win32_Graphics_Gdi",
-    "Win32_System_LibraryLoader",
-    "Win32_UI_WindowsAndMessaging",
-] }
 
 comfy-table = "7.1"
 foldhash = "0.2.0"
