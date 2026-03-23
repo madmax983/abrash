@@ -326,11 +326,7 @@ impl Mesh {
             let angle = (j as f32 / sectors as f32) * 2.0 * PI;
             let (sin_angle, cos_angle) = angle.sin_cos();
             let idx = vertices.len();
-            vertices.push(Vec3::new(
-                cos_angle * radius,
-                half_h,
-                sin_angle * radius,
-            ));
+            vertices.push(Vec3::new(cos_angle * radius, half_h, sin_angle * radius));
             normals.push(Vec3::new(0.0, 1.0, 0.0));
             uvs.push(Vec2::new(cos_angle * 0.5 + 0.5, sin_angle * 0.5 + 0.5));
 
@@ -352,11 +348,7 @@ impl Mesh {
             let angle = (j as f32 / sectors as f32) * 2.0 * PI;
             let (sin_angle, cos_angle) = angle.sin_cos();
             let idx = vertices.len();
-            vertices.push(Vec3::new(
-                cos_angle * radius,
-                -half_h,
-                sin_angle * radius,
-            ));
+            vertices.push(Vec3::new(cos_angle * radius, -half_h, sin_angle * radius));
             normals.push(Vec3::new(0.0, -1.0, 0.0));
             uvs.push(Vec2::new(cos_angle * 0.5 + 0.5, sin_angle * 0.5 + 0.5));
 
