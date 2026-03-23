@@ -2,6 +2,7 @@
 
 use crate::math::{Vec2, Vec3};
 use crate::quat::Quat;
+use crate::transform::Transform;
 
 /// A type that supports interpolation, arithmetic, and distance for animation.
 ///
@@ -137,6 +138,50 @@ impl Animatable for Quat {
     }
 }
 
+impl Animatable for Transform {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Self {
+            position: self.position.interpolate(&other.position, t),
+            rotation: self.rotation.interpolate(&other.rotation, t),
+            scale: self.scale.interpolate(&other.scale, t),
+        }
+    }
+
+    fn anim_scale(&self, scalar: f32) -> Self {
+        Self {
+            position: self.position.anim_scale(scalar),
+            rotation: self.rotation.anim_scale(scalar),
+            scale: self.scale.anim_scale(scalar),
+        }
+    }
+
+    fn anim_add(&self, other: &Self) -> Self {
+        Self {
+            position: self.position.anim_add(&other.position),
+            rotation: self.rotation.anim_add(&other.rotation),
+            scale: self.scale.anim_add(&other.scale),
+        }
+    }
+
+    fn anim_sub(&self, other: &Self) -> Self {
+        Self {
+            position: self.position.anim_sub(&other.position),
+            rotation: self.rotation.anim_sub(&other.rotation),
+            scale: self.scale.anim_sub(&other.scale),
+        }
+    }
+
+    fn zero() -> Self {
+        Self::identity()
+    }
+
+    fn distance_squared(&self, other: &Self) -> f32 {
+        self.position.distance_squared(&other.position)
+            + self.rotation.distance_squared(&other.rotation)
+            + self.scale.distance_squared(&other.scale)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,5 +296,52 @@ mod tests {
     fn quat_distance_squared_same_is_zero() {
         let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), 0.5);
         assert!(q.distance_squared(&q) < 1e-10);
+    }
+
+    use crate::transform::Transform;
+
+    #[test]
+    fn transform_interpolate_lerps_position() {
+        let a = Transform::from_position(Vec3::new(0.0, 0.0, 0.0));
+        let b = Transform::from_position(Vec3::new(10.0, 0.0, 0.0));
+        let mid = a.interpolate(&b, 0.5);
+        assert!((mid.position.x - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn transform_interpolate_slerps_rotation() {
+        let a = Transform::identity();
+        let mut b = Transform::identity();
+        b.rotation = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), std::f32::consts::FRAC_PI_2);
+        let mid = a.interpolate(&b, 0.5);
+        let v = mid.rotation.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
+        let expected_x = (std::f32::consts::FRAC_PI_2 / 2.0).cos();
+        assert!((v.x - expected_x).abs() < 1e-5);
+    }
+
+    #[test]
+    fn transform_interpolate_lerps_scale() {
+        let a = Transform {
+            position: Vec3::ZERO,
+            rotation: Quat::identity(),
+            scale: Vec3::new(1.0, 1.0, 1.0),
+        };
+        let b = Transform {
+            position: Vec3::ZERO,
+            rotation: Quat::identity(),
+            scale: Vec3::new(3.0, 3.0, 3.0),
+        };
+        let mid = a.interpolate(&b, 0.5);
+        assert!((mid.scale.x - 2.0).abs() < 1e-5);
+        assert!((mid.scale.y - 2.0).abs() < 1e-5);
+        assert!((mid.scale.z - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn transform_zero_is_identity() {
+        let z = Transform::zero();
+        assert!((z.position.x).abs() < 1e-5);
+        assert!((z.rotation.w - 1.0).abs() < 1e-5);
+        assert!((z.scale.x - 1.0).abs() < 1e-5);
     }
 }
