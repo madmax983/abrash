@@ -5,5 +5,9 @@
 //! `abrash_core::Animatable`.
 
 pub mod clock;
+pub mod easing;
+pub mod evaluable;
 
 pub use clock::{AnimationClock, ClockEvent, PlaybackMode};
+pub use easing::Easing;
+pub use evaluable::{Evaluable, Sample};
