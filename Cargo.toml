@@ -150,6 +150,11 @@ name = "voronoi_demo"
 path = "examples/voronoi_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "ascii_display_demo"
+path = "examples/ascii_display_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "rasterization"
 harness = false
