@@ -155,3 +155,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Optimize Mesh Preparation with `Cow` and `with_capacity`]**
 **Learning:** `mesh.normals.clone()` inside of `prepare_lit_mesh_data` and `prepare_textured_mesh_data` caused unnecessary heap allocations when `mesh.normals` was already available. Further, mapping via an iterator chain into `.collect::<Vec<_>>()` forced re-allocations along the way, rather than optimally building up the target `Vec`.
 **Action:** Replace `.clone()` with `std::borrow::Cow` to either borrow existing normals or own the generated ones without an unconditional allocation. Replace `.collect::<Vec<_>>()` chains with a manual loop into a `Vec::with_capacity()` to pre-allocate exactly the right size in memory, completely eliminating reallocation overhead and preventing cloning when unnecessary.
+
+**[Performance Optimization: Eliminate redundant allocation when creating Arc from Vec]**
+**Learning:** Using `Arc::from(vec.clone().into_boxed_slice())` performs two allocations (one for the temporary `Vec`, one for the `Arc`).
+**Action:** Use `Arc::from(vec.as_slice())` to allocate directly into the `Arc` block, avoiding the intermediate allocation entirely.
