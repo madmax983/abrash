@@ -368,19 +368,27 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
             let prev_row_offset = row_offset - width;
             let next_row_offset = row_offset + width;
 
+            // ⚡ Bolt Performance Optimization:
+            // Slicing out the three rows elides bounds checks in the inner loop.
+            let prev_row = &lum_slice[prev_row_offset..prev_row_offset + width];
+            let curr_row = &lum_slice[row_offset..row_offset + width];
+            let next_row = &lum_slice[next_row_offset..next_row_offset + width];
+
+            let dest_row = &mut pixels[row_offset..row_offset + width];
+
             for x in 1..width - 1 {
                 // Neighborhood indices
                 // TL T TR
                 //  L C  R
                 // BL B BR
-                let tl = i32::from(lum_slice[prev_row_offset + x - 1]);
-                let t = i32::from(lum_slice[prev_row_offset + x]);
-                let tr = i32::from(lum_slice[prev_row_offset + x + 1]);
-                let l = i32::from(lum_slice[row_offset + x - 1]);
-                let r = i32::from(lum_slice[row_offset + x + 1]);
-                let bl = i32::from(lum_slice[next_row_offset + x - 1]);
-                let b = i32::from(lum_slice[next_row_offset + x]);
-                let br = i32::from(lum_slice[next_row_offset + x + 1]);
+                let tl = i32::from(prev_row[x - 1]);
+                let t = i32::from(prev_row[x]);
+                let tr = i32::from(prev_row[x + 1]);
+                let l = i32::from(curr_row[x - 1]);
+                let r = i32::from(curr_row[x + 1]);
+                let bl = i32::from(next_row[x - 1]);
+                let b = i32::from(next_row[x]);
+                let br = i32::from(next_row[x + 1]);
 
                 // Gx Kernel
                 let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
@@ -393,9 +401,8 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
 
                 // Write back (Gray + Alpha)
                 // Use index relative to pixel buffer
-                let idx = row_offset + x;
-                let original_alpha = pixels[idx] & 0xFF00_0000;
-                pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
+                let original_alpha = dest_row[x] & 0xFF00_0000;
+                dest_row[x] = original_alpha | (mag << 16) | (mag << 8) | mag;
             }
         }
 
@@ -1245,23 +1252,27 @@ mod simd {
 
                 // Tail (Scalar fallback for edges handled by main function's scalar logic for inner loop?)
                 // The SIMD loop handles [1..width-17]. Tail needs to handle [x..width-1].
+                let prev_row = &lum_buffer[top_offset..top_offset + width];
+                let curr_row = &lum_buffer[mid_offset..mid_offset + width];
+                let next_row = &lum_buffer[bot_offset..bot_offset + width];
+                let dest_row = &mut pixels[mid_offset..mid_offset + width];
+
                 for cx in x..width - 1 {
-                    let idx = mid_offset + cx;
-                    let tl = i32::from(lum_buffer[top_offset + cx - 1]);
-                    let t = i32::from(lum_buffer[top_offset + cx]);
-                    let tr = i32::from(lum_buffer[top_offset + cx + 1]);
-                    let l = i32::from(lum_buffer[mid_offset + cx - 1]);
-                    let r = i32::from(lum_buffer[mid_offset + cx + 1]);
-                    let bl = i32::from(lum_buffer[bot_offset + cx - 1]);
-                    let b = i32::from(lum_buffer[bot_offset + cx]);
-                    let br = i32::from(lum_buffer[bot_offset + cx + 1]);
+                    let tl = i32::from(prev_row[cx - 1]);
+                    let t = i32::from(prev_row[cx]);
+                    let tr = i32::from(prev_row[cx + 1]);
+                    let l = i32::from(curr_row[cx - 1]);
+                    let r = i32::from(curr_row[cx + 1]);
+                    let bl = i32::from(next_row[cx - 1]);
+                    let b = i32::from(next_row[cx]);
+                    let br = i32::from(next_row[cx + 1]);
 
                     let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
                     let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
                     let mag = (gx.abs() + gy.abs()).min(255) as u32;
 
-                    let original_alpha = pixels[idx] & 0xFF00_0000;
-                    pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
+                    let original_alpha = dest_row[cx] & 0xFF00_0000;
+                    dest_row[cx] = original_alpha | (mag << 16) | (mag << 8) | mag;
                 }
             }
         }

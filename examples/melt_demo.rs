@@ -54,7 +54,7 @@ impl MeltDemoApp {
         // Title text approximation (just a block for effect)
         for y in 50..100 {
             for x in 50..400 {
-                background_fb.set_pixel(x as i32, y as i32, 0xFF_DD_22_22); // Red block
+                background_fb.set_pixel(x, y, 0xFF_DD_22_22); // Red block
             }
         }
 

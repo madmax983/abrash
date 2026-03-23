@@ -162,9 +162,9 @@ fn bench_gpu_offscreen_heavy_frames(c: &mut Criterion) {
 // CPU vs GPU comparison benchmarks — matched workloads
 // ---------------------------------------------------------------------------
 
-/// GPU at production triangle counts to compare against CPU scene_render benchmarks.
-/// Uses a single mesh with draw_repeats to approximate multi-object workloads.
-/// NOTE: GPU times include ~90µs device.poll() fence overhead.
+/// GPU at production triangle counts to compare against CPU `scene_render` benchmarks.
+/// Uses a single mesh with `draw_repeats` to approximate multi-object workloads.
+/// NOTE: GPU times include ~90µs `device.poll()` fence overhead.
 fn bench_gpu_vs_cpu_workloads(c: &mut Criterion) {
     let mut group = c.benchmark_group("gpu_vs_cpu");
     group.sample_size(10);
