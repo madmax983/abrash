@@ -1006,9 +1006,9 @@ fn draw_scanline_pbr_scalar(
             let n = Vec3::new(nx, ny, nz).fast_normalize();
             let world_pos = Vec3::new(wx, wy, wz);
 
-            let v = (constants.view_pos - world_pos).normalize();
+            let v = (constants.view_pos - world_pos).fast_normalize();
             // l is constant
-            let h = (v + l).normalize();
+            let h = (v + l).fast_normalize();
 
             // Cook-Torrance BRDF
             let n_dot_h = n.dot(h).max(0.0);
