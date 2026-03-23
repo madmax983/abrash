@@ -20,3 +20,5 @@ pub mod texture;
 pub mod time;
 pub mod utils;
 pub mod zbuffer;
+
+pub mod animatable;
