@@ -391,3 +391,72 @@ mod tests {
         assert!(cast_los(&map, a, b), "open map should have clear LOS");
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use crate::map::ArrayGridMap;
+    use crate::types::Cell;
+    use proptest::prelude::*;
+
+    fn walled_map() -> ArrayGridMap {
+        let mut map = ArrayGridMap::new(16, 16);
+        for x in 0..16 {
+            map.set(x, 0, Cell::Solid(1));
+            map.set(x, 15, Cell::Solid(1));
+        }
+        for y in 0..16 {
+            map.set(0, y, Cell::Solid(1));
+            map.set(15, y, Cell::Solid(1));
+        }
+        map
+    }
+
+    proptest! {
+        #[test]
+        fn ray_distance_is_non_negative(raw_angle: u32) {
+            let map = walled_map();
+            let origin = Vec2Fixed::from_f32(8.0, 8.0);
+            if let Some(hit) = cast_ray(&map, origin, Bam(raw_angle)) {
+                prop_assert!(hit.distance.raw() >= 0, "negative distance");
+            }
+        }
+
+        #[test]
+        fn ray_always_hits_walled_map(raw_angle: u32) {
+            let map = walled_map();
+            let origin = Vec2Fixed::from_f32(8.0, 8.0);
+            let hit = cast_ray(&map, origin, Bam(raw_angle));
+            prop_assert!(hit.is_some(), "ray should always hit a wall in enclosed map");
+        }
+
+        #[test]
+        fn hit_cell_is_solid(raw_angle: u32) {
+            let map = walled_map();
+            let origin = Vec2Fixed::from_f32(8.0, 8.0);
+            if let Some(hit) = cast_ray(&map, origin, Bam(raw_angle)) {
+                let cell = map.cell_at(hit.cell_x, hit.cell_y);
+                prop_assert!(cell.is_solid(), "hit cell should be solid");
+            }
+        }
+
+        #[test]
+        fn detailed_texture_u_in_range(raw_angle: u32) {
+            let map = walled_map();
+            let origin = Vec2Fixed::from_f32(8.0, 8.0);
+            if let Some(detail) = cast_ray_detailed(&map, origin, Bam(raw_angle)) {
+                let u = detail.texture_u.to_f32();
+                prop_assert!(u >= -0.01 && u <= 1.01, "texture_u out of range: {u}");
+            }
+        }
+
+        #[test]
+        fn los_symmetry(x1 in 1.5_f32..14.5, y1 in 1.5_f32..14.5,
+                        x2 in 1.5_f32..14.5, y2 in 1.5_f32..14.5) {
+            let map = walled_map();
+            let a = Vec2Fixed::from_f32(x1, y1);
+            let b = Vec2Fixed::from_f32(x2, y2);
+            prop_assert_eq!(cast_los(&map, a, b), cast_los(&map, b, a));
+        }
+    }
+}
