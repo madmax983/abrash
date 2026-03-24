@@ -2,6 +2,7 @@
 members = [
     ".",
     "crates/abrash-core",
+    "crates/abrash-raycast",
     "crates/abrash-render",
     "crates/abrash-gpu-render",
     "crates/abrash-anim",
@@ -598,3 +599,7 @@ required-features = ["nova"]
 name = "black_hole_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "bam_bench"
+harness = false
