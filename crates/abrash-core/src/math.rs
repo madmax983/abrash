@@ -78,14 +78,14 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     use std::f32::consts::PI;
 
     // Wrap x to [-PI, PI]
-    let inv_twopi = 0.15915494; // 1.0 / (2.0 * PI)
+    let inv_twopi = 0.159_154_94; // 1.0 / (2.0 * PI)
     let y = (x * inv_twopi).round();
     x -= y * (2.0 * PI);
 
     // Compute sine using parabolic approximation
     // sin(x) ≈ 4/PI * x - 4/PI^2 * x * |x|
     let x_abs = x.abs();
-    let mut sin_x = 1.27323954 * x - 0.40528473 * x * x_abs;
+    let mut sin_x = 1.273_239_5 * x - 0.405_284_73 * x * x_abs;
 
     // Additional precision step (optional but good for graphics)
     // sin(x) ≈ 0.225 * (sin_x * |sin_x| - sin_x) + sin_x
@@ -99,7 +99,7 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     }
 
     let x_cos_abs = x_cos.abs();
-    let mut cos_x = 1.27323954 * x_cos - 0.40528473 * x_cos * x_cos_abs;
+    let mut cos_x = 1.273_239_5 * x_cos - 0.405_284_73 * x_cos * x_cos_abs;
     let cos_x_abs = cos_x.abs();
     cos_x = 0.225 * (cos_x * cos_x_abs - cos_x) + cos_x;
 
@@ -118,6 +118,7 @@ pub fn fast_cos(x: f32) -> f32 {
     fast_sin_cos(x).1
 }
 
+#[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
     // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
