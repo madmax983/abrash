@@ -598,3 +598,8 @@ required-features = ["nova"]
 name = "black_hole_bench"
 harness = false
 required-features = ["nova"]
+
+[[example]]
+name = "pencil_sketch_demo"
+path = "examples/pencil_sketch_demo.rs"
+required-features = ["nova"]

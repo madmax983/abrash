@@ -171,3 +171,7 @@
 **Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
 **Fate:** Implemented
 **Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
+## [Pencil Sketch Filter]
+**Concept:** A non-photorealistic post-processing effect that converts the framebuffer into a stylized pencil sketch by converting to grayscale, inverting, applying a box blur, and then blending the blurred image with the original grayscale using a Color Dodge blend mode. This technique extracts edges and shading to simulate pencil strokes.
+**Fate:** Implemented
+**Lesson:** Using two separate thread-local buffers (`SKETCH_BUFFER_1` and `SKETCH_BUFFER_2`) allows safely managing the intermediate states (inverted luma and blurred luma) without dynamic heap allocations per frame. Packing the original luma into the unused alpha channel of the framebuffer before the blur pass avoids needing a third intermediate buffer, keeping the algorithm extremely memory-efficient and fast enough for real-time rendering.

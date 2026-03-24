@@ -53,6 +53,7 @@ pub mod lsystem;
 pub mod melt;
 pub mod modifiers;
 pub mod palette;
+pub mod pencil_sketch;
 pub mod pixel_sort;
 pub mod pixelate;
 pub mod posterize;
