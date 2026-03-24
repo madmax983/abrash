@@ -184,6 +184,10 @@ impl From<Fixed16_16> for i32 {
 
 impl core::fmt::Display for Fixed16_16 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.0 < 0 {
+            write!(f, "-")?;
+            return Self(self.0.wrapping_neg()).fmt(f);
+        }
         let int_part = self.to_int();
         let frac = (self.0 & 0xFFFF) as u32;
         let frac_dec = (frac * 100_000) >> FRAC_BITS;
@@ -328,6 +332,10 @@ mod tests {
         let b = Fixed16_16(3 * (1 << 16) + (1 << 15)); // 3.5
         let s2 = format!("{b}");
         assert_eq!(s2, "3.50000");
+
+        let c = Fixed16_16::from_f32(-3.5);
+        let s3 = format!("{c}");
+        assert_eq!(s3, "-3.50000");
     }
 
     #[test]
