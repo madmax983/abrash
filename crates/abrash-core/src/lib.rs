@@ -22,5 +22,6 @@ pub mod utils;
 pub mod zbuffer;
 
 pub mod animatable;
+pub mod fixed16_16;
 pub mod quat;
 pub mod transform;
