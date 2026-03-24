@@ -168,7 +168,7 @@ impl Bam {
     /// floating-point work.
     #[inline]
     #[must_use]
-    pub const fn sin_cos_fixed(&self) -> (Fixed16_16, Fixed16_16) {
+    pub const fn sin_cos_fixed(self) -> (Fixed16_16, Fixed16_16) {
         let sin = SINE_TABLE[self.fine_angle()];
         // cos(x) = sin(x + 90 degrees)
         let cos_angle = Self(self.0.wrapping_add(ANG90.0));
@@ -182,7 +182,7 @@ impl Bam {
     /// Good for effects, particles, and non-critical paths.
     #[inline]
     #[must_use]
-    pub fn sin_cos_f32(&self) -> (f32, f32) {
+    pub fn sin_cos_f32(self) -> (f32, f32) {
         crate::math::fast_sin_cos(self.to_radians())
     }
 
@@ -197,7 +197,7 @@ impl Bam {
     #[inline]
     #[must_use]
     pub fn from_radians(rad: f32) -> Self {
-        let bam = (f64::from(rad) / core::f64::consts::TAU * 4_294_967_296.0) as u32;
+        let bam = (f64::from(rad) / core::f64::consts::TAU * 4_294_967_296.0) as i64 as u32;
         Self(bam)
     }
 }
@@ -352,6 +352,15 @@ mod tests {
                 bam.0
             );
         }
+
+        // Negative radians should wrap correctly (e.g., -π/2 ≈ 270°)
+        let neg = Bam::from_radians(-std::f32::consts::FRAC_PI_2);
+        let diff = neg.0.wrapping_sub(ANG270.0);
+        assert!(
+            diff < 0x0010_0000 || diff > 0xFFF0_0000,
+            "from_radians(-π/2) should be near ANG270, got {}",
+            neg
+        );
     }
 
     #[test]
