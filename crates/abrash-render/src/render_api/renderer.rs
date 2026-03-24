@@ -90,6 +90,16 @@ pub trait Renderer {
     /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
     fn create_mesh(&mut self, mesh: &Mesh) -> Result<MeshHandle, RenderError>;
 
+    /// Update an existing mesh resource with new data.
+    ///
+    /// This is used for per-frame updates like vertex skinning.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::StaleHandle`] if the handle is invalid.
+    /// Returns [`RenderError::InvalidMesh`] if the mesh data is malformed.
+    fn update_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) -> Result<(), RenderError>;
+
     /// Upload a texture and return a handle.
     ///
     /// # Errors
@@ -136,6 +146,9 @@ mod tests {
     impl Renderer for NullRenderer {
         fn create_mesh(&mut self, _mesh: &Mesh) -> Result<MeshHandle, RenderError> {
             Ok(MeshHandle::new(0, 0))
+        }
+        fn update_mesh(&mut self, _handle: MeshHandle, _mesh: &Mesh) -> Result<(), RenderError> {
+            Ok(())
         }
         fn create_texture(&mut self, _texture: &Texture) -> Result<TextureHandle, RenderError> {
             Ok(TextureHandle::new(0, 0))
