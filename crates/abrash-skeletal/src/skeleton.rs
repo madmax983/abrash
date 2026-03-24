@@ -12,7 +12,7 @@ pub struct JointId(pub u16);
 /// A single joint in the skeleton.
 #[derive(Debug, Clone)]
 pub struct Joint {
-    /// Human-readable name (e.g. "LeftShoulder").
+    /// Human-readable name (e.g. "`LeftShoulder`").
     pub name: String,
     /// Parent joint, or `None` for a root joint.
     pub parent: Option<JointId>,
@@ -58,7 +58,7 @@ impl Skeleton {
     /// Number of joints in the skeleton.
     #[must_use]
     #[inline]
-    pub fn joint_count(&self) -> usize {
+    pub const fn joint_count(&self) -> usize {
         self.joints.len()
     }
 
@@ -83,12 +83,10 @@ impl Skeleton {
         let mut globals = Vec::with_capacity(n);
         for (i, joint) in self.joints.iter().enumerate() {
             let local_mat = pose.local_transforms[i].to_mat4();
-            let global = if let Some(parent_id) = joint.parent {
+            let global = joint.parent.map_or(local_mat, |parent_id| {
                 // Row-vector convention: local * parent_global
                 local_mat * globals[parent_id.0 as usize]
-            } else {
-                local_mat
-            };
+            });
             globals.push(global);
         }
         globals

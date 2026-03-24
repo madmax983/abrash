@@ -50,9 +50,8 @@ pub fn channel_to_vec3_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluabl
 /// Panics if the channel values are not `Rotation`.
 #[must_use]
 pub fn channel_to_quat_evaluable(channel: &AnimationChannel) -> Box<dyn Evaluable<Quat>> {
-    let values = match &channel.values {
-        ChannelValues::Rotation(v) => v,
-        _ => panic!("Expected Quat channel values (Rotation)"),
+    let ChannelValues::Rotation(values) = &channel.values else {
+        panic!("Expected Quat channel values (Rotation)")
     };
     let timestamps = &channel.timestamps;
 

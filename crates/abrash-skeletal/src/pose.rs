@@ -13,7 +13,7 @@ pub struct Pose {
 impl Pose {
     /// Create a pose from a vector of transforms.
     #[must_use]
-    pub fn new(transforms: Vec<Transform>) -> Self {
+    pub const fn new(transforms: Vec<Transform>) -> Self {
         Self {
             local_transforms: transforms,
         }

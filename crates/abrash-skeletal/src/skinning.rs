@@ -22,7 +22,7 @@ pub fn skin_vertices(mesh: &SkinnedMesh, skin_matrices: &SkinMatrices, out_posit
         out_positions.len()
     );
 
-    for v in 0..vertex_count {
+    for (v, out_pos) in out_positions.iter_mut().enumerate() {
         let rest_pos = mesh.mesh.vertices[v];
         let joints = mesh.skin.joint_indices[v];
         let weights = mesh.skin.weights[v];
@@ -37,7 +37,7 @@ pub fn skin_vertices(mesh: &SkinnedMesh, skin_matrices: &SkinMatrices, out_posit
                 skinned = skinned + transformed * w;
             }
         }
-        out_positions[v] = skinned;
+        *out_pos = skinned;
     }
 }
 
