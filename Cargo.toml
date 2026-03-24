@@ -598,3 +598,8 @@ required-features = ["nova"]
 name = "black_hole_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "wobble_bench"
+harness = false
+required-features = ["nova"]
