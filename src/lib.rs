@@ -112,6 +112,9 @@ pub use abrash_core::transform;
 // Animation system — re-exported from abrash-anim.
 pub use abrash_anim as anim;
 
+// Skeletal animation — re-exported from abrash-skeletal.
+pub use abrash_skeletal as skeletal;
+
 pub mod platform;
 
 // Re-export rendering modules from abrash-render.
