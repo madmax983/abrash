@@ -26,6 +26,7 @@ dependencies = [
  "abrash-core",
  "abrash-gpu-render",
  "abrash-render",
+ "abrash-skeletal",
  "bevy",
  "clap",
  "comfy-table",
