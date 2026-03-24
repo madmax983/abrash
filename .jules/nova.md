@@ -166,3 +166,8 @@
 **Concept:** A post-processing effect that converts the framebuffer into an ASCII art display, mapping luminance to characters and rendering them using a built-in bitmap font.
 **Fate:** Implemented
 **Lesson:** Rendering simple pixel-art text efficiently across a framebuffer requires avoiding naive scaling operations or complex string allocations, and instead directly mapping pixel locations and checking simple bitmaps using shifts and masks.
+
+## [VHS Tracking Filter]
+**Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
+**Fate:** Implemented
+**Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
