@@ -168,6 +168,30 @@ impl Renderer for CpuRenderer {
         })))
     }
 
+    fn update_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) -> Result<(), RenderError> {
+        // Validate all triangle indices are in bounds
+        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+            for &idx in indices {
+                if idx >= mesh.vertices.len() {
+                    return Err(RenderError::InvalidMesh(format!(
+                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                        mesh.vertices.len()
+                    )));
+                }
+            }
+        }
+
+        let cpu_mesh = self
+            .meshes
+            .get_mut(from_mesh_handle(handle))
+            .ok_or(RenderError::StaleHandle("mesh"))?;
+
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        cpu_mesh.mesh = mesh.clone();
+        cpu_mesh.shared_indices = shared_indices;
+        Ok(())
+    }
+
     fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
     }
@@ -343,6 +367,64 @@ mod tests {
         frame.draw(mesh_h, mat_h, Mat4::identity());
 
         assert!(renderer.extract_draw_list(&frame).is_err());
+    }
+
+    #[test]
+    fn test_update_mesh_then_render() {
+        let mut renderer = CpuRenderer::new(200, 200);
+        let mut target = RenderTarget::new(200, 200).unwrap();
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        let mat_h = renderer
+            .create_material(Material::flat(0xFFFF_0000))
+            .unwrap();
+
+        // Update the mesh with new geometry (a smaller cube)
+        let updated = Mesh::cube(0.5);
+        assert!(renderer.update_mesh(mesh_h, &updated).is_ok());
+
+        // Render should succeed after update
+        let camera = FrameCamera::new(
+            Mat4::look_at(
+                Vec3::new(0.0, 0.0, 3.0),
+                Vec3::ZERO,
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+            Mat4::perspective(1.57, 1.0, 0.1, 100.0),
+        );
+        let mut frame = Frame::new(camera);
+        frame.draw(mesh_h, mat_h, Mat4::identity());
+        assert!(renderer.render_frame(&frame, &mut target).is_ok());
+    }
+
+    #[test]
+    fn test_update_mesh_stale_handle() {
+        let mut renderer = CpuRenderer::new(100, 100);
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+        renderer.destroy_mesh(mesh_h);
+
+        let updated = Mesh::cube(0.5);
+        let result = renderer.update_mesh(mesh_h, &updated);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RenderError::StaleHandle(kind) => assert_eq!(kind, "mesh"),
+            other => panic!("Expected StaleHandle, got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_update_mesh_invalid_indices() {
+        let mut renderer = CpuRenderer::new(100, 100);
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+
+        let mut bad_mesh = Mesh::new();
+        bad_mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        bad_mesh.indices.push([0, 1, 2]); // indices 1, 2 are OOB
+
+        let result = renderer.update_mesh(mesh_h, &bad_mesh);
+        assert!(result.is_err());
     }
 
     #[test]
