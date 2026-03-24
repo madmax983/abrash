@@ -107,7 +107,9 @@ impl GltfViewerApp {
                     .map_err(|e| HostError::App(e.to_string()))?;
 
                 // Build material from glTF data or fall back to flat gray
-                let mat = if !scene.materials.is_empty() {
+                let mat = if scene.materials.is_empty() {
+                    Material::flat(0xFFA0_A0A0)
+                } else {
                     let gltf_mat = &scene.materials[0];
                     let factor = gltf_mat.base_color_factor;
                     let r = (factor[0] * 255.0) as u32;
@@ -116,8 +118,6 @@ impl GltfViewerApp {
                     let a = (factor[3] * 255.0) as u32;
                     let color = (a << 24) | (r << 16) | (g << 8) | b;
                     Material::flat(color)
-                } else {
-                    Material::flat(0xFFA0_A0A0)
                 };
                 let math = renderer
                     .create_material(mat)
@@ -228,7 +228,7 @@ impl WindowApp for GltfViewerApp {
                     updated_mesh.vertices.clone_from(&self.skinned_positions);
                     self.renderer
                         .update_mesh(mh, &updated_mesh)
-                        .map_err(render_err_to_host)?;
+                        .map_err(|e| render_err_to_host(&e))?;
                 }
             }
         }
@@ -257,7 +257,7 @@ impl WindowApp for GltfViewerApp {
 
         self.renderer
             .render_frame(&frame, &mut self.target)
-            .map_err(render_err_to_host)?;
+            .map_err(|e| render_err_to_host(&e))?;
 
         let presenter = self
             .presenter
@@ -268,7 +268,7 @@ impl WindowApp for GltfViewerApp {
     }
 }
 
-fn render_err_to_host(e: RenderError) -> HostError {
+fn render_err_to_host(e: &RenderError) -> HostError {
     HostError::App(e.to_string())
 }
 
