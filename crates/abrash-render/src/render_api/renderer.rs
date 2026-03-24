@@ -205,5 +205,13 @@ mod tests {
             ),
             "invalid mesh: index out of bounds"
         );
+        assert_eq!(
+            format!("{}", RenderError::InvalidTexture("bad format".to_string())),
+            "invalid texture: bad format"
+        );
+        assert_eq!(
+            format!("{}", RenderError::Internal("out of memory".to_string())),
+            "renderer error: out of memory"
+        );
     }
 }
