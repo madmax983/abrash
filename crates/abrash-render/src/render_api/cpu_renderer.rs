@@ -186,9 +186,13 @@ impl Renderer for CpuRenderer {
             .get_mut(from_mesh_handle(handle))
             .ok_or(RenderError::StaleHandle("mesh"))?;
 
-        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
-        cpu_mesh.mesh = mesh.clone();
-        cpu_mesh.shared_indices = shared_indices;
+        cpu_mesh.mesh.clone_from(mesh);
+
+        // Optimize Arc reuse if topology (indices) hasn't changed
+        if cpu_mesh.shared_indices.as_ref() != mesh.indices.as_slice() {
+            cpu_mesh.shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        }
+
         Ok(())
     }
 
@@ -411,6 +415,35 @@ mod tests {
             RenderError::StaleHandle(kind) => assert_eq!(kind, "mesh"),
             other => panic!("Expected StaleHandle, got {other}"),
         }
+    }
+
+    #[test]
+    fn test_update_mesh_reuses_allocations() {
+        use super::from_mesh_handle;
+        let mut renderer = CpuRenderer::new(100, 100);
+
+        let mesh_h = renderer.create_mesh(&Mesh::cube(1.0)).unwrap();
+
+        let initial_arc_ptr = {
+            let cpu_mesh = renderer.meshes.get(from_mesh_handle(mesh_h)).unwrap();
+            std::sync::Arc::as_ptr(&cpu_mesh.shared_indices)
+        };
+
+        let mut updated = Mesh::cube(1.0);
+        // Modify vertices but keep indices the same
+        updated.vertices[0] = abrash_core::math::Vec3::new(10.0, 10.0, 10.0);
+
+        renderer.update_mesh(mesh_h, &updated).unwrap();
+
+        let new_arc_ptr = {
+            let cpu_mesh = renderer.meshes.get(from_mesh_handle(mesh_h)).unwrap();
+            std::sync::Arc::as_ptr(&cpu_mesh.shared_indices)
+        };
+
+        assert_eq!(
+            initial_arc_ptr, new_arc_ptr,
+            "Topology hasn't changed; Arc should be reused"
+        );
     }
 
     #[test]
