@@ -4,6 +4,7 @@
 //! via `abrash-anim`, and optional glTF loading.
 
 pub mod clip;
+pub mod clip_evaluable;
 pub mod pose;
 pub mod skeleton;
 pub mod skin;
