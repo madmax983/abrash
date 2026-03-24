@@ -22,8 +22,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
     // We'll process each pixel independently.
     // To do this properly, we need to map screen coordinates to a rotated grid.
 
-    let sin_a = angle_radians.sin();
-    let cos_a = angle_radians.cos();
+    let (sin_a, cos_a) = angle_radians.sin_cos();
     let max_dist_sq = (dot_size * dot_size) / 2.0;
 
     let pixels = fb.as_mut_slice();

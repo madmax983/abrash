@@ -120,8 +120,9 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Convert back to Cartesian
                         // Using fast float-to-int cast saves overhead when exact rounding isn't required
-                        let sample_x = (cx + r * theta.cos()) as i32;
-                        let sample_y = (cy + r * theta.sin()) as i32;
+                        let (sin_t, cos_t) = crate::math::fast_sin_cos(theta);
+                        let sample_x = (cx + r * cos_t) as i32;
+                        let sample_y = (cy + r * sin_t) as i32;
 
                         // Clamp coordinates to stay within bounds
                         let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
@@ -159,8 +160,9 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     }
 
                     // Convert back to Cartesian
-                    let sample_x = (cx + r * theta.cos()) as i32;
-                    let sample_y = (cy + r * theta.sin()) as i32;
+                    let (sin_t, cos_t) = crate::math::fast_sin_cos(theta);
+                    let sample_x = (cx + r * cos_t) as i32;
+                    let sample_y = (cy + r * sin_t) as i32;
 
                     // Clamp coordinates to stay within bounds
                     let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
