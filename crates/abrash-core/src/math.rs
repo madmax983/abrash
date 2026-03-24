@@ -55,8 +55,69 @@ use std::ops::{Add, Mul, Sub};
 /// // Assert with a small tolerance due to approximation
 /// assert!((inv_sqrt - 0.5).abs() < 0.01);
 /// ```
+///
+/// Fast approximation of sine and cosine.
+///
+/// Computes an approximation of `sin(x)` and `cos(x)` (where `x` is in radians)
+/// using a minimax polynomial approximation.
+/// This trades a small amount of precision for performance.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_sin_cos;
+/// use std::f32::consts::PI;
+///
+/// let (s, c) = fast_sin_cos(PI / 4.0);
+/// assert!((s - 0.7071).abs() < 0.01);
+/// assert!((c - 0.7071).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
+pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
+    use std::f32::consts::PI;
+
+    // Wrap x to [-PI, PI]
+    let inv_twopi = 0.15915494; // 1.0 / (2.0 * PI)
+    let y = (x * inv_twopi).round();
+    x -= y * (2.0 * PI);
+
+    // Compute sine using parabolic approximation
+    // sin(x) ≈ 4/PI * x - 4/PI^2 * x * |x|
+    let x_abs = x.abs();
+    let mut sin_x = 1.27323954 * x - 0.40528473 * x * x_abs;
+
+    // Additional precision step (optional but good for graphics)
+    // sin(x) ≈ 0.225 * (sin_x * |sin_x| - sin_x) + sin_x
+    let sin_x_abs = sin_x.abs();
+    sin_x = 0.225 * (sin_x * sin_x_abs - sin_x) + sin_x;
+
+    // Compute cosine by phase shifting: cos(x) = sin(x + PI/2)
+    let mut x_cos = x + std::f32::consts::FRAC_PI_2;
+    if x_cos > PI {
+        x_cos -= 2.0 * PI;
+    }
+
+    let x_cos_abs = x_cos.abs();
+    let mut cos_x = 1.27323954 * x_cos - 0.40528473 * x_cos * x_cos_abs;
+    let cos_x_abs = cos_x.abs();
+    cos_x = 0.225 * (cos_x * cos_x_abs - cos_x) + cos_x;
+
+    (sin_x, cos_x)
+}
+
+#[inline]
+#[must_use]
+pub fn fast_sin(x: f32) -> f32 {
+    fast_sin_cos(x).0
+}
+
+#[inline]
+#[must_use]
+pub fn fast_cos(x: f32) -> f32 {
+    fast_sin_cos(x).1
+}
+
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
     // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
@@ -2401,6 +2462,25 @@ impl std::ops::Sub for Vec4 {
             y: self.y - other.y,
             z: self.z - other.z,
             w: self.w - other.w,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_fast_sin {
+    use super::*;
+
+    #[test]
+    fn test_fast_sin_cos() {
+        use std::f32::consts::PI;
+        for i in 0..360 {
+            let rad = (i as f32) * PI / 180.0;
+            let (fs, fc) = fast_sin_cos(rad);
+            let s = rad.sin();
+            let c = rad.cos();
+
+            assert!((fs - s).abs() < 0.005, "sin mismatch at {}: {} vs {}", i, fs, s);
+            assert!((fc - c).abs() < 0.005, "cos mismatch at {}: {} vs {}", i, fc, c);
         }
     }
 }

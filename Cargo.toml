@@ -62,6 +62,10 @@ name = "math"
 harness = false
 
 [[bench]]
+name = "math_bench"
+harness = false
+
+[[bench]]
 name = "vec2_bench"
 harness = false
 
