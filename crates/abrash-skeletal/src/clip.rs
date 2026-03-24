@@ -24,7 +24,7 @@ pub enum ChannelValues {
 impl ChannelValues {
     /// Number of values stored.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         match self {
             Self::Translation(v) | Self::Scale(v) => v.len(),
             Self::Rotation(v) => v.len(),
@@ -33,7 +33,7 @@ impl ChannelValues {
 
     /// Whether the values are empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }

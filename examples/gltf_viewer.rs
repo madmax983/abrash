@@ -94,8 +94,7 @@ struct GltfViewerApp {
 impl GltfViewerApp {
     fn new(scene: GltfScene) -> Result<Self, HostError> {
         let mut renderer = CpuRenderer::new(WIDTH, HEIGHT);
-        let target = RenderTarget::new(WIDTH, HEIGHT)
-            .map_err(|e| HostError::App(e.to_string()))?;
+        let target = RenderTarget::new(WIDTH, HEIGHT).map_err(|e| HostError::App(e.to_string()))?;
 
         // Take first mesh (if any)
         let skinned_mesh = scene.meshes.into_iter().next();
@@ -135,20 +134,15 @@ impl GltfViewerApp {
 
                 (Some(mh), Some(math), positions, center, dist)
             } else {
-                (
-                    None,
-                    None,
-                    Vec::new(),
-                    Vec3::ZERO,
-                    5.0,
-                )
+                (None, None, Vec::new(), Vec3::ZERO, 5.0)
             };
 
         // Build animator from first clip (if skeleton + clips exist)
         let animator = scene.skeleton.and_then(|skel| {
-            scene.clips.first().map(|clip| {
-                SkeletonAnimator::new(skel, clip, PlaybackMode::Loop)
-            })
+            scene
+                .clips
+                .first()
+                .map(|clip| SkeletonAnimator::new(skel, clip, PlaybackMode::Loop))
         });
 
         Ok(Self {
@@ -221,9 +215,7 @@ impl WindowApp for GltfViewerApp {
             self.camera_angle += dt * 0.5;
 
             // Tick animation and skin vertices
-            if let (Some(animator), Some(sm)) =
-                (&mut self.animator, &self.skinned_mesh)
-            {
+            if let (Some(animator), Some(sm)) = (&mut self.animator, &self.skinned_mesh) {
                 let pose = animator.tick(dt);
                 let skeleton = animator.skeleton();
                 let globals = skeleton.compute_global_transforms(&pose);
@@ -244,10 +236,7 @@ impl WindowApp for GltfViewerApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        let (w, h) = (
-            self.target.width() as f32,
-            self.target.height() as f32,
-        );
+        let (w, h) = (self.target.width() as f32, self.target.height() as f32);
         let aspect = w / h;
 
         let projection = Mat4::perspective(PI / 3.0, aspect, 0.01, 1000.0);
