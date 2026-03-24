@@ -6,7 +6,9 @@
 pub mod pose;
 pub mod skeleton;
 pub mod skin;
+pub mod skinning;
 
 pub use pose::{Pose, SkinMatrices};
 pub use skeleton::{Joint, JointId, Skeleton};
 pub use skin::{SkinData, SkinnedMesh};
+pub use skinning::skin_vertices;
