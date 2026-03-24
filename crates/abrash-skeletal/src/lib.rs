@@ -17,3 +17,9 @@ pub use pose::{Pose, SkinMatrices};
 pub use skeleton::{Joint, JointId, Skeleton};
 pub use skin::{SkinData, SkinnedMesh};
 pub use skinning::skin_vertices;
+
+#[cfg(feature = "gltf")]
+pub mod gltf_loader;
+
+#[cfg(feature = "gltf")]
+pub use gltf_loader::{GltfError, GltfMaterial, GltfScene, load_gltf};
