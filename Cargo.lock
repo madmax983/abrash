@@ -73,6 +73,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abrash-raycast"
+version = "0.1.0"
+dependencies = [
+ "abrash-core",
+ "proptest",
+ "rayon",
+]
+
+[[package]]
 name = "abrash-render"
 version = "0.1.0"
 dependencies = [
