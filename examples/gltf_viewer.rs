@@ -107,7 +107,9 @@ impl GltfViewerApp {
                     .map_err(|e| HostError::App(e.to_string()))?;
 
                 // Build material from glTF data or fall back to flat gray
-                let mat = if !scene.materials.is_empty() {
+                let mat = if scene.materials.is_empty() {
+                    Material::flat(0xFFA0_A0A0)
+                } else {
                     let gltf_mat = &scene.materials[0];
                     let factor = gltf_mat.base_color_factor;
                     let r = (factor[0] * 255.0) as u32;
@@ -116,8 +118,6 @@ impl GltfViewerApp {
                     let a = (factor[3] * 255.0) as u32;
                     let color = (a << 24) | (r << 16) | (g << 8) | b;
                     Material::flat(color)
-                } else {
-                    Material::flat(0xFFA0_A0A0)
                 };
                 let math = renderer
                     .create_material(mat)
@@ -268,6 +268,7 @@ impl WindowApp for GltfViewerApp {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)] // Required for map_err function pointer
 fn render_err_to_host(e: RenderError) -> HostError {
     HostError::App(e.to_string())
 }
