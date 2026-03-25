@@ -4,6 +4,7 @@
 //! Stateless free functions, borrow-only, `Send + Sync` by construction.
 //! Designed for ECS integration: no owned state, no synchronization needed.
 
+pub mod batch;
 pub mod cast;
 pub mod dda;
 pub mod map;
