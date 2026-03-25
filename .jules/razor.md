@@ -67,3 +67,7 @@
 **Bloat:** Unnecessary struct padding fields named `_pad` causing `clippy::pub_underscore_fields` warnings in `crates/abrash-gpu-render` and complex `match` branches in `renderer.rs`.
 **Cut:** Renamed `_pad` fields to `pad` to follow YAGNI, consolidated identical match arms, simplified map_or closures to `is_none_or`, and removed verbose format string arguments in examples.
 **Saved:** Eliminated 30+ clippy warnings and simplified several match and map_or closures.
+## [Reduction]
+**Bloat:** Long floating point literals and explicit iter loops causing clippy warnings in `crates/abrash-core/src/math.rs` and `benches/math_bench.rs`.
+**Cut:** Formatted numeric literals with underscores and simplified loops using reference iteration. Added `#[must_use]` to `fast_inv_sqrt`.
+**Saved:** Removed 6 clippy warnings and simplified iteration loops.
