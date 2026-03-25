@@ -45,6 +45,7 @@ pub mod emboss;
 pub mod fisheye;
 pub mod glitch;
 pub mod halftone;
+pub mod hexagon;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;

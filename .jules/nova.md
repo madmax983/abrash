@@ -171,3 +171,8 @@
 **Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
 **Fate:** Implemented
 **Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
+
+## [Hexagon Pixelation Filter]
+**Concept:** A retro post-processing effect that creates a geometric, honeycomb-like pixelation by dividing the screen into a hexagonal grid and mapping each pixel to the nearest hexagon center.
+**Fate:** Implemented
+**Lesson:** Using standard 2D hexagonal tiling math (calculating the 2x2 local grid and finding the minimum distance) combined with Rayon's parallel chunk iteration creates a very fast and visually striking effect. Cloning the source framebuffer is essential when performing non-linear, spatial distortion lookups to avoid tearing across rows.

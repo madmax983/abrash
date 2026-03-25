@@ -565,6 +565,11 @@ path = "examples/fisheye_demo.rs"
 required-features = ["nova"]
 
 [[example]]
+name = "hexagon_demo"
+path = "examples/hexagon_demo.rs"
+required-features = ["nova"]
+
+[[example]]
 name = "glitch_demo"
 path = "examples/glitch_demo.rs"
 required-features = ["nova"]
