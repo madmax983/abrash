@@ -345,8 +345,8 @@ mod tests {
         assert_eq!(fb.get_pixel(5, 5), Some(0xFF00_0000));
 
         // Set and get
-        fb.set_pixel(5, 5, 0xAABBCCDD);
-        assert_eq!(fb.get_pixel(5, 5), Some(0xAABBCCDD));
+        fb.set_pixel(5, 5, 0xAABB_CCDD);
+        assert_eq!(fb.get_pixel(5, 5), Some(0xAABB_CCDD));
 
         // Other pixels remain unchanged
         assert_eq!(fb.get_pixel(0, 0), Some(0xFF00_0000));
@@ -363,10 +363,10 @@ mod tests {
         assert_eq!(fb.get_pixel(5, 10), None);
 
         // Setting out of bounds should be a no-op, no panic
-        fb.set_pixel(-1, 5, 0xFFFFFFFF);
-        fb.set_pixel(5, -1, 0xFFFFFFFF);
-        fb.set_pixel(10, 5, 0xFFFFFFFF);
-        fb.set_pixel(5, 10, 0xFFFFFFFF);
+        fb.set_pixel(-1, 5, 0xFFFF_FFFF);
+        fb.set_pixel(5, -1, 0xFFFF_FFFF);
+        fb.set_pixel(10, 5, 0xFFFF_FFFF);
+        fb.set_pixel(5, 10, 0xFFFF_FFFF);
 
         // Everything should still be default
         for y in 0..10 {
@@ -379,11 +379,11 @@ mod tests {
     #[test]
     fn test_clear_entire_buffer() {
         let mut fb = Framebuffer::new(5, 5).unwrap();
-        fb.clear(0x12345678);
+        fb.clear(0x1234_5678);
 
         for y in 0..5 {
             for x in 0..5 {
-                assert_eq!(fb.get_pixel(x, y), Some(0x12345678));
+                assert_eq!(fb.get_pixel(x, y), Some(0x1234_5678));
             }
         }
     }
@@ -392,12 +392,12 @@ mod tests {
     fn test_clear_rect_within_bounds() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
-        fb.clear_rect(2, 2, 3, 3, 0xFFFFFFFF);
+        fb.clear_rect(2, 2, 3, 3, 0xFFFF_FFFF);
 
         for y in 0..10 {
             for x in 0..10 {
                 let expected = if x >= 2 && x < 5 && y >= 2 && y < 5 {
-                    0xFFFFFFFF
+                    0xFFFF_FFFF
                 } else {
                     0xFF00_0000
                 };
@@ -411,12 +411,12 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
         // Start inside, extend outside
-        fb.clear_rect(8, 8, 5, 5, 0xFFFFFFFF);
+        fb.clear_rect(8, 8, 5, 5, 0xFFFF_FFFF);
 
         for y in 0..10 {
             for x in 0..10 {
                 let expected = if x >= 8 && y >= 8 {
-                    0xFFFFFFFF
+                    0xFFFF_FFFF
                 } else {
                     0xFF00_0000
                 };
@@ -430,12 +430,12 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
         // Start outside (negative), extend inside
-        fb.clear_rect(-2, -2, 5, 5, 0xFFFFFFFF);
+        fb.clear_rect(-2, -2, 5, 5, 0xFFFF_FFFF);
 
         for y in 0..10 {
             for x in 0..10 {
                 let expected = if x < 3 && y < 3 {
-                    0xFFFFFFFF
+                    0xFFFF_FFFF
                 } else {
                     0xFF00_0000
                 };
@@ -449,8 +449,8 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
         // Completely outside
-        fb.clear_rect(15, 15, 5, 5, 0xFFFFFFFF);
-        fb.clear_rect(-10, -10, 5, 5, 0xFFFFFFFF);
+        fb.clear_rect(15, 15, 5, 5, 0xFFFF_FFFF);
+        fb.clear_rect(-10, -10, 5, 5, 0xFFFF_FFFF);
 
         for y in 0..10 {
             for x in 0..10 {
@@ -464,8 +464,8 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
 
         unsafe {
-            fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
-            assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
+            fb.set_pixel_unchecked(5, 5, 0xAABB_CCDD);
+            assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABB_CCDD);
         }
     }
 }
@@ -583,10 +583,10 @@ mod export_tests {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Red, Green
         // Blue, White
-        fb.set_pixel(0, 0, 0xFFFF0000); // R
-        fb.set_pixel(1, 0, 0xFF00FF00); // G
-        fb.set_pixel(0, 1, 0xFF0000FF); // B
-        fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+        fb.set_pixel(0, 0, 0xFFFF_0000); // R
+        fb.set_pixel(1, 0, 0xFF00_FF00); // G
+        fb.set_pixel(0, 1, 0xFF00_00FF); // B
+        fb.set_pixel(1, 1, 0xFFFF_FFFF); // W
 
         let path = "test_image.ppm";
         fb.export_ppm(path).unwrap();
@@ -619,10 +619,10 @@ mod export_tests {
         let mut fb = Framebuffer::new(2, 2).unwrap();
         // Red, Green
         // Blue, White
-        fb.set_pixel(0, 0, 0xFFFF0000); // R
-        fb.set_pixel(1, 0, 0xFF00FF00); // G
-        fb.set_pixel(0, 1, 0xFF0000FF); // B
-        fb.set_pixel(1, 1, 0xFFFFFFFF); // W
+        fb.set_pixel(0, 0, 0xFFFF_0000); // R
+        fb.set_pixel(1, 0, 0xFF00_FF00); // G
+        fb.set_pixel(0, 1, 0xFF00_00FF); // B
+        fb.set_pixel(1, 1, 0xFFFF_FFFF); // W
 
         let path = "test_image.tga";
         fb.export_tga(path).unwrap();

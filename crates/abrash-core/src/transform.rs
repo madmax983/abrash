@@ -14,8 +14,11 @@ use crate::quat::Quat;
 /// `v * Scale * Rotation * Translation`
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transform {
+    /// The translation vector.
     pub position: Vec3,
+    /// The rotation quaternion.
     pub rotation: Quat,
+    /// The scaling vector.
     pub scale: Vec3,
 }
 

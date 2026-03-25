@@ -212,7 +212,7 @@ impl Mesh {
     /// Create a flat plane centered at origin in the XZ plane.
     ///
     /// The plane is subdivided into `subdivisions × subdivisions` quads.
-    /// Normals point up (+Y). Includes UV coordinates [0,1].
+    /// Normals point up (+Y). Includes UV coordinates \[0,1\].
     ///
     /// # Examples
     ///

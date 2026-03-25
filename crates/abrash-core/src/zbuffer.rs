@@ -244,7 +244,7 @@ mod tests {
                 if x >= 2 && x < 7 && y >= 2 && y < 7 {
                     assert!(depth.is_infinite());
                 } else {
-                    assert_eq!(depth, 1.0);
+                    assert!((depth - 1.0).abs() < f32::EPSILON);
                 }
             }
         }
@@ -268,7 +268,7 @@ mod tests {
                 if x < 5 && y < 5 {
                     assert!(depth.is_infinite());
                 } else {
-                    assert_eq!(depth, 1.0);
+                    assert!((depth - 1.0).abs() < f32::EPSILON);
                 }
             }
         }

@@ -18,9 +18,13 @@ use crate::math::{Mat4, Vec3};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quat {
+    /// The X component (vector part).
     pub x: f32,
+    /// The Y component (vector part).
     pub y: f32,
+    /// The Z component (vector part).
     pub z: f32,
+    /// The W component (scalar part).
     pub w: f32,
 }
 

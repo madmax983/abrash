@@ -87,22 +87,22 @@ mod tests {
     #[test]
     fn test_pixel_luminance() {
         // Black
-        assert_eq!(pixel_luminance(0xFF000000), 0);
+        assert_eq!(pixel_luminance(0xFF00_0000), 0);
         // White
-        assert_eq!(pixel_luminance(0xFFFFFFFF), 255); // (77*255 + 150*255 + 29*255) >> 8 = (256*255) >> 8 = 255
+        assert_eq!(pixel_luminance(0xFFFF_FFFF), 255); // (77*255 + 150*255 + 29*255) >> 8 = (256*255) >> 8 = 255
 
         // Red
-        let r = pixel_luminance(0xFFFF0000);
+        let r = pixel_luminance(0xFFFF_0000);
         // 77*255 >> 8 = 19635 >> 8 = 76.69 -> 76
         assert_eq!(r, 76);
 
         // Green
-        let g = pixel_luminance(0xFF00FF00);
+        let g = pixel_luminance(0xFF00_FF00);
         // 150*255 >> 8 = 38250 >> 8 = 149.4 -> 149
         assert_eq!(g, 149);
 
         // Blue
-        let b = pixel_luminance(0xFF0000FF);
+        let b = pixel_luminance(0xFF00_00FF);
         // 29*255 >> 8 = 7395 >> 8 = 28.88 -> 28
         assert_eq!(b, 28);
 

@@ -78,14 +78,14 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     use std::f32::consts::PI;
 
     // Wrap x to [-PI, PI]
-    let inv_twopi = 0.15915494; // 1.0 / (2.0 * PI)
+    let inv_twopi = 0.159_154_94; // 1.0 / (2.0 * PI)
     let y = (x * inv_twopi).round();
     x -= y * (2.0 * PI);
 
     // Compute sine using parabolic approximation
     // sin(x) ≈ 4/PI * x - 4/PI^2 * x * |x|
     let x_abs = x.abs();
-    let mut sin_x = 1.27323954 * x - 0.40528473 * x * x_abs;
+    let mut sin_x = 1.273_239_54 * x - 0.405_284_73 * x * x_abs;
 
     // Additional precision step (optional but good for graphics)
     // sin(x) ≈ 0.225 * (sin_x * |sin_x| - sin_x) + sin_x
@@ -99,25 +99,39 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     }
 
     let x_cos_abs = x_cos.abs();
-    let mut cos_x = 1.27323954 * x_cos - 0.40528473 * x_cos * x_cos_abs;
+    let mut cos_x = 1.273_239_54 * x_cos - 0.405_284_73 * x_cos * x_cos_abs;
     let cos_x_abs = cos_x.abs();
     cos_x = 0.225 * (cos_x * cos_x_abs - cos_x) + cos_x;
 
     (sin_x, cos_x)
 }
 
+/// Approximates the sine of an angle (in radians).
+///
+/// Uses the same minimax polynomial approximation as `fast_sin_cos`.
+/// Returns the sine value.
 #[inline]
 #[must_use]
 pub fn fast_sin(x: f32) -> f32 {
     fast_sin_cos(x).0
 }
 
+/// Approximates the cosine of an angle (in radians).
+///
+/// Uses the same minimax polynomial approximation as `fast_sin_cos`.
+/// Returns the cosine value.
 #[inline]
 #[must_use]
 pub fn fast_cos(x: f32) -> f32 {
     fast_sin_cos(x).1
 }
 
+/// Approximates the reciprocal square root ($1 / \sqrt{x}$).
+///
+/// Uses the hardware-accelerated AVX/SSE intrinsic if available, which offers
+/// excellent performance (around 4 cycles) at the cost of a small precision error.
+/// If AVX/SSE is not available, it falls back to a standard `sqrt().recip()`.
+#[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
     // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
@@ -152,11 +166,16 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
 }
 
 impl Vec2 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -242,6 +261,7 @@ impl Mul<f32> for Vec2 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat2 {
+    /// The 2x2 matrix data, stored in row-major order.
     pub m: [[f32; 2]; 2],
 }
 
@@ -300,8 +320,11 @@ impl Mat2 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
+    /// The Z component.
     pub z: f32,
 }
 
@@ -319,11 +342,13 @@ impl Vec3 {
         }
     }
 
+    /// A vector with all components set to 0.0.
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    /// A vector with all components set to 1.0.
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
@@ -662,6 +687,7 @@ impl std::ops::Div<f32> for Vec3 {
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
+    /// The 4x4 matrix data, stored in row-major order.
     pub m: [[f32; 4]; 4],
 }
 
@@ -1526,10 +1552,17 @@ impl Mul for Mat4 {
     }
 }
 
+/// A point in 2D screen space after perspective projection.
+///
+/// This struct stores the physical X and Y pixel coordinates, the Z depth for depth testing,
+/// and the inverse W coordinate `inv_w` for perspective-correct interpolation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenPoint {
+    /// The physical X pixel coordinate on the screen.
     pub x: i32,
+    /// The physical Y pixel coordinate on the screen.
     pub y: i32,
+    /// The Z depth value used for depth testing/buffering.
     pub z: f32,
     /// Reciprocal of the Homogeneous W coordinate ($1/w$).
     ///
@@ -1980,9 +2013,7 @@ mod tests {
         );
         assert!(
             (simd_w - scalar_w).abs() < 0.0001,
-            "W mismatch: {} vs {}",
-            simd_w,
-            scalar_w
+            "W mismatch: {simd_w} vs {scalar_w}",
         );
     }
 
@@ -2087,7 +2118,7 @@ mod tests {
         let sp_small =
             project_to_screen_optimized(Vec3::new(1.0, 0.0, 0.0), 0.0002, half_width, half_height);
         assert!((sp_small.inv_w - 5000.0).abs() < 1e-1);
-        assert_eq!(sp_small.x, 2000400);
+        assert_eq!(sp_small.x, 2_000_400);
 
         // Test negative w (behind camera)
         // w = -1.0. inv_w = -1.0.
@@ -2136,24 +2167,24 @@ mod tests {
         let v_inf = Vec3::new(f32::INFINITY, 0.0, 0.0);
         let sp_inf = project_to_screen_optimized(v_inf, 1.0, half_width, half_height);
         // Expect clamping to max/min range
-        assert!(sp_inf.x == 2147483520);
+        assert!(sp_inf.x == 2_147_483_520);
 
         // Test Negative Infinity
         let v_neg_inf = Vec3::new(f32::NEG_INFINITY, 0.0, 0.0);
         let sp_neg_inf = project_to_screen_optimized(v_neg_inf, 1.0, half_width, half_height);
-        assert!(sp_neg_inf.x == -2147483520);
+        assert!(sp_neg_inf.x == -2_147_483_520);
 
         // Test NaN
         let v_nan = Vec3::new(f32::NAN, 0.0, 0.0);
         let sp_nan = project_to_screen_optimized(v_nan, 1.0, half_width, half_height);
         // Expect clamping to MIN/MAX range (NaN maps to MIN in this implementation)
-        assert_eq!(sp_nan.x, -2147483520);
+        assert_eq!(sp_nan.x, -2_147_483_520);
 
         // Test Large Number (overflowing i32 but finite)
         let v_large = Vec3::new(1e30, 0.0, 0.0);
         let sp_large = project_to_screen_optimized(v_large, 1.0, half_width, half_height);
         // Should clamp to 2147483520 (approx i32::MAX)
-        assert_eq!(sp_large.x, 2147483520);
+        assert_eq!(sp_large.x, 2_147_483_520);
     }
 
     #[test]
@@ -2296,7 +2327,7 @@ mod tests {
         let test_cases = vec![
             (Vec3::new(100.0, 100.0, 10.0), 1.0, "Normal"),
             (Vec3::new(0.0, 0.0, 0.0), 1.0, "Origin"),
-            (Vec3::new(1.0, 1.0, 1.0), 0.0000001, "Small w (epsilon)"),
+            (Vec3::new(1.0, 1.0, 1.0), 0.000_000_1, "Small w (epsilon)"),
             (Vec3::new(1.0, 1.0, 1.0), 0.0, "Zero w"),
             (Vec3::new(1.0, 1.0, 1.0), -1.0, "Negative w"),
             (Vec3::new(f32::INFINITY, 0.0, 0.0), 1.0, "Inf X"),
@@ -2387,13 +2418,20 @@ mod tests {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {
+    /// The X component.
     pub x: f32,
+    /// The Y component.
     pub y: f32,
+    /// The Z component.
     pub z: f32,
+    /// The W (homogeneous/perspective) component.
     pub w: f32,
 }
 
 impl Vec4 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -2479,8 +2517,8 @@ mod tests_fast_sin {
             let s = rad.sin();
             let c = rad.cos();
 
-            assert!((fs - s).abs() < 0.005, "sin mismatch at {}: {} vs {}", i, fs, s);
-            assert!((fc - c).abs() < 0.005, "cos mismatch at {}: {} vs {}", i, fc, c);
+            assert!((fs - s).abs() < 0.005, "sin mismatch at {i}: {fs} vs {s}");
+            assert!((fc - c).abs() < 0.005, "cos mismatch at {i}: {fc} vs {c}");
         }
     }
 }
