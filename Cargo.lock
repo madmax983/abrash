@@ -86,6 +86,7 @@ name = "abrash-render"
 version = "0.1.0"
 dependencies = [
  "abrash-core",
+ "abrash-raycast",
  "ratatui",
  "rayon",
 ]
