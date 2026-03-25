@@ -574,11 +574,13 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
     let pixels = fb.as_mut_slice();
     let intensity = config.intensity.clamp(0.0, 1.0);
     // Use fixed point arithmetic for blending: factor in [0, 256]
-    let max_noise_shift = (intensity * 256.0) as i32;
+    let max_noise_shift = (intensity * 256.0) as u32;
 
     if max_noise_shift == 0 {
         return;
     }
+
+    let sub_noise = (128 * max_noise_shift) >> 8;
 
     #[cfg(feature = "parallel")]
     {
@@ -608,19 +610,19 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
                     lcg ^= lcg << 5;
 
                     // Random value between 0 and 255
-                    let noise = (lcg & 0xFF) as i32;
+                    let noise = lcg & 0xFF;
 
-                    // Map 0..255 to -128..127, then scale by max_noise_shift, divide by 256
-                    let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+                    // Scale by max_noise_shift, divide by 256
+                    let add_noise = (noise * max_noise_shift) >> 8;
 
                     let p_val = *p;
                     let rb = p_val & 0x00FF_00FF;
                     let g = p_val & 0x0000_FF00;
 
-                    // ⚡ Bolt: SWAR + `u64` prevents inner-loop float conversions and bounds-checking overhead.
-                    let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
-                    let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
-                    let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
+                    // ⚡ Bolt: Use unsigned arithmetic and saturating operations to prevent inner-loop float/int casting overhead.
+                    let nr = ((rb >> 16) + add_noise).saturating_sub(sub_noise).min(255);
+                    let ng = ((g >> 8) + add_noise).saturating_sub(sub_noise).min(255);
+                    let nb = ((rb & 0xFF) + add_noise).saturating_sub(sub_noise).min(255);
 
                     *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
                 }
@@ -637,16 +639,16 @@ pub fn apply_film_grain(fb: &mut Framebuffer, config: &FilmGrainConfig) {
             state ^= state >> 17;
             state ^= state << 5;
 
-            let noise = (state & 0xFF) as i32;
-            let noise_delta = ((noise - 128) * max_noise_shift) >> 8;
+            let noise = state & 0xFF;
+            let add_noise = (noise * max_noise_shift) >> 8;
 
             let p_val = *p;
             let rb = p_val & 0x00FF_00FF;
             let g = p_val & 0x0000_FF00;
 
-            let nr = ((rb >> 16) as i32 + noise_delta).clamp(0, 255) as u32;
-            let ng = ((g >> 8) as i32 + noise_delta).clamp(0, 255) as u32;
-            let nb = ((rb & 0xFF) as i32 + noise_delta).clamp(0, 255) as u32;
+            let nr = ((rb >> 16) + add_noise).saturating_sub(sub_noise).min(255);
+            let ng = ((g >> 8) + add_noise).saturating_sub(sub_noise).min(255);
+            let nb = ((rb & 0xFF) + add_noise).saturating_sub(sub_noise).min(255);
 
             *p = (p_val & 0xFF00_0000) | (nr << 16) | (ng << 8) | nb;
         }

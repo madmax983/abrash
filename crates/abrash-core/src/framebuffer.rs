@@ -305,10 +305,10 @@ impl Framebuffer {
         let ey = end_y as usize;
         let w = self.width as usize;
 
-        self.pixels
+        let start_idx = sy * w;
+        let end_idx = ey * w;
+        self.pixels[start_idx..end_idx]
             .chunks_exact_mut(w)
-            .take(ey)
-            .skip(sy)
             .for_each(|row| {
                 row[sx..ex].fill(color);
             });

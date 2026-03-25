@@ -1,18 +1,15 @@
 [package]
-name = "abrash-core"
+name = "abrash-raycast"
 version = "0.1.0"
 edition = "2024"
 
 [features]
 default = []
 parallel = ["dep:rayon"]
-simd = []
 
 [dependencies]
+abrash-core = { path = "../abrash-core" }
 rayon = { version = "1.10", optional = true }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-time = "1"
 
 [dev-dependencies]
 proptest = "1.0"
@@ -27,7 +24,5 @@ cast_precision_loss = "allow"
 similar_names = "allow"
 many_single_char_names = "allow"
 inline_always = "allow"
-too_many_lines = "allow"
 struct_field_names = "allow"
 suboptimal_flops = "allow"
-tuple_array_conversions = "allow"

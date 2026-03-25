@@ -2,6 +2,7 @@
 members = [
     ".",
     "crates/abrash-core",
+    "crates/abrash-raycast",
     "crates/abrash-render",
     "crates/abrash-gpu-render",
     "crates/abrash-anim",
@@ -32,6 +33,7 @@ gltf = ["abrash-skeletal/gltf"]
 abrash-core = { path = "crates/abrash-core" }
 abrash-anim = { path = "crates/abrash-anim" }
 abrash-render = { path = "crates/abrash-render" }
+abrash-raycast = { path = "crates/abrash-raycast" }
 abrash-skeletal = { path = "crates/abrash-skeletal" }
 clap = { version = "4.5.57", features = ["derive"] }
 crossterm = { version = "0.29.0", optional = true }
@@ -594,7 +596,19 @@ name = "vhs_demo"
 path = "examples/vhs_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "raycast_demo"
+path = "examples/raycast_demo.rs"
+
 [[bench]]
 name = "black_hole_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "bam_bench"
+harness = false
+
+[[bench]]
+name = "raycast_bench"
+harness = false

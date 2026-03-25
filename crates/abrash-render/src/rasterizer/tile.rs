@@ -298,22 +298,39 @@ pub struct PreparedGouraudTriangle {
 /// Optimized to fit in exactly 128 bytes (2 cache lines).
 #[derive(Clone, Copy)]
 pub struct PreparedTexturedTriangle {
+    /// Top vertex (lowest Y).
     pub p0: ScreenPoint,
+    /// Middle vertex.
     pub p1: ScreenPoint,
+    /// Bottom vertex (highest Y).
     pub p2: ScreenPoint,
+    /// Texture U coordinate for p0.
     pub u0: f32,
+    /// Texture U coordinate for p1.
     pub u1: f32,
+    /// Texture U coordinate for p2.
     pub u2: f32,
+    /// Texture V coordinate for p0.
     pub v0: f32,
+    /// Texture V coordinate for p1.
     pub v1: f32,
+    /// Texture V coordinate for p2.
     pub v2: f32,
+    /// Gradients for interpolating depth and texture coordinates.
     pub gradients: PerspectiveTextureGradients,
+    /// Indicates whether the longest edge connects p0 and p2 on the left side of the triangle.
     pub long_edge_is_left: bool,
+    /// Minimum X bound of the triangle's bounding box.
     pub aabb_min_x: i32,
+    /// Minimum Y bound of the triangle's bounding box.
     pub aabb_min_y: i32,
+    /// Maximum X bound of the triangle's bounding box.
     pub aabb_max_x: i32,
+    /// Maximum Y bound of the triangle's bounding box.
     pub aabb_max_y: i32,
+    /// Minimum depth across triangle.
     pub min_depth: f32,
+    /// Maximum depth across triangle.
     pub max_depth: f32,
 }
 
@@ -351,6 +368,7 @@ use std::mem::MaybeUninit;
 #[cfg(feature = "parallel")]
 use rayon::iter::IndexedParallelIterator;
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
     pub count: usize,

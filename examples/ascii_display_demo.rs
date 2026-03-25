@@ -13,11 +13,57 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
+use comfy_table::{Cell, Color, Table, presets};
+
+#[cfg(feature = "nova")]
+use crossterm::style::Stylize;
+
 #[cfg(feature = "nova")]
 use abrash::experimental::ascii_display::{AsciiDisplayConfig, apply_ascii_display};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
+
+#[cfg(feature = "nova")]
+fn print_banner() {
+    println!("\n{}", "🌟 ASCII Display Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Renders a rotating 3D lit cube with an ASCII art post-processing effect")
+                .fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Effect"),
+            Cell::new("ASCII filtering with color quantization").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating object"),
+        ]);
+    println!("{controls}\n");
+}
 
 // Face colors for the cube
 const FACE_COLORS: [Vec3; 6] = [
@@ -194,17 +240,28 @@ impl WindowApp for AsciiDisplayDemo {
 // Fallback for when "nova" feature is not enabled
 #[cfg(not(feature = "nova"))]
 fn main() {
-    use comfy_table::Table;
-    let mut table = Table::new();
-    table.set_header(vec!["Error"]);
-    table.add_row(vec![
-        "This example requires the `nova` feature.\nRun with: cargo run --example ascii_display_demo --features nova",
-    ]);
-    println!("{table}");
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("⚠️  Missing Feature: Nova")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new("This example requires the 'nova' feature to run.").fg(Color::White),
+        ])
+        .add_row(vec![
+            Cell::new("Try running with:\ncargo run --example ascii_display_demo --features nova")
+                .fg(Color::Green),
+        ]);
+
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
 }
 
 #[cfg(feature = "nova")]
 fn main() -> Result<(), HostError> {
-    println!("Starting ASCII Display Demo...");
+    print_banner();
     run_windowed(AsciiDisplayDemo::new()?)
 }

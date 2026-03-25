@@ -25,6 +25,7 @@ dependencies = [
  "abrash-anim",
  "abrash-core",
  "abrash-gpu-render",
+ "abrash-raycast",
  "abrash-render",
  "abrash-skeletal",
  "bevy",
@@ -55,6 +56,7 @@ dependencies = [
 name = "abrash-core"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "rayon",
  "web-time 1.1.0",
 ]
@@ -72,10 +74,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "abrash-raycast"
+version = "0.1.0"
+dependencies = [
+ "abrash-core",
+ "proptest",
+ "rayon",
+]
+
+[[package]]
 name = "abrash-render"
 version = "0.1.0"
 dependencies = [
  "abrash-core",
+ "abrash-raycast",
  "ratatui",
  "rayon",
 ]
