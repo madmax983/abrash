@@ -171,3 +171,7 @@
 **Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
 **Fate:** Implemented
 **Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
+## [Brickify Filter]
+**Concept:** A post-processing effect simulating plastic interlocking bricks.
+**Fate:** Implemented
+**Lesson:** Grouping pixels into chunks to find the average color gives a good pixelated look, while applying procedural shading and shapes over each block simulates bevels and studs. Because we are applying non-linear positional pixel adjustments, it's safer to clone the framebuffer to prevent mutable aliasing when using Rayon.
