@@ -104,6 +104,13 @@ pub use abrash_core::time;
 pub use abrash_core::utils;
 pub use abrash_core::zbuffer;
 
+// Raycaster math types — re-exported from abrash-core.
+pub use abrash_core::bam;
+pub use abrash_core::fixed16_16;
+
+// Raycasting engine — re-exported from abrash-raycast.
+pub use abrash_raycast as raycast;
+
 // Animation-related re-exports from abrash-core.
 pub use abrash_core::animatable;
 pub use abrash_core::quat;
@@ -124,6 +131,7 @@ pub use abrash_render::particles;
 pub use abrash_render::post_process;
 pub use abrash_render::procedural;
 pub use abrash_render::rasterizer;
+pub use abrash_render::raycaster;
 pub use abrash_render::render_api;
 pub use abrash_render::scene;
 pub use abrash_render::skybox;
