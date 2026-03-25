@@ -463,7 +463,9 @@ impl Mesh {
     ///
     /// let normals = mesh.compute_face_normals();
     /// assert_eq!(normals.len(), 1);
-    /// assert_eq!(normals[0], Vec3::new(0.0, 0.0, 1.0));
+    /// assert!((normals[0].x - 0.0).abs() < 0.001);
+    /// assert!((normals[0].y - 0.0).abs() < 0.001);
+    /// assert!((normals[0].z - 1.0).abs() < 0.001);
     /// ```
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {

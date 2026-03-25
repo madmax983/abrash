@@ -360,7 +360,7 @@ impl PreparedGouraudTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -413,7 +413,7 @@ impl PreparedTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -444,7 +444,7 @@ impl rayon::iter::IntoParallelIterator for PreparedTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [PreparedTriangle; 8] = unsafe { std::mem::MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
             arr[i] = unsafe { self.tris[i].assume_init() };
         }
@@ -458,7 +458,7 @@ impl rayon::iter::IntoParallelIterator for PreparedTexturedTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedTexturedTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedTexturedTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [PreparedTexturedTriangle; 8] = unsafe { std::mem::MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
             arr[i] = unsafe { self.tris[i].assume_init() };
         }
@@ -472,7 +472,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     type Iter = rayon::iter::Take<rayon::array::IntoIter<PreparedGouraudTriangle, 8>>;
 
     fn into_par_iter(self) -> Self::Iter {
-        let mut arr: [PreparedGouraudTriangle; 8] = unsafe { MaybeUninit::zeroed().assume_init() };
+        let mut arr: [PreparedGouraudTriangle; 8] = unsafe { std::mem::MaybeUninit::zeroed().assume_init() };
         for i in 0..self.count {
             arr[i] = unsafe { self.tris[i].assume_init() };
         }
@@ -508,7 +508,7 @@ impl PreparedTexturedTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -1347,7 +1347,7 @@ fn rasterize_scanline_simd(
 
     // --- Main SIMD Loop (Aligned) ---
     unsafe {
-        use std::arch::x86_64::{_CMP_GE_OQ, _mm256_cmp_ps, _mm256_store_ps, _mm256_store_si256};
+        use std::arch::x86_64::{_CMP_GE_OQ, _mm256_cmp_ps, _mm256_storeu_ps, _mm256_storeu_si256};
 
         // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
         let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
@@ -1399,16 +1399,16 @@ fn rasterize_scanline_simd(
                 if mask_bits == 0xFF {
                     // Fast path: All pixels visible.
                     // Store depths and colors directly using Aligned Stores.
-                    _mm256_store_ps(zb_ptr, depths_vec);
+                    _mm256_storeu_ps(zb_ptr, depths_vec);
 
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-                    _mm256_store_si256(pixels_ptr, color_vec);
+                    _mm256_storeu_si256(pixels_ptr, color_vec);
                 } else {
                     // Partial write path
                     // 1. Update depths
                     let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
                     // Use aligned store since we are aligned
-                    _mm256_store_ps(zb_ptr, blended_depths);
+                    _mm256_storeu_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
@@ -1421,7 +1421,7 @@ fn rasterize_scanline_simd(
                     let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
 
                     // Aligned store
-                    _mm256_store_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                    _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
                 }
             }
 
@@ -4804,5 +4804,37 @@ mod tile_bins_tests {
         bins.push(0, 10);
         let items: Vec<usize> = bins.iter(0).collect();
         assert_eq!(items, vec![10]);
+    }
+}
+
+#[cfg(all(test, feature = "simd"))]
+mod simd_unaligned_crash_test {
+    use super::*;
+
+    #[test]
+    fn test_simd_unaligned_crash() {
+        // A standalone reproduction of the bug in `TileRenderer::process_tile_scanline_flat` and `rasterize_scanline_simd`.
+        let mut buffer = vec![0u8; 1024];
+
+        let p_addr_base = buffer.as_mut_ptr() as usize;
+        let align_offset = (32 - (p_addr_base % 32)) % 32;
+
+        // Force mask_bits != 0xFF
+        let pixels_start = align_offset;
+        let depths_start = align_offset + 16;
+
+        let p_addr = p_addr_base + pixels_start;
+        let d_addr = p_addr_base + depths_start;
+
+        let pixels = unsafe { std::slice::from_raw_parts_mut(p_addr as *mut u32, 100) };
+        let depths = unsafe { std::slice::from_raw_parts_mut(d_addr as *mut f32, 100) };
+
+        for i in 0..100 {
+            pixels[i] = 0;
+            depths[i] = if i % 2 == 0 { 100.0 } else { -100.0 }; // Force partial mask
+        }
+
+        // Call the SIMD rasterizer. If we didn't use `_mm256_storeu_ps`, it would crash here.
+        rasterize_scanline_simd(pixels, depths, 0.0, 1.0, 0xFFFFFFFF);
     }
 }
