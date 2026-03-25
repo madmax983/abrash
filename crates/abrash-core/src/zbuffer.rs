@@ -100,10 +100,10 @@ impl ZBuffer {
         let ex = end_x as usize;
 
         // Use chunks_exact_mut to safely slice the array per row, avoiding inner-loop bounds checks
-        self.depths
+        let start_idx = (start_y as usize) * w;
+        let end_idx = (end_y as usize) * w;
+        self.depths[start_idx..end_idx]
             .chunks_exact_mut(w)
-            .take(end_y as usize)
-            .skip(start_y as usize)
             .for_each(|row| {
                 row[sx..ex].fill(f32::INFINITY);
             });
