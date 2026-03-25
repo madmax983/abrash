@@ -55,10 +55,7 @@ impl AnimationClock {
     /// Returns a `ClockEvent` indicating whether a cycle boundary was crossed.
     /// Delta is clamped to [`MAX_DELTA_SECS`] to handle tab-backgrounding.
     pub fn tick(&mut self, delta_secs: f32, duration: f32) -> ClockEvent {
-        if duration <= 0.0 || duration.is_nan() {
-            self.phase = 1.0;
-            return ClockEvent::CycleBoundary { completed: 1 };
-        }
+        debug_assert!(duration > 0.0, "Clock duration must be positive");
 
         let clamped = delta_secs.clamp(0.0, MAX_DELTA_SECS);
         let phase_advance = clamped / duration;
@@ -241,25 +238,5 @@ mod tests {
         c.reset();
         assert_eq!(c.cycle(), 0);
         assert!((c.phase()).abs() < EPSILON);
-    }
-}
-
-#[cfg(test)]
-mod havoc_tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn test_clock_havoc(
-            dt_secs in prop::num::f32::ANY,
-            duration in prop::num::f32::ANY,
-            mode in prop::sample::select(vec![PlaybackMode::Once, PlaybackMode::Loop, PlaybackMode::PingPong, PlaybackMode::Count(3)]),
-        ) {
-            let mut clock = AnimationClock::new();
-            let _ = clock.tick(dt_secs, duration);
-            let _ = clock.effective_phase(&mode);
-            let _ = clock.is_finished(&mode);
-        }
     }
 }

@@ -16,3 +16,6 @@ cast_precision_loss = "allow"
 similar_names = "allow"
 many_single_char_names = "allow"
 suboptimal_flops = "allow"
+
+[dev-dependencies]
+proptest = "1.11.0"

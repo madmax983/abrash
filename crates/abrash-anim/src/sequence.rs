@@ -147,3 +147,29 @@ mod tests {
         assert!((s.value - 5.0).abs() < EPSILON);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::easing::Easing;
+    use crate::keyframe::Keyframe;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_sequence_fuzz(
+            durations in prop::collection::vec(0.0f32..100.0f32, 1..10),
+            phases in prop::collection::vec(-10.0f32..10.0f32, 1..100)
+        ) {
+            let mut segments: Vec<Box<dyn Evaluable<f32>>> = vec![];
+            for &d in &durations {
+                segments.push(Box::new(Keyframe::new(0.0_f32, 10.0, Easing::Linear, d)));
+            }
+            if segments.is_empty() { return Ok(()); }
+            let seq = Sequence::new(segments);
+            for phase in phases {
+                let _ = Evaluable::evaluate(&seq, phase);
+            }
+        }
+    }
+}

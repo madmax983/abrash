@@ -1,0 +1,11 @@
+--- crates/abrash-anim/src/sequence.rs
++++ crates/abrash-anim/src/sequence.rs
+@@ -165,7 +165,7 @@
+             for &d in &durations {
+                 segments.push(Box::new(Keyframe::new(0.0_f32, 10.0, Easing::Linear, d)));
+             }
+-            if segments.is_empty() { return; }
++            if segments.is_empty() { return Ok(()); }
+             let seq = Sequence::new(segments);
+             for phase in phases {
+                 let _ = Evaluable::evaluate(&seq, phase);
