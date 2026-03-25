@@ -33,7 +33,6 @@ pub mod black_hole;
 pub mod boids;
 pub mod brickify;
 
-pub mod ascii_export;
 pub mod blueprint;
 pub mod cloth;
 pub mod crepuscular;
