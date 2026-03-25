@@ -67,3 +67,8 @@
 **Bloat:** Unnecessary struct padding fields named `_pad` causing `clippy::pub_underscore_fields` warnings in `crates/abrash-gpu-render` and complex `match` branches in `renderer.rs`.
 **Cut:** Renamed `_pad` fields to `pad` to follow YAGNI, consolidated identical match arms, simplified map_or closures to `is_none_or`, and removed verbose format string arguments in examples.
 **Saved:** Eliminated 30+ clippy warnings and simplified several match and map_or closures.
+
+## [Reduction]
+**Bloat:** The `AsciiExporter` single-implementation extension trait in `crates/abrash-render/src/experimental/ascii_export.rs`.
+**Cut:** Deleted the trait and its file. Moved the `export_ascii` and `export_ansi` methods directly to the local `AsciiConverter` struct in `crates/abrash-render/src/ascii.rs`.
+**Saved:** Eliminated 1 trait, 1 file (`ascii_export.rs`), and consolidated the ASCII export API into a single, straightforward struct without unnecessary abstraction overhead.
