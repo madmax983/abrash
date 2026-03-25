@@ -25,6 +25,7 @@ dependencies = [
  "abrash-anim",
  "abrash-core",
  "abrash-gpu-render",
+ "abrash-raycast",
  "abrash-render",
  "abrash-skeletal",
  "bevy",
