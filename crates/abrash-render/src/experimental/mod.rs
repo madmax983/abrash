@@ -31,6 +31,7 @@ pub mod ascii_display;
 pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
+pub mod brickify;
 
 pub mod ascii_export;
 pub mod blueprint;

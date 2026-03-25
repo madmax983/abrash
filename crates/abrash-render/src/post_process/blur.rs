@@ -400,7 +400,10 @@ fn process_row_horizontal(
         let incoming_iter = src_row.iter().skip(2 * radius + 2);
         // `outgoing_iter` iterates from `1`
         let outgoing_iter = src_row.iter().skip(1);
-        let dst_iter = dst_row.iter_mut().skip(radius + 1).take(body_end - (radius + 1));
+        let dst_iter = dst_row
+            .iter_mut()
+            .skip(radius + 1)
+            .take(body_end - (radius + 1));
 
         for ((dst_pixel, &p_out), &p_in) in dst_iter.zip(outgoing_iter).zip(incoming_iter) {
             let r_avg = ((u64::from(r_acc) * scale + bias) >> 24) as u32;
