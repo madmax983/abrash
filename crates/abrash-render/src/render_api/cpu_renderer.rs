@@ -186,9 +186,14 @@ impl Renderer for CpuRenderer {
             .get_mut(from_mesh_handle(handle))
             .ok_or(RenderError::StaleHandle("mesh"))?;
 
-        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
-        cpu_mesh.mesh = mesh.clone();
-        cpu_mesh.shared_indices = shared_indices;
+        // ⚡ Bolt: Only reallocate the Arc block if the actual topology (indices) has changed.
+        // This eliminates costly atomic reference allocations during vertex-only updates (e.g., skeletal animations).
+        if cpu_mesh.mesh.indices != mesh.indices {
+            cpu_mesh.shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        }
+        // ⚡ Bolt: Use `clone_from` instead of `clone()` to reuse the destination Mesh's pre-allocated
+        // Vec capacities, entirely eliminating O(N) heap deallocations and re-allocations per update.
+        cpu_mesh.mesh.clone_from(mesh);
         Ok(())
     }
 

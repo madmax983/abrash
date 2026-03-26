@@ -60,6 +60,11 @@ fn bench_zbuffer_clear_rect_4k(c: &mut Criterion) {
     });
 }
 
-
-criterion_group!(benches, bench_clear_rect_1080p, bench_clear_rect_4k, bench_zbuffer_clear_rect_1080p, bench_zbuffer_clear_rect_4k);
+criterion_group!(
+    benches,
+    bench_clear_rect_1080p,
+    bench_clear_rect_4k,
+    bench_zbuffer_clear_rect_1080p,
+    bench_zbuffer_clear_rect_4k
+);
 criterion_main!(benches);
