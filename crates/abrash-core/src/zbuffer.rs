@@ -177,12 +177,17 @@ impl ZBuffer {
         }
     }
 
-    /// Returns the width of the depth buffer in pixels.
+    /// The width of the depth buffer in pixels.
+    ///
+    /// Useful for calculating normalized device coordinates (NDC) from screen space.
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
-    /// Returns the height of the depth buffer in pixels.
+
+    /// The height of the depth buffer in pixels.
+    ///
+    /// Useful for calculating normalized device coordinates (NDC) from screen space.
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height

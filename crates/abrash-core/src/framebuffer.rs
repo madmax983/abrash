@@ -55,7 +55,9 @@ impl Framebuffer {
         })
     }
 
-    /// Returns the width of the framebuffer in pixels.
+    /// The width of the framebuffer in pixels.
+    ///
+    /// Essential when computing row bounds during scanline rendering or projecting NDC back to screen space.
     ///
     /// # Examples
     ///
@@ -70,7 +72,9 @@ impl Framebuffer {
         self.width
     }
 
-    /// Returns the height of the framebuffer in pixels.
+    /// The height of the framebuffer in pixels.
+    ///
+    /// Essential when computing row bounds during scanline rendering or projecting NDC back to screen space.
     ///
     /// # Examples
     ///
