@@ -11,6 +11,9 @@ parallel = ["dep:rayon", "abrash-core/parallel"]
 backend-tui = ["dep:ratatui"]
 backend-wasm = ["dep:ratatui"]
 
+[dev-dependencies]
+proptest = "1.0"
+
 [dependencies]
 abrash-core = { path = "../abrash-core" }
 abrash-raycast = { path = "../abrash-raycast" }
