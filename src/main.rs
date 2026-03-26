@@ -560,16 +560,7 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 )
                 .split(f.area());
 
-            // Title
-            let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
-                .style(
-                    Style::default()
-                        .fg(Color::Magenta)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .block(Block::default().borders(Borders::ALL))
-                .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(title, main_chunks[0]);
+            render_title(f, main_chunks[0]);
 
             // Content Split (List vs Details)
             let content_chunks = Layout::default()
@@ -583,99 +574,9 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                 )
                 .split(main_chunks[1]);
 
-            // Demo List
-            let items: Vec<ListItem> = DEMOS
-                .iter()
-                .map(|demo| {
-                    ListItem::new(Span::styled(
-                        format!("{} {}", demo.category.icon(), demo.name),
-                        Style::default().fg(Color::White),
-                    ))
-                })
-                .collect();
-
-            let items_list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Demos "))
-                .highlight_style(
-                    Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .highlight_symbol(">> ");
-
-            f.render_stateful_widget(items_list, content_chunks[0], &mut app.state);
-
-            // Details Pane
-            if let Some(i) = app.state.selected() {
-                let demo = &DEMOS[i];
-
-                let rows = vec![
-                    Row::new(vec![
-                        Span::styled(
-                            "Description",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(demo.description),
-                    ])
-                    .height(2),
-                    Row::new(vec![
-                        Span::styled(
-                            "Category",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
-                    ]),
-                    Row::new(vec![
-                        Span::styled(
-                            "Instructions",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(demo.instructions),
-                    ])
-                    .height(4), // Give instructions some space
-                    Row::new(vec![
-                        Span::styled(
-                            "Command",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            demo_command(demo.example_name, true),
-                            Style::default().fg(Color::DarkGray),
-                        ),
-                    ]),
-                ];
-
-                let table = Table::new(
-                    rows,
-                    [Constraint::Length(15), Constraint::Min(0)], // Columns width
-                )
-                .block(Block::default().borders(Borders::ALL).title(" Details "))
-                .column_spacing(1);
-
-                f.render_widget(table, content_chunks[1]);
-            } else {
-                let placeholder = Paragraph::new("Select a demo to view details")
-                    .block(Block::default().borders(Borders::ALL))
-                    .style(Style::default().fg(Color::DarkGray))
-                    .alignment(ratatui::layout::Alignment::Center);
-                f.render_widget(placeholder, content_chunks[1]);
-            }
-
-            // Help Bar
-            let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
-                .style(Style::default().fg(Color::Black).bg(Color::White))
-                .alignment(ratatui::layout::Alignment::Center)
-                .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
-            f.render_widget(help, main_chunks[2]);
+            render_demo_list(f, content_chunks[0], &mut app);
+            render_details_pane(f, content_chunks[1], &app);
+            render_help_bar(f, main_chunks[2]);
         })?;
 
         if let Event::Key(key) = event::read()? {
@@ -713,6 +614,115 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
             }
         }
     }
+}
+
+fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+    let title = Paragraph::new("✨ ABRASH ENGINE DASHBOARD ✨")
+        .style(
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        )
+        .block(Block::default().borders(Borders::ALL))
+        .alignment(ratatui::layout::Alignment::Center);
+    f.render_widget(title, area);
+}
+
+fn render_demo_list(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &mut App) {
+    let items: Vec<ListItem> = DEMOS
+        .iter()
+        .map(|demo| {
+            ListItem::new(Span::styled(
+                format!("{} {}", demo.category.icon(), demo.name),
+                Style::default().fg(Color::White),
+            ))
+        })
+        .collect();
+
+    let items_list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title(" Demos "))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(items_list, area, &mut app.state);
+}
+
+fn render_details_pane(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    if let Some(i) = app.state.selected() {
+        let demo = &DEMOS[i];
+
+        let rows = vec![
+            Row::new(vec![
+                Span::styled(
+                    "Description",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(demo.description),
+            ])
+            .height(2),
+            Row::new(vec![
+                Span::styled(
+                    "Category",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(format!("{} {:?}", demo.category.icon(), demo.category)),
+            ]),
+            Row::new(vec![
+                Span::styled(
+                    "Instructions",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(demo.instructions),
+            ])
+            .height(4), // Give instructions some space
+            Row::new(vec![
+                Span::styled(
+                    "Command",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    demo_command(demo.example_name, true),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]),
+        ];
+
+        let table = Table::new(
+            rows,
+            [Constraint::Length(15), Constraint::Min(0)], // Columns width
+        )
+        .block(Block::default().borders(Borders::ALL).title(" Details "))
+        .column_spacing(1);
+
+        f.render_widget(table, area);
+    } else {
+        let placeholder = Paragraph::new("Select a demo to view details")
+            .block(Block::default().borders(Borders::ALL))
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center);
+        f.render_widget(placeholder, area);
+    }
+}
+
+fn render_help_bar(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+    let help = Paragraph::new(" ↑/↓: Select | Enter: Launch | Q: Quit ")
+        .style(Style::default().fg(Color::Black).bg(Color::White))
+        .alignment(ratatui::layout::Alignment::Center)
+        .block(Block::default().borders(Borders::NONE)); // Flat look for status bar
+    f.render_widget(help, area);
 }
 
 fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
