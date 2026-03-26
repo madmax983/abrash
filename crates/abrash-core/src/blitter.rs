@@ -15,6 +15,9 @@
 //! negative destination coordinates, framebuffer bounds, and source texture bounds
 //! before any pixels are touched.
 
+use crate::framebuffer::Framebuffer;
+use crate::texture::Texture;
+
 /// A rectangular region within a source texture (atlas sub-rectangle).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SrcRect {
@@ -154,6 +157,84 @@ pub(crate) fn clip_blit(
         w,
         h,
     })
+}
+
+/// Blits a rectangular region of a texture onto the framebuffer with no alpha
+/// handling -- a straight `memcpy` per row.
+///
+/// This is the fastest blit path: the source rectangle is clipped against both
+/// the framebuffer and texture bounds via [`clip_blit`], and then each scanline
+/// is copied with `copy_from_slice` (a single `memcpy` under the hood).
+///
+/// Use this for fully opaque sprites, tilesets, and UI elements where every
+/// source pixel overwrites the destination unconditionally.
+///
+/// # Arguments
+///
+/// * `fb` - Destination framebuffer.
+/// * `tex` - Source texture (or atlas) to read from.
+/// * `src` - Sub-rectangle within `tex` to copy.
+/// * `dst_x` - Signed X position in the framebuffer (negative = partially off-screen left).
+/// * `dst_y` - Signed Y position in the framebuffer (negative = partially off-screen top).
+pub fn blit_opaque(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32, dst_y: i32) {
+    let Some(clip) = clip_blit(
+        &src,
+        dst_x,
+        dst_y,
+        fb.width(),
+        fb.height(),
+        tex.width,
+        tex.height,
+    ) else {
+        return;
+    };
+
+    let clipped_src = SrcRect {
+        x: clip.src_x,
+        y: clip.src_y,
+        w: clip.w,
+        h: clip.h,
+    };
+
+    // SAFETY: clip_blit guarantees all coordinates are within framebuffer and
+    // texture bounds, satisfying the precondition of blit_opaque_unchecked.
+    unsafe {
+        blit_opaque_unchecked(fb, tex, clipped_src, clip.dst_x, clip.dst_y);
+    }
+}
+
+/// Blits a rectangular region of a texture onto the framebuffer **without any
+/// bounds checking**.
+///
+/// # Safety
+///
+/// The caller **must** guarantee that the entire source rectangle
+/// `[src.x .. src.x + src.w, src.y .. src.y + src.h]` lies within
+/// `tex.pixels`, and the entire destination rectangle
+/// `[dst_x .. dst_x + src.w, dst_y .. dst_y + src.h]` lies within the
+/// framebuffer. Violating this causes out-of-bounds memory access.
+///
+/// Prefer [`blit_opaque`] which clips automatically. Use this variant only
+/// in hot inner loops where profiling proves the clipping check is a
+/// measurable overhead.
+pub unsafe fn blit_opaque_unchecked(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: u32,
+    dst_y: u32,
+) {
+    let fb_w = fb.width() as usize;
+    let tex_w = tex.width as usize;
+    let w = src.w as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    for row in 0..src.h as usize {
+        let src_offset = (src.y as usize + row) * tex_w + src.x as usize;
+        let dst_offset = (dst_y as usize + row) * fb_w + dst_x as usize;
+        fb_pixels[dst_offset..dst_offset + w]
+            .copy_from_slice(&tex.pixels[src_offset..src_offset + w]);
+    }
 }
 
 #[cfg(test)]
@@ -405,5 +486,227 @@ mod tests {
         assert_eq!(result.dst_x, 795);
         assert_eq!(result.w, 5);
         assert_eq!(result.h, 16);
+    }
+
+    // ── blit_opaque / blit_opaque_unchecked tests ──────────────────────
+
+    use crate::framebuffer::Framebuffer;
+    use crate::texture::Texture;
+
+    fn make_checkerboard_texture(w: u32, h: u32) -> Texture {
+        let mut tex = Texture::new(w, h).unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let color = if (x + y) % 2 == 0 {
+                    0xFFFF0000
+                } else {
+                    0xFF00FF00
+                };
+                tex.set_pixel(x, y, color);
+            }
+        }
+        tex
+    }
+
+    #[test]
+    fn blit_opaque_basic() {
+        let tex = make_checkerboard_texture(4, 4);
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(0xFF000000);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blit_opaque(&mut fb, &tex, src, 2, 3);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // Verify all 16 blitted pixels match the checkerboard.
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let expected = if (x + y) % 2 == 0 {
+                    0xFFFF0000
+                } else {
+                    0xFF00FF00
+                };
+                let idx = (3 + y as usize) * fb_w + (2 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    expected,
+                    "Mismatch at dst ({}, {})",
+                    2 + x,
+                    3 + y
+                );
+            }
+        }
+
+        // Verify surrounding pixels are untouched (black).
+        assert_eq!(fb_pixels[0], 0xFF000000, "top-left corner should be black");
+        assert_eq!(
+            fb_pixels[fb_w - 1],
+            0xFF000000,
+            "top-right corner should be black"
+        );
+        assert_eq!(
+            fb_pixels[(fb_w * 16) - 1],
+            0xFF000000,
+            "bottom-right should be black"
+        );
+    }
+
+    #[test]
+    fn blit_opaque_clipped_left() {
+        let tex = make_checkerboard_texture(8, 8);
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(0xFF000000);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 8,
+            h: 8,
+        };
+        // dst_x = -3 means columns 0..5 of fb get src columns 3..8.
+        blit_opaque(&mut fb, &tex, src, -3, 0);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        for row in 0..8u32 {
+            for col in 0..5u32 {
+                let src_x = col + 3; // skipped 3 columns
+                let expected = if (src_x + row) % 2 == 0 {
+                    0xFFFF0000
+                } else {
+                    0xFF00FF00
+                };
+                let idx = row as usize * fb_w + col as usize;
+                assert_eq!(
+                    fb_pixels[idx], expected,
+                    "Mismatch at fb ({}, {}), src_x={}",
+                    col, row, src_x
+                );
+            }
+        }
+
+        // Column 5 onward should be black.
+        assert_eq!(fb_pixels[5], 0xFF000000, "column 5 row 0 should be black");
+    }
+
+    #[test]
+    fn blit_opaque_fully_offscreen() {
+        let tex = make_checkerboard_texture(8, 8);
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(0xFF000000);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 8,
+            h: 8,
+        };
+        blit_opaque(&mut fb, &tex, src, -10, 0);
+
+        // Every pixel in the framebuffer should be untouched.
+        for (i, &pixel) in fb.as_slice().iter().enumerate() {
+            assert_eq!(pixel, 0xFF000000, "Pixel {} should be black", i);
+        }
+    }
+
+    #[test]
+    fn blit_opaque_atlas_subregion() {
+        let tex = make_checkerboard_texture(16, 16);
+        let mut fb = Framebuffer::new(32, 32).unwrap();
+        fb.clear(0xFF000000);
+
+        // Blit the 4x4 sub-region starting at (4,4) to dst (10,10).
+        let src = SrcRect {
+            x: 4,
+            y: 4,
+            w: 4,
+            h: 4,
+        };
+        blit_opaque(&mut fb, &tex, src, 10, 10);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 32usize;
+
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let tex_x = x + 4;
+                let tex_y = y + 4;
+                let expected = if (tex_x + tex_y) % 2 == 0 {
+                    0xFFFF0000
+                } else {
+                    0xFF00FF00
+                };
+                let idx = (10 + y as usize) * fb_w + (10 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    expected,
+                    "Mismatch at dst ({}, {})",
+                    10 + x,
+                    10 + y
+                );
+            }
+        }
+
+        // Spot-check surrounding area is still black.
+        assert_eq!(fb_pixels[0], 0xFF000000);
+        assert_eq!(fb_pixels[9 * fb_w + 9], 0xFF000000);
+        assert_eq!(fb_pixels[14 * fb_w + 14], 0xFF000000);
+    }
+
+    #[test]
+    fn blit_opaque_unchecked_basic() {
+        let tex = make_checkerboard_texture(4, 4);
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(0xFF000000);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        // SAFETY: dst (2,3) + size (4,4) = (6,7), well within 16x16 fb,
+        // and src (0,0)+(4,4) is within 4x4 texture.
+        unsafe {
+            blit_opaque_unchecked(&mut fb, &tex, src, 2, 3);
+        }
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let expected = if (x + y) % 2 == 0 {
+                    0xFFFF0000
+                } else {
+                    0xFF00FF00
+                };
+                let idx = (3 + y as usize) * fb_w + (2 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    expected,
+                    "Mismatch at dst ({}, {})",
+                    2 + x,
+                    3 + y
+                );
+            }
+        }
+
+        // Surrounding untouched.
+        assert_eq!(fb_pixels[0], 0xFF000000);
+        assert_eq!(
+            fb_pixels[(fb_w * 16) - 1],
+            0xFF000000,
+            "bottom-right should be black"
+        );
     }
 }
