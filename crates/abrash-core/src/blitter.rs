@@ -1202,6 +1202,7 @@ mod tests {
             "bottom-right should be blue"
         );
     }
+<<<<<<< HEAD
 
     // ── blit_alpha / blit_alpha_unchecked tests ─────────────────────────
 
@@ -1543,4 +1544,6 @@ mod tests {
         assert_eq!(fb_pixels[0 * fb_w + 2], BLUE, "(2,0) should be blue");
         assert_eq!(fb_pixels[2 * fb_w + 0], BLUE, "(0,2) should be blue");
     }
+=======
+>>>>>>> 63e9f2b (feat(blitter): add blit_colorkey and blit_colorkey_unchecked)
 }
