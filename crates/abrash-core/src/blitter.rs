@@ -1203,6 +1203,9 @@ mod tests {
         );
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
 
     // ── blit_alpha / blit_alpha_unchecked tests ─────────────────────────
 
@@ -1413,6 +1416,7 @@ mod tests {
             "bottom-right should be blue"
         );
     }
+<<<<<<< HEAD
 
     // ── fill_rect / fill_rect_alpha tests ──────────────────────────────
 
@@ -1546,4 +1550,6 @@ mod tests {
     }
 =======
 >>>>>>> 63e9f2b (feat(blitter): add blit_colorkey and blit_colorkey_unchecked)
+=======
+>>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
 }
