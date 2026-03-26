@@ -449,6 +449,81 @@ pub unsafe fn blit_alpha_unchecked(
     }
 }
 
+/// Fills a rectangle in the framebuffer with a solid color.
+///
+/// This is a thin wrapper around [`Framebuffer::clear_rect`] for API
+/// consistency with the `blit_*` family. All clipping (negative coordinates,
+/// framebuffer bounds) is handled by `clear_rect`.
+///
+/// # Arguments
+///
+/// * `fb` - Destination framebuffer.
+/// * `x` - Signed X position (negative = partially off-screen left).
+/// * `y` - Signed Y position (negative = partially off-screen top).
+/// * `w` - Width of the rectangle in pixels.
+/// * `h` - Height of the rectangle in pixels.
+/// * `color` - Fill color in ARGB format.
+pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, color: u32) {
+    fb.clear_rect(x, y, w, h, color);
+}
+
+/// Fills a rectangle in the framebuffer with an alpha-blended color.
+///
+/// Uses the source color's alpha channel (bits 31..24) to blend with existing
+/// framebuffer contents via [`alpha_blend_pixel`] (src-over compositing).
+///
+/// Fast paths:
+/// - `alpha == 0`: no-op (fully transparent).
+/// - `alpha == 0xFF`: delegates to [`Framebuffer::clear_rect`] (fully opaque).
+///
+/// The rectangle is clipped against the framebuffer bounds before any pixels
+/// are touched. Negative `x` / `y` values are handled correctly.
+///
+/// # Arguments
+///
+/// * `fb` - Destination framebuffer.
+/// * `x` - Signed X position (negative = partially off-screen left).
+/// * `y` - Signed Y position (negative = partially off-screen top).
+/// * `w` - Width of the rectangle in pixels.
+/// * `h` - Height of the rectangle in pixels.
+/// * `color` - Fill color in ARGB format (alpha in bits 31..24).
+pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, color: u32) {
+    if w == 0 || h == 0 {
+        return;
+    }
+    let alpha = color >> 24;
+    if alpha == 0 {
+        return;
+    }
+    if alpha == 0xFF {
+        fb.clear_rect(x, y, w, h, color);
+        return;
+    }
+
+    let fb_w = fb.width() as i32;
+    let fb_h = fb.height() as i32;
+
+    let x0 = x.max(0) as u32;
+    let y0 = y.max(0) as u32;
+    let x1 = ((x as i64 + w as i64).min(fb_w as i64) as i32).max(0) as u32;
+    let y1 = ((y as i64 + h as i64).min(fb_h as i64) as i32).max(0) as u32;
+
+    if x0 >= x1 || y0 >= y1 {
+        return;
+    }
+
+    let stride = fb.width() as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    for row in y0..y1 {
+        let row_start = row as usize * stride;
+        for col in x0..x1 {
+            let idx = row_start + col as usize;
+            fb_pixels[idx] = alpha_blend_pixel(color, fb_pixels[idx]);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1336,5 +1411,136 @@ mod tests {
             BLUE,
             "bottom-right should be blue"
         );
+    }
+
+    // ── fill_rect / fill_rect_alpha tests ──────────────────────────────
+
+    #[test]
+    fn fill_rect_basic() {
+        const RED: u32 = 0xFFFF0000;
+        const DEFAULT: u32 = 0xFF000000;
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(DEFAULT);
+
+        fill_rect(&mut fb, 2, 3, 4, 5, RED);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // Pixels inside the rect should be red.
+        for y in 3..8u32 {
+            for x in 2..6u32 {
+                let idx = y as usize * fb_w + x as usize;
+                assert_eq!(fb_pixels[idx], RED, "pixel ({}, {}) should be red", x, y);
+            }
+        }
+
+        // Spot-check pixels outside the rect should be default.
+        assert_eq!(fb_pixels[0], DEFAULT, "(0,0) should be default");
+        assert_eq!(fb_pixels[1 * fb_w + 1], DEFAULT, "(1,1) should be default");
+        assert_eq!(
+            fb_pixels[8 * fb_w + 6],
+            DEFAULT,
+            "(6,8) should be default (one row below rect)"
+        );
+        assert_eq!(
+            fb_pixels[3 * fb_w + 6],
+            DEFAULT,
+            "(6,3) should be default (one col right of rect)"
+        );
+    }
+
+    #[test]
+    fn fill_rect_clipped_negative() {
+        const RED: u32 = 0xFFFF0000;
+        const DEFAULT: u32 = 0xFF000000;
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(DEFAULT);
+
+        // Rect at (-2,-2) size 5x5 → visible region is (0..3, 0..3).
+        fill_rect(&mut fb, -2, -2, 5, 5, RED);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 10usize;
+
+        // Pixels in (0..3, 0..3) should be red.
+        for y in 0..3u32 {
+            for x in 0..3u32 {
+                let idx = y as usize * fb_w + x as usize;
+                assert_eq!(fb_pixels[idx], RED, "pixel ({}, {}) should be red", x, y);
+            }
+        }
+
+        // Pixels outside the clipped region should be default.
+        assert_eq!(fb_pixels[0 * fb_w + 3], DEFAULT, "(3,0) should be default");
+        assert_eq!(fb_pixels[3 * fb_w + 0], DEFAULT, "(0,3) should be default");
+        assert_eq!(fb_pixels[9 * fb_w + 9], DEFAULT, "(9,9) should be default");
+    }
+
+    #[test]
+    fn fill_rect_fully_offscreen() {
+        const DEFAULT: u32 = 0xFF000000;
+
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(DEFAULT);
+
+        fill_rect(&mut fb, 20, 20, 5, 5, 0xFFFF0000);
+
+        // Every pixel should remain default.
+        for (i, &pixel) in fb.as_slice().iter().enumerate() {
+            assert_eq!(pixel, DEFAULT, "pixel {} should be default", i);
+        }
+    }
+
+    #[test]
+    fn fill_rect_alpha_blended() {
+        const BLUE: u32 = 0xFF0000FF;
+        const HALF_RED: u32 = 0x80FF0000; // alpha = 0x80 (128)
+
+        let mut fb = Framebuffer::new(4, 4).unwrap();
+        fb.clear(BLUE);
+
+        fill_rect_alpha(&mut fb, 0, 0, 2, 2, HALF_RED);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 4usize;
+
+        // Check the 2x2 blended region.
+        for y in 0..2u32 {
+            for x in 0..2u32 {
+                let idx = y as usize * fb_w + x as usize;
+                let result = fb_pixels[idx];
+
+                // R channel: src=255, dst=0 -> blended ~128
+                let r = channel(result, 16);
+                assert!(
+                    r.abs_diff(128) <= 2,
+                    "pixel ({}, {}) R should be ~128, got {}",
+                    x,
+                    y,
+                    r
+                );
+
+                // B channel: src=0, dst=255 -> blended ~127
+                let b = channel(result, 0);
+                assert!(
+                    b.abs_diff(127) <= 2,
+                    "pixel ({}, {}) B should be ~127, got {}",
+                    x,
+                    y,
+                    b
+                );
+
+                // A channel: always 0xFF for framebuffer output.
+                let a = channel(result, 24);
+                assert_eq!(a, 0xFF, "pixel ({}, {}) A should be 0xFF, got {}", x, y, a);
+            }
+        }
+
+        // Pixels outside the filled region should still be blue.
+        assert_eq!(fb_pixels[0 * fb_w + 2], BLUE, "(2,0) should be blue");
+        assert_eq!(fb_pixels[2 * fb_w + 0], BLUE, "(0,2) should be blue");
     }
 }

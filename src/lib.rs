@@ -91,6 +91,7 @@
 
 // Core types — re-exported from abrash-core.
 // Re-exporting as modules makes `use crate::math::Vec3` in sub-modules continue to work.
+pub use abrash_core::blitter;
 pub use abrash_core::clipping;
 pub use abrash_core::culling;
 pub use abrash_core::framebuffer;
