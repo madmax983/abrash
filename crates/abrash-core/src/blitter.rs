@@ -332,6 +332,123 @@ pub unsafe fn blit_colorkey_unchecked(
     }
 }
 
+/// Alpha-blend src over dst (src-over compositing).
+/// Uses SWAR to blend R+B and G channels in parallel.
+/// Output alpha is always 0xFF (framebuffer is final display surface).
+#[inline(always)]
+fn alpha_blend_pixel(src: u32, dst: u32) -> u32 {
+    let alpha = (src >> 24) & 0xFF;
+    let inv_alpha = 255 - alpha;
+
+    let src_rb = src & 0x00FF_00FF;
+    let src_g = (src >> 8) & 0x00FF_00FF;
+    let dst_rb = dst & 0x00FF_00FF;
+    let dst_g = (dst >> 8) & 0x00FF_00FF;
+
+    let rb = ((src_rb * alpha + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+    let g = ((src_g * alpha + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
+
+    rb | (g << 8) | 0xFF00_0000
+}
+
+/// Blits a rectangular region of a texture onto the framebuffer with per-pixel
+/// alpha blending (src-over compositing).
+///
+/// Each source pixel's alpha channel controls how it blends with the existing
+/// framebuffer contents:
+///
+/// - `alpha = 0xFF` (fully opaque): source overwrites destination (fast path).
+/// - `alpha = 0x00` (fully transparent): destination is unchanged (fast path).
+/// - `0 < alpha < 0xFF` (semi-transparent): SWAR alpha blend via [`alpha_blend_pixel`].
+///
+/// The source rectangle is clipped against both the framebuffer and texture
+/// bounds via [`clip_blit`] before any pixels are touched.
+///
+/// Use this for sprites with smooth transparency, anti-aliased edges, or
+/// translucent effects like particles and UI overlays.
+///
+/// # Arguments
+///
+/// * `fb` - Destination framebuffer.
+/// * `tex` - Source texture (or atlas) to read from.
+/// * `src` - Sub-rectangle within `tex` to copy.
+/// * `dst_x` - Signed X position in the framebuffer (negative = partially off-screen left).
+/// * `dst_y` - Signed Y position in the framebuffer (negative = partially off-screen top).
+pub fn blit_alpha(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32, dst_y: i32) {
+    let Some(clip) = clip_blit(
+        &src,
+        dst_x,
+        dst_y,
+        fb.width(),
+        fb.height(),
+        tex.width,
+        tex.height,
+    ) else {
+        return;
+    };
+
+    let clipped_src = SrcRect {
+        x: clip.src_x,
+        y: clip.src_y,
+        w: clip.w,
+        h: clip.h,
+    };
+
+    // SAFETY: clip_blit guarantees all coordinates are within framebuffer and
+    // texture bounds, satisfying the precondition of blit_alpha_unchecked.
+    unsafe {
+        blit_alpha_unchecked(fb, tex, clipped_src, clip.dst_x, clip.dst_y);
+    }
+}
+
+/// Blits a rectangular region of a texture onto the framebuffer with per-pixel
+/// alpha blending, **without any bounds checking**.
+///
+/// Uses a three-way branch per pixel:
+/// - Fully opaque (`alpha == 0xFF`): direct copy (no blend math).
+/// - Fully transparent (`alpha == 0x00`): skip entirely.
+/// - Semi-transparent: SWAR alpha blend via [`alpha_blend_pixel`].
+///
+/// # Safety
+///
+/// The caller **must** guarantee that the entire source rectangle
+/// `[src.x .. src.x + src.w, src.y .. src.y + src.h]` lies within
+/// `tex.pixels`, and the entire destination rectangle
+/// `[dst_x .. dst_x + src.w, dst_y .. dst_y + src.h]` lies within the
+/// framebuffer. Violating this causes out-of-bounds memory access.
+///
+/// Prefer [`blit_alpha`] which clips automatically. Use this variant only
+/// in hot inner loops where profiling proves the clipping check is a
+/// measurable overhead.
+pub unsafe fn blit_alpha_unchecked(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: u32,
+    dst_y: u32,
+) {
+    let fb_w = fb.width() as usize;
+    let tex_w = tex.width as usize;
+    let w = src.w as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    for row in 0..src.h as usize {
+        let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
+        let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
+        for col in 0..w {
+            let src_px = tex.pixels[src_row_start + col];
+            let alpha = src_px >> 24;
+            if alpha == 0xFF {
+                fb_pixels[dst_row_start + col] = src_px; // fully opaque
+            } else if alpha > 0 {
+                fb_pixels[dst_row_start + col] =
+                    alpha_blend_pixel(src_px, fb_pixels[dst_row_start + col]);
+            }
+            // alpha == 0 → skip
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -997,6 +1114,216 @@ mod tests {
                     BLUE,
                     "pixel ({}, {}) should be blue",
                     2 + x,
+                    3 + y
+                );
+            }
+        }
+
+        // Surrounding pixels untouched.
+        assert_eq!(fb_pixels[0], BLUE, "top-left corner should be blue");
+        assert_eq!(
+            fb_pixels[(fb_w * 16) - 1],
+            BLUE,
+            "bottom-right should be blue"
+        );
+    }
+
+    // ── blit_alpha / blit_alpha_unchecked tests ─────────────────────────
+
+    /// Extract a single color channel from an ARGB pixel.
+    fn channel(color: u32, shift: u32) -> u32 {
+        (color >> shift) & 0xFF
+    }
+
+    #[test]
+    fn blit_alpha_fully_opaque() {
+        const RED: u32 = 0xFFFF0000; // alpha = 0xFF
+        const BLUE: u32 = 0xFF0000FF;
+
+        let mut tex = Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                tex.set_pixel(x, y, RED);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blit_alpha(&mut fb, &tex, src, 5, 5);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // All blitted pixels should be red (fully opaque overwrites).
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let idx = (5 + y as usize) * fb_w + (5 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    RED,
+                    "pixel ({}, {}) should be red",
+                    5 + x,
+                    5 + y
+                );
+            }
+        }
+
+        // Surrounding pixels should still be blue.
+        assert_eq!(fb_pixels[0], BLUE, "top-left corner should be blue");
+    }
+
+    #[test]
+    fn blit_alpha_fully_transparent() {
+        const TRANSPARENT_RED: u32 = 0x00FF0000; // alpha = 0x00
+        const BLUE: u32 = 0xFF0000FF;
+
+        let mut tex = Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                tex.set_pixel(x, y, TRANSPARENT_RED);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blit_alpha(&mut fb, &tex, src, 5, 5);
+
+        // Every pixel in the framebuffer should still be blue.
+        for (i, &pixel) in fb.as_slice().iter().enumerate() {
+            assert_eq!(pixel, BLUE, "pixel {} should be blue (all transparent)", i);
+        }
+    }
+
+    #[test]
+    fn blit_alpha_50_percent() {
+        // 50% alpha red over opaque blue.
+        const HALF_RED: u32 = 0x80FF0000; // alpha = 0x80 (128)
+        const BLUE: u32 = 0xFF0000FF;
+
+        let mut tex = Texture::new(1, 1).unwrap();
+        tex.set_pixel(0, 0, HALF_RED);
+
+        let mut fb = Framebuffer::new(4, 4).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 1,
+            h: 1,
+        };
+        blit_alpha(&mut fb, &tex, src, 0, 0);
+
+        let result = fb.as_slice()[0];
+
+        // R channel: src=255, dst=0 -> blended ~128
+        let r = channel(result, 16);
+        assert!(r.abs_diff(128) <= 2, "R channel should be ~128, got {}", r);
+
+        // G channel: src=0, dst=0 -> blended 0
+        let g = channel(result, 8);
+        assert_eq!(g, 0, "G channel should be 0, got {}", g);
+
+        // B channel: src=0, dst=255 -> blended ~127
+        let b = channel(result, 0);
+        assert!(b.abs_diff(127) <= 2, "B channel should be ~127, got {}", b);
+
+        // A channel: always 0xFF for framebuffer output.
+        let a = channel(result, 24);
+        assert_eq!(a, 0xFF, "A channel should be 0xFF, got {}", a);
+    }
+
+    #[test]
+    fn blit_alpha_clipped() {
+        const RED: u32 = 0xFFFF0000; // fully opaque red
+        const BLUE: u32 = 0xFF0000FF;
+
+        let mut tex = Texture::new(8, 8).unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                tex.set_pixel(x, y, RED);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 8,
+            h: 8,
+        };
+        // dst (-3, -3): clips to 5x5 region at fb (0,0).
+        blit_alpha(&mut fb, &tex, src, -3, -3);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // (0,0) should be red (within clipped region).
+        assert_eq!(fb_pixels[0], RED, "(0,0) should be red");
+
+        // (4,4) should be red (last pixel of clipped region).
+        assert_eq!(fb_pixels[4 * fb_w + 4], RED, "(4,4) should be red");
+
+        // (5,0) should be blue (outside clipped region).
+        assert_eq!(fb_pixels[5], BLUE, "(5,0) should be blue");
+    }
+
+    #[test]
+    fn blit_alpha_unchecked_basic() {
+        const RED: u32 = 0xFFFF0000;
+        const BLUE: u32 = 0xFF0000FF;
+
+        let mut tex = Texture::new(2, 2).unwrap();
+        for y in 0..2u32 {
+            for x in 0..2u32 {
+                tex.set_pixel(x, y, RED);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+        };
+
+        // SAFETY: dst (3,3) + size (2,2) = (5,5), well within 16x16 fb,
+        // and src (0,0)+(2,2) is within 2x2 texture.
+        unsafe {
+            blit_alpha_unchecked(&mut fb, &tex, src, 3, 3);
+        }
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // All 4 blitted pixels should be red.
+        for y in 0..2u32 {
+            for x in 0..2u32 {
+                let idx = (3 + y as usize) * fb_w + (3 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    RED,
+                    "pixel ({}, {}) should be red",
+                    3 + x,
                     3 + y
                 );
             }
