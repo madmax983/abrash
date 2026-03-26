@@ -50,3 +50,7 @@
 **2025-03-21 - [TileRenderer Out-of-Bounds Write]**
 **Threat:** An `unsafe` block in `SendPtr::write` (used by `TileRenderer` for parallel rendering) was performing unverified raw pointer writes to the framebuffer and zbuffer. A user could spoof the expected dimensions of the TileRenderer or rely on integer overflow logic in `checked_mul` bounds checks to bypass the slice `.len() >= expected_len` checks on 64-bit systems. This allowed a small, artificially constrained framebuffer slice to be written to out of bounds when processing triangles via `SendPtr::write`.
 **Defense:** Modified `SendPtr<T>` to contain the maximum valid length of the underlying slice (`struct SendPtr<T>(*mut T, usize);`). Added a strict runtime assertion `assert!(index < self.1, "Index out of bounds")` directly inside the `SendPtr::write` method before the unsafe pointer offset operations.
+
+**2025-03-22 - [Replace unsafe uninitialized arrays with safe const initialization]**
+**Threat:** Initializing an array of `MaybeUninit<T>` by calling `unsafe { MaybeUninit::uninit().assume_init() }` is considered Undefined Behavior (UB) since `MaybeUninit` isn't completely valid uninitialized memory unless `T` is zero-sized. This could cause miscompilations or undefined behavior under newer Rust compiler rules.
+**Defense:** Replaced `unsafe { MaybeUninit::uninit().assume_init() }` with `[const { MaybeUninit::uninit() }; N]` which is entirely safe and doesn't require an `unsafe` block or `assume_init`.

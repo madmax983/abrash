@@ -48,7 +48,7 @@ impl<V> ClippedTriangles<V> {
     const fn new_uninit() -> Self {
         Self {
             // SAFETY: An array of MaybeUninit is safe to be uninitialized.
-            tris: unsafe { MaybeUninit::<[MaybeUninit<V>; 24]>::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 24],
             count: 0,
         }
     }
@@ -317,8 +317,8 @@ pub fn clip_triangle_to_frustum<V: Copy>(
     // A triangle clipped by 6 planes can have at most 9 vertices (usually).
     // We use a safe upper bound of 12 for the polygon vertices.
     // SAFETY: Arrays of MaybeUninit do not require initialization.
-    let mut buf1: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
-    let mut buf2: [MaybeUninit<V>; 12] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut buf1: [MaybeUninit<V>; 12] = [const { MaybeUninit::uninit() }; 12];
+    let mut buf2: [MaybeUninit<V>; 12] = [const { MaybeUninit::uninit() }; 12];
 
     // Initialize input buffer
     buf1[0].write(v0);
@@ -594,7 +594,7 @@ pub fn clip_triangle_against_near_plane<V: Copy>(
     let inside = [inside0, inside1, inside2];
 
     // Max 4 vertices for a clipped triangle (quad)
-    let mut out_verts: [MaybeUninit<V>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut out_verts: [MaybeUninit<V>; 4] = [const { MaybeUninit::uninit() }; 4];
     let mut out_count = 0;
 
     for i in 0..3 {

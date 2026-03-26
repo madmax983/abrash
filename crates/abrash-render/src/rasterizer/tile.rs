@@ -378,7 +378,7 @@ impl PreparedGouraudTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -431,7 +431,7 @@ impl PreparedTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
@@ -526,7 +526,7 @@ impl PreparedTexturedTrianglesList {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            tris: unsafe { MaybeUninit::uninit().assume_init() },
+            tris: [const { MaybeUninit::uninit() }; 8],
             count: 0,
         }
     }
