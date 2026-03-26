@@ -269,6 +269,10 @@ name = "transform_point_simd"
 harness = false
 
 [[bench]]
+name = "point_light_simd_vs_scalar"
+harness = false
+
+[[bench]]
 name = "post_process"
 harness = false
 
