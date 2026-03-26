@@ -1680,9 +1680,9 @@ impl TileRenderer {
             // Bolt: Use `par_extend` combined with `flat_map_iter` to reuse the existing capacity
             // of `self.prepared` and eliminate intermediate Vec heap allocations entirely.
             self.prepared
-                .par_extend(indices.par_iter().flat_map_iter(|&[i0, i1, i2]| {
-                    // Safety: We trust the indices are within bounds of the vertices slice.
-                    // The caller must ensure this or it will panic inside the thread.
+                .par_extend(indices.par_iter().filter(|&&[i0, i1, i2]| {
+                    i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len()
+                }).flat_map_iter(|&[i0, i1, i2]| {
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
@@ -1710,6 +1710,9 @@ impl TileRenderer {
                 self.submit_mesh_unclipped(indices, vertices, color);
             } else {
                 for &[i0, i1, i2] in indices {
+                    if i0 >= vertices.len() || i1 >= vertices.len() || i2 >= vertices.len() {
+                        continue;
+                    }
                     let v0 = vertices[i0];
                     let v1 = vertices[i1];
                     let v2 = vertices[i2];
@@ -1756,6 +1759,9 @@ impl TileRenderer {
 
             // Phase 2: Per-triangle setup (backface, sort, dz_dx, AABB)
             for &[i0, i1, i2] in indices {
+                if i0 >= projected.len() || i1 >= projected.len() || i2 >= projected.len() {
+                    continue;
+                }
                 let p0_orig = projected[i0];
                 let p1_orig = projected[i1];
                 let p2_orig = projected[i2];

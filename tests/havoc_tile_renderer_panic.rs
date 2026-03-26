@@ -4,8 +4,6 @@ use proptest::prelude::*;
 
 proptest! {
     #[test]
-    #[allow(clippy::should_panic_without_expect)]
-    #[should_panic]
     fn test_tile_renderer_panic(
         w in 16u32..200u32,
         h in 16u32..200u32,
