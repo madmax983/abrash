@@ -2,7 +2,6 @@
 use abrash_render::experimental::arboretum::LSystem;
 
 #[test]
-#[ignore = "👾 Havoc: Intentionally tests an OOM vulnerability"]
 fn test_havoc_arboretum_oom() {
     // 👹 Havoc: Intentionally tests an Out-Of-Memory (OOM) vulnerability by creating a
     // runaway L-System stack. The `arboretum` module limits string expansion to 100MB,

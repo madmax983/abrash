@@ -217,6 +217,7 @@ impl LSystem {
 
         // Pre-flight check to count segments to avoid over-allocating memory for meshes
         // that only contain state commands (like '[', ']', '+', '-').
+        let max_stack_depth: usize = 10_000;
         let mut num_segments: usize = 0;
         let mut current_depth: usize = 0;
         let mut max_reached_depth: usize = 0;
@@ -225,17 +226,15 @@ impl LSystem {
                 num_segments += 1;
             } else if b == b'[' {
                 current_depth += 1;
+                if current_depth > max_stack_depth {
+                    return Err("L-system exceeded maximum stack depth".to_string());
+                }
                 if current_depth > max_reached_depth {
                     max_reached_depth = current_depth;
                 }
             } else if b == b']' {
                 current_depth = current_depth.saturating_sub(1);
             }
-        }
-
-        let max_stack_depth: usize = 100_000;
-        if max_reached_depth > max_stack_depth {
-            return Err("L-system exceeded maximum stack depth".to_string());
         }
 
         // Limit the capacities to prevent OOM
