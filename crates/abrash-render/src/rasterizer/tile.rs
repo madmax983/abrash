@@ -1679,22 +1679,26 @@ impl TileRenderer {
             // Process triangles in parallel and collect prepared results
             // Bolt: Use `par_extend` combined with `flat_map_iter` to reuse the existing capacity
             // of `self.prepared` and eliminate intermediate Vec heap allocations entirely.
-            self.prepared
-                .par_extend(indices.par_iter().filter(|&&[i0, i1, i2]| {
-                    i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len()
-                }).flat_map_iter(|&[i0, i1, i2]| {
-                    let v0 = vertices[i0];
-                    let v1 = vertices[i1];
-                    let v2 = vertices[i2];
+            self.prepared.par_extend(
+                indices
+                    .par_iter()
+                    .filter(|&&[i0, i1, i2]| {
+                        i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len()
+                    })
+                    .flat_map_iter(|&[i0, i1, i2]| {
+                        let v0 = vertices[i0];
+                        let v1 = vertices[i1];
+                        let v2 = vertices[i2];
 
-                    let ctx = ScreenSpaceContext {
-                        width,
-                        height,
-                        half_width,
-                        half_height,
-                    };
-                    Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
-                }));
+                        let ctx = ScreenSpaceContext {
+                            width,
+                            height,
+                            half_width,
+                            half_height,
+                        };
+                        Self::prepare_triangle_static(v0, v1, v2, color, &ctx)
+                    }),
+            );
         }
 
         #[cfg(not(feature = "parallel"))]
