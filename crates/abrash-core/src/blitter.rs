@@ -237,6 +237,101 @@ pub unsafe fn blit_opaque_unchecked(
     }
 }
 
+/// Blits a rectangular region of a texture onto the framebuffer, skipping any
+/// pixels whose value matches the color key (binary transparency).
+///
+/// This is the standard alpha-tested blit path: the source rectangle is clipped
+/// against both the framebuffer and texture bounds via [`clip_blit`], and then
+/// each pixel is compared against `key`. Matching pixels are skipped (leaving
+/// the framebuffer contents intact), while non-matching pixels overwrite the
+/// destination.
+///
+/// Use this for sprites with a designated transparent color (e.g. magenta
+/// `0xFFFF00FF`).
+///
+/// # Arguments
+///
+/// * `fb` - Destination framebuffer.
+/// * `tex` - Source texture (or atlas) to read from.
+/// * `src` - Sub-rectangle within `tex` to copy.
+/// * `dst_x` - Signed X position in the framebuffer (negative = partially off-screen left).
+/// * `dst_y` - Signed Y position in the framebuffer (negative = partially off-screen top).
+/// * `key` - The color key: any source pixel equal to this value is skipped.
+pub fn blit_colorkey(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: i32,
+    dst_y: i32,
+    key: u32,
+) {
+    let Some(clip) = clip_blit(
+        &src,
+        dst_x,
+        dst_y,
+        fb.width(),
+        fb.height(),
+        tex.width,
+        tex.height,
+    ) else {
+        return;
+    };
+
+    let clipped_src = SrcRect {
+        x: clip.src_x,
+        y: clip.src_y,
+        w: clip.w,
+        h: clip.h,
+    };
+
+    // SAFETY: clip_blit guarantees all coordinates are within framebuffer and
+    // texture bounds, satisfying the precondition of blit_colorkey_unchecked.
+    unsafe {
+        blit_colorkey_unchecked(fb, tex, clipped_src, clip.dst_x, clip.dst_y, key);
+    }
+}
+
+/// Blits a rectangular region of a texture onto the framebuffer with color-key
+/// transparency, **without any bounds checking**.
+///
+/// Pixels matching `key` are skipped; all others overwrite the destination.
+///
+/// # Safety
+///
+/// The caller **must** guarantee that the entire source rectangle
+/// `[src.x .. src.x + src.w, src.y .. src.y + src.h]` lies within
+/// `tex.pixels`, and the entire destination rectangle
+/// `[dst_x .. dst_x + src.w, dst_y .. dst_y + src.h]` lies within the
+/// framebuffer. Violating this causes out-of-bounds memory access.
+///
+/// Prefer [`blit_colorkey`] which clips automatically. Use this variant only
+/// in hot inner loops where profiling proves the clipping check is a
+/// measurable overhead.
+pub unsafe fn blit_colorkey_unchecked(
+    fb: &mut Framebuffer,
+    tex: &Texture,
+    src: SrcRect,
+    dst_x: u32,
+    dst_y: u32,
+    key: u32,
+) {
+    let fb_w = fb.width() as usize;
+    let tex_w = tex.width as usize;
+    let w = src.w as usize;
+    let fb_pixels = fb.as_mut_slice();
+
+    for row in 0..src.h as usize {
+        let src_row_start = (src.y as usize + row) * tex_w + src.x as usize;
+        let dst_row_start = (dst_y as usize + row) * fb_w + dst_x as usize;
+        for col in 0..w {
+            let src_px = tex.pixels[src_row_start + col];
+            if src_px != key {
+                fb_pixels[dst_row_start + col] = src_px;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -707,6 +802,212 @@ mod tests {
             fb_pixels[(fb_w * 16) - 1],
             0xFF000000,
             "bottom-right should be black"
+        );
+    }
+
+    // ── blit_colorkey / blit_colorkey_unchecked tests ────────────────────
+
+    #[test]
+    fn blit_colorkey_skips_key_color() {
+        const RED: u32 = 0xFFFF0000;
+        const MAGENTA: u32 = 0xFFFF00FF; // color key
+        const BLUE: u32 = 0xFF0000FF;
+
+        // 4x4 texture: top-left 2x2 = red, rest = magenta (transparent).
+        let mut tex = Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let color = if x < 2 && y < 2 { RED } else { MAGENTA };
+                tex.set_pixel(x, y, color);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blit_colorkey(&mut fb, &tex, src, 5, 5, MAGENTA);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // Top-left 2x2 of the blit region should be red.
+        for y in 0..2u32 {
+            for x in 0..2u32 {
+                let idx = (5 + y as usize) * fb_w + (5 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    RED,
+                    "pixel ({}, {}) should be red",
+                    5 + x,
+                    5 + y
+                );
+            }
+        }
+
+        // Remaining pixels in the blit region should still be blue (magenta was skipped).
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                if x < 2 && y < 2 {
+                    continue; // already checked
+                }
+                let idx = (5 + y as usize) * fb_w + (5 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    BLUE,
+                    "pixel ({}, {}) should be blue (key skipped)",
+                    5 + x,
+                    5 + y
+                );
+            }
+        }
+
+        // Pixels outside the blit region should be blue.
+        assert_eq!(fb_pixels[0], BLUE, "top-left corner should be blue");
+    }
+
+    #[test]
+    fn blit_colorkey_all_transparent() {
+        const KEY: u32 = 0xFFFF00FF;
+        const BLUE: u32 = 0xFF0000FF;
+
+        // 4x4 texture: all pixels match the key.
+        let mut tex = Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                tex.set_pixel(x, y, KEY);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blit_colorkey(&mut fb, &tex, src, 5, 5, KEY);
+
+        // Every pixel in the framebuffer should still be blue.
+        for (i, &pixel) in fb.as_slice().iter().enumerate() {
+            assert_eq!(pixel, BLUE, "pixel {} should be blue (all transparent)", i);
+        }
+    }
+
+    #[test]
+    fn blit_colorkey_clipped() {
+        const RED: u32 = 0xFFFF0000;
+        const BLUE: u32 = 0xFF0000FF;
+
+        // 8x8 all-red texture (no pixel matches the key, so all are opaque).
+        let mut tex = Texture::new(8, 8).unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                tex.set_pixel(x, y, RED);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 8,
+            h: 8,
+        };
+        // dst_x = -3 means columns 0..5 of fb get src columns 3..8.
+        blit_colorkey(&mut fb, &tex, src, -3, 0, 0xFFFF00FF);
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // Columns 0..5 in rows 0..8 should be red.
+        for row in 0..8u32 {
+            for col in 0..5u32 {
+                let idx = row as usize * fb_w + col as usize;
+                assert_eq!(
+                    fb_pixels[idx], RED,
+                    "pixel ({}, {}) should be red",
+                    col, row
+                );
+            }
+        }
+
+        // Column 5 onward should still be blue.
+        for row in 0..8u32 {
+            let idx = row as usize * fb_w + 5;
+            assert_eq!(fb_pixels[idx], BLUE, "pixel (5, {}) should be blue", row);
+        }
+    }
+
+    #[test]
+    fn blit_colorkey_unchecked_basic() {
+        const RED: u32 = 0xFFFF0000;
+        const MAGENTA: u32 = 0xFFFF00FF; // color key
+        const BLUE: u32 = 0xFF0000FF;
+
+        // 4x4 texture: first column = red, rest = magenta (transparent).
+        let mut tex = Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let color = if x == 0 { RED } else { MAGENTA };
+                tex.set_pixel(x, y, color);
+            }
+        }
+
+        let mut fb = Framebuffer::new(16, 16).unwrap();
+        fb.clear(BLUE);
+
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        // SAFETY: dst (2,3) + size (4,4) = (6,7), well within 16x16 fb,
+        // and src (0,0)+(4,4) is within 4x4 texture.
+        unsafe {
+            blit_colorkey_unchecked(&mut fb, &tex, src, 2, 3, MAGENTA);
+        }
+
+        let fb_pixels = fb.as_slice();
+        let fb_w = 16usize;
+
+        // First column of the blit region should be red.
+        for y in 0..4u32 {
+            let idx = (3 + y as usize) * fb_w + 2;
+            assert_eq!(fb_pixels[idx], RED, "pixel (2, {}) should be red", 3 + y);
+        }
+
+        // Remaining 3 columns of the blit region should be blue (magenta skipped).
+        for y in 0..4u32 {
+            for x in 1..4u32 {
+                let idx = (3 + y as usize) * fb_w + (2 + x as usize);
+                assert_eq!(
+                    fb_pixels[idx],
+                    BLUE,
+                    "pixel ({}, {}) should be blue",
+                    2 + x,
+                    3 + y
+                );
+            }
+        }
+
+        // Surrounding pixels untouched.
+        assert_eq!(fb_pixels[0], BLUE, "top-left corner should be blue");
+        assert_eq!(
+            fb_pixels[(fb_w * 16) - 1],
+            BLUE,
+            "bottom-right should be blue"
         );
     }
 }
