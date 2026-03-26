@@ -216,9 +216,10 @@ impl WindowApp for GltfViewerApp {
 
             // Tick animation and skin vertices
             if let (Some(animator), Some(sm)) = (&mut self.animator, &self.skinned_mesh) {
-                let pose = animator.tick(dt);
+                animator.tick(dt);
+                let pose = animator.current_pose();
                 let skeleton = animator.skeleton();
-                let globals = skeleton.compute_global_transforms(&pose);
+                let globals = skeleton.compute_global_transforms(pose);
                 let skin_mats = skeleton.compute_skin_matrices(&globals);
                 skin_vertices(sm, &skin_mats, &mut self.skinned_positions);
 

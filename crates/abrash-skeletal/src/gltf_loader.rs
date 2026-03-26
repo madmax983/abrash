@@ -766,13 +766,13 @@ mod tests {
             [9.0, 10.0, 11.0, 12.0],
             [13.0, 14.0, 15.0, 16.0],
         ];
-        for row in 0..4 {
-            for col in 0..4 {
+        for (row, expected_row) in expected.iter().enumerate() {
+            for (col, expected_val) in expected_row.iter().enumerate() {
                 assert!(
-                    (result.m[row][col] - expected[row][col]).abs() < f32::EPSILON,
+                    (result.m[row][col] - expected_val).abs() < f32::EPSILON,
                     "Mismatch at [{row}][{col}]: got {}, expected {}",
                     result.m[row][col],
-                    expected[row][col]
+                    expected_val
                 );
             }
         }
@@ -810,10 +810,10 @@ mod tests {
         let first = transpose_col_major_to_mat4(&original);
         // Transpose again: treat the row-major Mat4.m as if it were column-major
         let second = transpose_col_major_to_mat4(&first.m);
-        for row in 0..4 {
-            for col in 0..4 {
+        for (row, original_row) in original.iter().enumerate() {
+            for (col, original_val) in original_row.iter().enumerate() {
                 assert!(
-                    (second.m[row][col] - original[row][col]).abs() < f32::EPSILON,
+                    (second.m[row][col] - original_val).abs() < f32::EPSILON,
                     "Double transpose mismatch at [{row}][{col}]"
                 );
             }
