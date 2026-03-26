@@ -548,14 +548,18 @@ impl Texture {
         }
     }
 
-    /// Returns the width of the texture.
+    /// The width of the texture in pixels.
+    ///
+    /// Useful for bounding UV coordinates when mapping onto a surface.
     #[inline]
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
-    /// Returns the height of the texture.
+    /// The height of the texture in pixels.
+    ///
+    /// Useful for bounding UV coordinates when mapping onto a surface.
     #[inline]
     #[must_use]
     pub const fn height(&self) -> u32 {
