@@ -69,7 +69,7 @@ pub(crate) struct ClippedBlit {
 /// * `fb_h` - Framebuffer height in pixels.
 /// * `tex_w` - Source texture width in pixels.
 /// * `tex_h` - Source texture height in pixels.
-pub(crate) fn clip_blit(
+pub(crate) const fn clip_blit(
     src: &SrcRect,
     dst_x: i32,
     dst_y: i32,
@@ -336,7 +336,7 @@ pub unsafe fn blit_colorkey_unchecked(
 /// Uses SWAR to blend R+B and G channels in parallel.
 /// Output alpha is always 0xFF (framebuffer is final display surface).
 #[inline(always)]
-fn alpha_blend_pixel(src: u32, dst: u32) -> u32 {
+const fn alpha_blend_pixel(src: u32, dst: u32) -> u32 {
     let alpha = (src >> 24) & 0xFF;
     let inv_alpha = 255 - alpha;
 
@@ -505,8 +505,8 @@ pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, col
 
     let x0 = x.max(0) as u32;
     let y0 = y.max(0) as u32;
-    let x1 = ((x as i64 + w as i64).min(fb_w as i64) as i32).max(0) as u32;
-    let y1 = ((y as i64 + h as i64).min(fb_h as i64) as i32).max(0) as u32;
+    let x1 = ((i64::from(x) + i64::from(w)).min(i64::from(fb_w)) as i32).max(0) as u32;
+    let y1 = ((i64::from(y) + i64::from(h)).min(i64::from(fb_h)) as i32).max(0) as u32;
 
     if x0 >= x1 || y0 >= y1 {
         return;

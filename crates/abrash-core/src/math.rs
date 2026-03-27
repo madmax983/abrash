@@ -667,7 +667,24 @@ pub struct Mat4 {
 }
 
 impl Mat4 {
-    /// Returns the identity matrix.
+    /// Creates the standard identity matrix.
+    ///
+    /// The identity matrix leaves any vector or matrix it is multiplied with unchanged.
+    /// Use this as the starting point for building transformation chains.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    ///
+    /// let identity = Mat4::identity();
+    /// let v = Vec3::new(1.0, 2.0, 3.0);
+    ///
+    /// // The transform is a no-op:
+    /// let (v_transformed, w) = identity.transform_point(v);
+    /// assert_eq!(v_transformed, v);
+    /// assert_eq!(w, 1.0);
+    /// ```
     #[must_use]
     #[inline]
     pub const fn identity() -> Self {

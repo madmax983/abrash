@@ -22,6 +22,9 @@ pub struct Plane {
 
 impl Plane {
     /// Normalize the plane equation so that the normal has length 1.
+    ///
+    /// This is necessary because plane extraction from a matrix produces planes with non-unit normal vectors.
+    /// Normalizing the planes allows the frustum to calculate accurate distances to points and bounding volumes.
     pub fn normalize(&mut self) {
         let len = self.normal.length();
         if len > 0.0001 {
@@ -31,8 +34,27 @@ impl Plane {
         }
     }
 
-    /// Signed distance from a point to the plane.
-    /// Positive if on the side of the normal.
+    /// Calculates the shortest signed distance from a point to the plane.
+    ///
+    /// The distance is positive if the point is completely inside the frustum.
+    /// If the point is outside the frustum, the distance will be negative.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::culling::Plane;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let mut plane = Plane {
+    ///     normal: Vec3::new(1.0, 0.0, 0.0),
+    ///     distance: 0.0,
+    /// };
+    /// plane.normalize();
+    ///
+    /// let point = Vec3::new(1.0, 0.0, 0.0);
+    /// let dist = plane.distance_to_point(point);
+    /// assert!(dist > 0.0);
+    /// ```
     #[must_use]
     pub fn distance_to_point(&self, point: Vec3) -> f32 {
         self.normal.dot(point) + self.distance

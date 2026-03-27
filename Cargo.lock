@@ -69,6 +69,7 @@ dependencies = [
  "abrash-core",
  "abrash-render",
  "bytemuck",
+ "criterion",
  "pollster",
  "wgpu",
  "winit 0.29.15",
@@ -89,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "abrash-core",
  "abrash-raycast",
+ "proptest",
  "ratatui",
  "rayon",
 ]

@@ -5,6 +5,7 @@
 
 #[cfg(feature = "ray-tracing")]
 pub mod accel_structure;
+pub mod blitter;
 pub mod capture;
 pub mod composition;
 pub mod deferred;

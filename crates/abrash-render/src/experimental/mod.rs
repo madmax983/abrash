@@ -31,8 +31,8 @@ pub mod ascii_display;
 pub mod autostereogram;
 pub mod black_hole;
 pub mod boids;
+pub mod brickify;
 
-pub mod ascii_export;
 pub mod blueprint;
 pub mod cloth;
 pub mod crepuscular;
@@ -45,6 +45,7 @@ pub mod emboss;
 pub mod fisheye;
 pub mod glitch;
 pub mod halftone;
+pub mod hologram;
 pub mod isosurface;
 pub mod jelly;
 pub mod kaleidoscope;

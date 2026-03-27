@@ -240,8 +240,16 @@ fn profile_rendering_pipeline() {
 
     let render_time = total_time.saturating_sub(clear_time);
 
-    let clear_percent = if total_time > 0 { (clear_time * 100) / total_time } else { 0 };
-    let render_percent = if total_time > 0 { (render_time * 100) / total_time } else { 0 };
+    let clear_percent = if total_time > 0 {
+        (clear_time * 100) / total_time
+    } else {
+        0
+    };
+    let render_percent = if total_time > 0 {
+        (render_time * 100) / total_time
+    } else {
+        0
+    };
 
     // Calculate triangles per second
     let tris_per_sec = if total_time > 0 {
@@ -267,9 +275,15 @@ fn profile_rendering_pipeline() {
         Cell::new(format!("{render_percent}%")).fg(Color::Magenta),
     ]);
     table.add_row(vec![
-        Cell::new("Total Time").add_attribute(Attribute::Bold).fg(Color::Cyan),
-        Cell::new(format!("{total_time} µs")).add_attribute(Attribute::Bold).fg(Color::Cyan),
-        Cell::new("100%").add_attribute(Attribute::Bold).fg(Color::Cyan),
+        Cell::new("Total Time")
+            .add_attribute(Attribute::Bold)
+            .fg(Color::Cyan),
+        Cell::new(format!("{total_time} µs"))
+            .add_attribute(Attribute::Bold)
+            .fg(Color::Cyan),
+        Cell::new("100%")
+            .add_attribute(Attribute::Bold)
+            .fg(Color::Cyan),
     ]);
 
     println!("{table}");

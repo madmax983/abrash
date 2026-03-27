@@ -9,12 +9,12 @@ use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash::render_api::RenderError;
 use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;
-use abrash::render_api::renderer::RenderError;
 use abrash::render_api::target::RenderTarget;
-use abrash::render_api::{MaterialHandle, MeshHandle, Renderer};
+use abrash::render_api::{MaterialHandle, MeshHandle};
 use abrash::time::FixedTimestep;
 
 use abrash::skeletal::skinning::skin_vertices;
@@ -216,9 +216,12 @@ impl WindowApp for GltfViewerApp {
 
             // Tick animation and skin vertices
             if let (Some(animator), Some(sm)) = (&mut self.animator, &self.skinned_mesh) {
-                let pose = animator.tick(dt);
+                // Tick the animation clock forward.
+                animator.tick(dt);
+                // Retrieve the updated pose and the skeleton immutably at the same time.
+                let pose = animator.current_pose();
                 let skeleton = animator.skeleton();
-                let globals = skeleton.compute_global_transforms(&pose);
+                let globals = skeleton.compute_global_transforms(pose);
                 let skin_mats = skeleton.compute_skin_matrices(&globals);
                 skin_vertices(sm, &skin_mats, &mut self.skinned_positions);
 

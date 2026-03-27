@@ -721,12 +721,11 @@ mod tests {
             }
         }
 
-        println!("Max difference between scalar and SIMD SSAO: {}", max_diff);
+        println!("Max difference between scalar and SIMD SSAO: {max_diff}");
         // Allow some difference due to floating point precision and rcp approximation
         assert!(
             max_diff <= 1.0,
-            "SSAO output mismatch too large: {}",
-            max_diff
+            "SSAO output mismatch too large: {max_diff}",
         );
     }
 }

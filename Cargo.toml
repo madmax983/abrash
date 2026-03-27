@@ -269,6 +269,10 @@ name = "transform_point_simd"
 harness = false
 
 [[bench]]
+name = "point_light_simd_vs_scalar"
+harness = false
+
+[[bench]]
 name = "post_process"
 harness = false
 
@@ -612,3 +616,17 @@ harness = false
 [[bench]]
 name = "raycast_bench"
 harness = false
+
+[[bench]]
+name = "circle_bench"
+harness = false
+
+[[example]]
+name = "brickify_demo"
+path = "examples/brickify_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "hologram_demo"
+path = "examples/hologram_demo.rs"
+required-features = ["nova"]
