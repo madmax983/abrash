@@ -1,11 +1,11 @@
 //! Compatibility wrapper around the external `abrash-gpu-render` crate.
 
+pub use abrash_gpu_render::blitter::{AtlasHandle, BlitMode, GpuBlitter};
 pub use abrash_gpu_render::{
     GpuDemoConfig, GpuInteractionController, GpuOffscreenBench, GpuOffscreenBenchConfig,
     GpuTriangle, GpuVertex, MeshValidationError, run_gpu_cube, run_gpu_cube_with_config,
     run_mesh_demo, unit_cube_mesh, validate_demo_config, validate_mesh,
 };
-pub use abrash_gpu_render::blitter::{AtlasHandle, BlitMode, GpuBlitter};
 
 /// Converts a CPU `Mesh` to GPU-compatible vertex and index buffers.
 ///
