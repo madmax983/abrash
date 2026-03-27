@@ -107,7 +107,8 @@ impl NormalMappingDemoApp {
             for x in 0..256 {
                 let dx = (x as f32 - 128.0) / 128.0;
                 let dy = (y as f32 - 128.0) / 128.0;
-                let dist = dx.hypot(dy);
+                #[allow(clippy::imprecise_flops)]
+                let dist = (dx * dx + dy * dy).sqrt();
 
                 if dist < 0.8 {
                     let z = (1.0 - dist * dist).sqrt();

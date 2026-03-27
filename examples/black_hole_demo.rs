@@ -52,7 +52,8 @@ impl BlackHoleDemoApp {
             let dy = y as f32 - center_y;
             for x in 0..WIDTH {
                 let dx = x as f32 - center_x;
-                let dist = dx.hypot(dy);
+                #[allow(clippy::imprecise_flops)]
+                let dist = (dx * dx + dy * dy).sqrt();
 
                 if dist < star_radius {
                     let intensity = 1.0 - (dist / star_radius);
