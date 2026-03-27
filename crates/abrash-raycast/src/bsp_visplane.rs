@@ -78,11 +78,11 @@ impl Visplane {
 /// Allocator that manages a pool of visplanes during a single frame.
 ///
 /// Usage pattern:
-/// 1. Call [`find_or_create`] for each floor/ceiling column encountered during
+/// 1. Call `find_or_create` for each floor/ceiling column encountered during
 ///    BSP traversal.
-/// 2. Call [`set_span`] to record the screen-space top/bottom for that column.
-/// 3. After all walls are processed, iterate [`planes`] to draw horizontal spans.
-/// 4. Call [`reset`] before the next frame.
+/// 2. Call `set_span` to record the screen-space top/bottom for that column.
+/// 3. After all walls are processed, iterate `planes` to draw horizontal spans.
+/// 4. Call `reset` before the next frame.
 pub struct VisplaneAllocator {
     planes: Vec<Visplane>,
     screen_width: u32,
