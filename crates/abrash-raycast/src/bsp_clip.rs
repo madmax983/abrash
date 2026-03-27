@@ -240,6 +240,124 @@ fn bam_to_signed_radians(angle: Bam) -> f32 {
 }
 
 // ---------------------------------------------------------------------------
+// Column clip state for BSP front-to-back rendering
+// ---------------------------------------------------------------------------
+
+/// Per-column occlusion tracker for front-to-back BSP wall rendering.
+///
+/// As the BSP traversal visits walls in front-to-back order, each wall claims
+/// screen rows from the top (ceiling) and bottom (floor). `ColumnClip` tracks
+/// the remaining "open" (undrawn) row range per screen column, enabling:
+///
+/// - **Early exit**: once every column is fully filled, no more walls are visible.
+/// - **Correct overdraw elimination**: later (farther) walls only draw into the
+///   rows that are still open.
+pub struct ColumnClip {
+    open_top: Vec<i32>,
+    open_bot: Vec<i32>,
+    width: u32,
+    height: u32,
+    filled_count: u32,
+}
+
+impl ColumnClip {
+    /// Create a new clip state with all columns fully open.
+    #[must_use]
+    pub fn new(width: u32, height: u32) -> Self {
+        let w = width as usize;
+        Self {
+            open_top: vec![0; w],
+            open_bot: vec![height as i32 - 1; w],
+            width,
+            height,
+            filled_count: 0,
+        }
+    }
+
+    /// Returns `true` if `col` has at least one undrawn row.
+    ///
+    /// Out-of-bounds columns return `false`.
+    #[inline]
+    #[must_use]
+    pub fn is_open(&self, col: i32) -> bool {
+        if col < 0 || col >= self.width as i32 {
+            return false;
+        }
+        let c = col as usize;
+        self.open_top[c] <= self.open_bot[c]
+    }
+
+    /// Topmost open row for `col`. Clamped to `[0, height-1]` for OOB columns.
+    #[inline]
+    #[must_use]
+    pub fn top(&self, col: i32) -> i32 {
+        let c = (col.max(0) as usize).min(self.open_top.len().saturating_sub(1));
+        self.open_top[c]
+    }
+
+    /// Bottommost open row for `col`. Clamped to `[0, height-1]` for OOB columns.
+    #[inline]
+    #[must_use]
+    pub fn bot(&self, col: i32) -> i32 {
+        let c = (col.max(0) as usize).min(self.open_bot.len().saturating_sub(1));
+        self.open_bot[c]
+    }
+
+    /// Advance the top boundary downward (ceiling was drawn down to `row`).
+    ///
+    /// No-op for out-of-bounds columns.
+    #[inline]
+    pub fn set_top(&mut self, col: i32, row: i32) {
+        if col >= 0 && col < self.width as i32 {
+            self.open_top[col as usize] = row;
+        }
+    }
+
+    /// Advance the bottom boundary upward (floor was drawn up to `row`).
+    ///
+    /// No-op for out-of-bounds columns.
+    #[inline]
+    pub fn set_bot(&mut self, col: i32, row: i32) {
+        if col >= 0 && col < self.width as i32 {
+            self.open_bot[col as usize] = row;
+        }
+    }
+
+    /// Mark a column as completely filled (no open rows remain).
+    ///
+    /// No-op for out-of-bounds columns.
+    #[inline]
+    pub fn mark_solid(&mut self, col: i32) {
+        if col >= 0 && col < self.width as i32 {
+            let c = col as usize;
+            // Only bump the counter if the column was previously open.
+            if self.open_top[c] <= self.open_bot[c] {
+                self.filled_count += 1;
+            }
+            self.open_top[c] = self.height as i32;
+        }
+    }
+
+    /// Returns `true` when every column has been fully filled.
+    #[inline]
+    #[must_use]
+    pub const fn all_filled(&self) -> bool {
+        self.filled_count >= self.width
+    }
+
+    /// Reset all columns to fully open (for a new frame).
+    pub fn reset(&mut self) {
+        for v in &mut self.open_top {
+            *v = 0;
+        }
+        for v in &mut self.open_bot {
+            *v = self.height as i32 - 1;
+        }
+        self.filled_count = 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 #[cfg(test)]
@@ -606,5 +724,75 @@ mod tests {
             "scale should be clamped to maximum 64*FRACUNIT, got {}",
             scale.raw()
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // ColumnClip
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn column_clip_initial_state() {
+        let clip = ColumnClip::new(320, 200);
+        // All columns open.
+        for col in 0..320 {
+            assert!(clip.is_open(col), "column {col} should be open initially");
+        }
+        assert_eq!(clip.top(0), 0);
+        assert_eq!(clip.bot(0), 199);
+        assert!(!clip.all_filled());
+    }
+
+    #[test]
+    fn column_clip_set_top() {
+        let mut clip = ColumnClip::new(320, 200);
+        clip.set_top(10, 50);
+        assert_eq!(clip.top(10), 50);
+        assert_eq!(clip.bot(10), 199);
+        assert!(clip.is_open(10));
+    }
+
+    #[test]
+    fn column_clip_set_bot() {
+        let mut clip = ColumnClip::new(320, 200);
+        clip.set_bot(10, 150);
+        assert_eq!(clip.top(10), 0);
+        assert_eq!(clip.bot(10), 150);
+        assert!(clip.is_open(10));
+    }
+
+    #[test]
+    fn column_clip_mark_solid() {
+        let mut clip = ColumnClip::new(320, 200);
+        clip.mark_solid(10);
+        assert!(!clip.is_open(10));
+    }
+
+    #[test]
+    fn column_clip_all_filled() {
+        let mut clip = ColumnClip::new(4, 200);
+        for col in 0..4 {
+            clip.mark_solid(col);
+        }
+        assert!(clip.all_filled());
+    }
+
+    #[test]
+    fn column_clip_reset() {
+        let mut clip = ColumnClip::new(320, 200);
+        clip.mark_solid(10);
+        clip.set_top(20, 50);
+        clip.reset();
+        assert!(clip.is_open(10));
+        assert_eq!(clip.top(10), 0);
+        assert_eq!(clip.bot(10), 199);
+        assert_eq!(clip.top(20), 0);
+        assert!(!clip.all_filled());
+    }
+
+    #[test]
+    fn column_clip_out_of_bounds_not_open() {
+        let clip = ColumnClip::new(320, 200);
+        assert!(!clip.is_open(-1));
+        assert!(!clip.is_open(320));
     }
 }
