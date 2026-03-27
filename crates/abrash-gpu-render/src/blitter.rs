@@ -742,6 +742,34 @@ impl GpuBlitter {
         self.commands.clear();
     }
 
+    /// Render all queued sprites directly to a window surface.
+    ///
+    /// This is the fastest output path — no CPU readback.
+    /// The command queue is cleared after rendering.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the swapchain texture cannot be acquired (e.g. surface lost).
+    #[cfg(feature = "windowed")]
+    pub fn flush_to_screen(&mut self, surface: &crate::surface::GpuSurface) {
+        if self.commands.is_empty() {
+            return;
+        }
+
+        let frame = match surface.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            e => panic!("failed to acquire swapchain texture: {e:?}"),
+        };
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.flush_to_view(&view);
+
+        frame.present();
+    }
+
     /// Render all queued sprites to the internal render texture, then copy the
     /// result into the readback buffer and return the raw RGBA bytes.
     ///
