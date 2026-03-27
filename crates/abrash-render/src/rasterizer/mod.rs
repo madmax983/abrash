@@ -59,6 +59,7 @@
 //! *   **Span Drawing**: For each scanline, it iterates from `x_start` to `x_end`, interpolating attributes horizontally and writing to the framebuffer.
 //! *   **SIMD**: Key paths (like texture mapping and lighting) are optimized with AVX2 intrinsics for modern CPUs.
 
+pub mod circle;
 pub mod core;
 pub mod flat;
 pub mod gouraud;
@@ -70,6 +71,7 @@ pub mod texture;
 pub mod tile;
 
 // Re-export public API
+pub use self::circle::{draw_circle, fill_circle};
 pub use self::core::{FIXED_SCALE, color_to_u32};
 pub use self::flat::{draw_scanline_flat, draw_scanline_flat_blended, fill_triangle_3d};
 pub use self::gouraud::{draw_scanline_gouraud, fill_triangle_gouraud};
