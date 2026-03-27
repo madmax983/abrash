@@ -17,7 +17,7 @@ fn main() {
     let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
     let view_proj = view * proj;
 
-    fb.clear(0xFF000000);
+    fb.clear(0xFF00_0000);
     zb.clear();
 
     let v0_local = Vec3::new(0.0, 1.0, 0.0);
@@ -28,10 +28,10 @@ fn main() {
     let v1_clip = view_proj.transform_point(v1_local);
     let v2_clip = view_proj.transform_point(v2_local);
 
-    fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, 0xFFFFFFFF);
+    fill_triangle_3d(&mut fb, &mut zb, v0_clip, v1_clip, v2_clip, 0xFFFF_FFFF);
 
     let config = HologramConfig {
-        color: 0xFF00FFFF, // Cyan
+        color: 0xFF00_FFFF, // Cyan
         time: 1.0,
         scanline_intensity: 0.8,
         flicker_speed: 15.0,
