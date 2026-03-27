@@ -6,6 +6,7 @@
 
 pub mod batch;
 pub mod bsp;
+pub mod bsp_clip;
 pub mod cast;
 pub mod dda;
 pub mod map;
