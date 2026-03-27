@@ -32,6 +32,7 @@ use abrash_raycast::types::Vec2Fixed;
 
 use super::bsp_lighting::{BspTextures, colormap_index};
 
+#[inline]
 /// Draw a single textured wall column from `y_top` to `y_bot` (inclusive).
 ///
 /// # Parameters

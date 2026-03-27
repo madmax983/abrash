@@ -42,13 +42,15 @@ pub const MAX_COLORMAP: u8 = 31;
 ///
 /// * `distance` -- world-space distance in 16.16 fixed-point.
 /// * `light_level` -- sector light level (0 = pitch black, 255 = full bright).
+#[inline]
+#[must_use]
 pub fn colormap_index(distance: Fixed16_16, light_level: u16) -> u8 {
     // base_light: map 0-255 into roughly 0-31
     let base_light = (light_level / 8) as u8;
 
     // distance_fade: 1 unit of fade per 16 world units, clamped to 0-31
     let raw_fade = (distance.to_f32() / 16.0) as i32;
-    let distance_fade = raw_fade.clamp(0, MAX_COLORMAP as i32) as u8;
+    let distance_fade = raw_fade.clamp(0, i32::from(MAX_COLORMAP)) as u8;
 
     // Final index: more distance and less light -> higher (darker) index
     let index = distance_fade.saturating_sub(base_light);

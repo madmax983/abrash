@@ -128,6 +128,9 @@ impl VisplaneAllocator {
     ///
     /// Also updates the visplane's `min_x` / `max_x` bounding range.
     pub fn set_span(&mut self, plane_idx: usize, col: i32, top: i32, bottom: i32) {
+        if col < 0 || col as u32 >= self.screen_width {
+            return;
+        }
         let plane = &mut self.planes[plane_idx];
         let idx = col as usize;
         plane.top[idx] = top;
