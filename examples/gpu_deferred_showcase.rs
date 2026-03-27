@@ -351,7 +351,10 @@ impl WindowApp for ShowcaseApp {
             ground: ground_mat,
         });
 
-        println!("\n{}", "✨ Abrash Deferred Rendering Showcase".bold().cyan());
+        println!(
+            "\n{}",
+            "✨ Abrash Deferred Rendering Showcase".bold().cyan()
+        );
         println!("{}", "=====================================".dark_grey());
 
         let mut info_table = Table::new();
@@ -400,10 +403,7 @@ impl WindowApp for ShowcaseApp {
                 Cell::new("Space"),
                 Cell::new("Pause/resume animation"),
             ])
-            .add_row(vec![
-                Cell::new("Esc"),
-                Cell::new("Quit"),
-            ]);
+            .add_row(vec![Cell::new("Esc"), Cell::new("Quit")]);
 
         println!("\n{}", "🎮 Controls".bold());
         println!("{controls}\n");

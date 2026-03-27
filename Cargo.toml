@@ -630,3 +630,8 @@ required-features = ["nova"]
 name = "hologram_demo"
 path = "examples/hologram_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "mode7_demo"
+path = "examples/mode7_demo.rs"
+required-features = ["nova"]
