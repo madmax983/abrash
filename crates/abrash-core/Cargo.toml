@@ -16,6 +16,11 @@ web-time = "1"
 
 [dev-dependencies]
 proptest = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "blitter"
+harness = false
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

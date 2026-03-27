@@ -26,3 +26,5 @@ pub mod bam;
 pub mod fixed16_16;
 pub mod quat;
 pub mod transform;
+
+pub mod blitter;

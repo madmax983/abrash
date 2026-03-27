@@ -21,6 +21,13 @@ bytemuck = { version = "1.24.0", features = ["derive"] }
 name = "abrash_gpu_render"
 path = "src/lib.rs"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "gpu_blitter"
+harness = false
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
