@@ -36,7 +36,6 @@
 
 use abrash_core::math::{Mat4, Vec3};
 use abrash_core::mesh::Mesh;
-use abrash_render::render_api::Renderer;
 use abrash_render::render_api::cpu_renderer::CpuRenderer;
 use abrash_render::render_api::frame::{Frame, FrameCamera};
 use abrash_render::render_api::handles::MeshHandle;

@@ -9,12 +9,12 @@ use abrash::math::{Mat4, Vec3};
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
+use abrash::render_api::RenderError;
 use abrash::render_api::cpu_renderer::CpuRenderer;
 use abrash::render_api::frame::{Frame, FrameCamera};
 use abrash::render_api::material::Material;
-use abrash::render_api::renderer::RenderError;
 use abrash::render_api::target::RenderTarget;
-use abrash::render_api::{MaterialHandle, MeshHandle, Renderer};
+use abrash::render_api::{MaterialHandle, MeshHandle};
 use abrash::time::FixedTimestep;
 
 use abrash::skeletal::skinning::skin_vertices;
