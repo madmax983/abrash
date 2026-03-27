@@ -4,7 +4,6 @@
 //! three-tier model (opaque, color-key, alpha) but expressed as instance data
 //! suitable for a single instanced draw call.
 
-#[allow(unused_imports)]
 use abrash_core::blitter::SrcRect;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -483,6 +482,73 @@ impl GpuBlitter {
     pub fn queued_count(&self) -> usize {
         self.commands.len()
     }
+
+    /// Queue a sprite for rendering using pixel coordinates.
+    /// Coordinates match the CPU blitter: i32, top-left origin.
+    pub fn queue(
+        &mut self,
+        atlas: AtlasHandle,
+        src: SrcRect,
+        dst_x: i32,
+        dst_y: i32,
+        mode: BlitMode,
+    ) {
+        let ga = &self.atlases[atlas.0 as usize];
+        self.commands.push(SpriteCommand {
+            atlas,
+            instance: SpriteInstance {
+                src_x: src.x as f32,
+                src_y: src.y as f32,
+                src_w: src.w as f32,
+                src_h: src.h as f32,
+                dst_x: dst_x as f32,
+                dst_y: dst_y as f32,
+                dst_w: src.w as f32,
+                dst_h: src.h as f32,
+                atlas_w: ga.width as f32,
+                atlas_h: ga.height as f32,
+                blend_mode: mode.as_u32(),
+                color_key: mode.color_key(),
+            },
+        });
+    }
+
+    /// Queue a sprite using normalized coordinates (0.0..1.0, top-left origin).
+    /// Position is scaled to screen pixels. Sprite size remains in pixels.
+    pub fn queue_normalized(
+        &mut self,
+        atlas: AtlasHandle,
+        src: SrcRect,
+        dst_x: f32,
+        dst_y: f32,
+        mode: BlitMode,
+    ) {
+        let px_x = dst_x * self.width as f32;
+        let px_y = dst_y * self.height as f32;
+        let ga = &self.atlases[atlas.0 as usize];
+        self.commands.push(SpriteCommand {
+            atlas,
+            instance: SpriteInstance {
+                src_x: src.x as f32,
+                src_y: src.y as f32,
+                src_w: src.w as f32,
+                src_h: src.h as f32,
+                dst_x: px_x,
+                dst_y: px_y,
+                dst_w: src.w as f32,
+                dst_h: src.h as f32,
+                atlas_w: ga.width as f32,
+                atlas_h: ga.height as f32,
+                blend_mode: mode.as_u32(),
+                color_key: mode.color_key(),
+            },
+        });
+    }
+
+    /// Discard all queued sprites without rendering.
+    pub fn clear(&mut self) {
+        self.commands.clear();
+    }
 }
 
 #[cfg(test)]
@@ -614,5 +680,43 @@ mod gpu_tests {
         assert_eq!(blitter.width(), 800);
         assert_eq!(blitter.height(), 600);
         assert_eq!(blitter.queued_count(), 0);
+    }
+
+    #[test]
+    fn queue_and_clear() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 800, 600);
+        let tex = abrash_core::texture::Texture::new(64, 64);
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 32,
+            h: 32,
+        };
+
+        blitter.queue(atlas, src, 100, 50, BlitMode::Opaque);
+        blitter.queue(atlas, src, 200, 50, BlitMode::Alpha);
+        assert_eq!(blitter.queued_count(), 2);
+
+        blitter.clear();
+        assert_eq!(blitter.queued_count(), 0);
+    }
+
+    #[test]
+    fn queue_negative_coords() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 800, 600);
+        let tex = abrash_core::texture::Texture::new(64, 64);
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 32,
+            h: 32,
+        };
+
+        blitter.queue(atlas, src, -10, -20, BlitMode::Opaque);
+        assert_eq!(blitter.queued_count(), 1);
     }
 }
