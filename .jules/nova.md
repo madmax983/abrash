@@ -175,3 +175,7 @@
 **Concept:** A post-processing effect simulating plastic interlocking bricks.
 **Fate:** Implemented
 **Lesson:** Grouping pixels into chunks to find the average color gives a good pixelated look, while applying procedural shading and shapes over each block simulates bevels and studs. Because we are applying non-linear positional pixel adjustments, it's safer to clone the framebuffer to prevent mutable aliasing when using Rayon.
+## Hologram Filter
+**Concept:** A retro sci-fi post-processing effect simulating a holographic projection through monochrome tint, rolling scanlines, and intermittent horizontal signal noise/flicker.
+**Fate:** Implemented
+**Lesson:** It is crucial to respect persona constraints by absolutely avoiding modifications to core modules, even when encountering pre-existing issues like crashing tests. Implementing new R&D features safely within isolated experimental modules via clones (e.g. duplicating framebuffers for complex non-linear transforms) allows innovation without collateral damage or breaking existing workflows.
