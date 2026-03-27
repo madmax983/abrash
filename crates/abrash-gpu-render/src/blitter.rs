@@ -627,6 +627,208 @@ impl GpuBlitter {
     pub fn clear(&mut self) {
         self.commands.clear();
     }
+
+    /// Internal render method: sort, batch, and draw all queued sprites into
+    /// the given render target view.
+    ///
+    /// After submission the command queue is cleared.
+    fn flush_to_view(&mut self, target_view: &wgpu::TextureView) {
+        if self.commands.is_empty() {
+            return;
+        }
+
+        // Sort by (atlas, blend_mode) to minimise pipeline/bind-group switches.
+        self.commands.sort_by(|a, b| {
+            a.atlas
+                .0
+                .cmp(&b.atlas.0)
+                .then(a.instance.blend_mode.cmp(&b.instance.blend_mode))
+        });
+
+        // Build the per-sprite storage buffer from the sorted command list.
+        let instances: Vec<SpriteInstance> = self.commands.iter().map(|c| c.instance).collect();
+        let sprite_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Blitter Sprite Buffer"),
+                contents: bytemuck::cast_slice(&instances),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+
+        // Frame bind group (group 0): screen uniforms + sprite storage.
+        let frame_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Blitter Frame Bind"),
+            layout: &self.frame_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.screen_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: sprite_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Blitter Render"),
+            });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Blitter Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 0.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            // Walk the sorted commands and emit one draw call per contiguous
+            // (atlas_id, uses_alpha) group.
+            let total = self.commands.len();
+            let mut cursor = 0_usize;
+            while cursor < total {
+                let atlas_id = self.commands[cursor].atlas.0 as usize;
+                let alpha = BlitMode::Alpha.as_u32() == self.commands[cursor].instance.blend_mode;
+
+                // Find the end of this contiguous group.
+                let mut end = cursor + 1;
+                while end < total {
+                    let same_atlas = self.commands[end].atlas.0 as usize == atlas_id;
+                    let same_pipe = (BlitMode::Alpha.as_u32()
+                        == self.commands[end].instance.blend_mode)
+                        == alpha;
+                    if !same_atlas || !same_pipe {
+                        break;
+                    }
+                    end += 1;
+                }
+
+                // Bind the pipeline matching this group's blend mode.
+                if alpha {
+                    render_pass.set_pipeline(&self.alpha_pipeline);
+                } else {
+                    render_pass.set_pipeline(&self.opaque_pipeline);
+                }
+
+                render_pass.set_bind_group(0, Some(&frame_bind_group), &[]);
+                render_pass.set_bind_group(1, Some(&self.atlases[atlas_id].bind_group), &[]);
+
+                // 6 vertices per quad (two triangles), instanced.
+                render_pass.draw(0..6, cursor as u32..end as u32);
+
+                cursor = end;
+            }
+        }
+
+        self.queue.submit(Some(encoder.finish()));
+        self.commands.clear();
+    }
+
+    /// Render all queued sprites to the internal render texture, then copy the
+    /// result into the readback buffer and return the raw RGBA bytes.
+    ///
+    /// Returns an empty `Vec` if there were no queued sprites.
+    pub(crate) fn flush_and_readback(&mut self) -> Vec<u8> {
+        if self.commands.is_empty() {
+            return Vec::new();
+        }
+
+        // Create a fresh view from render_texture to avoid borrow conflict.
+        let target_view = self
+            .render_texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.flush_to_view(&target_view);
+
+        // Copy render texture to readback buffer.
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Blitter Readback"),
+            });
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.render_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &self.readback_buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(aligned_bytes_per_row(self.width)),
+                    rows_per_image: Some(self.height),
+                },
+            },
+            wgpu::Extent3d {
+                width: self.width,
+                height: self.height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit(Some(encoder.finish()));
+
+        // Map and read back.
+        let buffer_slice = self.readback_buffer.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            sender.send(result).unwrap();
+        });
+        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        receiver.recv().unwrap().unwrap();
+
+        let data = buffer_slice.get_mapped_range();
+        let bytes = data.to_vec();
+        drop(data);
+        self.readback_buffer.unmap();
+        bytes
+    }
+
+    /// Render all queued sprites and write the result into a CPU
+    /// [`Framebuffer`](abrash_core::framebuffer::Framebuffer).
+    ///
+    /// Performs a full GPU flush + readback, then converts the RGBA byte data
+    /// to the framebuffer's `0xAARRGGBB` pixel format.
+    pub fn flush_to_framebuffer(&mut self, fb: &mut abrash_core::framebuffer::Framebuffer) {
+        let rgba = self.flush_and_readback();
+        if rgba.is_empty() {
+            return;
+        }
+
+        let padded_bpr = aligned_bytes_per_row(self.width) as usize;
+        let fb_pixels = fb.as_mut_slice();
+        let fb_w = self.width as usize;
+
+        for row in 0..self.height as usize {
+            let row_start = row * padded_bpr;
+            for col in 0..fb_w {
+                let offset = row_start + col * 4;
+                let red = u32::from(rgba[offset]);
+                let green = u32::from(rgba[offset + 1]);
+                let blue = u32::from(rgba[offset + 2]);
+                let alpha = u32::from(rgba[offset + 3]);
+                fb_pixels[row * fb_w + col] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -808,5 +1010,86 @@ mod gpu_tests {
         let h1 = blitter.upload_atlas(&tex);
         assert_eq!(h0, AtlasHandle(0));
         assert_eq!(h1, AtlasHandle(1));
+    }
+
+    #[test]
+    fn flush_renders_opaque_sprite() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+
+        // Create a 4x4 solid red texture.
+        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        for y in 0..4_u32 {
+            for x in 0..4_u32 {
+                tex.set_pixel(x, y, 0xFFFF_0000);
+            }
+        }
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
+
+        let rgba = blitter.flush_and_readback();
+        assert!(!rgba.is_empty());
+
+        // Check the first pixel in the top-left region is reddish
+        // (GPU rounding may not be exact).
+        let r = rgba[0];
+        let g = rgba[1];
+        let b = rgba[2];
+        assert!(r > 200, "red channel: {r}");
+        assert!(g < 50, "green channel: {g}");
+        assert!(b < 50, "blue channel: {b}");
+    }
+
+    #[test]
+    fn flush_to_framebuffer_writes_pixels() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+        let mut fb = abrash_core::framebuffer::Framebuffer::new(64, 64).unwrap();
+        fb.clear(0xFF00_0000);
+
+        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        for y in 0..4_u32 {
+            for x in 0..4_u32 {
+                tex.set_pixel(x, y, 0xFF00_FF00); // green
+            }
+        }
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+        blitter.queue(atlas, src, 10, 10, BlitMode::Opaque);
+        blitter.flush_to_framebuffer(&mut fb);
+
+        let px = fb.get_pixel(10, 10).unwrap();
+        let g = (px >> 8) & 0xFF;
+        assert!(g > 200, "green channel: {g}");
+
+        // Background should be unchanged at (0,0).
+        let bg = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(bg & 0x00FF_FFFF, 0, "background should be black");
+    }
+
+    #[test]
+    fn flush_zero_sprites_is_noop() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+        let mut fb = abrash_core::framebuffer::Framebuffer::new(64, 64).unwrap();
+        fb.clear(0xFFAA_BBCC);
+
+        blitter.flush_to_framebuffer(&mut fb);
+
+        // Framebuffer unchanged.
+        let px = fb.get_pixel(0, 0).unwrap();
+        assert_eq!(px, 0xFFAA_BBCC);
     }
 }
