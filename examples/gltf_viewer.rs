@@ -22,6 +22,9 @@ use abrash::skeletal::{GltfScene, SkeletonAnimator, SkinnedMesh, load_gltf};
 
 use abrash_anim::clock::PlaybackMode;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF1A_1A2E;
@@ -280,35 +283,117 @@ fn render_err_to_host(e: RenderError) -> HostError {
 // Entry point
 // ---------------------------------------------------------------------------
 
+fn print_banner() {
+    println!("\n{}", "🦴 Abrash glTF Viewer".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+}
+
+fn show_error_and_exit(msg: &str) -> ! {
+    let mut error_table = Table::new();
+    error_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("❌ Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![Cell::new(msg).fg(Color::Yellow)]);
+    eprintln!("\n{error_table}");
+    std::process::exit(1);
+}
+
 fn main() -> Result<(), HostError> {
+    print_banner();
+
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: gltf_viewer <path/to/model.glb>");
-        eprintln!();
-        eprintln!("Loads a glTF 2.0 file and plays its first animation clip.");
-        eprintln!("The camera orbits the model automatically.");
+        let mut usage_table = Table::new();
+        usage_table
+            .load_preset(presets::UTF8_FULL)
+            .set_header(vec![
+                Cell::new("ℹ️  Usage").fg(Color::Cyan),
+                Cell::new("Description").fg(Color::Cyan),
+            ])
+            .add_row(vec![
+                Cell::new("gltf_viewer <path/to/model.glb>"),
+                Cell::new("Loads a glTF 2.0 file and plays its first animation clip.\nThe camera orbits the model automatically."),
+            ]);
+        eprintln!("\n{usage_table}");
         std::process::exit(1);
     }
 
     let path = Path::new(&args[1]);
     if !path.exists() {
-        eprintln!("Error: file not found: {}", path.display());
-        std::process::exit(1);
+        show_error_and_exit(&format!("File not found: {}", path.display()));
     }
 
-    println!("Loading: {}", path.display());
+    let mut loading_table = Table::new();
+    loading_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("⏳ Loading").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new(path.display().to_string()).fg(Color::White),
+        ]);
+    println!("\n{loading_table}");
+
     let scene = load_gltf(path).map_err(|e| HostError::App(e.to_string()))?;
-    println!(
-        "Loaded: {} meshes, {} clips, {} textures, {} materials",
-        scene.meshes.len(),
-        scene.clips.len(),
-        scene.textures.len(),
-        scene.materials.len(),
-    );
+
+    let mut info_table = Table::new();
+    info_table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Meshes"),
+            Cell::new(scene.meshes.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Animation Clips"),
+            Cell::new(scene.clips.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Textures"),
+            Cell::new(scene.textures.len().to_string()),
+        ])
+        .add_row(vec![
+            Cell::new("Materials"),
+            Cell::new(scene.materials.len().to_string()),
+        ]);
+
     if let Some(ref skel) = scene.skeleton {
-        println!("Skeleton: {} joints", skel.joint_count());
+        info_table.add_row(vec![
+            Cell::new("Skeleton Joints"),
+            Cell::new(skel.joint_count().to_string()).fg(Color::Green),
+        ]);
+    } else {
+        info_table.add_row(vec![
+            Cell::new("Skeleton"),
+            Cell::new("None").fg(Color::DarkGrey),
+        ]);
     }
+
+    println!("\n{}", "📦 Asset Information".bold());
+    println!("{info_table}");
+
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-orbiting camera"),
+        ]);
+    println!("\n{}", "🎮 Controls".bold());
+    println!("{controls}\n");
 
     let app = GltfViewerApp::new(scene)?;
     run_windowed(app)
