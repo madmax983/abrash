@@ -237,7 +237,7 @@ pub(crate) struct GpuAtlas {
 /// GPU-accelerated batched 2D sprite blitter.
 ///
 /// Owns the full wgpu pipeline state needed to render sprites via instanced
-/// draw calls. Sprites are queued with [`SpriteCommand`] and flushed in a
+/// draw calls. Sprites are queued with `SpriteCommand` and flushed in a
 /// single (or few) draw call(s), sorted by atlas and blend mode.
 #[allow(dead_code)]
 pub struct GpuBlitter {

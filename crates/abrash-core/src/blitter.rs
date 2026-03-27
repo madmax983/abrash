@@ -11,7 +11,7 @@
 //! 3. **Alpha-blended blit** (`blit_alpha`) -- Per-pixel alpha blending using the
 //!    source pixel's alpha channel. Supports smooth transparency and anti-aliased edges.
 //!
-//! All three tiers share the same clipping logic via [`clip_blit`], which handles
+//! All three tiers share the same clipping logic via `clip_blit`, which handles
 //! negative destination coordinates, framebuffer bounds, and source texture bounds
 //! before any pixels are touched.
 
@@ -163,7 +163,7 @@ pub(crate) const fn clip_blit(
 /// handling -- a straight `memcpy` per row.
 ///
 /// This is the fastest blit path: the source rectangle is clipped against both
-/// the framebuffer and texture bounds via [`clip_blit`], and then each scanline
+/// the framebuffer and texture bounds via `clip_blit`, and then each scanline
 /// is copied with `copy_from_slice` (a single `memcpy` under the hood).
 ///
 /// Use this for fully opaque sprites, tilesets, and UI elements where every
@@ -241,7 +241,7 @@ pub unsafe fn blit_opaque_unchecked(
 /// pixels whose value matches the color key (binary transparency).
 ///
 /// This is the standard alpha-tested blit path: the source rectangle is clipped
-/// against both the framebuffer and texture bounds via [`clip_blit`], and then
+/// against both the framebuffer and texture bounds via `clip_blit`, and then
 /// each pixel is compared against `key`. Matching pixels are skipped (leaving
 /// the framebuffer contents intact), while non-matching pixels overwrite the
 /// destination.
@@ -359,10 +359,10 @@ const fn alpha_blend_pixel(src: u32, dst: u32) -> u32 {
 ///
 /// - `alpha = 0xFF` (fully opaque): source overwrites destination (fast path).
 /// - `alpha = 0x00` (fully transparent): destination is unchanged (fast path).
-/// - `0 < alpha < 0xFF` (semi-transparent): SWAR alpha blend via [`alpha_blend_pixel`].
+/// - `0 < alpha < 0xFF` (semi-transparent): SWAR alpha blend via `alpha_blend_pixel`.
 ///
 /// The source rectangle is clipped against both the framebuffer and texture
-/// bounds via [`clip_blit`] before any pixels are touched.
+/// bounds via `clip_blit` before any pixels are touched.
 ///
 /// Use this for sprites with smooth transparency, anti-aliased edges, or
 /// translucent effects like particles and UI overlays.
@@ -407,7 +407,7 @@ pub fn blit_alpha(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32,
 /// Uses a three-way branch per pixel:
 /// - Fully opaque (`alpha == 0xFF`): direct copy (no blend math).
 /// - Fully transparent (`alpha == 0x00`): skip entirely.
-/// - Semi-transparent: SWAR alpha blend via [`alpha_blend_pixel`].
+/// - Semi-transparent: SWAR alpha blend via `alpha_blend_pixel`.
 ///
 /// # Safety
 ///
@@ -470,7 +470,7 @@ pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, color: u3
 /// Fills a rectangle in the framebuffer with an alpha-blended color.
 ///
 /// Uses the source color's alpha channel (bits 31..24) to blend with existing
-/// framebuffer contents via [`alpha_blend_pixel`] (src-over compositing).
+/// framebuffer contents via `alpha_blend_pixel` (src-over compositing).
 ///
 /// Fast paths:
 /// - `alpha == 0`: no-op (fully transparent).
@@ -1202,10 +1202,6 @@ mod tests {
             "bottom-right should be blue"
         );
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
 
     // ── blit_alpha / blit_alpha_unchecked tests ─────────────────────────
 
@@ -1416,10 +1412,6 @@ mod tests {
             "bottom-right should be blue"
         );
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 793a0ed (feat(blitter): add fill_rect, fill_rect_alpha, and re-export from abrash crate)
 
     // ── fill_rect / fill_rect_alpha tests ──────────────────────────────
 
@@ -1551,11 +1543,4 @@ mod tests {
         assert_eq!(fb_pixels[0 * fb_w + 2], BLUE, "(2,0) should be blue");
         assert_eq!(fb_pixels[2 * fb_w + 0], BLUE, "(0,2) should be blue");
     }
-<<<<<<< HEAD
-=======
->>>>>>> 63e9f2b (feat(blitter): add blit_colorkey and blit_colorkey_unchecked)
-=======
->>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
-=======
->>>>>>> 793a0ed (feat(blitter): add fill_rect, fill_rect_alpha, and re-export from abrash crate)
 }

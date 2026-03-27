@@ -8,7 +8,7 @@
 //!
 //! ## The Three Pillars of Rendering
 //!
-//! 1. **Resources (`handles.rs`)**: Textures, Meshes, and Materials are heavy. Instead of copying them, you upload them to the [`CpuRenderer`] once and get back a lightweight, type-safe [`Handle`]. Handles are generation-checked to prevent use-after-free errors.
+//! 1. **Resources (`handles.rs`)**: Textures, Meshes, and Materials are heavy. Instead of copying them, you upload them to the [`crate::render_api::cpu_renderer::CpuRenderer`] once and get back a lightweight, type-safe [`Handle`]. Handles are generation-checked to prevent use-after-free errors.
 //! 2. **The `Frame` (`frame.rs`)**: A `Frame` is your declarative "shopping list" for a single screen update. You give it a [`FrameCamera`] and record [`DrawCommand`]s (which pair a Mesh Handle, a Material Handle, and a Transform).
 //! 3. **The `CpuRenderer` (`cpu_renderer.rs`)**: The engine that executes your `Frame`. It takes your high-level commands, looks up the heavy resources using your Handles, and pushes pixels to the [`RenderTarget`].
 //!

@@ -53,7 +53,7 @@ impl AnimationClock {
     /// Advance the clock by `delta_secs` for an animation of `duration` seconds.
     ///
     /// Returns a `ClockEvent` indicating whether a cycle boundary was crossed.
-    /// Delta is clamped to [`MAX_DELTA_SECS`] to handle tab-backgrounding.
+    /// Delta is clamped to `MAX_DELTA_SECS` to handle tab-backgrounding.
     pub fn tick(&mut self, delta_secs: f32, duration: f32) -> ClockEvent {
         debug_assert!(duration > 0.0, "Clock duration must be positive");
 
