@@ -483,6 +483,84 @@ impl GpuBlitter {
         self.commands.len()
     }
 
+    /// Upload a CPU-side [`abrash_core::texture::Texture`] as a GPU atlas.
+    ///
+    /// Converts the texture's `0xAARRGGBB` pixel data to RGBA8 for wgpu,
+    /// creates a GPU texture + bind group, and returns an opaque [`AtlasHandle`]
+    /// that can be referenced in future sprite draw commands.
+    pub fn upload_atlas(&mut self, texture: &abrash_core::texture::Texture) -> AtlasHandle {
+        let width = texture.width();
+        let height = texture.height();
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let gpu_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Blitter Atlas"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        // Convert 0xAARRGGBB pixels to RGBA bytes for wgpu.
+        let pixels = texture.pixels();
+        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+        for &px in pixels {
+            rgba.push(((px >> 16) & 0xFF) as u8); // R
+            rgba.push(((px >> 8) & 0xFF) as u8); // G
+            rgba.push((px & 0xFF) as u8); // B
+            rgba.push(((px >> 24) & 0xFF) as u8); // A
+        }
+
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &gpu_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
+            size,
+        );
+
+        let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Blitter Atlas Bind"),
+            layout: &self.atlas_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+        });
+
+        let index = self.atlases.len() as u32;
+        self.atlases.push(GpuAtlas {
+            texture: gpu_texture,
+            view,
+            bind_group,
+            width,
+            height,
+        });
+        AtlasHandle(index)
+    }
+
     /// Queue a sprite for rendering using pixel coordinates.
     /// Coordinates match the CPU blitter: i32, top-left origin.
     pub fn queue(
@@ -686,7 +764,7 @@ mod gpu_tests {
     fn queue_and_clear() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 800, 600);
-        let tex = abrash_core::texture::Texture::new(64, 64);
+        let tex = abrash_core::texture::Texture::new(64, 64).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,
@@ -707,7 +785,7 @@ mod gpu_tests {
     fn queue_negative_coords() {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 800, 600);
-        let tex = abrash_core::texture::Texture::new(64, 64);
+        let tex = abrash_core::texture::Texture::new(64, 64).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,
@@ -718,5 +796,17 @@ mod gpu_tests {
 
         blitter.queue(atlas, src, -10, -20, BlitMode::Opaque);
         assert_eq!(blitter.queued_count(), 1);
+    }
+
+    #[test]
+    fn upload_atlas_returns_sequential_handles() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+
+        let tex = abrash_core::texture::Texture::new(16, 16).unwrap();
+        let h0 = blitter.upload_atlas(&tex);
+        let h1 = blitter.upload_atlas(&tex);
+        assert_eq!(h0, AtlasHandle(0));
+        assert_eq!(h1, AtlasHandle(1));
     }
 }
