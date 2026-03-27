@@ -432,7 +432,9 @@ impl GpuBlitter {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
         let render_view = render_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -631,8 +633,16 @@ impl GpuBlitter {
     /// Internal render method: sort, batch, and draw all queued sprites into
     /// the given render target view.
     ///
+    /// `load_op` controls whether the render target is cleared or preserved
+    /// before drawing. Use `LoadOp::Clear` for a fresh frame, or
+    /// `LoadOp::Load` to composite onto existing content.
+    ///
     /// After submission the command queue is cleared.
-    fn flush_to_view(&mut self, target_view: &wgpu::TextureView) {
+    fn flush_to_view(
+        &mut self,
+        target_view: &wgpu::TextureView,
+        load_op: wgpu::LoadOp<wgpu::Color>,
+    ) {
         if self.commands.is_empty() {
             return;
         }
@@ -684,12 +694,7 @@ impl GpuBlitter {
                     view: target_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
-                        }),
+                        load: load_op,
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
@@ -765,7 +770,15 @@ impl GpuBlitter {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.flush_to_view(&view);
+        self.flush_to_view(
+            &view,
+            wgpu::LoadOp::Clear(wgpu::Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            }),
+        );
 
         frame.present();
     }
@@ -774,6 +787,7 @@ impl GpuBlitter {
     /// result into the readback buffer and return the raw RGBA bytes.
     ///
     /// Returns an empty `Vec` if there were no queued sprites.
+    #[allow(dead_code)]
     pub(crate) fn flush_and_readback(&mut self) -> Vec<u8> {
         if self.commands.is_empty() {
             return Vec::new();
@@ -783,7 +797,15 @@ impl GpuBlitter {
         let target_view = self
             .render_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.flush_to_view(&target_view);
+        self.flush_to_view(
+            &target_view,
+            wgpu::LoadOp::Clear(wgpu::Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            }),
+        );
 
         // Copy render texture to readback buffer.
         let mut encoder = self
@@ -830,17 +852,112 @@ impl GpuBlitter {
         bytes
     }
 
+    /// Upload current framebuffer content to the render texture so that
+    /// subsequent rendering composites on top of the existing image.
+    fn upload_framebuffer(&self, fb: &abrash_core::framebuffer::Framebuffer) {
+        let fb_pixels = fb.as_slice();
+        let w = self.width;
+        let h = self.height;
+
+        // Convert 0xAARRGGBB → RGBA bytes for wgpu.
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        for &px in fb_pixels {
+            rgba.push(((px >> 16) & 0xFF) as u8); // R
+            rgba.push(((px >> 8) & 0xFF) as u8); // G
+            rgba.push((px & 0xFF) as u8); // B
+            rgba.push(((px >> 24) & 0xFF) as u8); // A
+        }
+
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.render_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(w * 4),
+                rows_per_image: Some(h),
+            },
+            wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
+
     /// Render all queued sprites and write the result into a CPU
     /// [`Framebuffer`](abrash_core::framebuffer::Framebuffer).
     ///
-    /// Performs a full GPU flush + readback, then converts the RGBA byte data
-    /// to the framebuffer's `0xAARRGGBB` pixel format.
+    /// The current framebuffer content is uploaded to the GPU first, so
+    /// color-key and alpha-blended sprites composite correctly against
+    /// the existing background. After rendering the full image is read
+    /// back and written into `fb`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the GPU readback buffer mapping fails (e.g. device lost).
     pub fn flush_to_framebuffer(&mut self, fb: &mut abrash_core::framebuffer::Framebuffer) {
-        let rgba = self.flush_and_readback();
-        if rgba.is_empty() {
+        if self.commands.is_empty() {
             return;
         }
 
+        // Upload current framebuffer as the render target background.
+        self.upload_framebuffer(fb);
+
+        // Render sprites on top (LoadOp::Load preserves uploaded content).
+        let target_view = self
+            .render_texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.flush_to_view(&target_view, wgpu::LoadOp::Load);
+
+        // Copy render texture to readback buffer.
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Blitter FB Readback"),
+            });
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.render_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &self.readback_buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(aligned_bytes_per_row(self.width)),
+                    rows_per_image: Some(self.height),
+                },
+            },
+            wgpu::Extent3d {
+                width: self.width,
+                height: self.height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit(Some(encoder.finish()));
+
+        // Map and read back.
+        let buffer_slice = self.readback_buffer.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            sender.send(result).unwrap();
+        });
+        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        receiver.recv().unwrap().unwrap();
+
+        let data = buffer_slice.get_mapped_range();
+        let rgba = data.to_vec();
+        drop(data);
+        self.readback_buffer.unmap();
+
+        // Convert RGBA readback → 0xAARRGGBB and write into framebuffer.
         let padded_bpr = aligned_bytes_per_row(self.width) as usize;
         let fb_pixels = fb.as_mut_slice();
         let fb_w = self.width as usize;
@@ -1119,5 +1236,114 @@ mod gpu_tests {
         // Framebuffer unchanged.
         let px = fb.get_pixel(0, 0).unwrap();
         assert_eq!(px, 0xFFAA_BBCC);
+    }
+
+    #[test]
+    fn flush_colorkey_skips_key_pixels() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+        let mut fb = abrash_core::framebuffer::Framebuffer::new(64, 64).unwrap();
+        fb.clear(0xFF00_00FF); // blue background
+
+        // 4x4 texture: top-left 2x2 red, rest magenta (key)
+        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                if x < 2 && y < 2 {
+                    tex.set_pixel(x, y, 0xFFFF_0000); // red (keep)
+                } else {
+                    tex.set_pixel(x, y, 0xFFFF_00FF); // magenta (key)
+                }
+            }
+        }
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        blitter.queue(atlas, src, 0, 0, BlitMode::ColorKey(0xFFFF_00FF));
+        blitter.flush_to_framebuffer(&mut fb);
+
+        // (0,0) should be red (not keyed)
+        let px00 = fb.get_pixel(0, 0).unwrap();
+        let r = (px00 >> 16) & 0xFF;
+        assert!(r > 200, "expected red at (0,0), got r={r}");
+
+        // (3,3) should still be blue (keyed pixel preserved background)
+        let px33 = fb.get_pixel(3, 3).unwrap();
+        let b = px33 & 0xFF;
+        assert!(b > 200, "expected blue at (3,3), got b={b}");
+    }
+
+    #[test]
+    fn flush_alpha_blends_semitransparent() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+        let mut fb = abrash_core::framebuffer::Framebuffer::new(64, 64).unwrap();
+        fb.clear(0xFF00_00FF); // blue background
+
+        // 4x4, 50% transparent red
+        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                tex.set_pixel(x, y, 0x80FF_0000); // 50% alpha red
+            }
+        }
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        blitter.queue(atlas, src, 0, 0, BlitMode::Alpha);
+        blitter.flush_to_framebuffer(&mut fb);
+
+        let px = fb.get_pixel(0, 0).unwrap();
+        let r = (px >> 16) & 0xFF;
+        let b = px & 0xFF;
+        // Should be blend of red and blue — both channels mid-range
+        assert!(r > 60 && r < 220, "red should be mid-range: {r}");
+        assert!(b > 60 && b < 220, "blue should be mid-range: {b}");
+    }
+
+    #[test]
+    fn flush_multiple_sprites_draw_order() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+        let mut fb = abrash_core::framebuffer::Framebuffer::new(64, 64).unwrap();
+        fb.clear(0xFF00_0000);
+
+        // Red and green 4x4 textures
+        let mut red_tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let mut green_tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                red_tex.set_pixel(x, y, 0xFFFF_0000);
+                green_tex.set_pixel(x, y, 0xFF00_FF00);
+            }
+        }
+        let red_atlas = blitter.upload_atlas(&red_tex);
+        let green_atlas = blitter.upload_atlas(&green_tex);
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
+
+        // Queue red first, green second at same position
+        blitter.queue(red_atlas, src, 0, 0, BlitMode::Opaque);
+        blitter.queue(green_atlas, src, 0, 0, BlitMode::Opaque);
+        blitter.flush_to_framebuffer(&mut fb);
+
+        // Green should be on top (drawn last)
+        let px = fb.get_pixel(0, 0).unwrap();
+        let g = (px >> 8) & 0xFF;
+        assert!(g > 200, "expected green on top, got g={g}");
     }
 }
