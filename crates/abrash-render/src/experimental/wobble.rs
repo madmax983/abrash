@@ -30,7 +30,7 @@ impl Default for WobbleConfig {
 use std::cell::RefCell;
 
 thread_local! {
-    static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    static ROW_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(feature = "parallel")]
@@ -52,20 +52,11 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
         return;
     }
 
-    let mut source_pixels = SOURCE_PIXELS.with(RefCell::take);
-
-    let fb_slice = fb.as_slice();
-    if source_pixels.len() != fb_slice.len() {
-        source_pixels.resize(fb_slice.len(), 0);
-    }
-    source_pixels.copy_from_slice(fb_slice);
-
-    let dest = fb.as_mut_slice();
-    let src: &[u32] = &source_pixels;
-
     // We pre-calculate frequency scaling so that `frequency = 1.0` means exactly
     // one full sine wave (2 * PI) fits in the height of the screen.
     let freq_scale = std::f32::consts::TAU * config.frequency / height as f32;
+
+    let dest = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
     let row_iter = dest.par_chunks_exact_mut(width).enumerate();
@@ -84,22 +75,45 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
             (shift_f - 0.5) as i32
         };
 
-        let src_row_start = y * width;
-        let src_row = &src[src_row_start..src_row_start + width];
-
-        for (x, pixel) in row.iter_mut().enumerate() {
-            // Calculate the source X coordinate.
-            // If the pixel is shifted to the right, we need to read from the left.
-            let src_x = x as i32 - shift;
-
-            // Handle horizontal bounds via clamping (or wrapping, but clamping is safer).
-            let clamped_src_x = src_x.clamp(0, width as i32 - 1) as usize;
-
-            *pixel = src_row[clamped_src_x];
+        if shift == 0 {
+            return;
         }
-    });
 
-    SOURCE_PIXELS.with(|source_pixels_cell| source_pixels_cell.replace(source_pixels));
+        let mut row_buffer = ROW_BUFFER.with(RefCell::take);
+        if row_buffer.len() != width {
+            row_buffer.resize(width, 0);
+        }
+        row_buffer.copy_from_slice(row);
+
+        if shift > 0 {
+            // Shift right. We read from left.
+            let shift_u = shift as usize;
+            let safe_read_end = width.saturating_sub(shift_u);
+
+            if safe_read_end > 0 {
+                row[shift_u..width].copy_from_slice(&row_buffer[0..safe_read_end]);
+            }
+
+            // Left edge clamping
+            let clamp_val = row_buffer[0];
+            row[..shift_u.min(width)].fill(clamp_val);
+
+        } else {
+            // Shift left. We read from right.
+            let abs_shift = (-shift) as usize;
+            let safe_write_end = width.saturating_sub(abs_shift);
+
+            if safe_write_end > 0 {
+                row[0..safe_write_end].copy_from_slice(&row_buffer[abs_shift..width]);
+            }
+
+            // Right edge clamping
+            let clamp_val = row_buffer[width - 1];
+            row[safe_write_end..width].fill(clamp_val);
+        }
+
+        ROW_BUFFER.with(|cell| cell.replace(row_buffer));
+    });
 }
 
 #[cfg(test)]
