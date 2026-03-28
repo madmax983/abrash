@@ -2908,39 +2908,48 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
-                continue;
-            }
-
-            indices.clear();
-            let mut curr = *head;
-            while curr != u32::MAX {
-                indices.push(curr);
-                curr = nexts[curr as usize];
-            }
-
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                *head = indices[0];
-                let len = indices.len();
-                for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
-                }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
-            }
+        // Bolt Performance Optimization: Hoist the sorting buffer to a thread-local to eliminate
+        // dynamic heap allocations per-frame during early-Z sorting.
+        thread_local! {
+            static SORT_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
         }
+
+        SORT_BUFFER.with(|buf| {
+            let mut indices = buf.borrow_mut();
+
+            for (tile_idx, head) in heads.iter_mut().enumerate() {
+                if *head == u32::MAX {
+                    continue;
+                }
+
+                indices.clear();
+                let mut curr = *head;
+                while curr != u32::MAX {
+                    indices.push(curr);
+                    curr = nexts[curr as usize];
+                }
+
+                if indices.len() > 1 {
+                    indices.sort_unstable_by(|&a, &b| {
+                        let tri_idx_a = tris[a as usize] as usize;
+                        let tri_idx_b = tris[b as usize] as usize;
+                        let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
+                        let depth_b = unsafe { prepared_gouraud.get_unchecked(tri_idx_b).min_depth };
+                        depth_a
+                            .partial_cmp(&depth_b)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    *head = indices[0];
+                    let len = indices.len();
+                    for i in 0..len - 1 {
+                        nexts[indices[i] as usize] = indices[i + 1];
+                    }
+                    nexts[indices[len - 1] as usize] = u32::MAX;
+                    tails[tile_idx] = indices[len - 1];
+                }
+            }
+        });
     }
 
     #[cfg_attr(feature = "parallel", allow(dead_code))]
@@ -3428,39 +3437,48 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
-                continue;
-            }
-
-            indices.clear();
-            let mut curr = *head;
-            while curr != u32::MAX {
-                indices.push(curr);
-                curr = nexts[curr as usize];
-            }
-
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                *head = indices[0];
-                let len = indices.len();
-                for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
-                }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
-            }
+        // Bolt Performance Optimization: Hoist the sorting buffer to a thread-local to eliminate
+        // dynamic heap allocations per-frame during early-Z sorting.
+        thread_local! {
+            static SORT_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
         }
+
+        SORT_BUFFER.with(|buf| {
+            let mut indices = buf.borrow_mut();
+
+            for (tile_idx, head) in heads.iter_mut().enumerate() {
+                if *head == u32::MAX {
+                    continue;
+                }
+
+                indices.clear();
+                let mut curr = *head;
+                while curr != u32::MAX {
+                    indices.push(curr);
+                    curr = nexts[curr as usize];
+                }
+
+                if indices.len() > 1 {
+                    indices.sort_unstable_by(|&a, &b| {
+                        let tri_idx_a = tris[a as usize] as usize;
+                        let tri_idx_b = tris[b as usize] as usize;
+                        let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
+                        let depth_b = unsafe { prepared.get_unchecked(tri_idx_b).min_depth };
+                        depth_a
+                            .partial_cmp(&depth_b)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    *head = indices[0];
+                    let len = indices.len();
+                    for i in 0..len - 1 {
+                        nexts[indices[i] as usize] = indices[i + 1];
+                    }
+                    nexts[indices[len - 1] as usize] = u32::MAX;
+                    tails[tile_idx] = indices[len - 1];
+                }
+            }
+        });
     }
 
     /// Sorts textured triangles in each bin by depth.
@@ -3475,39 +3493,48 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
-        for (tile_idx, head) in heads.iter_mut().enumerate() {
-            if *head == u32::MAX {
-                continue;
-            }
-
-            indices.clear();
-            let mut curr = *head;
-            while curr != u32::MAX {
-                indices.push(curr);
-                curr = nexts[curr as usize];
-            }
-
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
-                    let tri_idx_a = tris[a as usize] as usize;
-                    let tri_idx_b = tris[b as usize] as usize;
-                    let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
-                    let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
-                    depth_a
-                        .partial_cmp(&depth_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                *head = indices[0];
-                let len = indices.len();
-                for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
-                }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
-            }
+        // Bolt Performance Optimization: Hoist the sorting buffer to a thread-local to eliminate
+        // dynamic heap allocations per-frame during early-Z sorting.
+        thread_local! {
+            static SORT_BUFFER: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
         }
+
+        SORT_BUFFER.with(|buf| {
+            let mut indices = buf.borrow_mut();
+
+            for (tile_idx, head) in heads.iter_mut().enumerate() {
+                if *head == u32::MAX {
+                    continue;
+                }
+
+                indices.clear();
+                let mut curr = *head;
+                while curr != u32::MAX {
+                    indices.push(curr);
+                    curr = nexts[curr as usize];
+                }
+
+                if indices.len() > 1 {
+                    indices.sort_unstable_by(|&a, &b| {
+                        let tri_idx_a = tris[a as usize] as usize;
+                        let tri_idx_b = tris[b as usize] as usize;
+                        let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
+                        let depth_b = unsafe { prepared_textured.get_unchecked(tri_idx_b).min_depth };
+                        depth_a
+                            .partial_cmp(&depth_b)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    *head = indices[0];
+                    let len = indices.len();
+                    for i in 0..len - 1 {
+                        nexts[indices[i] as usize] = indices[i + 1];
+                    }
+                    nexts[indices[len - 1] as usize] = u32::MAX;
+                    tails[tile_idx] = indices[len - 1];
+                }
+            }
+        });
     }
 
     /// Merge tile buffers into framebuffer using direct copy (no depth test).
