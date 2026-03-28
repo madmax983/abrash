@@ -43,7 +43,7 @@ impl SkeletonAnimator {
     #[must_use]
     pub fn new(skeleton: Skeleton, clip: &AnimationClip, playback: PlaybackMode) -> Self {
         let joint_count = skeleton.joint_count();
-        let bind_pose = Pose::from_bind(&skeleton);
+        let bind_pose = skeleton.bind_pose();
         let current_pose = bind_pose.clone();
 
         // Initialize all bones with no animation
