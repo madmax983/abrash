@@ -1,3 +1,3 @@
-**Refactoring God Functions in TUI Apps**
-**Learning:** Monolithic UI drawing functions in `ratatui` (like a 150-line `run_app` layout block) are common "God functions." They can be seamlessly extracted into smaller, focused helper functions (e.g., `render_title`, `render_demo_list`) by passing `&mut ratatui::Frame` and the specific layout chunk (`ratatui::layout::Rect`). This dramatically flattens the pyramid of doom without triggering borrow checker conflicts or changing runtime behavior.
-**Action:** When working on UI code with deep nesting and multiple layout blocks, proactively extract each visual component into its own function taking `f: &mut Frame` and `area: Rect`.
+**TileRenderer Merge Refactoring**
+**Learning:** Found heavily duplicated boilerplate for merging tiles back into the framebuffer (in flat, textured, and gouraud batches) where logic for clear-checking, partial updating, bounds calculation, and threading code was copy-pasted 3 times resulting in ~80 lines of identical code each.
+**Action:** Extracted this into `merge_rendered_tile_sequential` and `merge_rendered_tile_parallel` static helper methods. This flattened nesting, reduced file size by hundreds of lines, and made the core rendering loop much more readable without changing behavior.
