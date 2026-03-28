@@ -400,19 +400,19 @@ fn build_parent_map(
 /// Topological sort of provisional joints using Kahn's algorithm.
 ///
 /// Guarantees that every joint's parent appears before the joint itself.
-fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
+fn topological_sort_joints(joints: &[ProvisionalJointData]) -> Vec<usize> {
     let n = joints.len();
 
     // Count in-degree for each joint (0 or 1 since each has at most one parent)
     let mut in_degree = vec![0_usize; n];
     for j in joints {
-        if j.parent_index().is_some() {
+        if j.parent_provisional.is_some() {
             // The child itself has in-degree 1
         }
     }
     // Actually: in_degree of a joint = 1 if it has a parent, 0 if root.
     for (i, j) in joints.iter().enumerate() {
-        if j.parent_index().is_some() {
+        if j.parent_provisional.is_some() {
             in_degree[i] = 1;
         }
     }
@@ -420,7 +420,7 @@ fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
     // Build children lists
     let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
     for (i, j) in joints.iter().enumerate() {
-        if let Some(parent) = j.parent_index() {
+        if let Some(parent) = j.parent_provisional {
             children[parent].push(i);
         }
     }
@@ -456,11 +456,6 @@ fn topological_sort_joints(joints: &[impl HasParent]) -> Vec<usize> {
     sorted
 }
 
-/// Trait to abstract over provisional joint parent access for topological sort.
-trait HasParent {
-    fn parent_index(&self) -> Option<usize>;
-}
-
 // We can't name the struct from inside `extract_skeleton` outside it, so let's
 // use a simple wrapper. Actually, let's restructure: move ProvisionalJoint out.
 
@@ -471,12 +466,6 @@ struct ProvisionalJointData {
     parent_provisional: Option<usize>,
     inverse_bind_matrix: Mat4,
     bind_transform: Transform,
-}
-
-impl HasParent for ProvisionalJointData {
-    fn parent_index(&self) -> Option<usize> {
-        self.parent_provisional
-    }
 }
 
 // ---------------------------------------------------------------------------
