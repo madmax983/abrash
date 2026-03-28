@@ -515,11 +515,26 @@ pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, col
     let stride = fb.width() as usize;
     let fb_pixels = fb.as_mut_slice();
 
+    // Hoist loop-invariant source terms: color, alpha, and pre-multiplied
+    // src channels are constant across every pixel in the fill.
+    let src_rb = color & 0x00FF_00FF;
+    let src_g = (color >> 8) & 0x00FF_00FF;
+    let src_rb_a = src_rb * alpha;
+    let src_g_a = src_g * alpha;
+    let inv_alpha = 255 - alpha;
+
     for row in y0..y1 {
         let row_start = row as usize * stride;
         for col in x0..x1 {
             let idx = row_start + col as usize;
-            fb_pixels[idx] = alpha_blend_pixel(color, fb_pixels[idx]);
+            let dst = fb_pixels[idx];
+            let dst_rb = dst & 0x00FF_00FF;
+            let dst_g = (dst >> 8) & 0x00FF_00FF;
+
+            let rb = ((src_rb_a + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+            let g = ((src_g_a + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
+
+            fb_pixels[idx] = rb | (g << 8) | 0xFF00_0000;
         }
     }
 }
