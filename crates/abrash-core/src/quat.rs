@@ -15,8 +15,25 @@ use crate::math::{Mat4, Vec3};
 /// - `x = ax * sin(θ/2)`
 /// - `y = ay * sin(θ/2)`
 /// - `z = az * sin(θ/2)`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::quat::Quat;
+/// use abrash_core::math::Vec3;
+/// use std::f32::consts::PI;
+///
+/// // Create a quaternion for a 90-degree rotation around the Y-axis.
+/// let rot = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 2.0);
+/// let v = Vec3::new(1.0, 0.0, 0.0);
+///
+/// // Rotate the vector: (1, 0, 0) rotated 90 degrees around Y becomes (0, 0, -1)
+/// let v_prime = rot.rotate_vec3(v);
+/// assert!((v_prime.z + 1.0).abs() < 1e-6);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct Quat {
     pub x: f32,
     pub y: f32,
