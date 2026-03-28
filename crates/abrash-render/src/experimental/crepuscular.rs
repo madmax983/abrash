@@ -8,6 +8,11 @@
 //! * Customizable density, weight, decay, and exposure.
 
 use crate::framebuffer::Framebuffer;
+use std::cell::RefCell;
+
+thread_local! {
+    static GOD_RAYS_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Applies a crepuscular ray (God Rays) effect to the framebuffer.
 ///
@@ -56,8 +61,18 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
     let width = fb.width() as usize;
     let height = fb.height() as usize;
+    let needed_size = width * height;
 
-    let original_pixels = fb.as_slice().to_vec();
+    if needed_size == 0 {
+        return;
+    }
+
+    let mut original_pixels = GOD_RAYS_BUFFER.with(RefCell::take);
+    if original_pixels.len() != needed_size {
+        original_pixels.resize(needed_size, 0);
+    }
+    original_pixels.copy_from_slice(fb.as_slice());
+
     let pixels = fb.as_mut_slice();
 
     let density_step = config.density / config.num_samples as f32;
@@ -128,5 +143,9 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
             *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
+    });
+
+    GOD_RAYS_BUFFER.with(|buf| {
+        buf.replace(original_pixels);
     });
 }
