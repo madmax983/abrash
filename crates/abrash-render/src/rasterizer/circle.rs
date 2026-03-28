@@ -17,17 +17,62 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
-    draw_circle_points(fb, xc, yc, x, y, color);
-
-    while y >= x {
-        x += 1;
-        if d > 0 {
-            y -= 1;
-            d = d + 4 * (x - y) + 10;
+    let is_fully_on_screen = {
+        if radius < 0 {
+            false
         } else {
-            d = d + 4 * x + 6;
+            let xc_i64 = i64::from(xc);
+            let yc_i64 = i64::from(yc);
+            let r_i64 = i64::from(radius);
+            let w = i64::from(fb.width());
+            let h = i64::from(fb.height());
+
+            xc_i64.saturating_sub(r_i64) >= 0
+                && xc_i64.saturating_add(r_i64) < w
+                && yc_i64.saturating_sub(r_i64) >= 0
+                && yc_i64.saturating_add(r_i64) < h
         }
+    };
+
+    if is_fully_on_screen {
+        draw_circle_points_fast(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            draw_circle_points_fast(fb, xc, yc, x, y, color);
+        }
+    } else {
         draw_circle_points(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            draw_circle_points(fb, xc, yc, x, y, color);
+        }
+    }
+}
+
+fn draw_circle_points_fast(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+    unsafe {
+        fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
+        fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
+        fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
+        fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+        fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
+        fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
+        fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
+        fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
     }
 }
 
@@ -55,18 +100,67 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
-    fill_circle_lines(fb, xc, yc, x, y, color);
-
-    while y >= x {
-        x += 1;
-        if d > 0 {
-            y -= 1;
-            d = d + 4 * (x - y) + 10;
+    let is_fully_on_screen = {
+        if radius < 0 {
+            false
         } else {
-            d = d + 4 * x + 6;
+            let xc_i64 = i64::from(xc);
+            let yc_i64 = i64::from(yc);
+            let r_i64 = i64::from(radius);
+            let w = i64::from(fb.width());
+            let h = i64::from(fb.height());
+
+            xc_i64.saturating_sub(r_i64) >= 0
+                && xc_i64.saturating_add(r_i64) < w
+                && yc_i64.saturating_sub(r_i64) >= 0
+                && yc_i64.saturating_add(r_i64) < h
         }
+    };
+
+    if is_fully_on_screen {
+        fill_circle_lines_fast(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            fill_circle_lines_fast(fb, xc, yc, x, y, color);
+        }
+    } else {
         fill_circle_lines(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            fill_circle_lines(fb, xc, yc, x, y, color);
+        }
     }
+}
+
+fn fill_circle_lines_fast(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+    // For a filled circle, we draw horizontal lines connecting the left and right points
+    // for each pair of symmetrical y-coordinates.
+    draw_horizontal_line_fast(fb, xc - x, xc + x, yc + y, color);
+    draw_horizontal_line_fast(fb, xc - x, xc + x, yc - y, color);
+    draw_horizontal_line_fast(fb, xc - y, xc + y, yc + x, color);
+    draw_horizontal_line_fast(fb, xc - y, xc + y, yc - x, color);
+}
+
+fn draw_horizontal_line_fast(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
+    let width = fb.width() as usize;
+    let y_offset = (y as usize) * width;
+    let start_idx = y_offset + (x1 as usize);
+    let end_idx = y_offset + (x2 as usize);
+    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
 }
 
 fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
