@@ -44,7 +44,7 @@ impl Default for Mode7Config {
             fov: 256.0,
             horizon: 100.0,
             scale: 1.0,
-            fog_color: 0xFF000000,
+            fog_color: 0xFF00_0000,
             fog_start: 200.0,
             fog_end: 800.0,
         }
@@ -138,35 +138,37 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
         let fog_factor =
             ((distance - config.fog_start) / (config.fog_end - config.fog_start)).clamp(0.0, 1.0);
 
+        // Precalculate horizontal step size in space coordinates
+        let step_space_x = distance / config.fov;
+
+        // Rotate step sizes
+        let step_rot_x = step_space_x * cos_angle;
+        let step_rot_z = step_space_x * sin_angle;
+
+        // Apply scale to step sizes
+        let d_map_x = step_rot_x * config.scale;
+        let d_map_z = step_rot_z * config.scale;
+
+        // Initial space coordinates for x = 0
+        let initial_screen_x_dist = 0.0 - half_w;
+        let initial_space_x = (distance * initial_screen_x_dist) / config.fov;
+        let space_z = distance;
+
+        // Initial rotated coordinates
+        let initial_rot_x = initial_space_x * cos_angle - space_z * sin_angle;
+        let initial_rot_z = initial_space_x * sin_angle + space_z * cos_angle;
+
+        // Initial map coordinates
+        let mut map_x = (initial_rot_x + config.cx) * config.scale;
+        let mut map_z = (initial_rot_z + config.cz) * config.scale;
+
         for x in 0..w {
-            let screen_x_dist = (x as f32) - half_w;
+            // Wrap texture coordinates using euclidean remainder
+            let u = (map_x.rem_euclid(tex_w)) as usize;
+            let v = (map_z.rem_euclid(tex_h)) as usize;
 
-            // X coordinate in space (relative to camera line of sight)
-            let space_x = (distance * screen_x_dist) / config.fov;
-            // Z coordinate in space is just the distance
-            let space_z = distance;
-
-            // Rotate the space coordinates by the camera angle (yaw)
-            let rot_x = space_x * cos_angle - space_z * sin_angle;
-            let rot_z = space_x * sin_angle + space_z * cos_angle;
-
-            // Translate by camera position and apply scale
-            let map_x = (rot_x + config.cx) * config.scale;
-            let map_z = (rot_z + config.cz) * config.scale;
-
-            // Wrap texture coordinates
-            let mut u = (map_x % tex_w) as i32;
-            let mut v = (map_z % tex_h) as i32;
-
-            if u < 0 {
-                u += tex_w_i as i32;
-            }
-            if v < 0 {
-                v += tex_h_i as i32;
-            }
-
-            let tx = (u as usize) % tex_w_i;
-            let ty = (v as usize) % tex_h_i;
+            let tx = u % tex_w_i;
+            let ty = v % tex_h_i;
 
             let color = tex_data[ty * tex_w_i + tx];
 
@@ -177,6 +179,10 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
             };
 
             row[x] = final_color;
+
+            // Step mapping coordinates for the next pixel
+            map_x += d_map_x;
+            map_z += d_map_z;
         }
     });
 }
