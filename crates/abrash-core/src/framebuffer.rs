@@ -311,11 +311,17 @@ impl Framebuffer {
 
         let start_idx = sy * w;
         let end_idx = ey * w;
-        self.pixels[start_idx..end_idx]
-            .chunks_exact_mut(w)
-            .for_each(|row| {
-                row[sx..ex].fill(color);
-            });
+
+        if sx == 0 && ex == w {
+            // Fast path for full-width clears (avoids chunking overhead)
+            self.pixels[start_idx..end_idx].fill(color);
+        } else {
+            self.pixels[start_idx..end_idx]
+                .chunks_exact_mut(w)
+                .for_each(|row| {
+                    row[sx..ex].fill(color);
+                });
+        }
     }
 }
 
@@ -470,6 +476,25 @@ mod tests {
         unsafe {
             fb.set_pixel_unchecked(5, 5, 0xAABBCCDD);
             assert_eq!(fb.get_pixel_unchecked(5, 5), 0xAABBCCDD);
+        }
+    }
+
+    #[test]
+    fn test_clear_rect_full_width() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+
+        // Clear full width but only a few rows
+        fb.clear_rect(0, 2, 10, 3, 0xFFFFFFFF);
+
+        for y in 0..10 {
+            for x in 0..10 {
+                let expected = if y >= 2 && y < 5 {
+                    0xFFFFFFFF
+                } else {
+                    0xFF00_0000
+                };
+                assert_eq!(fb.get_pixel(x, y), Some(expected), "Mismatch at {x}, {y}");
+            }
         }
     }
 }
