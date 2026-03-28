@@ -635,3 +635,8 @@ required-features = ["nova"]
 name = "mode7_demo"
 path = "examples/mode7_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "night_vision_demo"
+path = "examples/night_vision_demo.rs"
+required-features = ["nova"]

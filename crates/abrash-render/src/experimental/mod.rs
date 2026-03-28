@@ -54,6 +54,7 @@ pub mod lsystem;
 pub mod melt;
 pub mod mode7;
 pub mod modifiers;
+pub mod night_vision;
 pub mod palette;
 pub mod pixel_sort;
 pub mod pixelate;
