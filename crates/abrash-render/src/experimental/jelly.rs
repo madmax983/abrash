@@ -333,13 +333,14 @@ impl SoftBody {
         }
 
         // 2. Integration (Semi-Implicit Euler)
-        for i in 0..self.mesh.vertices.len() {
-            let accel = self.forces[i] * (1.0 / self.mass);
-            self.velocities[i] = self.velocities[i] + accel * dt;
-            self.mesh.vertices[i] = self.mesh.vertices[i] + self.velocities[i] * dt;
+        let mass_inv = 1.0 / self.mass;
+        for ((vertex, velocity), force) in self.mesh.vertices.iter_mut().zip(&mut self.velocities).zip(&mut self.forces) {
+            let accel = *force * mass_inv;
+            *velocity = *velocity + accel * dt;
+            *vertex = *vertex + *velocity * dt;
 
             // Reset force accumulator
-            self.forces[i] = Vec3::default();
+            *force = Vec3::default();
         }
 
         // 3. Recompute Normals for lighting
@@ -628,12 +629,16 @@ impl SoftBody {
         }
 
         // Remainder for integration
-        while i < len {
-            let accel = self.forces[i] * (1.0 / self.mass);
-            self.velocities[i] = self.velocities[i] + accel * dt;
-            self.mesh.vertices[i] = self.mesh.vertices[i] + self.velocities[i] * dt;
-            self.forces[i] = Vec3::default();
-            i += 1;
+        let mass_inv = 1.0 / self.mass;
+        for ((vertex, velocity), force) in self.mesh.vertices[i..]
+            .iter_mut()
+            .zip(&mut self.velocities[i..])
+            .zip(&mut self.forces[i..])
+        {
+            let accel = *force * mass_inv;
+            *velocity = *velocity + accel * dt;
+            *vertex = *vertex + *velocity * dt;
+            *force = Vec3::default();
         }
 
         self.recompute_normals();
