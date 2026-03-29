@@ -1365,7 +1365,7 @@ fn rasterize_scanline_simd(
 
     // --- Main SIMD Loop (Aligned) ---
     unsafe {
-        use std::arch::x86_64::{_CMP_GE_OQ, _mm256_cmp_ps, _mm256_store_ps, _mm256_store_si256};
+        use std::arch::x86_64::{_CMP_GE_OQ, _mm256_cmp_ps, _mm256_storeu_ps, _mm256_storeu_si256};
 
         // Setup: stride vector for incrementing depths by 8*dz_dx per iteration
         let stride_vec = _mm256_set1_ps(8.0 * dz_dx);
@@ -1416,17 +1416,17 @@ fn rasterize_scanline_simd(
 
                 if mask_bits == 0xFF {
                     // Fast path: All pixels visible.
-                    // Store depths and colors directly using Aligned Stores.
-                    _mm256_store_ps(zb_ptr, depths_vec);
+                    // Store depths and colors directly using Unaligned Stores.
+                    _mm256_storeu_ps(zb_ptr, depths_vec);
 
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
-                    _mm256_store_si256(pixels_ptr, color_vec);
+                    _mm256_storeu_si256(pixels_ptr, color_vec);
                 } else {
                     // Partial write path
                     // 1. Update depths
                     let blended_depths = _mm256_blendv_ps(zb_vals, depths_vec, mask);
-                    // Use aligned store since we are aligned
-                    _mm256_store_ps(zb_ptr, blended_depths);
+                    // Use unaligned store since we might not be aligned
+                    _mm256_storeu_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
                     let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
@@ -1438,8 +1438,8 @@ fn rasterize_scanline_simd(
 
                     let blended_pixels_ps = _mm256_blendv_ps(old_pixels_ps, color_vec_ps, mask);
 
-                    // Aligned store
-                    _mm256_store_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
+                    // Unaligned store
+                    _mm256_storeu_si256(pixels_ptr, _mm256_castps_si256(blended_pixels_ps));
                 }
             }
 
