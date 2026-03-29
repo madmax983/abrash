@@ -5,14 +5,14 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn mode7_benchmark(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
-    let mut tex = Texture::new(1024, 1024).unwrap();
+    let tex = Texture::new(1024, 1024).unwrap();
 
     let config = Mode7Config::default();
 
     c.bench_function("render_mode7_baseline", |b| {
         b.iter(|| {
             render_mode7(black_box(&mut fb), black_box(&tex), black_box(&config));
-        })
+        });
     });
 }
 

@@ -14,7 +14,6 @@ use abrash::time::FixedTimestep;
 use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 
-
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
@@ -34,7 +33,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Demonstrates the retro plastic interlocking bricks post-processing filter").fg(Color::Green),
+            Cell::new("Demonstrates the retro plastic interlocking bricks post-processing filter")
+                .fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -49,7 +49,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
     println!("{controls}\n");
 }
 

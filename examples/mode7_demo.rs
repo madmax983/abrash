@@ -5,7 +5,6 @@ use abrash::platform::{
 };
 use abrash::texture::Texture;
 
-
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
@@ -40,7 +39,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
     println!("{controls}\n");
 }
 
@@ -114,10 +116,12 @@ impl WindowApp for Mode7Demo {
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
-        if width > 0 && height > 0
-            && (width != self.framebuffer.width() || height != self.framebuffer.height()) {
-                self.framebuffer = Framebuffer::new(width, height).unwrap();
-            }
+        if width > 0
+            && height > 0
+            && (width != self.framebuffer.width() || height != self.framebuffer.height())
+        {
+            self.framebuffer = Framebuffer::new(width, height).unwrap();
+        }
         Ok(())
     }
 

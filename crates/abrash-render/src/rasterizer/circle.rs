@@ -13,21 +13,21 @@ use crate::framebuffer::Framebuffer;
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
+    if radius <= 0 {
+        return;
+    }
+
     let mut x = 0;
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
     // Fast path: fully on screen
-    let min_x = (xc as i64) - (radius as i64);
-    let max_x = (xc as i64) + (radius as i64);
-    let min_y = (yc as i64) - (radius as i64);
-    let max_y = (yc as i64) + (radius as i64);
+    let min_x = i64::from(xc) - i64::from(radius);
+    let max_x = i64::from(xc) + i64::from(radius);
+    let min_y = i64::from(yc) - i64::from(radius);
+    let max_y = i64::from(yc) + i64::from(radius);
 
-    if min_x >= 0
-        && max_x < fb.width() as i64
-        && min_y >= 0
-        && max_y < fb.height() as i64
-    {
+    if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         while y >= x {
             x += 1;
@@ -97,21 +97,21 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
+    if radius <= 0 {
+        return;
+    }
+
     let mut x = 0;
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
     // Fast path: fully on screen
-    let min_x = (xc as i64) - (radius as i64);
-    let max_x = (xc as i64) + (radius as i64);
-    let min_y = (yc as i64) - (radius as i64);
-    let max_y = (yc as i64) + (radius as i64);
+    let min_x = i64::from(xc) - i64::from(radius);
+    let max_x = i64::from(xc) + i64::from(radius);
+    let min_y = i64::from(yc) - i64::from(radius);
+    let max_y = i64::from(yc) + i64::from(radius);
 
-    if min_x >= 0
-        && max_x < fb.width() as i64
-        && min_y >= 0
-        && max_y < fb.height() as i64
-    {
+    if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
         while y >= x {
             x += 1;
@@ -151,10 +151,34 @@ fn fill_circle_lines_unchecked(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y
 fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
     // For a filled circle, we draw horizontal lines connecting the left and right points
     // for each pair of symmetrical y-coordinates.
-    draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
-    draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
-    draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-    draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(x),
+        xc.saturating_add(x),
+        yc.saturating_add(y),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(x),
+        xc.saturating_add(x),
+        yc.saturating_sub(y),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(y),
+        xc.saturating_add(y),
+        yc.saturating_add(x),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(y),
+        xc.saturating_add(y),
+        yc.saturating_sub(x),
+        color,
+    );
 }
 
 #[inline(always)]
