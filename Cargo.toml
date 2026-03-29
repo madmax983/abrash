@@ -635,3 +635,7 @@ required-features = ["nova"]
 name = "mode7_demo"
 path = "examples/mode7_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "sepia_bench"
+harness = false

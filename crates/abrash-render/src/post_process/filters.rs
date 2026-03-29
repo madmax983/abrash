@@ -207,22 +207,48 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 }
 
 fn apply_sepia_scalar(pixels: &mut [u32]) {
-    for pixel in pixels.iter_mut() {
-        let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pixels.par_iter_mut().for_each(|pixel| {
+            let p = *pixel;
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
 
-        // Fixed-point arithmetic (scaled by 1024)
-        let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
-        let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
-        let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
+            // Fixed-point arithmetic (scaled by 1024)
+            let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
+            let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
+            let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
 
-        let new_r = new_r.min(255);
-        let new_g = new_g.min(255);
-        let new_b = new_b.min(255);
+            let new_r = new_r.min(255);
+            let new_g = new_g.min(255);
+            let new_b = new_b.min(255);
 
-        *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+            *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+        });
+        return;
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        for pixel in pixels.iter_mut() {
+            let p = *pixel;
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+
+            // Fixed-point arithmetic (scaled by 1024)
+            let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
+            let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
+            let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
+
+            let new_r = new_r.min(255);
+            let new_g = new_g.min(255);
+            let new_b = new_b.min(255);
+
+            *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
+        }
     }
 }
 
