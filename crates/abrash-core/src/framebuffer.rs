@@ -685,3 +685,17 @@ mod export_tests {
         fs::remove_file(path).unwrap();
     }
 }
+
+#[cfg(test)]
+mod havoc_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn havoc_clear_rect_proptest(x in any::<i32>(), y in any::<i32>(), w in any::<u32>(), h in any::<u32>()) {
+            let mut fb = Framebuffer::new(100, 100).unwrap();
+            fb.clear_rect(x, y, w, h, 0xFFFFFFFF);
+        }
+    }
+}

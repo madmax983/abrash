@@ -20,11 +20,11 @@ impl Mode7Demo {
         for y in 0..tex_size {
             for x in 0..tex_size {
                 let check = ((x / 32) + (y / 32)) % 2 == 0;
-                let color = if check { 0xFF44AA44 } else { 0xFF226622 };
+                let color = if check { 0xFF44_AA44 } else { 0xFF22_6622 };
 
                 // Add some grid lines
                 let border = (x % 32 == 0) || (y % 32 == 0);
-                tex_data[y * tex_size + x] = if border { 0xFF88FF88 } else { color };
+                tex_data[y * tex_size + x] = if border { 0xFF88_FF88 } else { color };
             }
         }
 
@@ -43,7 +43,7 @@ impl Mode7Demo {
                 horizon: 200.0,
                 fog_start: 300.0,
                 fog_end: 1500.0,
-                fog_color: 0xFF88CCFF, // Sky blue fog
+                fog_color: 0xFF88_CCFF, // Sky blue fog
                 ..Default::default()
             },
             framebuffer: Framebuffer::new(800, 600).unwrap(),
@@ -75,16 +75,17 @@ impl WindowApp for Mode7Demo {
         width: u32,
         height: u32,
     ) -> Result<(), Self::Error> {
-        if width > 0 && height > 0 {
-            if width != self.framebuffer.width() || height != self.framebuffer.height() {
-                self.framebuffer = Framebuffer::new(width, height).unwrap();
-            }
+        if width > 0
+            && height > 0
+            && (width != self.framebuffer.width() || height != self.framebuffer.height())
+        {
+            self.framebuffer = Framebuffer::new(width, height).unwrap();
         }
         Ok(())
     }
 
     fn update(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        let dt = ctx.dt_seconds as f32;
+        let dt = ctx.dt_seconds; // f32
 
         // Auto-pilot
         self.config.cx += self.config.angle.sin() * 50.0 * dt;
@@ -94,7 +95,7 @@ impl WindowApp for Mode7Demo {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        let sky_color = 0xFF88CCFF;
+        let sky_color = 0xFF88_CCFF;
         self.framebuffer.clear(sky_color);
 
         // Draw gradient sky
@@ -105,7 +106,7 @@ impl WindowApp for Mode7Demo {
                 let r = (136.0 * t + 64.0 * (1.0 - t)) as u32;
                 let g = (204.0 * t + 128.0 * (1.0 - t)) as u32;
                 let b = (255.0 * t + 255.0 * (1.0 - t)) as u32;
-                let color = 0xFF000000 | (r << 16) | (g << 8) | b;
+                let color = 0xFF00_0000 | (r << 16) | (g << 8) | b;
 
                 for x in 0..self.framebuffer.width() as usize {
                     self.framebuffer.set_pixel(x as i32, y as i32, color);

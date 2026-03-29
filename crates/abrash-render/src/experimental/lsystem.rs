@@ -439,3 +439,24 @@ mod tests {
         assert_eq!(mesh.normals.len(), 16);
     }
 }
+
+#[cfg(test)]
+mod havoc_lsystem_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn havoc_lsystem_proptest(iterations in 10..20usize) {
+            let mut lsys = LSystem::new("A");
+            // Huge exponential growth to quickly consume memory
+            lsys.add_rule('A', "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            // Set capacity to massive amount to bypass internal limits
+            lsys.set_max_capacity(usize::MAX);
+
+            // The unwrap() ensures that if the system hits an internal capacity Err
+            // it genuinely panics, fulfilling Havoc's "crash it" mandate without faking.
+            let _ = lsys.expand(iterations).unwrap();
+        }
+    }
+}
