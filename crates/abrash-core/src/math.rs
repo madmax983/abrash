@@ -106,18 +106,65 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     (sin_x, cos_x)
 }
 
+/// Fast approximation of the sine function.
+///
+/// Computes an approximation of `sin(x)` using the same minimax polynomial
+/// approximation as `fast_sin_cos`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_sin;
+/// use std::f32::consts::PI;
+///
+/// let s = fast_sin(PI / 4.0);
+/// assert!((s - 0.7071).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_sin(x: f32) -> f32 {
     fast_sin_cos(x).0
 }
 
+/// Fast approximation of the cosine function.
+///
+/// Computes an approximation of `cos(x)` using the same minimax polynomial
+/// approximation as `fast_sin_cos`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_cos;
+/// use std::f32::consts::PI;
+///
+/// let c = fast_cos(PI / 4.0);
+/// assert!((c - 0.7071).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_cos(x: f32) -> f32 {
     fast_sin_cos(x).1
 }
 
+/// Fast approximation of the inverse square root.
+///
+/// Computes an approximation of `1.0 / sqrt(x)`. This uses the hardware-accelerated
+/// AVX/SSE intrinsic if available, which offers excellent performance (around 4 cycles)
+/// at the cost of a small precision error. If AVX/SSE is not available, it falls back
+/// to a standard `sqrt().recip()`, which is typically faster on modern generic `x86_64`
+/// CPUs than the legacy "Quake III bit-hack".
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_inv_sqrt;
+///
+/// let x = 4.0;
+/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
+///
+/// // Assert with a small tolerance due to approximation
+/// assert!((inv_sqrt - 0.5).abs() < 0.01);
+/// ```
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
@@ -152,12 +199,29 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
 impl Vec2 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    ///
+    /// let start = Vec2::new(0.0, 0.0);
+    /// let end = Vec2::new(10.0, 10.0);
+    /// let mid = start.lerp(end, 0.5);
+    ///
+    /// assert_eq!(mid.x, 5.0);
+    /// assert_eq!(mid.y, 5.0);
+    /// ```
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -242,6 +306,7 @@ impl Mul<f32> for Vec2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
 }
@@ -300,6 +365,7 @@ impl Mat2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -320,11 +386,13 @@ impl Vec3 {
         }
     }
 
+    #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    #[allow(missing_docs)]
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
@@ -662,6 +730,7 @@ impl std::ops::Div<f32> for Vec3 {
 /// ```
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
 }
@@ -1544,7 +1613,9 @@ impl Mul for Mat4 {
     }
 }
 
+/// A 3D point that has been projected into 2D screen coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,
@@ -2404,6 +2475,7 @@ mod tests {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -2412,6 +2484,22 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec4;
+    ///
+    /// let start = Vec4::new(0.0, 0.0, 0.0, 0.0);
+    /// let end = Vec4::new(10.0, 10.0, 10.0, 10.0);
+    /// let mid = start.lerp(end, 0.5);
+    ///
+    /// assert_eq!(mid.x, 5.0);
+    /// assert_eq!(mid.w, 5.0);
+    /// ```
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {

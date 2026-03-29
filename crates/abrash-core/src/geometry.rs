@@ -19,6 +19,7 @@ use crate::math::{Mat4, Vec3};
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct BoundingSphere {
     pub center: Vec3,
     pub radius: f32,
@@ -70,10 +71,13 @@ impl BoundingSphere {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct AABB {
     pub min: Vec3,
+    #[doc(hidden)]
     pub pad0: f32, // Padding to align max to 16 bytes offset
     pub max: Vec3,
+    #[doc(hidden)]
     pub pad1: f32, // Padding to make total size 32 bytes
 }
 

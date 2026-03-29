@@ -12,7 +12,23 @@ use crate::quat::Quat;
 ///
 /// Composition order for row-vector convention (v·M):
 /// `v * Scale * Rotation * Translation`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::transform::Transform;
+/// use abrash_core::math::Vec3;
+///
+/// // Create a simple translation transform
+/// let t = Transform::from_position(Vec3::new(10.0, 5.0, 0.0));
+/// assert_eq!(t.position.x, 10.0);
+///
+/// // Or create an identity transform
+/// let i = Transform::identity();
+/// assert_eq!(i.scale, Vec3::ONE);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct Transform {
     pub position: Vec3,
     pub rotation: Quat,
