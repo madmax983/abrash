@@ -44,7 +44,7 @@ impl Default for Mode7Config {
             fov: 256.0,
             horizon: 100.0,
             scale: 1.0,
-            fog_color: 0xFF000000,
+            fog_color: 0xFF00_0000,
             fog_start: 200.0,
             fog_end: 800.0,
         }
