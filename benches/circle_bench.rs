@@ -29,6 +29,18 @@ fn bench_draw_circle(c: &mut Criterion) {
             );
         });
     });
+
+    c.bench_function("draw_circle_out_of_bounds", |b| {
+        b.iter(|| {
+            draw_circle(
+                &mut fb,
+                black_box(1000),
+                black_box(1000),
+                black_box(100),
+                black_box(0xFFFF_FFFF),
+            );
+        });
+    });
 }
 
 fn bench_fill_circle(c: &mut Criterion) {
@@ -52,6 +64,18 @@ fn bench_fill_circle(c: &mut Criterion) {
                 &mut fb,
                 black_box(400),
                 black_box(300),
+                black_box(100),
+                black_box(0xFFFF_FFFF),
+            );
+        });
+    });
+
+    c.bench_function("fill_circle_out_of_bounds", |b| {
+        b.iter(|| {
+            fill_circle(
+                &mut fb,
+                black_box(1000),
+                black_box(1000),
                 black_box(100),
                 black_box(0xFFFF_FFFF),
             );
