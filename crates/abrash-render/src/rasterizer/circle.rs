@@ -13,21 +13,55 @@ use crate::framebuffer::Framebuffer;
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
+    if radius < 0 {
+        return;
+    }
+
+    // Fast path: bounding box check
+    let xc_64 = xc as i64;
+    let yc_64 = yc as i64;
+    let r_64 = radius as i64;
+
+    let min_x = xc_64.saturating_sub(r_64);
+    let max_x = xc_64.saturating_add(r_64);
+    let min_y = yc_64.saturating_sub(r_64);
+    let max_y = yc_64.saturating_add(r_64);
+
+    let w = fb.width() as i64;
+    let h = fb.height() as i64;
+
+    let fast_path = min_x >= 0 && max_x < w && min_y >= 0 && max_y < h;
+
     let mut x = 0;
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
-    draw_circle_points(fb, xc, yc, x, y, color);
+    if fast_path {
+        draw_circle_points_fast(fb, xc, yc, x, y, color);
 
-    while y >= x {
-        x += 1;
-        if d > 0 {
-            y -= 1;
-            d = d + 4 * (x - y) + 10;
-        } else {
-            d = d + 4 * x + 6;
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            draw_circle_points_fast(fb, xc, yc, x, y, color);
         }
+    } else {
         draw_circle_points(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            draw_circle_points(fb, xc, yc, x, y, color);
+        }
     }
 }
 
@@ -42,6 +76,21 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
     fb.set_pixel(xc - y, yc - x, color);
 }
 
+#[inline(always)]
+fn draw_circle_points_fast(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+    // SAFETY: Bounds checked in `draw_circle` fast path
+    unsafe {
+        fb.set_pixel_unchecked((xc + x) as usize, (yc + y) as usize, color);
+        fb.set_pixel_unchecked((xc - x) as usize, (yc + y) as usize, color);
+        fb.set_pixel_unchecked((xc + x) as usize, (yc - y) as usize, color);
+        fb.set_pixel_unchecked((xc - x) as usize, (yc - y) as usize, color);
+        fb.set_pixel_unchecked((xc + y) as usize, (yc + x) as usize, color);
+        fb.set_pixel_unchecked((xc - y) as usize, (yc + x) as usize, color);
+        fb.set_pixel_unchecked((xc + y) as usize, (yc - x) as usize, color);
+        fb.set_pixel_unchecked((xc - y) as usize, (yc - x) as usize, color);
+    }
+}
+
 /// Draw a filled circle using Bresenham's algorithm.
 ///
 /// # Arguments
@@ -51,21 +100,54 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
+    if radius < 0 {
+        return;
+    }
+
+    let xc_64 = xc as i64;
+    let yc_64 = yc as i64;
+    let r_64 = radius as i64;
+
+    let min_x = xc_64.saturating_sub(r_64);
+    let max_x = xc_64.saturating_add(r_64);
+    let min_y = yc_64.saturating_sub(r_64);
+    let max_y = yc_64.saturating_add(r_64);
+
+    let w = fb.width() as i64;
+    let h = fb.height() as i64;
+
+    let fast_path = min_x >= 0 && max_x < w && min_y >= 0 && max_y < h;
+
     let mut x = 0;
     let mut y = radius;
     let mut d = 3 - 2 * radius;
 
-    fill_circle_lines(fb, xc, yc, x, y, color);
+    if fast_path {
+        fill_circle_lines_fast(fb, xc, yc, x, y, color);
 
-    while y >= x {
-        x += 1;
-        if d > 0 {
-            y -= 1;
-            d = d + 4 * (x - y) + 10;
-        } else {
-            d = d + 4 * x + 6;
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            fill_circle_lines_fast(fb, xc, yc, x, y, color);
         }
+    } else {
         fill_circle_lines(fb, xc, yc, x, y, color);
+
+        while y >= x {
+            x += 1;
+            if d > 0 {
+                y -= 1;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+            fill_circle_lines(fb, xc, yc, x, y, color);
+        }
     }
 }
 
@@ -76,6 +158,14 @@ fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, col
     draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
     draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
     draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
+}
+
+#[inline(always)]
+fn fill_circle_lines_fast(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
+    draw_horizontal_line_fast(fb, xc - x, xc + x, yc + y, color);
+    draw_horizontal_line_fast(fb, xc - x, xc + x, yc - y, color);
+    draw_horizontal_line_fast(fb, xc - y, xc + y, yc + x, color);
+    draw_horizontal_line_fast(fb, xc - y, xc + y, yc - x, color);
 }
 
 fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
@@ -101,6 +191,20 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u
         // We also know end_idx < fb.width() * fb.height().
         fb.as_mut_slice()[start_idx..=end_idx].fill(color);
     }
+}
+
+#[inline(always)]
+fn draw_horizontal_line_fast(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: u32) {
+    let width = fb.width() as usize;
+    let y_offset = (y as usize) * width;
+    let min_x = x1.min(x2) as usize;
+    let max_x = x1.max(x2) as usize;
+
+    let start_idx = y_offset + min_x;
+    let end_idx = y_offset + max_x;
+
+    // SAFETY: Bounds checked in `fill_circle` fast path
+    fb.as_mut_slice()[start_idx..=end_idx].fill(color);
 }
 
 #[cfg(test)]
