@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+**[Performance Optimization: Eliminate Manual Slice Bounds Checks in Post-Processing Rows]**
+**Learning:** In operations that iterate over a 1D slice or sub-slice representing a row (like post-processing effects), manually calculating array boundaries via `for x in 0..width` and indexing via `row[x]` triggers implicit bounds checking on every single assignment.
+**Action:** Replace `for x in 0..width` loops indexing `row[x]` with `for (x, pixel) in row.iter_mut().enumerate()`. This yields direct access to the exact element and completely elides runtime array bounds checking, significantly improving performance.

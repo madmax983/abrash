@@ -74,11 +74,11 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
 
         let row_noise_base = noise_seed.wrapping_add((y as u32).wrapping_mul(7919));
 
-        for x in 0..width {
-            let pixel = row[x];
-            let r = ((pixel >> 16) & 0xFF) as f32 / 255.0;
-            let g = ((pixel >> 8) & 0xFF) as f32 / 255.0;
-            let b = (pixel & 0xFF) as f32 / 255.0;
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let p = *pixel;
+            let r = ((p >> 16) & 0xFF) as f32 / 255.0;
+            let g = ((p >> 8) & 0xFF) as f32 / 255.0;
+            let b = (p & 0xFF) as f32 / 255.0;
 
             // 1. Calculate luminance (Standard Rec. 601)
             let lum = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -136,7 +136,7 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             let final_g = (out_g.clamp(0.0, 1.0) * 255.0) as u32;
             let final_b = (out_b.clamp(0.0, 1.0) * 255.0) as u32;
 
-            row[x] = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
+            *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
     });
 }
