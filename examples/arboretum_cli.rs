@@ -63,12 +63,22 @@ mod app {
 
         // Generate
         let start_time = std::time::Instant::now();
-        let expanded = lsys
-            .expand(args.iterations)
-            .expect("L-system memory limit exceeded");
-        let mesh = lsys
-            .generate_mesh(args.iterations)
-            .expect("L-system memory limit exceeded");
+        let expanded = match lsys.expand(args.iterations) {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(Box::new(std::io::Error::other(format!(
+                    "{e}. Try lowering the `--iterations` argument."
+                ))));
+            }
+        };
+        let mesh = match lsys.generate_mesh(args.iterations) {
+            Ok(m) => m,
+            Err(e) => {
+                return Err(Box::new(std::io::Error::other(format!(
+                    "{e}. Try lowering the `--iterations` argument."
+                ))));
+            }
+        };
         let duration = start_time.elapsed();
 
         // TUI Setup
