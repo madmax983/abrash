@@ -44,7 +44,7 @@ impl Default for Mode7Config {
             fov: 256.0,
             horizon: 100.0,
             scale: 1.0,
-            fog_color: 0xFF000000,
+            fog_color: 0xFF00_0000,
             fog_start: 200.0,
             fog_end: 800.0,
         }
@@ -52,6 +52,9 @@ impl Default for Mode7Config {
 }
 
 /// Helper function to interpolate between two ARGB colors.
+///
+/// This blends `c1` into `c2` based on the factor `t` (0.0 = fully `c1`, 1.0 = fully `c2`).
+/// Note that this expects `u32` colors in `0xAARRGGBB` format.
 fn lerp_color(c1: u32, c2: u32, t: f32) -> u32 {
     let t = t.clamp(0.0, 1.0);
     let inv_t = 1.0 - t;
@@ -80,9 +83,20 @@ fn lerp_color(c1: u32, c2: u32, t: f32) -> u32 {
 /// the intersection of a ray from the camera through each screen pixel
 /// onto a mathematical ground plane.
 ///
-/// * `fb`: The destination framebuffer.
-/// * `texture`: The source texture to project.
-/// * `config`: The camera and projection parameters.
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_core::texture::Texture;
+/// use abrash_render::experimental::mode7::{Mode7Config, render_mode7};
+///
+/// let mut fb = Framebuffer::new(320, 200).unwrap();
+/// let texture = Texture::new(64, 64).unwrap();
+/// let config = Mode7Config::default();
+///
+/// // Render the pseudo-3D floor to the framebuffer
+/// render_mode7(&mut fb, &texture, &config);
+/// ```
 pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Config) {
     let w = fb.width() as usize;
     let h = fb.height() as usize;

@@ -46,3 +46,7 @@ Vim: Finished.
 ## 2026-03-18 - Handle and Generation Architecture
 **Confusion:** Rust users are often confused by "Handles" and why they are used instead of `Rc`/`Arc` or raw pointers, and how they prevent use-after-free.
 **Clarification:** Added module-level documentation to `crates/abrash-render/src/render_api/mod.rs` to explain the Render API's "Three Pillars" (Resources, Frame, Renderer) and added executable doctests to `ResourcePool` and `Handle` in `crates/abrash-render/src/render_api/handles.rs` that explicitly demonstrate how the generational index increments upon removal, safely returning `None` instead of causing memory corruption or panics.
+
+## 2025-03-06 - Unreadable Hex Literals
+**Confusion:** The Rust compiler and Clippy enforce a warning for unreadable long numerical/hexadecimal literals like `0xFF000000` (error `clippy::unreadable_literal`).
+**Clarification:** Added underscores as separators to all instances of long hex color values in the documentation and codebase to improve readability and eliminate strict warnings (e.g., changing `0xFF000000` to `0xFF00_0000`).
