@@ -204,12 +204,12 @@ fn compute_texture_col(
     // Compute intersection with the seg's line.
     // The seg runs from v1 to v2. We find the parameter t along the seg
     // where the ray from camera_pos at ray_angle intersects.
-    let ray_cos = ray_angle.to_radians().cos();
-    let ray_sin = ray_angle.to_radians().sin();
+    let (ray_sin, ray_cos) = ray_angle.to_radians().sin_cos();
 
     let dx = seg.v2.x.to_f32() - seg.v1.x.to_f32();
     let dy = seg.v2.y.to_f32() - seg.v1.y.to_f32();
-    let seg_len = dx.hypot(dy);
+    #[allow(clippy::imprecise_flops)]
+    let seg_len = (dx * dx + dy * dy).sqrt();
 
     // Vector from camera to seg v1
     let cx = seg.v1.x.to_f32() - camera_pos.x.to_f32();

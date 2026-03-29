@@ -4,7 +4,49 @@ use abrash::math::{Mat4, Vec3};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::zbuffer::ZBuffer;
 
+
+#[cfg(feature = "nova")]
+use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
+use crossterm::style::Stylize;
+
+#[cfg(feature = "nova")]
+fn print_banner() {
+    println!("\n{}", "🌟 Hologram Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Simulates a sci-fi hologram with scanlines and flicker").fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+    println!("{controls}\n");
+}
+
 fn main() {
+    #[cfg(feature = "nova")]
+    print_banner();
+
     let width = 800;
     let height = 600;
     let mut fb = Framebuffer::new(width, height).unwrap();

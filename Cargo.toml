@@ -621,6 +621,10 @@ harness = false
 name = "circle_bench"
 harness = false
 
+[[bench]]
+name = "mode7_bench"
+harness = false
+
 [[example]]
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
@@ -636,7 +640,7 @@ name = "mode7_demo"
 path = "examples/mode7_demo.rs"
 required-features = ["nova"]
 
-[[bench]]
-name = "mode7_bench"
-harness = false
+[[example]]
+name = "night_vision_demo"
+path = "examples/night_vision_demo.rs"
 required-features = ["nova"]
