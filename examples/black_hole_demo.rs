@@ -4,7 +4,6 @@ use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 
-
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
@@ -12,7 +11,12 @@ use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
 fn print_banner() {
-    println!("\n{}", "🌟 Black Hole Gravitational Lensing Filter Demo".bold().cyan());
+    println!(
+        "\n{}",
+        "🌟 Black Hole Gravitational Lensing Filter Demo"
+            .bold()
+            .cyan()
+    );
     println!("{}", "=====================".dark_grey());
 
     let mut table = Table::new();
@@ -24,7 +28,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Demonstrates gravitational lensing effect simulating a black hole").fg(Color::Green),
+            Cell::new("Demonstrates gravitational lensing effect simulating a black hole")
+                .fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -39,7 +44,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
     println!("{controls}\n");
 }
 

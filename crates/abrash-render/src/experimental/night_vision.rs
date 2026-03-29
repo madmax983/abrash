@@ -105,7 +105,7 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
                 // Simple fast hash
                 let n = (x as u32).wrapping_mul(1973).wrapping_add(row_noise_base);
                 // Hash to float 0.0-1.0
-                let noise_val = (n.wrapping_mul(2654435761) >> 16) as f32 / 65535.0;
+                let noise_val = (n.wrapping_mul(2_654_435_761) >> 16) as f32 / 65_535.0;
                 // Shift to -0.5 to +0.5 range and scale
                 let noise_offset = (noise_val - 0.5) * config.noise_intensity;
 
