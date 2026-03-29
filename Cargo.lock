@@ -90,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "abrash-core",
  "abrash-raycast",
+ "fastrand",
  "proptest",
  "ratatui",
  "rayon",

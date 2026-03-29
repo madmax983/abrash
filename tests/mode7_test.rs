@@ -1,9 +1,10 @@
-use abrash::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::texture::Texture;
 
+#[cfg(feature = "nova")]
 #[test]
 fn test_mode7_rendering() {
+    use abrash::experimental::mode7::{Mode7Config, render_mode7};
     let mut fb = Framebuffer::new(100, 100).unwrap();
     let mut tex = Texture::new(64, 64).unwrap();
 

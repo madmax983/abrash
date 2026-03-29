@@ -42,6 +42,7 @@ pub mod directional_blur;
 pub mod dither;
 pub mod edge_glow;
 pub mod emboss;
+pub mod fire;
 pub mod fisheye;
 pub mod glitch;
 pub mod halftone;
