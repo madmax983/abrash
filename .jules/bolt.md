@@ -166,3 +166,8 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+## [Performance] Eliminate intermediate face normals allocation in LSystem generation\n**Learning:** In geometry generation (like LSystems), computing face normals using a method that returns a  (e.g. ) introduces an unnecessary heap allocation containing all normals.\n**Action:** Calculate the cross-product normal  directly inside the existing iteration loop that assigns normals to vertices, completely avoiding the intermediate  allocation.
+
+## [Performance] Eliminate intermediate face normals allocation in LSystem generation
+**Learning:** In geometry generation (like LSystems), computing face normals using a method that returns a `Vec` (e.g. `mesh.compute_face_normals()`) introduces an unnecessary heap allocation containing all normals.
+**Action:** Calculate the cross-product normal `(v1 - v0).cross(v2 - v0).normalize()` directly inside the existing iteration loop that assigns normals to vertices, completely avoiding the intermediate `.collect::<Vec<_>>()` allocation.
