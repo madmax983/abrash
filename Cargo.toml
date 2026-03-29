@@ -622,6 +622,10 @@ name = "circle_bench"
 harness = false
 
 [[bench]]
+name = "circle_oob_bench"
+harness = false
+
+[[bench]]
 name = "mode7_bench"
 harness = false
 
