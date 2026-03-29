@@ -621,6 +621,10 @@ harness = false
 name = "circle_bench"
 harness = false
 
+[[bench]]
+name = "mode7_bench"
+harness = false
+
 [[example]]
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
