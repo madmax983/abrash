@@ -49,7 +49,6 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
     }
 }
 
-
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
@@ -69,7 +68,8 @@ fn print_banner() {
         ])
         .add_row(vec![
             Cell::new("Description"),
-            Cell::new("Simulates a miniature scene using selective focus blurring").fg(Color::Green),
+            Cell::new("Simulates a miniature scene using selective focus blurring")
+                .fg(Color::Green),
         ]);
 
     println!("\n{}", "⚙️  Info".bold());
@@ -84,7 +84,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Up/Down"), Cell::new("Move Focus Plane")])
-        .add_row(vec![Cell::new("Left/Right"), Cell::new("Change Blur Radius")])
+        .add_row(vec![
+            Cell::new("Left/Right"),
+            Cell::new("Change Blur Radius"),
+        ])
         .add_row(vec![Cell::new("Esc/Q"), Cell::new("Close window to exit")]);
     println!("{controls}\n");
 }

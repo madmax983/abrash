@@ -23,11 +23,7 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let min_y = (yc as i64) - (radius as i64);
     let max_y = (yc as i64) + (radius as i64);
 
-    if min_x >= 0
-        && max_x < fb.width() as i64
-        && min_y >= 0
-        && max_y < fb.height() as i64
-    {
+    if min_x >= 0 && max_x < fb.width() as i64 && min_y >= 0 && max_y < fb.height() as i64 {
         draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         while y >= x {
             x += 1;
@@ -107,11 +103,7 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let min_y = (yc as i64) - (radius as i64);
     let max_y = (yc as i64) + (radius as i64);
 
-    if min_x >= 0
-        && max_x < fb.width() as i64
-        && min_y >= 0
-        && max_y < fb.height() as i64
-    {
+    if min_x >= 0 && max_x < fb.width() as i64 && min_y >= 0 && max_y < fb.height() as i64 {
         fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
         while y >= x {
             x += 1;
@@ -151,10 +143,34 @@ fn fill_circle_lines_unchecked(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y
 fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
     // For a filled circle, we draw horizontal lines connecting the left and right points
     // for each pair of symmetrical y-coordinates.
-    draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
-    draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
-    draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-    draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(x),
+        xc.saturating_add(x),
+        yc.saturating_add(y),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(x),
+        xc.saturating_add(x),
+        yc.saturating_sub(y),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(y),
+        xc.saturating_add(y),
+        yc.saturating_add(x),
+        color,
+    );
+    draw_horizontal_line(
+        fb,
+        xc.saturating_sub(y),
+        xc.saturating_add(y),
+        yc.saturating_sub(x),
+        color,
+    );
 }
 
 #[inline(always)]

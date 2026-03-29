@@ -644,3 +644,8 @@ required-features = ["nova"]
 name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "matrix_rain_demo"
+path = "examples/matrix_rain_demo.rs"
+required-features = ["nova"]

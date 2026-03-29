@@ -4,7 +4,6 @@ use abrash::math::{Mat4, Vec3};
 use abrash::rasterizer::fill_triangle_3d;
 use abrash::zbuffer::ZBuffer;
 
-
 #[cfg(feature = "nova")]
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
@@ -39,7 +38,10 @@ fn print_banner() {
             Cell::new("Action").fg(Color::Cyan),
         ])
         .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
     println!("{controls}\n");
 }
 

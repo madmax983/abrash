@@ -187,3 +187,7 @@
 **Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
 **Fate:** Implemented
 **Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.
+## [Matrix Rain Filter]
+**Concept:** A post-processing effect simulating Matrix Digital Rain, where the brightness of the falling code streams is modulated by the underlying scene luminance.
+**Fate:** Implemented
+**Lesson:** Iterating over columns with pseudo-random offsets creates a visually chaotic rain effect. Copying the source framebuffer to a thread-local buffer safely enables reading the original luminance without causing mutable aliasing issues during parallel updates via Rayon.
