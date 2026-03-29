@@ -160,10 +160,13 @@ impl Mesh {
     pub fn sphere(radius: f32, stacks: u32, sectors: u32) -> Self {
         use std::f32::consts::PI;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((stacks + 1) * (sectors + 1)) as usize;
+        let num_indices = (stacks * sectors * 6) as usize; // 2 triangles per face, 3 indices per triangle
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for i in 0..=stacks {
             let stack_angle = PI / 2.0 - (i as f32 / stacks as f32) * PI; // π/2 to -π/2
@@ -205,7 +208,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -228,10 +231,13 @@ impl Mesh {
         let divs = subdivisions.max(1);
         let step = size / divs as f32;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((divs + 1) * (divs + 1)) as usize;
+        let num_indices = (divs * divs * 6) as usize; // 2 triangles per face, 3 indices per triangle
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for z in 0..=divs {
             for x in 0..=divs {
@@ -260,7 +266,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -281,14 +287,17 @@ impl Mesh {
     pub fn cylinder(radius: f32, height: f32, sectors: u32, stacks: u32) -> Self {
         use std::f32::consts::PI;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
-
         let half_h = height / 2.0;
         let sectors = sectors.max(3);
         let stacks = stacks.max(1);
+
+        let num_vertices = ((stacks + 1) * (sectors + 1)) as usize + (sectors as usize + 1) * 2;
+        let num_indices = (stacks * sectors * 6) as usize + (sectors as usize * 3 * 2);
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         // Side vertices
         for i in 0..=stacks {
@@ -365,7 +374,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 
@@ -395,10 +404,13 @@ impl Mesh {
         let maj = major_segments.max(3);
         let min = minor_segments.max(3);
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((maj + 1) * (min + 1)) as usize;
+        let num_indices = (maj * min * 6) as usize; // 2 triangles per face, 3 indices per triangle
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for i in 0..=maj {
             let theta = (i as f32 / maj as f32) * 2.0 * PI;
@@ -440,7 +452,7 @@ impl Mesh {
             indices,
             uvs,
             normals,
-            tangents: Vec::new(),
+            tangents: Vec::with_capacity(num_vertices),
         }
     }
 

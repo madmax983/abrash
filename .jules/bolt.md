@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+## [Index Capacity Math]
+**Learning:** When pre-allocating vectors for index buffers in procedural generation, a common mistake is sizing the capacity based on the *triangle count* rather than the *index count*. An index buffer requires 3 elements per triangle (e.g. `[u32; 3]`). Calculating capacity as `faces * 2` instead of `faces * 6` leaves the vector under-allocated and reintroduces the very heap reallocations the optimization aimed to avoid.
+**Action:** Always multiply the intended triangle count by 3 when computing capacities for flat index arrays.
