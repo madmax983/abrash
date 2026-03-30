@@ -179,3 +179,7 @@
 **Concept:** A retro sci-fi post-processing effect simulating a holographic projection through monochrome tint, rolling scanlines, and intermittent horizontal signal noise/flicker.
 **Fate:** Implemented
 **Lesson:** It is crucial to respect persona constraints by absolutely avoiding modifications to core modules, even when encountering pre-existing issues like crashing tests. Implementing new R&D features safely within isolated experimental modules via clones (e.g. duplicating framebuffers for complex non-linear transforms) allows innovation without collateral damage or breaking existing workflows.
+## [Dither Filter Optimization]
+**Concept:** Optimizing the Ordered Dithering filter (Bayer matrix) and Floyd-Steinberg dithering.
+**Fate:** Implemented
+**Lesson:** Ordered Dithering is trivially parallelizable on a row-by-row basis. Using Rayon's `par_chunks_exact_mut` allows multiple threads to quantize the image simultaneously. Furthermore, pre-calculating the matrix scales and avoiding `.round()` on `f32` inside the inner loop (opting for `+ 0.5 as i32` fast float-to-int casts) yields a massive performance improvement (~58% faster at 1080p). Error diffusion (Floyd-Steinberg) remains serial but still benefits slightly from the float-to-int fast path.

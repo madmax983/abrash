@@ -60,6 +60,11 @@ ratatui = "0.30.0"
 crossterm = "0.29.0"
 
 [[bench]]
+name = "dither_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "math"
 harness = false
 

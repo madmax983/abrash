@@ -4,6 +4,8 @@
 //! to reduce color depth while preserving visual detail.
 
 use crate::framebuffer::Framebuffer;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Dithering algorithm to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,48 +86,75 @@ const BAYER_8X8: [u8; 64] = [
 
 fn apply_ordered_dither(fb: &mut Framebuffer, depth: u8, matrix: &[u8], size: usize) {
     let width = fb.width() as usize;
-    let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
 
     let levels = (1 << depth) - 1;
     let step = 255.0 / levels as f32;
-    // Scale factor for the Bayer matrix to match the step size
-    // matrix value M in [0, N^2-1].
-    // Normalized: M / N^2 - 0.5 (range -0.5 to 0.5 approx)
-    // Offset = Normalized * step
     let matrix_scale = step / (size * size) as f32;
+    let bayer_center = (size * size) as f32 * 0.5;
 
-    for y in 0..height {
+    // Precalculate Bayer row offsets to avoid repeated modulo/multiplication math in the inner loop
+    let mut bayer_offsets = vec![0.0; size * size];
+    for y in 0..size {
+        for x in 0..size {
+            let bayer_val = f32::from(matrix[y * size + x]);
+            bayer_offsets[y * size + x] = (bayer_val - bayer_center) * matrix_scale;
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    let iter = pixels.par_chunks_exact_mut(width);
+    #[cfg(not(feature = "parallel"))]
+    let iter = pixels.chunks_exact_mut(width);
+
+    iter.enumerate().for_each(|(y, row)| {
+        let bayer_y = y % size;
+        let bayer_row_start = bayer_y * size;
+
         for x in 0..width {
-            let idx = y * width + x;
-            let pixel = pixels[idx];
+            let pixel = row[x];
 
-            let bayer_val = f32::from(matrix[(y % size) * size + (x % size)]);
-            // Center the dither around 0 (-0.5 to 0.5 range of step)
-            // Actually, standard formula: val + (bayer/max * step) - (step/2)
-            // Simplified: val + scale * (bayer - limit/2)
-            let offset = (bayer_val - (size * size) as f32 * 0.5) * matrix_scale;
+            let offset = bayer_offsets[bayer_row_start + (x % size)];
 
             let r = ((pixel >> 16) & 0xFF) as f32;
             let g = ((pixel >> 8) & 0xFF) as f32;
             let b = (pixel & 0xFF) as f32;
 
-            let r_new = quantize(r + offset, depth);
-            let g_new = quantize(g + offset, depth);
-            let b_new = quantize(b + offset, depth);
+            let r_new = quantize_fast(r + offset, step);
+            let g_new = quantize_fast(g + offset, step);
+            let b_new = quantize_fast(b + offset, step);
 
-            pixels[idx] = (pixel & 0xFF00_0000)
+            row[x] = (pixel & 0xFF00_0000)
                 | (u32::from(r_new) << 16)
                 | (u32::from(g_new) << 8)
                 | u32::from(b_new);
         }
-    }
+    });
+}
+
+/// Fast inline quantization avoiding powf and heavy float logic
+#[inline(always)]
+fn quantize_fast(val: f32, step: f32) -> u8 {
+    let val = if val < 0.0 {
+        0.0
+    } else if val > 255.0 {
+        255.0
+    } else {
+        val
+    };
+
+    // float-to-int cast is significantly faster than .round()
+    let level = (val / step + 0.5) as i32;
+    ((level as f32 * step) + 0.5) as u8
 }
 
 fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
     let pixels = fb.as_mut_slice();
+
+    let levels = (1 << depth) - 1;
+    let step = 255.0 / levels as f32;
 
     // We need to store errors as floats to accumulate properly?
     // Or just work on pixels directly?
@@ -149,9 +178,9 @@ fn apply_floyd_steinberg(fb: &mut Framebuffer, depth: u8) {
             let g_old = buffer[idx + 1];
             let b_old = buffer[idx + 2];
 
-            let r_new = f32::from(quantize(r_old, depth));
-            let g_new = f32::from(quantize(g_old, depth));
-            let b_new = f32::from(quantize(b_old, depth));
+            let r_new = f32::from(quantize_fast(r_old, step));
+            let g_new = f32::from(quantize_fast(g_old, step));
+            let b_new = f32::from(quantize_fast(b_old, step));
 
             // Write back quantized pixel immediately
             let p_idx = y * width + x;
