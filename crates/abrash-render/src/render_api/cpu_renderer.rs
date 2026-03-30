@@ -196,6 +196,30 @@ impl CpuRenderer {
         })))
     }
 
+    /// Upload a mesh taking ownership of the data, preventing a `clone()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidMesh`] if triangle indices point out of bounds.
+    pub fn create_mesh_owned(&mut self, mesh: Mesh) -> Result<MeshHandle, RenderError> {
+        // Validate all triangle indices are in bounds
+        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+            for &idx in indices {
+                if idx >= mesh.vertices.len() {
+                    return Err(RenderError::InvalidMesh(format!(
+                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                        mesh.vertices.len()
+                    )));
+                }
+            }
+        }
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
+            mesh,
+            shared_indices,
+        })))
+    }
+
     /// Update an existing mesh resource with new data.
     ///
     /// This is used for per-frame updates like vertex skinning.
@@ -240,6 +264,15 @@ impl CpuRenderer {
     /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
+    }
+
+    /// Upload a texture taking ownership of the data, preventing a `clone()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
+    pub fn create_texture_owned(&mut self, texture: Texture) -> Result<TextureHandle, RenderError> {
+        Ok(to_texture_handle(self.textures.insert(texture)))
     }
 
     /// Register a material and return a handle.
