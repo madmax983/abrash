@@ -104,12 +104,10 @@ impl CpuRenderer {
     #[allow(clippy::missing_errors_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
-        let mut draw_list = DrawList::new(frame.camera);
+        // ⚡ Bolt: Provide exact initial capacity to prevent dynamic reallocations when extracting frames.
+        let mut draw_list = DrawList::with_capacity(frame.camera, frame.commands.len());
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
-
-        // Pre-allocate the batches vector if we know how many commands there are
-        draw_list.batches.reserve(frame.commands.len());
 
         for cmd in &frame.commands {
             let cpu_mesh = self

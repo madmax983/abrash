@@ -118,6 +118,17 @@ impl DrawList {
         }
     }
 
+    /// Create an empty draw list with pre-allocated capacity for rendering batches.
+    #[must_use]
+    pub fn with_capacity(camera: FrameCamera, capacity: usize) -> Self {
+        Self {
+            camera,
+            lights: Vec::new(),
+            batches: Vec::with_capacity(capacity),
+            clear_color: Some(0xFF00_0000),
+        }
+    }
+
     /// Append a draw batch.
     pub fn push(&mut self, batch: DrawBatch) {
         self.batches.push(batch);

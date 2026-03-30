@@ -166,3 +166,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+**[Performance Optimization: Exact Pre-allocation for Collections]**
+**Learning:** Creating a collection with `new()` and then calling `.reserve(capacity)` is less optimal than providing a `with_capacity(capacity)` constructor that directly initializes the underlying storage with the correct size in a single step.
+**Action:** Implement `with_capacity` constructors for custom collections (like `DrawList`) when the required capacity is known at instantiation time, preventing dynamic reallocations.
+
+**[Mathematical Approximations vs Correctness]**
+**Learning:** Do not replace standard math functions (like `f32::atan2` or `f32::hypot`) with crude approximations if it alters the program's output logic or sacrifices correctness for speed.
+**Action:** The "Preserve existing logic exactly" rule forbids optimizations that introduce mathematical errors. Always prioritize correctness over micro-optimizations that change behavior.
