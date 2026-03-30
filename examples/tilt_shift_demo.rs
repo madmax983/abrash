@@ -1,8 +1,13 @@
+#[cfg(feature = "backend-win32")]
 use abrash::experimental::tilt_shift::{TiltShiftConfig, apply_tilt_shift};
+#[cfg(feature = "backend-win32")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::Event;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::win32::Win32Window;
 
+#[cfg(feature = "backend-win32")]
 fn generate_procedural_city(fb: &mut Framebuffer) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
@@ -48,6 +53,7 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
     }
 }
 
+#[cfg(feature = "backend-win32")]
 fn main() {
     let width = 800;
     let height = 600;
@@ -92,4 +98,9 @@ fn main() {
 
         window.blit_framebuffer(&fb);
     }
+}
+
+#[cfg(not(feature = "backend-win32"))]
+fn main() {
+    println!("This example requires the `backend-win32` feature to be enabled.");
 }

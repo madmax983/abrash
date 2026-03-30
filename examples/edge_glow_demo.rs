@@ -17,9 +17,8 @@ use std::env;
 use std::time::Duration;
 
 use comfy_table::{Cell, Color, Table, presets};
-#[cfg(feature = "nova")]
+#[cfg(all(feature = "nova", feature = "backend-tui"))]
 use crossterm::event::{self, Event, KeyCode};
-#[cfg(feature = "nova")]
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]

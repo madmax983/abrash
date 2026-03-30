@@ -1,13 +1,20 @@
 //! Demonstration of the Nova Vignette filter.
 
+#[cfg(feature = "backend-win32")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::Event;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::win32::Win32Window;
+#[cfg(feature = "backend-win32")]
 use abrash::post_process::{VignetteConfig, apply_vignette};
 
+#[cfg(feature = "backend-win32")]
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "backend-win32")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "backend-win32")]
 fn print_banner() {
     println!("\n{}", "📷 Vignette Filter Demo".bold().cyan());
     println!("{}", "=======================".dark_grey());
@@ -44,6 +51,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "backend-win32")]
 fn main() {
     print_banner();
     let mut window = Win32Window::new("Vignette Filter Demo (Nova)", 800, 600).unwrap();
@@ -104,4 +112,9 @@ fn main() {
 
         window.blit_framebuffer(&fb);
     }
+}
+
+#[cfg(not(feature = "backend-win32"))]
+fn main() {
+    println!("This example requires the `backend-win32` feature to be enabled.");
 }

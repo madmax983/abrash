@@ -7,15 +7,23 @@
 //! cargo run --example swirl_demo --no-default-features --features "backend-tui parallel nova" --release
 //! ```
 
+#[cfg(feature = "backend-win32")]
 use abrash::experimental::swirl::{SwirlConfig, apply_swirl};
+#[cfg(feature = "backend-win32")]
 use abrash::framebuffer::Framebuffer;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::Event;
+#[cfg(feature = "backend-win32")]
 use abrash::platform::win32::Win32Window;
+#[cfg(feature = "backend-win32")]
 use std::f32::consts::PI;
 
+#[cfg(feature = "backend-win32")]
 use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "backend-win32")]
 use crossterm::style::Stylize;
 
+#[cfg(feature = "backend-win32")]
 fn print_banner() {
     println!("\n{}", "🌀 Swirl Filter Demo".bold().cyan());
     println!("{}", "=====================".dark_grey());
@@ -52,6 +60,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[cfg(feature = "backend-win32")]
 fn main() {
     print_banner();
     let mut window = Win32Window::new("Swirl Demo", 800, 600).unwrap();
@@ -108,4 +117,9 @@ fn main() {
 
         window.blit_framebuffer(&fb);
     }
+}
+
+#[cfg(not(feature = "backend-win32"))]
+fn main() {
+    println!("This example requires the `backend-win32` feature to be enabled.");
 }
