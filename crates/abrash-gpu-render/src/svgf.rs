@@ -117,7 +117,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct AtrousParams {
     pub step_size: i32,
-    pub _pad: [i32; 3],
+    pub(crate) _pad: [i32; 3],
 }
 
 /// SVGF spatial filter: multi-iteration À-Trous wavelet transform.
@@ -138,6 +138,7 @@ pub struct SvgfSpatialFilter {
 impl SvgfSpatialFilter {
     /// Create the SVGF spatial filter.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("SVGF À-Trous Filter"),

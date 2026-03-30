@@ -3,7 +3,7 @@
 //! Generates three GPU textures from an environment cubemap:
 //! 1. **Irradiance map** — diffuse ambient (cosine-weighted hemisphere average)
 //! 2. **Prefiltered environment map** — specular ambient (GGX-filtered per roughness mip)
-//! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → scale + bias)
+//! 3. **BRDF integration LUT** — split-sum lookup (`NdotV` × roughness → scale + bias)
 
 use wgpu::util::DeviceExt;
 
@@ -258,7 +258,7 @@ pub struct IblTextures {
     pub irradiance_view: wgpu::TextureView,
     /// Prefiltered environment cubemap with roughness mips (specular ambient).
     pub prefiltered_view: wgpu::TextureView,
-    /// BRDF integration LUT (NdotV × roughness → scale + bias).
+    /// BRDF integration LUT (`NdotV` × roughness → scale + bias).
     pub brdf_lut_view: wgpu::TextureView,
 
     // Keep textures alive
@@ -271,6 +271,7 @@ impl IblTextures {
     /// Run IBL precomputation on the GPU from an environment cubemap.
     ///
     /// Generates irradiance map, prefiltered env map (5 mip levels), and BRDF LUT.
+    #[must_use]
     pub fn precompute(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -362,6 +363,7 @@ impl IblTextures {
     ///
     /// Used as a fallback when no environment cubemap has been set.
     /// Creates tiny 1×1 textures with zeros — no compute shaders needed.
+    #[must_use]
     pub fn default_black(device: &wgpu::Device) -> Self {
         let make_cube = |label| {
             let tex = device.create_texture(&wgpu::TextureDescriptor {
@@ -509,6 +511,7 @@ impl IblTextures {
         let _ = device.poll(wgpu::PollType::wait_indefinitely());
     }
 
+    #[allow(clippy::too_many_lines)]
     fn dispatch_prefilter(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

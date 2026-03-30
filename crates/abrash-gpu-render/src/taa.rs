@@ -120,7 +120,7 @@ pub struct TaaParams {
     pub jitter: [f32; 2],
     /// History blend factor (0.9 = keep 90% history).
     pub feedback: f32,
-    pub _pad: f32,
+    pub(crate) _pad: f32,
 }
 
 /// Temporal Anti-Aliasing pass.
@@ -292,7 +292,7 @@ impl TaaPass {
     }
 
     /// Advance to the next frame (swap history ↔ output, increment counter).
-    pub fn advance_frame(&mut self) {
+    pub const fn advance_frame(&mut self) {
         std::mem::swap(&mut self.history_texture, &mut self.output_texture);
         std::mem::swap(&mut self.history_view, &mut self.output_view);
         self.frame_index = self.frame_index.wrapping_add(1);

@@ -66,7 +66,7 @@ pub struct FrameUniforms {
     pub view_proj: [f32; 16],
     pub camera_pos: [f32; 4],
     pub light_count: u32,
-    pub _pad: [u32; 3],
+    pub(crate) _pad: [u32; 3],
 }
 
 /// GPU-side light data (48 bytes, bind group 0, binding 1).
@@ -78,7 +78,7 @@ pub struct GpuLightData {
     pub color: [f32; 3],
     pub intensity: f32,
     pub radius: f32,
-    pub _pad: [f32; 3],
+    pub(crate) _pad: [f32; 3],
 }
 
 /// Per-draw uniform data: model matrix + material properties (bind group 1, binding 0).

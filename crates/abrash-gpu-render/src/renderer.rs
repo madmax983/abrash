@@ -129,6 +129,7 @@ pub struct GpuRenderer {
 impl GpuRenderer {
     /// Construct a renderer from an already-created GPU device.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
         let device = gpu.device();
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
@@ -441,10 +442,7 @@ impl GpuRenderer {
                 shininess,
                 specular_strength,
             } => (color, shininess, specular_strength, 0.0, 0.5, None),
-            ShadingMode::Textured { texture } => {
-                (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-            }
-            ShadingMode::TexturedGouraud { texture } => {
+            ShadingMode::Textured { texture } | ShadingMode::TexturedGouraud { texture } => {
                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
             }
             ShadingMode::Pbr {
@@ -524,7 +522,7 @@ impl GpuRenderer {
     ///
     /// When enabled, the projection matrix is jittered per-frame and the result
     /// is temporally resolved via neighborhood-clamped history blending.
-    pub fn set_taa_enabled(&mut self, enabled: bool) {
+    pub const fn set_taa_enabled(&mut self, enabled: bool) {
         self.taa_enabled = enabled;
     }
 
@@ -533,7 +531,7 @@ impl GpuRenderer {
     /// When set to anything other than `DebugMode::None`, the composition pass
     /// replaces the final output with a visualization of the selected G-Buffer
     /// channel or intermediate render target.
-    pub fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
+    pub const fn set_debug_mode(&mut self, mode: crate::composition::DebugMode) {
         self.composition_pass.set_debug_mode(mode);
     }
 
@@ -798,20 +796,14 @@ impl GpuRenderer {
     }
 
     fn ensure_gbuffer(&mut self, width: u32, height: u32) {
-        let needs = match &self.gbuffer {
-            Some(g) => g.width != width || g.height != height,
-            None => true,
-        };
+        let needs = self.gbuffer.as_ref().is_none_or(|g| g.width != width || g.height != height);
         if needs {
             self.gbuffer = Some(GBuffer::new(self.gpu.device(), width, height));
         }
     }
 
     fn ensure_hdr_target(&mut self, width: u32, height: u32) {
-        let needs = match &self.hdr_target {
-            Some(t) => t.width != width || t.height != height,
-            None => true,
-        };
+        let needs = self.hdr_target.as_ref().is_none_or(|t| t.width != width || t.height != height);
         if needs {
             self.hdr_target = Some(crate::postprocess::HdrTarget::new(
                 self.gpu.device(),
@@ -950,6 +942,7 @@ impl GpuRenderer {
     ) -> Result<(), String> {
         use crate::shadow::ShadowMap;
 
+        #[allow(clippy::match_wildcard_for_single_variants)]
         let dir_light = frame.lights.iter().find_map(|l| match l {
             Light::Directional(d) => Some(d),
             _ => None,
@@ -1263,7 +1256,7 @@ impl GpuRenderer {
             // No TAA — return a view of the HDR target
             let hdr = self.hdr_target.as_ref().unwrap();
             return hdr
-                ._texture
+                .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
         }
 
@@ -1271,6 +1264,7 @@ impl GpuRenderer {
 
         // Upload TAA params
         let (jx, jy) = self.taa_pass.current_jitter();
+        #[allow(clippy::tuple_array_conversions)]
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
             jitter: [jx, jy],
