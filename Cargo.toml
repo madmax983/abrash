@@ -621,3 +621,8 @@ harness = false
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "fisheye_bench"
+harness = false
+required-features = ["nova"]

@@ -48,61 +48,77 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
 
-    // Clone the source framebuffer to safely sample non-linear pixel displacements
-    // without aliasing issues (as learned from the Water Ripple and Kaleidoscope filters).
-    let source_pixels = fb.as_slice().to_vec();
-
     // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
     assert_eq!(fb.as_slice().len(), width * height);
 
-    let dest_pixels = fb.as_mut_slice();
+    thread_local! {
+        static SOURCE_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new());
+    }
 
-    let cx = config.center_x * width as f32;
-    let cy = config.center_y * height as f32;
-    let radius2 = config.radius * config.radius;
-    let inv_radius = 1.0 / config.radius;
+    // ⚡ Bolt: Eliminate per-frame memory allocation for Swirl
+    // Use a thread_local! static buffer with RefCell<Vec<u32>>. Resize it to the required
+    // length and use .copy_from_slice() instead of .to_vec(). This effectively reuses the
+    // same allocation across all frames, functioning as a zero-cost double buffer.
+    let mut source_pixels_vec = SOURCE_BUFFER.with(|buf| buf.take());
+    source_pixels_vec.resize(width * height, 0);
+    source_pixels_vec.copy_from_slice(fb.as_slice());
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+    {
+        let source_pixels = source_pixels_vec.as_slice();
+        let dest_pixels = fb.as_mut_slice();
 
-    row_iter.for_each(|(y, row)| {
-        let dy = y as f32 - cy;
-        let dy2 = dy * dy;
+        let cx = config.center_x * width as f32;
+        let cy = config.center_y * height as f32;
+        let radius2 = config.radius * config.radius;
+        let inv_radius = 1.0 / config.radius;
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            let dx = x as f32 - cx;
-            let distance2 = dx * dx + dy2;
+        #[cfg(feature = "parallel")]
+        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
 
-            if distance2 < radius2 {
-                let distance = distance2.sqrt();
-                // Calculate the twist amount: max at center, 0 at radius
-                // Use a linear falloff of the angle
-                let percent = (config.radius - distance) * inv_radius;
-                let theta = percent * percent * config.angle;
+        row_iter.for_each(|(y, row)| {
+            let dy = y as f32 - cy;
+            let dy2 = dy * dy;
 
-                // Using standard sine and cosine
-                let (sin_theta, cos_theta) = theta.sin_cos();
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let dx = x as f32 - cx;
+                let distance2 = dx * dx + dy2;
 
-                // Rotate the coordinate around the center
-                let source_x = cx + (dx * cos_theta - dy * sin_theta);
-                let source_y = cy + (dx * sin_theta + dy * cos_theta);
+                if distance2 < radius2 {
+                    let distance = distance2.sqrt();
+                    // Calculate the twist amount: max at center, 0 at radius
+                    // Use a linear falloff of the angle
+                    let percent = (config.radius - distance) * inv_radius;
+                    let theta = percent * percent * config.angle;
 
-                // Fast float-to-int casts instead of round()
-                let sx = source_x as i32;
-                let sy = source_y as i32;
+                    // Using standard sine and cosine
+                    let (sin_theta, cos_theta) = theta.sin_cos();
 
-                if sx >= 0 && sx < width as i32 && sy >= 0 && sy < height as i32 {
-                    *pixel = source_pixels[(sy as usize) * width + (sx as usize)];
+                    // Rotate the coordinate around the center
+                    let source_x = cx + (dx * cos_theta - dy * sin_theta);
+                    let source_y = cy + (dx * sin_theta + dy * cos_theta);
+
+                    // Fast float-to-int casts instead of round()
+                    let sx = source_x as i32;
+                    let sy = source_y as i32;
+
+                    if sx >= 0 && sx < width as i32 && sy >= 0 && sy < height as i32 {
+                        *pixel = source_pixels[(sy as usize) * width + (sx as usize)];
+                    } else {
+                        *pixel = 0xFF_00_00_00; // Black out of bounds
+                    }
                 } else {
-                    *pixel = 0xFF_00_00_00; // Black out of bounds
+                    // Outside the radius, pixel is unchanged
+                    *pixel = source_pixels[y * width + x];
                 }
-            } else {
-                // Outside the radius, pixel is unchanged
-                *pixel = source_pixels[y * width + x];
             }
-        }
+        });
+    }
+
+    // Put the vector back into the thread_local to reuse the allocation for the next call
+    SOURCE_BUFFER.with(|buf| {
+        buf.replace(source_pixels_vec);
     });
 }
 
