@@ -170,7 +170,7 @@ fn bench_scene_render_integrated_clear(c: &mut Criterion) {
     });
 }
 
-/// Rasterize with integrated clear — measures end_frame clearing ALL tiles.
+/// Rasterize with integrated clear — measures `end_frame` clearing ALL tiles.
 fn bench_rasterize_integrated_clear(c: &mut Criterion) {
     let width = 640;
     let height = 480;

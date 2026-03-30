@@ -63,6 +63,10 @@ ratatui = "0.30.0"
 crossterm = "0.29.0"
 
 [[bench]]
+name = "gamma_correction_bench"
+harness = false
+
+[[bench]]
 name = "math"
 harness = false
 

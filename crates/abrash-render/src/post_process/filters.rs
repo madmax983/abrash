@@ -64,6 +64,41 @@ pub fn apply_grayscale(fb: &mut Framebuffer) {
     apply_grayscale_scalar(pixels);
 }
 
+/// Applies gamma correction to the framebuffer.
+///
+/// Assumes input colors are in linear space, and converts them to gamma space.
+///
+/// # Arguments
+///
+/// * `fb` - The framebuffer to modify in-place.
+/// * `gamma` - The target gamma value (e.g., 2.2).
+pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
+    let inv_gamma = 1.0 / gamma;
+
+    // Precompute a lookup table (LUT) for the 256 possible byte values.
+    // This avoids performing expensive floating-point `powf` math for every channel of every pixel.
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let normalized = (i as f32) / 255.0;
+        *entry = (normalized.powf(inv_gamma) * 255.0).round() as u32;
+        *entry = (*entry).min(255);
+    }
+
+    for pixel in fb.as_mut_slice().iter_mut() {
+        let p = *pixel;
+        let r = ((p >> 16) & 0xFF) as usize;
+        let g = ((p >> 8) & 0xFF) as usize;
+        let b = (p & 0xFF) as usize;
+
+        // Use the LUT to map directly from input byte to output byte
+        let r_out = lut[r];
+        let g_out = lut[g];
+        let b_out = lut[b];
+
+        *pixel = (p & 0xFF00_0000) | (r_out << 16) | (g_out << 8) | b_out;
+    }
+}
+
 fn apply_grayscale_scalar(pixels: &mut [u32]) {
     for pixel in pixels.iter_mut() {
         let p = *pixel;
@@ -209,18 +244,15 @@ pub fn apply_sepia(fb: &mut Framebuffer) {
 fn apply_sepia_scalar(pixels: &mut [u32]) {
     for pixel in pixels.iter_mut() {
         let p = *pixel;
-        let r = (p >> 16) & 0xFF;
-        let g = (p >> 8) & 0xFF;
-        let b = p & 0xFF;
+        let rgb = p & 0x00FF_FFFF;
+        let r = rgb >> 16;
+        let g = (rgb >> 8) & 0xFF;
+        let b = rgb & 0xFF;
 
         // Fixed-point arithmetic (scaled by 1024)
-        let new_r = (SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10;
-        let new_g = (SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10;
-        let new_b = (SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10;
-
-        let new_r = new_r.min(255);
-        let new_g = new_g.min(255);
-        let new_b = new_b.min(255);
+        let new_r = ((SEPIA_R_R * r + SEPIA_R_G * g + SEPIA_R_B * b) >> 10).min(255);
+        let new_g = ((SEPIA_G_R * r + SEPIA_G_G * g + SEPIA_G_B * b) >> 10).min(255);
+        let new_b = ((SEPIA_B_R * r + SEPIA_B_G * g + SEPIA_B_B * b) >> 10).min(255);
 
         *pixel = (p & 0xFF00_0000) | (new_r << 16) | (new_g << 8) | new_b;
     }
@@ -1453,6 +1485,26 @@ mod simd {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_gamma_correction() {
+        use crate::framebuffer::Framebuffer;
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        // Linear middle gray (128)
+        fb.clear(0xFF80_8080);
+
+        apply_gamma_correction(&mut fb, 2.2);
+
+        // Expected value for gamma 2.2: (128/255)^(1/2.2) * 255 ≈ 186
+        for p in fb.as_slice() {
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
+            assert_eq!(r, 186);
+            assert_eq!(g, 186);
+            assert_eq!(b, 186);
+        }
+    }
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
