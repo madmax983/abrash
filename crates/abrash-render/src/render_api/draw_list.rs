@@ -42,7 +42,7 @@ pub struct DrawBatch {
     /// [`TileRenderer::submit_mesh`]: crate::rasterizer::TileRenderer::submit_mesh
     pub vertices: Vec<(Vec3, f32)>,
     /// Triangle index buffer. Each `[v0, v1, v2]` triplet indexes into `vertices`.
-    pub indices: Vec<[usize; 3]>,
+    pub indices: std::sync::Arc<[[usize; 3]]>,
     /// Flat surface color (0xAARRGGBB).
     ///
     /// For the CPU path this is passed directly to `submit_mesh`. A GPU backend
@@ -53,7 +53,7 @@ pub struct DrawBatch {
 impl DrawBatch {
     /// Create a new draw batch.
     #[must_use]
-    pub const fn new(vertices: Vec<(Vec3, f32)>, indices: Vec<[usize; 3]>, color: u32) -> Self {
+    pub const fn new(vertices: Vec<(Vec3, f32)>, indices: std::sync::Arc<[[usize; 3]]>, color: u32) -> Self {
         Self {
             vertices,
             indices,
@@ -156,7 +156,7 @@ mod tests {
         let mut dl = DrawList::new(test_camera());
         let batch = DrawBatch::new(
             vec![(Vec3::new(0.0, 0.0, 0.0), 1.0)],
-            vec![[0, 0, 0]],
+            std::sync::Arc::new([[0, 0, 0]]),
             0xFFFF_0000,
         );
         dl.push(batch);
@@ -170,13 +170,13 @@ mod tests {
         // Batch with 2 triangles
         dl.push(DrawBatch::new(
             vec![],
-            vec![[0, 1, 2], [3, 4, 5]],
+            std::sync::Arc::new([[0, 1, 2], [3, 4, 5]]),
             0xFFFF_0000,
         ));
         // Batch with 3 triangles
         dl.push(DrawBatch::new(
             vec![],
-            vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]],
+            std::sync::Arc::new([[0, 1, 2], [3, 4, 5], [6, 7, 8]]),
             0xFF00_FF00,
         ));
         assert_eq!(dl.triangle_count(), 5);
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_draw_batch_new() {
         let verts = vec![(Vec3::new(1.0, 2.0, 3.0), 1.0)];
-        let indices = vec![[0usize, 0, 0]];
+        let indices: std::sync::Arc<[[usize; 3]]> = std::sync::Arc::new([[0usize, 0, 0]]);
         let batch = DrawBatch::new(verts, indices, 0xFFFF_FFFF);
         assert_eq!(batch.vertices.len(), 1);
         assert_eq!(batch.indices.len(), 1);

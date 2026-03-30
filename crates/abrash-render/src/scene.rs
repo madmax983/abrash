@@ -86,6 +86,8 @@ use std::sync::Arc;
 pub struct SceneObject {
     /// The geometric mesh data.
     pub mesh: Arc<Mesh>,
+    /// Shared copy of indices to avoid per-frame cloning
+    pub shared_indices: std::sync::Arc<[[usize; 3]]>,
     /// The object's transformation matrix (Model Matrix).
     pub transform: Mat4,
     /// The object's Axis-Aligned Bounding Box in Local Space.
@@ -101,8 +103,10 @@ impl SceneObject {
     #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Self {
             mesh,
+            shared_indices,
             transform,
             local_aabb,
             color,
@@ -256,7 +260,7 @@ impl Scene {
 
                 draw_list.push(DrawBatch::new(
                     transformed_verts.clone(),
-                    mesh.indices.clone(),
+                    obj.shared_indices.clone(),
                     obj.color,
                 ));
             }
