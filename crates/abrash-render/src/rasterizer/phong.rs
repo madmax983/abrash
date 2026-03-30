@@ -420,8 +420,8 @@ unsafe fn draw_scanline_point_lit_simd(
         _mm256_blendv_ps, _mm256_castps_si256, _mm256_cmp_ps, _mm256_cvttps_epi32, _mm256_div_ps,
         _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_max_ps, _mm256_min_ps,
         _mm256_movemask_ps, _mm256_mul_ps, _mm256_or_si256, _mm256_rsqrt_ps, _mm256_set_ps,
-        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32,
-        _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_ps,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_slli_epi32, _mm256_storeu_ps,
+        _mm256_storeu_si256, _mm256_sub_ps,
     };
 
     let len = fb_slice.len();
