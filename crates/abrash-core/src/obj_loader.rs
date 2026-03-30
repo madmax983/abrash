@@ -28,7 +28,6 @@
 use crate::math::{Vec2, Vec3};
 use crate::mesh::Mesh;
 use std::collections::HashMap;
-use std::hash::{BuildHasherDefault, Hasher};
 
 const MAX_VERTICES: usize = 1_000_000;
 const MAX_FACES: usize = 1_000_000;
@@ -61,40 +60,6 @@ impl VertexKey {
     }
 }
 
-/// A fast integer hasher tailored for `VertexKey` (which is a wrapper around `u64`).
-/// This avoids the overhead of `SipHash` for simple vertex deduplication lookups.
-#[derive(Default)]
-struct FastU64Hasher(u64);
-
-impl Hasher for FastU64Hasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        // Fallback for completeness, though our key uses write_u64 directly
-        let mut x = self.0;
-        for &b in bytes {
-            x = x.rotate_left(8) ^ u64::from(b);
-            x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        }
-        self.0 = x;
-    }
-
-    #[inline]
-    fn write_u64(&mut self, i: u64) {
-        // Quick avalanche to spread the bits
-        let mut x = i;
-        x ^= x >> 30;
-        x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        x ^= x >> 27;
-        x = x.wrapping_mul(0x94d0_49bb_1331_11eb);
-        x ^= x >> 31;
-        self.0 = x;
-    }
-}
 
 fn parse_float_component(
     parts: &mut std::str::SplitAsciiWhitespace,
@@ -123,7 +88,7 @@ struct ObjParser {
     final_uvs: Vec<Vec2>,
     final_normals: Vec<Vec3>,
     final_indices: Vec<[usize; 3]>,
-    deduplicator: HashMap<VertexKey, usize, BuildHasherDefault<FastU64Hasher>>,
+    deduplicator: HashMap<VertexKey, usize>,
     face_indices: Vec<usize>,
 }
 
@@ -184,10 +149,7 @@ impl ObjParser {
             final_uvs: Vec::with_capacity(estimated_capacity),
             final_normals: Vec::with_capacity(estimated_capacity),
             final_indices: Vec::with_capacity(estimated_capacity),
-            deduplicator: HashMap::with_capacity_and_hasher(
-                estimated_capacity,
-                BuildHasherDefault::default(),
-            ),
+            deduplicator: HashMap::with_capacity(estimated_capacity),
             face_indices: Vec::with_capacity(4),
         }
     }
