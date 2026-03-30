@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+**[Performance Optimization: Fast Trigonometric Approximations in Visual Effects]**
+**Learning:** In hot per-pixel manipulation loops (e.g., visual effects like VHS wobble, water ripples, or L-System procedural generation) where exact precision is not critical, standard library trigonometric functions (`f32::sin`, `f32::cos`) are unnecessarily slow.
+**Action:** Replace `f32::sin` and `f32::cos` with zero-cost polynomial approximations like `abrash_core::math::fast_sin` and `abrash_core::math::fast_sin_cos`. This significantly improves rendering performance without noticeably affecting the visual output.

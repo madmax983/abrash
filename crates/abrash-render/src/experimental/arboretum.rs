@@ -59,8 +59,7 @@ impl Turtle {
 /// Rotates vector `v` around axis `k` by `theta` radians using Rodrigues' rotation formula.
 /// k must be a unit vector.
 fn rotate_vector(v: Vec3, k: Vec3, theta: f32) -> Vec3 {
-    let cos_theta = theta.cos();
-    let sin_theta = theta.sin();
+    let (sin_theta, cos_theta) = abrash_core::math::fast_sin_cos(theta);
 
     // Term 1: v * cos(theta)
     let t1 = v * cos_theta;

@@ -74,8 +74,9 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
                 // Calculate displacement amount using a sine wave based on distance and phase
                 // Dampen the amplitude based on distance to the edge of the radius
                 let damping = 1.0 - (distance / max_radius_px);
-                let amount =
-                    (distance * inv_freq - config.phase).sin() * config.amplitude * damping;
+                let amount = crate::math::fast_sin(distance * inv_freq - config.phase)
+                    * config.amplitude
+                    * damping;
 
                 // Displacement vector (normalized dx, dy)
                 let inv_dist = if distance > 0.0 { 1.0 / distance } else { 0.0 };

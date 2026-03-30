@@ -119,7 +119,7 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                     1.0 - (dist_to_center / tracking_half_thickness as f32).clamp(0.0, 1.0);
 
                 // Add a sine wave oscillation to the shift for a "wobble" effect
-                let wobble = (config.time * 10.0 + y as f32 * 0.1).sin();
+                let wobble = crate::math::fast_sin(config.time * 10.0 + y as f32 * 0.1);
 
                 let mut h_shift = (wobble * max_horizontal_shift as f32 * band_intensity) as i32;
 
