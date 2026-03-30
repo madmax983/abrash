@@ -19,6 +19,9 @@ const SEPIA_B_R: u32 = 279;
 const SEPIA_B_G: u32 = 547;
 const SEPIA_B_B: u32 = 134;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 thread_local! {
     static CA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -698,7 +701,12 @@ fn apply_vignette_scalar(
 
     // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
     // Iterate over chunks instead of doing index calculations inside the hot loop.
-    for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
+    #[cfg(feature = "parallel")]
+    let iter = pixels.par_chunks_exact_mut(width).take(height).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = pixels.chunks_exact_mut(width).take(height).enumerate();
+
+    iter.for_each(|(y, row)| {
         let dy = y as f32 - center_y;
         let dy_sq = dy * dy;
 
@@ -729,7 +737,7 @@ fn apply_vignette_scalar(
 
             *p_ref = a | (new_r << 16) | (new_g << 8) | new_b;
         }
-    }
+    });
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
@@ -1367,85 +1375,128 @@ mod simd {
 
         let alpha_mask = _mm256_set1_epi32(0xFF00_0000u32 as i32);
 
-        for y in 0..height {
-            let dy = y as f32 - center_y;
-            let dy_sq = dy * dy;
-            let dy_sq_vec = _mm256_set1_ps(dy_sq);
+        #[cfg(feature = "parallel")]
+        let iter = pixels.par_chunks_exact_mut(width).take(height).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let iter = pixels.chunks_exact_mut(width).take(height).enumerate();
 
-            let row_start = y * width;
-            let mut ptr = unsafe { pixels.as_mut_ptr().add(row_start) };
-
-            let mut x = 0;
-            while x + 8 <= width {
-                let x_base = _mm256_set1_ps(x as f32);
-                let x_coords = _mm256_add_ps(x_base, x_offsets);
-                let dx = _mm256_sub_ps(x_coords, center_x_vec);
-                let dx_sq = _mm256_mul_ps(dx, dx);
-                let dist_sq = _mm256_add_ps(dx_sq, dy_sq_vec);
-
-                let term = _mm256_mul_ps(intensity_vec, _mm256_mul_ps(dist_sq, inv_max_vec));
-                let factor = _mm256_sub_ps(one_f, term);
-                let factor_clamped = _mm256_max_ps(zero_f, _mm256_min_ps(one_f, factor));
-
-                // Convert to fixed point 0..256
-                let factor_256 = _mm256_mul_ps(factor_clamped, scale_256);
-                let factor_i32 = _mm256_cvttps_epi32(factor_256);
-
-                // Create weights
-                // Broadcast F0..F3 to both lanes for weights_lo
-                let factor_lo_lanes = _mm256_permute4x64_epi64(factor_i32, 0x44);
-                // Broadcast F4..F7 to both lanes for weights_hi
-                let factor_hi_lanes = _mm256_permute4x64_epi64(factor_i32, 0xEE);
-
-                let weights_lo = _mm256_shuffle_epi8(factor_lo_lanes, factors_lo_indices);
-                let weights_hi = _mm256_shuffle_epi8(factor_hi_lanes, factors_lo_indices);
-
-                // Load and process pixels
-                let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
-                let p_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(chunk));
-                let p_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(chunk, 1));
-
-                let res_lo = _mm256_mullo_epi16(p_lo, weights_lo);
-                let res_hi = _mm256_mullo_epi16(p_hi, weights_hi);
-
-                let res_lo_sh = _mm256_srli_epi16(res_lo, 8);
-                let res_hi_sh = _mm256_srli_epi16(res_hi, 8);
-
-                let packed = _mm256_packus_epi16(res_lo_sh, res_hi_sh);
-                let final_pixels = _mm256_permute4x64_epi64(packed, 0xD8);
-
-                let orig_alphas = _mm256_and_si256(chunk, alpha_mask);
-                let color_mod = _mm256_andnot_si256(alpha_mask, final_pixels);
-                let result = _mm256_or_si256(color_mod, orig_alphas);
-
-                unsafe { _mm256_storeu_si256(ptr.cast(), result) };
-
-                ptr = unsafe { ptr.add(8) };
-                x += 8;
+        iter.for_each(|(y, row)| {
+            unsafe {
+                apply_vignette_avx2_row(
+                    row.as_mut_ptr(),
+                    y,
+                    width,
+                    center_x,
+                    center_y,
+                    inv_max_dist_sq,
+                    intensity,
+                    center_x_vec,
+                    inv_max_vec,
+                    intensity_vec,
+                    one_f,
+                    zero_f,
+                    scale_256,
+                    x_offsets,
+                    factors_lo_indices,
+                    alpha_mask,
+                );
             }
+        });
+    }
 
-            // Tail
-            while x < width {
-                let dx = x as f32 - center_x;
-                let dist_sq = dx * dx + dy_sq;
-                let normalized_dist_sq = dist_sq * inv_max_dist_sq;
-                let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+    #[target_feature(enable = "avx2")]
+    unsafe fn apply_vignette_avx2_row(
+        mut ptr: *mut u32,
+        y: usize,
+        width: usize,
+        center_x: f32,
+        center_y: f32,
+        inv_max_dist_sq: f32,
+        intensity: f32,
+        center_x_vec: __m256,
+        inv_max_vec: __m256,
+        intensity_vec: __m256,
+        one_f: __m256,
+        zero_f: __m256,
+        scale_256: __m256,
+        x_offsets: __m256,
+        factors_lo_indices: __m256i,
+        alpha_mask: __m256i,
+    ) {
+        let dy = y as f32 - center_y;
+        let dy_sq = dy * dy;
+        let dy_sq_vec = _mm256_set1_ps(dy_sq);
 
-                let p = unsafe { *ptr };
-                let a = p & 0xFF00_0000;
-                let r = ((p >> 16) & 0xFF) as f32;
-                let g = ((p >> 8) & 0xFF) as f32;
-                let b = (p & 0xFF) as f32;
+        let mut x = 0;
+        while x + 8 <= width {
+            let x_base = _mm256_set1_ps(x as f32);
+            let x_coords = _mm256_add_ps(x_base, x_offsets);
+            let dx = _mm256_sub_ps(x_coords, center_x_vec);
+            let dx_sq = _mm256_mul_ps(dx, dx);
+            let dist_sq = _mm256_add_ps(dx_sq, dy_sq_vec);
 
-                let new_r = (r * factor) as u32;
-                let new_g = (g * factor) as u32;
-                let new_b = (b * factor) as u32;
+            let term = _mm256_mul_ps(intensity_vec, _mm256_mul_ps(dist_sq, inv_max_vec));
+            let factor = _mm256_sub_ps(one_f, term);
+            let factor_clamped = _mm256_max_ps(zero_f, _mm256_min_ps(one_f, factor));
 
-                unsafe { *ptr = a | (new_r << 16) | (new_g << 8) | new_b };
+            // Convert to fixed point 0..256
+            let factor_256 = _mm256_mul_ps(factor_clamped, scale_256);
+            let factor_i32 = _mm256_cvttps_epi32(factor_256);
 
-                ptr = unsafe { ptr.add(1) };
-                x += 1;
-            }
+            // Create weights
+            // Broadcast F0..F3 to both lanes for weights_lo
+            let factor_lo_lanes = _mm256_permute4x64_epi64(factor_i32, 0x44);
+            // Broadcast F4..F7 to both lanes for weights_hi
+            let factor_hi_lanes = _mm256_permute4x64_epi64(factor_i32, 0xEE);
+
+            let weights_lo = _mm256_shuffle_epi8(factor_lo_lanes, factors_lo_indices);
+            let weights_hi = _mm256_shuffle_epi8(factor_hi_lanes, factors_lo_indices);
+
+            // Load and process pixels
+            let chunk = _mm256_loadu_si256(ptr.cast());
+            let p_lo = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(chunk));
+            let p_hi = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(chunk, 1));
+
+            let res_lo = _mm256_mullo_epi16(p_lo, weights_lo);
+            let res_hi = _mm256_mullo_epi16(p_hi, weights_hi);
+
+            let res_lo_sh = _mm256_srli_epi16(res_lo, 8);
+            let res_hi_sh = _mm256_srli_epi16(res_hi, 8);
+
+            let packed = _mm256_packus_epi16(res_lo_sh, res_hi_sh);
+            let final_pixels = _mm256_permute4x64_epi64(packed, 0xD8);
+
+            let orig_alphas = _mm256_and_si256(chunk, alpha_mask);
+            let color_mod = _mm256_andnot_si256(alpha_mask, final_pixels);
+            let result = _mm256_or_si256(color_mod, orig_alphas);
+
+            _mm256_storeu_si256(ptr.cast(), result);
+
+            ptr = ptr.add(8);
+            x += 8;
+        }
+
+        // Tail
+        while x < width {
+            let dx = x as f32 - center_x;
+            let dist_sq = dx * dx + dy_sq;
+            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
+            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+
+            let p = *ptr;
+            let a = p & 0xFF00_0000;
+            let r = ((p >> 16) & 0xFF) as f32;
+            let g = ((p >> 8) & 0xFF) as f32;
+            let b = (p & 0xFF) as f32;
+
+            let new_r = (r * factor) as u32;
+            let new_g = (g * factor) as u32;
+            let new_b = (b * factor) as u32;
+
+            *ptr = a | (new_r << 16) | (new_g << 8) | new_b;
+
+            ptr = ptr.add(1);
+            x += 1;
         }
     }
 }
