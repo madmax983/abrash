@@ -103,7 +103,9 @@ impl SceneObject {
     #[must_use]
     pub fn new(mesh: Arc<Mesh>, transform: Mat4, color: u32) -> Self {
         let local_aabb = AABB::from_points(&mesh.vertices);
-        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
+        // Use `as_slice()` directly to avoid a redundant `Vec` heap allocation and copy when creating an `Arc<[T]>`.
+        // Expected impact: Removes 1 full mesh data heap allocation per `SceneObject`.
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Self {
             mesh,
             transform,

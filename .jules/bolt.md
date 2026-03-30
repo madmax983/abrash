@@ -148,3 +148,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Eliminate Bounds Checks with iter_mut().enumerate()]**
 **Learning:** In hot pixel loops that write to exactly-sized slices (like `row`), manual indexing (`for x in 0..width { row[x] = ... }`) incurs per-pixel bounds checks. Replacing this with `row.iter_mut().enumerate()` provides the index while allowing the compiler to mathematically prove safety and elide bounds checks.
 **Action:** Always prefer `for (i, p) in row.iter_mut().enumerate()` when you need both the index and mutable access to a 1D slice or sub-slice.
+
+**[Eliminating Redundant Vec Clones before Arc Creation]**
+**Learning:** Using `std::sync::Arc::from(vec.clone().into_boxed_slice())` is extremely inefficient. It performs a full `Vec` heap allocation and data copy, only to have `Arc::from()` allocate *another* block of memory (to store the ref count alongside the data) and copy the elements a second time, immediately dropping the temporary vector.
+**Action:** Use `std::sync::Arc::from(vec.as_slice())` instead. This directly allocates the required `Arc` backing storage and performs a single copy from the original slice, completely eliding the intermediate heap allocation.

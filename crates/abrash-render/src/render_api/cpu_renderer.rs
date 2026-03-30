@@ -156,7 +156,9 @@ impl Renderer for CpuRenderer {
                 }
             }
         }
-        let shared_indices = std::sync::Arc::from(mesh.indices.clone().into_boxed_slice());
+        // Use `as_slice()` directly to avoid a redundant `Vec` heap allocation and copy when creating an `Arc<[T]>`.
+        // Expected impact: Removes 1 full mesh data heap allocation per `CpuMesh`.
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
         Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
             mesh: mesh.clone(),
             shared_indices,
