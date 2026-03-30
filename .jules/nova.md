@@ -142,3 +142,8 @@
 **Concept:** A retro post-processing effect that blurs the top and bottom of the image while keeping a central focal band sharp, simulating a miniature faking effect.
 **Fate:** Implemented
 **Lesson:** Using a thread-local context with zero-initialized buffers (`Vec::resize`) allows zero-allocation per frame execution. Leveraging separable box blur and a smoothstep transition (`t * t * (3.0 - 2.0 * t)`) effectively models depth of field transitions. Rayon's `par_chunks_exact_mut` allows fast per-row blending against the pre-blurred image slice.
+
+## [SVG Wireframe Exporter]
+**Concept:** A utility to export a 3D `Mesh` to an SVG wireframe file, applying camera transformations and projection to generate a 2D resolution-independent vector graphic.
+**Fate:** Implemented
+**Lesson:** Exporting to SVG is incredibly lightweight in pure Rust using `std::fmt::Write`. By re-using existing `Mat4` projection logic and basic vertex rejection (`W <= 0.0`), you can trivially bridge 3D rendering algorithms into the scalable vector graphic ecosystem without adding heavy XML generation dependencies.

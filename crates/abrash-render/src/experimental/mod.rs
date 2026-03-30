@@ -67,3 +67,4 @@ pub mod voxelizer;
 pub mod water_ripple;
 pub mod wobble;
 pub mod ascii_export;
+pub mod svg_export;
