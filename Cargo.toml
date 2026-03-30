@@ -21,7 +21,6 @@ simd = []
 parallel = ["abrash-render/parallel", "abrash-core/parallel", "dep:rayon"]
 backend-winit = ["dep:winit", "dep:softbuffer"]
 gpu-render = ["dep:abrash-gpu-render", "dep:winit"]
-gpu-engine-compare = ["gpu-render", "dep:bevy", "dep:fyrox"]
 backend-win32 = ["dep:windows-sys"]
 backend-tui = ["dep:crossterm", "dep:ratatui", "dep:windows-sys", "abrash-render/backend-tui"]
 backend-wasm = ["dep:ratzilla", "dep:ratatui", "abrash-render/backend-wasm"]
@@ -38,7 +37,6 @@ abrash-gpu-render = { path = "crates/abrash-gpu-render", optional = true }
 winit = { version = "0.29.15", optional = true }
 softbuffer = { version = "0.4.8", optional = true }
 bevy = { version = "0.18.0", default-features = false, optional = true }
-fyrox = { version = "1.0.0-rc.2", default-features = false, features = ["fyrox-impl"], optional = true }
 
 # Win32 API bindings
 windows-sys = { version = "0.59", optional = true, features = [
@@ -269,11 +267,6 @@ harness = false
 name = "gpu_render"
 harness = false
 required-features = ["gpu-render"]
-
-[[bench]]
-name = "gpu_engine_compare"
-harness = false
-required-features = ["gpu-engine-compare"]
 
 [[bench]]
 name = "phong_shading"
