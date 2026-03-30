@@ -15,3 +15,11 @@
 **[Validating Unreachable Guards]
 **Learning:** To verify internal `unreachable!()` or panic safety guards against corrupted state, write unit tests in the same module (`mod tests`) to access private fields, intentionally mutate the internal state to simulate the illegal condition, and assert the guard triggers using `#[should_panic(expected = "...")]`.
 **Action:** Always write a corresponding `#[should_panic]` test for any defensive `unreachable!()` statements that check internal invariants, directly testing the explosion.
+
+**fast_sin_cos Approximation Tests**
+**Learning:** `fast_sin_cos` uses a fixed-point and parabolic approximation that can deviate significantly from `std::f32::consts::PI` multiples. When asserting values derived from it (like `(s, c)` for exact 0.0 or 1.0), precision bounds must be generously relaxed to `1e-3` or `1e-4` to avoid flaky tests, unlike `std::f32::EPSILON`.
+**Action:** Always use specific, relaxed epsilon bounds when testing approximate trigonometric functions, and never test them against strict integer floats using `assert_eq!`.
+
+**Trilinear Texture Fixed Point Boundary Checks**
+**Learning:** When testing fixed-point (24.8) trilinear texture sampling (`get_pixel_trilinear_fixed`), the input UV coordinates are scaled up by 256.0. An input of `32768` (0.5 * 65536) shifted right by 8 yields `128`. Because `get_pixel_bilinear_fixed_no_offset` subtracts `128` to center the sample, this effectively targets texel `(0, 0)`, not `(2, 2)`.
+**Action:** When writing texture sampling tests, explicitly calculate the target texel coordinate relative to the fixed-point shift offset rather than assuming a `[0, 1]` UV mapping logic.

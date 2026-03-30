@@ -78,14 +78,14 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     use std::f32::consts::PI;
 
     // Wrap x to [-PI, PI]
-    let inv_twopi = 0.15915494; // 1.0 / (2.0 * PI)
+    let inv_twopi = 0.159_154_94; // 1.0 / (2.0 * PI)
     let y = (x * inv_twopi).round();
     x -= y * (2.0 * PI);
 
     // Compute sine using parabolic approximation
     // sin(x) ≈ 4/PI * x - 4/PI^2 * x * |x|
     let x_abs = x.abs();
-    let mut sin_x = 1.27323954 * x - 0.40528473 * x * x_abs;
+    let mut sin_x = 1.273_239_54 * x - 0.405_284_73 * x * x_abs;
 
     // Additional precision step (optional but good for graphics)
     // sin(x) ≈ 0.225 * (sin_x * |sin_x| - sin_x) + sin_x
@@ -99,7 +99,7 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     }
 
     let x_cos_abs = x_cos.abs();
-    let mut cos_x = 1.27323954 * x_cos - 0.40528473 * x_cos * x_cos_abs;
+    let mut cos_x = 1.273_239_54 * x_cos - 0.405_284_73 * x_cos * x_cos_abs;
     let cos_x_abs = cos_x.abs();
     cos_x = 0.225 * (cos_x * cos_x_abs - cos_x) + cos_x;
 
@@ -118,6 +118,7 @@ pub fn fast_cos(x: f32) -> f32 {
     fast_sin_cos(x).1
 }
 
+#[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
     // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
@@ -2479,8 +2480,79 @@ mod tests_fast_sin {
             let s = rad.sin();
             let c = rad.cos();
 
-            assert!((fs - s).abs() < 0.005, "sin mismatch at {}: {} vs {}", i, fs, s);
-            assert!((fc - c).abs() < 0.005, "cos mismatch at {}: {} vs {}", i, fc, c);
+            assert!((fs - s).abs() < 0.005, "sin mismatch at {i}: {fs} vs {s}");
+            assert!((fc - c).abs() < 0.005, "cos mismatch at {i}: {fc} vs {c}");
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::math::*;
+    use std::f32::consts::PI;
+
+    #[test]
+    fn test_fast_sin_cos_extreme_values() {
+        let (s, c) = fast_sin_cos(0.0);
+        assert!(s.abs() < 1e-4);
+        assert!((c - 1.0).abs() < 1e-4);
+
+        let (s, c) = fast_sin_cos(PI * 4.0); // Wrap around
+        assert!(s.abs() < 1e-4);
+        assert!((c - 1.0).abs() < 1e-4);
+
+        let (s, c) = fast_sin_cos(-PI * 4.0); // Negative wrap around
+        assert!(s.abs() < 1e-4);
+        assert!((c - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_fast_sin_cos_pi_multiples() {
+        let (s, c) = fast_sin_cos(PI);
+        assert!(s.abs() < 1e-3);
+        assert!((c - (-1.0)).abs() < 1e-3);
+
+        let (s, c) = fast_sin_cos(PI / 2.0);
+        assert!((s - 1.0).abs() < 1e-3);
+        assert!(c.abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_fast_sin_standalone() {
+        assert!(fast_sin(0.0).abs() < 1e-4);
+        assert!((fast_sin(PI / 2.0) - 1.0).abs() < 1e-3);
+        assert!(fast_sin(PI).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_fast_cos_standalone() {
+        assert!((fast_cos(0.0) - 1.0).abs() < 1e-4);
+        assert!(fast_cos(PI / 2.0).abs() < 1e-3);
+        assert!((fast_cos(PI) - (-1.0)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_fast_inv_sqrt() {
+        let cases = [0.1, 1.0, 4.0, 16.0, 100.0];
+        for &c in &cases {
+            let approx = fast_inv_sqrt(c);
+            let exact = 1.0 / c.sqrt();
+            let err = (approx - exact).abs() / exact;
+            assert!(err < 0.05, "fast_inv_sqrt({c}) err {err} > 5%");
+        }
+
+        // Edge cases
+        // 0.0 is technically infinity, just ensure no panic
+        let _ = fast_inv_sqrt(0.0);
+    }
+
+    #[test]
+    fn test_vec4_lerp() {
+        let v1 = Vec4::new(0.0, 10.0, -10.0, 1.0);
+        let v2 = Vec4::new(10.0, 0.0, 10.0, 2.0);
+        let lerped = v1.lerp(v2, 0.5);
+        assert!((lerped.x - 5.0).abs() < f32::EPSILON);
+        assert!((lerped.y - 5.0).abs() < f32::EPSILON);
+        assert!((lerped.z - 0.0).abs() < f32::EPSILON);
+        assert!((lerped.w - 1.5).abs() < f32::EPSILON);
     }
 }

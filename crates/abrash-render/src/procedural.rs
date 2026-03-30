@@ -86,8 +86,10 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
 
             // Map to a psychedelic palette
             let r = (crate::math::fast_sin(normalized * std::f32::consts::PI).abs() * 255.0) as u32;
-            let g = (crate::math::fast_sin((normalized * std::f32::consts::PI) + 2.0).abs() * 255.0) as u32;
-            let b = (crate::math::fast_sin((normalized * std::f32::consts::PI) + 4.0).abs() * 255.0) as u32;
+            let g = (crate::math::fast_sin((normalized * std::f32::consts::PI) + 2.0).abs() * 255.0)
+                as u32;
+            let b = (crate::math::fast_sin((normalized * std::f32::consts::PI) + 4.0).abs() * 255.0)
+                as u32;
 
             let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
             tex.set_pixel(x, y, color);
