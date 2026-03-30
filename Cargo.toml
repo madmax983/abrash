@@ -612,3 +612,8 @@ harness = false
 [[bench]]
 name = "raycast_bench"
 harness = false
+
+[[bench]]
+name = "halftone_bench"
+harness = false
+required-features = ["nova"]

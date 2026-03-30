@@ -1,0 +1,7 @@
+apply_halftone 1080p (dot_size=4.0, angle=PI/4)
+                        time:   [22.104 ms 22.159 ms 22.218 ms]
+                        change: [+57.895% +58.338% +58.878%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe

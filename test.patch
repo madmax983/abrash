@@ -1,0 +1,9 @@
+<<<<<<< SEARCH
+            // Using fast inverse multiplication instead of division
+            let cx = (rx * inv_dot_size).round() * dot_size;
+            let cy = (ry * inv_dot_size).round() * dot_size;
+=======
+            // Using fast inverse multiplication and fast float-to-int casts instead of division and round
+            let cx = ((rx * inv_dot_size) + 0.5) as i32 as f32 * dot_size;
+            let cy = ((ry * inv_dot_size) + 0.5) as i32 as f32 * dot_size;
+>>>>>>> REPLACE

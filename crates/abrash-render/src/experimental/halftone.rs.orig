@@ -49,12 +49,6 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             // Multiplying by inverse of 255 (approx 0.00392156) avoids division in hot loop.
             let lum = (0.299 * r + 0.587 * g + 0.114 * b) * 0.003_921_568_6;
 
-            // Fast path for white: if pixel is bright enough, don't calculate distance
-            if lum >= 0.999 {
-                *pixel = 0xFFFF_FFFF;
-                continue;
-            }
-
             // Map (x, y) to the rotated grid coordinates
             let x_f32 = x as f32;
             let rx = x_f32 * cos_a - y_sin_a;
@@ -74,6 +68,8 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dot_radius_sq = (1.0 - lum).max(0.0) * max_dist_sq;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
+            // When lum >= 1.0, dot_radius_sq is 0.0. Since dist_sq is >= 0.0, the
+            // condition `dist_sq < 0.0` will be false, and it will be white.
             *pixel = if dist_sq < dot_radius_sq {
                 0xFF00_0000 // Black
             } else {

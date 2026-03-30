@@ -1,0 +1,11 @@
+--- halftone.rs
++++ halftone.rs
+@@ -74,7 +74,7 @@
+             let dot_radius_sq = (1.0 - lum).max(0.0) * max_dist_sq;
+
+             // If the pixel is inside the dot radius, it's black. Otherwise, white.
+-            *pixel = if dist_sq < dot_radius_sq && lum < 0.99 {
++            *pixel = if dist_sq < dot_radius_sq && lum < 0.9999 {
+                 0xFF00_0000 // Black
+             } else {
+                 0xFFFF_FFFF // White
