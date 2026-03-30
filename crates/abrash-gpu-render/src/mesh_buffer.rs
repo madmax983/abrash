@@ -240,6 +240,7 @@ mod tests {
 
         // Generated normals should be unit-length
         for v in &vertices {
+            #[allow(clippy::suboptimal_flops)]
             let len = (v.normal[0].powi(2) + v.normal[1].powi(2) + v.normal[2].powi(2)).sqrt();
             assert!(
                 (len - 1.0).abs() < 0.01,

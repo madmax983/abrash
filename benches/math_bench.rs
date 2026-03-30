@@ -6,32 +6,32 @@ fn bench_sin(c: &mut Criterion) {
 
     // Use an immutable array so the benchmark doesn't optimize it to `0` or out-of-bounds math over iterations
     c.bench_function("std_sin_loop", |b| b.iter(|| {
-        for &val in data.iter() {
+        for &val in &data {
             black_box(val.sin());
         }
     }));
 
     c.bench_function("fast_sin_loop", |b| b.iter(|| {
-        for &val in data.iter() {
+        for &val in &data {
             black_box(fast_sin(val));
         }
     }));
 
     c.bench_function("std_sin_cos_loop", |b| b.iter(|| {
-        for &val in data.iter() {
+        for &val in &data {
             black_box(val.sin() + val.cos());
         }
     }));
 
     c.bench_function("std_sin_cos_pair_loop", |b| b.iter(|| {
-        for &val in data.iter() {
+        for &val in &data {
             let (s, c) = val.sin_cos();
             black_box(s + c);
         }
     }));
 
     c.bench_function("fast_sin_cos_loop", |b| b.iter(|| {
-        for &val in data.iter() {
+        for &val in &data {
             let (s, c) = fast_sin_cos(val);
             black_box(s + c);
         }

@@ -73,24 +73,24 @@ impl GpuDevice {
 
         // Request RT features when ray-tracing feature is enabled and hardware supports it
         #[allow(unused_mut)]
-        let mut features = wgpu::Features::empty();
+        let mut required_features = wgpu::Features::empty();
 
         let blendable_feature = wgpu::Features::FLOAT32_BLENDABLE;
         if adapter.features().contains(blendable_feature) {
-            features |= blendable_feature;
+            required_features |= blendable_feature;
         }
 
         #[cfg(feature = "ray-tracing")]
         {
             let rt_feature = wgpu::Features::EXPERIMENTAL_RAY_QUERY;
             if adapter.features().contains(rt_feature) {
-                features |= rt_feature;
+                required_features |= rt_feature;
             }
         }
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("Abrash GpuDevice"),
-            required_features: features,
+            required_features,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             #[allow(clippy::default_trait_access)]

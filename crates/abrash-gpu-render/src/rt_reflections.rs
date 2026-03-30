@@ -13,6 +13,8 @@ use wgpu::util::DeviceExt;
 ///
 /// Traces reflection rays from G-Buffer, outputs noisy 1-spp reflection color.
 const RT_REFLECTION_SHADER: &str = r"
+enable wgpu_ray_query;
+
 struct ReflectionParams {
     camera_pos: vec3<f32>,
     max_distance: f32,
@@ -98,11 +100,12 @@ pub struct ReflectionParams {
 }
 
 /// Ray-traced reflection pass.
+#[allow(dead_code)] // Fields used when RT reflections are wired into renderer
 pub struct RtReflectionPass {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) params_buffer: wgpu::Buffer,
-    /// Output reflection texture (Rgba16Float, noisy 1-spp).
+    /// Output reflection texture (`Rgba16Float`, noisy 1-spp).
     pub(crate) reflection_texture: Option<wgpu::Texture>,
     pub(crate) reflection_view: Option<wgpu::TextureView>,
     pub(crate) width: u32,
@@ -110,15 +113,8 @@ pub struct RtReflectionPass {
 }
 
 impl RtReflectionPass {
-    /// Create the RT reflection pass.
-    #[must_use]
-    pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("RT Reflection Compute"),
-            source: wgpu::ShaderSource::Wgsl(RT_REFLECTION_SHADER.into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("RT Reflection Layout"),
             entries: &[
                 // 0: G-Buffer position
@@ -207,7 +203,18 @@ impl RtReflectionPass {
                     count: None,
                 },
             ],
+        })
+    }
+
+    /// Create the RT reflection pass.
+    #[must_use]
+    pub fn new(device: &wgpu::Device) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("RT Reflection Compute"),
+            source: wgpu::ShaderSource::Wgsl(RT_REFLECTION_SHADER.into()),
         });
+
+        let bind_group_layout = Self::create_bind_group_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("RT Reflection Pipeline Layout"),

@@ -11,10 +11,6 @@ fn try_create_renderer() -> Option<GpuRenderer> {
     GpuRenderer::new_headless().ok()
 }
 
-fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {
-    pixels.chunks_exact(4).any(|pixel| pixel == rgba)
-}
-
 /// Check if any pixel has a dominant channel matching the expected color.
 /// Accounts for tone mapping + gamma changing exact values.
 fn contains_dominant_color(pixels: &[u8], dominant_channel: usize) -> bool {
