@@ -5,12 +5,13 @@ use abrash_core::mesh::Mesh;
 use wgpu::util::DeviceExt;
 
 /// GPU-side mesh buffers ready for indexed rendering.
+#[allow(dead_code)]
 pub struct GpuMeshBuffer {
     pub(crate) vertex_buffer: wgpu::Buffer,
     pub(crate) index_buffer: wgpu::Buffer,
     pub(crate) index_count: u32,
     pub(crate) triangle_count: u32,
-    /// True when uploaded with UVs (TexturedVertex format).
+    /// True when uploaded with UVs (`TexturedVertex` format).
     pub(crate) has_uvs: bool,
 }
 

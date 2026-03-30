@@ -1,7 +1,7 @@
-## [Struct Extraction to reduce Argument Jungles]
-**Learning:** When refactoring 'God Functions' with deeply nested loops and 'Argument Jungles' (like `src/rasterizer/tile.rs`), using 'Struct Extraction' to bundle related variables (e.g., `TileContext`, `CoarseBinContext`) and extracting the inner loop bodies into separate helper functions flattens the structure and improves readability, allowing the removal of `#[allow(clippy::too_many_arguments)]`. However, passing `&mut self` to these helpers alongside an immutable reference to a field via the context struct can cause borrow check failures (E0502).
-**Action:** To resolve mutable/immutable borrow conflicts when extracting helper functions, avoid passing `&mut self`. Instead, pass the specific disjoint fields explicitly (e.g., `tile_bins: &mut TileBins`) alongside the context struct containing immutable references.
+**[Clippy fixes in abrash-render and abrash-gpu-render]
+**Learning:** `clippy::match-same-arms`, `clippy::missing-const-for-fn`, `clippy::doc-markdown`, `clippy::must-use-candidate`, `clippy::too-many-lines`, `clippy::unnecessary-map-or`, `clippy::pub-underscore-fields`, `clippy::unused-self`
+**Action:** Always run clippy and fix warnings.
 
-## [Explicit Bounds Checking for Fuzzing/Havoc Safety]
-**Learning:** When using parallel iterators like Rayon's `par_chunks_exact_mut` on 1D slices representing 2D grids, passing erroneous dimensions (e.g. `width = 1_000_000` for a slice of length 1) can result in the iterator yielding zero chunks, causing the function to silently return without triggering any expected out-of-bounds panics. This violates expectations for fail-fast chaos testing (like `havoc_box_blur_oom`).
-**Action:** Always assert that the `src` and `dest` buffer lengths strictly match the expected `width * height` *before* entering any iterator logic. Additionally, explicitly document these new failure conditions in the Rustdoc under a `# Panics` section to satisfy clippy warnings and API expectations.
+**[Clippy fixes in abrash-render and abrash-gpu-render]
+**Learning:** Extracting complex functions like pipeline constructors into smaller methods (e.g. `create_frame_layout`, `create_gbuffer_layout`) improves readability and adheres to the persona's core goals without suppressing `too_many_lines` warnings. Also learned that `FLOAT32_BLENDABLE` is a necessary wgpu feature for our deferred pipeline to function on `Rgba32Float` formats.
+**Action:** Extract large methods into helper functions instead of suppressing warnings. Ensure we only use `#[allow(dead_code)]` when variables or struct definitions are truly intentionally unused.

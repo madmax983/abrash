@@ -75,6 +75,7 @@ pub struct MvpVertex {
     pub position: [f32; 3],
 }
 
+#[allow(dead_code)]
 impl MvpVertex {
     pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 1] =
         wgpu::vertex_attr_array![0 => Float32x3];
@@ -158,6 +159,7 @@ pub struct FrameUniforms {
     pub camera_pos: [f32; 4],
     /// Number of active lights (u32 stored as f32 for uniform alignment).
     pub light_count: u32,
+    #[allow(clippy::pub_underscore_fields)]
     pub _pad: [u32; 3],
 }
 
@@ -177,6 +179,7 @@ pub struct GpuLightData {
     pub intensity: f32,
     /// Attenuation radius (point lights only).
     pub radius: f32,
+    #[allow(clippy::pub_underscore_fields)]
     pub _pad: [f32; 3],
 }
 
@@ -353,15 +356,17 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 ";
 
 /// Reusable MVP render pipeline shared by headless and windowed paths.
+#[allow(dead_code)]
 pub struct MvpPipeline {
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) uniform_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 /// Lit render pipeline with per-frame + per-draw bind groups.
+#[allow(dead_code)]
 pub struct LitPipeline {
     pub(crate) pipeline: wgpu::RenderPipeline,
-    /// Group 0: per-frame (view_proj, camera_pos, lights).
+    /// Group 0: per-frame (`view_proj`, `camera_pos`, lights).
     pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
     /// Group 1: per-draw with dynamic offset (model, material).
     pub(crate) draw_bind_group_layout: wgpu::BindGroupLayout,
@@ -382,57 +387,8 @@ impl LitPipeline {
             source: wgpu::ShaderSource::Wgsl(LIT_SHADER_SRC.into()),
         });
 
-        // Group 0: per-frame uniforms + lights array
-        let frame_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Lit Frame Layout"),
-                entries: &[
-                    // binding 0: FrameUniforms
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                std::mem::size_of::<FrameUniforms>() as u64
-                            ),
-                        },
-                        count: None,
-                    },
-                    // binding 1: lights array
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
-                            ),
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        // Group 1: per-draw uniforms (dynamic offset)
-        let draw_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Lit Draw Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: NonZeroU64::new(
-                            std::mem::size_of::<DrawUniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
+        let frame_bind_group_layout = Self::create_frame_layout(device);
+        let draw_bind_group_layout = Self::create_draw_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Abrash Lit Pipeline Layout"),
@@ -489,6 +445,56 @@ impl LitPipeline {
             frame_bind_group_layout,
             draw_bind_group_layout,
         }
+    }
+
+    fn create_frame_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Lit Frame Layout"),
+            entries: &[
+                // binding 0: FrameUniforms
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(
+                            std::mem::size_of::<FrameUniforms>() as u64
+                        ),
+                    },
+                    count: None,
+                },
+                // binding 1: lights array
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(
+                            (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
+                        ),
+                    },
+                    count: None,
+                },
+            ],
+        })
+    }
+
+    fn create_draw_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Lit Draw Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: NonZeroU64::new(std::mem::size_of::<DrawUniforms>() as u64),
+                },
+                count: None,
+            }],
+        })
     }
 }
 
@@ -619,6 +625,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 ";
 
 /// Textured + lit render pipeline using all 3 bind groups.
+#[allow(dead_code)]
 pub struct TexturedLitPipeline {
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
@@ -643,54 +650,8 @@ impl TexturedLitPipeline {
             source: wgpu::ShaderSource::Wgsl(TEXTURED_LIT_SHADER_SRC.into()),
         });
 
-        // Reuse the same group 0 and group 1 layouts as LitPipeline
-        let frame_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Textured Frame Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                std::mem::size_of::<FrameUniforms>() as u64
-                            ),
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
-                            ),
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let draw_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Textured Draw Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: NonZeroU64::new(
-                            std::mem::size_of::<DrawUniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
+        let frame_bind_group_layout = Self::create_frame_layout(device);
+        let draw_bind_group_layout = Self::create_draw_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Abrash Textured Lit Pipeline Layout"),
@@ -749,6 +710,54 @@ impl TexturedLitPipeline {
             draw_bind_group_layout,
             texture_bind_group_layout: texture_bind_group_layout.clone(),
         }
+    }
+
+    fn create_frame_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Textured Frame Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(
+                            std::mem::size_of::<FrameUniforms>() as u64
+                        ),
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(
+                            (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
+                        ),
+                    },
+                    count: None,
+                },
+            ],
+        })
+    }
+
+    fn create_draw_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Textured Draw Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: NonZeroU64::new(std::mem::size_of::<DrawUniforms>() as u64),
+                },
+                count: None,
+            }],
+        })
     }
 }
 

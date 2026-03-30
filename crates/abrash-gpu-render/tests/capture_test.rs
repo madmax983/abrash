@@ -11,6 +11,7 @@ fn try_create_renderer() -> Option<GpuRenderer> {
     GpuRenderer::new_headless().ok()
 }
 
+#[allow(dead_code)]
 fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {
     pixels.chunks_exact(4).any(|pixel| pixel == rgba)
 }

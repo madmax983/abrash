@@ -24,6 +24,7 @@ pub const ALBEDO_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 /// G-Buffer render targets.
+#[allow(dead_code)]
 pub struct GBuffer {
     pub(crate) position_texture: wgpu::Texture,
     pub(crate) position_view: wgpu::TextureView,
