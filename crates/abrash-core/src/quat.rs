@@ -127,6 +127,24 @@ impl Quat {
         )
     }
 
+    /// Normalized linear interpolation between two quaternions.
+    ///
+    /// Faster than [`Self::slerp`] and typically suitable for frame-to-frame blending.
+    #[must_use]
+    pub fn nlerp(&self, other: &Self, t: f32) -> Self {
+        let mut end = *other;
+        if self.dot(*other) < 0.0 {
+            end = Self::new(-other.x, -other.y, -other.z, -other.w);
+        }
+        Self::new(
+            self.x + (end.x - self.x) * t,
+            self.y + (end.y - self.y) * t,
+            self.z + (end.z - self.z) * t,
+            self.w + (end.w - self.w) * t,
+        )
+        .normalize()
+    }
+
     /// Normalize to unit length.
     #[must_use]
     pub fn normalize(self) -> Self {
@@ -182,6 +200,20 @@ impl Quat {
     #[inline]
     pub const fn conjugate(self) -> Self {
         Self::new(-self.x, -self.y, -self.z, self.w)
+    }
+
+    /// Quaternion inverse.
+    ///
+    /// For unit quaternions this is equal to the conjugate.
+    #[must_use]
+    pub fn inverse(self) -> Self {
+        let norm_sq = self.dot(self);
+        if norm_sq <= f32::EPSILON {
+            return Self::identity();
+        }
+        let c = self.conjugate();
+        let inv = 1.0 / norm_sq;
+        Self::new(c.x * inv, c.y * inv, c.z * inv, c.w * inv)
     }
 
     /// Dot product between two quaternions.
@@ -300,6 +332,14 @@ mod tests {
     }
 
     #[test]
+    fn nlerp_midpoint_is_normalized() {
+        let a = Quat::identity();
+        let b = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let mid = a.nlerp(&b, 0.5);
+        assert!((mid.dot(mid) - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
     fn normalize_preserves_direction() {
         let q = Quat::new(1.0, 2.0, 3.0, 4.0);
         let n = q.normalize();
@@ -352,5 +392,16 @@ mod tests {
         assert!((v.x - v2.x).abs() < EPSILON);
         assert!((v.y - v2.y).abs() < EPSILON);
         assert!((v.z - v2.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn inverse_undoes_rotation() {
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let v = Vec3::new(0.4, 0.2, -0.8);
+        let vr = q.rotate_vec3(v);
+        let back = q.inverse().rotate_vec3(vr);
+        assert!((back.x - v.x).abs() < EPSILON);
+        assert!((back.y - v.y).abs() < EPSILON);
+        assert!((back.z - v.z).abs() < EPSILON);
     }
 }
