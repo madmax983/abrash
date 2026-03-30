@@ -22,7 +22,7 @@ const FIXED_INFINITY: Fixed16_16 = Fixed16_16::from_raw(i32::MAX);
 ///
 /// Constructed from an origin position and a BAM angle. Each call to [`step`]
 /// advances to the next grid cell boundary and reports which cell face was hit.
-pub(crate) struct DdaStepper {
+pub struct DdaStepper {
     /// Current cell X coordinate.
     pub cell_x: i32,
     /// Current cell Y coordinate.
@@ -166,7 +166,7 @@ mod tests {
     use super::*;
     use abrash_core::bam::{ANG90, ANG180, ANG270};
 
-    /// Helper: create a Vec2Fixed from f32 pair for readability.
+    /// Helper: create a `Vec2Fixed` from f32 pair for readability.
     fn pos(x: f32, y: f32) -> Vec2Fixed {
         Vec2Fixed::from_f32(x, y)
     }

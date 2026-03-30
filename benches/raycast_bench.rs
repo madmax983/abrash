@@ -1,8 +1,8 @@
 use abrash_core::bam::Bam;
-use abrash_raycast::batch::cast_rays_batch;
-use abrash_raycast::cast::{cast_los, cast_ray, cast_ray_detailed};
-use abrash_raycast::map::ArrayGridMap;
-use abrash_raycast::types::{Cell, Vec2Fixed};
+use abrash_raycast::cast_rays_batch;
+use abrash_raycast::{cast_los, cast_ray, cast_ray_detailed};
+use abrash_raycast::ArrayGridMap;
+use abrash_raycast::{Cell, Vec2Fixed};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 /// Build a maze-like map with border walls and checkerboard interior pillars.

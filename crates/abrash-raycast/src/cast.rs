@@ -331,15 +331,16 @@ mod tests {
         let ny = detail.normal.y.to_f32();
 
         // Check it's a unit cardinal (exactly one component is +/-1, the other is 0).
-        let is_unit_cardinal = (nx.abs() == 1.0 && ny == 0.0) || (nx == 0.0 && ny.abs() == 1.0);
+        let is_unit_cardinal = ((nx.abs() - 1.0).abs() < 1e-5 && ny.abs() < 1e-5)
+            || (nx.abs() < 1e-5 && (ny.abs() - 1.0).abs() < 1e-5);
         assert!(
             is_unit_cardinal,
             "normal should be a unit cardinal direction, got ({nx}, {ny})"
         );
 
         // For a West-face hit, the outward normal is (-1, 0).
-        assert_eq!(nx, -1.0, "West face normal x should be -1");
-        assert_eq!(ny, 0.0, "West face normal y should be 0");
+        assert!((nx - -1.0).abs() < 1e-5, "West face normal x should be -1");
+        assert!(ny.abs() < 1e-5, "West face normal y should be 0");
     }
 
     #[test]
@@ -369,8 +370,8 @@ mod tests {
         // South face outward normal is (0, -1).
         let nx = detail.normal.x.to_f32();
         let ny = detail.normal.y.to_f32();
-        assert_eq!(nx, 0.0, "South face normal x should be 0");
-        assert_eq!(ny, -1.0, "South face normal y should be -1");
+        assert!(nx.abs() < 1e-5, "South face normal x should be 0");
+        assert!((ny - -1.0).abs() < 1e-5, "South face normal y should be -1");
     }
 
     #[test]

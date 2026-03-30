@@ -133,7 +133,7 @@ mod tests {
         assert!((c.phase()).abs() < EPSILON);
     }
 
-    /// Helper: tick the clock multiple times with small deltas to reach target_secs.
+    /// Helper: tick the clock multiple times with small deltas to reach `target_secs`.
     fn tick_to(c: &mut AnimationClock, target_secs: f32, duration: f32) -> ClockEvent {
         let step = 0.05; // 50ms steps, well under MAX_DELTA_SECS
         let steps = (target_secs / step) as u32;

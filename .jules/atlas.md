@@ -67,3 +67,7 @@
 1.  **Cut Obsolete Abstraction:** Deleted `src/platform/win32.rs` entirely, dropping the custom Win32 fallback implementation.
 2.  **Prune Dependency Graph:** Removed `windows-sys` and the `backend-win32` feature flag from `Cargo.toml`.
 3.  **Modernize Call Sites:** Migrated the aforementioned examples to rely directly on `winit`'s standard event-driven approach by mapping their procedural update loops to `WindowApp` implementations.
+
+## [Raycast Facade Encapsulation]
+**Tangle:** The `abrash-raycast` crate was exposing its internal module structure (`dda`, `cast`, `batch`, `map`, `types`) directly to users via `pub mod`, creating a leaky abstraction and tightly coupling consumers to the internal file layout.
+**Blueprint:** Converted internal modules to `pub(crate) mod` and created a clean top-level Facade in `lib.rs` using `pub use` to export only the essential functions (`cast_ray`, etc.) and types.
