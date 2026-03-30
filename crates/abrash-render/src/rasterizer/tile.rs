@@ -2880,7 +2880,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3400,7 +3403,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
@@ -3447,7 +3453,10 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        // Bolt Performance Optimization:
+        // Replaced `Vec::with_capacity(64)` with `SmallVec` to keep the per-tile triangle indices buffer entirely on the stack.
+        // This eliminates frequent dynamic heap allocations on the hot sorting path.
+        let mut indices: smallvec::SmallVec<[u32; 64]> = smallvec::SmallVec::new();
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;

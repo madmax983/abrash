@@ -77,6 +77,7 @@ dependencies = [
  "abrash-core",
  "ratatui",
  "rayon",
+ "smallvec",
 ]
 
 [[package]]
