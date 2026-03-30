@@ -562,3 +562,7 @@ required-features = ["nova"]
 name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "procedural"
+harness = false

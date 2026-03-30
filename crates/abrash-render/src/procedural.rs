@@ -67,16 +67,26 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
+#[allow(clippy::imprecise_flops)]
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
+    #[cfg(feature = "parallel")]
+    use rayon::prelude::*;
+
     let mut tex = Texture::new(width, height)?;
 
-    for y in 0..height {
-        for x in 0..width {
+    #[cfg(feature = "parallel")]
+    let iter = tex.pixels.par_chunks_exact_mut(width as usize).enumerate();
+    #[cfg(not(feature = "parallel"))]
+    let iter = tex.pixels.chunks_exact_mut(width as usize).enumerate();
+
+    iter.for_each(|(y, row)| {
+        let v = y as f32;
+        let v2 = (v * 0.1).sin();
+
+        for (x, pixel) in row.iter_mut().enumerate() {
             let u = x as f32;
-            let v = y as f32;
 
             let v1 = (u * 0.1).sin();
-            let v2 = (v * 0.1).sin();
             let v3 = ((u + v) * 0.1).sin();
             let v4 = ((u * u + v * v).sqrt() * 0.1).sin();
 
@@ -88,9 +98,9 @@ pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
             let g = (((normalized * std::f32::consts::PI) + 2.0).sin().abs() * 255.0) as u32;
             let b = (((normalized * std::f32::consts::PI) + 4.0).sin().abs() * 255.0) as u32;
 
-            let color = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-            tex.set_pixel(x, y, color);
+            *pixel = 0xFF00_0000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
         }
-    }
+    });
+
     Ok(tex)
 }
