@@ -50,7 +50,16 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
 
     // Clone the source framebuffer to safely sample non-linear pixel displacements
     // without aliasing issues (as learned from the Water Ripple and Kaleidoscope filters).
-    let source_pixels = fb.as_slice().to_vec();
+    // ⚡ Bolt: Use a thread-local static buffer to reuse memory and eliminate a per-frame heap allocation.
+    // We must clone the buffer to safely sample non-linear pixel displacements without aliasing.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    let mut source_pixels = SOURCE_PIXELS.with(std::cell::RefCell::take);
+    let len = width * height;
+    source_pixels.resize(len, 0);
+    source_pixels.copy_from_slice(fb.as_slice());
 
     // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
     assert_eq!(fb.as_slice().len(), width * height);
@@ -105,6 +114,9 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
             }
         }
     });
+
+    // Restore the thread-local buffer to avoid future allocations
+    SOURCE_PIXELS.with(|b| b.replace(source_pixels));
 }
 
 #[cfg(test)]

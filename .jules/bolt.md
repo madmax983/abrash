@@ -121,3 +121,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Deferring Square Roots in Boids Simulation]**
 **Learning:** In hot spatial simulation loops (e.g., Boids or flocking algorithms), distance calculations using multiple `sqrt` operations like `dx.hypot(dy).hypot(dz)` introduce massive overhead when applied across all $N^2$ entity pairs.
 **Action:** Replace `hypot` calculations with squared distance comparisons (`dx * dx + dy * dy + dz * dz < radius_sq`). Calculate the actual `sqrt` only inside the conditional block, and only for the fraction of entities that are within range and explicitly require true distance values for weighting calculations (like separation).
+
+**[Performance Optimization: Eliminate per-frame memory allocation for Swirl]**
+**Learning:** Calling `.to_vec()` on the framebuffer's slice inside `apply_swirl` causes an expensive memory allocation every frame, which hurts rendering performance.
+**Action:** Use a `thread_local!` static buffer with `RefCell<Vec<u32>>`. Resize it to the required length and use `.copy_from_slice()` instead of `.to_vec()`. Extract the vector using `RefCell::take()` before the Rayon parallel loop, and restore it using `.replace()` after the loop to effectively reuse the same allocation across all frames, functioning as a zero-cost double buffer without holding `RefMut` across parallel bounds.
