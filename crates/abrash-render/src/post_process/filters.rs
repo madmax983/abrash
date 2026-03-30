@@ -335,82 +335,176 @@ pub fn apply_sobel(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
     let needed_size = width * height;
 
-    // Use SOBEL_BUFFER for luminance data
-    // We need 32 bytes padding for SIMD later.
-    let buffer_size = needed_size + 32;
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        let buffer_size = needed_size + 32;
 
-    SOBEL_BUFFER.with(|buf| {
-        let mut lum_buffer = buf.borrow_mut();
-        if lum_buffer.len() < buffer_size {
-            lum_buffer.resize(buffer_size, 0);
-        }
-
-        let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
-
-        #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-        {
-            if std::is_x86_feature_detected!("avx2") {
-                unsafe { simd::apply_sobel_avx2(pixels, lum_slice, width, height) };
-                return;
+        SOBEL_BUFFER.with(|buf| {
+            let mut lum_buffer = buf.borrow_mut();
+            if lum_buffer.len() < buffer_size {
+                lum_buffer.resize(buffer_size, 0);
             }
-        }
 
-        // 1. Convert to Luminance (Scalar)
-        for (i, p) in pixels.iter().enumerate() {
-            lum_slice[i] = pixel_luminance(*p);
-        }
+            let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
 
-        // 2. Apply Sobel
-        // We skip the 1-pixel border.
-        // Iterate over valid interior rows.
-        for y in 1..height - 1 {
-            let row_offset = y * width;
-            let prev_row_offset = row_offset - width;
-            let next_row_offset = row_offset + width;
-
-            for x in 1..width - 1 {
-                // Neighborhood indices
-                // TL T TR
-                //  L C  R
-                // BL B BR
-                let tl = i32::from(lum_slice[prev_row_offset + x - 1]);
-                let t = i32::from(lum_slice[prev_row_offset + x]);
-                let tr = i32::from(lum_slice[prev_row_offset + x + 1]);
-                let l = i32::from(lum_slice[row_offset + x - 1]);
-                let r = i32::from(lum_slice[row_offset + x + 1]);
-                let bl = i32::from(lum_slice[next_row_offset + x - 1]);
-                let b = i32::from(lum_slice[next_row_offset + x]);
-                let br = i32::from(lum_slice[next_row_offset + x + 1]);
-
-                // Gx Kernel
-                let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
-
-                // Gy Kernel
-                let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
-
-                // Magnitude
-                let mag = (gx.abs() + gy.abs()).min(255) as u32;
-
-                // Write back (Gray + Alpha)
-                // Use index relative to pixel buffer
-                let idx = row_offset + x;
-                let original_alpha = pixels[idx] & 0xFF00_0000;
-                pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
+            #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+            {
+                if std::is_x86_feature_detected!("avx2") {
+                    unsafe { simd::apply_sobel_avx2(pixels, lum_slice, width, height) };
+                    return;
+                }
             }
-        }
 
-        // Zero out borders (Top/Bottom rows, Left/Right columns)
-        // Top and Bottom rows
-        for x in 0..width {
-            pixels[x] &= 0xFF00_0000;
-            pixels[(height - 1) * width + x] &= 0xFF00_0000;
-        }
-        // Left and Right columns (excluding corners handled above, but fine to redo)
-        for y in 0..height {
-            pixels[y * width] &= 0xFF00_0000;
-            pixels[y * width + width - 1] &= 0xFF00_0000;
-        }
-    });
+            // 1. Convert to Luminance (Sequential, as it's fast and needed for thread-local usage)
+            for (i, p) in pixels.iter().enumerate() {
+                lum_slice[i] = pixel_luminance(*p);
+            }
+
+            // Skip the top row and bottom row in par_chunks_mut
+            let interior_height = height.saturating_sub(2);
+            if interior_height > 0 {
+                // We need to process from row 1 to row height - 2.
+                let (top, rest) = pixels.split_at_mut(width);
+                let (interior, bottom) = rest.split_at_mut(interior_height * width);
+
+                // Convert lum_slice to a raw pointer to bypass the borrow checker safely.
+                // It is safe because we only read from lum_slice immutably in the parallel section
+                // and no other thread mutates it.
+                // Create a shared reference to the slice that implements Send/Sync natively
+                // rather than passing the raw pointer which makes the closure non-Send.
+                let lum_ref: &[u8] = lum_slice;
+
+                interior.par_chunks_mut(width).enumerate().for_each(|(i, dst_row)| {
+                    let y = i + 1; // Actual y index in the full buffer
+                    let prev_row_offset = (y - 1) * width;
+                    let row_offset = y * width;
+                    let next_row_offset = (y + 1) * width;
+
+                    for x in 1..width - 1 {
+                        unsafe {
+                            let tl = i32::from(*lum_ref.get_unchecked(prev_row_offset + x - 1));
+                            let t = i32::from(*lum_ref.get_unchecked(prev_row_offset + x));
+                            let tr = i32::from(*lum_ref.get_unchecked(prev_row_offset + x + 1));
+                            let l = i32::from(*lum_ref.get_unchecked(row_offset + x - 1));
+                            let r = i32::from(*lum_ref.get_unchecked(row_offset + x + 1));
+                            let bl = i32::from(*lum_ref.get_unchecked(next_row_offset + x - 1));
+                            let b = i32::from(*lum_ref.get_unchecked(next_row_offset + x));
+                            let br = i32::from(*lum_ref.get_unchecked(next_row_offset + x + 1));
+
+                            let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+                            let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+
+                            let mag = (gx.abs() + gy.abs()).min(255) as u32;
+
+                            let original_alpha = *dst_row.get_unchecked(x) & 0xFF00_0000;
+                            *dst_row.get_unchecked_mut(x) = original_alpha | (mag << 16) | (mag << 8) | mag;
+                        }
+                    }
+                });
+
+                // Zero out Top row
+                for x in 0..width {
+                    top[x] &= 0xFF00_0000;
+                }
+                // Zero out Bottom row
+                for x in 0..width {
+                    bottom[x] &= 0xFF00_0000;
+                }
+                // Zero out Left and Right columns (including those in interior rows)
+                for dst_row in interior.chunks_mut(width) {
+                    dst_row[0] &= 0xFF00_0000;
+                    dst_row[width - 1] &= 0xFF00_0000;
+                }
+            } else {
+                // Very small image (height < 3), just zero everything out
+                for p in pixels.iter_mut() {
+                    *p &= 0xFF00_0000;
+                }
+            }
+        });
+        return;
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        // Use SOBEL_BUFFER for luminance data
+        // We need 32 bytes padding for SIMD later.
+        let buffer_size = needed_size + 32;
+
+        SOBEL_BUFFER.with(|buf| {
+            let mut lum_buffer = buf.borrow_mut();
+            if lum_buffer.len() < buffer_size {
+                lum_buffer.resize(buffer_size, 0);
+            }
+
+            let lum_slice = &mut lum_buffer[..buffer_size]; // Allow access to padding
+
+            #[cfg(all(target_arch = "x86_64", feature = "simd"))]
+            {
+                if std::is_x86_feature_detected!("avx2") {
+                    unsafe { simd::apply_sobel_avx2(pixels, lum_slice, width, height) };
+                    return;
+                }
+            }
+
+            // 1. Convert to Luminance (Scalar)
+            for (i, p) in pixels.iter().enumerate() {
+                lum_slice[i] = pixel_luminance(*p);
+            }
+
+            // 2. Apply Sobel
+            // We skip the 1-pixel border.
+            // Iterate over valid interior rows.
+            for y in 1..height - 1 {
+                let row_offset = y * width;
+                let prev_row_offset = row_offset - width;
+                let next_row_offset = row_offset + width;
+
+                for x in 1..width - 1 {
+                    // Neighborhood indices
+                    // TL T TR
+                    //  L C  R
+                    // BL B BR
+                    let tl = i32::from(lum_slice[prev_row_offset + x - 1]);
+                    let t = i32::from(lum_slice[prev_row_offset + x]);
+                    let tr = i32::from(lum_slice[prev_row_offset + x + 1]);
+                    let l = i32::from(lum_slice[row_offset + x - 1]);
+                    let r = i32::from(lum_slice[row_offset + x + 1]);
+                    let bl = i32::from(lum_slice[next_row_offset + x - 1]);
+                    let b = i32::from(lum_slice[next_row_offset + x]);
+                    let br = i32::from(lum_slice[next_row_offset + x + 1]);
+
+                    // Gx Kernel
+                    let gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+
+                    // Gy Kernel
+                    let gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+
+                    // Magnitude
+                    let mag = (gx.abs() + gy.abs()).min(255) as u32;
+
+                    // Write back (Gray + Alpha)
+                    // Use index relative to pixel buffer
+                    let idx = row_offset + x;
+                    let original_alpha = pixels[idx] & 0xFF00_0000;
+                    pixels[idx] = original_alpha | (mag << 16) | (mag << 8) | mag;
+                }
+            }
+
+            // Zero out borders (Top/Bottom rows, Left/Right columns)
+            // Top and Bottom rows
+            for x in 0..width {
+                pixels[x] &= 0xFF00_0000;
+                pixels[(height - 1) * width + x] &= 0xFF00_0000;
+            }
+            // Left and Right columns (excluding corners handled above, but fine to redo)
+            for y in 0..height {
+                pixels[y * width] &= 0xFF00_0000;
+                pixels[y * width + width - 1] &= 0xFF00_0000;
+            }
+        });
+    }
 }
 
 /// Configuration for the vignette post-processing filter.
