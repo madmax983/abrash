@@ -316,11 +316,14 @@ impl Framebuffer {
             // Fast path for full-width clears (avoids chunking overhead)
             self.pixels[start_idx..end_idx].fill(color);
         } else {
-            self.pixels[start_idx..end_idx]
-                .chunks_exact_mut(w)
-                .for_each(|row| {
-                    row[sx..ex].fill(color);
-                });
+            let row_len = ex - sx;
+            let mut current = start_idx + sx;
+            let target_end = end_idx;
+
+            while current < target_end {
+                self.pixels[current..current + row_len].fill(color);
+                current += w;
+            }
         }
     }
 }
