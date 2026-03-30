@@ -1,3 +1,4 @@
+#![cfg(feature = "nova")]
 use abrash::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::texture::Texture;
@@ -10,7 +11,7 @@ fn test_mode7_rendering() {
     // Fill texture with white
     for y in 0..64 {
         for x in 0..64 {
-            tex.set_pixel(x, y, 0xFFFFFFFF);
+            tex.set_pixel(x, y, 0xFFFF_FFFF);
         }
     }
 
@@ -27,7 +28,7 @@ fn test_mode7_rendering() {
     let mut drawn_pixels = 0;
     for y in 51..100 {
         for x in 0..100 {
-            if fb.get_pixel(x as i32, y as i32) == Some(0xFFFFFFFF) {
+            if fb.get_pixel(x, y) == Some(0xFFFF_FFFF) {
                 drawn_pixels += 1;
             }
         }

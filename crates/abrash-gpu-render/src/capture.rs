@@ -291,4 +291,16 @@ mod tests {
 
         assert!((capture.coverage_percent() - 50.0).abs() < 0.01);
     }
+
+    #[test]
+    #[should_panic(expected = "capture width overflowed RGBA byte count")]
+    fn test_aligned_bytes_per_row_overflow() {
+        let _ = aligned_bytes_per_row(u32::MAX / 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "capture width overflowed RGBA byte count")]
+    fn test_capture_config_new_overflow() {
+        let _ = CaptureConfig::new(u32::MAX / 2, 100);
+    }
 }

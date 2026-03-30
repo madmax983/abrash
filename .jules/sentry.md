@@ -15,3 +15,6 @@
 **[Validating Unreachable Guards]
 **Learning:** To verify internal `unreachable!()` or panic safety guards against corrupted state, write unit tests in the same module (`mod tests`) to access private fields, intentionally mutate the internal state to simulate the illegal condition, and assert the guard triggers using `#[should_panic(expected = "...")]`.
 **Action:** Always write a corresponding `#[should_panic]` test for any defensive `unreachable!()` statements that check internal invariants, directly testing the explosion.
+**Wgpu Capture Overflow**
+**Learning:** Calculations involving dynamic variables like dimensions (`width * 4`) can overflow primitive types if user-provided or dynamically scaled. Using `.expect()` for bounds failures introduces a direct panic vector if edge cases aren't covered by unit tests.
+**Action:** When auditing code for `.unwrap()` or `.expect()`, always verify that bounds, like image sizes, have corresponding test cases that trigger the expected panic messages or handle errors gracefully without crashing the main application flow.
