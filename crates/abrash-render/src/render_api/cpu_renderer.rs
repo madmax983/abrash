@@ -187,7 +187,13 @@ impl Renderer for CpuRenderer {
             .ok_or(RenderError::StaleHandle("mesh"))?;
 
         let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
-        cpu_mesh.mesh = mesh.clone();
+
+        // Bolt Performance Optimization:
+        // By using `clone_from` instead of `= mesh.clone()`, we reuse the existing `Vec` capacities
+        // inside the CPU mesh (vertices, indices, normals, etc.), eliminating multiple O(N)
+        // heap allocations per frame when updating dynamic geometry like skinned characters.
+        cpu_mesh.mesh.clone_from(mesh);
+
         cpu_mesh.shared_indices = shared_indices;
         Ok(())
     }
