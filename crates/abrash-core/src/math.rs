@@ -206,6 +206,11 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[allow(missing_docs)]
+    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+    #[allow(missing_docs)]
+    pub const ONE: Self = Self { x: 1.0, y: 1.0 };
+
     /// Linearly interpolate between this vector and another.
     ///
     /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
@@ -250,6 +255,92 @@ impl Vec2 {
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
+
+    /// Calculates squared length (magnitude²) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.x * self.x + self.y * self.y
+    }
+
+    /// Calculates dot product between two vectors.
+    #[must_use]
+    #[inline]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    /// Returns a normalized unit vector (length of 1.0).
+    ///
+    /// For tiny vectors (length² <= `1e-8`), returns the original vector.
+    #[must_use]
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Returns a perpendicular vector (rotated 90° counter-clockwise).
+    #[must_use]
+    #[inline]
+    pub fn perp(self) -> Self {
+        Self {
+            x: -self.y,
+            y: self.x,
+        }
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
+    }
+
+    /// Component-wise minimum.
+    #[must_use]
+    #[inline]
+    pub const fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+
+    /// Component-wise maximum.
+    #[must_use]
+    #[inline]
+    pub const fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+
+    /// Clamp each component between corresponding min/max components.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+        }
+    }
 }
 
 impl Add for Vec2 {
@@ -284,6 +375,19 @@ impl Mul<f32> for Vec2 {
         Self {
             x: self.x * scalar,
             y: self.y * scalar,
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Vec2 {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: f32) -> Self {
+        let inv = 1.0 / scalar;
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
         }
     }
 }
@@ -342,13 +446,32 @@ impl Mat2 {
     /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        vertices.iter().map(|&v| self.transform(v)).collect()
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+
+        vertices
+            .iter()
+            .map(|&v| Vec2 {
+                x: m00 * v.x + m01 * v.y,
+                y: m10 * v.x + m11 * v.y,
+            })
+            .collect()
     }
 
     /// Transform vertices in place.
     pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+
         for v in vertices.iter_mut() {
-            *v = self.transform(*v);
+            let x = v.x;
+            let y = v.y;
+            v.x = m00 * x + m01 * y;
+            v.y = m10 * x + m11 * y;
         }
     }
 }
@@ -538,8 +661,8 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn fast_normalize(self) -> Self {
-        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        if len_sq > 0.0001 {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
@@ -564,6 +687,20 @@ impl Vec3 {
     #[inline]
     pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
     }
 
     /// Reflects this vector around a given normal vector.
@@ -603,6 +740,39 @@ impl Vec3 {
         }
     }
 
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec3::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
+
+    /// Returns angle between vectors in radians.
+    ///
+    /// Returns 0 for near-zero length inputs.
+    #[must_use]
+    #[inline]
+    pub fn angle_between(self, other: Self) -> f32 {
+        let denom = self.length() * other.length();
+        if denom <= 0.000_000_01 {
+            return 0.0;
+        }
+        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -624,6 +794,28 @@ impl Vec3 {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
             z: self.z.max(other.z),
+        }
+    }
+
+    /// Component-wise absolute value.
+    #[must_use]
+    #[inline]
+    pub const fn abs(self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+        }
+    }
+
+    /// Component-wise clamp.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+            z: self.z.clamp(min.z, max.z),
         }
     }
 }
