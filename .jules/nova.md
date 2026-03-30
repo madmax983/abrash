@@ -179,3 +179,7 @@
 **Concept:** A retro sci-fi post-processing effect simulating a holographic projection through monochrome tint, rolling scanlines, and intermittent horizontal signal noise/flicker.
 **Fate:** Implemented
 **Lesson:** It is crucial to respect persona constraints by absolutely avoiding modifications to core modules, even when encountering pre-existing issues like crashing tests. Implementing new R&D features safely within isolated experimental modules via clones (e.g. duplicating framebuffers for complex non-linear transforms) allows innovation without collateral damage or breaking existing workflows.
+## [Comic Book Filter]
+**Concept:** A post-processing effect simulating a comic book or pop art aesthetic. It combines `apply_kuwahara` (for color abstraction and oil-painting smoothing), `apply_sobel` (for strong ink-like edge outlines), and an optional `apply_halftone` (for retro CMYK print dots).
+**Fate:** Implemented
+**Lesson:** Stacking multiple distinct spatial and non-linear post-processing effects requires careful buffer management. Specifically, Sobel edge detection must be calculated on the *original* unpainted image to accurately find sharp edges before the Kuwahara filter blurs them, requiring an intermediate scratch buffer to store the edge magnitude for late-stage composition.

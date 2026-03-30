@@ -35,6 +35,7 @@ pub mod brickify;
 
 pub mod blueprint;
 pub mod cloth;
+pub mod comic;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
