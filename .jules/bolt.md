@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+**[Title] Eliminate Unnecessary Intermediate Allocations in Geometry Generation
+**Learning:** Calling helper methods that return a collected `Vec` (like `mesh.compute_face_normals()`) inside hot procedural generation loops (like `Turtle::generate_mesh`) forces an O(N) heap allocation that is immediately discarded after iteration.
+**Action:** Compute derived geometry data (like cross-products for flat-shaded face normals) directly inline within the consumption loop. This entirely bypasses the intermediate collection step, maximizing zero-cost abstraction principles.

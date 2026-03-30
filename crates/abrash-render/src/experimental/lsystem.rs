@@ -222,13 +222,21 @@ impl Turtle {
         }
 
         // To ensure mesh generation was successful, make sure there are some normals
-        let computed_normals = mesh.compute_face_normals();
         mesh.normals.clear();
         mesh.normals
             .resize(mesh.vertices.len(), Vec3::new(0.0, 1.0, 0.0));
-        // Flat shading normals - assigning face normal to all vertices for simplicity
-        for (i, face) in mesh.indices.iter().enumerate() {
-            let n = computed_normals[i];
+
+        // ⚡ Bolt Optimization: Compute flat shading normals inline to completely eliminate
+        // the O(N) heap allocation of `mesh.compute_face_normals()` inside `generate_mesh`.
+        for face in &mesh.indices {
+            let v0 = mesh.vertices[face[0]];
+            let v1 = mesh.vertices[face[1]];
+            let v2 = mesh.vertices[face[2]];
+
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            let n = edge1.cross(edge2).normalize();
+
             mesh.normals[face[0]] = n;
             mesh.normals[face[1]] = n;
             mesh.normals[face[2]] = n;
