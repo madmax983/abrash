@@ -88,6 +88,97 @@ impl Quat {
         qy * qx * qz
     }
 
+    /// Create a quaternion that rotates `from` direction into `to` direction.
+    ///
+    /// Returns [`Self::identity`] when either input has near-zero length.
+    /// Handles the antiparallel case (180° turn) by selecting a stable orthogonal axis.
+    #[must_use]
+    pub fn from_to_rotation(from: Vec3, to: Vec3) -> Self {
+        let from_len_sq = from.length_sq();
+        let to_len_sq = to.length_sq();
+        if from_len_sq <= 1e-8 || to_len_sq <= 1e-8 {
+            return Self::identity();
+        }
+
+        let f = from.normalize();
+        let t = to.normalize();
+        let dot = f.dot(t);
+
+        // Parallel: no rotation.
+        if dot > 1.0 - 1e-6 {
+            return Self::identity();
+        }
+
+        // Antiparallel: rotate PI around any stable orthogonal axis.
+        if dot < -1.0 + 1e-6 {
+            let mut axis = Vec3::new(1.0, 0.0, 0.0).cross(f);
+            if axis.length_sq() <= 1e-8 {
+                axis = Vec3::new(0.0, 1.0, 0.0).cross(f);
+            }
+            return Self::from_axis_angle(axis.normalize(), std::f32::consts::PI);
+        }
+
+        // Fast shortest-arc quaternion from two normalized vectors:
+        // q = normalize([cross(f,t), 1 + dot(f,t)])
+        let c = f.cross(t);
+        Self::new(c.x, c.y, c.z, 1.0 + dot).normalize()
+    }
+
+    /// Create a quaternion from a forward direction and approximate up direction.
+    ///
+    /// This is the quaternion equivalent of a camera/object "look rotation".
+    /// Returns [`Self::identity`] if `forward` is degenerate.
+    #[must_use]
+    pub fn look_rotation(forward: Vec3, up: Vec3) -> Self {
+        let f_len_sq = forward.length_sq();
+        if f_len_sq <= 1e-8 {
+            return Self::identity();
+        }
+
+        let f = forward.normalize();
+        let mut r = up.cross(f);
+        if r.length_sq() <= 1e-8 {
+            // If up is nearly parallel to forward, pick a fallback axis.
+            let fallback_up = if f.y.abs() < 0.999 {
+                Vec3::new(0.0, 1.0, 0.0)
+            } else {
+                Vec3::new(1.0, 0.0, 0.0)
+            };
+            r = fallback_up.cross(f);
+        }
+        r = r.normalize();
+        let u = f.cross(r);
+
+        // Rotation matrix with basis rows [right, up, -forward] for row-vector convention.
+        let m00 = r.x;
+        let m01 = u.x;
+        let m02 = -f.x;
+        let m10 = r.y;
+        let m11 = u.y;
+        let m12 = -f.y;
+        let m20 = r.z;
+        let m21 = u.z;
+        let m22 = -f.z;
+
+        // Matrix -> quaternion (robust branch form).
+        let trace = m00 + m11 + m22;
+        let q = if trace > 0.0 {
+            let s = (trace + 1.0).sqrt() * 2.0;
+            Self::new((m12 - m21) / s, (m20 - m02) / s, (m01 - m10) / s, 0.25 * s)
+        } else if m00 > m11 && m00 > m22 {
+            let s = (1.0 + m00 - m11 - m22).sqrt() * 2.0;
+            Self::new(0.25 * s, (m01 + m10) / s, (m20 + m02) / s, (m12 - m21) / s)
+        } else if m11 > m22 {
+            let s = (1.0 + m11 - m00 - m22).sqrt() * 2.0;
+            Self::new((m01 + m10) / s, 0.25 * s, (m12 + m21) / s, (m20 - m02) / s)
+        } else {
+            let s = (1.0 + m22 - m00 - m11).sqrt() * 2.0;
+            Self::new((m20 + m02) / s, (m12 + m21) / s, 0.25 * s, (m01 - m10) / s)
+        };
+
+        q.normalize()
+    }
+
     /// Spherical linear interpolation between two quaternions.
     ///
     /// Always takes the shortest path (flips `other` if dot product is negative).
@@ -403,5 +494,48 @@ mod tests {
         assert!((back.x - v.x).abs() < EPSILON);
         assert!((back.y - v.y).abs() < EPSILON);
         assert!((back.z - v.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn from_to_rotation_rotates_source_to_target() {
+        let from = Vec3::new(1.0, 0.0, 0.0);
+        let to = Vec3::new(0.0, 0.0, -1.0);
+        let q = Quat::from_to_rotation(from, to);
+        let rotated = q.rotate_vec3(from);
+        assert!((rotated.x - to.x).abs() < EPSILON);
+        assert!((rotated.y - to.y).abs() < EPSILON);
+        assert!((rotated.z - to.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn from_to_rotation_handles_opposite_vectors() {
+        let from = Vec3::new(0.0, 1.0, 0.0);
+        let to = Vec3::new(0.0, -1.0, 0.0);
+        let q = Quat::from_to_rotation(from, to);
+        let rotated = q.rotate_vec3(from);
+        assert!((rotated.x - to.x).abs() < EPSILON);
+        assert!((rotated.y - to.y).abs() < EPSILON);
+        assert!((rotated.z - to.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn look_rotation_faces_forward_direction() {
+        let forward = Vec3::new(0.0, 0.0, -1.0);
+        let up = Vec3::new(0.0, 1.0, 0.0);
+        let q = Quat::look_rotation(forward, up);
+        let looked = q.rotate_vec3(Vec3::new(0.0, 0.0, -1.0));
+        assert!((looked.x - forward.x).abs() < EPSILON);
+        assert!((looked.y - forward.y).abs() < EPSILON);
+        assert!((looked.z - forward.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn look_rotation_handles_parallel_up_and_forward() {
+        let forward = Vec3::new(0.0, 1.0, 0.0);
+        let q = Quat::look_rotation(forward, Vec3::new(0.0, 1.0, 0.0));
+        let looked = q.rotate_vec3(Vec3::new(0.0, 0.0, -1.0));
+        assert!((looked.x - forward.x).abs() < 1e-4);
+        assert!((looked.y - forward.y).abs() < 1e-4);
+        assert!((looked.z - forward.z).abs() < 1e-4);
     }
 }
