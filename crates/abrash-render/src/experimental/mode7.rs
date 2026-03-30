@@ -103,6 +103,9 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
     let tex_w_i = texture.width() as usize;
     let tex_h_i = texture.height() as usize;
 
+    let tex_w_mask = if tex_w_i.is_power_of_two() { tex_w_i - 1 } else { 0 };
+    let tex_h_mask = if tex_h_i.is_power_of_two() { tex_h_i - 1 } else { 0 };
+
     // Check if texture is empty
     if tex_w_i == 0 || tex_h_i == 0 {
         return;
@@ -162,27 +165,61 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
         let mut map_x = (initial_rot_x + config.cx) * config.scale;
         let mut map_z = (initial_rot_z + config.cz) * config.scale;
 
-        for x in 0..w {
-            // Wrap texture coordinates using euclidean remainder
-            let u = (map_x.rem_euclid(tex_w)) as usize;
-            let v = (map_z.rem_euclid(tex_h)) as usize;
+        if tex_w_mask != 0 && tex_h_mask != 0 {
+            if fog_factor > 0.0 {
+                for pixel in row.iter_mut() {
+                    let u = map_x.floor() as i32;
+                    let v = map_z.floor() as i32;
 
-            let tx = u % tex_w_i;
-            let ty = v % tex_h_i;
+                    let tx = (u as usize) & tex_w_mask;
+                    let ty = (v as usize) & tex_h_mask;
 
-            let color = tex_data[ty * tex_w_i + tx];
+                    let color = tex_data[ty * tex_w_i + tx];
 
-            let final_color = if fog_factor > 0.0 {
-                lerp_color(color, config.fog_color, fog_factor) // Fade to fog color
+                    *pixel = lerp_color(color, config.fog_color, fog_factor);
+
+                    // Step mapping coordinates for the next pixel
+                    map_x += d_map_x;
+                    map_z += d_map_z;
+                }
             } else {
-                color
-            };
+                for pixel in row.iter_mut() {
+                    let u = map_x.floor() as i32;
+                    let v = map_z.floor() as i32;
 
-            row[x] = final_color;
+                    let tx = (u as usize) & tex_w_mask;
+                    let ty = (v as usize) & tex_h_mask;
 
-            // Step mapping coordinates for the next pixel
-            map_x += d_map_x;
-            map_z += d_map_z;
+                    *pixel = tex_data[ty * tex_w_i + tx];
+
+                    // Step mapping coordinates for the next pixel
+                    map_x += d_map_x;
+                    map_z += d_map_z;
+                }
+            }
+        } else {
+            for pixel in row.iter_mut() {
+                // Wrap texture coordinates using euclidean remainder
+                let u = map_x.floor() as i32;
+                let u = u.rem_euclid(tex_w_i as i32) as usize;
+                let v = map_z.floor() as i32;
+                let v = v.rem_euclid(tex_h_i as i32) as usize;
+
+                let tx = u % tex_w_i;
+                let ty = v % tex_h_i;
+
+                let color = tex_data[ty * tex_w_i + tx];
+
+                *pixel = if fog_factor > 0.0 {
+                    lerp_color(color, config.fog_color, fog_factor) // Fade to fog color
+                } else {
+                    color
+                };
+
+                // Step mapping coordinates for the next pixel
+                map_x += d_map_x;
+                map_z += d_map_z;
+            }
         }
     });
 }
