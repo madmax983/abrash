@@ -12,3 +12,6 @@
 **[Heat Vision Graceful Degradation]**
 **Learning:** `f32::clamp(min, max)` on a value that is `f32::NAN` does not panic; it simply returns `NaN`. Furthermore, casting `f32::NAN` (e.g. `(t * 255.0) as u32`) yields `0`. When auditing rendering or math logic for panics, recognize that `NaN` values will often silently propagate or cast to `0` rather than causing an explicit crash, providing unexpected default values instead of fatal errors.
 **Action:** When testing float boundaries, explicitly write tests that push `f32::MIN` and `f32::MAX` to simulate out-of-bounds inputs rather than solely relying on `f32::NAN` to trigger float panics.
+**[Coverage Gap: SIMD Fast-Path Triggers]**
+**Learning:** `unsafe` SIMD fast-paths that operate on specific chunk sizes (e.g., `while i + 8 <= len`) are entirely skipped by tests that supply fewer elements than the chunk size (e.g., 2 spheres). The tests might pass via the scalar tail logic, leaving the complex SIMD logic silently untested and prone to regression.
+**Action:** When auditing `unsafe` SIMD or chunked logic, always ensure tests provide exactly or greater than the required threshold to trigger the fast-path loop block, and test non-multiple sizes to ensure both fast-path and tail paths run.

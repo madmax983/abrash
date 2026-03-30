@@ -496,6 +496,84 @@ mod tests {
     }
 
     #[test]
+    fn test_cull_spheres_prealloc_simd_path() {
+        // Identity matrix corresponds to canonical view volume [-1, 1]
+        let m = Mat4::identity();
+        let frustum = Frustum::from_matrix(m);
+
+        // We create exactly 10 spheres to test both the AVX2 fast path (8) and the scalar tail (2).
+        let mut spheres = Vec::with_capacity(10);
+
+        // 1. Inside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, 0.0, 0.0),
+            radius: 0.5,
+        });
+        // 2. Outside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(2.0, 0.0, 0.0),
+            radius: 0.5,
+        });
+        // 3. Inside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, 0.5, 0.0),
+            radius: 0.5,
+        });
+        // 4. Outside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, 2.0, 0.0),
+            radius: 0.5,
+        });
+        // 5. Inside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.5, 0.0, 0.0),
+            radius: 0.5,
+        });
+        // 6. Outside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, 0.0, 2.0),
+            radius: 0.5,
+        });
+        // 7. Inside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(-0.5, 0.0, 0.0),
+            radius: 0.5,
+        });
+        // 8. Outside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(-2.0, 0.0, 0.0),
+            radius: 0.5,
+        });
+
+        // Tail (scalar path)
+        // 9. Inside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, -0.5, 0.0),
+            radius: 0.5,
+        });
+        // 10. Outside
+        spheres.push(BoundingSphere {
+            center: Vec3::new(0.0, -2.0, 0.0),
+            radius: 0.5,
+        });
+
+        // Initialize with opposite expected values to ensure we actually write them.
+        let mut results = vec![
+            false, true, false, true, false, true, false, true, false, true,
+        ];
+
+        frustum.cull_spheres_prealloc(&spheres, &mut results);
+
+        let expected = vec![
+            true, false, true, false, true, false, true, false, true, false,
+        ];
+        assert_eq!(
+            results, expected,
+            "SIMD chunk bitmask unpacking and tail logic should correctly identify visible spheres"
+        );
+    }
+
+    #[test]
     fn test_aabb_intersection() {
         let m = Mat4::identity();
         let frustum = Frustum::from_matrix(m);
