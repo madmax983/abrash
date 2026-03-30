@@ -4910,6 +4910,39 @@ mod tests {
     }
 
     #[test]
+    fn test_fill_quad_textured_gouraud_fallback_culled() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut zb = ZBuffer::new(10, 10).unwrap();
+        let tex = Texture::new(2, 2).unwrap();
+
+        // Quad completely outside frustum (x > w)
+        let w = 5.0;
+        let v0 = (
+            (Vec3::new(10.0, 0.0, 5.0), w),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec2::new(0.0, 0.0),
+        );
+        let v1 = (
+            (Vec3::new(10.0, 1.0, 5.0), w),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec2::new(1.0, 0.0),
+        );
+        let v2 = (
+            (Vec3::new(11.0, 1.0, 5.0), w),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec2::new(1.0, 1.0),
+        );
+        let v3 = (
+            (Vec3::new(11.0, 0.0, 5.0), w),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        );
+
+        // Should clip/cull without panicking
+        fill_quad_textured_gouraud(&mut fb, &mut zb, v0, v1, v2, v3, &tex);
+    }
+
+    #[test]
 
     fn test_fill_quad_textured_optimization() {
         let mut fb = Framebuffer::new(10, 10).unwrap();
