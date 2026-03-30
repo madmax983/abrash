@@ -1460,7 +1460,6 @@ fn rasterize_scanline_simd(
         // Since we didn't update scalar `z` inside SIMD loop, we do it now.
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
         let simd_pixels = i - pre_simd_count;
-        let _z_ignored = z + (simd_pixels as f32) * dz_dx;
     }
 
     // Handle remaining pixels with scalar fallback
