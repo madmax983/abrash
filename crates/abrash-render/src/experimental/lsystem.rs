@@ -78,6 +78,32 @@ impl LSystem {
             }
         }
 
+        if current.is_ascii() && rules_array.iter().all(|r| r.map_or(true, str::is_ascii)) {
+            let mut current_bytes = current.into_bytes();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
+            let rules_bytes: [Option<&[u8]>; 128] = std::array::from_fn(|i| rules_array[i].map(str::as_bytes));
+
+            for _ in 0..iterations {
+                next_bytes.clear();
+
+                // Only reserve capacity to avoid inner-loop reallocation if needed
+                next_bytes.reserve(current_bytes.len() * 2);
+
+                for &b in &current_bytes {
+                    if let Some(replacement) = rules_bytes[b as usize] {
+                        next_bytes.extend_from_slice(replacement);
+                    } else {
+                        next_bytes.push(b);
+                    }
+                }
+                if next_bytes.len() > self.max_capacity {
+                    return Err("L-System expansion exceeded maximum capacity limit");
+                }
+                std::mem::swap(&mut current_bytes, &mut next_bytes);
+            }
+            return unsafe { Ok(String::from_utf8_unchecked(current_bytes)) };
+        }
+
         for _ in 0..iterations {
             next_string.clear();
 
