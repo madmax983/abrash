@@ -5,21 +5,21 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 fn bam_table_lookup(c: &mut Criterion) {
     let angle = ANG45;
     c.bench_function("bam_sin_cos_fixed (table)", |b| {
-        b.iter(|| black_box(black_box(angle).sin_cos_fixed()))
+        b.iter(|| { black_box(black_box(angle).sin_cos_fixed()); });
     });
 }
 
 fn bam_polynomial(c: &mut Criterion) {
     let angle = ANG45;
     c.bench_function("bam_sin_cos_f32 (polynomial)", |b| {
-        b.iter(|| black_box(black_box(angle).sin_cos_f32()))
+        b.iter(|| { black_box(black_box(angle).sin_cos_f32()); });
     });
 }
 
 fn std_sin_cos(c: &mut Criterion) {
     let rad = std::f32::consts::FRAC_PI_4;
     c.bench_function("f32::sin_cos (stdlib)", |b| {
-        b.iter(|| black_box(black_box(rad).sin_cos()))
+        b.iter(|| { black_box(black_box(rad).sin_cos()); });
     });
 }
 
@@ -30,7 +30,7 @@ fn batch_1000_table(c: &mut Criterion) {
             for &a in &angles {
                 black_box(a.sin_cos_fixed());
             }
-        })
+        });
     });
 }
 
@@ -43,7 +43,7 @@ fn batch_1000_polynomial(c: &mut Criterion) {
             for &a in &angles {
                 black_box(fast_sin_cos(a));
             }
-        })
+        });
     });
 }
 

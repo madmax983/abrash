@@ -551,6 +551,11 @@ name = "tilt_shift_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "wobble_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
