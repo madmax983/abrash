@@ -170,3 +170,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance Optimization: Eliminate Manual Slice Bounds Checks in Post-Processing Rows]**
 **Learning:** In operations that iterate over a 1D slice or sub-slice representing a row (like post-processing effects), manually calculating array boundaries via `for x in 0..width` and indexing via `row[x]` triggers implicit bounds checking on every single assignment.
 **Action:** Replace `for x in 0..width` loops indexing `row[x]` with `for (x, pixel) in row.iter_mut().enumerate()`. This yields direct access to the exact element and completely elides runtime array bounds checking, significantly improving performance.
+**[Performance] mode7 calculation optimization**
+**Learning:** Using `f32::rem_euclid` is extremely slow. We can cast the f32 values to i32, then calculate `& mask` if the texture has power of two dimensions, or use `rem_euclid(i32)`. Moving branch `if fog_factor > 0.0` out of inner loop also speeds it up.
+**Action:** Replaced `rem_euclid` with fast i32 bitwise AND when power of two size, and moved `fog_factor` check outside inner loop in `mode7.rs`.

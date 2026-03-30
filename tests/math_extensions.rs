@@ -86,7 +86,8 @@ mod tests {
 
     #[test]
     fn test_mat4_transpose_determinant_and_affine_inverse() {
-        let m = Mat4::rotation_z(0.3) * Mat4::translation(2.0, -1.0, 0.5) * Mat4::scale(2.0, 3.0, 4.0);
+        let m =
+            Mat4::rotation_z(0.3) * Mat4::translation(2.0, -1.0, 0.5) * Mat4::scale(2.0, 3.0, 4.0);
 
         let mt = m.transpose();
         assert_eq!(mt.m[1][0], m.m[0][1]);
