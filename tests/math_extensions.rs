@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_vec2_new_primitives() {
         let v = Vec2::new(3.0, 4.0);
-        assert_eq!(v.length_sq(), 25.0);
+        assert!((v.length_sq() - 25.0).abs() < f32::EPSILON);
         assert!((v.length() - 5.0).abs() < 1e-6);
 
         let n = v.normalize();
@@ -49,7 +49,7 @@ mod tests {
         assert_eq!(rej, Vec2::new(0.0, 4.0));
 
         let cross = Vec2::new(1.0, 0.0).cross(Vec2::new(0.0, 1.0));
-        assert_eq!(cross, 1.0);
+        assert!((cross - 1.0).abs() < f32::EPSILON);
 
         let angle = x_axis.angle_between(Vec2::new(0.0, 1.0));
         assert!((angle - FRAC_PI_2).abs() < 1e-5);
@@ -90,8 +90,8 @@ mod tests {
             Mat4::rotation_z(0.3) * Mat4::translation(2.0, -1.0, 0.5) * Mat4::scale(2.0, 3.0, 4.0);
 
         let mt = m.transpose();
-        assert_eq!(mt.m[1][0], m.m[0][1]);
-        assert_eq!(mt.m[3][2], m.m[2][3]);
+        assert!((mt.m[1][0] - m.m[0][1]).abs() < f32::EPSILON);
+        assert!((mt.m[3][2] - m.m[2][3]).abs() < f32::EPSILON);
 
         let det = m.determinant();
         assert!((det - 24.0).abs() < 1e-3);

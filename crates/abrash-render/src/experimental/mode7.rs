@@ -103,8 +103,16 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
     let tex_w_i = texture.width() as usize;
     let tex_h_i = texture.height() as usize;
 
-    let tex_w_mask = if tex_w_i.is_power_of_two() { tex_w_i - 1 } else { 0 };
-    let tex_h_mask = if tex_h_i.is_power_of_two() { tex_h_i - 1 } else { 0 };
+    let tex_w_mask = if tex_w_i.is_power_of_two() {
+        tex_w_i - 1
+    } else {
+        0
+    };
+    let tex_h_mask = if tex_h_i.is_power_of_two() {
+        tex_h_i - 1
+    } else {
+        0
+    };
 
     // Check if texture is empty
     if tex_w_i == 0 || tex_h_i == 0 {
