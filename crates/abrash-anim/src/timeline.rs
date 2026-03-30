@@ -108,30 +108,31 @@ impl<T: Animatable + Send + Sync + 'static> Timeline<T> {
     ///
     /// Once completed, subsequent ticks return the final sample unchanged.
     pub fn tick(&mut self, delta_secs: f32) -> Sample<T> {
-        let sample = match &self.state {
-            TimelineState::Playing => {
-                let event = self.clock.tick(delta_secs, self.duration);
+        if let TimelineState::Completed { final_sample } = &self.state {
+            return final_sample.clone();
+        }
 
-                match event {
-                    ClockEvent::Normal => {
+        let sample = {
+            let event = self.clock.tick(delta_secs, self.duration);
+
+            match event {
+                ClockEvent::Normal => {
+                    let phase = self.clock.effective_phase(&self.playback);
+                    self.root.evaluate(phase)
+                }
+                ClockEvent::CycleBoundary { .. } => {
+                    if self.clock.is_finished(&self.playback) {
+                        let final_sample = self.root.evaluate(1.0);
+                        self.state = TimelineState::Completed {
+                            final_sample: final_sample.clone(),
+                        };
+                        final_sample
+                    } else {
                         let phase = self.clock.effective_phase(&self.playback);
                         self.root.evaluate(phase)
                     }
-                    ClockEvent::CycleBoundary { .. } => {
-                        if self.clock.is_finished(&self.playback) {
-                            let final_sample = self.root.evaluate(1.0);
-                            self.state = TimelineState::Completed {
-                                final_sample: final_sample.clone(),
-                            };
-                            final_sample
-                        } else {
-                            let phase = self.clock.effective_phase(&self.playback);
-                            self.root.evaluate(phase)
-                        }
-                    }
                 }
             }
-            TimelineState::Completed { final_sample } => final_sample.clone(),
         };
 
         self.last_sample = sample.clone();
