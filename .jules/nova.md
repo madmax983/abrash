@@ -171,3 +171,8 @@
 **Concept:** A retro post-processing effect that simulates the tracking distortion, chromatic aberration, and noise characteristic of degraded analog video tape (VHS).
 **Fate:** Implemented
 **Lesson:** Creating a compelling tracking band requires sine-wave oscillations coupled with jagged noise. To safely separate color channels (chromatic aberration) and displace horizontal pixels simultaneously, cloning the original framebuffer into a source buffer is necessary to prevent read/write tearing when processing with Rayon.
+
+## [LED Matrix Filter]
+**Concept:** A retro post-processing effect simulating an LED dot-matrix display (like Jumbotrons or retro alarm clocks) by grouping pixels into discrete circular diodes with black gaps in between. Adds optional bloom.
+**Fate:** Implemented
+**Lesson:** Splitting the framebuffer processing using `rayon` by chunks representing cell rows enables parallel processing while efficiently computing average cell colors and drawing precise internal geometry (diodes) within each cell. Handled edge cases properly using `chunks_exact_mut` combined with a sequential fallback for the remainder to ensure processing remains robust at arbitrary dimensions.
