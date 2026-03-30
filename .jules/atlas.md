@@ -67,3 +67,6 @@
 1.  **Cut Obsolete Abstraction:** Deleted `src/platform/win32.rs` entirely, dropping the custom Win32 fallback implementation.
 2.  **Prune Dependency Graph:** Removed `windows-sys` and the `backend-win32` feature flag from `Cargo.toml`.
 3.  **Modernize Call Sites:** Migrated the aforementioned examples to rely directly on `winit`'s standard event-driven approach by mapping their procedural update loops to `WindowApp` implementations.
+**[Optional RT Pass Instantiation]
+**Tangle:** The `RtShadowPass` and `RtReflectionPass` WGPU shader module creations were blindly failing the test suite on runner environments that lacked the `wgpu_ray_query` extension feature. A test failure propagated because we did not guard the pass instantiation at runtime. Additionally, the WGPU objects were held in fields marked as `pub(crate)`, emitting dead code warnings.
+**Blueprint:** Encapsulated WGPU objects into private underscore-prefixed fields (e.g. `_pipeline`). Changed `rt_shadow_pass` within `GpuRenderer` to an `Option<RtShadowPass>` and conditionally instantiated it only if `device.features().contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY)` returns true at runtime, preventing panics.**

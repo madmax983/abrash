@@ -116,7 +116,7 @@ pub struct GpuRenderer {
     tone_map_pass: crate::postprocess::ToneMapPass,
     // RT (feature-gated)
     #[cfg(feature = "ray-tracing")]
-    rt_shadow_pass: crate::raytracing::RtShadowPass,
+    rt_shadow_pass: Option<crate::raytracing::RtShadowPass>,
     #[cfg(feature = "ray-tracing")]
     rt_enabled: bool,
     #[cfg(feature = "ray-tracing")]
@@ -229,11 +229,15 @@ impl GpuRenderer {
 
         // RT (feature-gated)
         #[cfg(feature = "ray-tracing")]
-        let rt_shadow_pass = crate::raytracing::RtShadowPass::new(device);
-        #[cfg(feature = "ray-tracing")]
         let rt_enabled = device
             .features()
             .contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY);
+        #[cfg(feature = "ray-tracing")]
+        let rt_shadow_pass = if rt_enabled {
+            Some(crate::raytracing::RtShadowPass::new(device))
+        } else {
+            None
+        };
 
         Self {
             gpu,
@@ -1174,22 +1178,23 @@ impl GpuRenderer {
 
         // Ensure RT shadow output texture
         let gbuffer = self.gbuffer.as_ref().unwrap();
-        self.rt_shadow_pass
-            .ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
+        if let Some(pass) = &mut self.rt_shadow_pass {
+            pass.ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
 
-        // Encode the RT shadow compute pass
-        self.rt_shadow_pass.encode(
-            self.gpu.device(),
-            self.gpu.queue(),
-            encoder,
-            &gbuffer.position_view,
-            &tlas,
-            [
-                dir_light.direction.x,
-                dir_light.direction.y,
-                dir_light.direction.z,
-            ],
-        );
+            // Encode the RT shadow compute pass
+            pass.encode(
+                self.gpu.device(),
+                self.gpu.queue(),
+                encoder,
+                &gbuffer.position_view,
+                &tlas,
+                [
+                    dir_light.direction.x,
+                    dir_light.direction.y,
+                    dir_light.direction.z,
+                ],
+            );
+        }
 
         Ok(())
     }
