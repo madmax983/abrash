@@ -648,3 +648,8 @@ required-features = ["nova"]
 name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "depth_visualizer_demo"
+path = "examples/depth_visualizer_demo.rs"
+required-features = ["nova"]

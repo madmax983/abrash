@@ -187,3 +187,7 @@
 **Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
 **Fate:** Implemented
 **Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.
+## [Depth Visualizer Demo]
+**Concept:** A post-processing effect that transforms a `ZBuffer`'s depth values into a visible grayscale heatmap directly onto the `Framebuffer`. This enables visual debugging of depth occlusion, mapping near plane to white and far plane to black.
+**Fate:** Implemented
+**Lesson:** Adding an explicit early return for invalid ranges (`near_plane >= far_plane`) protects against division by zero panics in user-facing experimental APIs. Accessing the raw buffer slices using `as_mut_slice()` and `as_slice()` avoids the overhead of bounds checking on every pixel.

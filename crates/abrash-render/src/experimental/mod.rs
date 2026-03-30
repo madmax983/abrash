@@ -38,6 +38,7 @@ pub mod cloth;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
+pub mod depth_visualizer;
 pub mod directional_blur;
 pub mod dither;
 pub mod edge_glow;
