@@ -1,6 +1,6 @@
-use abrash::post_process::apply_chromatic_aberration;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::Window;
+use abrash::post_process::apply_chromatic_aberration;
 use std::time::Instant;
 
 fn main() {

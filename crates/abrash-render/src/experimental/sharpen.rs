@@ -9,6 +9,9 @@ use crate::framebuffer::Framebuffer;
 /// Uses a 3x3 convolution kernel to enhance edges.
 /// The 1-pixel border of the image is left unmodified to avoid boundary issues.
 ///
+/// ⚡ **Performance Optimization:**
+/// A `thread_local!` scratch buffer is used internally to eliminate the `O(N)` heap allocation
+/// (previously `fb.as_slice().to_vec()`) that occurred every frame to prevent mutable aliasing during convolution.
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
@@ -34,7 +37,14 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     let center_weight_fixed = ((1.0 + 4.0 * amount) * 256.0) as i32;
     let side_weight_fixed = (-amount * 256.0) as i32;
 
-    let src = fb.as_slice().to_vec(); // create a copy of the framebuffer to read from
+    thread_local! {
+        static SRC_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new());
+    }
+    let mut src = SRC_BUFFER.take();
+    if src.len() != fb.as_slice().len() {
+        src.resize(fb.as_slice().len(), 0);
+    }
+    src.copy_from_slice(fb.as_slice());
     let dst = fb.as_mut_slice();
 
     let process_row = |(y_idx, row): (usize, &mut [u32])| {
@@ -111,4 +121,6 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
             .enumerate()
             .for_each(process_row);
     }
+
+    SRC_BUFFER.replace(src);
 }
