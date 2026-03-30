@@ -1626,7 +1626,7 @@ impl TileRenderer {
     /// get the clear color, non-empty tiles get a full clear + render + merge.
     /// This eliminates the separate `fb.clear()` + `zb.clear()` calls, replacing
     /// a cold-cache 2.46 MB memset with 300 × 8 KB L1-friendly tile writes.
-    pub fn set_clear_color(&mut self, color: Option<u32>) {
+    pub const fn set_clear_color(&mut self, color: Option<u32>) {
         self.clear_color = color;
     }
 

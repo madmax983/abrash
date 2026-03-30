@@ -176,18 +176,18 @@ pub fn apply_ssao(fb: &mut Framebuffer, zb: &ZBuffer, proj: &Mat4, config: &Ssao
             // /// Bolt Performance Optimization:
             // /// Use integer fixed-point math for color blending (8.8 precision)
             // /// Removes floating point multiplications for R, G, and B.
-            let factor_fixed = (factor * 256.0) as u32;
+            let factor_fixed = (factor * 256.0) as u64;
 
             // ⚡ Bolt: SWAR (SIMD Within A Register) for per-pixel color scaling.
             // Process Red and Blue channels simultaneously to eliminate intermediate shifts.
-            let orig = *p;
+            let orig = u64::from(*p);
             let rb = orig & 0x00FF_00FF;
             let g = orig & 0x0000_FF00;
 
             let rb_new = ((rb * factor_fixed) >> 8) & 0x00FF_00FF;
             let g_new = ((g * factor_fixed) >> 8) & 0x0000_FF00;
 
-            *p = (orig & 0xFF00_0000) | rb_new | g_new;
+            *p = ((orig & 0xFF00_0000) | rb_new | g_new) as u32;
         }
     });
 }
@@ -249,16 +249,27 @@ fn apply_ssao_scalar(
 
             let mut occlusion = 0.0;
 
+            let p00_val = proj.m[0][0];
+            let p11_val = proj.m[1][1];
+            let p22_val = proj.m[2][2];
+            let p32_val = proj.m[3][2];
+            let p23_val = proj.m[2][3];
+            let p33_val = proj.m[3][3];
+
             for s in kernel.iter().take(KERNEL_SIZE) {
                 let rotated_sample = Vec3::new(s.x * rx - s.y * ry, s.x * ry + s.y * rx, s.z);
 
                 let sample_pos = pos_view + rotated_sample * radius;
-                let (sample_clip, sample_w) = proj.transform_point(sample_pos);
+
+                // Manual scalar projection (optimized inline)
+                let clip_x = sample_pos.x * p00_val;
+                let clip_y = sample_pos.y * p11_val;
+                let sample_w = sample_pos.z * p23_val + p33_val; // Usually -z
 
                 if sample_w > 0.0 {
                     let inv_w = 1.0 / sample_w;
-                    let s_ndc_x = sample_clip.x * inv_w;
-                    let s_ndc_y = sample_clip.y * inv_w;
+                    let s_ndc_x = clip_x * inv_w;
+                    let s_ndc_y = clip_y * inv_w;
 
                     let s_screen_x = ((s_ndc_x + 1.0) * half_width) as i32;
                     let s_screen_y = ((1.0 - s_ndc_y) * half_height) as i32;
@@ -268,13 +279,18 @@ fn apply_ssao_scalar(
                         && s_screen_y >= 0
                         && s_screen_y < height as i32
                     {
-                        let existing_depth = zb.get_depth(s_screen_x, s_screen_y).unwrap_or(1.0);
-                        let existing_view_z = -p32 / (existing_depth + p22);
-                        let sample_view_z = sample_pos.z;
-                        let range_check = (existing_view_z - sample_view_z).abs() < radius;
+                        // Optimization: inline get_depth logic to skip Option handling overhead
+                        let idx = s_screen_y as usize * width + s_screen_x as usize;
+                        let existing_depth = zb.as_slice()[idx];
 
-                        if existing_view_z >= sample_view_z + bias && range_check {
-                            occlusion += 1.0;
+                        if existing_depth < 1.0 {
+                            let existing_view_z = -p32_val / (existing_depth + p22_val);
+                            let sample_view_z = sample_pos.z;
+                            let range_check = (existing_view_z - sample_view_z).abs() < radius;
+
+                            if existing_view_z >= sample_view_z + bias && range_check {
+                                occlusion += 1.0;
+                            }
                         }
                     }
                 }
@@ -538,12 +554,14 @@ unsafe fn apply_ssao_avx2(
                         {
                             let idx = s_screen_y as usize * width + s_screen_x as usize;
                             let existing_depth = zb_data[idx];
-                            let existing_view_z = -proj_m[14] / (existing_depth + proj_m[10]);
-                            let sample_view_z = sample_pos.z;
-                            if existing_view_z >= sample_view_z + bias
-                                && (existing_view_z - sample_view_z).abs() < radius
-                            {
-                                occlusion += 1.0;
+                            if existing_depth < 1.0 {
+                                let existing_view_z = -proj_m[14] / (existing_depth + proj_m[10]);
+                                let sample_view_z = sample_pos.z;
+                                if existing_view_z >= sample_view_z + bias
+                                    && (existing_view_z - sample_view_z).abs() < radius
+                                {
+                                    occlusion += 1.0;
+                                }
                             }
                         }
                     }
