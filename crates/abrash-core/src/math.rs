@@ -270,6 +270,15 @@ impl Vec2 {
         self.x * other.x + self.y * other.y
     }
 
+    /// 2D cross product (returns the z-component magnitude).
+    ///
+    /// Useful for winding/orientation tests and signed area calculations.
+    #[must_use]
+    #[inline]
+    pub fn cross(self, other: Self) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
+
     /// Returns a normalized unit vector (length of 1.0).
     ///
     /// For tiny vectors (length² <= `1e-8`), returns the original vector.
@@ -310,6 +319,39 @@ impl Vec2 {
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
         (self - other).length_sq()
+    }
+
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec2::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
+
+    /// Returns angle between vectors in radians.
+    ///
+    /// Returns 0 for near-zero length inputs.
+    #[must_use]
+    #[inline]
+    pub fn angle_between(self, other: Self) -> f32 {
+        let denom = self.length() * other.length();
+        if denom <= 0.000_000_01 {
+            return 0.0;
+        }
+        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
     }
 
     /// Component-wise minimum.
@@ -1023,6 +1065,110 @@ impl Mat4 {
         }
     }
 
+    /// Returns the transposed matrix.
+    #[must_use]
+    #[inline]
+    pub const fn transpose(&self) -> Self {
+        let m = &self.m;
+        Self {
+            m: [
+                [m[0][0], m[1][0], m[2][0], m[3][0]],
+                [m[0][1], m[1][1], m[2][1], m[3][1]],
+                [m[0][2], m[1][2], m[2][2], m[3][2]],
+                [m[0][3], m[1][3], m[2][3], m[3][3]],
+            ],
+        }
+    }
+
+    /// Computes the matrix determinant.
+    #[must_use]
+    #[inline]
+    pub fn determinant(&self) -> f32 {
+        let m = &self.m;
+
+        let a2323 = m[2][2] * m[3][3] - m[2][3] * m[3][2];
+        let a1323 = m[2][1] * m[3][3] - m[2][3] * m[3][1];
+        let a1223 = m[2][1] * m[3][2] - m[2][2] * m[3][1];
+        let a0323 = m[2][0] * m[3][3] - m[2][3] * m[3][0];
+        let a0223 = m[2][0] * m[3][2] - m[2][2] * m[3][0];
+        let a0123 = m[2][0] * m[3][1] - m[2][1] * m[3][0];
+
+        m[0][0] * (m[1][1] * a2323 - m[1][2] * a1323 + m[1][3] * a1223)
+            - m[0][1] * (m[1][0] * a2323 - m[1][2] * a0323 + m[1][3] * a0223)
+            + m[0][2] * (m[1][0] * a1323 - m[1][1] * a0323 + m[1][3] * a0123)
+            - m[0][3] * (m[1][0] * a1223 - m[1][1] * a0223 + m[1][2] * a0123)
+    }
+
+    #[inline]
+    fn is_affine(&self) -> bool {
+        self.m[0][3].abs() <= f32::EPSILON
+            && self.m[1][3].abs() <= f32::EPSILON
+            && self.m[2][3].abs() <= f32::EPSILON
+            && (self.m[3][3] - 1.0).abs() <= f32::EPSILON
+    }
+
+    /// Fast inverse for affine transforms (`R*S + T`), common in render loops.
+    ///
+    /// Falls back to zero matrix if non-invertible.
+    #[must_use]
+    pub fn inverse_affine(&self) -> Self {
+        let m = &self.m;
+        let a00 = m[0][0];
+        let a01 = m[0][1];
+        let a02 = m[0][2];
+        let a10 = m[1][0];
+        let a11 = m[1][1];
+        let a12 = m[1][2];
+        let a20 = m[2][0];
+        let a21 = m[2][1];
+        let a22 = m[2][2];
+
+        let c00 = a11 * a22 - a12 * a21;
+        let c01 = -(a10 * a22 - a12 * a20);
+        let c02 = a10 * a21 - a11 * a20;
+        let c10 = -(a01 * a22 - a02 * a21);
+        let c11 = a00 * a22 - a02 * a20;
+        let c12 = -(a00 * a21 - a01 * a20);
+        let c20 = a01 * a12 - a02 * a11;
+        let c21 = -(a00 * a12 - a02 * a10);
+        let c22 = a00 * a11 - a01 * a10;
+
+        let det = a00 * c00 + a01 * c01 + a02 * c02;
+        if det.abs() < 1e-6 {
+            return Self { m: [[0.0; 4]; 4] };
+        }
+        let inv_det = 1.0 / det;
+
+        // inverse(upper3x3) == adjugate / det
+        let b00 = c00 * inv_det;
+        let b01 = c10 * inv_det;
+        let b02 = c20 * inv_det;
+        let b10 = c01 * inv_det;
+        let b11 = c11 * inv_det;
+        let b12 = c21 * inv_det;
+        let b20 = c02 * inv_det;
+        let b21 = c12 * inv_det;
+        let b22 = c22 * inv_det;
+
+        let tx = m[3][0];
+        let ty = m[3][1];
+        let tz = m[3][2];
+
+        Self {
+            m: [
+                [b00, b01, b02, 0.0],
+                [b10, b11, b12, 0.0],
+                [b20, b21, b22, 0.0],
+                [
+                    -(tx * b00 + ty * b10 + tz * b20),
+                    -(tx * b01 + ty * b11 + tz * b21),
+                    -(tx * b02 + ty * b12 + tz * b22),
+                    1.0,
+                ],
+            ],
+        }
+    }
+
     /// Creates a rotation matrix around the X axis.
     ///
     /// * `angle` - The angle in radians.
@@ -1571,6 +1717,10 @@ impl Mat4 {
     /// Returns a zero matrix if the matrix is not invertible.
     #[must_use]
     pub fn inverse(&self) -> Self {
+        if self.is_affine() {
+            return self.inverse_affine();
+        }
+
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
             unsafe {
