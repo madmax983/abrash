@@ -93,17 +93,20 @@ impl SkeletonAnimator {
     ///
     /// Bones without animation channels keep their bind-pose values.
     pub fn tick(&mut self, dt: f32) -> Pose {
+        // ⚡ Bolt: Using `clone()` and then mutating is still fast enough, but replacing the
+        // manual indexing `[i]` loop with an `iter_mut().zip()` chain allows LLVM to mathematically
+        // prove safety, eliding all bounds checks within this very hot inner tick loop.
         let mut transforms = self.bind_pose.local_transforms.clone();
 
-        for (i, animator) in self.bone_animators.iter_mut().enumerate() {
+        for (transform, animator) in transforms.iter_mut().zip(self.bone_animators.iter_mut()) {
             if let Some(ref mut tl) = animator.position {
-                transforms[i].position = tl.tick(dt).value;
+                transform.position = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.rotation {
-                transforms[i].rotation = tl.tick(dt).value;
+                transform.rotation = tl.tick(dt).value;
             }
             if let Some(ref mut tl) = animator.scale {
-                transforms[i].scale = tl.tick(dt).value;
+                transform.scale = tl.tick(dt).value;
             }
         }
 
