@@ -19,7 +19,7 @@ use crate::geometry::BoundingSphere;
 use crate::math::{Vec2, Vec3, Vec4};
 
 /// A 3D mesh with vertices and triangle indices
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Mesh {
     /// List of 3D vertices (x, y, z).
     pub vertices: Vec<Vec3>,
@@ -32,6 +32,26 @@ pub struct Mesh {
     pub normals: Vec<Vec3>,
     /// List of vertex tangents (xyz + handedness w).
     pub tangents: Vec<Vec4>,
+}
+
+impl Clone for Mesh {
+    fn clone(&self) -> Self {
+        Self {
+            vertices: self.vertices.clone(),
+            indices: self.indices.clone(),
+            uvs: self.uvs.clone(),
+            normals: self.normals.clone(),
+            tangents: self.tangents.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.vertices.clone_from(&source.vertices);
+        self.indices.clone_from(&source.indices);
+        self.uvs.clone_from(&source.uvs);
+        self.normals.clone_from(&source.normals);
+        self.tangents.clone_from(&source.tangents);
+    }
 }
 
 impl Mesh {

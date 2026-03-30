@@ -186,9 +186,10 @@ impl Renderer for CpuRenderer {
             .get_mut(from_mesh_handle(handle))
             .ok_or(RenderError::StaleHandle("mesh"))?;
 
-        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
-        cpu_mesh.mesh = mesh.clone();
-        cpu_mesh.shared_indices = shared_indices;
+        if cpu_mesh.mesh.indices != mesh.indices {
+            cpu_mesh.shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        }
+        cpu_mesh.mesh.clone_from(mesh);
         Ok(())
     }
 
