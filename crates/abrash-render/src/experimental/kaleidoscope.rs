@@ -11,6 +11,24 @@ thread_local! {
     static KALEIDOSCOPE_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Fast `atan2` approximation.
+///
+/// Returns an angle between `-PI` and `PI`.
+#[inline(always)]
+fn fast_atan2(y: f32, x: f32) -> f32 {
+    let abs_y = y.abs() + 1e-10;
+    let abs_x = x.abs() + 1e-10;
+    let r = (abs_x - abs_y) / (abs_x + abs_y);
+    let mut angle = std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_4 * r;
+    if x < 0.0 {
+        angle = std::f32::consts::PI - angle;
+    }
+    if y < 0.0 {
+        angle = -angle;
+    }
+    angle
+}
+
 /// Applies a kaleidoscope effect to the framebuffer.
 ///
 /// Divides the screen into `segments` radially, and mirrors the content
@@ -70,7 +88,18 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
                         // Convert to polar coordinates
                         let r = dx.hypot(dy);
-                        let mut theta = dy.atan2(dx);
+
+                        // Fast atan2 approximation
+                        let abs_y = dy.abs() + 1e-10;
+                        let abs_x = dx.abs() + 1e-10;
+                        let r_angle = (abs_x - abs_y) / (abs_x + abs_y);
+                        let mut theta = std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_4 * r_angle;
+                        if dx < 0.0 {
+                            theta = std::f32::consts::PI - theta;
+                        }
+                        if dy < 0.0 {
+                            theta = -theta;
+                        }
 
                         // Normalize angle to [0, TAU]
                         if theta < 0.0 {
@@ -104,6 +133,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
         #[cfg(not(feature = "parallel"))]
         {
+            // Re-import or reference fast_atan2 if needed
             for y in 0..height {
                 let row_start = y * width;
                 let dy = y as f32 - cy;
@@ -112,8 +142,9 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let dx = x as f32 - cx;
 
                     // Convert to polar coordinates
+                    #[allow(clippy::imprecise_flops)]
                     let r = (dx * dx + dy * dy).sqrt();
-                    let mut theta = dy.atan2(dx);
+                    let mut theta = fast_atan2(dy, dx);
 
                     // Normalize angle to [0, TAU]
                     if theta < 0.0 {

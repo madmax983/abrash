@@ -18,6 +18,7 @@ use std::time::Duration;
 
 use comfy_table::{Cell, Color, Table, presets};
 #[cfg(feature = "nova")]
+#[allow(unused_imports)]
 use crossterm::event::{self, Event, KeyCode};
 #[cfg(feature = "nova")]
 use crossterm::style::Stylize;
