@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "attempt to add with overflow")]
-    #[ignore = "👹 Havoc: Generation Overflow causes Denial of Service"]
+    // 👹 Havoc: Unignored to present the wreckage!
     fn test_pool_generation_overflow_panic() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
         let mut handle = pool.insert(42);
