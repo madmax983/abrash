@@ -1,0 +1,1 @@
+cargo bench clear_rect_bench
