@@ -152,3 +152,33 @@ pub fn apply_radial_blur(
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+
+    #[test]
+    fn test_radial_blur_swar_overflow_safety() {
+        let mut fb = Framebuffer::new(3, 3).unwrap();
+        // Fill the framebuffer with pure blue to test accumulation overflow into the Red channel.
+        // 0xFF0000FF
+        fb.clear(0xFF00_00FF);
+
+        // Apply a massive number of samples (1000).
+        // If the SWAR logic uses a single u32 or incorrectly masks, 1000 * 255 = 255,000.
+        // This easily overflows the 8-bit gap (max 65280) and would corrupt the Red channel (bits 16-23)
+        // while truncating the actual Blue value.
+        apply_radial_blur(&mut fb, 1, 1, 0.5, 1000);
+
+        let center_pixel = fb.get_pixel(1, 1).unwrap();
+
+        let r = (center_pixel >> 16) & 0xFF;
+        let g = (center_pixel >> 8) & 0xFF;
+        let b = center_pixel & 0xFF;
+
+        assert_eq!(r, 0, "Red channel corrupted due to SWAR overflow!");
+        assert_eq!(g, 0, "Green channel corrupted!");
+        assert_eq!(b, 255, "Blue channel incorrectly averaged or truncated!");
+    }
+}

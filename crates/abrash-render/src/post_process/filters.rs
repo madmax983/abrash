@@ -956,11 +956,7 @@ mod simd {
             let mask_ga = _mm256_set1_epi32(0xFF00_FF00u32 as i32);
 
             unsafe {
-                for y in 0..height {
-                    let row_start = y * width;
-                    let row_end = row_start + width;
-                    let row_pixels = &mut pixels[row_start..row_end];
-
+                for row_pixels in pixels.chunks_exact_mut(width) {
                     // Copy to scratch
                     row_buffer[..width].copy_from_slice(row_pixels);
                     let src_ptr = row_buffer.as_ptr();

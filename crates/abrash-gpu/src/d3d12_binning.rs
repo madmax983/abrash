@@ -65,10 +65,6 @@ pub struct Aabb3d {
     pub max_depth: f32,
 }
 
-/// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
-
-/// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
-
 /// GPU compute binning pipeline
 pub struct GpuBinner {
     device: D3D12Device,
@@ -121,8 +117,8 @@ impl GpuBinner {
         tile_size: u32,
         max_triangles: usize,
     ) -> Result<Self, GpuError> {
-        let tiles_x = (width + tile_size - 1) / tile_size;
-        let tiles_y = (height + tile_size - 1) / tile_size;
+        let tiles_x = width.div_ceil(tile_size);
+        let tiles_y = height.div_ceil(tile_size);
         let tile_count = (tiles_x * tiles_y) as usize;
 
         // Create device
@@ -427,8 +423,8 @@ impl GpuBinner {
         }
 
         // Calculate coarse bin dimensions
-        self.coarse_bins_x = (self.width + self.coarse_bin_size - 1) / self.coarse_bin_size;
-        self.coarse_bins_y = (self.height + self.coarse_bin_size - 1) / self.coarse_bin_size;
+        self.coarse_bins_x = self.width.div_ceil(self.coarse_bin_size);
+        self.coarse_bins_y = self.height.div_ceil(self.coarse_bin_size);
         let coarse_bin_count = (self.coarse_bins_x * self.coarse_bins_y) as usize;
 
         // Allocate coarse bins UAV buffer
@@ -606,7 +602,7 @@ impl GpuBinner {
                 .SetComputeRoot32BitConstants(1, 4, constants.as_ptr() as *const _, 0);
 
             // Dispatch (64 threads per group)
-            let thread_groups = (triangle_count + 63) / 64;
+            let thread_groups = triangle_count.div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Copy UAV to readback
@@ -819,7 +815,7 @@ impl GpuBinner {
             );
 
             // Step 8: Dispatch compute shader (one thread group per visible bin)
-            let thread_groups = (visible_bins.len() as u32 + 63) / 64;
+            let thread_groups = (visible_bins.len() as u32).div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Step 9: Close and execute command list
@@ -847,7 +843,7 @@ impl GpuBinner {
 
             if self.fence.GetCompletedValue() < self.fence_value {
                 let event = CreateEventW(None, false, false, None)
-                    .map_err(|e| GpuError::DeviceCreation(e.into()))?;
+                    .map_err(GpuError::DeviceCreation)?;
                 self.fence
                     .SetEventOnCompletion(self.fence_value, event)
                     .map_err(GpuError::DeviceCreation)?;
@@ -993,7 +989,7 @@ impl GpuBinner {
                 .SetComputeRoot32BitConstants(1, 4, constants.as_ptr() as *const _, 0);
 
             // Dispatch compute shader (64 threads per group)
-            let thread_groups = (triangle_count + 63) / 64;
+            let thread_groups = triangle_count.div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Copy UAV to readback buffer
@@ -1202,7 +1198,7 @@ impl GpuHiZBuilder {
         let descriptor_heap: ID3D12DescriptorHeap = unsafe {
             let desc = D3D12_DESCRIPTOR_HEAP_DESC {
                 Type: D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                NumDescriptors: (level_count * 2) as u32, // SRV + UAV per level
+                NumDescriptors: level_count * 2, // SRV + UAV per level
                 Flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
                 NodeMask: 0,
             };
@@ -1314,8 +1310,7 @@ impl GpuHiZBuilder {
     fn aligned_row_pitch(width: u32, bytes_per_pixel: u32) -> u32 {
         const D3D12_TEXTURE_DATA_PITCH_ALIGNMENT: u32 = 256;
         let pitch = width * bytes_per_pixel;
-        ((pitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
-            * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
+        pitch.div_ceil(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
     }
 
     /// Create upload buffer (CPU -> GPU)
@@ -1854,8 +1849,8 @@ impl GpuHiZBuilder {
 
             // Get destination resource (always pyramid_levels, never zbuffer)
             // Dispatch compute shader (8×8 thread groups)
-            let thread_groups_x = (dst_width + 7) / 8;
-            let thread_groups_y = (dst_height + 7) / 8;
+            let thread_groups_x = dst_width.div_ceil(8);
+            let thread_groups_y = dst_height.div_ceil(8);
             self.command_list
                 .Dispatch(thread_groups_x, thread_groups_y, 1);
 

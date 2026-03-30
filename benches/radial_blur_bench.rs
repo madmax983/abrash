@@ -44,6 +44,19 @@ fn bench_radial_blur(c: &mut Criterion) {
         });
     });
 
+    // Bench the universally optimal path under extreme load
+    group.bench_function("scalar_optimal_1000_samples", |b| {
+        b.iter(|| {
+            apply_radial_blur(
+                black_box(&mut fb),
+                black_box(512),
+                black_box(512),
+                black_box(0.5),
+                black_box(1000),
+            );
+        });
+    });
+
     group.finish();
 }
 
