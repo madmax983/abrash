@@ -598,3 +598,7 @@ required-features = ["nova"]
 name = "black_hole_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "cpu_renderer_update"
+harness = false
