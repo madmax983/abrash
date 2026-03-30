@@ -1536,6 +1536,8 @@ pub struct TileRenderer {
     /// When set, `end_frame` writes ALL tiles (empty tiles get this color),
     /// eliminating the need for a separate full-frame `fb.clear()` + `zb.clear()`.
     clear_color: Option<u32>,
+    /// Buffer reused to avoid allocations when sorting triangles by depth
+    sort_indices: Vec<u32>,
 }
 
 struct CoarseBinContext<'a> {
@@ -1590,6 +1592,7 @@ impl TileRenderer {
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
             clear_color: None,
+            sort_indices: Vec::with_capacity(64),
         }
     }
 
@@ -2908,21 +2911,20 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            self.sort_indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                self.sort_indices.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if self.sort_indices.len() > 1 {
+                self.sort_indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_gouraud.get_unchecked(tri_idx_a).min_depth };
@@ -2932,13 +2934,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = self.sort_indices[0];
+                let len = self.sort_indices.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[self.sort_indices[i] as usize] = self.sort_indices[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[self.sort_indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = self.sort_indices[len - 1];
             }
         }
     }
@@ -3428,21 +3430,20 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            self.sort_indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                self.sort_indices.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if self.sort_indices.len() > 1 {
+                self.sort_indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared.get_unchecked(tri_idx_a).min_depth };
@@ -3452,13 +3453,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = self.sort_indices[0];
+                let len = self.sort_indices.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[self.sort_indices[i] as usize] = self.sort_indices[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[self.sort_indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = self.sort_indices[len - 1];
             }
         }
     }
@@ -3475,21 +3476,20 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
         for (tile_idx, head) in heads.iter_mut().enumerate() {
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
+            self.sort_indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
-                indices.push(curr);
+                self.sort_indices.push(curr);
                 curr = nexts[curr as usize];
             }
 
-            if indices.len() > 1 {
-                indices.sort_unstable_by(|&a, &b| {
+            if self.sort_indices.len() > 1 {
+                self.sort_indices.sort_unstable_by(|&a, &b| {
                     let tri_idx_a = tris[a as usize] as usize;
                     let tri_idx_b = tris[b as usize] as usize;
                     let depth_a = unsafe { prepared_textured.get_unchecked(tri_idx_a).min_depth };
@@ -3499,13 +3499,13 @@ impl TileRenderer {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                *head = indices[0];
-                let len = indices.len();
+                *head = self.sort_indices[0];
+                let len = self.sort_indices.len();
                 for i in 0..len - 1 {
-                    nexts[indices[i] as usize] = indices[i + 1];
+                    nexts[self.sort_indices[i] as usize] = self.sort_indices[i + 1];
                 }
-                nexts[indices[len - 1] as usize] = u32::MAX;
-                tails[tile_idx] = indices[len - 1];
+                nexts[self.sort_indices[len - 1] as usize] = u32::MAX;
+                tails[tile_idx] = self.sort_indices[len - 1];
             }
         }
     }
