@@ -740,6 +740,36 @@ impl Vec3 {
         }
     }
 
+    /// Refracts this vector through a surface with the given normal.
+    ///
+    /// `eta` is the ratio of refractive indices (`n1 / n2`).
+    /// Returns `Vec3::ZERO` when total internal reflection occurs.
+    #[must_use]
+    #[inline]
+    pub fn refract(self, normal: Self, eta: f32) -> Self {
+        let cos_i = (-self.dot(normal)).clamp(-1.0, 1.0);
+        let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
+        if k < 0.0 {
+            Self::ZERO
+        } else {
+            self * eta + normal * (eta * cos_i - k.sqrt())
+        }
+    }
+
+    /// Returns this vector oriented to face away from a reference direction.
+    ///
+    /// Equivalent to GLSL `faceforward(n, i, nref)` when called as
+    /// `n.face_forward(i, nref)`.
+    #[must_use]
+    #[inline]
+    pub fn face_forward(self, incident: Self, reference_normal: Self) -> Self {
+        if reference_normal.dot(incident) < 0.0 {
+            self
+        } else {
+            self * -1.0
+        }
+    }
+
     /// Projects this vector onto another vector.
     ///
     /// Returns `Vec3::ZERO` when `onto` is near zero to avoid division by tiny values.
@@ -2524,6 +2554,38 @@ mod tests {
         assert!((r.x - 1.0).abs() < 1e-6);
         assert!((r.y - 1.0).abs() < 1e-6);
         assert!(r.z.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec3_refract_air_to_glass() {
+        // 45-degree incidence from air to glass.
+        let incident = Vec3::new(1.0, -1.0, 0.0).normalize();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let refracted = incident.refract(normal, 1.0 / 1.5);
+
+        // Should still travel downward, bent toward the normal.
+        assert!(refracted.y < 0.0);
+        assert!(refracted.length() > 0.99 && refracted.length() < 1.01);
+    }
+
+    #[test]
+    fn test_vec3_refract_total_internal_reflection() {
+        // Steep angle from dense to sparse medium should TIR.
+        let incident = Vec3::new(1.0, -0.1, 0.0).normalize();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let refracted = incident.refract(normal, 1.5);
+        assert_eq!(refracted, Vec3::ZERO);
+    }
+
+    #[test]
+    fn test_vec3_face_forward() {
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let i_towards = Vec3::new(0.0, -1.0, 0.0);
+        let i_away = Vec3::new(0.0, 1.0, 0.0);
+        let nref = Vec3::new(0.0, 1.0, 0.0);
+
+        assert_eq!(n.face_forward(i_towards, nref), n);
+        assert_eq!(n.face_forward(i_away, nref), n * -1.0);
     }
 
     #[test]
