@@ -562,7 +562,7 @@ f 1/1 1/2 1/1
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Temporarily disabled to reduce output noise during debugging"]
     fn test_load_normals() {
         let obj = "
 v 0 0 0
@@ -578,7 +578,7 @@ f 1//1 2//1 3//1
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Temporarily disabled to reduce output noise during debugging"]
     fn test_load_mixed_normals() {
         let obj = "
 v 0 0 0
@@ -708,7 +708,7 @@ mod extra_tests {
     #[test]
     fn test_parse_large_integers() {
         // Safe 9 digits (u32 safe)
-        assert_eq!(fast_parse_usize(b"999999999"), Some(999999999));
+        assert_eq!(fast_parse_usize(b"999999999"), Some(999_999_999));
 
         // 20 digits (exceeds MAX_DIGITS on both 32 and 64 bit)
         // 1 followed by 19 zeros
@@ -719,7 +719,7 @@ mod extra_tests {
             // 9,999,999,999,999,999,999 (19 nines) fits in u64
             assert_eq!(
                 fast_parse_usize(b"9999999999999999999"),
-                Some(9999999999999999999)
+                Some(9_999_999_999_999_999_999)
             );
         } else {
             // On 32-bit, MAX_DIGITS is 9. 10 digits should fail.

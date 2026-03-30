@@ -162,3 +162,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance] Slicing to Elide Bounds Checks in 2D Neighborhood Operations**
 **Learning:** When performing 2D image convolution or neighborhood operations (like Sobel edge detection) on a flat 1D buffer, manually calculating the absolute index for every pixel in a 3x3 kernel (e.g. `prev_row_offset + x`) prevents LLVM from proving safety, resulting in 9 bounds checks per pixel.
 **Action:** Extract explicit 1D slices for the `prev_row`, `curr_row`, and `next_row` *outside* the inner loop (e.g. `&lum_slice[offset..offset+width]`). Inside the loop, access them via `row[x]`. The compiler will recognize `x` is strictly bounded by `width` and safely eliminate all bounds checks, yielding measurable speedups.
+
+## [Performance] fast_parse_usize Optimization
+**Learning:** In the hot path of Wavefront OBJ parsing (`fast_parse_usize`), checking the maximum length of the string to avoid integer overflow incurs unnecessary overhead per parsed index.
+**Action:** Remove the `MAX_DIGITS` length check upfront. Instead, process characters using `wrapping_mul(10).wrapping_add(d)` and manually check for overflow on the accumulator (`if next_n < n`). Because the parser naturally rejects most malformed inputs elsewhere, this reduces operations per parsed integer, providing a measurable performance improvement to the integer parser itself and up to 6.4% improvement on overall mesh loading (`load_sphere_50x50` benchmark).
