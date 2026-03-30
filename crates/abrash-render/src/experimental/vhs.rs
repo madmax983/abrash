@@ -144,7 +144,7 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                 (h_shift, 0, 0)
             };
 
-            for x in 0..width {
+            for (x, pixel) in row.iter_mut().enumerate() {
                 let base_x = x as i32 - horizontal_shift;
 
                 // Sample channels with chromatic aberration shift
@@ -179,7 +179,7 @@ pub fn apply_vhs(fb: &mut Framebuffer, config: &VhsConfig) {
                     final_b = 200;
                 }
 
-                row[x] = 0xFF00_0000
+                *pixel = 0xFF00_0000
                     | ((final_r as u32) << 16)
                     | ((final_g as u32) << 8)
                     | (final_b as u32);
