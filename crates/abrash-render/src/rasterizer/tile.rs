@@ -1536,6 +1536,8 @@ pub struct TileRenderer {
     /// When set, `end_frame` writes ALL tiles (empty tiles get this color),
     /// eliminating the need for a separate full-frame `fb.clear()` + `zb.clear()`.
     clear_color: Option<u32>,
+    /// Pre-allocated buffer to eliminate allocations during bin sorting.
+    sort_buffer: Vec<u32>,
 }
 
 struct CoarseBinContext<'a> {
@@ -1590,6 +1592,7 @@ impl TileRenderer {
             half_width: width as f32 * 0.5,
             half_height: height as f32 * 0.5,
             clear_color: None,
+            sort_buffer: Vec::with_capacity(64),
         }
     }
 
@@ -2908,13 +2911,14 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        let indices = &mut self.sort_buffer;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
+            indices.clear();
+
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
                 indices.push(curr);
@@ -3428,13 +3432,14 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        let indices = &mut self.sort_buffer;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
+            indices.clear();
+
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
                 indices.push(curr);
@@ -3475,13 +3480,14 @@ impl TileRenderer {
         let tails = &mut self.tile_bins.tails;
         let tris = &self.tile_bins.tris;
 
-        let mut indices = Vec::with_capacity(64);
+        let indices = &mut self.sort_buffer;
         for (tile_idx, head) in heads.iter_mut().enumerate() {
+            indices.clear();
+
             if *head == u32::MAX {
                 continue;
             }
 
-            indices.clear();
             let mut curr = *head;
             while curr != u32::MAX {
                 indices.push(curr);

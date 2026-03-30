@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+**[Performance Optimization: Eliminate per-tile bin sorting heap allocations]**
+**Learning:** Repeatedly creating a new `Vec::with_capacity(64)` inside the `TileBins` sorting functions (`sort_bins_flat`, `sort_bins_gouraud`, `sort_bins_textured`) causes thousands of unnecessary O(N) heap allocations per frame, particularly at high resolutions where tile counts are high (e.g., 2000+ tiles at 1080p). This stresses the allocator and reduces performance.
+**Action:** Hoist the index sorting buffer directly into the `TileRenderer` struct (`sort_buffer: Vec<u32>`) and clear/reuse it for every tile across all sorting phases. This completely eliminates dynamic allocations during the sorting passes.
