@@ -1202,11 +1202,6 @@ mod tests {
             "bottom-right should be blue"
         );
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
-
     // ── blit_alpha / blit_alpha_unchecked tests ─────────────────────────
 
     /// Extract a single color channel from an ARGB pixel.
@@ -1416,11 +1411,6 @@ mod tests {
             "bottom-right should be blue"
         );
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 793a0ed (feat(blitter): add fill_rect, fill_rect_alpha, and re-export from abrash crate)
-
     // ── fill_rect / fill_rect_alpha tests ──────────────────────────────
 
     #[test]
@@ -1551,11 +1541,4 @@ mod tests {
         assert_eq!(fb_pixels[0 * fb_w + 2], BLUE, "(2,0) should be blue");
         assert_eq!(fb_pixels[2 * fb_w + 0], BLUE, "(0,2) should be blue");
     }
-<<<<<<< HEAD
-=======
->>>>>>> 63e9f2b (feat(blitter): add blit_colorkey and blit_colorkey_unchecked)
-=======
->>>>>>> 1773111 (feat(blitter): add blit_alpha and blit_alpha_unchecked with SWAR blending)
-=======
->>>>>>> 793a0ed (feat(blitter): add fill_rect, fill_rect_alpha, and re-export from abrash crate)
 }

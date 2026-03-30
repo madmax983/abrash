@@ -71,7 +71,14 @@ fn bench_scene_render(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF00_0000);
             zb.clear();
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            {
+                let draw_list = scene.extract();
+                renderer.begin_frame();
+                for batch in &draw_list.batches {
+                    renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                }
+                renderer.end_frame(&mut fb, &mut zb);
+            }
         });
     });
 }
@@ -165,7 +172,12 @@ fn bench_scene_render_integrated_clear(c: &mut Criterion) {
     let mut zb = ZBuffer::new(width, height).unwrap();
     c.bench_function("scene_render_integrated_clear_100_objects", |b| {
         b.iter(|| {
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            let draw_list = scene.extract();
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            }
+            renderer.end_frame(&mut fb, &mut zb);
         });
     });
 }

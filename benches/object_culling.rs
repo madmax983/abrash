@@ -85,7 +85,14 @@ fn object_culling_benchmark(c: &mut Criterion) {
         b.iter(|| {
             fb.clear(0xFF00_0000);
             zb.clear();
-            scene.render(&mut renderer, &mut fb, &mut zb);
+            {
+                let draw_list = scene.extract();
+                renderer.begin_frame();
+                for batch in &draw_list.batches {
+                    renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                }
+                renderer.end_frame(&mut fb, &mut zb);
+            }
         });
     });
 }

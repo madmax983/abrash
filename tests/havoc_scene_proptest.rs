@@ -23,7 +23,14 @@ proptest! {
                 for _ in 0..obj_count {
                     scene.add_object(SceneObject::new(mesh.clone(), Mat4::identity(), 0xFFFF_FFFF));
                 }
-                scene.render(&mut renderer, &mut fb, &mut zb);
+                {
+            let draw_list = scene.extract();
+            renderer.begin_frame();
+            for batch in &draw_list.batches {
+                renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            }
+            renderer.end_frame(&mut fb, &mut zb);
+        }
             }
     }
 }

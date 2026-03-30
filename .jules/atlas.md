@@ -67,3 +67,11 @@
 1.  **Cut Obsolete Abstraction:** Deleted `src/platform/win32.rs` entirely, dropping the custom Win32 fallback implementation.
 2.  **Prune Dependency Graph:** Removed `windows-sys` and the `backend-win32` feature flag from `Cargo.toml`.
 3.  **Modernize Call Sites:** Migrated the aforementioned examples to rely directly on `winit`'s standard event-driven approach by mapping their procedural update loops to `WindowApp` implementations.
+## [Decoupling Scene from TileRenderer]
+**Tangle:** The `Scene` struct in `abrash-render`'s `scene.rs` was tightly coupled to the low-level software rasterizer via the `Scene::render(&self, renderer: &mut TileRenderer, ...)` method. This violated the boundary established by the `DrawList` abstraction, forcing high-level scene management to know about a specific backend execution loop and creating a leaky abstraction.
+
+**Blueprint:**
+1.  **Remove Method:** Deleted the `Scene::render` method entirely, removing the `TileRenderer` dependency from `scene.rs`.
+2.  **Enforce Seam:** Updated all tests, benchmarks, and examples across the workspace to explicitly call `let draw_list = scene.extract();` and then manually submit the agnostic `DrawList` to the `TileRenderer`'s execution API (`begin_frame`, `submit_mesh`, `end_frame`).
+
+**Stability:** The `Scene` is now purely responsible for spatial organization, frustum culling, and producing a backend-agnostic `DrawList`. The rendering backend (e.g., `TileRenderer`) consumes the list independently, enforcing a strict unidirectional dependency graph and high cohesion within their respective domains.
