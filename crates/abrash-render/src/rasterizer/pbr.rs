@@ -1038,11 +1038,17 @@ fn draw_scanline_pbr_scalar(
 
             // Tone mapping (Reinhard)
             // mapped = color / (color + 1.0)
-            let denom = color + Vec3::ONE;
-            let mapped = Vec3::new(color.x / denom.x, color.y / denom.y, color.z / denom.z);
+            // Avoid creating intermediate Vec3s
+            let cx = color.x;
+            let cy = color.y;
+            let cz = color.z;
+            let mx = cx / (cx + 1.0);
+            let my = cy / (cy + 1.0);
+            let mz = cz / (cz + 1.0);
+
             // Gamma correction (Approximation Gamma 2.0 using sqrt)
             // fast_inv_sqrt is for 1/sqrt. sqrt is fast.
-            let corrected = Vec3::new(mapped.x.sqrt(), mapped.y.sqrt(), mapped.z.sqrt());
+            let corrected = Vec3::new(mx.sqrt(), my.sqrt(), mz.sqrt());
 
             *pixel = color_to_u32_scaled(corrected * 255.0);
         }
