@@ -114,16 +114,16 @@ mod tests {
         }
 
         let config = WobbleConfig {
-            amplitude: 2.0,
+            amplitude: 2.1, // Use 2.1 so that (2.1 * fast_sin(PI/2)) as i32 == 2
             frequency: 1.0,
-            // time = PI / 2.0 means sin(y=0) = 1.0 -> shift = 2.0
+            // time = PI / 2.0 means sin(y=0) = 1.0 -> shift = 2
             time: std::f32::consts::PI / 2.0,
         };
 
         apply_wobble(&mut fb, &config);
 
         // At y = 0: y_f32 * freq_scale = 0.
-        // sin(0 + PI/2) = 1.0. Shift = 2.0 * 1.0 = 2.
+        // fast_sin(PI/2) ~= 0.9999999. Shift = (2.1 * 0.9999999) as i32 = 2.
         // The pixel at x = 5 shifted right by 2 -> should now be at x = 7.
         // Meaning at x = 7, the pixel is read from src_x = 7 - 2 = 5 (which is White).
         let pixel_at_7 = fb.get_pixel(7, 0).unwrap();
