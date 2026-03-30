@@ -1,3 +1,4 @@
+
 fn check_fastpath_vulnerability(
     len: i32,
     u_fix: i32,
@@ -38,17 +39,6 @@ fn check_fastpath_vulnerability(
 }
 
 fn main() {
-    let mut i = 0;
-    while i < 10000000 {
-        let u_fix: i32 = rand::random();
-        let du_fix: i32 = rand::random();
-        let len = (rand::random::<u32>() % 4096) as i32 + 1;
-        let tex_w = 32768;
-
-        if let Err(e) = check_fastpath_vulnerability(len, u_fix, du_fix, tex_w) {
-            println!("{}, {}, {}, {}: {}", len, u_fix, du_fix, tex_w, e);
-            break;
-        }
-        i += 1;
-    }
+    let result = check_fastpath_vulnerability(4096, 2147418112, 16384, 32768);
+    println!("{:?}", result);
 }
