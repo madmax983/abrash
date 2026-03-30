@@ -71,6 +71,52 @@ impl Quat {
         qy * qx * qz
     }
 
+    /// Create a quaternion from the upper-left 3x3 portion of a rotation matrix.
+    ///
+    /// The matrix is expected to use Abrash's row-major, row-vector convention.
+    /// For best results the basis vectors should be orthonormal.
+    #[must_use]
+    pub fn from_mat4(matrix: Mat4) -> Self {
+        let m = matrix.m;
+        let trace = m[0][0] + m[1][1] + m[2][2];
+
+        let quat = if trace > 0.0 {
+            let s = (trace + 1.0).sqrt() * 2.0;
+            Self::new(
+                (m[1][2] - m[2][1]) / s,
+                (m[2][0] - m[0][2]) / s,
+                (m[0][1] - m[1][0]) / s,
+                0.25 * s,
+            )
+        } else if m[0][0] > m[1][1] && m[0][0] > m[2][2] {
+            let s = (1.0 + m[0][0] - m[1][1] - m[2][2]).sqrt() * 2.0;
+            Self::new(
+                0.25 * s,
+                (m[0][1] + m[1][0]) / s,
+                (m[0][2] + m[2][0]) / s,
+                (m[1][2] - m[2][1]) / s,
+            )
+        } else if m[1][1] > m[2][2] {
+            let s = (1.0 + m[1][1] - m[0][0] - m[2][2]).sqrt() * 2.0;
+            Self::new(
+                (m[0][1] + m[1][0]) / s,
+                0.25 * s,
+                (m[1][2] + m[2][1]) / s,
+                (m[2][0] - m[0][2]) / s,
+            )
+        } else {
+            let s = (1.0 + m[2][2] - m[0][0] - m[1][1]).sqrt() * 2.0;
+            Self::new(
+                (m[0][2] + m[2][0]) / s,
+                (m[1][2] + m[2][1]) / s,
+                0.25 * s,
+                (m[0][1] - m[1][0]) / s,
+            )
+        };
+
+        quat.normalize()
+    }
+
     /// Spherical linear interpolation between two quaternions.
     ///
     /// Always takes the shortest path (flips `other` if dot product is negative).
@@ -113,7 +159,7 @@ impl Quat {
     /// Normalize to unit length.
     #[must_use]
     pub fn normalize(self) -> Self {
-        let len = (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
+        let len = self.length_sq().sqrt();
         if len < f32::EPSILON {
             return Self::identity();
         }
@@ -167,11 +213,54 @@ impl Quat {
         Self::new(-self.x, -self.y, -self.z, self.w)
     }
 
+    /// The squared magnitude of the quaternion.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
+    }
+
+    /// Inverse quaternion.
+    ///
+    /// For unit quaternions this is the conjugate. Non-unit inputs are handled
+    /// by dividing by the squared magnitude.
+    #[must_use]
+    #[inline]
+    pub fn inverse(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq <= f32::EPSILON {
+            return Self::identity();
+        }
+
+        let inv = 1.0 / len_sq;
+        Self::new(-self.x * inv, -self.y * inv, -self.z * inv, self.w * inv)
+    }
+
     /// Dot product between two quaternions.
     #[must_use]
     #[inline]
     pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    /// Normalized linear interpolation.
+    ///
+    /// This is cheaper than [`Self::slerp`] and still tracks the shortest arc.
+    #[must_use]
+    pub fn nlerp(&self, other: &Self, t: f32) -> Self {
+        let other = if self.dot(*other) < 0.0 {
+            Self::new(-other.x, -other.y, -other.z, -other.w)
+        } else {
+            *other
+        };
+
+        Self::new(
+            self.x + (other.x - self.x) * t,
+            self.y + (other.y - self.y) * t,
+            self.z + (other.z - self.z) * t,
+            self.w + (other.w - self.w) * t,
+        )
+        .normalize()
     }
 }
 

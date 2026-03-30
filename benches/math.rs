@@ -1,4 +1,6 @@
 use abrash::math::{Mat2, Mat4, Vec2, Vec3};
+use abrash::quat::Quat;
+use abrash::transform::Transform;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_vec2_add(c: &mut Criterion) {
@@ -119,6 +121,41 @@ fn bench_mat4_inverse(c: &mut Criterion) {
     });
 }
 
+fn bench_transform_to_mat4(c: &mut Criterion) {
+    c.bench_function("transform_to_mat4", |b| {
+        let transform = Transform::new(
+            Vec3::new(2.0, -3.0, 4.0),
+            Quat::from_euler(0.3, -0.7, 0.2),
+            Vec3::new(1.5, 0.75, 2.0),
+        );
+        b.iter(|| black_box(transform.to_mat4()));
+    });
+}
+
+fn bench_transform_point_direct(c: &mut Criterion) {
+    c.bench_function("transform_point_direct", |b| {
+        let transform = Transform::new(
+            Vec3::new(2.0, -3.0, 4.0),
+            Quat::from_euler(0.3, -0.7, 0.2),
+            Vec3::new(1.5, 0.75, 2.0),
+        );
+        let point = Vec3::new(1.0, -2.0, 0.5);
+        b.iter(|| black_box(transform.transform_point(point)));
+    });
+}
+
+fn bench_transform_point_via_matrix(c: &mut Criterion) {
+    c.bench_function("transform_point_via_matrix", |b| {
+        let transform = Transform::new(
+            Vec3::new(2.0, -3.0, 4.0),
+            Quat::from_euler(0.3, -0.7, 0.2),
+            Vec3::new(1.5, 0.75, 2.0),
+        );
+        let point = Vec3::new(1.0, -2.0, 0.5);
+        b.iter(|| black_box(transform.to_mat4().transform_point(point).0));
+    });
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -134,6 +171,9 @@ criterion_group!(
     bench_mat4_mul,
     bench_mat4_transform_point,
     bench_mat4_orthographic,
-    bench_mat4_inverse
+    bench_mat4_inverse,
+    bench_transform_to_mat4,
+    bench_transform_point_direct,
+    bench_transform_point_via_matrix
 );
 criterion_main!(benches);
