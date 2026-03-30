@@ -141,3 +141,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Draw List Memory Allocation]
 **Learning:** Using a `thread_local!` buffer to avoid temporary allocations is counterproductive if the data must immediately be `.clone()`d to satisfy an owned value requirement (e.g., passing to a struct constructor like `DrawBatch::new`). In these cases, it is more efficient to directly allocate the required `Vec::with_capacity()` or use `.reserve()` on the target collection to avoid the redundant memory copy.
 **Action:** When creating new owned `Vec` instances that are immediately moved, prefer direct allocation with `Vec::with_capacity` combined with `spare_capacity_mut()` for uninitialized writes instead of staging through a thread-local buffer that requires a subsequent `.clone()`. Always use `.reserve()` before batch insertions.
+
+**[Performance Optimization: Eliminate per-object frame allocation by safely casting to Arc without Box]**
+**Learning:** When extracting an `Arc<[T]>` from a `Vec<T>` or slice (like `mesh.indices`), using `.clone().into_boxed_slice()` first allocates a new `Vec`, then potentially reallocates to drop excess capacity, and finally reallocates the `Arc` block, copying the data 3 times.
+**Action:** Use `Arc::from(slice.as_slice())` directly. This requires only ONE memory allocation (for the Arc counters and data) and exactly ONE copy, saving multiple allocations and significantly reducing heap fragmentation during mesh instantiations.
