@@ -106,18 +106,65 @@ pub fn fast_sin_cos(mut x: f32) -> (f32, f32) {
     (sin_x, cos_x)
 }
 
+/// Fast approximation of the sine function.
+///
+/// Computes an approximation of `sin(x)` using the same minimax polynomial
+/// approximation as `fast_sin_cos`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_sin;
+/// use std::f32::consts::PI;
+///
+/// let s = fast_sin(PI / 4.0);
+/// assert!((s - 0.7071).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_sin(x: f32) -> f32 {
     fast_sin_cos(x).0
 }
 
+/// Fast approximation of the cosine function.
+///
+/// Computes an approximation of `cos(x)` using the same minimax polynomial
+/// approximation as `fast_sin_cos`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_cos;
+/// use std::f32::consts::PI;
+///
+/// let c = fast_cos(PI / 4.0);
+/// assert!((c - 0.7071).abs() < 0.01);
+/// ```
 #[inline]
 #[must_use]
 pub fn fast_cos(x: f32) -> f32 {
     fast_sin_cos(x).1
 }
 
+/// Fast approximation of the inverse square root.
+///
+/// Computes an approximation of `1.0 / sqrt(x)`. This uses the hardware-accelerated
+/// AVX/SSE intrinsic if available, which offers excellent performance (around 4 cycles)
+/// at the cost of a small precision error. If AVX/SSE is not available, it falls back
+/// to a standard `sqrt().recip()`, which is typically faster on modern generic `x86_64`
+/// CPUs than the legacy "Quake III bit-hack".
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_inv_sqrt;
+///
+/// let x = 4.0;
+/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
+///
+/// // Assert with a small tolerance due to approximation
+/// assert!((inv_sqrt - 0.5).abs() < 0.01);
+/// ```
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
@@ -152,12 +199,34 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
 impl Vec2 {
+    #[allow(missing_docs)]
+    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+    #[allow(missing_docs)]
+    pub const ONE: Self = Self { x: 1.0, y: 1.0 };
+
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    ///
+    /// let start = Vec2::new(0.0, 0.0);
+    /// let end = Vec2::new(10.0, 10.0);
+    /// let mid = start.lerp(end, 0.5);
+    ///
+    /// assert_eq!(mid.x, 5.0);
+    /// assert_eq!(mid.y, 5.0);
+    /// ```
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -185,6 +254,134 @@ impl Vec2 {
     #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    /// Calculates squared length (magnitude²) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.x * self.x + self.y * self.y
+    }
+
+    /// Calculates dot product between two vectors.
+    #[must_use]
+    #[inline]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    /// 2D cross product (returns the z-component magnitude).
+    ///
+    /// Useful for winding/orientation tests and signed area calculations.
+    #[must_use]
+    #[inline]
+    pub fn cross(self, other: Self) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
+
+    /// Returns a normalized unit vector (length of 1.0).
+    ///
+    /// For tiny vectors (length² <= `1e-8`), returns the original vector.
+    #[must_use]
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Returns a perpendicular vector (rotated 90° counter-clockwise).
+    #[must_use]
+    #[inline]
+    pub fn perp(self) -> Self {
+        Self {
+            x: -self.y,
+            y: self.x,
+        }
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
+    }
+
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec2::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
+
+    /// Returns angle between vectors in radians.
+    ///
+    /// Returns 0 for near-zero length inputs.
+    #[must_use]
+    #[inline]
+    pub fn angle_between(self, other: Self) -> f32 {
+        let denom = self.length() * other.length();
+        if denom <= 0.000_000_01 {
+            return 0.0;
+        }
+        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
+    }
+
+    /// Component-wise minimum.
+    #[must_use]
+    #[inline]
+    pub const fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+
+    /// Component-wise maximum.
+    #[must_use]
+    #[inline]
+    pub const fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+
+    /// Clamp each component between corresponding min/max components.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+        }
     }
 }
 
@@ -224,6 +421,19 @@ impl Mul<f32> for Vec2 {
     }
 }
 
+impl std::ops::Div<f32> for Vec2 {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: f32) -> Self {
+        let inv = 1.0 / scalar;
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
+        }
+    }
+}
+
 /// A 2x2 matrix, primarily used for 2D rotations and transformations.
 ///
 /// # Examples
@@ -242,6 +452,7 @@ impl Mul<f32> for Vec2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct Mat2 {
     pub m: [[f32; 2]; 2],
 }
@@ -277,13 +488,32 @@ impl Mat2 {
     /// Transform multiple vectors at once.
     #[must_use]
     pub fn transform_batch(&self, vertices: &[Vec2]) -> Vec<Vec2> {
-        vertices.iter().map(|&v| self.transform(v)).collect()
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+
+        vertices
+            .iter()
+            .map(|&v| Vec2 {
+                x: m00 * v.x + m01 * v.y,
+                y: m10 * v.x + m11 * v.y,
+            })
+            .collect()
     }
 
     /// Transform vertices in place.
     pub fn transform_in_place(&self, vertices: &mut [Vec2]) {
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+
         for v in vertices.iter_mut() {
-            *v = self.transform(*v);
+            let x = v.x;
+            let y = v.y;
+            v.x = m00 * x + m01 * y;
+            v.y = m10 * x + m11 * y;
         }
     }
 }
@@ -300,6 +530,7 @@ impl Mat2 {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -320,11 +551,13 @@ impl Vec3 {
         }
     }
 
+    #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    #[allow(missing_docs)]
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
@@ -470,8 +703,8 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn fast_normalize(self) -> Self {
-        let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        if len_sq > 0.0001 {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
             let inv_len = fast_inv_sqrt(len_sq);
             Self {
                 x: self.x * inv_len,
@@ -496,6 +729,20 @@ impl Vec3 {
     #[inline]
     pub fn length_sq(self) -> f32 {
         self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
     }
 
     /// Reflects this vector around a given normal vector.
@@ -535,6 +782,69 @@ impl Vec3 {
         }
     }
 
+    /// Refracts this vector through a surface with the given normal.
+    ///
+    /// `eta` is the ratio of refractive indices (`n1 / n2`).
+    /// Returns `Vec3::ZERO` when total internal reflection occurs.
+    #[must_use]
+    #[inline]
+    pub fn refract(self, normal: Self, eta: f32) -> Self {
+        let cos_i = (-self.dot(normal)).clamp(-1.0, 1.0);
+        let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
+        if k < 0.0 {
+            Self::ZERO
+        } else {
+            self * eta + normal * (eta * cos_i - k.sqrt())
+        }
+    }
+
+    /// Returns this vector oriented to face away from a reference direction.
+    ///
+    /// Equivalent to GLSL `faceforward(n, i, nref)` when called as
+    /// `n.face_forward(i, nref)`.
+    #[must_use]
+    #[inline]
+    pub fn face_forward(self, incident: Self, reference_normal: Self) -> Self {
+        if reference_normal.dot(incident) < 0.0 {
+            self
+        } else {
+            self * -1.0
+        }
+    }
+
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec3::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
+
+    /// Returns angle between vectors in radians.
+    ///
+    /// Returns 0 for near-zero length inputs.
+    #[must_use]
+    #[inline]
+    pub fn angle_between(self, other: Self) -> f32 {
+        let denom = self.length() * other.length();
+        if denom <= 0.000_000_01 {
+            return 0.0;
+        }
+        (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -556,6 +866,28 @@ impl Vec3 {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
             z: self.z.max(other.z),
+        }
+    }
+
+    /// Component-wise absolute value.
+    #[must_use]
+    #[inline]
+    pub const fn abs(self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+        }
+    }
+
+    /// Component-wise clamp.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+            z: self.z.clamp(min.z, max.z),
         }
     }
 }
@@ -662,6 +994,7 @@ impl std::ops::Div<f32> for Vec3 {
 /// ```
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct Mat4 {
     pub m: [[f32; 4]; 4],
 }
@@ -728,6 +1061,110 @@ impl Mat4 {
                 [0.0, y, 0.0, 0.0],
                 [0.0, 0.0, z, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
+    /// Returns the transposed matrix.
+    #[must_use]
+    #[inline]
+    pub const fn transpose(&self) -> Self {
+        let m = &self.m;
+        Self {
+            m: [
+                [m[0][0], m[1][0], m[2][0], m[3][0]],
+                [m[0][1], m[1][1], m[2][1], m[3][1]],
+                [m[0][2], m[1][2], m[2][2], m[3][2]],
+                [m[0][3], m[1][3], m[2][3], m[3][3]],
+            ],
+        }
+    }
+
+    /// Computes the matrix determinant.
+    #[must_use]
+    #[inline]
+    pub fn determinant(&self) -> f32 {
+        let m = &self.m;
+
+        let a2323 = m[2][2] * m[3][3] - m[2][3] * m[3][2];
+        let a1323 = m[2][1] * m[3][3] - m[2][3] * m[3][1];
+        let a1223 = m[2][1] * m[3][2] - m[2][2] * m[3][1];
+        let a0323 = m[2][0] * m[3][3] - m[2][3] * m[3][0];
+        let a0223 = m[2][0] * m[3][2] - m[2][2] * m[3][0];
+        let a0123 = m[2][0] * m[3][1] - m[2][1] * m[3][0];
+
+        m[0][0] * (m[1][1] * a2323 - m[1][2] * a1323 + m[1][3] * a1223)
+            - m[0][1] * (m[1][0] * a2323 - m[1][2] * a0323 + m[1][3] * a0223)
+            + m[0][2] * (m[1][0] * a1323 - m[1][1] * a0323 + m[1][3] * a0123)
+            - m[0][3] * (m[1][0] * a1223 - m[1][1] * a0223 + m[1][2] * a0123)
+    }
+
+    #[inline]
+    fn is_affine(&self) -> bool {
+        self.m[0][3].abs() <= f32::EPSILON
+            && self.m[1][3].abs() <= f32::EPSILON
+            && self.m[2][3].abs() <= f32::EPSILON
+            && (self.m[3][3] - 1.0).abs() <= f32::EPSILON
+    }
+
+    /// Fast inverse for affine transforms (`R*S + T`), common in render loops.
+    ///
+    /// Falls back to zero matrix if non-invertible.
+    #[must_use]
+    pub fn inverse_affine(&self) -> Self {
+        let m = &self.m;
+        let a00 = m[0][0];
+        let a01 = m[0][1];
+        let a02 = m[0][2];
+        let a10 = m[1][0];
+        let a11 = m[1][1];
+        let a12 = m[1][2];
+        let a20 = m[2][0];
+        let a21 = m[2][1];
+        let a22 = m[2][2];
+
+        let c00 = a11 * a22 - a12 * a21;
+        let c01 = -(a10 * a22 - a12 * a20);
+        let c02 = a10 * a21 - a11 * a20;
+        let c10 = -(a01 * a22 - a02 * a21);
+        let c11 = a00 * a22 - a02 * a20;
+        let c12 = -(a00 * a21 - a01 * a20);
+        let c20 = a01 * a12 - a02 * a11;
+        let c21 = -(a00 * a12 - a02 * a10);
+        let c22 = a00 * a11 - a01 * a10;
+
+        let det = a00 * c00 + a01 * c01 + a02 * c02;
+        if det.abs() < 1e-6 {
+            return Self { m: [[0.0; 4]; 4] };
+        }
+        let inv_det = 1.0 / det;
+
+        // inverse(upper3x3) == adjugate / det
+        let b00 = c00 * inv_det;
+        let b01 = c10 * inv_det;
+        let b02 = c20 * inv_det;
+        let b10 = c01 * inv_det;
+        let b11 = c11 * inv_det;
+        let b12 = c21 * inv_det;
+        let b20 = c02 * inv_det;
+        let b21 = c12 * inv_det;
+        let b22 = c22 * inv_det;
+
+        let tx = m[3][0];
+        let ty = m[3][1];
+        let tz = m[3][2];
+
+        Self {
+            m: [
+                [b00, b01, b02, 0.0],
+                [b10, b11, b12, 0.0],
+                [b20, b21, b22, 0.0],
+                [
+                    -(tx * b00 + ty * b10 + tz * b20),
+                    -(tx * b01 + ty * b11 + tz * b21),
+                    -(tx * b02 + ty * b12 + tz * b22),
+                    1.0,
+                ],
             ],
         }
     }
@@ -1280,6 +1717,10 @@ impl Mat4 {
     /// Returns a zero matrix if the matrix is not invertible.
     #[must_use]
     pub fn inverse(&self) -> Self {
+        if self.is_affine() {
+            return self.inverse_affine();
+        }
+
         #[cfg(all(target_arch = "x86_64", feature = "simd"))]
         {
             unsafe {
@@ -1544,7 +1985,9 @@ impl Mul for Mat4 {
     }
 }
 
+/// A 3D point that has been projected into 2D screen coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct ScreenPoint {
     pub x: i32,
     pub y: i32,
@@ -2264,6 +2707,38 @@ mod tests {
     }
 
     #[test]
+    fn test_vec3_refract_air_to_glass() {
+        // 45-degree incidence from air to glass.
+        let incident = Vec3::new(1.0, -1.0, 0.0).normalize();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let refracted = incident.refract(normal, 1.0 / 1.5);
+
+        // Should still travel downward, bent toward the normal.
+        assert!(refracted.y < 0.0);
+        assert!(refracted.length() > 0.99 && refracted.length() < 1.01);
+    }
+
+    #[test]
+    fn test_vec3_refract_total_internal_reflection() {
+        // Steep angle from dense to sparse medium should TIR.
+        let incident = Vec3::new(1.0, -0.1, 0.0).normalize();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let refracted = incident.refract(normal, 1.5);
+        assert_eq!(refracted, Vec3::ZERO);
+    }
+
+    #[test]
+    fn test_vec3_face_forward() {
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let i_towards = Vec3::new(0.0, -1.0, 0.0);
+        let i_away = Vec3::new(0.0, 1.0, 0.0);
+        let nref = Vec3::new(0.0, 1.0, 0.0);
+
+        assert_eq!(n.face_forward(i_towards, nref), n);
+        assert_eq!(n.face_forward(i_away, nref), n * -1.0);
+    }
+
+    #[test]
     fn test_mat4_orthographic() {
         let proj = Mat4::orthographic(-10.0, 10.0, -5.0, 5.0, 0.1, 100.0);
 
@@ -2404,6 +2879,7 @@ mod tests {
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -2412,6 +2888,22 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    /// Linearly interpolate between this vector and another.
+    ///
+    /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec4;
+    ///
+    /// let start = Vec4::new(0.0, 0.0, 0.0, 0.0);
+    /// let end = Vec4::new(10.0, 10.0, 10.0, 10.0);
+    /// let mid = start.lerp(end, 0.5);
+    ///
+    /// assert_eq!(mid.x, 5.0);
+    /// assert_eq!(mid.w, 5.0);
+    /// ```
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {

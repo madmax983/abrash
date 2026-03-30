@@ -65,6 +65,55 @@ impl LSystem {
             return Ok(current);
         }
 
+        let mut is_pure_ascii = self.axiom.is_ascii();
+        if is_pure_ascii {
+            for v in self.rules.values() {
+                if !v.is_ascii() {
+                    is_pure_ascii = false;
+                    break;
+                }
+            }
+            if is_pure_ascii {
+                for k in self.rules.keys() {
+                    if !k.is_ascii() {
+                        is_pure_ascii = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if is_pure_ascii {
+            let mut rules_array: [Option<&[u8]>; 128] = [None; 128];
+            for (k, v) in &self.rules {
+                rules_array[(*k as usize) & 127] = Some(v.as_bytes());
+            }
+
+            let mut current_bytes = self.axiom.as_bytes().to_vec();
+            let mut next_bytes = Vec::new();
+
+            for _ in 0..iterations {
+                next_bytes.clear();
+                next_bytes.reserve(current_bytes.len() * 2);
+                for &b in &current_bytes {
+                    if let Some(replacement) = rules_array[(b as usize) & 127] {
+                        next_bytes.extend_from_slice(replacement);
+                    } else {
+                        next_bytes.push(b);
+                    }
+                    if next_bytes.len() > self.max_capacity {
+                        return Err("L-System expansion exceeded maximum capacity limit");
+                    }
+                }
+                std::mem::swap(&mut current_bytes, &mut next_bytes);
+            }
+
+            // Safe because we already verified all rules and the axiom are pure ASCII.
+            // Bolt Performance Optimization:
+            // Reconstruct string from raw bytes directly avoiding unicode character parsing overhead
+            return String::from_utf8(current_bytes).map_err(|_| "L-System utf8 decoding error");
+        }
+
         let mut next_string = String::with_capacity(current.len() * 2);
 
         // Bolt Performance Optimization:

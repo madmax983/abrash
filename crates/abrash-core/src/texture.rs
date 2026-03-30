@@ -89,7 +89,20 @@ const fn average_4_colors(c00: u32, c10: u32, c01: u32, c11: u32) -> u32 {
 }
 
 /// A simple 2D texture.
+///
+/// Handles texture dimensions, mipmap generation, and various filtering modes
+/// like Nearest Neighbor, Bilinear, and Trilinear interpolation.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::texture::Texture;
+///
+/// let mut tex = Texture::new(64, 64).unwrap();
+/// tex.set_pixel(10, 10, 0xFF00_FF00); // Green
+/// ```
 #[derive(Clone)]
+#[allow(missing_docs)]
 pub struct Texture {
     pub width: u32,
     pub height: u32,

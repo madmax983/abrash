@@ -212,7 +212,7 @@ impl Mesh {
     /// Create a flat plane centered at origin in the XZ plane.
     ///
     /// The plane is subdivided into `subdivisions × subdivisions` quads.
-    /// Normals point up (+Y). Includes UV coordinates [0,1].
+    /// Normals point up (+Y). Includes UV coordinates \[0,1\].
     ///
     /// # Examples
     ///
@@ -600,5 +600,241 @@ impl Mesh {
 impl Default for Mesh {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mesh_new_and_default() {
+        let mesh = Mesh::new();
+        assert!(mesh.vertices.is_empty());
+        assert!(mesh.indices.is_empty());
+        assert!(mesh.uvs.is_empty());
+        assert!(mesh.normals.is_empty());
+        assert!(mesh.tangents.is_empty());
+
+        let default_mesh = Mesh::default();
+        assert!(default_mesh.vertices.is_empty());
+    }
+
+    #[test]
+    fn test_mesh_with_capacity() {
+        let mesh = Mesh::with_capacity(10, 20);
+        assert!(mesh.vertices.capacity() >= 10);
+        assert!(mesh.indices.capacity() >= 20);
+        assert!(mesh.uvs.capacity() >= 10);
+        assert!(mesh.normals.capacity() >= 10);
+        assert!(mesh.tangents.capacity() >= 10);
+    }
+}
+
+#[cfg(test)]
+mod tests_generated {
+    use super::*;
+
+    #[test]
+    fn cube() {
+        let size = 2.0;
+        let cube = Mesh::cube(size);
+
+        // A cube has 6 faces * 4 vertices/face = 24 vertices
+        assert_eq!(cube.vertices.len(), 8);
+        assert_eq!(cube.normals.len(), 0);
+        assert_eq!(cube.uvs.len(), 0);
+
+        // 6 faces * 2 triangles/face = 12 triangles
+        assert_eq!(cube.indices.len(), 12);
+
+        // Check bounds
+        let bounds = cube.calculate_bounding_sphere();
+        assert!((bounds.center.x).abs() < 1e-5);
+        assert!((bounds.center.y).abs() < 1e-5);
+        assert!((bounds.center.z).abs() < 1e-5);
+
+        // Expected distance from center (0,0,0) to corner (1,1,1) is sqrt(3) ~ 1.732
+        let expected_radius = (size / 2.0) * 3.0_f32.sqrt();
+        assert!((bounds.radius - expected_radius).abs() < 1e-5);
+    }
+
+    #[test]
+    fn sphere() {
+        let sphere = Mesh::sphere(1.0, 10, 10);
+
+        // Vertices = (stacks + 1) * (sectors + 1)
+        assert_eq!(sphere.vertices.len(), 11 * 11);
+        assert_eq!(sphere.normals.len(), 11 * 11);
+        assert_eq!(sphere.uvs.len(), 11 * 11);
+
+        // Triangles = stacks * sectors * 2
+        assert_eq!(sphere.indices.len(), 180); // Polar caps have triangles, body has quads (2 triangles)
+
+        let bounds = sphere.calculate_bounding_sphere();
+        assert!((bounds.center.x).abs() < 1e-5);
+        assert!((bounds.center.y).abs() < 1e-5);
+        assert!((bounds.center.z).abs() < 1e-5);
+        assert!((bounds.radius - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn plane() {
+        let plane = Mesh::plane(10.0, 2);
+
+        // Vertices = (subdivisions + 1) * (subdivisions + 1)
+        assert_eq!(plane.vertices.len(), 3 * 3);
+        assert_eq!(plane.normals.len(), 3 * 3);
+        assert_eq!(plane.uvs.len(), 3 * 3);
+
+        // Triangles = subdivisions * subdivisions * 2
+        assert_eq!(plane.indices.len(), 2 * 2 * 2);
+    }
+
+    #[test]
+    fn cylinder() {
+        let cylinder = Mesh::cylinder(1.0, 2.0, 10, 5);
+
+        // Side vertices: (stacks + 1) * (sectors + 1) = 6 * 11 = 66
+        // Top cap vertices: 1 (center) + sectors = 1 + 10 = 11
+        // Bottom cap vertices: 1 (center) + sectors = 1 + 10 = 11
+        // Total vertices = 66 + 11 + 11 = 88
+        assert_eq!(cylinder.vertices.len(), 88);
+        assert_eq!(cylinder.normals.len(), 88);
+        assert_eq!(cylinder.uvs.len(), 88);
+
+        // Side indices: stacks * sectors * 2 = 5 * 10 * 2 = 100
+        // Top cap indices: sectors = 10
+        // Bottom cap indices: sectors = 10
+        // Total indices = 100 + 10 + 10 = 120
+        assert_eq!(cylinder.indices.len(), 120);
+    }
+
+    #[test]
+    fn torus() {
+        let torus = Mesh::torus(2.0, 0.5, 10, 10);
+
+        // Vertices: (major_segments + 1) * (minor_segments + 1) = 11 * 11 = 121
+        assert_eq!(torus.vertices.len(), 121);
+        assert_eq!(torus.normals.len(), 121);
+        assert_eq!(torus.uvs.len(), 121);
+
+        // Indices: major_segments * minor_segments * 2 = 10 * 10 * 2 = 200
+        assert_eq!(torus.indices.len(), 200);
+    }
+}
+
+#[cfg(test)]
+mod tests_normals {
+    use super::*;
+
+    #[test]
+    fn compute_face_normals_simple_triangle() {
+        let mut mesh = Mesh::new();
+        // Counter-clockwise triangle should point towards +Z according to right hand rule
+        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+        mesh.indices.push([0, 1, 2]);
+
+        let normals = mesh.compute_face_normals();
+        assert_eq!(normals.len(), 1);
+
+        let n = normals[0];
+        assert!((n.x).abs() < 1e-5);
+        assert!((n.y).abs() < 1e-5);
+        assert!((n.z - 1.0).abs() < 1e-5); // Points exactly along +Z
+    }
+}
+
+#[cfg(test)]
+mod tests_bounding_sphere {
+    use super::*;
+
+    #[test]
+    fn calculate_bounding_sphere_empty() {
+        let mesh = Mesh::new();
+        let bounds = mesh.calculate_bounding_sphere();
+        assert_eq!(bounds.center, Vec3::new(0.0, 0.0, 0.0));
+        assert_eq!(bounds.radius, 0.0);
+    }
+
+    #[test]
+    fn calculate_bounding_sphere_single_vertex() {
+        let mut mesh = Mesh::new();
+        mesh.vertices.push(Vec3::new(1.0, 2.0, 3.0));
+        let bounds = mesh.calculate_bounding_sphere();
+        assert_eq!(bounds.center, Vec3::new(1.0, 2.0, 3.0));
+        assert_eq!(bounds.radius, 0.0);
+    }
+
+    #[test]
+    fn calculate_bounding_sphere_two_vertices() {
+        let mut mesh = Mesh::new();
+        mesh.vertices.push(Vec3::new(-1.0, -1.0, -1.0));
+        mesh.vertices.push(Vec3::new(1.0, 1.0, 1.0));
+        let bounds = mesh.calculate_bounding_sphere();
+
+        assert_eq!(bounds.center, Vec3::new(0.0, 0.0, 0.0));
+        let expected_radius = 3.0_f32.sqrt();
+        assert!((bounds.radius - expected_radius).abs() < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod tests_tangents {
+    use super::*;
+
+    #[test]
+    fn compute_tangents_missing_data_early_exit() {
+        let mut mesh = Mesh::new();
+        // Missing uvs
+        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        mesh.normals.push(Vec3::new(0.0, 0.0, 1.0));
+        mesh.compute_tangents();
+        assert!(mesh.tangents.is_empty());
+
+        // Missing normals
+        mesh.uvs.push(Vec2::new(0.0, 0.0));
+        mesh.normals.clear();
+        mesh.compute_tangents();
+        assert!(mesh.tangents.is_empty());
+    }
+
+    #[test]
+    fn compute_tangents_simple_quad() {
+        let mut mesh = Mesh::new();
+
+        // Quad mapping 0..1 in X,Y to 0..1 in U,V
+        mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(1.0, 0.0, 0.0));
+        mesh.vertices.push(Vec3::new(1.0, 1.0, 0.0));
+        mesh.vertices.push(Vec3::new(0.0, 1.0, 0.0));
+
+        mesh.uvs.push(Vec2::new(0.0, 0.0));
+        mesh.uvs.push(Vec2::new(1.0, 0.0));
+        mesh.uvs.push(Vec2::new(1.0, 1.0));
+        mesh.uvs.push(Vec2::new(0.0, 1.0));
+
+        mesh.normals.push(Vec3::new(0.0, 0.0, 1.0));
+        mesh.normals.push(Vec3::new(0.0, 0.0, 1.0));
+        mesh.normals.push(Vec3::new(0.0, 0.0, 1.0));
+        mesh.normals.push(Vec3::new(0.0, 0.0, 1.0));
+
+        mesh.indices.push([0, 1, 2]);
+        mesh.indices.push([0, 2, 3]);
+
+        mesh.compute_tangents();
+
+        assert_eq!(mesh.tangents.len(), 4);
+
+        for tangent in mesh.tangents {
+            // Because U aligns with X, tangent should be +X
+            assert!((tangent.x - 1.0).abs() < 1e-5);
+            assert!((tangent.y).abs() < 1e-5);
+            assert!((tangent.z).abs() < 1e-5);
+            // Handedness component should be valid (+1.0 or -1.0)
+            assert!((tangent.w.abs() - 1.0).abs() < 1e-5);
+        }
     }
 }

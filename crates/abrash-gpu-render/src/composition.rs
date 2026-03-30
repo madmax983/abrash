@@ -17,7 +17,7 @@ pub enum DebugMode {
     None = 0,
     /// Visualize G-Buffer world positions (RGB = XYZ).
     GBufferPosition = 1,
-    /// Visualize G-Buffer normals (RGB = XYZ mapped to [0,1]).
+    /// Visualize G-Buffer normals (RGB = XYZ mapped to \[0,1\]).
     GBufferNormal = 2,
     /// Visualize G-Buffer albedo (raw base color).
     GBufferAlbedo = 3,

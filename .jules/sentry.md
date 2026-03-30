@@ -15,3 +15,6 @@
 **[Validating Unreachable Guards]
 **Learning:** To verify internal `unreachable!()` or panic safety guards against corrupted state, write unit tests in the same module (`mod tests`) to access private fields, intentionally mutate the internal state to simulate the illegal condition, and assert the guard triggers using `#[should_panic(expected = "...")]`.
 **Action:** Always write a corresponding `#[should_panic]` test for any defensive `unreachable!()` statements that check internal invariants, directly testing the explosion.
+**[Testing Frustum Culling Fallback Logic]**
+**Learning:** In graphics code or similar spatial algorithms, "fast paths" often assume all vertices are inside a certain bounds (like the view frustum), while a "fallback path" splits and clips geometry that crosses boundaries. It's easy for these fallbacks to lack coverage, leaving them vulnerable to panics on edge cases.
+**Action:** Always proactively write tests with explicitly constructed out-of-bounds geometries (e.g., quads entirely outside the frustum where all `x > w`) to force execution into these fallback blocks, ensuring they cull correctly and safely.

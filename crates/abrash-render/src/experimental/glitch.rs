@@ -95,7 +95,7 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
         let b_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
             - channel_shift_max;
 
-        for x in 0..width {
+        for (x, pixel) in row.iter_mut().enumerate() {
             // Base x coordinate after the entire row is shifted
             let base_x = x as i32 - row_shift;
 
@@ -108,7 +108,7 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
                 get_channel_safe(&src_pixels, width, height, base_x - b_shift, y as i32, 0);
 
             // Reconstruct the ARGB pixel
-            row[x] = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
+            *pixel = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
         }
     });
 }

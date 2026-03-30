@@ -1,5 +1,4 @@
-#![cfg(feature = "backend-winit")]
-use abrash::experimental::slitscan::SlitScanFilter;
+use abrash::experimental::night_vision::{NightVisionConfig, apply_night_vision};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
@@ -12,9 +11,6 @@ use abrash::zbuffer::ZBuffer;
 use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;
-
-use comfy_table::{Cell, Color, Table, presets};
-use crossterm::style::Stylize;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -64,30 +60,6 @@ impl From<abrash::platform::HostError> for AppError {
     }
 }
 
-fn print_banner() {
-    println!("\n{}", "🌀  Slit-Scan Demo".bold().cyan());
-    println!("{}", "=====================".dark_grey());
-
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_header(vec![
-            Cell::new("Property").fg(Color::Cyan),
-            Cell::new("Value").fg(Color::Cyan),
-        ])
-        .add_row(vec![
-            Cell::new("Description"),
-            Cell::new("Analog slit-scan camera effect").fg(Color::Green),
-        ])
-        .add_row(vec![
-            Cell::new("Effect"),
-            Cell::new("Time-stretching based on row sampling").fg(Color::Yellow),
-        ]);
-
-    println!("\n{}", "⚙️  Info".bold());
-    println!("{table}\n");
-}
-
 fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4, view_proj: Mat4) {
     let mvp = view_proj * model;
 
@@ -109,7 +81,7 @@ fn render_cube(fb: &mut Framebuffer, zb: &mut ZBuffer, cube: &Mesh, model: Mat4,
     }
 }
 
-struct SlitScanDemoApp {
+struct NightVisionDemoApp {
     presenter: Option<SoftwarePresenter>,
     framebuffer: Framebuffer,
     zbuffer: ZBuffer,
@@ -117,10 +89,10 @@ struct SlitScanDemoApp {
     cube: Mesh,
     view_proj: Mat4,
     angle_y: f32,
-    filter: SlitScanFilter,
+    config: NightVisionConfig,
 }
 
-impl SlitScanDemoApp {
+impl NightVisionDemoApp {
     fn new() -> Result<Self, AppError> {
         let projection = Mat4::perspective(PI / 3.0, WIDTH as f32 / HEIGHT as f32, 0.1, 100.0);
         let view = Mat4::look_at(
@@ -128,9 +100,6 @@ impl SlitScanDemoApp {
             Vec3::new(0.0, 0.0, -5.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
-
-        // A history length of 60 frames (1 second at 60fps) provides a pronounced time stretch.
-        let history_len = 60;
 
         Ok(Self {
             presenter: None,
@@ -140,7 +109,7 @@ impl SlitScanDemoApp {
             cube: Mesh::cube(1.0),
             view_proj: projection * view,
             angle_y: 0.0,
-            filter: SlitScanFilter::new(WIDTH as usize, HEIGHT as usize, history_len),
+            config: NightVisionConfig::default(),
         })
     }
 
@@ -155,12 +124,12 @@ impl SlitScanDemoApp {
     }
 }
 
-impl WindowApp for SlitScanDemoApp {
+impl WindowApp for NightVisionDemoApp {
     type Error = AppError;
 
     fn config(&self) -> WindowHostConfig {
         WindowHostConfig {
-            title: "Abrash - Slit-Scan Demo".to_string(),
+            title: "Abrash - Night Vision Filter Demo".to_string(),
             width: WIDTH,
             height: HEIGHT,
             vsync: true,
@@ -175,7 +144,8 @@ impl WindowApp for SlitScanDemoApp {
     fn update(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
         let steps = self.timestep.update();
         for _ in 0..steps {
-            self.angle_y += 3.0 * self.timestep.dt(); // rotate fast enough to see the effect clearly
+            self.angle_y += 1.0 * self.timestep.dt();
+            self.config.time += self.timestep.dt();
         }
         Ok(())
     }
@@ -184,7 +154,6 @@ impl WindowApp for SlitScanDemoApp {
         self.framebuffer.clear(BACKGROUND);
         self.zbuffer.clear();
 
-        // Left cube
         let model1 = Mat4::translation(-2.0, 0.0, -2.0) * Mat4::rotation_y(self.angle_y);
         render_cube(
             &mut self.framebuffer,
@@ -194,10 +163,7 @@ impl WindowApp for SlitScanDemoApp {
             self.view_proj,
         );
 
-        // Center cube - rotating on multiple axes
-        let model2 = Mat4::translation(0.0, 0.0, -5.0)
-            * Mat4::rotation_x(self.angle_y * 0.5)
-            * Mat4::rotation_y(self.angle_y);
+        let model2 = Mat4::translation(0.0, 0.0, -7.0) * Mat4::rotation_x(self.angle_y * 0.5);
         render_cube(
             &mut self.framebuffer,
             &mut self.zbuffer,
@@ -206,8 +172,7 @@ impl WindowApp for SlitScanDemoApp {
             self.view_proj,
         );
 
-        // Right cube
-        let model3 = Mat4::translation(2.0, 0.0, -2.0) * Mat4::rotation_z(self.angle_y * 0.3);
+        let model3 = Mat4::translation(2.0, 0.0, -12.0) * Mat4::rotation_z(self.angle_y * 0.3);
         render_cube(
             &mut self.framebuffer,
             &mut self.zbuffer,
@@ -216,15 +181,13 @@ impl WindowApp for SlitScanDemoApp {
             self.view_proj,
         );
 
-        // Apply post-processing filter
-        self.filter.apply(&mut self.framebuffer);
-
+        apply_night_vision(&mut self.framebuffer, &self.config);
         self.present()
     }
 }
 
 fn main() -> Result<(), AppError> {
-    print_banner();
-    run_windowed(SlitScanDemoApp::new()?)?;
+    println!("Starting Night Vision Demo...");
+    run_windowed(NightVisionDemoApp::new()?)?;
     Ok(())
 }

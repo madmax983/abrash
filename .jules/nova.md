@@ -179,3 +179,11 @@
 **Concept:** A retro sci-fi post-processing effect simulating a holographic projection through monochrome tint, rolling scanlines, and intermittent horizontal signal noise/flicker.
 **Fate:** Implemented
 **Lesson:** It is crucial to respect persona constraints by absolutely avoiding modifications to core modules, even when encountering pre-existing issues like crashing tests. Implementing new R&D features safely within isolated experimental modules via clones (e.g. duplicating framebuffers for complex non-linear transforms) allows innovation without collateral damage or breaking existing workflows.
+## Mode 7 Pseudo-3D
+**Concept:** A retro post-processing effect simulating the classic SNES Mode 7 affine transformation technique, rendering a flat 2D texture as a 3D perspective floor.
+**Fate:** Implemented
+**Lesson:** Converting screen coordinates to floor space using rays gives a great pseudo-3D effect. The parallelization strategy is simple row-by-row like other post-processing filters. Added configurable distant fog to hide aliasing.
+## [Night Vision Filter]
+**Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
+**Fate:** Implemented
+**Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.

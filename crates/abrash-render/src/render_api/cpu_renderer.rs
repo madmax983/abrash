@@ -108,43 +108,89 @@ impl CpuRenderer {
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
-        // Pre-allocate the batches vector if we know how many commands there are
-        draw_list.batches.reserve(frame.commands.len());
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
 
-        for cmd in &frame.commands {
-            let cpu_mesh = self
-                .meshes
-                .get(from_mesh_handle(cmd.mesh))
-                .ok_or(RenderError::StaleHandle("mesh"))?;
-            let material = self
-                .materials
-                .get(from_material_handle(cmd.material))
-                .ok_or(RenderError::StaleHandle("material"))?;
+            // Map each command to a result to collect into a Result<Vec, Error>
+            let results: Result<Vec<DrawBatch>, RenderError> = frame
+                .commands
+                .par_iter()
+                .map(|cmd| {
+                    let cpu_mesh = self
+                        .meshes
+                        .get(from_mesh_handle(cmd.mesh))
+                        .ok_or(RenderError::StaleHandle("mesh"))?;
+                    let material = self
+                        .materials
+                        .get(from_material_handle(cmd.material))
+                        .ok_or(RenderError::StaleHandle("material"))?;
 
-            let mvp = cmd.transform * view_proj;
-            let mesh = &cpu_mesh.mesh;
+                    let mvp = cmd.transform * view_proj;
+                    let mesh = &cpu_mesh.mesh;
 
-            let mut vertices = Vec::with_capacity(mesh.vertices.len());
-            let uninit_slice = vertices.spare_capacity_mut();
-            // We know the slice length exactly matches `mesh.vertices.len()`
-            let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+                    let mut vertices = Vec::with_capacity(mesh.vertices.len());
+                    let uninit_slice = vertices.spare_capacity_mut();
+                    // We know the slice length exactly matches `mesh.vertices.len()`
+                    let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
-            #[cfg(feature = "parallel")]
-            mvp.transform_points_uninit_parallel(&mesh.vertices, uninit_slice);
+                    // Instead of parallelizing the transform over vertices (which is now
+                    // inefficient since we're parallelizing over meshes), we just run
+                    // the scalar transform per mesh in parallel.
+                    mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
-            #[cfg(not(feature = "parallel"))]
-            mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+                    // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
+                    unsafe {
+                        vertices.set_len(mesh.vertices.len());
+                    }
 
-            // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
-            unsafe {
-                vertices.set_len(mesh.vertices.len());
+                    Ok(DrawBatch::new(
+                        vertices,
+                        std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                        material.color,
+                    ))
+                })
+                .collect();
+
+            draw_list.batches = results?;
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            // Pre-allocate the batches vector if we know how many commands there are
+            draw_list.batches.reserve(frame.commands.len());
+
+            for cmd in &frame.commands {
+                let cpu_mesh = self
+                    .meshes
+                    .get(from_mesh_handle(cmd.mesh))
+                    .ok_or(RenderError::StaleHandle("mesh"))?;
+                let material = self
+                    .materials
+                    .get(from_material_handle(cmd.material))
+                    .ok_or(RenderError::StaleHandle("material"))?;
+
+                let mvp = cmd.transform * view_proj;
+                let mesh = &cpu_mesh.mesh;
+
+                let mut vertices = Vec::with_capacity(mesh.vertices.len());
+                let uninit_slice = vertices.spare_capacity_mut();
+                // We know the slice length exactly matches `mesh.vertices.len()`
+                let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+
+                mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+
+                // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
+                unsafe {
+                    vertices.set_len(mesh.vertices.len());
+                }
+
+                draw_list.push(DrawBatch::new(
+                    vertices,
+                    std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                    material.color,
+                ));
             }
-
-            draw_list.push(DrawBatch::new(
-                vertices,
-                std::sync::Arc::clone(&cpu_mesh.shared_indices),
-                material.color,
-            ));
         }
 
         Ok(draw_list)
@@ -196,6 +242,30 @@ impl CpuRenderer {
         })))
     }
 
+    /// Upload a mesh taking ownership of the data, preventing a `clone()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidMesh`] if triangle indices point out of bounds.
+    pub fn create_mesh_owned(&mut self, mesh: Mesh) -> Result<MeshHandle, RenderError> {
+        // Validate all triangle indices are in bounds
+        for (tri_idx, indices) in mesh.indices.iter().enumerate() {
+            for &idx in indices {
+                if idx >= mesh.vertices.len() {
+                    return Err(RenderError::InvalidMesh(format!(
+                        "triangle {tri_idx} has index {idx} but mesh only has {} vertices",
+                        mesh.vertices.len()
+                    )));
+                }
+            }
+        }
+        let shared_indices = std::sync::Arc::from(mesh.indices.as_slice());
+        Ok(to_mesh_handle(self.meshes.insert(CpuMesh {
+            mesh,
+            shared_indices,
+        })))
+    }
+
     /// Update an existing mesh resource with new data.
     ///
     /// This is used for per-frame updates like vertex skinning.
@@ -240,6 +310,15 @@ impl CpuRenderer {
     /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
     pub fn create_texture(&mut self, texture: &Texture) -> Result<TextureHandle, RenderError> {
         Ok(to_texture_handle(self.textures.insert(texture.clone())))
+    }
+
+    /// Upload a texture taking ownership of the data, preventing a `clone()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::InvalidTexture`] if the texture data is malformed.
+    pub fn create_texture_owned(&mut self, texture: Texture) -> Result<TextureHandle, RenderError> {
+        Ok(to_texture_handle(self.textures.insert(texture)))
     }
 
     /// Register a material and return a handle.

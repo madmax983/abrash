@@ -49,6 +49,49 @@ fn generate_procedural_city(fb: &mut Framebuffer) {
     }
 }
 
+#[cfg(feature = "nova")]
+use comfy_table::{Cell, Color, Table, presets};
+#[cfg(feature = "nova")]
+use crossterm::style::Stylize;
+
+#[cfg(feature = "nova")]
+fn print_banner() {
+    println!("\n{}", "🌟 Tilt Shift Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Simulates a miniature scene using selective focus blurring")
+                .fg(Color::Green),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Up/Down"), Cell::new("Move Focus Plane")])
+        .add_row(vec![
+            Cell::new("Left/Right"),
+            Cell::new("Change Blur Radius"),
+        ])
+        .add_row(vec![Cell::new("Esc/Q"), Cell::new("Close window to exit")]);
+    println!("{controls}\n");
+}
+
 struct TiltShiftApp {
     framebuffer: Framebuffer,
     presenter: Option<SoftwarePresenter>,
@@ -120,9 +163,16 @@ impl WindowApp for TiltShiftApp {
 }
 
 fn main() -> Result<(), HostError> {
-    println!("Controls:");
-    println!("  Up/Down: Move Focus Plane");
-    println!("  Left/Right: Change Blur Radius");
+    #[cfg(feature = "nova")]
+    print_banner();
+
+    #[cfg(not(feature = "nova"))]
+    {
+        println!("Controls:");
+        println!("  Up/Down: Move Focus Plane");
+        println!("  Left/Right: Change Blur Radius");
+        println!("  Esc/Q: Close window to exit");
+    }
 
     run_windowed(TiltShiftApp::new()?)
 }

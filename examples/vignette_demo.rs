@@ -1,3 +1,4 @@
+#![cfg(feature = "backend-winit")]
 //! Demonstration of the Nova Vignette filter.
 
 use abrash::framebuffer::Framebuffer;

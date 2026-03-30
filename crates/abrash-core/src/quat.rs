@@ -15,8 +15,25 @@ use crate::math::{Mat4, Vec3};
 /// - `x = ax * sin(θ/2)`
 /// - `y = ay * sin(θ/2)`
 /// - `z = az * sin(θ/2)`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::quat::Quat;
+/// use std::f32::consts::PI;
+///
+/// // Create a quaternion for a 90-degree rotation around the Y-axis.
+/// let rot = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 2.0);
+/// let v = Vec3::new(1.0, 0.0, 0.0);
+///
+/// // Rotate the vector: (1, 0, 0) rotated 90 degrees around Y becomes (0, 0, -1)
+/// let v_prime = rot.rotate_vec3(v);
+/// assert!((v_prime.z + 1.0).abs() < 1e-6);
+/// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub struct Quat {
     pub x: f32,
     pub y: f32,
@@ -117,6 +134,90 @@ impl Quat {
         quat.normalize()
     }
 
+    /// Create a quaternion that rotates `from` direction into `to` direction.
+    ///
+    /// Returns [`Self::identity`] when either input has near-zero length.
+    /// Handles the antiparallel case (180° turn) by selecting a stable orthogonal axis.
+    #[must_use]
+    pub fn from_to_rotation(from: Vec3, to: Vec3) -> Self {
+        let from_len_sq = from.length_sq();
+        let to_len_sq = to.length_sq();
+        if from_len_sq <= 1e-8 || to_len_sq <= 1e-8 {
+            return Self::identity();
+        }
+
+        let f = from.normalize();
+        let t = to.normalize();
+        let dot = f.dot(t);
+
+        if dot > 1.0 - 1e-6 {
+            return Self::identity();
+        }
+
+        if dot < -1.0 + 1e-6 {
+            let mut axis = Vec3::new(1.0, 0.0, 0.0).cross(f);
+            if axis.length_sq() <= 1e-8 {
+                axis = Vec3::new(0.0, 1.0, 0.0).cross(f);
+            }
+            return Self::from_axis_angle(axis.normalize(), std::f32::consts::PI);
+        }
+
+        let c = f.cross(t);
+        Self::new(c.x, c.y, c.z, 1.0 + dot).normalize()
+    }
+
+    /// Create a quaternion from a forward direction and approximate up direction.
+    ///
+    /// This is the quaternion equivalent of a camera/object "look rotation".
+    /// Returns [`Self::identity`] if `forward` is degenerate.
+    #[must_use]
+    pub fn look_rotation(forward: Vec3, up: Vec3) -> Self {
+        let f_len_sq = forward.length_sq();
+        if f_len_sq <= 1e-8 {
+            return Self::identity();
+        }
+
+        let f = forward.normalize();
+        let mut r = up.cross(f);
+        if r.length_sq() <= 1e-8 {
+            let fallback_up = if f.y.abs() < 0.999 {
+                Vec3::new(0.0, 1.0, 0.0)
+            } else {
+                Vec3::new(1.0, 0.0, 0.0)
+            };
+            r = fallback_up.cross(f);
+        }
+        r = r.normalize();
+        let u = f.cross(r);
+
+        let m00 = r.x;
+        let m01 = u.x;
+        let m02 = -f.x;
+        let m10 = r.y;
+        let m11 = u.y;
+        let m12 = -f.y;
+        let m20 = r.z;
+        let m21 = u.z;
+        let m22 = -f.z;
+
+        let trace = m00 + m11 + m22;
+        let q = if trace > 0.0 {
+            let s = (trace + 1.0).sqrt() * 2.0;
+            Self::new((m12 - m21) / s, (m20 - m02) / s, (m01 - m10) / s, 0.25 * s)
+        } else if m00 > m11 && m00 > m22 {
+            let s = (1.0 + m00 - m11 - m22).sqrt() * 2.0;
+            Self::new(0.25 * s, (m01 + m10) / s, (m20 + m02) / s, (m12 - m21) / s)
+        } else if m11 > m22 {
+            let s = (1.0 + m11 - m00 - m22).sqrt() * 2.0;
+            Self::new((m01 + m10) / s, 0.25 * s, (m12 + m21) / s, (m20 - m02) / s)
+        } else {
+            let s = (1.0 + m22 - m00 - m11).sqrt() * 2.0;
+            Self::new((m20 + m02) / s, (m12 + m21) / s, 0.25 * s, (m01 - m10) / s)
+        };
+
+        q.normalize()
+    }
+
     /// Spherical linear interpolation between two quaternions.
     ///
     /// Always takes the shortest path (flips `other` if dot product is negative).
@@ -124,7 +225,6 @@ impl Quat {
     pub fn slerp(&self, other: &Self, t: f32) -> Self {
         let mut dot = self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
 
-        // Flip to take shortest path
         let other = if dot < 0.0 {
             dot = -dot;
             Self::new(-other.x, -other.y, -other.z, -other.w)
@@ -132,7 +232,6 @@ impl Quat {
             *other
         };
 
-        // If very close, use linear interpolation to avoid division by zero
         if dot > 0.9995 {
             let result = Self::new(
                 self.x + (other.x - self.x) * t,
@@ -156,6 +255,24 @@ impl Quat {
         )
     }
 
+    /// Normalized linear interpolation between two quaternions.
+    ///
+    /// Faster than [`Self::slerp`] and typically suitable for frame-to-frame blending.
+    #[must_use]
+    pub fn nlerp(&self, other: &Self, t: f32) -> Self {
+        let mut end = *other;
+        if self.dot(*other) < 0.0 {
+            end = Self::new(-other.x, -other.y, -other.z, -other.w);
+        }
+        Self::new(
+            self.x + (end.x - self.x) * t,
+            self.y + (end.y - self.y) * t,
+            self.z + (end.z - self.z) * t,
+            self.w + (end.w - self.w) * t,
+        )
+        .normalize()
+    }
+
     /// Normalize to unit length.
     #[must_use]
     pub fn normalize(self) -> Self {
@@ -172,9 +289,6 @@ impl Quat {
     /// Computes `q * v * q⁻¹` using the optimized formula.
     #[must_use]
     pub fn rotate_vec3(self, v: Vec3) -> Vec3 {
-        // Optimized quaternion-vector rotation (avoids full quaternion multiply):
-        // t = 2 * cross(q.xyz, v)
-        // result = v + w * t + cross(q.xyz, t)
         let qv = Vec3::new(self.x, self.y, self.z);
         let t = qv.cross(v) * 2.0;
         v + t * self.w + qv.cross(t)
@@ -220,20 +334,18 @@ impl Quat {
         self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
     }
 
-    /// Inverse quaternion.
+    /// Quaternion inverse.
     ///
-    /// For unit quaternions this is the conjugate. Non-unit inputs are handled
-    /// by dividing by the squared magnitude.
+    /// For unit quaternions this is equal to the conjugate.
     #[must_use]
-    #[inline]
     pub fn inverse(self) -> Self {
-        let len_sq = self.length_sq();
-        if len_sq <= f32::EPSILON {
+        let norm_sq = self.length_sq();
+        if norm_sq <= f32::EPSILON {
             return Self::identity();
         }
-
-        let inv = 1.0 / len_sq;
-        Self::new(-self.x * inv, -self.y * inv, -self.z * inv, self.w * inv)
+        let c = self.conjugate();
+        let inv = 1.0 / norm_sq;
+        Self::new(c.x * inv, c.y * inv, c.z * inv, c.w * inv)
     }
 
     /// Dot product between two quaternions.
@@ -241,26 +353,6 @@ impl Quat {
     #[inline]
     pub fn dot(self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
-    }
-
-    /// Normalized linear interpolation.
-    ///
-    /// This is cheaper than [`Self::slerp`] and still tracks the shortest arc.
-    #[must_use]
-    pub fn nlerp(&self, other: &Self, t: f32) -> Self {
-        let other = if self.dot(*other) < 0.0 {
-            Self::new(-other.x, -other.y, -other.z, -other.w)
-        } else {
-            *other
-        };
-
-        Self::new(
-            self.x + (other.x - self.x) * t,
-            self.y + (other.y - self.y) * t,
-            self.z + (other.z - self.z) * t,
-            self.w + (other.w - self.w) * t,
-        )
-        .normalize()
     }
 }
 
@@ -285,7 +377,6 @@ impl Mul for Quat {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        // Row-vector convention: "a then b" = Hamilton(rhs, self)
         hamilton(&rhs, &self)
     }
 }
@@ -315,7 +406,6 @@ mod tests {
     #[test]
     fn from_axis_angle_90_degrees_y() {
         let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
-        // Should rotate (1,0,0) to (0,0,-1) in right-handed system
         let rotated = q.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
         assert!((rotated.x).abs() < EPSILON);
         assert!((rotated.y).abs() < EPSILON);
@@ -349,7 +439,6 @@ mod tests {
         let a = Quat::identity();
         let b = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
         let mid = a.slerp(&b, 0.5);
-        // Mid should be 45 degree rotation around Y
         let rotated = mid.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
         let expected_x = (FRAC_PI_2 / 2.0).cos();
         let expected_z = -(FRAC_PI_2 / 2.0).sin();
@@ -359,16 +448,22 @@ mod tests {
 
     #[test]
     fn slerp_takes_shortest_path() {
-        // Two quaternions representing the same rotation but with opposite signs
         let a = Quat::identity();
         let b_raw = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
         let b_neg = Quat::new(-b_raw.x, -b_raw.y, -b_raw.z, -b_raw.w);
-        // slerp should produce the same rotation regardless
         let r1 = a.slerp(&b_raw, 0.5).rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
         let r2 = a.slerp(&b_neg, 0.5).rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
         assert!((r1.x - r2.x).abs() < EPSILON);
         assert!((r1.y - r2.y).abs() < EPSILON);
         assert!((r1.z - r2.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn nlerp_midpoint_is_normalized() {
+        let a = Quat::identity();
+        let b = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let mid = a.nlerp(&b, 0.5);
+        assert!((mid.dot(mid) - 1.0).abs() < EPSILON);
     }
 
     #[test]
@@ -381,12 +476,10 @@ mod tests {
 
     #[test]
     fn compose_rotations() {
-        // 90 deg around Y then 90 deg around X
         let ry = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
         let rx = Quat::from_axis_angle(Vec3::new(1.0, 0.0, 0.0), FRAC_PI_2);
-        let combined = ry * rx; // Apply ry first, then rx (row-vector convention)
+        let combined = ry * rx;
         let v = combined.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
-        // (1,0,0) -> ry -> (0,0,-1) -> rx -> (0,1,0)
         assert!((v.x).abs() < EPSILON);
         assert!((v.y - 1.0).abs() < EPSILON);
         assert!((v.z).abs() < EPSILON);
@@ -416,13 +509,65 @@ mod tests {
         let yaw = 0.7;
         let roll = 0.0;
         let q = Quat::from_euler(pitch, yaw, roll);
-        // Verify by rotating a known vector
         let v = q.rotate_vec3(Vec3::new(1.0, 0.0, 0.0));
-        // Same rotation via matrices
         let m = Mat4::rotation_y(yaw) * Mat4::rotation_x(pitch);
         let (v2, _) = m.transform_point(Vec3::new(1.0, 0.0, 0.0));
         assert!((v.x - v2.x).abs() < EPSILON);
         assert!((v.y - v2.y).abs() < EPSILON);
         assert!((v.z - v2.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn inverse_undoes_rotation() {
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let v = Vec3::new(0.4, 0.2, -0.8);
+        let vr = q.rotate_vec3(v);
+        let back = q.inverse().rotate_vec3(vr);
+        assert!((back.x - v.x).abs() < EPSILON);
+        assert!((back.y - v.y).abs() < EPSILON);
+        assert!((back.z - v.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn from_to_rotation_rotates_source_to_target() {
+        let from = Vec3::new(1.0, 0.0, 0.0);
+        let to = Vec3::new(0.0, 0.0, -1.0);
+        let q = Quat::from_to_rotation(from, to);
+        let rotated = q.rotate_vec3(from);
+        assert!((rotated.x - to.x).abs() < EPSILON);
+        assert!((rotated.y - to.y).abs() < EPSILON);
+        assert!((rotated.z - to.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn from_to_rotation_handles_opposite_vectors() {
+        let from = Vec3::new(0.0, 1.0, 0.0);
+        let to = Vec3::new(0.0, -1.0, 0.0);
+        let q = Quat::from_to_rotation(from, to);
+        let rotated = q.rotate_vec3(from);
+        assert!((rotated.x - to.x).abs() < EPSILON);
+        assert!((rotated.y - to.y).abs() < EPSILON);
+        assert!((rotated.z - to.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn look_rotation_faces_forward_direction() {
+        let forward = Vec3::new(0.0, 0.0, -1.0);
+        let up = Vec3::new(0.0, 1.0, 0.0);
+        let q = Quat::look_rotation(forward, up);
+        let looked = q.rotate_vec3(Vec3::new(0.0, 0.0, -1.0));
+        assert!((looked.x - forward.x).abs() < EPSILON);
+        assert!((looked.y - forward.y).abs() < EPSILON);
+        assert!((looked.z - forward.z).abs() < EPSILON);
+    }
+
+    #[test]
+    fn look_rotation_handles_parallel_up_and_forward() {
+        let forward = Vec3::new(0.0, 1.0, 0.0);
+        let q = Quat::look_rotation(forward, Vec3::new(0.0, 1.0, 0.0));
+        let looked = q.rotate_vec3(Vec3::new(0.0, 0.0, -1.0));
+        assert!((looked.x - forward.x).abs() < 1e-4);
+        assert!((looked.y - forward.y).abs() < 1e-4);
+        assert!((looked.z - forward.z).abs() < 1e-4);
     }
 }

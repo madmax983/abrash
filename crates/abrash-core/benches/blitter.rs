@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
-use abrash_core::blitter::{SrcRect, blit_alpha, blit_colorkey, blit_opaque};
+use abrash_core::blitter::{SrcRect, blit_alpha, blit_colorkey, blit_opaque, fill_rect_alpha};
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::texture::Texture;
 
@@ -101,10 +101,30 @@ fn bench_blit_alpha(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_fill_rect_alpha(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fill_rect_alpha");
+    for size in [16u32, 32, 64, 128, 256] {
+        let pixels = u64::from(size) * u64::from(size);
+        group.throughput(Throughput::Elements(pixels));
+        let mut fb = Framebuffer::new(1024, 768).unwrap();
+        // Semi-transparent red (alpha=0x80) — forces the blend path, not the
+        // fully-opaque or fully-transparent fast paths.
+        let color: u32 = 0x80FF_0000;
+
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &s| {
+            b.iter(|| {
+                fill_rect_alpha(black_box(&mut fb), 100, 100, s, s, black_box(color));
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_blit_opaque,
     bench_blit_colorkey,
-    bench_blit_alpha
+    bench_blit_alpha,
+    bench_fill_rect_alpha
 );
 criterion_main!(benches);

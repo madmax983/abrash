@@ -11,7 +11,7 @@
 //! 3. **Alpha-blended blit** (`blit_alpha`) -- Per-pixel alpha blending using the
 //!    source pixel's alpha channel. Supports smooth transparency and anti-aliased edges.
 //!
-//! All three tiers share the same clipping logic via [`clip_blit`], which handles
+//! All three tiers share the same clipping logic via `clip_blit`, which handles
 //! negative destination coordinates, framebuffer bounds, and source texture bounds
 //! before any pixels are touched.
 
@@ -163,7 +163,7 @@ pub(crate) const fn clip_blit(
 /// handling -- a straight `memcpy` per row.
 ///
 /// This is the fastest blit path: the source rectangle is clipped against both
-/// the framebuffer and texture bounds via [`clip_blit`], and then each scanline
+/// the framebuffer and texture bounds via `clip_blit`, and then each scanline
 /// is copied with `copy_from_slice` (a single `memcpy` under the hood).
 ///
 /// Use this for fully opaque sprites, tilesets, and UI elements where every
@@ -241,7 +241,7 @@ pub unsafe fn blit_opaque_unchecked(
 /// pixels whose value matches the color key (binary transparency).
 ///
 /// This is the standard alpha-tested blit path: the source rectangle is clipped
-/// against both the framebuffer and texture bounds via [`clip_blit`], and then
+/// against both the framebuffer and texture bounds via `clip_blit`, and then
 /// each pixel is compared against `key`. Matching pixels are skipped (leaving
 /// the framebuffer contents intact), while non-matching pixels overwrite the
 /// destination.
@@ -359,10 +359,10 @@ const fn alpha_blend_pixel(src: u32, dst: u32) -> u32 {
 ///
 /// - `alpha = 0xFF` (fully opaque): source overwrites destination (fast path).
 /// - `alpha = 0x00` (fully transparent): destination is unchanged (fast path).
-/// - `0 < alpha < 0xFF` (semi-transparent): SWAR alpha blend via [`alpha_blend_pixel`].
+/// - `0 < alpha < 0xFF` (semi-transparent): SWAR alpha blend via `alpha_blend_pixel`.
 ///
 /// The source rectangle is clipped against both the framebuffer and texture
-/// bounds via [`clip_blit`] before any pixels are touched.
+/// bounds via `clip_blit` before any pixels are touched.
 ///
 /// Use this for sprites with smooth transparency, anti-aliased edges, or
 /// translucent effects like particles and UI overlays.
@@ -407,7 +407,7 @@ pub fn blit_alpha(fb: &mut Framebuffer, tex: &Texture, src: SrcRect, dst_x: i32,
 /// Uses a three-way branch per pixel:
 /// - Fully opaque (`alpha == 0xFF`): direct copy (no blend math).
 /// - Fully transparent (`alpha == 0x00`): skip entirely.
-/// - Semi-transparent: SWAR alpha blend via [`alpha_blend_pixel`].
+/// - Semi-transparent: SWAR alpha blend via `alpha_blend_pixel`.
 ///
 /// # Safety
 ///
@@ -470,7 +470,7 @@ pub fn fill_rect(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, color: u3
 /// Fills a rectangle in the framebuffer with an alpha-blended color.
 ///
 /// Uses the source color's alpha channel (bits 31..24) to blend with existing
-/// framebuffer contents via [`alpha_blend_pixel`] (src-over compositing).
+/// framebuffer contents via `alpha_blend_pixel` (src-over compositing).
 ///
 /// Fast paths:
 /// - `alpha == 0`: no-op (fully transparent).
@@ -515,11 +515,26 @@ pub fn fill_rect_alpha(fb: &mut Framebuffer, x: i32, y: i32, w: u32, h: u32, col
     let stride = fb.width() as usize;
     let fb_pixels = fb.as_mut_slice();
 
+    // Hoist loop-invariant source terms: color, alpha, and pre-multiplied
+    // src channels are constant across every pixel in the fill.
+    let src_rb = color & 0x00FF_00FF;
+    let src_g = (color >> 8) & 0x00FF_00FF;
+    let src_rb_a = src_rb * alpha;
+    let src_g_a = src_g * alpha;
+    let inv_alpha = 255 - alpha;
+
     for row in y0..y1 {
         let row_start = row as usize * stride;
         for col in x0..x1 {
             let idx = row_start + col as usize;
-            fb_pixels[idx] = alpha_blend_pixel(color, fb_pixels[idx]);
+            let dst = fb_pixels[idx];
+            let dst_rb = dst & 0x00FF_00FF;
+            let dst_g = (dst >> 8) & 0x00FF_00FF;
+
+            let rb = ((src_rb_a + dst_rb * inv_alpha) >> 8) & 0x00FF_00FF;
+            let g = ((src_g_a + dst_g * inv_alpha) >> 8) & 0x00FF_00FF;
+
+            fb_pixels[idx] = rb | (g << 8) | 0xFF00_0000;
         }
     }
 }
