@@ -212,11 +212,7 @@ impl Texture {
             let mut next_pixels = Vec::with_capacity(size);
 
             // Get previous level pixels
-            let prev_pixels = if self.mips.is_empty() {
-                &self.pixels
-            } else {
-                self.mips.last().unwrap()
-            };
+            let prev_pixels = self.mips.last().unwrap_or(&self.pixels);
 
             for y in 0..next_height {
                 for x in 0..next_width {
@@ -684,5 +680,15 @@ mod tests {
             pixel_l0, 0xFF00_0000,
             "LOD 0.0 should sample from Level 0 (Black)"
         );
+    }
+
+    #[test]
+    fn test_generate_mipmaps_unwrap_safety() {
+        let mut tex = Texture::new(4, 4).unwrap();
+        // Clear mips explicitly to simulate a state that would previously trigger `mips.last().unwrap()` panic
+        // if the generation loop executed while mips were somehow altered.
+        tex.mips.clear();
+        tex.generate_mipmaps();
+        assert_eq!(tex.mips.len(), 2);
     }
 }
