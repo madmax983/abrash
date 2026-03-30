@@ -29,17 +29,30 @@ pub fn apply_fisheye(fb: &mut Framebuffer, strength: f32) {
     // Use the shortest dimension to normalize space so the distortion remains perfectly circular
     let min_dim = half_w.min(half_h);
 
-    // We must clone the source framebuffer because this is a spatial effect
-    // where a destination pixel might need to sample from an arbitrary source location.
-    let src_pixels = fb.as_slice().to_vec();
-    let dst_pixels = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // We must clone the source framebuffer because this is a spatial effect where a
+    // destination pixel might need to sample from an arbitrary source location.
+    // By hoisting this buffer into a `thread_local!` we eliminate a `Vec` heap allocation
+    // (via `.to_vec()`) per frame, reducing memory fragmentation and allocation overhead.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dst_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        src_pixels.clear();
+        src_pixels.extend_from_slice(fb.as_slice());
 
-    row_iter.for_each(|(y, row)| {
+        // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
+        let src_pixels_slice = src_pixels.as_slice();
+        let dst_pixels = fb.as_mut_slice();
+
+        #[cfg(feature = "parallel")]
+        let row_iter = dst_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
+
+        row_iter.for_each(|(y, row)| {
         let dy = (y as f32) - half_h;
 
         for (x, pixel) in row.iter_mut().enumerate().take(width) {
@@ -67,12 +80,13 @@ pub fn apply_fisheye(fb: &mut Framebuffer, strength: f32) {
             // Check bounds to ensure we sample valid pixels
             if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32 {
                 let src_idx = (src_y as usize) * width + (src_x as usize);
-                *pixel = src_pixels[src_idx];
+                    *pixel = src_pixels_slice[src_idx];
             } else {
                 // Out of bounds (edges shrunk by fisheye mapping) become black
                 *pixel = 0xFF00_0000;
             }
         }
+        });
     });
 }
 
