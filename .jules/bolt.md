@@ -177,3 +177,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::powf in Post-Processing
 **Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
 **Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+
+**Test Float Comparison Lints**
+**Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
+**Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).
