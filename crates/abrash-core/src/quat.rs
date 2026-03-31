@@ -5,7 +5,7 @@
 
 use std::ops::Mul;
 
-use crate::math::{Mat4, Vec3};
+use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 
 /// A unit quaternion representing a 3D rotation.
 ///
@@ -277,11 +277,11 @@ impl Quat {
     /// Normalize to unit length.
     #[must_use]
     pub fn normalize(self) -> Self {
-        let len = self.length_sq().sqrt();
-        if len < f32::EPSILON {
+        let len_sq = self.length_sq();
+        if len_sq < f32::EPSILON * f32::EPSILON {
             return Self::identity();
         }
-        let inv = 1.0 / len;
+        let inv = fast_inv_sqrt(len_sq);
         Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
     }
 
