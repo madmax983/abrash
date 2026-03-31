@@ -84,16 +84,16 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
-    let max_radius = (center_x * center_x + center_y * center_y).sqrt();
+    let max_radius_sq = center_x * center_x + center_y * center_y;
 
     for y in 0..height {
         let dy = y as f32 - center_y;
         for x in 0..width {
             let dx = x as f32 - center_x;
-            let dist = (dx * dx + dy * dy).sqrt();
+            let dist_sq = dx * dx + dy * dy;
 
             // Vignette: Darken edges
-            let vignette = (1.0 - (dist / max_radius).powi(2)).max(0.0);
+            let vignette = (1.0 - (dist_sq / max_radius_sq)).max(0.0);
 
             let idx = y * width + x;
             let pixel = pixels[idx];

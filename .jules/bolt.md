@@ -177,3 +177,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::powf in Post-Processing
 **Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
 **Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+
+**[Performance Optimization: Deferring Square Roots in Vignette Calculation]**
+**Learning:** In hot pixel loops for post-processing effects (like Night Vision), calculating distances using `(dx * dx + dy * dy).sqrt()` only to subsequently square the result for falloff math (e.g. `(dist / max_radius).powi(2)`) introduces unnecessary and highly expensive float-point operations that prevent vectorization and severely slow down rendering.
+**Action:** Replace the use of `.sqrt()` for distance calculations in the vignette calculation. The vignette calculation squares the distance again (`(dist / max_radius).powi(2)`), which means we can directly use squared distance and squared max radius (`dist_sq / max_radius_sq`), entirely bypassing the computationally expensive square root calculation in the hot loop.
