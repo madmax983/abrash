@@ -173,3 +173,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance] mode7 calculation optimization**
 **Learning:** Using `f32::rem_euclid` is extremely slow. We can cast the f32 values to i32, then calculate `& mask` if the texture has power of two dimensions, or use `rem_euclid(i32)`. Moving branch `if fog_factor > 0.0` out of inner loop also speeds it up.
 **Action:** Replaced `rem_euclid` with fast i32 bitwise AND when power of two size, and moved `fog_factor` check outside inner loop in `mode7.rs`.
+
+## [Performance] f32::powf in Post-Processing
+**Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
+**Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.

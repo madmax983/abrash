@@ -260,10 +260,11 @@ impl Quat {
     /// Faster than [`Self::slerp`] and typically suitable for frame-to-frame blending.
     #[must_use]
     pub fn nlerp(&self, other: &Self, t: f32) -> Self {
-        let mut end = *other;
-        if self.dot(*other) < 0.0 {
-            end = Self::new(-other.x, -other.y, -other.z, -other.w);
-        }
+        let end = if self.dot(*other) < 0.0 {
+            Self::new(-other.x, -other.y, -other.z, -other.w)
+        } else {
+            *other
+        };
         Self::new(
             self.x + (end.x - self.x) * t,
             self.y + (end.y - self.y) * t,

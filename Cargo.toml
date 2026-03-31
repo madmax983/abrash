@@ -648,3 +648,8 @@ required-features = ["nova"]
 name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "night_vision_bench"
+harness = false
+required-features = ["nova"]
