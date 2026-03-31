@@ -102,6 +102,23 @@ impl AABB {
         }
     }
 
+    /// Create an AABB from a center point and half-extents.
+    #[must_use]
+    pub const fn from_center_extents(center: Vec3, extents: Vec3) -> Self {
+        Self::new(
+            Vec3::new(
+                center.x - extents.x,
+                center.y - extents.y,
+                center.z - extents.z,
+            ),
+            Vec3::new(
+                center.x + extents.x,
+                center.y + extents.y,
+                center.z + extents.z,
+            ),
+        )
+    }
+
     /// Calculate AABB from a list of points.
     ///
     /// Returns a default zero-sized AABB if the input list is empty.
@@ -167,6 +184,59 @@ impl AABB {
         (self.max - self.min) * 0.5
     }
 
+    /// Returns `true` if the point lies inside or on the boundary of the AABB.
+    #[must_use]
+    #[inline]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
+            && point.z >= self.min.z
+            && point.z <= self.max.z
+    }
+
+    /// Returns `true` if the other AABB is fully enclosed by this one.
+    #[must_use]
+    #[inline]
+    pub fn contains_aabb(&self, other: &Self) -> bool {
+        self.contains_point(other.min) && self.contains_point(other.max)
+    }
+
+    /// Returns `true` if the two AABBs overlap or touch.
+    #[must_use]
+    #[inline]
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.min.x <= other.max.x
+            && self.max.x >= other.min.x
+            && self.min.y <= other.max.y
+            && self.max.y >= other.min.y
+            && self.min.z <= other.max.z
+            && self.max.z >= other.min.z
+    }
+
+    /// Returns the smallest AABB that encloses both inputs.
+    #[must_use]
+    #[inline]
+    pub const fn union(&self, other: &Self) -> Self {
+        Self::new(self.min.min(other.min), self.max.max(other.max))
+    }
+
+    /// Returns the smallest AABB that encloses this box and the given point.
+    #[must_use]
+    #[inline]
+    pub const fn include_point(&self, point: Vec3) -> Self {
+        Self::new(self.min.min(point), self.max.max(point))
+    }
+
+    /// Surface area of the box.
+    #[must_use]
+    #[inline]
+    pub fn surface_area(&self) -> f32 {
+        let size = self.max - self.min;
+        2.0 * (size.x * size.y + size.x * size.z + size.y * size.z)
+    }
+
     /// Transform this AABB by a matrix.
     ///
     /// Calculates the new Axis-Aligned Bounding Box in the new coordinate space.
@@ -205,33 +275,18 @@ impl AABB {
             }
         }
 
-        let min = self.min;
-        let max = self.max;
+        let center = self.center();
+        let extents = self.extents();
+        let (world_center, _) = transform.transform_point(center);
         let m = &transform.m;
 
-        let right = Vec3::new(m[0][0], m[0][1], m[0][2]);
-        let up = Vec3::new(m[1][0], m[1][1], m[1][2]);
-        let back = Vec3::new(m[2][0], m[2][1], m[2][2]);
-        let translation = Vec3::new(m[3][0], m[3][1], m[3][2]);
+        let world_extents = Vec3::new(
+            m[0][0].abs() * extents.x + m[1][0].abs() * extents.y + m[2][0].abs() * extents.z,
+            m[0][1].abs() * extents.x + m[1][1].abs() * extents.y + m[2][1].abs() * extents.z,
+            m[0][2].abs() * extents.x + m[1][2].abs() * extents.y + m[2][2].abs() * extents.z,
+        );
 
-        let xa = right * min.x;
-        let xb = right * max.x;
-
-        let ya = up * min.y;
-        let yb = up * max.y;
-
-        let za = back * min.z;
-        let zb = back * max.z;
-
-        // Arvo's algorithm:
-        // NewMin = Translation + sum(min(a, b))
-        // NewMax = Translation + sum(max(a, b))
-        // where a = M * min, b = M * max (component-wise)
-
-        let world_min = translation + xa.min(xb) + ya.min(yb) + za.min(zb);
-        let world_max = translation + xa.max(xb) + ya.max(yb) + za.max(zb);
-
-        Self::new(world_min, world_max)
+        Self::new(world_center - world_extents, world_center + world_extents)
     }
 
     /// AVX2-optimized implementation of Arvo's algorithm.
