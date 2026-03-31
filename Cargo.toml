@@ -657,3 +657,13 @@ required-features = ["nova"]
 name = "night_vision_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "frosted_glass_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "frosted_glass_demo"
+path = "examples/frosted_glass_demo.rs"
+required-features = ["nova"]
