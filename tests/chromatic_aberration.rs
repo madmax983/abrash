@@ -11,7 +11,10 @@ fn test_chromatic_aberration_shift() {
     fb.set_pixel(50, 50, 0xFFFF_FFFF);
 
     // Apply effect with offset 5
-    apply_chromatic_aberration(&mut fb, 5);
+    apply_chromatic_aberration(
+        &mut fb,
+        &abrash::post_process::ChromaticAberrationConfig { offset: 5 },
+    );
 
     // Original position (50, 50) should have:
     // Red: comes from (45, 50) -> Black (0)
@@ -66,7 +69,10 @@ fn test_chromatic_aberration_boundary() {
     // Draw white pixel at (0, 5)
     fb.set_pixel(0, 5, 0xFFFF_FFFF);
 
-    apply_chromatic_aberration(&mut fb, 2);
+    apply_chromatic_aberration(
+        &mut fb,
+        &abrash::post_process::ChromaticAberrationConfig { offset: 2 },
+    );
 
     // At (0, 5):
     // R = Old(-2, 5) -> 0 (Black)
