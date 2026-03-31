@@ -492,14 +492,14 @@ impl Mat2 {
         let m01 = self.m[0][1];
         let m10 = self.m[1][0];
         let m11 = self.m[1][1];
-
-        vertices
-            .iter()
-            .map(|&v| Vec2 {
+        let mut out = Vec::with_capacity(vertices.len());
+        for &v in vertices {
+            out.push(Vec2 {
                 x: m00 * v.x + m01 * v.y,
                 y: m10 * v.x + m11 * v.y,
-            })
-            .collect()
+            });
+        }
+        out
     }
 
     /// Transform vertices in place.
@@ -2765,6 +2765,53 @@ mod tests {
     }
 
     #[test]
+    fn test_vec4_dot_length_normalize() {
+        let a = Vec4::new(1.0, 2.0, 2.0, 1.0);
+        let b = Vec4::new(-1.0, 0.5, 3.0, 2.0);
+        assert!((a.dot(b) - 8.0).abs() < 1e-6);
+        assert!((a.length_sq() - 10.0).abs() < 1e-6);
+        assert!((a.length() - 10.0_f32.sqrt()).abs() < 1e-6);
+
+        let n = a.normalize();
+        assert!((n.length() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_vec4_project_and_reject() {
+        let v = Vec4::new(3.0, 4.0, 0.0, 0.0);
+        let onto = Vec4::new(1.0, 0.0, 0.0, 0.0);
+        let proj = v.project_onto(onto);
+        let rej = v.reject_from(onto);
+
+        assert!((proj.x - 3.0).abs() < 1e-6);
+        assert!(proj.y.abs() < 1e-6);
+        assert!(proj.z.abs() < 1e-6);
+        assert!(proj.w.abs() < 1e-6);
+
+        assert!(rej.x.abs() < 1e-6);
+        assert!((rej.y - 4.0).abs() < 1e-6);
+        assert!(rej.z.abs() < 1e-6);
+        assert!(rej.w.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec4_min_max_clamp_distance() {
+        let a = Vec4::new(-1.0, 3.0, 10.0, 0.5);
+        let b = Vec4::new(2.0, 1.0, 7.0, 2.0);
+
+        let min = a.min(b);
+        let max = a.max(b);
+        assert_eq!(min, Vec4::new(-1.0, 1.0, 7.0, 0.5));
+        assert_eq!(max, Vec4::new(2.0, 3.0, 10.0, 2.0));
+
+        let clamped = Vec4::new(3.0, 0.0, 8.0, 1.5).clamp(min, max);
+        assert_eq!(clamped, Vec4::new(2.0, 1.0, 8.0, 1.5));
+
+        assert!((a.distance_sq(b) - 24.25).abs() < 1e-6);
+        assert!((a.distance(b) - 24.25_f32.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
     fn test_vec3_min_max() {
         let a = Vec3::new(1.0, 5.0, -2.0);
         let b = Vec3::new(3.0, 2.0, -1.0);
@@ -2888,6 +2935,21 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
+    #[allow(missing_docs)]
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 0.0,
+    };
+    #[allow(missing_docs)]
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        w: 1.0,
+    };
+
     /// Linearly interpolate between this vector and another.
     ///
     /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
@@ -2932,6 +2994,117 @@ impl Vec4 {
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
+
+    /// Calculates dot product between two vectors.
+    #[must_use]
+    #[inline]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    /// Calculates squared length (magnitude²) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.dot(self)
+    }
+
+    /// Calculates the Euclidean length (magnitude) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.length_sq().sqrt()
+    }
+
+    /// Returns a normalized unit vector (length of 1.0).
+    ///
+    /// For tiny vectors (length² <= `1e-8`), returns the original vector.
+    #[must_use]
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+                w: self.w * inv_len,
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
+    }
+
+    /// Component-wise minimum.
+    #[must_use]
+    #[inline]
+    pub const fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
+            w: self.w.min(other.w),
+        }
+    }
+
+    /// Component-wise maximum.
+    #[must_use]
+    #[inline]
+    pub const fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
+            w: self.w.max(other.w),
+        }
+    }
+
+    /// Clamp each component between corresponding min/max components.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+            z: self.z.clamp(min.z, max.z),
+            w: self.w.clamp(min.w, max.w),
+        }
+    }
+
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec4::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
 }
 
 /// Multiply vector by scalar.
@@ -2944,6 +3117,20 @@ impl std::ops::Mul<f32> for Vec4 {
             y: self.y * scalar,
             z: self.z * scalar,
             w: self.w * scalar,
+        }
+    }
+}
+
+/// Component-wise multiply.
+impl std::ops::Mul for Vec4 {
+    type Output = Self;
+    #[inline]
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+            w: self.w * other.w,
         }
     }
 }
@@ -2972,6 +3159,20 @@ impl std::ops::Sub for Vec4 {
             y: self.y - other.y,
             z: self.z - other.z,
             w: self.w - other.w,
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Vec4 {
+    type Output = Self;
+    #[inline]
+    fn div(self, scalar: f32) -> Self {
+        let inv = 1.0 / scalar;
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
+            z: self.z * inv,
+            w: self.w * inv,
         }
     }
 }
