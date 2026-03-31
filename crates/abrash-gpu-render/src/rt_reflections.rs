@@ -13,6 +13,8 @@ use wgpu::util::DeviceExt;
 ///
 /// Traces reflection rays from G-Buffer, outputs noisy 1-spp reflection color.
 const RT_REFLECTION_SHADER: &str = r"
+enable wgpu_ray_query;
+
 struct ReflectionParams {
     camera_pos: vec3<f32>,
     max_distance: f32,
@@ -99,9 +101,9 @@ pub struct ReflectionParams {
 
 /// Ray-traced reflection pass.
 pub struct RtReflectionPass {
-    pub(crate) pipeline: wgpu::ComputePipeline,
-    pub(crate) bind_group_layout: wgpu::BindGroupLayout,
-    pub(crate) params_buffer: wgpu::Buffer,
+    _pipeline: wgpu::ComputePipeline,
+    _bind_group_layout: wgpu::BindGroupLayout,
+    _params_buffer: wgpu::Buffer,
     /// Output reflection texture (Rgba16Float, noisy 1-spp).
     pub(crate) reflection_texture: Option<wgpu::Texture>,
     pub(crate) reflection_view: Option<wgpu::TextureView>,
@@ -234,9 +236,9 @@ impl RtReflectionPass {
         });
 
         Self {
-            pipeline,
-            bind_group_layout,
-            params_buffer,
+            _pipeline: pipeline,
+            _bind_group_layout: bind_group_layout,
+            _params_buffer: params_buffer,
             reflection_texture: None,
             reflection_view: None,
             width: 0,
