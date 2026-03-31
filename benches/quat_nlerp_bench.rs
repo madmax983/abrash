@@ -1,6 +1,6 @@
-use abrash_core::quat::Quat;
 use abrash_core::math::Vec3;
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use abrash_core::quat::Quat;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::f32::consts::FRAC_PI_2;
 
 fn bench_nlerp(c: &mut Criterion) {
@@ -8,7 +8,7 @@ fn bench_nlerp(c: &mut Criterion) {
     let q2 = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
 
     c.bench_function("quat_nlerp", |b| {
-        b.iter(|| black_box(q1).nlerp(black_box(&q2), black_box(0.5)))
+        b.iter(|| black_box(q1).nlerp(black_box(&q2), black_box(0.5)));
     });
 }
 

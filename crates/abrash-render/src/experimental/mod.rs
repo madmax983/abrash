@@ -65,6 +65,7 @@ pub mod raytracer;
 pub mod sdf;
 pub mod sharpen;
 pub mod slitscan;
+pub mod snow;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;

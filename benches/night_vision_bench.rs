@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use abrash_render::experimental::night_vision::{NightVisionConfig, apply_night_vision};
 use abrash_render::framebuffer::Framebuffer;
-use abrash_render::experimental::night_vision::{apply_night_vision, NightVisionConfig};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn night_vision_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("night_vision");
