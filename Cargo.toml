@@ -71,6 +71,10 @@ harness = false
 name = "vec2_bench"
 harness = false
 
+[[bench]]
+name = "quat_nlerp_bench"
+harness = false
+
 [lib]
 name = "abrash"
 path = "src/lib.rs"
