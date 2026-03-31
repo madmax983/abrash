@@ -1419,7 +1419,7 @@ fn rasterize_scanline_simd(
                     // Store depths and colors directly using Aligned Stores.
                     _mm256_store_ps(zb_ptr, depths_vec);
 
-                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     _mm256_store_si256(pixels_ptr, color_vec);
                 } else {
                     // Partial write path
@@ -1429,9 +1429,9 @@ fn rasterize_scanline_simd(
                     _mm256_store_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
-                    let pixels_ptr = pixels.as_mut_ptr().add(i) as *mut __m256i;
+                    let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     // Read old pixels (aligned load)
-                    let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                    let old_pixels = _mm256_loadu_si256(pixels_ptr.cast_const());
 
                     let old_pixels_ps = _mm256_castsi256_ps(old_pixels);
                     let color_vec_ps = _mm256_castsi256_ps(color_vec);
@@ -1460,7 +1460,7 @@ fn rasterize_scanline_simd(
         // Since we didn't update scalar `z` inside SIMD loop, we do it now.
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
         let simd_pixels = i - pre_simd_count;
-        let _z_ignored = z + (simd_pixels as f32) * dz_dx;
+        z += (simd_pixels as f32) * dz_dx;
     }
 
     // Handle remaining pixels with scalar fallback
