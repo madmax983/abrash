@@ -159,7 +159,19 @@ impl AABB {
         let mut min = points[0];
         let mut max = points[0];
 
-        for &p in points.iter().skip(1) {
+        let rest = &points[1..];
+        let mut chunks = rest.chunks_exact(4);
+        for chunk in &mut chunks {
+            let p0 = chunk[0];
+            let p1 = chunk[1];
+            let p2 = chunk[2];
+            let p3 = chunk[3];
+
+            min = min.min(p0.min(p1).min(p2).min(p3));
+            max = max.max(p0.max(p1).max(p2).max(p3));
+        }
+
+        for &p in chunks.remainder() {
             min = min.min(p);
             max = max.max(p);
         }
@@ -308,6 +320,44 @@ impl AABB {
         ) {
             return None;
         }
+        Some((t_min, t_max))
+    }
+
+    /// Faster ray/AABB intersection for hot loops when reciprocal direction is precomputed.
+    ///
+    /// `inv_dir` should be `(1.0 / dir.x, 1.0 / dir.y, 1.0 / dir.z)`.
+    /// `dir_sign` encodes negativity of direction per component:
+    /// `dir_sign[i] = (dir.component < 0.0) as usize`.
+    #[must_use]
+    #[inline]
+    pub fn intersects_ray_precomputed(
+        &self,
+        origin: Vec3,
+        inv_dir: Vec3,
+        dir_sign: [usize; 3],
+    ) -> Option<(f32, f32)> {
+        let bounds = [self.min, self.max];
+
+        let mut t_min = (bounds[dir_sign[0]].x - origin.x) * inv_dir.x;
+        let mut t_max = (bounds[1 - dir_sign[0]].x - origin.x) * inv_dir.x;
+
+        let ty_min = (bounds[dir_sign[1]].y - origin.y) * inv_dir.y;
+        let ty_max = (bounds[1 - dir_sign[1]].y - origin.y) * inv_dir.y;
+
+        if t_min > ty_max || ty_min > t_max {
+            return None;
+        }
+        t_min = t_min.max(ty_min);
+        t_max = t_max.min(ty_max);
+
+        let tz_min = (bounds[dir_sign[2]].z - origin.z) * inv_dir.z;
+        let tz_max = (bounds[1 - dir_sign[2]].z - origin.z) * inv_dir.z;
+
+        if t_min > tz_max || tz_min > t_max {
+            return None;
+        }
+        t_min = t_min.max(tz_min);
+        t_max = t_max.min(tz_max);
         Some((t_min, t_max))
     }
 
@@ -559,6 +609,72 @@ impl AABB {
     }
 }
 
+/// Ray/triangle intersection using Möller–Trumbore.
+///
+/// Returns hit distance `t` where `hit_point = origin + dir * t`.
+/// Returns `None` for misses, degenerate triangles, and near-parallel rays.
+#[must_use]
+#[inline]
+pub fn ray_triangle_intersection(
+    origin: Vec3,
+    dir: Vec3,
+    v0: Vec3,
+    v1: Vec3,
+    v2: Vec3,
+) -> Option<f32> {
+    let e1 = v1 - v0;
+    let e2 = v2 - v0;
+    let p = dir.cross(e2);
+    let det = e1.dot(p);
+    if det.abs() <= 1e-8 {
+        return None;
+    }
+
+    let inv_det = 1.0 / det;
+    let tvec = origin - v0;
+    let u = tvec.dot(p) * inv_det;
+    if !(0.0..=1.0).contains(&u) {
+        return None;
+    }
+
+    let q = tvec.cross(e1);
+    let v = dir.dot(q) * inv_det;
+    if v < 0.0 || u + v > 1.0 {
+        return None;
+    }
+
+    let t = e2.dot(q) * inv_det;
+    if t >= 0.0 { Some(t) } else { None }
+}
+
+/// Computes barycentric coordinates `(u, v, w)` of point `p` on triangle `(a, b, c)`.
+///
+/// Returns `None` for degenerate triangles.
+#[must_use]
+#[inline]
+pub fn barycentric_coords(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Option<(f32, f32, f32)> {
+    let v0 = b - a;
+    let v1 = c - a;
+    let v2 = p - a;
+
+    let d00 = v0.dot(v0);
+    let d01 = v0.dot(v1);
+    let d11 = v1.dot(v1);
+    let d20 = v2.dot(v0);
+    let d21 = v2.dot(v1);
+
+    let denom = d00 * d11 - d01 * d01;
+    if denom.abs() <= 1e-8 {
+        return None;
+    }
+
+    let inv_denom = 1.0 / denom;
+    let v = (d11 * d20 - d01 * d21) * inv_denom;
+    let w = (d00 * d21 - d01 * d20) * inv_denom;
+    let u = 1.0 - v - w;
+    Some((u, v, w))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -714,5 +830,66 @@ mod tests {
             "Max mismatch: {:?}",
             transformed.max
         );
+    }
+
+    #[test]
+    fn test_aabb_intersects_ray_precomputed_matches_standard() {
+        let aabb = AABB::new(Vec3::new(-1.0, -2.0, -3.0), Vec3::new(4.0, 5.0, 6.0));
+        let origin = Vec3::new(-10.0, 0.5, 0.25);
+        let dir = Vec3::new(1.0, 0.2, -0.1);
+
+        let reference = aabb.intersects_ray(origin, dir);
+        let inv_dir = Vec3::new(1.0 / dir.x, 1.0 / dir.y, 1.0 / dir.z);
+        let sign = [
+            (dir.x < 0.0) as usize,
+            (dir.y < 0.0) as usize,
+            (dir.z < 0.0) as usize,
+        ];
+        let fast = aabb.intersects_ray_precomputed(origin, inv_dir, sign);
+        assert_eq!(reference.is_some(), fast.is_some());
+        let (r0, r1) = reference.expect("expected hit");
+        let (f0, f1) = fast.expect("expected hit");
+        assert!((r0 - f0).abs() < 1e-5);
+        assert!((r1 - f1).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_ray_triangle_intersection_hit_and_miss() {
+        let v0 = Vec3::new(0.0, 0.0, 0.0);
+        let v1 = Vec3::new(1.0, 0.0, 0.0);
+        let v2 = Vec3::new(0.0, 1.0, 0.0);
+
+        let t = ray_triangle_intersection(
+            Vec3::new(0.25, 0.25, 1.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            v0,
+            v1,
+            v2,
+        )
+        .expect("ray should hit triangle");
+        assert!((t - 1.0).abs() < 1e-6);
+
+        let miss = ray_triangle_intersection(
+            Vec3::new(1.25, 1.25, 1.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            v0,
+            v1,
+            v2,
+        );
+        assert!(miss.is_none());
+    }
+
+    #[test]
+    fn test_barycentric_coords() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 2.0, 0.0);
+        let p = Vec3::new(0.5, 0.5, 0.0);
+
+        let (u, v, w) = barycentric_coords(p, a, b, c).expect("non-degenerate triangle");
+        assert!((u - 0.5).abs() < 1e-6);
+        assert!((v - 0.25).abs() < 1e-6);
+        assert!((w - 0.25).abs() < 1e-6);
+        assert!((u + v + w - 1.0).abs() < 1e-6);
     }
 }
