@@ -566,6 +566,36 @@ mod tests {
     }
 
     #[test]
+    fn test_create_texture() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let tex = Texture::new(2, 2).unwrap();
+
+        let handle1 = renderer.create_texture(&tex);
+        assert!(handle1.is_ok());
+
+        let handle2 = renderer.create_texture_owned(tex);
+        assert!(handle2.is_ok());
+    }
+
+    #[test]
+    fn test_destroy_texture() {
+        let mut renderer = CpuRenderer::new(100, 100);
+        let tex = Texture::new(2, 2).unwrap();
+
+        let handle = renderer.create_texture(&tex).unwrap();
+
+        // Destroy the texture
+        renderer.destroy_texture(handle);
+
+        // CpuRenderer doesn't currently expose a way to get a texture or use a texture in a DrawCommand (in this API at least)
+        // But we can check that it's no longer in the resource pool directly using internal state
+        // To be safe and just test the destruction, we can check `renderer.textures.get(from_texture_handle(handle))` is None.
+
+        let pool_handle = super::from_texture_handle(handle);
+        assert!(renderer.textures.get(pool_handle).is_none());
+    }
+
+    #[test]
     fn test_execute_draw_list_matches_render_frame() {
         // Both paths (render_frame vs extract+execute) must produce identical pixels.
         let mut r1 = CpuRenderer::new(100, 100);
