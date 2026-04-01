@@ -170,6 +170,53 @@ impl Transform {
             local.z / self.scale.z,
         )
     }
+
+    /// Transform a batch of points, reusing one output allocation.
+    #[must_use]
+    pub fn transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(points.len());
+        self.transform_points_into(points, &mut out);
+        out
+    }
+
+    /// Transform a batch of points and write into `out`.
+    ///
+    /// This hoists quaternion basis expansion outside the loop.
+    pub fn transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
+        let rotation = self.rotation.normalize();
+        let x2 = rotation.x + rotation.x;
+        let y2 = rotation.y + rotation.y;
+        let z2 = rotation.z + rotation.z;
+        let xx = rotation.x * x2;
+        let xy = rotation.x * y2;
+        let xz = rotation.x * z2;
+        let yy = rotation.y * y2;
+        let yz = rotation.y * z2;
+        let zz = rotation.z * z2;
+        let wx = rotation.w * x2;
+        let wy = rotation.w * y2;
+        let wz = rotation.w * z2;
+
+        let m00 = (1.0 - (yy + zz)) * self.scale.x;
+        let m01 = (xy + wz) * self.scale.x;
+        let m02 = (xz - wy) * self.scale.x;
+        let m10 = (xy - wz) * self.scale.y;
+        let m11 = (1.0 - (xx + zz)) * self.scale.y;
+        let m12 = (yz + wx) * self.scale.y;
+        let m20 = (xz + wy) * self.scale.z;
+        let m21 = (yz - wx) * self.scale.z;
+        let m22 = (1.0 - (xx + yy)) * self.scale.z;
+
+        out.clear();
+        out.reserve(points.len());
+        for &p in points {
+            out.push(Vec3::new(
+                p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
+                p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
+                p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
+            ));
+        }
+    }
 }
 
 impl Default for Transform {

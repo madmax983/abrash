@@ -171,3 +171,38 @@ fn aabb_transform_matches_corner_sweep() {
     assert_vec3_close(transformed.min, expected.min);
     assert_vec3_close(transformed.max, expected.max);
 }
+
+#[test]
+fn transform_batch_path_matches_scalar_path() {
+    let transform = Transform::new(
+        Vec3::new(1.0, -2.0, 3.0),
+        Quat::from_euler(0.4, -0.3, 0.2),
+        Vec3::new(2.0, 0.5, 1.5),
+    );
+    let points = vec![
+        Vec3::new(-2.0, 0.0, 1.0),
+        Vec3::new(0.5, 1.5, -3.0),
+        Vec3::new(4.0, -1.0, 2.0),
+    ];
+
+    let batch = transform.transform_points(&points);
+    assert_eq!(batch.len(), points.len());
+    for (actual, point) in batch.iter().zip(points.iter()) {
+        let expected = transform.transform_point(*point);
+        assert_vec3_close(*actual, expected);
+    }
+}
+
+#[test]
+fn aabb_ray_and_sphere_queries_hit_expected_ranges() {
+    let aabb = AABB::new(Vec3::new(-1.0, -2.0, -3.0), Vec3::new(2.0, 1.0, 4.0));
+
+    let (t_near, t_far) = aabb
+        .intersects_ray(Vec3::new(-5.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+        .expect("expected ray hit");
+    assert!((t_near - 4.0).abs() < EPSILON);
+    assert!((t_far - 7.0).abs() < EPSILON);
+
+    assert!(aabb.intersects_sphere(Vec3::new(2.5, 0.0, 0.0), 0.5));
+    assert!(!aabb.intersects_sphere(Vec3::new(3.0, 3.0, 3.0), 0.5));
+}
