@@ -921,7 +921,7 @@ unsafe fn draw_scanline_pbr_simd(
                 zb,
                 y,
                 xs,
-                x_end,
+                xe,
                 PbrSpanStart {
                     z: z_s,
                     nx: nx_s,
