@@ -162,9 +162,9 @@ fn bench_gpu_offscreen_heavy_frames(c: &mut Criterion) {
 // CPU vs GPU comparison benchmarks — matched workloads
 // ---------------------------------------------------------------------------
 
-/// GPU at production triangle counts to compare against CPU scene_render benchmarks.
-/// Uses a single mesh with draw_repeats to approximate multi-object workloads.
-/// NOTE: GPU times include ~90µs device.poll() fence overhead.
+/// GPU at production triangle counts to compare against CPU `scene_render` benchmarks.
+/// Uses a single mesh with `draw_repeats` to approximate multi-object workloads.
+/// NOTE: GPU times include ~90µs `device.poll()` fence overhead.
 fn bench_gpu_vs_cpu_workloads(c: &mut Criterion) {
     let mut group = c.benchmark_group("gpu_vs_cpu");
     group.sample_size(10);
@@ -176,13 +176,41 @@ fn bench_gpu_vs_cpu_workloads(c: &mut Criterion) {
 
     for &(label, width, height, verts, indices, repeats) in &[
         // 20K tris @ 1080p (100 × 200 tri mesh) — matches CPU 1080p_20k
-        ("1080p_20k_100draws", 1920_u32, 1080_u32, &mesh_sm_v, &mesh_sm_i, 100_u32),
+        (
+            "1080p_20k_100draws",
+            1920_u32,
+            1080_u32,
+            &mesh_sm_v,
+            &mesh_sm_i,
+            100_u32,
+        ),
         // 80K tris @ 1080p (100 × 800 tri mesh) — matches CPU 1080p_80k_dense
-        ("1080p_80k_100draws", 1920_u32, 1080_u32, &mesh_md_v, &mesh_md_i, 100_u32),
+        (
+            "1080p_80k_100draws",
+            1920_u32,
+            1080_u32,
+            &mesh_md_v,
+            &mesh_md_i,
+            100_u32,
+        ),
         // 20K tris @ 4K — matches CPU 4k_20k
-        ("4k_20k_100draws", 3840_u32, 2160_u32, &mesh_sm_v, &mesh_sm_i, 100_u32),
+        (
+            "4k_20k_100draws",
+            3840_u32,
+            2160_u32,
+            &mesh_sm_v,
+            &mesh_sm_i,
+            100_u32,
+        ),
         // 400K tris @ 1080p (pushing into AAA-lite territory)
-        ("1080p_400k_500draws", 1920_u32, 1080_u32, &mesh_md_v, &mesh_md_i, 500_u32),
+        (
+            "1080p_400k_500draws",
+            1920_u32,
+            1080_u32,
+            &mesh_md_v,
+            &mesh_md_i,
+            500_u32,
+        ),
     ] {
         let tri_count = (indices.len() / 3) * repeats as usize;
         let mut bench = match GpuOffscreenBench::new(

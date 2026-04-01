@@ -134,11 +134,10 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
 
         #[cfg(not(feature = "parallel"))]
         {
-            for y in 0..height {
-                let row_start = y * width;
+            for (y, row) in dest_pixels.chunks_exact_mut(width).enumerate().take(height) {
                 let dy = y as f32 - cy;
 
-                for x in 0..width {
+                for (x, pixel) in row.iter_mut().enumerate() {
                     let dx = x as f32 - cx;
 
                     // Convert to polar coordinates
@@ -166,7 +165,7 @@ pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
                     let clamped_x = sample_x.clamp(0, width as i32 - 1) as usize;
                     let clamped_y = sample_y.clamp(0, height as i32 - 1) as usize;
 
-                    dest_pixels[row_start + x] = src_fb[clamped_y * width + clamped_x];
+                    *pixel = src_fb[clamped_y * width + clamped_x];
                 }
             }
         }
