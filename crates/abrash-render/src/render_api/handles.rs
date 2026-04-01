@@ -149,6 +149,7 @@ pub struct ResourcePool<T> {
     free_list: Vec<u32>,
 }
 
+
 enum PoolEntry<T> {
     Occupied { value: T, generation: Generation },
     Vacant { generation: Generation },

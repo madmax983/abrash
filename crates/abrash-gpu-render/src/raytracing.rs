@@ -10,7 +10,8 @@
 ///
 /// Reads G-Buffer position texture, traces shadow rays against the TLAS,
 /// writes shadow factor to a storage texture.
-const RT_SHADOW_SHADER: &str = r"
+const RT_SHADOW_SHADER: &str = r"enable ray_query;
+
 struct LightData {
     direction: vec3<f32>,
     max_distance: f32,

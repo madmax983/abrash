@@ -14,6 +14,7 @@ use crate::hold::Hold;
 use crate::keyframe::Keyframe;
 use crate::sequence::Sequence;
 
+#[derive(Debug, Clone, PartialEq)]
 enum TimelineState<T: Animatable> {
     Playing,
     Completed { final_sample: Sample<T> },
