@@ -311,14 +311,47 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        (dx * dx + dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        dx * dx + dy * dy
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self::new(self.x * inv_len, self.y * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = fast_inv_sqrt(dist_sq);
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Projects this vector onto another vector.
@@ -735,14 +768,49 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        (dx * dx + dy * dy + dz * dz).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        dx * dx + dy * dy + dz * dz
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self::new(self.x * inv_len, self.y * inv_len, self.z * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = fast_inv_sqrt(dist_sq);
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Reflects this vector around a given normal vector.
