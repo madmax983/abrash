@@ -584,6 +584,33 @@ impl Vec3 {
         }
     }
 
+    /// Spherical interpolation between this vector and another.
+    ///
+    /// Inputs are treated as directions and normalized internally.
+    /// Falls back to normalized linear interpolation when vectors are nearly parallel.
+    #[must_use]
+    #[inline]
+    pub fn slerp(self, other: Self, t: f32) -> Self {
+        let a = self.normalize_or_zero();
+        let b = other.normalize_or_zero();
+        let dot = a.dot(b).clamp(-1.0, 1.0);
+
+        // For tiny angles, lerp is numerically more stable and faster.
+        if dot > 0.999_5 {
+            return a.lerp(b, t).normalize_or_zero();
+        }
+
+        let theta = dot.acos();
+        let sin_theta = theta.sin();
+        if sin_theta.abs() <= 1e-6 {
+            return a;
+        }
+
+        let w0 = ((1.0 - t) * theta).sin() / sin_theta;
+        let w1 = (t * theta).sin() / sin_theta;
+        (a * w0) + (b * w1)
+    }
+
     #[allow(missing_docs)]
     pub const ZERO: Self = Self {
         x: 0.0,
@@ -982,6 +1009,13 @@ impl Vec3 {
             z: self.z.clamp(min.z, max.z),
         }
     }
+
+    /// Returns true when all components are finite.
+    #[must_use]
+    #[inline]
+    pub fn is_finite(self) -> bool {
+        self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
+    }
 }
 
 impl Add for Vec3 {
@@ -1312,6 +1346,49 @@ impl Mat4 {
         }
     }
 
+    /// Creates a rotation matrix around an arbitrary axis.
+    ///
+    /// If `axis` is near zero, returns identity.
+    #[must_use]
+    #[inline]
+    pub fn rotation_axis(axis: Vec3, angle: f32) -> Self {
+        let n = axis.normalize_or_zero();
+        if n.length_sq() <= 1e-8 {
+            return Self::identity();
+        }
+
+        let (s, c) = angle.sin_cos();
+        let one_minus_c = 1.0 - c;
+        let x = n.x;
+        let y = n.y;
+        let z = n.z;
+
+        // Row-major for row-vector convention.
+        Self {
+            m: [
+                [
+                    c + x * x * one_minus_c,
+                    x * y * one_minus_c + z * s,
+                    x * z * one_minus_c - y * s,
+                    0.0,
+                ],
+                [
+                    y * x * one_minus_c - z * s,
+                    c + y * y * one_minus_c,
+                    y * z * one_minus_c + x * s,
+                    0.0,
+                ],
+                [
+                    z * x * one_minus_c + y * s,
+                    z * y * one_minus_c - x * s,
+                    c + z * z * one_minus_c,
+                    0.0,
+                ],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
     /// Creates an orthographic projection matrix.
     ///
     /// # Arguments
@@ -1486,6 +1563,16 @@ impl Mat4 {
             let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[2][3] * v.z + self.m[3][3];
             (Vec3::new(x, y, z), w)
         }
+    }
+
+    /// Transforms a direction vector (w=0), ignoring translation.
+    #[must_use]
+    #[inline]
+    pub fn transform_vector(&self, v: Vec3) -> Vec3 {
+        let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z;
+        let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z;
+        let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z;
+        Vec3::new(x, y, z)
     }
 
     /// Transforms multiple points by this matrix.
@@ -2967,6 +3054,50 @@ mod tests {
         assert!((t.length() - 1.0).abs() < 1e-4);
         assert!((b.length() - 1.0).abs() < 1e-4);
         assert!(t.dot(b).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_slerp_midpoint() {
+        let x = Vec3::new(1.0, 0.0, 0.0);
+        let y = Vec3::new(0.0, 1.0, 0.0);
+        let mid = x.slerp(y, 0.5);
+        let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();
+        assert!((mid.x - inv_sqrt2).abs() < 1e-4);
+        assert!((mid.y - inv_sqrt2).abs() < 1e-4);
+        assert!(mid.z.abs() < 1e-4);
+        assert!((mid.length() - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_is_finite() {
+        assert!(Vec3::new(1.0, -2.0, 3.0).is_finite());
+        assert!(!Vec3::new(f32::INFINITY, 0.0, 0.0).is_finite());
+        assert!(!Vec3::new(0.0, f32::NAN, 0.0).is_finite());
+    }
+
+    #[test]
+    fn test_mat4_rotation_axis_matches_rotation_y() {
+        use std::f32::consts::FRAC_PI_2;
+        let rot_axis = Mat4::rotation_axis(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let rot_y = Mat4::rotation_y(FRAC_PI_2);
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let (a, _) = rot_axis.transform_point(v);
+        let (b, _) = rot_y.transform_point(v);
+        assert!((a.x - b.x).abs() < 1e-5);
+        assert!((a.y - b.y).abs() < 1e-5);
+        assert!((a.z - b.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_mat4_transform_vector_ignores_translation() {
+        let m = Mat4::rotation_z(1.0) * Mat4::translation(10.0, 20.0, 30.0);
+        let v = Vec3::new(2.0, -1.0, 3.0);
+        let transformed = m.transform_vector(v);
+        let (point_transformed, _) = m.transform_point(v);
+        let translated_delta = point_transformed - transformed;
+        assert!((translated_delta.x - 10.0).abs() < 1e-4);
+        assert!((translated_delta.y - 20.0).abs() < 1e-4);
+        assert!((translated_delta.z - 30.0).abs() < 1e-4);
     }
 
     #[test]
