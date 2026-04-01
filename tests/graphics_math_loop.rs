@@ -194,6 +194,48 @@ fn transform_batch_path_matches_scalar_path() {
 }
 
 #[test]
+fn transform_vector_batch_matches_scalar_path() {
+    let transform = Transform::new(
+        Vec3::new(1.0, -2.0, 3.0),
+        Quat::from_euler(0.25, -0.5, 0.125),
+        Vec3::new(0.5, 2.0, 1.5),
+    );
+    let vectors = vec![
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, -1.0),
+        Vec3::new(-2.0, 0.5, 0.25),
+    ];
+
+    let batch = transform.transform_vectors(&vectors);
+    assert_eq!(batch.len(), vectors.len());
+    for (actual, vector) in batch.iter().zip(vectors.iter()) {
+        let expected = transform.transform_vector(*vector);
+        assert_vec3_close(*actual, expected);
+    }
+}
+
+#[test]
+fn inverse_transform_batch_roundtrips_points() {
+    let transform = Transform::new(
+        Vec3::new(-3.0, 4.5, 1.0),
+        Quat::from_euler(0.4, 0.2, -0.6),
+        Vec3::new(1.25, 0.75, 2.5),
+    );
+    let local_points = vec![
+        Vec3::new(-1.0, 2.0, 0.5),
+        Vec3::new(0.0, -3.0, 4.0),
+        Vec3::new(2.5, 1.5, -2.0),
+    ];
+    let world_points = transform.transform_points(&local_points);
+
+    let restored = transform.inverse_transform_points(&world_points);
+    assert_eq!(restored.len(), local_points.len());
+    for (actual, expected) in restored.iter().zip(local_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
 fn aabb_ray_and_sphere_queries_hit_expected_ranges() {
     let aabb = AABB::new(Vec3::new(-1.0, -2.0, -3.0), Vec3::new(2.0, 1.0, 4.0));
 
