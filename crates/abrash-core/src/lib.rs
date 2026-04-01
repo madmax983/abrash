@@ -28,3 +28,4 @@ pub mod quat;
 pub mod transform;
 
 pub mod blitter;
+pub mod obj_loader_havoc;
