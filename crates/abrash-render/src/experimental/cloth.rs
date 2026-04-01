@@ -242,7 +242,7 @@ impl Cloth {
 
             let edge1 = v1 - v0;
             let edge2 = v2 - v0;
-            let normal = edge1.cross(edge2).normalize();
+            let normal = edge1.cross(edge2).fast_normalize();
 
             mesh.normals[i0] = mesh.normals[i0] + normal;
             mesh.normals[i1] = mesh.normals[i1] + normal;
@@ -250,7 +250,7 @@ impl Cloth {
         }
 
         for n in &mut mesh.normals {
-            *n = n.normalize();
+            *n = n.fast_normalize();
         }
 
         mesh

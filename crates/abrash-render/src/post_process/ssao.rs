@@ -571,7 +571,7 @@ fn generate_kernel() -> [Vec3; KERNEL_SIZE] {
         let r2 = rand_f32(&mut seed) * 2.0 - 1.0; // y: -1..1
         let r3 = rand_f32(&mut seed); // z: 0..1 (hemisphere)
 
-        let mut sample = Vec3::new(r1, r2, r3).normalize();
+        let mut sample = Vec3::new(r1, r2, r3).fast_normalize();
 
         // Scale samples to distribute them within the hemisphere
         let scale = i as f32 / KERNEL_SIZE as f32;
@@ -592,7 +592,7 @@ fn generate_noise() -> [Vec3; NOISE_SIZE * NOISE_SIZE] {
     for v in &mut noise {
         let x = rand_f32(&mut seed) * 2.0 - 1.0;
         let y = rand_f32(&mut seed) * 2.0 - 1.0;
-        *v = Vec3::new(x, y, 0.0).normalize();
+        *v = Vec3::new(x, y, 0.0).fast_normalize();
     }
 
     noise

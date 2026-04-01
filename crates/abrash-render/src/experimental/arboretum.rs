@@ -265,41 +265,41 @@ impl LSystem {
                 b'+' => {
                     // Yaw Left (around Up)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.up, self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                        rotate_vector(turtle.heading, turtle.up, self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'-' => {
                     // Yaw Right (around Up)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.up, -self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                        rotate_vector(turtle.heading, turtle.up, -self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'&' => {
                     // Pitch Down (around Left)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.left, self.angle).normalize();
-                    turtle.up = turtle.heading.cross(turtle.left).normalize();
+                        rotate_vector(turtle.heading, turtle.left, self.angle).fast_normalize();
+                    turtle.up = turtle.heading.cross(turtle.left).fast_normalize();
                 }
                 b'^' => {
                     // Pitch Up (around Left)
                     turtle.heading =
-                        rotate_vector(turtle.heading, turtle.left, -self.angle).normalize();
-                    turtle.up = turtle.heading.cross(turtle.left).normalize();
+                        rotate_vector(turtle.heading, turtle.left, -self.angle).fast_normalize();
+                    turtle.up = turtle.heading.cross(turtle.left).fast_normalize();
                 }
                 b'\\' => {
                     // Roll Left (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'/' => {
                     // Roll Right (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'|' => {
                     // Turn 180 (around Up)
-                    turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).normalize();
-                    turtle.left = turtle.up.cross(turtle.heading).normalize();
+                    turtle.heading = rotate_vector(turtle.heading, turtle.up, PI).fast_normalize();
+                    turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'[' => {
                     if stack.len() >= max_stack_depth {
@@ -357,10 +357,10 @@ impl LSystem {
         // But `Mesh` expects `normals` if we want lighting.
         // Let's add normals pointing away from the segment axis.
         for c in &corners {
-            mesh.normals.push(c.normalize());
+            mesh.normals.push(c.fast_normalize());
         }
         for c in &corners {
-            mesh.normals.push(c.normalize());
+            mesh.normals.push(c.fast_normalize());
         }
 
         // Indices (Triangles)
