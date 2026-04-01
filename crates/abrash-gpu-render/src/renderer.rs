@@ -590,7 +590,7 @@ impl GpuRenderer {
         let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
 
         // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+        self.encode_composition(&mut encoder, hdr_view_for_tonemap.as_ref(), w, h);
 
         // Pass 6: Tone mapping → LDR capture target
         self.encode_tone_map_final(&mut encoder, &target.color_view);
@@ -734,7 +734,7 @@ impl GpuRenderer {
         let hdr_view_for_tonemap = self.encode_taa_pass(&mut encoder, frame, w, h);
 
         // Pass 5: Composition (debug visualization)
-        self.encode_composition(&mut encoder, &hdr_view_for_tonemap, w, h);
+        self.encode_composition(&mut encoder, hdr_view_for_tonemap.as_ref(), w, h);
 
         // Pass 6: Tone mapping → surface
         self.encode_tone_map_final(&mut encoder, &view);
@@ -1025,7 +1025,9 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         prepared_draws: &[PreparedDraw],
     ) -> Result<(), String> {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let Some(gbuffer) = self.gbuffer.as_ref() else {
+            return Err("buffer uninitialized".to_string());
+        };
 
         // Create bind groups for G-Buffer pass
         let frame_bg = self
@@ -1173,7 +1175,9 @@ impl GpuRenderer {
         );
 
         // Ensure RT shadow output texture
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let Some(gbuffer) = self.gbuffer.as_ref() else {
+            return Err("buffer uninitialized".to_string());
+        };
         self.rt_shadow_pass
             .ensure_output(self.gpu.device(), gbuffer.width, gbuffer.height);
 
@@ -1195,8 +1199,8 @@ impl GpuRenderer {
     }
 
     fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {
-        let gbuffer = self.gbuffer.as_ref().unwrap();
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let Some(gbuffer) = self.gbuffer.as_ref() else { return; };
+        let Some(hdr) = self.hdr_target.as_ref() else { return; };
 
         let gbuffer_bg = self.deferred_pass.create_gbuffer_bind_group(
             self.gpu.device(),
@@ -1210,7 +1214,7 @@ impl GpuRenderer {
         );
 
         // IBL bind group (uses precomputed IBL if environment is set)
-        let ibl_bg = self.ibl_bind_group.as_ref().unwrap();
+        let Some(ibl_bg) = self.ibl_bind_group.as_ref() else { return; };
 
         self.deferred_pass.encode(
             encoder,
@@ -1226,7 +1230,7 @@ impl GpuRenderer {
         let Some(ref bind_group) = self.skybox_bind_group else {
             return; // No environment map set
         };
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let Some(hdr) = self.hdr_target.as_ref() else { return; };
 
         // Upload inverse view-projection for direction reconstruction
         let view_proj = frame.camera.view * frame.camera.projection;
@@ -1256,13 +1260,13 @@ impl GpuRenderer {
         _frame: &Frame,
         w: u32,
         h: u32,
-    ) -> wgpu::TextureView {
+    ) -> Option<wgpu::TextureView> {
         if !self.taa_enabled {
             // No TAA — return a view of the HDR target
-            let hdr = self.hdr_target.as_ref().unwrap();
+            let hdr = self.hdr_target.as_ref()?;
             #[allow(clippy::used_underscore_binding)]
             let tex = &hdr._texture;
-            return tex.create_view(&wgpu::TextureViewDescriptor::default());
+            return Some(tex.create_view(&wgpu::TextureViewDescriptor::default()));
         }
 
         self.taa_pass.ensure_textures(self.gpu.device(), w, h);
@@ -1279,8 +1283,10 @@ impl GpuRenderer {
             .queue()
             .write_buffer(&self.taa_pass.params_buffer, 0, bytemuck::bytes_of(&params));
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let hdr = self.hdr_target.as_ref()?;
+        let gbuffer = self.gbuffer.as_ref()?;
+        let history_view = self.taa_pass.history_view.as_ref()?;
+        let output_view = self.taa_pass.output_view.as_ref()?;
 
         let bg = self
             .gpu
@@ -1296,7 +1302,7 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.history_view.as_ref().unwrap(),
+                            history_view,
                         ),
                     },
                     wgpu::BindGroupEntry {
@@ -1310,7 +1316,7 @@ impl GpuRenderer {
                     wgpu::BindGroupEntry {
                         binding: 4,
                         resource: wgpu::BindingResource::TextureView(
-                            self.taa_pass.output_view.as_ref().unwrap(),
+                            output_view,
                         ),
                     },
                 ],
@@ -1327,11 +1333,10 @@ impl GpuRenderer {
         }
 
         // Return the TAA output for subsequent passes
-        self.taa_pass
+        Some(self.taa_pass
             .output_texture
-            .as_ref()
-            .unwrap()
-            .create_view(&wgpu::TextureViewDescriptor::default())
+            .as_ref()?
+            .create_view(&wgpu::TextureViewDescriptor::default()))
     }
 
     /// Encode composition pass (debug visualization).
@@ -1341,7 +1346,7 @@ impl GpuRenderer {
     fn encode_composition(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
-        _hdr_view: &wgpu::TextureView,
+        _hdr_view: Option<&wgpu::TextureView>,
         w: u32,
         h: u32,
     ) {
@@ -1352,8 +1357,8 @@ impl GpuRenderer {
             return; // No-op: normal rendering
         }
 
-        let hdr = self.hdr_target.as_ref().unwrap();
-        let gbuffer = self.gbuffer.as_ref().unwrap();
+        let Some(hdr) = self.hdr_target.as_ref() else { return; };
+        let Some(gbuffer) = self.gbuffer.as_ref() else { return; };
 
         // Upload debug mode
         let params = crate::composition::CompositionParams {
@@ -1369,12 +1374,8 @@ impl GpuRenderer {
         // We need a separate output texture since we can't read+write the same texture.
         // Use the TAA output as scratch (it's the right format and size).
         self.taa_pass.ensure_textures(self.gpu.device(), w, h);
-        let scratch_view = self
-            .taa_pass
-            .output_texture
-            .as_ref()
-            .unwrap()
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let Some(output_tex) = self.taa_pass.output_texture.as_ref() else { return; };
+        let scratch_view = output_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
         let bg = self
             .gpu
@@ -1447,7 +1448,7 @@ impl GpuRenderer {
             None
         };
 
-        let hdr = self.hdr_target.as_ref().unwrap();
+        let Some(hdr) = self.hdr_target.as_ref() else { return; };
         let view = source_view.as_ref().unwrap_or(&hdr.color_view);
 
         let tonemap_bg = self
@@ -1477,5 +1478,31 @@ mod tests {
         assert!(color.g.abs() < f64::EPSILON);
         assert!(color.b.abs() < f64::EPSILON);
         assert!((color.a - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_encode_gbuffer_returns_error_without_gbuffer() {
+        // We use catch_unwind to handle platforms where RT is missing but wgpu still panics internally
+        let renderer_result = std::panic::catch_unwind(|| {
+            GpuRenderer::new_headless()
+        });
+
+        let Ok(Ok(mut renderer)) = renderer_result else {
+            return; // gracefully skip unsupported environment
+        };
+
+        renderer.rt_enabled = false;
+
+        // Create an encoder
+        let mut encoder = renderer.gpu.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Test Encoder"),
+        });
+
+        // Call encode_gbuffer_pass without calling ensure_gbuffer first.
+        // It should return an Err instead of panicking.
+        let result = renderer.encode_gbuffer_pass(&mut encoder, &[]);
+
+        assert!(result.is_err(), "Expected an error because gbuffer is not initialized");
+        assert_eq!(result.unwrap_err(), "buffer uninitialized");
     }
 }
