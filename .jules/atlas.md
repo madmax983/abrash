@@ -70,3 +70,13 @@
 **[Optional RT Pass Instantiation]
 **Tangle:** The `RtShadowPass` and `RtReflectionPass` WGPU shader module creations were blindly failing the test suite on runner environments that lacked the `wgpu_ray_query` extension feature. A test failure propagated because we did not guard the pass instantiation at runtime. Additionally, the WGPU objects were held in fields marked as `pub(crate)`, emitting dead code warnings.
 **Blueprint:** Encapsulated WGPU objects into private underscore-prefixed fields (e.g. `_pipeline`). Changed `rt_shadow_pass` within `GpuRenderer` to an `Option<RtShadowPass>` and conditionally instantiated it only if `device.features().contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY)` returns true at runtime, preventing panics.**
+
+## [Filter Parameterization Fix for Chromatic Aberration]
+**Tangle:** The `apply_chromatic_aberration` function suffered from the "Argument Jungle" structural smell, accepting a loose primitive parameter (`offset`). This created a fragmented API alongside the other configured post-processing filters, making future extensions difficult.
+
+**Blueprint:**
+1.  **Introduce Configs:** Created `ChromaticAberrationConfig` struct in `crates/abrash-render/src/post_process/filters.rs`.
+2.  **Refactor Signatures:** Modified `apply_chromatic_aberration` to accept a reference to this new configuration struct.
+3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration struct.
+
+**Stability:** Improved high cohesion by standardizing the effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effect, making the public API cleaner and more extensible.

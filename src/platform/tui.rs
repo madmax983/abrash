@@ -160,40 +160,16 @@ impl TuiWindow {
             self.last_fps_update = now;
         }
 
-        let fps = self.fps;
-        let fb_w = framebuffer.width();
-        let fb_h = framebuffer.height();
-        let frame_count = self.frame_count;
+        let metrics = RenderMetrics {
+            fps: self.fps,
+            frame_count: self.frame_count,
+            fb_w: framebuffer.width(),
+            fb_h: framebuffer.height(),
+        };
         let title = &self.title;
 
         let _ = self.terminal.draw(|f| {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),
-                    Constraint::Length(1), // Status bar
-                ])
-                .split(f.area());
-
-            let fb_widget = FramebufferWidget { framebuffer };
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .title(format!(" {title} "))
-                .title_style(Style::default().fg(Color::Cyan));
-
-            f.render_widget(fb_widget, block.inner(chunks[0]));
-            f.render_widget(block, chunks[0]);
-
-            // Render Status Bar
-            let status_text =
-                format!(" FPS: {fps:.1} | Res: {fb_w}x{fb_h} | Frames: {frame_count} | [Q] Quit ");
-
-            let status_bar = Paragraph::new(status_text)
-                .style(Style::default().fg(Color::Black).bg(Color::Cyan))
-                .alignment(ratatui::layout::Alignment::Center);
-
-            f.render_widget(status_bar, chunks[1]);
+            draw_framebuffer(f, framebuffer, title, &metrics);
         });
 
         // Sleep to fill remaining frame budget (approximate vsync)
@@ -202,6 +178,50 @@ impl TuiWindow {
             thread::sleep(remaining);
         }
     }
+}
+
+struct RenderMetrics {
+    fps: f64,
+    frame_count: u64,
+    fb_w: u32,
+    fb_h: u32,
+}
+
+fn draw_framebuffer(
+    f: &mut ratatui::Frame,
+    framebuffer: &Framebuffer,
+    title: &str,
+    metrics: &RenderMetrics,
+) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(1), // Status bar
+        ])
+        .split(f.area());
+
+    let fb_widget = FramebufferWidget { framebuffer };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(format!(" {title} "))
+        .title_style(Style::default().fg(Color::Cyan));
+
+    f.render_widget(fb_widget, block.inner(chunks[0]));
+    f.render_widget(block, chunks[0]);
+
+    // Render Status Bar
+    let status_text = format!(
+        " FPS: {:.1} | Res: {}x{} | Frames: {} | [Q] Quit ",
+        metrics.fps, metrics.fb_w, metrics.fb_h, metrics.frame_count
+    );
+
+    let status_bar = Paragraph::new(status_text)
+        .style(Style::default().fg(Color::Black).bg(Color::Cyan))
+        .alignment(ratatui::layout::Alignment::Center);
+
+    f.render_widget(status_bar, chunks[1]);
 }
 
 impl Drop for TuiWindow {

@@ -545,75 +545,89 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
     let mut app = App::new();
 
     loop {
-        terminal.draw(|f| {
-            // Main vertical layout
-            let main_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(1)
-                .constraints(
-                    [
-                        Constraint::Length(3), // Title
-                        Constraint::Min(0),    // Content
-                        Constraint::Length(3), // Help
-                    ]
-                    .as_ref(),
-                )
-                .split(f.area());
+        terminal.draw(|f| render_ui(f, &mut app))?;
 
-            render_title(f, main_chunks[0]);
-
-            // Content Split (List vs Details)
-            let content_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    [
-                        Constraint::Percentage(30), // List
-                        Constraint::Percentage(70), // Details
-                    ]
-                    .as_ref(),
-                )
-                .split(main_chunks[1]);
-
-            render_demo_list(f, content_chunks[0], &mut app);
-            render_details_pane(f, content_chunks[1], &app);
-            render_help_bar(f, main_chunks[2]);
-        })?;
-
+        #[allow(clippy::collapsible_if)]
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                KeyCode::Down => app.next(),
-                KeyCode::Up => app.previous(),
-                KeyCode::Enter => {
-                    if let Some(i) = app.state.selected() {
-                        let demo = &DEMOS[i];
-
-                        // Temporarily restore terminal
-                        disable_raw_mode()?;
-                        execute!(
-                            terminal.backend_mut(),
-                            LeaveAlternateScreen,
-                            DisableMouseCapture
-                        )?;
-                        terminal.show_cursor()?;
-
-                        let _ = run_demo(demo.example_name, true);
-
-                        // Re-enable TUI
-                        enable_raw_mode()?;
-                        execute!(
-                            terminal.backend_mut(),
-                            EnterAlternateScreen,
-                            EnableMouseCapture
-                        )?;
-                        terminal.hide_cursor()?;
-                        terminal.clear()?;
-                    }
-                }
-                _ => {}
+            if handle_input(key, &mut app, terminal)? {
+                return Ok(());
             }
         }
     }
+}
+
+fn render_ui(f: &mut ratatui::Frame, app: &mut App) {
+    // Main vertical layout
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints(
+            [
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Help
+            ]
+            .as_ref(),
+        )
+        .split(f.area());
+
+    render_title(f, main_chunks[0]);
+
+    // Content Split (List vs Details)
+    let content_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage(30), // List
+                Constraint::Percentage(70), // Details
+            ]
+            .as_ref(),
+        )
+        .split(main_chunks[1]);
+
+    render_demo_list(f, content_chunks[0], app);
+    render_details_pane(f, content_chunks[1], app);
+    render_help_bar(f, main_chunks[2]);
+}
+
+fn handle_input(
+    key: event::KeyEvent,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+) -> io::Result<bool> {
+    match key.code {
+        KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
+        KeyCode::Down => app.next(),
+        KeyCode::Up => app.previous(),
+        KeyCode::Enter => {
+            if let Some(i) = app.state.selected() {
+                let demo = &DEMOS[i];
+
+                // Temporarily restore terminal
+                disable_raw_mode()?;
+                execute!(
+                    terminal.backend_mut(),
+                    LeaveAlternateScreen,
+                    DisableMouseCapture
+                )?;
+                terminal.show_cursor()?;
+
+                let _ = run_demo(demo.example_name, true);
+
+                // Re-enable TUI
+                enable_raw_mode()?;
+                execute!(
+                    terminal.backend_mut(),
+                    EnterAlternateScreen,
+                    EnableMouseCapture
+                )?;
+                terminal.hide_cursor()?;
+                terminal.clear()?;
+            }
+        }
+        _ => {}
+    }
+    Ok(false)
 }
 
 fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
