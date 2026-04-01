@@ -68,6 +68,10 @@ name = "math_bench"
 harness = false
 
 [[bench]]
+name = "tangent_space_bench"
+harness = false
+
+[[bench]]
 name = "vec2_bench"
 harness = false
 

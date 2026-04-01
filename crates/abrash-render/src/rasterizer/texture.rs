@@ -3259,10 +3259,10 @@ pub fn fill_triangle_normal_mapped(
 
         // Compute Tangent Space Light Vectors
         let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
-            let n_norm = n.normalize();
-            let t_norm = Vec3::new(t.x, t.y, t.z).normalize();
+            let n_norm = n.fast_normalize();
+            let t_norm = Vec3::new(t.x, t.y, t.z).fast_normalize();
             // Re-orthogonalize T with respect to N (Gram-Schmidt)
-            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).normalize();
+            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).fast_normalize();
             let b_ortho = n_norm.cross(t_ortho) * t.w;
 
             // Transform LightDir to Tangent Space.
@@ -5086,4 +5086,45 @@ fn test_reciprocal_table_accuracy() {
             "Table index {i} mismatch: table={table_val}, actual={actual}"
         );
     }
+}
+
+#[test]
+fn test_fill_triangle_normal_mapped_runs_without_panic() {
+    let mut fb = Framebuffer::new(10, 10).unwrap();
+    let mut zb = ZBuffer::new(10, 10).unwrap();
+    let tex = Texture::new(2, 2).unwrap();
+    let normal_map = Texture::new(2, 2).unwrap();
+
+    let p0 = (Vec3::new(0.0, 0.9, 0.5), 1.0);
+    let p1 = (Vec3::new(-0.9, -0.9, 0.5), 1.0);
+    let p2 = (Vec3::new(0.9, -0.9, 0.5), 1.0);
+
+    let uv0 = Vec2::new(0.5, 0.0);
+    let uv1 = Vec2::new(0.0, 1.0);
+    let uv2 = Vec2::new(1.0, 1.0);
+
+    let n0 = Vec3::new(0.0, 0.0, 1.0);
+    let n1 = Vec3::new(0.0, 0.0, 1.0);
+    let n2 = Vec3::new(0.0, 0.0, 1.0);
+
+    let t0 = Vec4::new(1.0, 0.0, 0.0, 1.0);
+    let t1 = Vec4::new(1.0, 0.0, 0.0, 1.0);
+    let t2 = Vec4::new(1.0, 0.0, 0.0, 1.0);
+
+    let light_dir = Vec3::new(0.0, 0.0, -1.0).fast_normalize();
+    let light_color = Vec3::new(1.0, 1.0, 1.0);
+    let ambient = Vec3::new(0.1, 0.1, 0.1);
+
+    fill_triangle_normal_mapped(
+        &mut fb,
+        &mut zb,
+        (p0, uv0, n0, t0),
+        (p1, uv1, n1, t1),
+        (p2, uv2, n2, t2),
+        &tex,
+        &normal_map,
+        light_dir,
+        light_color,
+        ambient,
+    );
 }
