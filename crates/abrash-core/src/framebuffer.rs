@@ -305,13 +305,13 @@ impl Framebuffer {
         let ey = end_y as usize;
         let w = self.width as usize;
 
-        self.pixels
-            .chunks_exact_mut(w)
-            .take(ey)
-            .skip(sy)
-            .for_each(|row| {
-                row[sx..ex].fill(color);
-            });
+        // Bolt optimization: Calculate slice indices directly
+        let start_idx = sy * w;
+        let end_idx = ey * w;
+        let slice = &mut self.pixels[start_idx..end_idx];
+        for row in slice.chunks_exact_mut(w) {
+            row[sx..ex].fill(color);
+        }
     }
 }
 

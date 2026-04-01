@@ -99,14 +99,14 @@ impl ZBuffer {
         let sx = start_x as usize;
         let ex = end_x as usize;
 
-        // Use chunks_exact_mut to safely slice the array per row, avoiding inner-loop bounds checks
-        self.depths
-            .chunks_exact_mut(w)
-            .take(end_y as usize)
-            .skip(start_y as usize)
-            .for_each(|row| {
-                row[sx..ex].fill(f32::INFINITY);
-            });
+        // Bolt optimization: Directly calculate slice indices instead of chunking the whole buffer.
+        // This avoids `chunks_exact_mut` overhead when only clearing a small rect.
+        let start_idx = (start_y as usize) * w;
+        let end_idx = (end_y as usize) * w;
+        let slice = &mut self.depths[start_idx..end_idx];
+        for row in slice.chunks_exact_mut(w) {
+            row[sx..ex].fill(f32::INFINITY);
+        }
     }
 
     /// Test and set depth at pixel. Returns true if pixel should be drawn.
