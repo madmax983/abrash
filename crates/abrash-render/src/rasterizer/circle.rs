@@ -58,6 +58,10 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let min_y = i64::from(yc) - i64::from(radius);
     let max_y = i64::from(yc) + i64::from(radius);
 
+    if min_x >= i64::from(fb.width()) || max_x < 0 || min_y >= i64::from(fb.height()) || max_y < 0 {
+        return;
+    }
+
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         while y >= x {
@@ -171,6 +175,10 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let max_x = i64::from(xc) + i64::from(radius);
     let min_y = i64::from(yc) - i64::from(radius);
     let max_y = i64::from(yc) + i64::from(radius);
+
+    if min_x >= i64::from(fb.width()) || max_x < 0 || min_y >= i64::from(fb.height()) || max_y < 0 {
+        return;
+    }
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         fill_circle_lines_unchecked(fb, xc, yc, x, y, color);

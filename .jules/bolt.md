@@ -180,3 +180,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Frame Vector Pre-allocation]
 **Learning:** Found a bottleneck where `Frame::new()` was defaulting `commands` and `lights` vectors to `Vec::new()`, causing dynamic heap re-allocations on the hot path (per-frame loop) when rendering scenes with multiple objects.
 **Action:** Introduced `Frame::with_capacity(num_commands, num_lights)` to explicitly pre-allocate these vectors. When constructing repetitive frames, manually configuring capacities entirely eliminates these heap re-allocations.
+
+**Test Float Comparison Lints**
+**Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
+**Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).

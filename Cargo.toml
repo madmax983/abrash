@@ -68,6 +68,10 @@ name = "math_bench"
 harness = false
 
 [[bench]]
+name = "tangent_space_bench"
+harness = false
+
+[[bench]]
 name = "vec2_bench"
 harness = false
 
@@ -656,4 +660,9 @@ required-features = ["nova"]
 [[bench]]
 name = "night_vision_bench"
 harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "plasma_demo"
+path = "examples/plasma_demo.rs"
 required-features = ["nova"]

@@ -290,24 +290,24 @@ impl Turtle {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_dir = self.direction * cos_a + self.right * sin_a;
         let new_right = self.right * cos_a - self.direction * sin_a;
-        self.direction = new_dir.normalize();
-        self.right = new_right.normalize();
+        self.direction = new_dir.fast_normalize();
+        self.right = new_right.fast_normalize();
     }
 
     fn pitch(&mut self, angle: f32) {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_dir = self.direction * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.direction * sin_a;
-        self.direction = new_dir.normalize();
-        self.up = new_up.normalize();
+        self.direction = new_dir.fast_normalize();
+        self.up = new_up.fast_normalize();
     }
 
     fn roll(&mut self, angle: f32) {
         let (sin_a, cos_a) = angle.sin_cos();
         let new_right = self.right * cos_a + self.up * sin_a;
         let new_up = self.up * cos_a - self.right * sin_a;
-        self.right = new_right.normalize();
-        self.up = new_up.normalize();
+        self.right = new_right.fast_normalize();
+        self.up = new_up.fast_normalize();
     }
 
     /// Adds a basic 3D rectangular prism (or diamond) segment representing a branch

@@ -117,7 +117,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct AtrousParams {
     pub step_size: i32,
-    pub pad: [i32; 3],
+    pub(crate) _pad: [i32; 3],
 }
 
 /// SVGF spatial filter: multi-iteration À-Trous wavelet transform.
@@ -136,16 +136,8 @@ pub struct SvgfSpatialFilter {
 }
 
 impl SvgfSpatialFilter {
-    /// Create the SVGF spatial filter.
-    #[must_use]
-    #[allow(clippy::too_many_lines)]
-    pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("SVGF À-Trous Filter"),
-            source: wgpu::ShaderSource::Wgsl(ATROUS_FILTER_SHADER.into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("SVGF À-Trous Layout"),
             entries: &[
                 // 0: input color
@@ -217,7 +209,18 @@ impl SvgfSpatialFilter {
                     count: None,
                 },
             ],
+        })
+    }
+
+    /// Create the SVGF spatial filter.
+    #[must_use]
+    pub fn new(device: &wgpu::Device) -> Self {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("SVGF À-Trous Filter"),
+            source: wgpu::ShaderSource::Wgsl(ATROUS_FILTER_SHADER.into()),
         });
+
+        let bind_group_layout = Self::create_bind_group_layout(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("SVGF À-Trous Pipeline Layout"),
@@ -238,7 +241,7 @@ impl SvgfSpatialFilter {
             label: Some("SVGF Params"),
             contents: bytemuck::bytes_of(&AtrousParams {
                 step_size: 1,
-                pad: [0; 3],
+                _pad: [0; 3],
             }),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });

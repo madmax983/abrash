@@ -66,7 +66,10 @@ fn benchmark_chromatic_aberration(c: &mut Criterion) {
 
     c.bench_function("apply_chromatic_aberration 1080p", |b| {
         b.iter(|| {
-            post_process::apply_chromatic_aberration(black_box(&mut fb), black_box(5));
+            post_process::apply_chromatic_aberration(
+                black_box(&mut fb),
+                black_box(&abrash::post_process::ChromaticAberrationConfig { offset: 5 }),
+            );
         });
     });
 }

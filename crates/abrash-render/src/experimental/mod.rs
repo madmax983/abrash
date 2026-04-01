@@ -35,6 +35,7 @@ pub mod brickify;
 
 pub mod blueprint;
 pub mod cloth;
+pub mod color_blindness;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
@@ -58,6 +59,7 @@ pub mod night_vision;
 pub mod palette;
 pub mod pixel_sort;
 pub mod pixelate;
+pub mod plasma;
 pub mod posterize;
 pub mod procedural_mesh;
 pub mod radial_blur;
