@@ -191,3 +191,7 @@
 **Concept:** A post-processing effect that simulates various types of color vision deficiencies (CVD) like Protanopia, Deuteranopia, Tritanopia, and Achromatopsia using accurate transformation matrices.
 **Fate:** Merged
 **Lesson:** Using fixed-point arithmetic instead of floating-point operations in the inner loop avoids significant performance drops. Applying the transformation correctly allows testing the visual clarity of the renderer for different users, making it highly useful for accessibility and testing.
+## [Plasma Filter]
+**Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
+**Fate:** Implemented
+**Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.

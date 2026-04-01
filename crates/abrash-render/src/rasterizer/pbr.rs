@@ -751,7 +751,7 @@ unsafe fn draw_scanline_pbr_simd(
                 let ndf_denom_term = _mm256_fmadd_ps(n_dot_h2, a2_minus_1_vec, one);
                 let ndf_denom =
                     _mm256_mul_ps(pi_vec, _mm256_mul_ps(ndf_denom_term, ndf_denom_term));
-                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.0000001));
+                let ndf_denom = _mm256_max_ps(ndf_denom, _mm256_set1_ps(0.000_000_1));
                 let ndf = _mm256_div_ps(a2_vec, ndf_denom);
 
                 // Geometry Smith
@@ -761,11 +761,11 @@ unsafe fn draw_scanline_pbr_simd(
                 let ggx_denom_l = _mm256_fmadd_ps(n_dot_l, one_minus_k_vec, k_vec);
                 let ggx2 = _mm256_div_ps(
                     n_dot_v,
-                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_v, _mm256_set1_ps(0.000_000_1)),
                 );
                 let ggx1 = _mm256_div_ps(
                     n_dot_l,
-                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.0000001)),
+                    _mm256_max_ps(ggx_denom_l, _mm256_set1_ps(0.000_000_1)),
                 );
                 let g = _mm256_mul_ps(ggx1, ggx2);
 
@@ -860,7 +860,7 @@ unsafe fn draw_scanline_pbr_simd(
 
                 // Pack
                 // Alpha is FF
-                let alpha = _mm256_set1_epi32(0xFF000000u32 as i32);
+                let alpha = _mm256_set1_epi32(0xFF00_0000_u32 as i32);
                 // (r << 16) | (g << 8) | b
                 let r_shift = _mm256_slli_epi32(r_i, 16);
                 let g_shift = _mm256_slli_epi32(g_i, 8);
@@ -871,14 +871,14 @@ unsafe fn draw_scanline_pbr_simd(
                 // We need to write depths and colors where z < depth
                 _mm256_storeu_ps(depths_ptr, _mm256_blendv_ps(current_depths, z_vec, mask));
 
-                let old_pixels = _mm256_loadu_si256(pixels_ptr as *const __m256i);
+                let old_pixels = _mm256_loadu_si256(pixels_ptr.cast::<__m256i>());
                 let final_pixels_ps = _mm256_blendv_ps(
                     _mm256_castsi256_ps(old_pixels),
                     _mm256_castsi256_ps(final_colors),
                     mask,
                 );
                 _mm256_storeu_si256(
-                    pixels_ptr as *mut __m256i,
+                    pixels_ptr.cast::<__m256i>(),
                     _mm256_castps_si256(final_pixels_ps),
                 );
             }
