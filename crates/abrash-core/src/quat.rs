@@ -334,13 +334,13 @@ impl Quat {
         let m22 = 1.0 - (xx + yy);
 
         out.clear();
-        out.reserve(vectors.len());
-        for &v in vectors {
-            out.push(Vec3::new(
+        out.resize(vectors.len(), Vec3::ZERO);
+        for (dst, &v) in out.iter_mut().zip(vectors.iter()) {
+            *dst = Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
                 v.x * m01 + v.y * m11 + v.z * m21,
                 v.x * m02 + v.y * m12 + v.z * m22,
-            ));
+            );
         }
     }
 
