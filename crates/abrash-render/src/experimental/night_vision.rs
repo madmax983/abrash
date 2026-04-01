@@ -127,8 +127,8 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             let dx = x as f32 - half_w;
             let dist_sq = dx * dx + dy_sq;
             let dist_norm_sq = dist_sq / max_dist_sq;
-            let vignette = 1.0 - dist_norm_sq; // 1.0 at center, 0.0 at corners
-            let vignette = (vignette * vignette * (3.0 - 2.0 * vignette)).clamp(0.0, 1.0); // Smooth falloff approx without sqrt
+            let vignette = (1.0 - dist_norm_sq).clamp(0.0, 1.0); // 1.0 at center, 0.0 at corners (clamp before polynomial)
+            let vignette = vignette * vignette * (3.0 - 2.0 * vignette); // Smooth falloff approx without sqrt
 
             out_r *= vignette;
             out_g *= vignette;

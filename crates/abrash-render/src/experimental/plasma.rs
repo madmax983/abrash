@@ -17,6 +17,9 @@ use rayon::prelude::*;
 /// * `scale`: A scaling factor for the sine waves (e.g., 0.05).
 pub fn apply_plasma(fb: &mut Framebuffer, time: f32, scale: f32) {
     let width = fb.width() as usize;
+    if width == 0 || fb.height() == 0 {
+        return;
+    }
 
     let pixels = fb.as_mut_slice();
 
