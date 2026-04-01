@@ -913,6 +913,30 @@ impl Vec3 {
         (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
     }
 
+    /// Builds an orthonormal basis from this direction.
+    ///
+    /// Returns two unit vectors `(tangent, bitangent)` that are perpendicular
+    /// to the (normalized) input and each other.
+    #[must_use]
+    #[inline]
+    pub fn orthonormal_basis(self) -> (Self, Self) {
+        let n = if self.length_sq() > 0.000_000_01 {
+            self.normalize()
+        } else {
+            Self::new(0.0, 0.0, 1.0)
+        };
+
+        let helper = if n.z.abs() < 0.999 {
+            Self::new(0.0, 0.0, 1.0)
+        } else {
+            Self::new(0.0, 1.0, 0.0)
+        };
+
+        let tangent = helper.cross(n).normalize();
+        let bitangent = n.cross(tangent);
+        (tangent, bitangent)
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -1515,8 +1539,38 @@ impl Mat4 {
             return;
         }
 
+        self.transform_points_scalar_uninit(points, output);
+    }
+
+    #[inline]
+    fn transform_points_scalar_uninit(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m03 = self.m[0][3];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m13 = self.m[1][3];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+        let m23 = self.m[2][3];
+        let m30 = self.m[3][0];
+        let m31 = self.m[3][1];
+        let m32 = self.m[3][2];
+        let m33 = self.m[3][3];
+
         for (p, out) in points.iter().zip(output.iter_mut()) {
-            out.write(self.transform_point(*p));
+            let x = p.x * m00 + p.y * m10 + p.z * m20 + m30;
+            let y = p.x * m01 + p.y * m11 + p.z * m21 + m31;
+            let z = p.x * m02 + p.y * m12 + p.z * m22 + m32;
+            let w = p.x * m03 + p.y * m13 + p.z * m23 + m33;
+            out.write((Vec3::new(x, y, z), w));
         }
     }
 
@@ -2893,6 +2947,26 @@ mod tests {
         assert!((max.x - 3.0).abs() < f32::EPSILON);
         assert!((max.y - 5.0).abs() < f32::EPSILON);
         assert!((max.z - -1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis() {
+        let n = Vec3::new(0.3, 0.5, 0.8).normalize();
+        let (t, b) = n.orthonormal_basis();
+
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(n.dot(t).abs() < 1e-4);
+        assert!(n.dot(b).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis_degenerate_input() {
+        let (t, b) = Vec3::ZERO.orthonormal_basis();
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
     }
 
     #[test]
