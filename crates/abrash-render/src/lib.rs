@@ -11,21 +11,6 @@
 //! Depends on `abrash-core` for foundational types.
 //! Contains no platform (windowing/TUI/WASM) dependencies.
 
-// Re-export abrash-core modules at crate root so all internal `use crate::X`
-// imports from moved files continue to work without modification.
-pub use abrash_core::clipping;
-pub use abrash_core::culling;
-pub use abrash_core::framebuffer;
-pub use abrash_core::geometry;
-pub use abrash_core::hiz_buffer;
-pub use abrash_core::math;
-pub use abrash_core::mesh;
-pub use abrash_core::obj_loader;
-pub use abrash_core::texture;
-pub use abrash_core::time;
-pub use abrash_core::utils;
-pub use abrash_core::zbuffer;
-
 pub mod ascii;
 pub mod heat_vision;
 pub mod particles;

@@ -24,8 +24,8 @@
 //! assert!(art.contains('@')); // White maps to dense characters
 //! ```
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 use std::fmt::{self, Write};
 
 #[cfg(any(feature = "backend-tui", feature = "backend-wasm"))]

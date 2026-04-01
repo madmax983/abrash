@@ -4,8 +4,8 @@
 //! It uses the Marching Tetrahedra algorithm, which decomposes each grid cell (cube) into
 //! 6 tetrahedra to avoid topological ambiguities present in standard Marching Cubes.
 
-use crate::math::{Vec3, Vec4};
-use crate::mesh::Mesh;
+use abrash_core::math::{Vec3, Vec4};
+use abrash_core::mesh::Mesh;
 
 /// Extracts an isosurface from a scalar field.
 ///
@@ -125,7 +125,7 @@ where
     Mesh {
         vertices,
         indices,
-        uvs: vec![crate::math::Vec2::default(); normals.len()], // Placeholder UVs
+        uvs: vec![abrash_core::math::Vec2::default(); normals.len()], // Placeholder UVs
         normals,
         tangents,
     }

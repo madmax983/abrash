@@ -9,8 +9,8 @@
 //! * **Digital Noise**: Random pixel variations.
 //! * **Block Displacement**: Random rectangular regions swapped or copied.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::XorShift32;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::XorShift32;
 
 /// Parameters for controlling the glitch effect intensity.
 #[derive(Debug, Clone, Copy)]

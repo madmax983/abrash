@@ -3,7 +3,7 @@
 //! A retro-style filter that reduces the perceived resolution of the framebuffer
 //! by grouping pixels into blocks of a specified size.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a pixelate effect to the framebuffer.
 ///

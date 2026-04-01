@@ -4,8 +4,8 @@
 //! (carving, depositing) and optimized mesh generation (face culling).
 
 use crate::experimental::voxelizer::{VoxelGrid, Voxelizer};
-use crate::math::{Vec3, Vec4};
-use crate::mesh::Mesh;
+use abrash_core::math::{Vec3, Vec4};
+use abrash_core::mesh::Mesh;
 
 /// A modifiable volumetric object.
 pub struct Volume {
@@ -194,10 +194,10 @@ impl Volume {
         }
 
         // Correct UVs: (0,0), (1,0), (1,1), (0,1)
-        mesh.uvs.push(crate::math::Vec2::new(0.0, 0.0));
-        mesh.uvs.push(crate::math::Vec2::new(1.0, 0.0));
-        mesh.uvs.push(crate::math::Vec2::new(1.0, 1.0));
-        mesh.uvs.push(crate::math::Vec2::new(0.0, 1.0));
+        mesh.uvs.push(abrash_core::math::Vec2::new(0.0, 0.0));
+        mesh.uvs.push(abrash_core::math::Vec2::new(1.0, 0.0));
+        mesh.uvs.push(abrash_core::math::Vec2::new(1.0, 1.0));
+        mesh.uvs.push(abrash_core::math::Vec2::new(0.0, 1.0));
 
         // Triangle 1: 0-1-2
         mesh.indices.push([base_idx, base_idx + 1, base_idx + 2]);

@@ -3,9 +3,9 @@
 //! Approximates ambient lighting attenuation based on depth buffer geometry.
 
 use super::blur::box_blur_f32;
-use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, Vec3};
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Mat4, Vec3};
+use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 #[cfg(feature = "parallel")]
@@ -650,11 +650,11 @@ mod tests {
     #[allow(unused_imports)]
     use super::*;
     #[allow(unused_imports)]
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
     #[allow(unused_imports)]
-    use crate::math::Mat4;
+    use abrash_core::math::Mat4;
     #[allow(unused_imports)]
-    use crate::zbuffer::ZBuffer;
+    use abrash_core::zbuffer::ZBuffer;
     #[allow(unused_imports)]
     use std::f32::consts::PI;
 

@@ -3,7 +3,7 @@
 //! Simulates a miniature faking effect by keeping a central band in focus
 //! and blurring the top and bottom of the image.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::cell::RefCell;

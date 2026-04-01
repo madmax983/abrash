@@ -1,11 +1,11 @@
 //! The `Renderer` trait — core engine contract.
 
-use crate::mesh::Mesh;
+use abrash_core::mesh::Mesh;
 use crate::render_api::frame::Frame;
 use crate::render_api::handles::{MaterialHandle, MeshHandle, TextureHandle};
 use crate::render_api::material::Material;
 use crate::render_api::target::RenderTarget;
-use crate::texture::Texture;
+use abrash_core::texture::Texture;
 
 /// Errors from renderer operations.
 #[derive(Debug)]
@@ -90,8 +90,8 @@ pub trait Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{Mat4, Vec3};
-    use crate::mesh::Mesh;
+    use abrash_core::math::{Mat4, Vec3};
+    use abrash_core::mesh::Mesh;
     use crate::render_api::frame::FrameCamera;
 
     /// A null renderer that accepts all operations but renders nothing.

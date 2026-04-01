@@ -3,8 +3,8 @@
 //! Simulates camera focus by blurring pixels based on their depth in the Z-buffer.
 
 use super::blur::{box_blur_horizontal, box_blur_vertical};
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 use std::cell::RefCell;
 
 thread_local! {

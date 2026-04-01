@@ -3,7 +3,7 @@
 //! Provides Ordered Dithering (Bayer) and Floyd-Steinberg error diffusion
 //! to reduce color depth while preserving visual detail.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Dithering algorithm to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

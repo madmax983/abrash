@@ -3,9 +3,9 @@
 //! Applies a Voronoi diagram effect to the framebuffer based on a set of seed points.
 //! This creates a stained-glass or cellular aesthetic.
 
-use crate::framebuffer::Framebuffer;
-use crate::math::Vec2;
-use crate::utils::XorShift32;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::Vec2;
+use abrash_core::utils::XorShift32;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

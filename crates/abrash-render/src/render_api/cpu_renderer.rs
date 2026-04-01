@@ -2,7 +2,7 @@
 //!
 //! Bridges the render API to the existing `TileRenderer` / scanline rasterization.
 
-use crate::mesh::Mesh;
+use abrash_core::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::Frame;
@@ -10,7 +10,7 @@ use crate::render_api::handles::{Handle, MaterialHandle, MeshHandle, ResourcePoo
 use crate::render_api::material::Material;
 use crate::render_api::renderer::{RenderError, Renderer};
 use crate::render_api::target::RenderTarget;
-use crate::texture::Texture;
+use abrash_core::texture::Texture;
 
 struct CpuMesh {
     mesh: Mesh,
@@ -195,8 +195,8 @@ impl Renderer for CpuRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{Mat4, Vec3};
-    use crate::mesh::Mesh;
+    use abrash_core::math::{Mat4, Vec3};
+    use abrash_core::mesh::Mesh;
     use crate::render_api::Renderer;
     use crate::render_api::frame::{Frame, FrameCamera};
     use crate::render_api::material::Material;

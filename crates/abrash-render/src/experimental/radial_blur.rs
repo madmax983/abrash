@@ -3,7 +3,7 @@
 //! A retro-style filter that blurs the image outwardly from a center point,
 //! simulating a zooming or speed effect.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 thread_local! {

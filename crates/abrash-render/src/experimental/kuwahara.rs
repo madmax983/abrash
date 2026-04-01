@@ -7,7 +7,7 @@
 //! overlapping rectangular regions around each pixel. The pixel is then assigned
 //! the mean color of the region with the lowest variance.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::cell::RefCell;
@@ -329,7 +329,7 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_kuwahara_bounds() {

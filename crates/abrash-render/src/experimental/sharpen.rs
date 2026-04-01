@@ -2,7 +2,7 @@
 //!
 //! A filter that enhances the edges of an image using a convolution kernel.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a sharpen effect to the framebuffer.
 ///

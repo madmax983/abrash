@@ -3,7 +3,7 @@
 //! Maps every pixel in the framebuffer to the nearest color in a given predefined palette.
 //! This allows for retro 8-bit, CGA, Gameboy, or custom aesthetic color restrictions.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// A struct holding an arbitrary set of ARGB colors.
 #[derive(Debug, Clone)]

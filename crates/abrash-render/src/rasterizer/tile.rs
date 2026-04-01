@@ -102,12 +102,12 @@ use super::{
     EdgeWalker, PerspectiveSpanStart, PerspectiveTextureEdgeWalker, PerspectiveTextureGradients,
     RECIPROCAL_TABLE, is_backface, sort_by_y,
 };
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::hiz_buffer::{AABB3D, HiZBuffer};
-use crate::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
-use crate::texture::{FilterMode, Texture};
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::hiz_buffer::{AABB3D, HiZBuffer};
+use abrash_core::math::{ScreenPoint, Vec2, Vec3, project_triangle_to_screen};
+use abrash_core::texture::{FilterMode, Texture};
+use abrash_core::zbuffer::ZBuffer;
 use std::ops::{Deref, DerefMut};
 
 /// Fixed-point vertex coordinates using 24.8 format (24 bits integer, 8 bits fractional).
@@ -3634,10 +3634,10 @@ fn draw_scanline_gouraud_i32_tile(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
-    use crate::math::Vec3;
+    use abrash_core::framebuffer::Framebuffer;
+    use abrash_core::math::Vec3;
     use crate::rasterizer::fill_triangle_3d;
-    use crate::zbuffer::ZBuffer;
+    use abrash_core::zbuffer::ZBuffer;
 
     // --- Step 1: Infrastructure + prepare ---
 
@@ -4441,9 +4441,9 @@ mod tests {
     fn verify_simd_execution_with_wide_scanlines() {
         // This test creates horizontal triangles with scanlines >32 pixels
         // to verify SIMD code path executes (check stderr for [DEBUG] output)
-        use crate::framebuffer::Framebuffer;
-        use crate::math::Vec3;
-        use crate::zbuffer::ZBuffer;
+        use abrash_core::framebuffer::Framebuffer;
+        use abrash_core::math::Vec3;
+        use abrash_core::zbuffer::ZBuffer;
 
         let width = 1920;
         let height = 1080;

@@ -2,8 +2,8 @@
 //!
 //! Provides various color mapping filters like grayscale, sepia, and invert.
 
-use crate::framebuffer::Framebuffer;
-use crate::utils::pixel_luminance;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::utils::pixel_luminance;
 use std::cell::RefCell;
 
 // Sepia weights (scaled by 1024)

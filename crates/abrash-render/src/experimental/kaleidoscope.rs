@@ -4,7 +4,7 @@
 //! simulating a classic kaleidoscope by mapping pixels to polar
 //! coordinates, applying modulo to the angle, and mapping back.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::cell::RefCell;
 
 thread_local! {
@@ -193,15 +193,18 @@ mod tests {
             (-1.0, -1.0, std::f32::consts::PI + std::f32::consts::FRAC_PI_4), // Bottom-Left
         ];
 
-        for (y, x, expected) in points.iter() {
-            let mut std_atan2 = y.atan2(*x);
+        for (y, x, expected) in &points {
+            let mut std_atan2 = f32::atan2(*y, *x);
             if std_atan2 < 0.0 {
                 std_atan2 += std::f32::consts::TAU;
             }
             let fast = fast_atan2(*y, *x);
 
             // Allow for a max error of about 4 degrees (0.07 rads) for the approximation
-            assert!((fast - expected).abs() < 0.08, "fast_atan2({}, {}) = {} vs expected std {}", y, x, fast, expected);
+            assert!(
+                (fast - expected).abs() < 0.08,
+                "fast_atan2({y}, {x}) = {fast} vs expected std {expected}"
+            );
         }
     }
 

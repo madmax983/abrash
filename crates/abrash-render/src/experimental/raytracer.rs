@@ -42,9 +42,9 @@
 //! tracer.render(&scene, &mut fb);
 //! ```
 
-use crate::framebuffer::Framebuffer;
-use crate::geometry::AABB;
-use crate::math::{Vec2, Vec3};
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::geometry::AABB;
+use abrash_core::math::{Vec2, Vec3};
 use crate::scene::{Scene, SceneObject};
 
 #[cfg(feature = "parallel")]
@@ -453,8 +453,8 @@ impl RayTracer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Mat4;
-    use crate::mesh::Mesh;
+    use abrash_core::math::Mat4;
+    use abrash_core::mesh::Mesh;
     use crate::scene::Camera;
 
     #[test]

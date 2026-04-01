@@ -2,10 +2,10 @@
 //!
 //! Implements Bresenham's line algorithm for wireframe rendering.
 
-use crate::clipping::clip_line_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{Vec3, project_to_screen_optimized};
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_line_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Vec3, project_to_screen_optimized};
+use abrash_core::zbuffer::ZBuffer;
 
 /// Draw a 3D line with Z-buffering.
 ///

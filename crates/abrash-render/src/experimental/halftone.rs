@@ -2,7 +2,7 @@
 //!
 //! Simulates CMYK or grayscale halftone printing processes.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

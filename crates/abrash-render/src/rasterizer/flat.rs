@@ -2,11 +2,11 @@
 //!
 //! Renders triangles with a single solid color.
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{Vec3, project_triangle_to_screen};
-use crate::texture::blend_swar;
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Vec3, project_triangle_to_screen};
+use abrash_core::texture::blend_swar;
+use abrash_core::zbuffer::ZBuffer;
 
 use super::core::{EdgeWalker, assert_same_dimensions, is_backface, prepare_scanline, sort_by_y};
 
@@ -513,7 +513,7 @@ pub fn fill_triangle_3d(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Vec3;
+    use abrash_core::math::Vec3;
 
     #[test]
     fn fill_triangle_3d_with_fixed_point_matches_reference() {

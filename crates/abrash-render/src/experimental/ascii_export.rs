@@ -1,7 +1,7 @@
 //! ASCII Export extension trait for Framebuffer.
 
 use crate::ascii::{AsciiCharset, AsciiConverter};
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;

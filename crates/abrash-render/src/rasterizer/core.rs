@@ -12,9 +12,9 @@
 //! *   **`is_backface`**: Performs back-face culling using the 2D cross product.
 //! *   **`sort_by_y`**: A specialized sorting network for 3 vertices.
 
-use crate::framebuffer::Framebuffer;
-use crate::math::{ScreenPoint, Vec3};
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{ScreenPoint, Vec3};
+use abrash_core::zbuffer::ZBuffer;
 
 /// Fixed point scale factor (16.16)
 ///
@@ -278,7 +278,7 @@ impl EdgeWalker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::ScreenPoint;
+    use abrash_core::math::ScreenPoint;
 
     #[test]
     fn edge_walker_z_interpolation() {

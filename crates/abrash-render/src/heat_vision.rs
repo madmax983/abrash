@@ -3,8 +3,8 @@
 //! Maps the depth buffer (Z-buffer) to a color gradient, simulating a thermal camera.
 //! Uses auto-ranging to adapt to the scene depth.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 /// Applies a heat vision effect to the framebuffer based on the depth buffer.
 ///

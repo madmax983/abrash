@@ -3,7 +3,7 @@
 //! Simulates a 3D embossed look by replacing the image with a gray background and
 //! highlighting edges using a directional convolution kernel.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 use std::cell::RefCell;
 

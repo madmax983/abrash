@@ -3,8 +3,8 @@
 //! Provides advanced visualization modes like Night Vision, Thermal Imaging, and Sonar.
 //! These effects modify the framebuffer based on color and depth information.
 
-use crate::framebuffer::Framebuffer;
-use crate::zbuffer::ZBuffer;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::zbuffer::ZBuffer;
 
 /// Available vision modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

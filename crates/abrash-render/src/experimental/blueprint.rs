@@ -5,7 +5,7 @@
 //! and overlays a faint engineering grid.
 
 use super::edge_glow::EdgeGlowConfig;
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

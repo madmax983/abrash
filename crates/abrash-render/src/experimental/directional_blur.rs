@@ -2,7 +2,7 @@
 //!
 //! This module provides a fast directional blur (e.g., motion blur) applied in screen space.
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Applies a directional (motion) blur to the framebuffer.
 ///
@@ -138,7 +138,7 @@ pub fn apply_directional_blur(framebuffer: &mut Framebuffer, config: &Directiona
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::framebuffer::Framebuffer;
+    use abrash_core::framebuffer::Framebuffer;
 
     #[test]
     fn test_directional_blur_zero_samples() {

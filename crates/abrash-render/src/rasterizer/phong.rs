@@ -2,10 +2,10 @@
 //!
 //! Per-pixel lighting interpolation and calculation.
 
-use crate::clipping::clip_triangle_to_frustum;
-use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
-use crate::zbuffer::ZBuffer;
+use abrash_core::clipping::clip_triangle_to_frustum;
+use abrash_core::framebuffer::Framebuffer;
+use abrash_core::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
+use abrash_core::zbuffer::ZBuffer;
 
 use super::core::{
     FIXED_SCALE, assert_same_dimensions, color_to_u32, color_to_u32_scaled, is_backface, sort_by_y,

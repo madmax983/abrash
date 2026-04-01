@@ -6,8 +6,8 @@
 #![allow(warnings)]
 
 use super::sdf::SdfScene;
-use crate::math::{Vec3, Vec4};
-use crate::mesh::Mesh;
+use abrash_core::math::{Vec3, Vec4};
+use abrash_core::mesh::Mesh;
 use std::collections::HashSet;
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]

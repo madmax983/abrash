@@ -5,7 +5,7 @@
 
 #![cfg(feature = "nova")]
 
-use crate::framebuffer::Framebuffer;
+use abrash_core::framebuffer::Framebuffer;
 
 /// Configuration for the Water Ripple effect.
 #[derive(Debug, Clone, Copy)]
