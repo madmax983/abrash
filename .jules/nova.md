@@ -187,6 +187,10 @@
 **Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
 **Fate:** Implemented
 **Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.
+## [Color Blindness Simulator]
+**Concept:** A post-processing effect that simulates various types of color vision deficiencies (CVD) like Protanopia, Deuteranopia, Tritanopia, and Achromatopsia using accurate transformation matrices.
+**Fate:** Merged
+**Lesson:** Using fixed-point arithmetic instead of floating-point operations in the inner loop avoids significant performance drops. Applying the transformation correctly allows testing the visual clarity of the renderer for different users, making it highly useful for accessibility and testing.
 ## [Plasma Filter]
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
