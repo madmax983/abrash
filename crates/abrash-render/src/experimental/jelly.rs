@@ -334,7 +334,13 @@ impl SoftBody {
 
         // 2. Integration (Semi-Implicit Euler)
         let mass_inv = 1.0 / self.mass;
-        for ((vertex, velocity), force) in self.mesh.vertices.iter_mut().zip(&mut self.velocities).zip(&mut self.forces) {
+        for ((vertex, velocity), force) in self
+            .mesh
+            .vertices
+            .iter_mut()
+            .zip(&mut self.velocities)
+            .zip(&mut self.forces)
+        {
             let accel = *force * mass_inv;
             *velocity = *velocity + accel * dt;
             *vertex = *vertex + *velocity * dt;

@@ -166,3 +166,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Optimize Rasterizer Inner Loops with `iter_mut().zip`**
 **Learning:** Replacing manually unrolled loops that use `unsafe { get_unchecked_mut }` with idiomatic `iter_mut().zip(...)` chains can yield better performance (e.g., ~3% speedup in flat and gouraud rasterization) by allowing LLVM to more effectively auto-vectorize and elide bounds checks safely.
 **Action:** Replaced `while i < len { let depth = zb.get_unchecked_mut(i); ... }` with `for (depth, pixel) in zb[i..len].iter_mut().zip(fb[i..len].iter_mut())` in `flat.rs` and `gouraud.rs`.
+
+**[Performance Optimization: Eliminate per-frame memory allocation in Tile Sorting]**
+**Learning:** Calling `Vec::with_capacity(64)` inside the inner sorting loops of `sort_bins_gouraud`, `sort_bins_flat`, and `sort_bins_textured` in `TileRenderer` causes repetitive heap allocations and deallocations per frame, degrading performance under heavy overdraw.
+**Action:** Replace `Vec::with_capacity(64)` with a `thread_local!` static `RefCell<Vec<u32>>`. Crucially, to prevent massive overhead from repeatedly accessing the thread-local storage inside the `heads.iter_mut()` loop, hoist the `TILE_INDICES.with(|...|)` block *outside* the loop. This ensures the buffer is acquired exactly once per sort pass, yielding a true zero-cost abstraction and improving dense overdraw sorting performance.
