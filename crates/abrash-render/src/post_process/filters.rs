@@ -242,13 +242,20 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
 /// apply_chromatic_aberration(&mut fb, 5);
 /// ```
-pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
-    if offset == 0 {
+
+/// Configuration for the chromatic aberration filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChromaticAberrationConfig {
+    pub offset: u32,
+}
+
+pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
+    if config.offset == 0 {
         return;
     }
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    let offset = offset as usize;
+    let offset = config.offset as usize;
 
     let pixels = fb.as_mut_slice();
 
@@ -1751,7 +1758,10 @@ mod tests {
         }
 
         // Apply offset 1
-        apply_chromatic_aberration(&mut fb, 1);
+        apply_chromatic_aberration(
+            &mut fb,
+            &ChromaticAberrationConfig { offset: 1 },
+        );
 
         // Pixel 2 (x=2)
         // Original: R=30, G=40, B=50

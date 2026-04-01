@@ -123,7 +123,10 @@ impl WindowApp for ChromaticAberrationDemo {
 
         let shift = (self.shift_amount.sin() * 10.0).abs() as u32;
 
-        apply_chromatic_aberration(&mut self.framebuffer, shift);
+        apply_chromatic_aberration(
+            &mut self.framebuffer,
+            &abrash::post_process::ChromaticAberrationConfig { offset: shift },
+        );
         let framebuffer = &self.framebuffer;
         let presenter = self
             .presenter
