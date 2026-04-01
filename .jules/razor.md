@@ -11,3 +11,7 @@
 **Bloat:** Complex, unreadable large numerical constants
 **Cut:** Separated large literals with `_` (e.g. `0.000_000_1`)
 **Saved:** Readability / Cognitive load
+## [Reduction]
+**Bloat:** Abstract error handling and missing const fns in geometry.rs, and unreadable literrals in fuzz_target.rs, and uninlined format args in havoc_arboretum.rs. Also imprecise_flops that had a good reason not to be changed (based on comments above the length method)
+**Cut:** Added const to closest_point, grouped variable declarations and allowed imprecise_flops in math.rs, fixed literals and formatting.
+**Saved:** Multiple compiler warnings, enforcing cleanly building codebase.
