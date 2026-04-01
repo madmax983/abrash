@@ -11,3 +11,8 @@
 **Bloat:** Complex, unreadable large numerical constants
 **Cut:** Separated large literals with `_` (e.g. `0.000_000_1`)
 **Saved:** Readability / Cognitive load
+
+## De-Abstract GridMap Trait
+**Bloat:** The `GridMap` trait in `abrash-raycast/src/map.rs` was implemented by exactly one struct (`ArrayGridMap`), adding an unnecessary abstraction layer.
+**Cut:** Removed the `GridMap` trait and implemented its methods directly on `ArrayGridMap`. Replaced all dynamic usages with the concrete struct.
+**Saved:** 1 Trait, ~15 lines of boilerplate interface code, reducing indirection in raycasting maps.

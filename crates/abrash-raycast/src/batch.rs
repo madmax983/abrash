@@ -7,7 +7,8 @@
 use abrash_core::bam::Bam;
 
 use crate::cast::{cast_los, cast_ray};
-use crate::map::GridMap;
+
+use crate::map::ArrayGridMap;
 use crate::types::{RayHit, Vec2Fixed};
 
 /// Cast many rays in batch.
@@ -18,7 +19,7 @@ use crate::types::{RayHit, Vec2Fixed};
 /// When the `parallel` feature is enabled, rays are dispatched across Rayon's
 /// thread pool. Otherwise they are cast sequentially.
 pub fn cast_rays_batch(
-    map: &(impl GridMap + Sync),
+    map: &ArrayGridMap,
     rays: &[(Vec2Fixed, Bam)],
     results: &mut [Option<RayHit>],
 ) {
@@ -50,11 +51,7 @@ pub fn cast_rays_batch(
 ///
 /// When the `parallel` feature is enabled, checks are dispatched across
 /// Rayon's thread pool. Otherwise they run sequentially.
-pub fn cast_los_batch(
-    map: &(impl GridMap + Sync),
-    pairs: &[(Vec2Fixed, Vec2Fixed)],
-    results: &mut [bool],
-) {
+pub fn cast_los_batch(map: &ArrayGridMap, pairs: &[(Vec2Fixed, Vec2Fixed)], results: &mut [bool]) {
     debug_assert_eq!(pairs.len(), results.len());
 
     #[cfg(feature = "parallel")]

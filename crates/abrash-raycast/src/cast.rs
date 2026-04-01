@@ -10,7 +10,8 @@ use abrash_core::bam::Bam;
 use abrash_core::fixed16_16::{FIXED_ONE, Fixed16_16};
 
 use crate::dda::DdaStepper;
-use crate::map::GridMap;
+use crate::map::ArrayGridMap;
+
 use crate::types::{DetailedHit, RayHit, Side, Vec2Fixed};
 
 /// Maximum DDA steps before declaring a ray "lost" (prevents infinite loops
@@ -24,7 +25,7 @@ const MAX_STEPS: u32 = 256;
 /// treated as clear (no wall to block). If `MAX_STEPS` is exceeded the
 /// path is considered blocked.
 #[must_use]
-pub fn cast_los(map: &impl GridMap, from: Vec2Fixed, to: Vec2Fixed) -> bool {
+pub fn cast_los(map: &ArrayGridMap, from: Vec2Fixed, to: Vec2Fixed) -> bool {
     // Same-cell early-out.
     let from_cx = from.x.to_int();
     let from_cy = from.y.to_int();
@@ -74,7 +75,7 @@ pub fn cast_los(map: &impl GridMap, from: Vec2Fixed, to: Vec2Fixed) -> bool {
 /// Returns the first solid cell hit as a [`RayHit`], or `None` if the ray
 /// exits the map bounds without hitting anything.
 #[must_use]
-pub fn cast_ray(map: &impl GridMap, origin: Vec2Fixed, angle: Bam) -> Option<RayHit> {
+pub fn cast_ray(map: &ArrayGridMap, origin: Vec2Fixed, angle: Bam) -> Option<RayHit> {
     let mut stepper = DdaStepper::new(origin, angle);
 
     for _ in 0..MAX_STEPS {
@@ -102,7 +103,7 @@ pub fn cast_ray(map: &impl GridMap, origin: Vec2Fixed, angle: Bam) -> Option<Ray
 ///
 /// Returns `None` if the ray exits the map or exceeds `MAX_STEPS`.
 #[must_use]
-pub fn cast_ray_detailed(map: &impl GridMap, origin: Vec2Fixed, angle: Bam) -> Option<DetailedHit> {
+pub fn cast_ray_detailed(map: &ArrayGridMap, origin: Vec2Fixed, angle: Bam) -> Option<DetailedHit> {
     let hit = cast_ray(map, origin, angle)?;
 
     // sin_cos_fixed returns (sin, cos) — sin is FIRST.
