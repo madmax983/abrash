@@ -177,3 +177,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::powf in Post-Processing
 **Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
 **Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+
+## SIMD AABB Transform using Arvo's Extents
+**Learning:** When transforming Axis-Aligned Bounding Boxes (AABBs) using SIMD/AVX2, prefer Arvo's extent-based algorithm (transforming the center and multiplying extents by the absolute value of the rotation matrix) over calculating and finding the min/max of all 8 corners. This avoids expensive cross-lane permutations and shuffling, significantly reducing execution latency.
+**Action:** When implementing or reviewing bounding box transformations, prioritize center-extent representations and absolute matrix multiplication over explicitly processing individual corner vertices.
