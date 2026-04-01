@@ -67,6 +67,7 @@ pub mod raytracer;
 pub mod sdf;
 pub mod sharpen;
 pub mod slitscan;
+pub mod starfield;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
