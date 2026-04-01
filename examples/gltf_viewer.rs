@@ -254,7 +254,8 @@ impl WindowApp for GltfViewerApp {
         let view = Mat4::look_at(eye, self.model_center, Vec3::new(0.0, 1.0, 0.0));
 
         let camera = FrameCamera::new(view, projection);
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to pre-allocate vector for draw command and prevent reallocation
+        let mut frame = Frame::with_capacity(camera, 1, 0);
         frame.clear_color = Some(BACKGROUND);
 
         if let (Some(mh), Some(math)) = (self.mesh_handle, self.material_handle) {
