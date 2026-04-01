@@ -157,7 +157,8 @@ impl WindowApp for GpuMvpCubeApp {
             Mat4::perspective(1.0, aspect, 0.1, 100.0),
         );
 
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to prevent vector reallocations for draw commands
+        let mut frame = Frame::with_capacity(camera, 1, 0);
         frame.draw(mesh, material, Mat4::rotation_y(angle));
 
         renderer

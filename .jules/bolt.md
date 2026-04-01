@@ -177,6 +177,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::powf in Post-Processing
 **Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
 **Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+**[Frame Vector Pre-allocation]
+**Learning:** Found a bottleneck where `Frame::new()` was defaulting `commands` and `lights` vectors to `Vec::new()`, causing dynamic heap re-allocations on the hot path (per-frame loop) when rendering scenes with multiple objects.
+**Action:** Introduced `Frame::with_capacity(num_commands, num_lights)` to explicitly pre-allocate these vectors. When constructing repetitive frames, manually configuring capacities entirely eliminates these heap re-allocations.
 
 **Test Float Comparison Lints**
 **Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
