@@ -295,6 +295,55 @@ impl Quat {
         v + t * self.w + qv.cross(t)
     }
 
+    /// Rotate many vectors with one quaternion.
+    ///
+    /// This hoists the quaternion-to-matrix expansion out of the loop so each
+    /// point only performs a compact 3x3 transform.
+    #[must_use]
+    pub fn rotate_vec3_batch(self, vectors: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(vectors.len());
+        self.rotate_vec3_batch_into(vectors, &mut out);
+        out
+    }
+
+    /// Rotate many vectors with one quaternion and append into `out`.
+    ///
+    /// `out` is cleared and re-used to avoid temporary allocations in frame loops.
+    pub fn rotate_vec3_batch_into(self, vectors: &[Vec3], out: &mut Vec<Vec3>) {
+        let x2 = self.x + self.x;
+        let y2 = self.y + self.y;
+        let z2 = self.z + self.z;
+        let xx = self.x * x2;
+        let xy = self.x * y2;
+        let xz = self.x * z2;
+        let yy = self.y * y2;
+        let yz = self.y * z2;
+        let zz = self.z * z2;
+        let wx = self.w * x2;
+        let wy = self.w * y2;
+        let wz = self.w * z2;
+
+        let m00 = 1.0 - (yy + zz);
+        let m01 = xy + wz;
+        let m02 = xz - wy;
+        let m10 = xy - wz;
+        let m11 = 1.0 - (xx + zz);
+        let m12 = yz + wx;
+        let m20 = xz + wy;
+        let m21 = yz - wx;
+        let m22 = 1.0 - (xx + yy);
+
+        out.clear();
+        out.reserve(vectors.len());
+        for &v in vectors {
+            out.push(Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            ));
+        }
+    }
+
     /// Convert to a 4x4 rotation matrix (row-major, row-vector convention).
     #[must_use]
     pub fn to_mat4(self) -> Mat4 {
@@ -570,5 +619,25 @@ mod tests {
         assert!((looked.x - forward.x).abs() < 1e-4);
         assert!((looked.y - forward.y).abs() < 1e-4);
         assert!((looked.z - forward.z).abs() < 1e-4);
+    }
+
+    #[test]
+    fn rotate_vec3_batch_matches_scalar_path() {
+        let q = Quat::from_euler(0.3, -0.7, 0.2).normalize();
+        let input = [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(-2.3, 4.1, 0.75),
+        ];
+        let output = q.rotate_vec3_batch(&input);
+        assert_eq!(output.len(), input.len());
+        for i in 0..input.len() {
+            let scalar = q.rotate_vec3(input[i]);
+            let batched = output[i];
+            assert!((scalar.x - batched.x).abs() < EPSILON);
+            assert!((scalar.y - batched.y).abs() < EPSILON);
+            assert!((scalar.z - batched.z).abs() < EPSILON);
+        }
     }
 }
