@@ -383,10 +383,7 @@ impl GpuRenderer {
                 shininess,
                 specular_strength,
             } => (color, shininess, specular_strength, 0.0, 0.5, None),
-            ShadingMode::Textured { texture } => {
-                (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-            }
-            ShadingMode::TexturedGouraud { texture } => {
+            ShadingMode::Textured { texture } | ShadingMode::TexturedGouraud { texture } => {
                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
             }
             ShadingMode::Pbr {
@@ -650,7 +647,7 @@ impl GpuRenderer {
 
     fn upload_uniforms(&mut self, frame: &Frame, draw_bytes: &[u8], draw_count: usize) {
         // Frame uniforms + lights
-        let (frame_uniforms, gpu_lights) = self.prepare_frame_uniforms(frame);
+        let (frame_uniforms, gpu_lights) = Self::prepare_frame_uniforms(frame);
         self.gpu.queue().write_buffer(
             &self.frame_uniform_buffer,
             0,
@@ -689,20 +686,20 @@ impl GpuRenderer {
     }
 
     fn ensure_gbuffer(&mut self, width: u32, height: u32) {
-        let needs = match &self.gbuffer {
-            Some(g) => g.width != width || g.height != height,
-            None => true,
-        };
+        let needs = self
+            .gbuffer
+            .as_ref()
+            .is_none_or(|g| g.width != width || g.height != height);
         if needs {
             self.gbuffer = Some(GBuffer::new(self.gpu.device(), width, height));
         }
     }
 
     fn ensure_hdr_target(&mut self, width: u32, height: u32) {
-        let needs = match &self.hdr_target {
-            Some(t) => t.width != width || t.height != height,
-            None => true,
-        };
+        let needs = self
+            .hdr_target
+            .as_ref()
+            .is_none_or(|t| t.width != width || t.height != height);
         if needs {
             self.hdr_target = Some(crate::postprocess::HdrTarget::new(
                 self.gpu.device(),
@@ -712,7 +709,7 @@ impl GpuRenderer {
         }
     }
 
-    fn prepare_frame_uniforms(&self, frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
+    fn prepare_frame_uniforms(frame: &Frame) -> (FrameUniforms, Vec<GpuLightData>) {
         let view_proj = frame.camera.view * frame.camera.projection;
         let vp_flat: [f32; 16] = bytemuck::cast(view_proj.m);
         let inv_view = frame.camera.view.inverse();
@@ -829,7 +826,7 @@ impl GpuRenderer {
 
         let dir_light = frame.lights.iter().find_map(|l| match l {
             Light::Directional(d) => Some(d),
-            _ => None,
+            Light::Point(_) => None,
         });
 
         let Some(dir_light) = dir_light else {

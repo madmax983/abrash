@@ -62,3 +62,18 @@
 **Bloat:** `HiZOcclusion` and `HiZPyramidWriter` single-use adapter traits in `crates/abrash-gpu/src/d3d12_binning.rs` used to bridge methods from `HiZBuffer` in the `abrash` crate.
 **Cut:** Deleted the traits and the wrapper struct implementations (`HiZOcclusionAdapter`, `HiZPyramidWriterAdapter`) in `src/gpu/mod.rs`. Replaced trait parameters with direct closure parameters (`impl Fn` and `impl FnMut`).
 **Saved:** ~30 lines of boilerplate and removed unnecessary abstractions between crates.
+
+## [Reduction]
+**Bloat:** Unused fields in `GBuffer`, `HdrTarget`, `ShadowMap`, `MvpPipeline`, `LitPipeline`, `TexturedLitPipeline`, and `GpuMeshBuffer` triggering dead code warnings. Some methods like `set_clear_color` were not `const` but could be. Identical match arms in `renderer.rs`. Unnecessary `map_or` closures instead of `is_none_or`. Unused imports and variables.
+**Cut:** Removed unused fields (or allowed dead code if strictly necessary for future structure layout), made `set_clear_color` const, consolidated identical match arms, replaced `map_or` with `is_none_or`, cleaned up unused variables in gbuffer setup and removed unused `NonZeroU64` import.
+**Saved:** Reduced compiler warnings from over 224 to 0, cleaned up unused struct fields saving memory overhead, eliminated redundant match statements, flattened option checking logic.
+
+## [Reduction]
+**Bloat:** `MvpPipeline`, `LitPipeline`, and `TexturedLitPipeline` structs and initialization code in `shader.rs`. These are remnants of old direct forward rendering pipelines, superseded by the deferred rendering system.
+**Cut:** Deleted the structs, their `new` implementations, and the unused tests covering them. Made previously-used uniforms module-private fields (`_pad`).
+**Saved:** Around 350 lines of dead code completely removed from the GPU backend, making the codebase substantially cleaner and simpler to navigate.
+
+## [Reduction]
+**Bloat:** Unused test helper `contains_rgba` in `capture_test.rs`
+**Cut:** Removed to appease dead code lint.
+**Saved:** ~5 lines.

@@ -10,8 +10,6 @@ pub struct GpuMeshBuffer {
     pub(crate) index_buffer: wgpu::Buffer,
     pub(crate) index_count: u32,
     pub(crate) triangle_count: u32,
-    /// True when uploaded with UVs (TexturedVertex format).
-    pub(crate) has_uvs: bool,
 }
 
 /// Convert a mesh into position-only GPU vertices and flattened `u32` indices.
@@ -214,7 +212,6 @@ impl GpuMeshBuffer {
             index_buffer,
             index_count,
             triangle_count,
-            has_uvs: false,
         })
     }
 
@@ -249,7 +246,6 @@ impl GpuMeshBuffer {
             index_buffer,
             index_count,
             triangle_count,
-            has_uvs: true,
         })
     }
 }

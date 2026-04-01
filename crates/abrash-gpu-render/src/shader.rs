@@ -2,8 +2,6 @@
 
 use abrash_core::math::Mat4;
 use bytemuck::{Pod, Zeroable};
-use std::num::NonZeroU64;
-
 /// WGSL shader source for flat-color MVP rendering.
 pub const MVP_SHADER_SRC: &str = r"
 struct Uniforms {
@@ -75,19 +73,6 @@ pub struct MvpVertex {
     pub position: [f32; 3],
 }
 
-impl MvpVertex {
-    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 1] =
-        wgpu::vertex_attr_array![0 => Float32x3];
-
-    #[must_use]
-    pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBUTES,
-        }
-    }
-}
 
 /// Position + normal vertex for lit rendering.
 #[repr(C)]
@@ -158,7 +143,7 @@ pub struct FrameUniforms {
     pub camera_pos: [f32; 4],
     /// Number of active lights (u32 stored as f32 for uniform alignment).
     pub light_count: u32,
-    pub _pad: [u32; 3],
+    pub(crate) _pad: [u32; 3],
 }
 
 /// GPU-side light data. Each light is 48 bytes (3 × vec4).
@@ -177,7 +162,7 @@ pub struct GpuLightData {
     pub intensity: f32,
     /// Attenuation radius (point lights only).
     pub radius: f32,
-    pub _pad: [f32; 3],
+    pub(crate) _pad: [f32; 3],
 }
 
 /// Per-draw uniform data: model matrix + material properties.
@@ -352,145 +337,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 }
 ";
 
-/// Reusable MVP render pipeline shared by headless and windowed paths.
-pub struct MvpPipeline {
-    pub(crate) pipeline: wgpu::RenderPipeline,
-    pub(crate) uniform_bind_group_layout: wgpu::BindGroupLayout,
-}
-
-/// Lit render pipeline with per-frame + per-draw bind groups.
-pub struct LitPipeline {
-    pub(crate) pipeline: wgpu::RenderPipeline,
-    /// Group 0: per-frame (view_proj, camera_pos, lights).
-    pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
-    /// Group 1: per-draw with dynamic offset (model, material).
-    pub(crate) draw_bind_group_layout: wgpu::BindGroupLayout,
-}
-
-impl LitPipeline {
-    /// Create a lit render pipeline for the given color target format.
-    ///
-    /// Requires the shadow sample bind group layout for group 2.
-    #[must_use]
-    pub fn new(
-        device: &wgpu::Device,
-        color_format: wgpu::TextureFormat,
-        shadow_sample_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Abrash Lit Shader"),
-            source: wgpu::ShaderSource::Wgsl(LIT_SHADER_SRC.into()),
-        });
-
-        // Group 0: per-frame uniforms + lights array
-        let frame_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Lit Frame Layout"),
-                entries: &[
-                    // binding 0: FrameUniforms
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                std::mem::size_of::<FrameUniforms>() as u64
-                            ),
-                        },
-                        count: None,
-                    },
-                    // binding 1: lights array
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
-                            ),
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        // Group 1: per-draw uniforms (dynamic offset)
-        let draw_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Lit Draw Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: NonZeroU64::new(
-                            std::mem::size_of::<DrawUniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Abrash Lit Pipeline Layout"),
-            bind_group_layouts: &[
-                Some(&frame_bind_group_layout),
-                Some(&draw_bind_group_layout),
-                Some(shadow_sample_layout),
-            ],
-            immediate_size: 0,
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Abrash Lit Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[LitVertex::layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-
-        Self {
-            pipeline,
-            frame_bind_group_layout,
-            draw_bind_group_layout,
-        }
-    }
-}
 
 /// WGSL shader source for textured + lit rendering.
 pub const TEXTURED_LIT_SHADER_SRC: &str = r"
@@ -618,217 +464,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 }
 ";
 
-/// Textured + lit render pipeline using all 3 bind groups.
-pub struct TexturedLitPipeline {
-    pub(crate) pipeline: wgpu::RenderPipeline,
-    pub(crate) frame_bind_group_layout: wgpu::BindGroupLayout,
-    pub(crate) draw_bind_group_layout: wgpu::BindGroupLayout,
-    pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
-}
-
-impl TexturedLitPipeline {
-    /// Create a textured lit render pipeline with shadow support.
-    ///
-    /// Takes externally-created bind group layouts for texture (group 2) and
-    /// shadow sampling (group 3).
-    #[must_use]
-    pub fn new(
-        device: &wgpu::Device,
-        color_format: wgpu::TextureFormat,
-        texture_bind_group_layout: &wgpu::BindGroupLayout,
-        shadow_sample_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Abrash Textured Lit Shader"),
-            source: wgpu::ShaderSource::Wgsl(TEXTURED_LIT_SHADER_SRC.into()),
-        });
-
-        // Reuse the same group 0 and group 1 layouts as LitPipeline
-        let frame_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Textured Frame Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                std::mem::size_of::<FrameUniforms>() as u64
-                            ),
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(
-                                (std::mem::size_of::<GpuLightData>() * MAX_LIGHTS) as u64,
-                            ),
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let draw_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Textured Draw Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: NonZeroU64::new(
-                            std::mem::size_of::<DrawUniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Abrash Textured Lit Pipeline Layout"),
-            bind_group_layouts: &[
-                Some(&frame_bind_group_layout),
-                Some(&draw_bind_group_layout),
-                Some(texture_bind_group_layout),
-                Some(shadow_sample_layout),
-            ],
-            immediate_size: 0,
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Abrash Textured Lit Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[TexturedVertex::layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-
-        Self {
-            pipeline,
-            frame_bind_group_layout,
-            draw_bind_group_layout,
-            texture_bind_group_layout: texture_bind_group_layout.clone(),
-        }
-    }
-}
-
-impl MvpPipeline {
-    /// Create a render pipeline for the given color target format.
-    #[must_use]
-    pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Abrash MVP Shader"),
-            source: wgpu::ShaderSource::Wgsl(MVP_SHADER_SRC.into()),
-        });
-
-        let uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("MVP Uniform Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: NonZeroU64::new(std::mem::size_of::<MvpUniform>() as u64),
-                    },
-                    count: None,
-                }],
-            });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Abrash MVP Pipeline Layout"),
-            bind_group_layouts: &[Some(&uniform_bind_group_layout)],
-            immediate_size: 0,
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Abrash MVP Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[LitVertex::layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-
-        Self {
-            pipeline,
-            uniform_bind_group_layout,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -858,13 +493,6 @@ mod tests {
         assert!(MVP_SHADER_SRC.contains("fn vs_main"));
         assert!(MVP_SHADER_SRC.contains("fn fs_main"));
         assert!(MVP_SHADER_SRC.contains("mvp"));
-    }
-
-    #[test]
-    fn test_mvp_vertex_layout_stride() {
-        let layout = MvpVertex::layout();
-        assert_eq!(layout.array_stride, 12);
-        assert_eq!(layout.attributes.len(), 1);
     }
 
     #[test]

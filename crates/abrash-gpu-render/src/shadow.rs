@@ -10,11 +10,13 @@ pub const SHADOW_MAP_SIZE: u32 = 2048;
 
 /// Shadow map depth texture + depth-only pipeline + light-space matrix.
 pub struct ShadowMap {
+    #[allow(dead_code)]
     pub(crate) depth_texture: wgpu::Texture,
     pub(crate) depth_view: wgpu::TextureView,
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) uniform_buffer: wgpu::Buffer,
     pub(crate) uniform_bind_group: wgpu::BindGroup,
+    #[allow(dead_code)]
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     /// Bind group for sampling the shadow map in the main pass.
     pub(crate) sample_bind_group: wgpu::BindGroup,
@@ -59,6 +61,7 @@ fn vs_main(input: VsIn) -> @builtin(position) vec4<f32> {
 impl ShadowMap {
     /// Create a shadow map with depth-only pipeline.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         // Depth texture (Depth32Float so it can be sampled)
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {

@@ -25,13 +25,9 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 /// G-Buffer render targets.
 pub struct GBuffer {
-    pub(crate) position_texture: wgpu::Texture,
     pub(crate) position_view: wgpu::TextureView,
-    pub(crate) normal_texture: wgpu::Texture,
     pub(crate) normal_view: wgpu::TextureView,
-    pub(crate) albedo_texture: wgpu::Texture,
     pub(crate) albedo_view: wgpu::TextureView,
-    pub(crate) depth_texture: wgpu::Texture,
     pub(crate) depth_view: wgpu::TextureView,
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -67,22 +63,15 @@ impl GBuffer {
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
         let depth_usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
 
-        let (position_texture, position_view) =
-            make_texture("GBuffer Position", POSITION_FORMAT, color_usage);
-        let (normal_texture, normal_view) =
-            make_texture("GBuffer Normal", NORMAL_FORMAT, color_usage);
-        let (albedo_texture, albedo_view) =
-            make_texture("GBuffer Albedo", ALBEDO_FORMAT, color_usage);
-        let (depth_texture, depth_view) = make_texture("GBuffer Depth", DEPTH_FORMAT, depth_usage);
+        let (_, position_view) = make_texture("GBuffer Position", POSITION_FORMAT, color_usage);
+        let (_, normal_view) = make_texture("GBuffer Normal", NORMAL_FORMAT, color_usage);
+        let (_, albedo_view) = make_texture("GBuffer Albedo", ALBEDO_FORMAT, color_usage);
+        let (_, depth_view) = make_texture("GBuffer Depth", DEPTH_FORMAT, depth_usage);
 
         Self {
-            position_texture,
             position_view,
-            normal_texture,
             normal_view,
-            albedo_texture,
             albedo_view,
-            depth_texture,
             depth_view,
             width,
             height,
