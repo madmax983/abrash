@@ -72,7 +72,7 @@ impl Ray {
     /// * `direction` - The direction vector (will be normalized).
     #[must_use]
     pub fn new(origin: Vec3, direction: Vec3) -> Self {
-        let direction = direction.normalize();
+        let direction = direction.fast_normalize();
         Self {
             origin,
             direction,
@@ -141,7 +141,7 @@ impl Ray {
         }
 
         // Compute normal
-        let normal = edge1.cross(edge2).normalize();
+        let normal = edge1.cross(edge2).fast_normalize();
         // Correct normal orientation (double-sided lighting)
         // If the normal points away from the ray (dot > 0), flip it.
         let normal = if normal.dot(self.direction) > 0.0 {
@@ -326,7 +326,7 @@ impl RayTracer {
                     let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
 
                     // Ray Direction
-                    let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).normalize();
+                    let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).fast_normalize();
                     let ray = Ray::new(eye, direction);
 
                     *pixel = self.trace_ray(&ray, objects_slice, aabbs_slice, 0);
@@ -369,7 +369,7 @@ impl RayTracer {
         if let Some((hit, obj)) = closest_hit {
             // Lighting
             // Light source: Directional light from top-left-front
-            let light_dir = Vec3::new(-0.5, -1.0, -0.3).normalize();
+            let light_dir = Vec3::new(-0.5, -1.0, -0.3).fast_normalize();
             let light_color = Vec3::new(1.0, 1.0, 1.0);
             let ambient = Vec3::new(0.1, 0.1, 0.1);
 
@@ -386,7 +386,7 @@ impl RayTracer {
 
             // Specular (Phong)
             let view_dir = ray.direction * -1.0;
-            let reflect_dir = light_dir.reflect(hit.normal).normalize();
+            let reflect_dir = light_dir.reflect(hit.normal).fast_normalize();
             let spec = reflect_dir.dot(view_dir).max(0.0).powf(32.0);
             let specular = light_color * spec * 0.5;
 

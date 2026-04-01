@@ -3259,10 +3259,10 @@ pub fn fill_triangle_normal_mapped(
 
         // Compute Tangent Space Light Vectors
         let calculate_ts_light = |n: Vec3, t: Vec4| -> Vec3 {
-            let n_norm = n.normalize();
-            let t_norm = Vec3::new(t.x, t.y, t.z).normalize();
+            let n_norm = n.fast_normalize();
+            let t_norm = Vec3::new(t.x, t.y, t.z).fast_normalize();
             // Re-orthogonalize T with respect to N (Gram-Schmidt)
-            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).normalize();
+            let t_ortho = (t_norm - n_norm * n_norm.dot(t_norm)).fast_normalize();
             let b_ortho = n_norm.cross(t_ortho) * t.w;
 
             // Transform LightDir to Tangent Space.

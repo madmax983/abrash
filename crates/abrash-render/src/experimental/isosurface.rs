@@ -138,7 +138,7 @@ where
     let dx = sdf(Vec3::new(p.x + eps, p.y, p.z)) - sdf(Vec3::new(p.x - eps, p.y, p.z));
     let dy = sdf(Vec3::new(p.x, p.y + eps, p.z)) - sdf(Vec3::new(p.x, p.y - eps, p.z));
     let dz = sdf(Vec3::new(p.x, p.y, p.z + eps)) - sdf(Vec3::new(p.x, p.y, p.z - eps));
-    Vec3::new(dx, dy, dz).normalize()
+    Vec3::new(dx, dy, dz).fast_normalize()
 }
 
 fn polygonize_tetrahedron(

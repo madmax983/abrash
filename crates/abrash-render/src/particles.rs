@@ -208,7 +208,7 @@ impl ParticleSystem {
             1.0 + self.rng.next_f32_signed() * self.spread, // Generally upwards
             self.rng.next_f32_signed() * self.spread,
         )
-        .normalize()
+        .fast_normalize()
             * self.start_speed;
 
         let p = Particle::new(

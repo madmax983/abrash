@@ -739,7 +739,7 @@ impl SoftBody {
             let edge1 = v1 - v0;
             let edge2 = v2 - v0;
             // Cross product: (v1-v0) x (v2-v0)
-            let normal = edge1.cross(edge2).normalize();
+            let normal = edge1.cross(edge2).fast_normalize();
 
             normals[i0] = normals[i0] + normal;
             normals[i1] = normals[i1] + normal;
@@ -748,7 +748,7 @@ impl SoftBody {
 
         // Normalize
         for n in normals {
-            *n = n.normalize();
+            *n = n.fast_normalize();
         }
 
         // Should ideally recompute tangents too if used, but skipping for now as it's expensive.
