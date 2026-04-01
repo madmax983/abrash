@@ -42,6 +42,10 @@ impl GpuBuffer {
     /// # Safety
     ///
     /// The device must be valid and the size must not exceed available GPU memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `windows::core::Error` if D3D12 resource creation fails.
     pub unsafe fn new(device: &ID3D12Device, buffer_type: BufferType, size: usize) -> Result<Self> {
         let heap_properties = match buffer_type {
             BufferType::Upload => D3D12_HEAP_PROPERTIES {
@@ -119,6 +123,10 @@ impl GpuBuffer {
     ///
     /// The caller must ensure proper synchronization (no GPU access during mapping).
     /// The returned pointer is valid until `unmap()` is called.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `windows::core::Error` if the resource fails to map, such as if it is already mapped or is a UAV buffer.
     pub unsafe fn map(&mut self) -> Result<*mut u8> {
         if self.heap_type == BufferType::Uav {
             return Err(Error::from_hresult(E_INVALIDARG));

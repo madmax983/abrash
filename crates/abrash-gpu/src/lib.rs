@@ -11,7 +11,7 @@ mod d3d12_device;
 
 pub use buffers::{BufferType, GpuBuffer};
 pub use d3d12_binning::{
-    Aabb3d, GpuBinner, GpuHiZBuilder, HiZOcclusion, HiZPyramidWriter, PreparedTriangleInput,
-    ScreenVertexInput, TwoLevelBinningStats, VertexFixedInput,
+    Aabb3d, GpuBinner, GpuHiZBuilder, PreparedTriangleInput, ScreenVertexInput,
+    TwoLevelBinningStats, VertexFixedInput,
 };
 pub use d3d12_device::{D3D12CommandAllocator, D3D12CommandQueue, D3D12Device, GpuError};

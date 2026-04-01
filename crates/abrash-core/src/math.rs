@@ -91,11 +91,14 @@ pub fn fast_inv_sqrt(n: f32) -> f32 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
+    /// X component
     pub x: f32,
+    /// Y component
     pub y: f32,
 }
 
 impl Vec2 {
+    /// Linearly interpolates between this vector and another.
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -177,6 +180,7 @@ impl Mul<f32> for Vec2 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat2 {
+    /// Row-major array representation
     pub m: [[f32; 2]; 2],
 }
 
@@ -236,8 +240,11 @@ impl Mat2 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec3 {
+    /// X component
     pub x: f32,
+    /// Y component
     pub y: f32,
+    /// Z component
     pub z: f32,
 }
 
@@ -255,11 +262,14 @@ impl Vec3 {
         }
     }
 
+    /// The all-zero vector (0, 0, 0)
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+
+    /// The all-one vector (1, 1, 1)
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
@@ -598,6 +608,7 @@ impl std::ops::Div<f32> for Vec3 {
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
 pub struct Mat4 {
+    /// Row-major array representation
     pub m: [[f32; 4]; 4],
 }
 
@@ -1456,10 +1467,14 @@ impl Mul for Mat4 {
     }
 }
 
+/// A point projected to 2D screen coordinates, retaining depth and $1/w$.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenPoint {
+    /// Screen X coordinate
     pub x: i32,
+    /// Screen Y coordinate
     pub y: i32,
+    /// Screen Z coordinate (depth)
     pub z: f32,
     /// Reciprocal of the Homogeneous W coordinate ($1/w$).
     ///
@@ -2311,13 +2326,18 @@ mod tests {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec4 {
+    /// X component
     pub x: f32,
+    /// Y component
     pub y: f32,
+    /// Z component
     pub z: f32,
+    /// W component
     pub w: f32,
 }
 
 impl Vec4 {
+    /// Linearly interpolate between this vector and another.
     #[must_use]
     #[inline(always)]
     pub fn lerp(self, other: Self, t: f32) -> Self {

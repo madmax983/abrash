@@ -1,12 +1,14 @@
-// Build script for compiling HLSL shaders to DXIL bytecode
-// Only runs when gpu-binning feature is enabled
+//! Build script for compiling HLSL shaders to DXIL bytecode.
+//! Only runs when the `gpu-binning` feature is enabled.
 
+/// Main entry point for the build script.
 fn main() {
     #[cfg(feature = "gpu-binning")]
     compile_shaders();
 }
 
 #[cfg(feature = "gpu-binning")]
+/// Compiles HLSL shaders to DXIL bytecode using the DirectX Shader Compiler (`dxc`).
 fn compile_shaders() {
     use std::process::Command;
 
@@ -66,6 +68,7 @@ fn compile_shaders() {
 }
 
 #[cfg(feature = "gpu-binning")]
+/// Attempts to locate the DirectX Shader Compiler (`dxc.exe`) in common installation paths.
 fn find_dxc() -> Option<String> {
     // Try to find dxc.exe in common locations
 

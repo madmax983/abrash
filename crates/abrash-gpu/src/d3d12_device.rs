@@ -71,6 +71,9 @@ impl D3D12CommandAllocator {
     ///
     /// # Safety
     /// Must not be called while command lists allocated from this allocator are executing
+    ///
+    /// # Errors
+    /// Returns a `windows::core::Error` if resetting the command allocator fails.
     pub unsafe fn reset(&self) -> WinResult<()> {
         unsafe { self.allocator.Reset() }
     }

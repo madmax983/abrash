@@ -21,53 +21,76 @@ use windows::{
 /// Minimal screen-space vertex input used by GPU triangle binning.
 #[derive(Debug, Clone, Copy)]
 pub struct ScreenVertexInput {
+    /// X coordinate
     pub x: i32,
+    /// Y coordinate
     pub y: i32,
+    /// Z coordinate (depth)
     pub z: f32,
 }
 
 /// Fixed-point vertex used by GPU edge setup.
 #[derive(Debug, Clone, Copy)]
 pub struct VertexFixedInput {
+    /// Fixed-point X coordinate
     pub x: i32,
+    /// Fixed-point Y coordinate
     pub y: i32,
+    /// Fixed-point Z coordinate
     pub z: i32,
 }
 
 /// Triangle payload consumed by GPU binning shaders.
 #[derive(Debug, Clone, Copy)]
 pub struct PreparedTriangleInput {
+    /// Vertex 0
     pub p0: ScreenVertexInput,
+    /// Vertex 1
     pub p1: ScreenVertexInput,
+    /// Vertex 2
     pub p2: ScreenVertexInput,
+    /// Fixed-point Vertex 0
     pub p0_fixed: VertexFixedInput,
+    /// Fixed-point Vertex 1
     pub p1_fixed: VertexFixedInput,
+    /// Fixed-point Vertex 2
     pub p2_fixed: VertexFixedInput,
+    /// Depth gradient with respect to X
     pub dz_dx: f32,
+    /// True if the long edge of the triangle is on the left
     pub long_edge_is_left: bool,
+    /// Solid color payload for the triangle
     pub color: u32,
+    /// Minimum X bound of the triangle's screen AABB
     pub aabb_min_x: i32,
+    /// Minimum Y bound of the triangle's screen AABB
     pub aabb_min_y: i32,
+    /// Maximum X bound of the triangle's screen AABB
     pub aabb_max_x: i32,
+    /// Maximum Y bound of the triangle's screen AABB
     pub aabb_max_y: i32,
+    /// Minimum depth value within the triangle
     pub min_depth: f32,
+    /// Maximum depth value within the triangle
     pub max_depth: f32,
 }
 
 /// Axis-aligned bounding box used for Hi-Z visibility queries.
 #[derive(Debug, Clone, Copy)]
 pub struct Aabb3d {
+    /// Minimum X coordinate
     pub min_x: i32,
+    /// Maximum X coordinate
     pub max_x: i32,
+    /// Minimum Y coordinate
     pub min_y: i32,
+    /// Maximum Y coordinate
     pub max_y: i32,
+    /// Minimum depth value
     pub min_depth: f32,
+    /// Maximum depth value
     pub max_depth: f32,
 }
-
-/// Adapter trait for coarse-bin visibility checks against a Hi-Z structure.
-
-/// Adapter trait for writing GPU-built Hi-Z pyramid levels back to CPU storage.
 
 /// GPU compute binning pipeline
 pub struct GpuBinner {
@@ -115,14 +138,17 @@ impl GpuBinner {
     /// * `height` - Framebuffer height in pixels
     /// * `tile_size` - Tile size (typically 32)
     /// * `max_triangles` - Max triangles per batch (typically 1000)
+    ///
+    /// # Errors
+    /// Returns `GpuError` if device creation or buffer allocation fails
     pub fn new(
         width: u32,
         height: u32,
         tile_size: u32,
         max_triangles: usize,
     ) -> Result<Self, GpuError> {
-        let tiles_x = (width + tile_size - 1) / tile_size;
-        let tiles_y = (height + tile_size - 1) / tile_size;
+        let tiles_x = width.div_ceil(tile_size);
+        let tiles_y = height.div_ceil(tile_size);
         let tile_count = (tiles_x * tiles_y) as usize;
 
         // Create device
@@ -385,6 +411,9 @@ impl GpuBinner {
     /// # Arguments
     /// * `triangles` - Slice of PreparedTriangle structs to bin
     /// * `heads`, `tails`, `nexts`, `tris` - Output flattened linked list structure
+    ///
+    /// # Errors
+    /// Returns `GpuError` if binning fails
     pub fn bin_triangles(
         &mut self,
         triangles: &[PreparedTriangleInput],
@@ -421,14 +450,17 @@ impl GpuBinner {
     ///
     /// Allocates coarse binning buffers and compiles coarse binning shader.
     /// After calling this, use bin_triangles_two_level() instead of bin_triangles().
+    ///
+    /// # Errors
+    /// Returns `GpuError` if buffer allocation or shader compilation fails
     pub fn enable_two_level_binning(&mut self) -> Result<(), GpuError> {
         if self.two_level_enabled {
             return Ok(()); // Already enabled
         }
 
         // Calculate coarse bin dimensions
-        self.coarse_bins_x = (self.width + self.coarse_bin_size - 1) / self.coarse_bin_size;
-        self.coarse_bins_y = (self.height + self.coarse_bin_size - 1) / self.coarse_bin_size;
+        self.coarse_bins_x = self.width.div_ceil(self.coarse_bin_size);
+        self.coarse_bins_y = self.height.div_ceil(self.coarse_bin_size);
         let coarse_bin_count = (self.coarse_bins_x * self.coarse_bins_y) as usize;
 
         // Allocate coarse bins UAV buffer
@@ -493,6 +525,9 @@ impl GpuBinner {
     ///
     /// # Returns
     /// Stats about culling effectiveness
+    ///
+    /// # Errors
+    /// Returns `GpuError` if binning fails
     pub fn bin_triangles_two_level(
         &mut self,
         triangles: &[PreparedTriangleInput],
@@ -606,7 +641,7 @@ impl GpuBinner {
                 .SetComputeRoot32BitConstants(1, 4, constants.as_ptr() as *const _, 0);
 
             // Dispatch (64 threads per group)
-            let thread_groups = (triangle_count + 63) / 64;
+            let thread_groups = triangle_count.div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Copy UAV to readback
@@ -819,7 +854,7 @@ impl GpuBinner {
             );
 
             // Step 8: Dispatch compute shader (one thread group per visible bin)
-            let thread_groups = (visible_bins.len() as u32 + 63) / 64;
+            let thread_groups = (visible_bins.len() as u32).div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Step 9: Close and execute command list
@@ -847,7 +882,7 @@ impl GpuBinner {
 
             if self.fence.GetCompletedValue() < self.fence_value {
                 let event = CreateEventW(None, false, false, None)
-                    .map_err(|e| GpuError::DeviceCreation(e.into()))?;
+                    .map_err(GpuError::DeviceCreation)?;
                 self.fence
                     .SetEventOnCompletion(self.fence_value, event)
                     .map_err(GpuError::DeviceCreation)?;
@@ -993,7 +1028,7 @@ impl GpuBinner {
                 .SetComputeRoot32BitConstants(1, 4, constants.as_ptr() as *const _, 0);
 
             // Dispatch compute shader (64 threads per group)
-            let thread_groups = (triangle_count + 63) / 64;
+            let thread_groups = triangle_count.div_ceil(64);
             self.command_list.Dispatch(thread_groups, 1, 1);
 
             // Copy UAV to readback buffer
@@ -1085,8 +1120,11 @@ impl GpuBinner {
 /// Statistics from two-level hierarchical binning
 #[derive(Debug, Default, Clone)]
 pub struct TwoLevelBinningStats {
+    /// Total number of coarse bins
     pub total_coarse_bins: usize,
+    /// Number of coarse bins that passed Hi-Z culling
     pub visible_coarse_bins: usize,
+    /// Number of coarse bins that were culled
     pub culled_coarse_bins: usize,
 }
 
@@ -1189,6 +1227,9 @@ impl GpuHiZBuilder {
     ///
     /// # Returns
     /// Result containing the builder or GPU error
+    ///
+    /// # Errors
+    /// Returns `GpuError` if device creation or buffer allocation fails
     pub fn new(width: u32, height: u32) -> Result<Self, GpuError> {
         // Calculate pyramid level count (same as HiZBuffer)
         let max_dim = width.max(height) as f32;
@@ -1202,7 +1243,7 @@ impl GpuHiZBuilder {
         let descriptor_heap: ID3D12DescriptorHeap = unsafe {
             let desc = D3D12_DESCRIPTOR_HEAP_DESC {
                 Type: D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                NumDescriptors: (level_count * 2) as u32, // SRV + UAV per level
+                NumDescriptors: (level_count * 2), // SRV + UAV per level
                 Flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
                 NodeMask: 0,
             };
@@ -1314,7 +1355,7 @@ impl GpuHiZBuilder {
     fn aligned_row_pitch(width: u32, bytes_per_pixel: u32) -> u32 {
         const D3D12_TEXTURE_DATA_PITCH_ALIGNMENT: u32 = 256;
         let pitch = width * bytes_per_pixel;
-        ((pitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
+        pitch.div_ceil(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
             * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
     }
 
@@ -1669,6 +1710,9 @@ impl GpuHiZBuilder {
     ///
     /// # Arguments
     /// * `zbuffer` - Slice of f32 depth values (row-major, width×height)
+    ///
+    /// # Errors
+    /// Returns `GpuError` if upload fails
     pub fn upload_zbuffer(&mut self, zbuffer: &[f32]) -> Result<(), GpuError> {
         let expected_size = (self.width * self.height) as usize;
         if zbuffer.len() != expected_size {
@@ -1791,6 +1835,9 @@ impl GpuHiZBuilder {
     /// Build the Hi-Z pyramid on GPU
     ///
     /// Dispatches compute shader for each level, building from level 0 upward
+    ///
+    /// # Errors
+    /// Returns `GpuError` if building pyramid levels fails
     pub fn build_pyramid(&mut self) -> Result<(), GpuError> {
         for level in 1..self.level_count {
             self.build_pyramid_level(level)?;
@@ -1854,8 +1901,8 @@ impl GpuHiZBuilder {
 
             // Get destination resource (always pyramid_levels, never zbuffer)
             // Dispatch compute shader (8×8 thread groups)
-            let thread_groups_x = (dst_width + 7) / 8;
-            let thread_groups_y = (dst_height + 7) / 8;
+            let thread_groups_x = dst_width.div_ceil(8);
+            let thread_groups_y = dst_height.div_ceil(8);
             self.command_list
                 .Dispatch(thread_groups_x, thread_groups_y, 1);
 
@@ -1882,7 +1929,11 @@ impl GpuHiZBuilder {
     /// Download pyramid from GPU to CPU HiZBuffer
     ///
     /// # Arguments
-    /// * `hiz_buffer` - Target HiZBuffer to populate with pyramid data
+    /// * `write_level_data` - Callback to write data per level
+    /// * `mark_valid` - Callback to mark pyramid as valid
+    ///
+    /// # Errors
+    /// Returns `GpuError` if download fails
     pub fn download_pyramid(
         &mut self,
         mut write_level_data: impl FnMut(u32, &[f32]),

@@ -20,7 +20,9 @@ use crate::math::{Mat4, Vec3};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingSphere {
+    /// Center of the bounding sphere
     pub center: Vec3,
+    /// Radius of the bounding sphere
     pub radius: f32,
 }
 
@@ -71,10 +73,14 @@ impl BoundingSphere {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AABB {
+    /// Minimum point of the AABB
     pub min: Vec3,
-    pub pad0: f32, // Padding to align max to 16 bytes offset
+    /// Padding to align max to 16 bytes offset
+    pub pad0: f32,
+    /// Maximum point of the AABB
     pub max: Vec3,
-    pub pad1: f32, // Padding to make total size 32 bytes
+    /// Padding to make total size 32 bytes
+    pub pad1: f32,
 }
 
 impl AABB {
