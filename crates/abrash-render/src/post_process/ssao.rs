@@ -301,7 +301,13 @@ unsafe fn apply_ssao_avx2(
     half_width: f32,
     half_height: f32,
 ) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _CMP_GE_OQ, _CMP_GT_OQ, _CMP_LT_OQ, _mm256_add_epi32, _mm256_add_ps, _mm256_and_ps,
+        _mm256_and_si256, _mm256_andnot_ps, _mm256_castsi256_ps, _mm256_cmp_ps, _mm256_cmpgt_epi32,
+        _mm256_cvttps_epi32, _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mask_i32gather_ps,
+        _mm256_movemask_ps, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_rcp_ps, _mm256_set_ps,
+        _mm256_set1_epi32, _mm256_set1_ps, _mm256_setzero_ps, _mm256_storeu_ps, _mm256_sub_ps,
+    };
 
     unsafe {
         let p00 = _mm256_set1_ps(proj_m[0]);
