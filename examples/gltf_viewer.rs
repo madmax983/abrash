@@ -331,12 +331,8 @@ fn main() -> Result<(), HostError> {
     let mut loading_table = Table::new();
     loading_table
         .load_preset(presets::UTF8_FULL)
-        .set_header(vec![
-            Cell::new("⏳ Loading").fg(Color::Cyan),
-        ])
-        .add_row(vec![
-            Cell::new(path.display().to_string()).fg(Color::White),
-        ]);
+        .set_header(vec![Cell::new("⏳ Loading").fg(Color::Cyan)])
+        .add_row(vec![Cell::new(path.display().to_string()).fg(Color::White)]);
     println!("\n{loading_table}");
 
     let scene = load_gltf(path).map_err(|e| HostError::App(e.to_string()))?;

@@ -12,20 +12,68 @@ use abrash_core::fixed16_16::Fixed16_16;
 // ---------------------------------------------------------------------------
 
 /// Texture data provider for BSP rendering.
-/// Consumers implement this to bridge their texture caches.
-pub trait BspTextures {
+pub struct BspTextures {
+    pub wall_column_data: Vec<u8>,
+    pub flat: [u8; 4096],
+    pub colormap_data: [[u8; 256]; 32],
+    pub palette: [u32; 256],
+}
+
+impl BspTextures {
+    /// Creates a mock texture set for testing.
+    #[must_use]
+    pub fn new_mock() -> Self {
+        // Wall column: 128 texels, all palette index 1
+        let wall_column_data = vec![1u8; 128];
+
+        // Flat: all palette index 2
+        let flat = [2u8; 4096];
+
+        // Colormaps: row 0 = identity, rows 1..31 = all map to 0 (dark)
+        let mut colormap_data = [[0u8; 256]; 32];
+        for i in 0..256 {
+            colormap_data[0][i] = i as u8; // identity
+        }
+        // rows 1..31 are already zeroed (all map to palette 0 = black)
+
+        // Palette
+        let mut palette = [0xFF00_0000u32; 256]; // default black+alpha
+        palette[0] = 0xFF00_0000; // black
+        palette[1] = 0xFFFF_0000; // red
+        palette[2] = 0xFF00_FF00; // green
+
+        Self {
+            wall_column_data,
+            flat,
+            colormap_data,
+            palette,
+        }
+    }
+
     /// Get a single column of wall texture data (palette-indexed, top to bottom).
     /// Returns palette indices, one per texel row.  Tiles vertically.
-    fn wall_column(&self, texture_id: u16, col: usize) -> &[u8];
+    #[must_use]
+    pub fn wall_column(&self, _texture_id: u16, _col: usize) -> &[u8] {
+        &self.wall_column_data
+    }
 
     /// Get a 64x64 flat texture (4096 bytes, palette-indexed, row-major).
-    fn flat_data(&self, texture_id: u16) -> &[u8; 4096];
+    #[must_use]
+    pub const fn flat_data(&self, _texture_id: u16) -> &[u8; 4096] {
+        &self.flat
+    }
 
     /// Get a 256-byte colormap row.  index 0 = bright, 31 = darkest.
-    fn colormap(&self, index: u8) -> &[u8; 256];
+    #[must_use]
+    pub const fn colormap(&self, index: u8) -> &[u8; 256] {
+        &self.colormap_data[index as usize]
+    }
 
     /// Look up palette entry (palette index -> 0xAARRGGBB).
-    fn palette_argb(&self, palette_idx: u8) -> u32;
+    #[must_use]
+    pub const fn palette_argb(&self, palette_idx: u8) -> u32 {
+        self.palette[palette_idx as usize]
+    }
 }
 
 // ---------------------------------------------------------------------------
