@@ -712,21 +712,21 @@ fn apply_vignette_scalar(
         0.0
     };
 
+    let scale = intensity * inv_max_dist_sq;
+
     // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
     // Iterate over chunks instead of doing index calculations inside the hot loop.
     for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
         let dy = y as f32 - center_y;
-        let dy_sq = dy * dy;
+        let dy_sq_scaled = dy * dy * scale;
+        let row_base_factor = 1.0 - dy_sq_scaled;
 
         for (x, p_ref) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x;
-            let dist_sq = dx * dx + dy_sq;
-
-            // Normalize distance squared: 0.0 at center, 1.0 at corner
-            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
+            let dx_sq_scaled = dx * dx * scale;
 
             // Quadratic falloff
-            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+            let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
             // Fixed point approximation to match SIMD precision (8.8 fixed point)
             let factor_fixed = (factor * 256.0) as u32;
@@ -1370,9 +1370,9 @@ mod simd {
             0.0
         };
 
+        let scale = intensity * inv_max_dist_sq;
+        let scale_vec = _mm256_set1_ps(scale);
         let center_x_vec = _mm256_set1_ps(center_x);
-        let inv_max_vec = _mm256_set1_ps(inv_max_dist_sq);
-        let intensity_vec = _mm256_set1_ps(intensity);
         let one_f = _mm256_set1_ps(1.0);
         let zero_f = _mm256_setzero_ps();
         let scale_256 = _mm256_set1_ps(256.0);
@@ -1389,8 +1389,9 @@ mod simd {
 
         for y in 0..height {
             let dy = y as f32 - center_y;
-            let dy_sq = dy * dy;
-            let dy_sq_vec = _mm256_set1_ps(dy_sq);
+            let dy_sq_scaled = dy * dy * scale;
+            let row_base_factor = 1.0 - dy_sq_scaled;
+            let row_base_factor_vec = _mm256_set1_ps(row_base_factor);
 
             let row_start = y * width;
             let mut ptr = unsafe { pixels.as_mut_ptr().add(row_start) };
@@ -1401,10 +1402,9 @@ mod simd {
                 let x_coords = _mm256_add_ps(x_base, x_offsets);
                 let dx = _mm256_sub_ps(x_coords, center_x_vec);
                 let dx_sq = _mm256_mul_ps(dx, dx);
-                let dist_sq = _mm256_add_ps(dx_sq, dy_sq_vec);
+                let dx_sq_scaled = _mm256_mul_ps(dx_sq, scale_vec);
 
-                let term = _mm256_mul_ps(intensity_vec, _mm256_mul_ps(dist_sq, inv_max_vec));
-                let factor = _mm256_sub_ps(one_f, term);
+                let factor = _mm256_sub_ps(row_base_factor_vec, dx_sq_scaled);
                 let factor_clamped = _mm256_max_ps(zero_f, _mm256_min_ps(one_f, factor));
 
                 // Convert to fixed point 0..256
@@ -1447,9 +1447,8 @@ mod simd {
             // Tail
             while x < width {
                 let dx = x as f32 - center_x;
-                let dist_sq = dx * dx + dy_sq;
-                let normalized_dist_sq = dist_sq * inv_max_dist_sq;
-                let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+                let dx_sq_scaled = dx * dx * scale;
+                let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
                 let p = unsafe { *ptr };
                 let a = p & 0xFF00_0000;
