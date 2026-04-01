@@ -167,6 +167,7 @@ impl AbrashBackend {
             frame.draw(mesh_handle, mat_handle, draw.transform);
         }
 
+        self.target.clear(0xFF00_0000);
         self.renderer
             .render_frame(&frame, &mut self.target)
             .expect("render_frame");
