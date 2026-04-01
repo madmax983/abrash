@@ -9,7 +9,7 @@ fn mode7_benchmark(c: &mut Criterion) {
 
     let config = Mode7Config::default();
 
-    c.bench_function("render_mode7_baseline", |b| {
+    c.bench_function("render_mode7_optimized", |b| {
         b.iter(|| {
             render_mode7(black_box(&mut fb), black_box(&tex), black_box(&config));
         });

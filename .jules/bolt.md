@@ -177,3 +177,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] f32::powf in Post-Processing
 **Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
 **Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+
+## Optimize Mode 7 iteration to use exact chunks
+**Learning:** When iterating row-by-row over a 1D slice representing a 2D grid, using `chunks_exact_mut` instead of `chunks_mut` eliminates remainder chunk handling and bounds checking overhead.
+**Action:** Replaced `chunks_mut` and `par_chunks_mut` with `chunks_exact_mut` and `par_chunks_exact_mut` in `render_mode7`.

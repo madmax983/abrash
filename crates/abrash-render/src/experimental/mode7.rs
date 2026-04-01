@@ -129,9 +129,9 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
     let target_slice = &mut buffer[start_y * w..start_y * w + row_count * w];
 
     #[cfg(feature = "parallel")]
-    let row_iter = target_slice.par_chunks_mut(w).enumerate();
+    let row_iter = target_slice.par_chunks_exact_mut(w).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let row_iter = target_slice.chunks_mut(w).enumerate();
+    let row_iter = target_slice.chunks_exact_mut(w).enumerate();
 
     row_iter.for_each(|(dy, row)| {
         let y = start_y + dy;
