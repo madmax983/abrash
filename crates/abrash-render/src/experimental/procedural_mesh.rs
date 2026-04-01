@@ -125,7 +125,7 @@ impl TerrainGenerator {
             let edge2 = v2 - v0;
             // Cross product order matters for winding.
             // Standard CCW: (v1-v0) x (v2-v0) should point UP.
-            let normal = edge1.cross(edge2).normalize();
+            let normal = edge1.cross(edge2).fast_normalize();
 
             new_normals[i0] = new_normals[i0] + normal;
             new_normals[i1] = new_normals[i1] + normal;
@@ -133,7 +133,7 @@ impl TerrainGenerator {
         }
 
         for n in &mut new_normals {
-            *n = n.normalize();
+            *n = n.fast_normalize();
         }
         mesh.normals = new_normals;
 

@@ -237,6 +237,80 @@ impl AABB {
         2.0 * (size.x * size.y + size.x * size.z + size.y * size.z)
     }
 
+    /// Closest point on (or inside) this AABB to `point`.
+    #[must_use]
+    #[inline]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        point.clamp(self.min, self.max)
+    }
+
+    /// Squared distance from `point` to this AABB.
+    ///
+    /// Returns 0 when the point lies inside the box.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq_to_point(&self, point: Vec3) -> f32 {
+        let clamped = self.closest_point(point);
+        (point - clamped).length_sq()
+    }
+
+    /// Returns `true` if the sphere intersects this AABB.
+    #[must_use]
+    #[inline]
+    pub fn intersects_sphere(&self, center: Vec3, radius: f32) -> bool {
+        self.distance_sq_to_point(center) <= radius * radius
+    }
+
+    /// Ray/AABB intersection using the branch-light slab algorithm.
+    ///
+    /// Returns `(t_min, t_max)` on hit, where ray points are `origin + dir * t`.
+    /// Caller can filter hits behind origin by checking `t_max >= 0.0`.
+    #[must_use]
+    pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<(f32, f32)> {
+        let mut t_min = f32::NEG_INFINITY;
+        let mut t_max = f32::INFINITY;
+
+        #[inline]
+        fn update_axis(
+            min: f32,
+            max: f32,
+            origin: f32,
+            dir: f32,
+            t_min: &mut f32,
+            t_max: &mut f32,
+        ) -> bool {
+            if dir.abs() <= f32::EPSILON {
+                return origin >= min && origin <= max;
+            }
+            let inv = 1.0 / dir;
+            let mut t0 = (min - origin) * inv;
+            let mut t1 = (max - origin) * inv;
+            if t0 > t1 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            *t_min = (*t_min).max(t0);
+            *t_max = (*t_max).min(t1);
+            *t_min <= *t_max
+        }
+
+        if !update_axis(
+            self.min.x, self.max.x, origin.x, dir.x, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        if !update_axis(
+            self.min.y, self.max.y, origin.y, dir.y, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        if !update_axis(
+            self.min.z, self.max.z, origin.z, dir.z, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        Some((t_min, t_max))
+    }
+
     /// Transform this AABB by a matrix.
     ///
     /// Calculates the new Axis-Aligned Bounding Box in the new coordinate space.

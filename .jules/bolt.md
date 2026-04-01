@@ -181,3 +181,10 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## SIMD AABB Transform using Arvo's Extents
 **Learning:** When transforming Axis-Aligned Bounding Boxes (AABBs) using SIMD/AVX2, prefer Arvo's extent-based algorithm (transforming the center and multiplying extents by the absolute value of the rotation matrix) over calculating and finding the min/max of all 8 corners. This avoids expensive cross-lane permutations and shuffling, significantly reducing execution latency.
 **Action:** When implementing or reviewing bounding box transformations, prioritize center-extent representations and absolute matrix multiplication over explicitly processing individual corner vertices.
+**[Frame Vector Pre-allocation]
+**Learning:** Found a bottleneck where `Frame::new()` was defaulting `commands` and `lights` vectors to `Vec::new()`, causing dynamic heap re-allocations on the hot path (per-frame loop) when rendering scenes with multiple objects.
+**Action:** Introduced `Frame::with_capacity(num_commands, num_lights)` to explicitly pre-allocate these vectors. When constructing repetitive frames, manually configuring capacities entirely eliminates these heap re-allocations.
+
+**Test Float Comparison Lints**
+**Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
+**Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).

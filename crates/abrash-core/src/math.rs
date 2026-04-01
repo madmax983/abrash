@@ -311,14 +311,47 @@ impl Vec2 {
     #[must_use]
     #[inline]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        (dx * dx + dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        dx * dx + dy * dy
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self::new(self.x * inv_len, self.y * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = fast_inv_sqrt(dist_sq);
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Projects this vector onto another vector.
@@ -735,14 +768,49 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        (dx * dx + dy * dy + dz * dz).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        dx * dx + dy * dy + dz * dz
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = fast_inv_sqrt(len_sq);
+            Self::new(self.x * inv_len, self.y * inv_len, self.z * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = fast_inv_sqrt(dist_sq);
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Reflects this vector around a given normal vector.
@@ -845,6 +913,30 @@ impl Vec3 {
         (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
     }
 
+    /// Builds an orthonormal basis from this direction.
+    ///
+    /// Returns two unit vectors `(tangent, bitangent)` that are perpendicular
+    /// to the (normalized) input and each other.
+    #[must_use]
+    #[inline]
+    pub fn orthonormal_basis(self) -> (Self, Self) {
+        let n = if self.length_sq() > 0.000_000_01 {
+            self.normalize()
+        } else {
+            Self::new(0.0, 0.0, 1.0)
+        };
+
+        let helper = if n.z.abs() < 0.999 {
+            Self::new(0.0, 0.0, 1.0)
+        } else {
+            Self::new(0.0, 1.0, 0.0)
+        };
+
+        let tangent = helper.cross(n).normalize();
+        let bitangent = n.cross(tangent);
+        (tangent, bitangent)
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -861,7 +953,7 @@ impl Vec3 {
     /// Returns a new vector containing the maximum value for each component.
     #[must_use]
     #[inline]
-    pub const fn max(&self, other: Self) -> Self {
+    pub const fn max(self, other: Self) -> Self {
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -1447,8 +1539,38 @@ impl Mat4 {
             return;
         }
 
+        self.transform_points_scalar_uninit(points, output);
+    }
+
+    #[inline]
+    fn transform_points_scalar_uninit(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m03 = self.m[0][3];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m13 = self.m[1][3];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+        let m23 = self.m[2][3];
+        let m30 = self.m[3][0];
+        let m31 = self.m[3][1];
+        let m32 = self.m[3][2];
+        let m33 = self.m[3][3];
+
         for (p, out) in points.iter().zip(output.iter_mut()) {
-            out.write(self.transform_point(*p));
+            let x = p.x * m00 + p.y * m10 + p.z * m20 + m30;
+            let y = p.x * m01 + p.y * m11 + p.z * m21 + m31;
+            let z = p.x * m02 + p.y * m12 + p.z * m22 + m32;
+            let w = p.x * m03 + p.y * m13 + p.z * m23 + m33;
+            out.write((Vec3::new(x, y, z), w));
         }
     }
 
@@ -2825,6 +2947,26 @@ mod tests {
         assert!((max.x - 3.0).abs() < f32::EPSILON);
         assert!((max.y - 5.0).abs() < f32::EPSILON);
         assert!((max.z - -1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis() {
+        let n = Vec3::new(0.3, 0.5, 0.8).normalize();
+        let (t, b) = n.orthonormal_basis();
+
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(n.dot(t).abs() < 1e-4);
+        assert!(n.dot(b).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis_degenerate_input() {
+        let (t, b) = Vec3::ZERO.orthonormal_basis();
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
     }
 
     #[test]

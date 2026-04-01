@@ -170,6 +170,146 @@ impl Transform {
             local.z / self.scale.z,
         )
     }
+
+    /// Transform a batch of points, reusing one output allocation.
+    #[must_use]
+    pub fn transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(points.len());
+        self.transform_points_into(points, &mut out);
+        out
+    }
+
+    /// Transform a batch of points and write into `out`.
+    ///
+    /// This hoists quaternion basis expansion outside the loop.
+    pub fn transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
+        let rotation = self.rotation.normalize();
+        let x2 = rotation.x + rotation.x;
+        let y2 = rotation.y + rotation.y;
+        let z2 = rotation.z + rotation.z;
+        let xx = rotation.x * x2;
+        let xy = rotation.x * y2;
+        let xz = rotation.x * z2;
+        let yy = rotation.y * y2;
+        let yz = rotation.y * z2;
+        let zz = rotation.z * z2;
+        let wx = rotation.w * x2;
+        let wy = rotation.w * y2;
+        let wz = rotation.w * z2;
+
+        let m00 = (1.0 - (yy + zz)) * self.scale.x;
+        let m01 = (xy + wz) * self.scale.x;
+        let m02 = (xz - wy) * self.scale.x;
+        let m10 = (xy - wz) * self.scale.y;
+        let m11 = (1.0 - (xx + zz)) * self.scale.y;
+        let m12 = (yz + wx) * self.scale.y;
+        let m20 = (xz + wy) * self.scale.z;
+        let m21 = (yz - wx) * self.scale.z;
+        let m22 = (1.0 - (xx + yy)) * self.scale.z;
+
+        out.clear();
+        out.resize(points.len(), Vec3::ZERO);
+        for (dst, &p) in out.iter_mut().zip(points.iter()) {
+            *dst = Vec3::new(
+                p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
+                p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
+                p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
+            );
+        }
+    }
+
+    /// Transform a batch of direction vectors (scale + rotate, no translation).
+    #[must_use]
+    pub fn transform_vectors(&self, vectors: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(vectors.len());
+        self.transform_vectors_into(vectors, &mut out);
+        out
+    }
+
+    /// Transform a batch of direction vectors and write into `out`.
+    pub fn transform_vectors_into(&self, vectors: &[Vec3], out: &mut Vec<Vec3>) {
+        let rotation = self.rotation.normalize();
+        let x2 = rotation.x + rotation.x;
+        let y2 = rotation.y + rotation.y;
+        let z2 = rotation.z + rotation.z;
+        let xx = rotation.x * x2;
+        let xy = rotation.x * y2;
+        let xz = rotation.x * z2;
+        let yy = rotation.y * y2;
+        let yz = rotation.y * z2;
+        let zz = rotation.z * z2;
+        let wx = rotation.w * x2;
+        let wy = rotation.w * y2;
+        let wz = rotation.w * z2;
+
+        let m00 = (1.0 - (yy + zz)) * self.scale.x;
+        let m01 = (xy + wz) * self.scale.x;
+        let m02 = (xz - wy) * self.scale.x;
+        let m10 = (xy - wz) * self.scale.y;
+        let m11 = (1.0 - (xx + zz)) * self.scale.y;
+        let m12 = (yz + wx) * self.scale.y;
+        let m20 = (xz + wy) * self.scale.z;
+        let m21 = (yz - wx) * self.scale.z;
+        let m22 = (1.0 - (xx + yy)) * self.scale.z;
+
+        out.clear();
+        out.resize(vectors.len(), Vec3::ZERO);
+        for (dst, &v) in out.iter_mut().zip(vectors.iter()) {
+            *dst = Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            );
+        }
+    }
+
+    /// Apply the inverse transform to a batch of points.
+    #[must_use]
+    pub fn inverse_transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(points.len());
+        self.inverse_transform_points_into(points, &mut out);
+        out
+    }
+
+    /// Apply the inverse transform to a batch of points and write into `out`.
+    pub fn inverse_transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
+        let inv_rotation = self.rotation.inverse().normalize();
+        let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
+
+        let x2 = inv_rotation.x + inv_rotation.x;
+        let y2 = inv_rotation.y + inv_rotation.y;
+        let z2 = inv_rotation.z + inv_rotation.z;
+        let xx = inv_rotation.x * x2;
+        let xy = inv_rotation.x * y2;
+        let xz = inv_rotation.x * z2;
+        let yy = inv_rotation.y * y2;
+        let yz = inv_rotation.y * z2;
+        let zz = inv_rotation.z * z2;
+        let wx = inv_rotation.w * x2;
+        let wy = inv_rotation.w * y2;
+        let wz = inv_rotation.w * z2;
+
+        let m00 = 1.0 - (yy + zz);
+        let m01 = xy + wz;
+        let m02 = xz - wy;
+        let m10 = xy - wz;
+        let m11 = 1.0 - (xx + zz);
+        let m12 = yz + wx;
+        let m20 = xz + wy;
+        let m21 = yz - wx;
+        let m22 = 1.0 - (xx + yy);
+
+        out.clear();
+        out.resize(points.len(), Vec3::ZERO);
+        for (dst, &p) in out.iter_mut().zip(points.iter()) {
+            let local = p - self.position;
+            *dst = Vec3::new(
+                (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
+                (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
+                (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
+            );
+        }
+    }
 }
 
 impl Default for Transform {

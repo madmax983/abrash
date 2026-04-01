@@ -1,27 +1,18 @@
-use abrash_core::framebuffer::Framebuffer;
-use abrash_core::zbuffer::ZBuffer;
+use abrash_render::experimental::vision::{VisionConfig, VisionMode, apply_vision};
+use abrash_render::framebuffer::Framebuffer;
+use abrash_render::zbuffer::ZBuffer;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-#[cfg(feature = "nova")]
-use abrash_render::experimental::vision::{VisionConfig, VisionMode, apply_vision};
+fn vision_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("vision_post_process");
+    group.sample_size(100);
 
-#[cfg(feature = "nova")]
-fn bench_vision(c: &mut Criterion) {
-    let mut group = c.benchmark_group("vision");
-
-    // Standard low-res retro resolution
-    let width = 320;
-    let height = 240;
-
+    let width = 1280;
+    let height = 720;
     let mut fb = Framebuffer::new(width, height).unwrap();
     let zb = ZBuffer::new(width, height).unwrap();
 
-    // Fill with dummy data
-    let fb_slice = fb.as_mut_slice();
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..fb_slice.len() {
-        fb_slice[i] = 0xFF80_8080;
-    }
+    fb.clear(0xFF80_8080); // mid-gray
 
     let config = VisionConfig {
         mode: VisionMode::Night,
@@ -29,7 +20,7 @@ fn bench_vision(c: &mut Criterion) {
         intensity: 1.0,
     };
 
-    group.bench_function("apply_night_vision", |b| {
+    group.bench_function("apply_vision_night_mode_720p", |b| {
         b.iter(|| {
             apply_vision(black_box(&mut fb), black_box(&zb), black_box(&config));
         });
@@ -38,12 +29,5 @@ fn bench_vision(c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(not(feature = "nova"))]
-fn bench_vision(c: &mut Criterion) {
-    let mut group = c.benchmark_group("vision");
-    group.bench_function("stub", |b| b.iter(|| black_box(0)));
-    group.finish();
-}
-
-criterion_group!(benches, bench_vision);
+criterion_group!(benches, vision_benchmark);
 criterion_main!(benches);
