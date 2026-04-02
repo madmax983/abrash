@@ -91,6 +91,7 @@ dependencies = [
  "abrash-core",
  "abrash-raycast",
  "proptest",
+ "rand 0.8.5",
  "ratatui",
  "rayon",
  "smallvec",
