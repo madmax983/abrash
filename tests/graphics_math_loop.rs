@@ -236,6 +236,61 @@ fn inverse_transform_batch_roundtrips_points() {
 }
 
 #[test]
+fn transform_in_place_paths_match_allocating_paths() {
+    let transform = Transform::new(
+        Vec3::new(2.0, -1.0, 4.0),
+        Quat::from_euler(0.35, -0.45, 0.2),
+        Vec3::new(1.5, 0.75, 2.25),
+    );
+
+    let points = vec![
+        Vec3::new(-1.0, 0.5, 2.0),
+        Vec3::new(3.0, -2.0, 1.5),
+        Vec3::new(0.0, 4.0, -3.5),
+    ];
+    let vectors = vec![
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 2.0, -1.0),
+        Vec3::new(-1.5, 0.25, 0.5),
+    ];
+
+    let expected_points = transform.transform_points(&points);
+    let expected_vectors = transform.transform_vectors(&vectors);
+
+    let mut in_place_points = points.clone();
+    transform.transform_points_in_place(&mut in_place_points);
+    for (actual, expected) in in_place_points.iter().zip(expected_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+
+    let mut in_place_vectors = vectors.clone();
+    transform.transform_vectors_in_place(&mut in_place_vectors);
+    for (actual, expected) in in_place_vectors.iter().zip(expected_vectors.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
+fn inverse_transform_in_place_roundtrips_world_points() {
+    let transform = Transform::new(
+        Vec3::new(-6.0, 2.0, 1.0),
+        Quat::from_euler(-0.2, 0.6, -0.35),
+        Vec3::new(1.25, 2.5, 0.75),
+    );
+    let local_points = vec![
+        Vec3::new(1.0, 2.0, 3.0),
+        Vec3::new(-2.5, 0.0, 4.0),
+        Vec3::new(0.25, -1.25, -0.5),
+    ];
+    let mut world_points = transform.transform_points(&local_points);
+
+    transform.inverse_transform_points_in_place(&mut world_points);
+    for (actual, expected) in world_points.iter().zip(local_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
 fn aabb_ray_and_sphere_queries_hit_expected_ranges() {
     let aabb = AABB::new(Vec3::new(-1.0, -2.0, -3.0), Vec3::new(2.0, 1.0, 4.0));
 
