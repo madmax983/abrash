@@ -310,6 +310,7 @@ impl Vec2 {
     /// Distance to another vector.
     #[must_use]
     #[inline]
+    #[allow(clippy::imprecise_flops)]
     pub fn distance(self, other: Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -703,6 +704,7 @@ impl Vec3 {
     /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
+    #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -3285,6 +3287,7 @@ impl Vec4 {
     /// Calculates the Euclidean length (magnitude) of the vector.
     #[must_use]
     #[inline]
+    #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
         self.length_sq().sqrt()
     }
