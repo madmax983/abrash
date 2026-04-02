@@ -307,6 +307,19 @@ impl Vec2 {
         }
     }
 
+    /// Rotates the vector by `angle` radians.
+    ///
+    /// Uses [`fast_sin_cos`] to reduce trig overhead in tight animation/render loops.
+    #[must_use]
+    #[inline]
+    pub fn rotate(self, angle: f32) -> Self {
+        let (s, c) = fast_sin_cos(angle);
+        Self {
+            x: self.x * c - self.y * s,
+            y: self.x * s + self.y * c,
+        }
+    }
+
     /// Distance to another vector.
     #[must_use]
     #[inline]
@@ -879,6 +892,21 @@ impl Vec3 {
         }
     }
 
+    /// Reflects this vector around a *unit-length* normal vector.
+    ///
+    /// This avoids any extra normalization/division and is ideal for hot shading paths
+    /// where normals are already normalized.
+    #[must_use]
+    #[inline]
+    pub fn reflect_normalized(self, unit_normal: Self) -> Self {
+        let dot2 = 2.0 * self.dot(unit_normal);
+        Self {
+            x: self.x - unit_normal.x * dot2,
+            y: self.y - unit_normal.y * dot2,
+            z: self.z - unit_normal.z * dot2,
+        }
+    }
+
     /// Refracts this vector through a surface with the given normal.
     ///
     /// `eta` is the ratio of refractive indices (`n1 / n2`).
@@ -920,6 +948,19 @@ impl Vec3 {
             return Self::ZERO;
         }
         onto * (self.dot(onto) / denom)
+    }
+
+    /// Projects this vector onto a *unit-length* direction.
+    ///
+    /// Returns `Vec3::ZERO` for degenerate inputs to avoid amplification of NaNs/Infs.
+    #[must_use]
+    #[inline]
+    pub fn project_onto_normalized(self, onto_unit: Self) -> Self {
+        let len_sq = onto_unit.length_sq();
+        if len_sq <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto_unit * self.dot(onto_unit)
     }
 
     /// Reject this vector from another vector (component orthogonal to `onto`).
@@ -1017,6 +1058,26 @@ impl Vec3 {
     #[inline]
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
+    }
+
+    /// Clamps vector magnitude to at most `max_length`.
+    ///
+    /// Useful for velocity limiting and stable iterative solvers.
+    #[must_use]
+    #[inline]
+    pub fn clamp_length(self, max_length: f32) -> Self {
+        if max_length <= 0.0 {
+            return Self::ZERO;
+        }
+
+        let len_sq = self.length_sq();
+        let max_sq = max_length * max_length;
+        if len_sq <= max_sq || len_sq <= 0.000_000_01 {
+            self
+        } else {
+            let scale = max_length * fast_inv_sqrt(len_sq);
+            self * scale
+        }
     }
 }
 
@@ -2877,6 +2938,13 @@ mod tests {
     }
 
     #[test]
+    fn test_vec2_rotate() {
+        let rotated = Vec2::new(1.0, 0.0).rotate(std::f32::consts::FRAC_PI_2);
+        assert!(rotated.x.abs() < 0.02);
+        assert!((rotated.y - 1.0).abs() < 0.02);
+    }
+
+    #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         assert!((v.x - 1.0).abs() < f32::EPSILON);
@@ -2915,6 +2983,17 @@ mod tests {
         assert!((r.x - 1.0).abs() < 1e-6);
         assert!((r.y - 1.0).abs() < 1e-6);
         assert!(r.z.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec3_reflect_normalized_matches_reflect() {
+        let v = Vec3::new(0.25, -0.5, 1.2);
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let a = v.reflect(n);
+        let b = v.reflect_normalized(n);
+        assert!((a.x - b.x).abs() < 1e-6);
+        assert!((a.y - b.y).abs() < 1e-6);
+        assert!((a.z - b.z).abs() < 1e-6);
     }
 
     #[test]
@@ -3068,6 +3147,29 @@ mod tests {
         assert!((mid.y - inv_sqrt2).abs() < 1e-4);
         assert!(mid.z.abs() < 1e-4);
         assert!((mid.length() - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_project_onto_normalized_matches_regular_projection() {
+        let v = Vec3::new(3.0, 4.0, 5.0);
+        let unit = Vec3::new(2.0, -1.0, 3.0).normalize();
+        let a = v.project_onto(unit);
+        let b = v.project_onto_normalized(unit);
+        assert!((a.x - b.x).abs() < 1e-5);
+        assert!((a.y - b.y).abs() < 1e-5);
+        assert!((a.z - b.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_vec3_clamp_length() {
+        let v = Vec3::new(3.0, 4.0, 0.0);
+        let clamped = v.clamp_length(2.0);
+        assert!((clamped.length() - 2.0).abs() < 1e-4);
+
+        let unchanged = v.clamp_length(10.0);
+        assert!((unchanged.x - v.x).abs() < 1e-6);
+        assert!((unchanged.y - v.y).abs() < 1e-6);
+        assert!((unchanged.z - v.z).abs() < 1e-6);
     }
 
     #[test]
