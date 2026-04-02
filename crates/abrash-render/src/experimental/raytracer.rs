@@ -326,7 +326,8 @@ impl RayTracer {
                     let ndc_x = start_x + (x as f32 + 0.5) * pixel_width;
 
                     // Ray Direction
-                    let direction = (cam_forward + cam_right * ndc_x + cam_up * ndc_y).fast_normalize();
+                    let direction =
+                        (cam_forward + cam_right * ndc_x + cam_up * ndc_y).fast_normalize();
                     let ray = Ray::new(eye, direction);
 
                     *pixel = self.trace_ray(&ray, objects_slice, aabbs_slice, 0);

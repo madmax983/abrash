@@ -666,3 +666,8 @@ required-features = ["nova"]
 name = "plasma_demo"
 path = "examples/plasma_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "starfield_demo"
+path = "examples/starfield_demo.rs"
+required-features = ["nova"]

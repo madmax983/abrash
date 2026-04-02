@@ -1769,10 +1769,7 @@ mod tests {
         }
 
         // Apply offset 1
-        apply_chromatic_aberration(
-            &mut fb,
-            &ChromaticAberrationConfig { offset: 1 },
-        );
+        apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 1 });
 
         // Pixel 2 (x=2)
         // Original: R=30, G=40, B=50
