@@ -188,3 +188,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Test Float Comparison Lints**
 **Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
 **Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).
+
+**[Performance Optimization: Optimize Iterator Batching with Extend]**
+**Learning:** Replacing manual `for` loops that use `out.push(...)` inside pre-allocated vectors with `out.extend(iterator.map(...))` allows LLVM to better vectorize transformations (like 3D coordinate math) and can yield significant performance speedups (~24%) without needing `unsafe` or manual SIMD.
+**Action:** Always prefer `extend` with `map` over manual `for` loops with `push` when processing slices or arrays into vectors.
