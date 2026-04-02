@@ -1056,6 +1056,7 @@ impl Vec3 {
     /// Returns true when all components are finite.
     #[must_use]
     #[inline]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
     }

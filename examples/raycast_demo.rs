@@ -4,7 +4,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
-use abrash::raycast::map::{ArrayGridMap, GridMap};
+use abrash::raycast::map::ArrayGridMap;
 use abrash::raycast::types::{Cell, Vec2Fixed};
 use abrash::raycaster::hybrid::render_raycast_view;
 use abrash::zbuffer::ZBuffer;
