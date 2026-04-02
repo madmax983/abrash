@@ -257,13 +257,13 @@ fn transform_in_place_paths_match_allocating_paths() {
     let expected_points = transform.transform_points(&points);
     let expected_vectors = transform.transform_vectors(&vectors);
 
-    let mut in_place_points = points.clone();
+    let mut in_place_points = points;
     transform.transform_points_in_place(&mut in_place_points);
     for (actual, expected) in in_place_points.iter().zip(expected_points.iter()) {
         assert_vec3_close(*actual, *expected);
     }
 
-    let mut in_place_vectors = vectors.clone();
+    let mut in_place_vectors = vectors;
     transform.transform_vectors_in_place(&mut in_place_vectors);
     for (actual, expected) in in_place_vectors.iter().zip(expected_vectors.iter()) {
         assert_vec3_close(*actual, *expected);
