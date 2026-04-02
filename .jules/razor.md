@@ -15,3 +15,7 @@
 **Bloat:** Abstract error handling and missing const fns in geometry.rs, and unreadable literrals in fuzz_target.rs, and uninlined format args in havoc_arboretum.rs. Also imprecise_flops that had a good reason not to be changed (based on comments above the length method)
 **Cut:** Added const to closest_point, grouped variable declarations and allowed imprecise_flops in math.rs, fixed literals and formatting.
 **Saved:** Multiple compiler warnings, enforcing cleanly building codebase.
+## [Reduction]
+**Bloat:** Redundant clones and unreadable literals
+**Cut:** Removed redundant clones of data variables in test, marked `Vec3::is_finite` as a const function as it calculates constants on copy-types, spaced large numbers out using '_' delimiters.
+**Saved:** Multiple compiler warnings, enforcing cleanly building codebase.

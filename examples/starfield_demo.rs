@@ -119,7 +119,7 @@ impl WindowApp for App {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.fb.clear(0xFF000000);
+        self.fb.clear(0xFF00_0000);
 
         self.starfield.render(&mut self.fb);
 
