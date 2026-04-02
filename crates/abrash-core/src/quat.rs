@@ -344,6 +344,59 @@ impl Quat {
         }
     }
 
+    /// Rotate many vectors in place with one quaternion.
+    pub fn rotate_vec3_batch_in_place(self, vectors: &mut [Vec3]) {
+        let x2 = self.x + self.x;
+        let y2 = self.y + self.y;
+        let z2 = self.z + self.z;
+        let xx = self.x * x2;
+        let xy = self.x * y2;
+        let xz = self.x * z2;
+        let yy = self.y * y2;
+        let yz = self.y * z2;
+        let zz = self.z * z2;
+        let wx = self.w * x2;
+        let wy = self.w * y2;
+        let wz = self.w * z2;
+
+        let m00 = 1.0 - (yy + zz);
+        let m01 = xy + wz;
+        let m02 = xz - wy;
+        let m10 = xy - wz;
+        let m11 = 1.0 - (xx + zz);
+        let m12 = yz + wx;
+        let m20 = xz + wy;
+        let m21 = yz - wx;
+        let m22 = 1.0 - (xx + yy);
+
+        for v in vectors {
+            let x = v.x;
+            let y = v.y;
+            let z = v.z;
+            *v = Vec3::new(
+                x * m00 + y * m10 + z * m20,
+                x * m01 + y * m11 + z * m21,
+                x * m02 + y * m12 + z * m22,
+            );
+        }
+    }
+
+    /// Convert this quaternion to axis-angle form `(axis, angle_radians)`.
+    #[must_use]
+    pub fn to_axis_angle(self) -> (Vec3, f32) {
+        let q = self.normalize();
+        let angle = 2.0 * q.w.clamp(-1.0, 1.0).acos();
+        let s_sq = (1.0 - q.w * q.w).max(0.0);
+        if s_sq <= 1e-12 {
+            return (Vec3::new(1.0, 0.0, 0.0), 0.0);
+        }
+        let inv_s = s_sq.sqrt().recip();
+        (
+            Vec3::new(q.x * inv_s, q.y * inv_s, q.z * inv_s).normalize(),
+            angle,
+        )
+    }
+
     /// Convert to a 4x4 rotation matrix (row-major, row-vector convention).
     #[must_use]
     pub fn to_mat4(self) -> Mat4 {
@@ -639,5 +692,37 @@ mod tests {
             assert!((scalar.y - batched.y).abs() < EPSILON);
             assert!((scalar.z - batched.z).abs() < EPSILON);
         }
+    }
+
+    #[test]
+    fn rotate_vec3_batch_in_place_matches_allocating_path() {
+        let q = Quat::from_euler(0.2, -0.6, 0.4).normalize();
+        let mut in_place = vec![
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-2.0, 1.5, 3.0),
+            Vec3::new(0.25, -0.75, 2.5),
+        ];
+        let expected = q.rotate_vec3_batch(&in_place);
+        q.rotate_vec3_batch_in_place(&mut in_place);
+        for (a, b) in in_place.iter().zip(expected.iter()) {
+            assert!((a.x - b.x).abs() < EPSILON);
+            assert!((a.y - b.y).abs() < EPSILON);
+            assert!((a.z - b.z).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn to_axis_angle_roundtrip_preserves_rotation() {
+        let axis = Vec3::new(0.3, -0.4, 0.5).normalize();
+        let angle = 1.234;
+        let q = Quat::from_axis_angle(axis, angle).normalize();
+        let (out_axis, out_angle) = q.to_axis_angle();
+        let reconstructed = Quat::from_axis_angle(out_axis, out_angle).normalize();
+        let v = Vec3::new(0.7, -0.2, 0.5);
+        let a = q.rotate_vec3(v);
+        let b = reconstructed.rotate_vec3(v);
+        assert!((a.x - b.x).abs() < EPSILON);
+        assert!((a.y - b.y).abs() < EPSILON);
+        assert!((a.z - b.z).abs() < EPSILON);
     }
 }

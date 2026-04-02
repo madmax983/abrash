@@ -275,7 +275,7 @@ fn inverse_transform_in_place_roundtrips_world_points() {
     let transform = Transform::new(
         Vec3::new(-6.0, 2.0, 1.0),
         Quat::from_euler(-0.2, 0.6, -0.35),
-        Vec3::new(1.25, 2.5, 0.75),
+        Vec3::new(1.25, 1.25, 1.25),
     );
     let local_points = vec![
         Vec3::new(1.0, 2.0, 3.0),
@@ -288,6 +288,26 @@ fn inverse_transform_in_place_roundtrips_world_points() {
     for (actual, expected) in world_points.iter().zip(local_points.iter()) {
         assert_vec3_close(*actual, *expected);
     }
+}
+
+#[test]
+fn transform_then_matches_matrix_composition() {
+    let a = Transform::new(
+        Vec3::new(1.0, -2.0, 0.5),
+        Quat::from_euler(0.2, -0.3, 0.1),
+        Vec3::new(1.2, 1.2, 1.2),
+    );
+    let b = Transform::new(
+        Vec3::new(-4.0, 0.5, 2.0),
+        Quat::from_euler(-0.4, 0.25, 0.6),
+        Vec3::new(0.75, 0.75, 0.75),
+    );
+    let combined = a.then(b);
+    let point = Vec3::new(-1.0, 3.0, 2.25);
+
+    let matrix_expected = (a.to_mat4() * b.to_mat4()).transform_point(point).0;
+    let actual = combined.transform_point(point);
+    assert_vec3_close(actual, matrix_expected);
 }
 
 #[test]

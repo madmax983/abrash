@@ -1,5 +1,7 @@
 //! Decomposed TRS transform for smooth animation interpolation.
 
+use std::ops::Mul;
+
 use crate::math::{Mat4, Vec3};
 use crate::quat::Quat;
 
@@ -36,6 +38,29 @@ pub struct Transform {
 }
 
 impl Transform {
+    #[inline]
+    fn inverse_rotation_matrix(rotation: Quat) -> [[f32; 3]; 3] {
+        let inv_rotation = rotation.inverse().normalize();
+        let x2 = inv_rotation.x + inv_rotation.x;
+        let y2 = inv_rotation.y + inv_rotation.y;
+        let z2 = inv_rotation.z + inv_rotation.z;
+        let xx = inv_rotation.x * x2;
+        let xy = inv_rotation.x * y2;
+        let xz = inv_rotation.x * z2;
+        let yy = inv_rotation.y * y2;
+        let yz = inv_rotation.y * z2;
+        let zz = inv_rotation.z * z2;
+        let wx = inv_rotation.w * x2;
+        let wy = inv_rotation.w * y2;
+        let wz = inv_rotation.w * z2;
+
+        [
+            [1.0 - (yy + zz), xy + wz, xz - wy],
+            [xy - wz, 1.0 - (xx + zz), yz + wx],
+            [xz + wy, yz - wx, 1.0 - (xx + yy)],
+        ]
+    }
+
     #[inline]
     fn scaled_rotation_basis(&self) -> [[f32; 3]; 3] {
         let rotation = self.rotation.normalize();
@@ -304,31 +329,17 @@ impl Transform {
 
     /// Apply the inverse transform to a batch of points and write into `out`.
     pub fn inverse_transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
-        let inv_rotation = self.rotation.inverse().normalize();
         let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
-
-        let x2 = inv_rotation.x + inv_rotation.x;
-        let y2 = inv_rotation.y + inv_rotation.y;
-        let z2 = inv_rotation.z + inv_rotation.z;
-        let xx = inv_rotation.x * x2;
-        let xy = inv_rotation.x * y2;
-        let xz = inv_rotation.x * z2;
-        let yy = inv_rotation.y * y2;
-        let yz = inv_rotation.y * z2;
-        let zz = inv_rotation.z * z2;
-        let wx = inv_rotation.w * x2;
-        let wy = inv_rotation.w * y2;
-        let wz = inv_rotation.w * z2;
-
-        let m00 = 1.0 - (yy + zz);
-        let m01 = xy + wz;
-        let m02 = xz - wy;
-        let m10 = xy - wz;
-        let m11 = 1.0 - (xx + zz);
-        let m12 = yz + wx;
-        let m20 = xz + wy;
-        let m21 = yz - wx;
-        let m22 = 1.0 - (xx + yy);
+        let basis = Self::inverse_rotation_matrix(self.rotation);
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
 
         out.clear();
         out.reserve(points.len());
@@ -344,31 +355,17 @@ impl Transform {
 
     /// Apply the inverse transform to points in place.
     pub fn inverse_transform_points_in_place(&self, points: &mut [Vec3]) {
-        let inv_rotation = self.rotation.inverse().normalize();
         let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
-
-        let x2 = inv_rotation.x + inv_rotation.x;
-        let y2 = inv_rotation.y + inv_rotation.y;
-        let z2 = inv_rotation.z + inv_rotation.z;
-        let xx = inv_rotation.x * x2;
-        let xy = inv_rotation.x * y2;
-        let xz = inv_rotation.x * z2;
-        let yy = inv_rotation.y * y2;
-        let yz = inv_rotation.y * z2;
-        let zz = inv_rotation.z * z2;
-        let wx = inv_rotation.w * x2;
-        let wy = inv_rotation.w * y2;
-        let wz = inv_rotation.w * z2;
-
-        let m00 = 1.0 - (yy + zz);
-        let m01 = xy + wz;
-        let m02 = xz - wy;
-        let m10 = xy - wz;
-        let m11 = 1.0 - (xx + zz);
-        let m12 = yz + wx;
-        let m20 = xz + wy;
-        let m21 = yz - wx;
-        let m22 = 1.0 - (xx + yy);
+        let basis = Self::inverse_rotation_matrix(self.rotation);
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
 
         for p in points {
             let local = *p - self.position;
@@ -378,6 +375,29 @@ impl Transform {
                 (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
             );
         }
+    }
+
+    /// Compose transforms so that `self` is applied first, then `other`.
+    ///
+    /// This matches row-vector convention used by [`Mat4`]:
+    /// `point * self.to_mat4() * other.to_mat4()`.
+    ///
+    /// For exact closure in decomposed TRS form, inputs should use uniform scales.
+    #[must_use]
+    pub fn then(self, other: Self) -> Self {
+        Self::new(
+            other.transform_point(self.position),
+            self.rotation * other.rotation,
+            self.scale * other.scale,
+        )
+    }
+}
+
+impl Mul for Transform {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.then(rhs)
     }
 }
 
