@@ -200,3 +200,7 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+## [Falling Sand Simulator]
+**Concept:** A procedural cellular automata grid for simulating falling sand, water, and static walls. Features include simple gravity, diagonal sliding, and water horizontal spread. Includes an interactive visual demo where the user can click and drag to spawn particles.
+**Fate:** Implemented
+**Lesson:** Iterating from bottom-to-top ensures that falling particles are not updated multiple times in a single frame. Writing updates to a separate `next_grid` buffer prevents overlapping and simplifies tracking which particles have moved this frame without mutating the grid while reading it. Using fixed length 1D arrays for a 2D grid instead of nested vectors drastically improves performance.
