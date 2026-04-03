@@ -538,6 +538,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "halftone_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "voronoi_bench"
 harness = false
 required-features = ["nova"]

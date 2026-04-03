@@ -204,3 +204,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## Plasma Optimization
 **Learning:** Hoisting invariant math (like y-dependent trig functions) out of inner loops provides massive performance benefits in tight pixel processing loops. Also, it's necessary to ensure benchmarks specify required features in `Cargo.toml`.
 **Action:** Created `plasma_bench`, hoisted `y_sin` and `y_cos` from inner `x` loop, resulting in ~20-27% speedup.
+
+## [Performance] Halftone Coordinates Optimization
+**Learning:** In the Halftone post-processing effect, recalculating `rx = x_f32 * cos_a - y_sin_a` and `ry = x_f32 * sin_a + y_cos_a` per pixel inside the innermost rendering loop entails redundant floating-point multiplications that slow down performance.
+**Action:** Replace absolute per-pixel coordinate formulas with incremental loops. Initialize `rx` and `ry` at the start of a scanline with `-y_sin_a` and `y_cos_a`, and inside the loop add `cos_a` and `sin_a` each iteration. Combined with replacing floating point RGB extraction and math with integer bitshifts and math (`(77 * r + 150 * g + 29 * b) >> 8`), this optimization yielded improved performance in the Halftone effect.
