@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use abrash_render::experimental::plasma::apply_plasma;
 use abrash_core::framebuffer::Framebuffer;
+use abrash_render::experimental::plasma::apply_plasma;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_plasma(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
