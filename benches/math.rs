@@ -1,5 +1,8 @@
 use abrash::color::Color;
 use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
+use abrash::easing::{
+    bounce_out, cubic_in_out, elastic_out, expo_in_out, quint_in_out, sine_in_out,
+};
 use abrash::geometry::AABB;
 use abrash::irect::IRect;
 use abrash::ivec::{IVec2, IVec3};
@@ -438,6 +441,38 @@ fn bench_irect(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_easing(c: &mut Criterion) {
+    let mut g = c.benchmark_group("easing");
+
+    let t = 0.35_f32;
+
+    g.bench_function("cubic_in_out", |b| {
+        b.iter(|| black_box(cubic_in_out(black_box(t))));
+    });
+
+    g.bench_function("quint_in_out", |b| {
+        b.iter(|| black_box(quint_in_out(black_box(t))));
+    });
+
+    g.bench_function("sine_in_out", |b| {
+        b.iter(|| black_box(sine_in_out(black_box(t))));
+    });
+
+    g.bench_function("expo_in_out", |b| {
+        b.iter(|| black_box(expo_in_out(black_box(t))));
+    });
+
+    g.bench_function("elastic_out", |b| {
+        b.iter(|| black_box(elastic_out(black_box(t))));
+    });
+
+    g.bench_function("bounce_out", |b| {
+        b.iter(|| black_box(bounce_out(black_box(t))));
+    });
+
+    g.finish();
+}
+
 fn bench_sdf(c: &mut Criterion) {
     let mut g = c.benchmark_group("sdf");
 
@@ -518,6 +553,7 @@ criterion_group!(
     bench_curve,
     bench_ivec,
     bench_irect,
+    bench_easing,
     bench_sdf
 );
 criterion_main!(benches);

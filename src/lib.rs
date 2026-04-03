@@ -116,6 +116,7 @@ pub use abrash_raycast as raycast;
 pub use abrash_core::animatable;
 pub use abrash_core::color;
 pub use abrash_core::curve;
+pub use abrash_core::easing;
 pub use abrash_core::irect;
 pub use abrash_core::ivec;
 pub use abrash_core::noise;
