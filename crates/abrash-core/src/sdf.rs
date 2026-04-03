@@ -664,6 +664,213 @@ pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
     dx.max(dz).min(0.0) + Vec2::new(dx.max(0.0), dz.max(0.0)).length()
 }
 
+// ── SDF Operators ────────────────────────────────────────────────────────────
+
+/// Elongate a signed distance field along a half-size `h` (one per axis).
+///
+/// Subtracts the clamped displacement from `p` before evaluating the SDF,
+/// stretching the shape along each axis by `2*h`.  Zero entries leave that
+/// axis unchanged.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{elongate, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// // Elongating a sphere along Y by 2.0 makes a capsule-like shape.
+/// // A point above the stretched region is still outside.
+/// let p = Vec3::new(0.0, 5.0, 0.0);
+/// let d = elongate(p, Vec3::new(0.0, 2.0, 0.0), |q| sphere_3d(q, Vec3::ZERO, 1.0));
+/// assert!(d > 0.0, "far above capsule, got {d}");
+/// ```
+#[must_use]
+#[inline]
+pub fn elongate(p: Vec3, h: Vec3, sdf: impl Fn(Vec3) -> f32) -> f32 {
+    let neg_h = Vec3::new(-h.x, -h.y, -h.z);
+    let q = p - p.clamp(neg_h, h);
+    sdf(q)
+}
+
+/// Hollow-shell operator: subtracts `thickness` from the absolute SDF value.
+///
+/// Turns any solid SDF into a thin shell of the given `thickness`.  The
+/// interior (negative region) becomes a second outside if `thickness` is
+/// smaller than the shape radius.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{onion, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// let sphere = |p: Vec3| sphere_3d(p, Vec3::ZERO, 1.0);
+/// // Outer shell surface is where the original SDF = +thickness (radius 1.1)
+/// let d = onion(sphere(Vec3::new(1.1, 0.0, 0.0)), 0.1);
+/// assert!(d.abs() < 1e-5, "on outer shell surface, got {d}");
+/// // Original surface (radius 1.0) is inside the shell
+/// let d2 = onion(sphere(Vec3::new(1.0, 0.0, 0.0)), 0.1);
+/// assert!(d2 < 0.0, "inside shell, got {d2}");
+/// ```
+#[must_use]
+#[inline]
+pub fn onion(d: f32, thickness: f32) -> f32 {
+    d.abs() - thickness
+}
+
+// ── Additional 2D Primitives ─────────────────────────────────────────────────
+
+/// Signed distance to a vesica piscis (lens / mandorla) in 2D.
+///
+/// The lens is the intersection of two unit circles whose centres are `dist`
+/// apart.  `dist` must be in `(0, 2*r]`; when `dist == r` the shape is the
+/// classic vesica piscis.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::vesica_2d;
+/// use abrash_core::math::Vec2;
+///
+/// // Centre of lens is inside
+/// let d = vesica_2d(Vec2::ZERO, Vec2::ZERO, 0.5, 1.0);
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// // Far point is outside
+/// let d2 = vesica_2d(Vec2::new(5.0, 0.0), Vec2::ZERO, 0.5, 1.0);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn vesica_2d(p: Vec2, centre: Vec2, dist: f32, r: f32) -> f32 {
+    // IQ sdVesica: two circles displaced ±dist/2 along X
+    let p = p - centre;
+    let b = (r * r - dist * dist * 0.25).sqrt();
+    let px = p.x.abs();
+    if (px - dist * 0.5) * b < px * b {
+        // Region near the sharp tips
+        Vec2::new(px - dist * 0.5, p.y).length() - r
+    } else {
+        Vec2::new(px, p.y.abs() - b).length() - dist * 0.5
+    }
+}
+
+/// Signed distance to a 2D star polygon with `n` points.
+///
+/// `r1` is the outer radius (tip), `r2` is the inner radius (valley).
+/// `n` must be ≥ 3.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::star_2d;
+/// use abrash_core::math::Vec2;
+///
+/// // Centre of a 5-pointed star is inside
+/// let d = star_2d(Vec2::ZERO, Vec2::ZERO, 5, 1.0, 0.4);
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// // Far point is outside
+/// let d2 = star_2d(Vec2::new(5.0, 0.0), Vec2::ZERO, 5, 1.0, 0.4);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn star_2d(p: Vec2, centre: Vec2, n: u32, r1: f32, r2: f32) -> f32 {
+    // Fold p into the fundamental sector [0, π/n] and compute segment SDF.
+    let p = p - centre;
+    let n = n.max(3) as f32;
+    let half_sector = std::f32::consts::PI / n;
+
+    // Snap to nearest outer-tip angle, then measure local polar coords.
+    let theta = p.y.atan2(p.x);
+    let tip_angle = (theta / (half_sector * 2.0)).round() * (half_sector * 2.0);
+    let local_theta = (theta - tip_angle).abs(); // [0, half_sector]
+    let local_r = p.length();
+    let lp = Vec2::new(local_r * local_theta.cos(), local_r * local_theta.sin());
+
+    // Outer tip at (r1, 0), inner valley at (r2*cos(half), r2*sin(half)).
+    let tip = Vec2::new(r1, 0.0);
+    let valley = Vec2::new(r2 * half_sector.cos(), r2 * half_sector.sin());
+    let edge = Vec2::new(valley.x - tip.x, valley.y - tip.y);
+    let t = {
+        let lp_minus_tip = Vec2::new(lp.x - tip.x, lp.y - tip.y);
+        let edge_len2 = edge.x * edge.x + edge.y * edge.y;
+        ((lp_minus_tip.x * edge.x + lp_minus_tip.y * edge.y) / edge_len2).clamp(0.0, 1.0)
+    };
+    let closest = Vec2::new(tip.x + edge.x * t, tip.y + edge.y * t);
+    let dist = Vec2::new(lp.x - closest.x, lp.y - closest.y).length();
+
+    // Sign: cross(edge, lp-tip) > 0 → left of edge → inside star.
+    let lp_minus_tip = Vec2::new(lp.x - tip.x, lp.y - tip.y);
+    let cross = edge.x * lp_minus_tip.y - edge.y * lp_minus_tip.x;
+    dist * if cross > 0.0 { -1.0 } else { 1.0 }
+}
+
+// ── Additional 3D Primitives ─────────────────────────────────────────────────
+
+/// Signed distance to a wireframe box frame.
+///
+/// Like a hollow box with only the 12 edges present (each edge is a thin rod
+/// of radius `e`).  This is the IQ `sdBoxFrame` primitive.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::box_frame_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Face center is outside the frame (no material there)
+/// let d = box_frame_3d(Vec3::new(1.1, 0.0, 0.0), Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), 0.05);
+/// assert!(d > 0.0);
+/// // Near an edge rod (corner at (1,1) with small offset inside radius e)
+/// let d2 = box_frame_3d(Vec3::new(0.98, 0.98, 0.0), Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), 0.05);
+/// assert!(d2 < 0.0, "inside edge rod, got {d2}");
+/// ```
+#[must_use]
+pub fn box_frame_3d(p: Vec3, centre: Vec3, half_size: Vec3, e: f32) -> f32 {
+    // IQ sdBoxFrame
+    let p = (p - centre).abs() - half_size;
+    let ev = Vec3::splat(e);
+    let q = (p + ev).abs() - ev;
+    // Three edges along each axis pair
+    let d1 = Vec3::new(p.x, q.y, q.z);
+    let d2 = Vec3::new(q.x, p.y, q.z);
+    let d3 = Vec3::new(q.x, q.y, p.z);
+    let sdf_edge = |v: Vec3| -> f32 {
+        v.x.max(v.y).max(v.z).min(0.0)
+            + Vec3::new(v.x.max(0.0), v.y.max(0.0), v.z.max(0.0)).length()
+    };
+    sdf_edge(d1).min(sdf_edge(d2)).min(sdf_edge(d3))
+}
+
+/// Signed distance to a solid angle / pie-wedge on a sphere (IQ `sdSolidAngle`).
+///
+/// The shape is a spherical cap defined by a cone of half-angle `angle` (radians)
+/// opening upwards from the origin, intersected with a sphere of radius `ra`.
+/// `centre` shifts the entire shape.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::solid_angle_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Centre is inside the cap (directly above)
+/// let d = solid_angle_3d(Vec3::new(0.0, 0.5, 0.0), Vec3::ZERO, 1.0, 0.8);
+/// assert!(d < 0.0, "inside cap, got {d}");
+/// // Far below is outside
+/// let d2 = solid_angle_3d(Vec3::new(0.0, -5.0, 0.0), Vec3::ZERO, 1.0, 0.8);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn solid_angle_3d(p: Vec3, centre: Vec3, ra: f32, angle: f32) -> f32 {
+    // IQ sdSolidAngle: c = (sin(angle), cos(angle))
+    let p = p - centre;
+    let c = Vec2::new(angle.sin(), angle.cos());
+    let q = Vec2::new(Vec2::new(p.x, p.z).length(), p.y);
+    let l = q.length() - ra;
+    let t = q.dot(c).clamp(0.0, ra);
+    let m = Vec2::new(q.x - c.x * t, q.y - c.y * t).length();
+    l.max(m * (c.y * q.x - c.x * q.y).signum())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -811,6 +811,75 @@ impl Mat2 {
             v.y = m10 * x + m11 * y;
         }
     }
+
+    /// Identity matrix (no transformation).
+    #[must_use]
+    #[inline]
+    pub const fn identity() -> Self {
+        Self {
+            m: [[1.0, 0.0], [0.0, 1.0]],
+        }
+    }
+
+    /// Non-uniform scale matrix.
+    #[must_use]
+    #[inline]
+    pub const fn scale(sx: f32, sy: f32) -> Self {
+        Self {
+            m: [[sx, 0.0], [0.0, sy]],
+        }
+    }
+
+    /// Transpose (swap rows and columns).
+    #[must_use]
+    #[inline]
+    pub const fn transpose(&self) -> Self {
+        Self {
+            m: [[self.m[0][0], self.m[1][0]], [self.m[0][1], self.m[1][1]]],
+        }
+    }
+
+    /// Determinant: `ad - bc`.
+    #[must_use]
+    #[inline]
+    pub fn determinant(&self) -> f32 {
+        self.m[0][0] * self.m[1][1] - self.m[0][1] * self.m[1][0]
+    }
+
+    /// Inverse. Returns the zero matrix if the determinant is near zero.
+    #[must_use]
+    pub fn inverse(&self) -> Self {
+        let det = self.determinant();
+        if det.abs() < 1e-7 {
+            return Self { m: [[0.0; 2]; 2] };
+        }
+        let inv = 1.0 / det;
+        Self {
+            m: [
+                [self.m[1][1] * inv, -self.m[0][1] * inv],
+                [-self.m[1][0] * inv, self.m[0][0] * inv],
+            ],
+        }
+    }
+}
+
+impl std::ops::Mul for Mat2 {
+    type Output = Self;
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            m: [
+                [
+                    self.m[0][0] * rhs.m[0][0] + self.m[0][1] * rhs.m[1][0],
+                    self.m[0][0] * rhs.m[0][1] + self.m[0][1] * rhs.m[1][1],
+                ],
+                [
+                    self.m[1][0] * rhs.m[0][0] + self.m[1][1] * rhs.m[1][0],
+                    self.m[1][0] * rhs.m[0][1] + self.m[1][1] * rhs.m[1][1],
+                ],
+            ],
+        }
+    }
 }
 
 /// A 3-component vector commonly used for positions, directions, and colors.
@@ -3286,6 +3355,195 @@ pub fn hermite(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, t: f32) -> Vec3 {
     p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11
 }
 
+/// Kochanek-Bartels (TCB) spline segment at `t ∈ [0, 1]`.
+///
+/// A generalization of Catmull-Rom with three parameters per control point:
+/// - `tension` `t_val` in [-1, 1]: 1 = tight (no overshoot), -1 = loose.
+/// - `continuity` `c_val` in [-1, 1]: 0 = smooth, ±1 = sharp corner.
+/// - `bias` `b_val` in [-1, 1]: 0 = symmetric, 1 = pre-weight, -1 = post-weight.
+///
+/// With all three at 0 this reduces to Catmull-Rom.
+/// The curve passes through `p1` at `t=0` and `p2` at `t=1`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{kochanek_bartels, Vec3};
+///
+/// // All-zero parameters → same as Catmull-Rom; passes through p1 at t=0
+/// let p = kochanek_bartels(
+///     Vec3::new(-1.0, 0.0, 0.0), Vec3::ZERO, Vec3::ONE, Vec3::new(2.0, 1.0, 0.0),
+///     0.0, 0.0, 0.0, 0.0,
+/// );
+/// assert!(p.x.abs() < 1e-5, "should pass through p1, got x={}", p.x);
+/// ```
+#[must_use]
+#[inline]
+pub fn kochanek_bartels(
+    p0: Vec3,
+    p1: Vec3,
+    p2: Vec3,
+    p3: Vec3,
+    t: f32,
+    t_val: f32,
+    c_val: f32,
+    b_val: f32,
+) -> Vec3 {
+    // Kochanek-Bartels tangents (incoming/outgoing at p1 and p2)
+    let s1 = (1.0 - t_val) * 0.5;
+    let d1 = (p1 - p0) * (s1 * (1.0 + c_val) * (1.0 + b_val))
+        + (p2 - p1) * (s1 * (1.0 - c_val) * (1.0 - b_val));
+    let d2 = (p2 - p1) * (s1 * (1.0 + c_val) * (1.0 - b_val))
+        + (p3 - p2) * (s1 * (1.0 - c_val) * (1.0 + b_val));
+    hermite(p1, d1, p2, d2, t)
+}
+
+/// Subdivide a cubic Bézier at `t` using de Casteljau's algorithm.
+///
+/// Returns `(left, right)` where `left` and `right` are each four control
+/// points of a cubic Bézier that together cover the same arc as the original.
+/// `left` covers `[0, t]` and `right` covers `[t, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{bezier_cubic, bezier_cubic_split, Vec3};
+///
+/// let (p0, p1, p2, p3) = (Vec3::ZERO, Vec3::new(1.0, 2.0, 0.0),
+///                         Vec3::new(2.0, 2.0, 0.0), Vec3::new(3.0, 0.0, 0.0));
+/// let (left, right) = bezier_cubic_split(p0, p1, p2, p3, 0.5);
+/// // left[3] should equal right[0] == point on original curve at t=0.5
+/// let mid = bezier_cubic(p0, p1, p2, p3, 0.5);
+/// assert!((left[3].x - mid.x).abs() < 1e-5);
+/// assert!((right[0].x - mid.x).abs() < 1e-5);
+/// ```
+#[must_use]
+pub fn bezier_cubic_split(
+    p0: Vec3,
+    p1: Vec3,
+    p2: Vec3,
+    p3: Vec3,
+    t: f32,
+) -> ([Vec3; 4], [Vec3; 4]) {
+    // de Casteljau: one level per step
+    let q0 = p0.lerp(p1, t);
+    let q1 = p1.lerp(p2, t);
+    let q2 = p2.lerp(p3, t);
+    let r0 = q0.lerp(q1, t);
+    let r1 = q1.lerp(q2, t);
+    let s = r0.lerp(r1, t);
+    ([p0, q0, r0, s], [s, r1, q2, p3])
+}
+
+/// Find the real roots of a quadratic `ax² + bx + c = 0`.
+///
+/// Returns roots sorted in ascending order in the `[f32; 2]` array and the
+/// count of real roots in the `usize`.  Use `roots[..count]` to iterate.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::quadratic_solve;
+///
+/// // x² - 5x + 6 = 0  → roots 2 and 3
+/// let (roots, n) = quadratic_solve(1.0, -5.0, 6.0);
+/// assert_eq!(n, 2);
+/// assert!((roots[0] - 2.0).abs() < 1e-5);
+/// assert!((roots[1] - 3.0).abs() < 1e-5);
+///
+/// // x² + 1 = 0 → no real roots
+/// let (_, n) = quadratic_solve(1.0, 0.0, 1.0);
+/// assert_eq!(n, 0);
+/// ```
+#[must_use]
+pub fn quadratic_solve(a: f32, b: f32, c: f32) -> ([f32; 2], usize) {
+    if a.abs() < 1e-10 {
+        if b.abs() > 1e-10 {
+            return ([-c / b, 0.0], 1);
+        }
+        return ([0.0; 2], 0);
+    }
+    let disc = b * b - 4.0 * a * c;
+    if disc < 0.0 {
+        return ([0.0; 2], 0);
+    }
+    if disc < 1e-10 {
+        return ([-b / (2.0 * a), 0.0], 1);
+    }
+    let sq = disc.sqrt();
+    let inv2a = 1.0 / (2.0 * a);
+    let mut r0 = (-b - sq) * inv2a;
+    let mut r1 = (-b + sq) * inv2a;
+    if r0 > r1 {
+        std::mem::swap(&mut r0, &mut r1);
+    }
+    ([r0, r1], 2)
+}
+
+/// Find real roots of a cubic `ax³ + bx² + cx + d = 0` (Cardano / trig method).
+///
+/// Returns roots sorted in ascending order in the `[f32; 3]` array and the
+/// count of real roots.  Use `roots[..count]` to iterate.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::cubic_solve;
+///
+/// // x³ - 6x² + 11x - 6 = 0  → roots 1, 2, 3
+/// let (roots, n) = cubic_solve(1.0, -6.0, 11.0, -6.0);
+/// assert_eq!(n, 3);
+/// assert!((roots[0] - 1.0).abs() < 1e-4);
+/// assert!((roots[1] - 2.0).abs() < 1e-4);
+/// assert!((roots[2] - 3.0).abs() < 1e-4);
+/// ```
+#[must_use]
+pub fn cubic_solve(a: f32, b: f32, c: f32, d: f32) -> ([f32; 3], usize) {
+    if a.abs() < 1e-10 {
+        let (qr, n) = quadratic_solve(b, c, d);
+        return ([qr[0], qr[1], 0.0], n);
+    }
+    // Reduce to depressed cubic t³ + pt + q = 0 (substitute x = t - b/3a)
+    let inv_a = 1.0 / a;
+    let b = b * inv_a;
+    let c = c * inv_a;
+    let d = d * inv_a;
+    let p = c - b * b / 3.0;
+    let q = 2.0 * b * b * b / 27.0 - b * c / 3.0 + d;
+    let disc = q * q / 4.0 + p * p * p / 27.0;
+    let shift = -b / 3.0;
+    if disc > 1e-10 {
+        // One real root (Cardano)
+        let sq = disc.sqrt();
+        let u = (-q / 2.0 + sq).cbrt();
+        let v = (-q / 2.0 - sq).cbrt();
+        ([u + v + shift, 0.0, 0.0], 1)
+    } else if disc > -1e-10 {
+        // Two distinct real roots (one double root)
+        let u = (-q / 2.0).cbrt();
+        let mut r = [2.0 * u + shift, -u + shift];
+        r.sort_by(f32::total_cmp);
+        // Deduplicate if nearly equal
+        if (r[0] - r[1]).abs() < 1e-7 {
+            ([r[0], 0.0, 0.0], 1)
+        } else {
+            ([r[0], r[1], 0.0], 2)
+        }
+    } else {
+        // Three distinct real roots (trigonometric method)
+        let m = 2.0 * (-p / 3.0).sqrt();
+        let theta = (3.0 * q / (p * m)).acos() / 3.0;
+        let step = std::f32::consts::TAU / 3.0; // 2π/3
+        let mut r = [
+            m * theta.cos() + shift,
+            m * (theta - step).cos() + shift,
+            m * (theta - 2.0 * step).cos() + shift,
+        ];
+        r.sort_by(f32::total_cmp);
+        (r, 3)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4958,5 +5216,135 @@ mod tests_mat3 {
         let rotated = m.transform(v);
         let restored = mt.transform(rotated);
         assert!(approx_eq_vec3(restored, v));
+    }
+
+    // ── Mat2 completions ─────────────────────────────────────────────────────
+
+    #[test]
+    fn mat2_identity_is_noop() {
+        let i = Mat2::identity();
+        let v = Vec2::new(3.0, -4.0);
+        let out = i.transform(v);
+        assert!((out.x - v.x).abs() < 1e-6);
+        assert!((out.y - v.y).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mat2_determinant_rotation() {
+        let m = Mat2::rotation(1.2);
+        assert!((m.determinant() - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn mat2_inverse_roundtrip() {
+        let m = Mat2::scale(2.0, 3.0);
+        let inv = m.inverse();
+        let prod = m * inv;
+        let id = Mat2::identity();
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!((prod.m[i][j] - id.m[i][j]).abs() < 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn mat2_mul_rotations_compose() {
+        let a = Mat2::rotation(0.4);
+        let b = Mat2::rotation(-0.4);
+        let prod = a * b;
+        let id = Mat2::identity();
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!((prod.m[i][j] - id.m[i][j]).abs() < 1e-5, "[{i}][{j}]");
+            }
+        }
+    }
+
+    // ── Polynomial solvers ────────────────────────────────────────────────────
+
+    #[test]
+    fn quadratic_two_roots() {
+        let (r, n) = quadratic_solve(1.0, -5.0, 6.0);
+        assert_eq!(n, 2);
+        assert!((r[0] - 2.0).abs() < 1e-5);
+        assert!((r[1] - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn quadratic_no_real_roots() {
+        let (_, n) = quadratic_solve(1.0, 0.0, 1.0);
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn quadratic_double_root() {
+        let (r, n) = quadratic_solve(1.0, -4.0, 4.0);
+        assert_eq!(n, 1);
+        assert!((r[0] - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn cubic_three_roots() {
+        let (r, n) = cubic_solve(1.0, -6.0, 11.0, -6.0);
+        assert_eq!(n, 3);
+        assert!((r[0] - 1.0).abs() < 1e-3, "r[0]={}", r[0]);
+        assert!((r[1] - 2.0).abs() < 1e-3, "r[1]={}", r[1]);
+        assert!((r[2] - 3.0).abs() < 1e-3, "r[2]={}", r[2]);
+    }
+
+    #[test]
+    fn cubic_one_real_root() {
+        let (r, n) = cubic_solve(1.0, 0.0, 0.0, -8.0);
+        assert_eq!(n, 1);
+        assert!((r[0] - 2.0).abs() < 1e-4, "r[0]={}", r[0]);
+    }
+
+    // ── Splines ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn kochanek_bartels_zero_params_matches_catmull_rom() {
+        let (p0, p1, p2, p3) = (
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::ONE,
+            Vec3::new(2.0, 1.0, 0.0),
+        );
+        let tcb = kochanek_bartels(p0, p1, p2, p3, 0.5, 0.0, 0.0, 0.0);
+        let cr = catmull_rom(p0, p1, p2, p3, 0.5);
+        assert!(
+            (tcb.x - cr.x).abs() < 1e-5,
+            "x mismatch: tcb={} cr={}",
+            tcb.x,
+            cr.x
+        );
+        assert!((tcb.y - cr.y).abs() < 1e-5);
+    }
+
+    #[test]
+    fn bezier_split_midpoint_matches_curve() {
+        let (p0, p1, p2, p3) = (
+            Vec3::ZERO,
+            Vec3::new(1.0, 2.0, 0.0),
+            Vec3::new(2.0, 2.0, 0.0),
+            Vec3::new(3.0, 0.0, 0.0),
+        );
+        let (left, right) = bezier_cubic_split(p0, p1, p2, p3, 0.5);
+        let mid = bezier_cubic(p0, p1, p2, p3, 0.5);
+        assert!((left[3].x - mid.x).abs() < 1e-5);
+        assert!((right[0].x - mid.x).abs() < 1e-5);
+    }
+
+    #[test]
+    fn bezier_split_endpoints_preserved() {
+        let (p0, p1, p2, p3) = (
+            Vec3::ZERO,
+            Vec3::ONE,
+            Vec3::new(2.0, 0.0, 0.0),
+            Vec3::new(3.0, 1.0, 0.0),
+        );
+        let (left, right) = bezier_cubic_split(p0, p1, p2, p3, 0.3);
+        assert!((left[0].x - p0.x).abs() < 1e-5);
+        assert!((right[3].x - p3.x).abs() < 1e-5);
     }
 }
