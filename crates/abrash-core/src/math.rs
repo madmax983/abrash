@@ -585,6 +585,87 @@ impl Vec2 {
             y: self.y.clamp(min.y, max.y),
         }
     }
+
+    /// Component-wise absolute value.
+    #[must_use]
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+        }
+    }
+
+    /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
+    #[must_use]
+    #[inline]
+    pub fn sign(self) -> Self {
+        Self {
+            x: self.x.signum(),
+            y: self.y.signum(),
+        }
+    }
+
+    /// Component-wise floor (round toward negative infinity).
+    #[must_use]
+    #[inline]
+    pub fn floor(self) -> Self {
+        Self {
+            x: self.x.floor(),
+            y: self.y.floor(),
+        }
+    }
+
+    /// Component-wise ceiling (round toward positive infinity).
+    #[must_use]
+    #[inline]
+    pub fn ceil(self) -> Self {
+        Self {
+            x: self.x.ceil(),
+            y: self.y.ceil(),
+        }
+    }
+
+    /// Component-wise round (round to nearest, ties to even).
+    #[must_use]
+    #[inline]
+    pub fn round(self) -> Self {
+        Self {
+            x: self.x.round(),
+            y: self.y.round(),
+        }
+    }
+
+    /// Component-wise fractional part (`x - floor(x)`), matching GLSL semantics (result in [0, 1)).
+    #[must_use]
+    #[inline]
+    pub fn fract(self) -> Self {
+        Self {
+            x: self.x - self.x.floor(),
+            y: self.y - self.y.floor(),
+        }
+    }
+
+    /// Component-wise step: returns `1.0` if `self >= edge`, else `0.0`.
+    ///
+    /// GLSL equivalent of `step(edge, x)`.
+    #[must_use]
+    #[inline]
+    pub fn step(self, edge: Self) -> Self {
+        Self {
+            x: if self.x >= edge.x { 1.0 } else { 0.0 },
+            y: if self.y >= edge.y { 1.0 } else { 0.0 },
+        }
+    }
+
+    /// Reflect `self` off a surface with the given unit `normal`.
+    ///
+    /// `normal` should be normalized for correct results.
+    #[must_use]
+    #[inline]
+    pub fn reflect(self, normal: Self) -> Self {
+        self - normal * (2.0 * self.dot(normal))
+    }
 }
 
 impl Add for Vec2 {
@@ -1313,6 +1394,74 @@ impl Vec3 {
         } else {
             let scale = max_length * len_sq.sqrt().recip();
             self * scale
+        }
+    }
+
+    /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
+    #[must_use]
+    #[inline]
+    pub fn sign(self) -> Self {
+        Self {
+            x: self.x.signum(),
+            y: self.y.signum(),
+            z: self.z.signum(),
+        }
+    }
+
+    /// Component-wise floor (round toward negative infinity).
+    #[must_use]
+    #[inline]
+    pub fn floor(self) -> Self {
+        Self {
+            x: self.x.floor(),
+            y: self.y.floor(),
+            z: self.z.floor(),
+        }
+    }
+
+    /// Component-wise ceiling (round toward positive infinity).
+    #[must_use]
+    #[inline]
+    pub fn ceil(self) -> Self {
+        Self {
+            x: self.x.ceil(),
+            y: self.y.ceil(),
+            z: self.z.ceil(),
+        }
+    }
+
+    /// Component-wise round (round to nearest, ties to even).
+    #[must_use]
+    #[inline]
+    pub fn round(self) -> Self {
+        Self {
+            x: self.x.round(),
+            y: self.y.round(),
+            z: self.z.round(),
+        }
+    }
+
+    /// Component-wise fractional part (`x - floor(x)`), matching GLSL semantics (result in [0, 1)).
+    #[must_use]
+    #[inline]
+    pub fn fract(self) -> Self {
+        Self {
+            x: self.x - self.x.floor(),
+            y: self.y - self.y.floor(),
+            z: self.z - self.z.floor(),
+        }
+    }
+
+    /// Component-wise step: returns `1.0` if `self >= edge`, else `0.0`.
+    ///
+    /// GLSL equivalent of `step(edge, x)`.
+    #[must_use]
+    #[inline]
+    pub fn step(self, edge: Self) -> Self {
+        Self {
+            x: if self.x >= edge.x { 1.0 } else { 0.0 },
+            y: if self.y >= edge.y { 1.0 } else { 0.0 },
+            z: if self.z >= edge.z { 1.0 } else { 0.0 },
         }
     }
 }
@@ -2951,6 +3100,100 @@ mod tests {
         assert!((r2.z - 3.0).abs() < f32::EPSILON);
     }
 
+    // ── Vec2 component ops ────────────────────────────────────────────────────
+
+    #[test]
+    fn vec2_abs() {
+        let v = Vec2::new(-2.0, 3.0).abs();
+        assert_eq!(v, Vec2::new(2.0, 3.0));
+    }
+
+    #[test]
+    fn vec2_sign() {
+        let v = Vec2::new(-5.0, 0.0).sign();
+        assert_eq!(v.x, -1.0);
+        // f32::signum(0.0) = 1.0 in Rust
+        assert!((v.y - 0.0_f32.signum()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn vec2_floor_ceil_round() {
+        let v = Vec2::new(1.6, -1.6);
+        assert_eq!(v.floor(), Vec2::new(1.0, -2.0));
+        assert_eq!(v.ceil(), Vec2::new(2.0, -1.0));
+        assert_eq!(v.round(), Vec2::new(2.0, -2.0));
+    }
+
+    #[test]
+    fn vec2_fract() {
+        let f = Vec2::new(2.75, -1.25).fract();
+        assert!((f.x - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn vec2_step() {
+        let edge = Vec2::new(1.0, 2.0);
+        let v = Vec2::new(0.5, 3.0);
+        let s = v.step(edge);
+        assert_eq!(s, Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn vec2_reflect() {
+        let v = Vec2::new(1.0, -1.0);
+        let n = Vec2::new(0.0, 1.0);
+        let r = v.reflect(n);
+        assert!((r.x - 1.0).abs() < 1e-6);
+        assert!((r.y - 1.0).abs() < 1e-6);
+    }
+
+    // ── Vec3 component ops ────────────────────────────────────────────────────
+
+    #[test]
+    fn vec3_sign() {
+        let v = Vec3::new(-3.0, 0.5, 0.0).sign();
+        assert_eq!(v.x, -1.0);
+        assert_eq!(v.y, 1.0);
+    }
+
+    #[test]
+    fn vec3_floor_ceil_round_fract() {
+        let v = Vec3::new(1.7, -1.3, 2.5);
+        assert_eq!(v.floor(), Vec3::new(1.0, -2.0, 2.0));
+        assert_eq!(v.ceil(), Vec3::new(2.0, -1.0, 3.0));
+        assert!((v.fract().x - 0.7).abs() < 1e-5);
+    }
+
+    #[test]
+    fn vec3_step() {
+        let e = Vec3::new(1.0, 2.0, 3.0);
+        let v = Vec3::new(0.5, 2.0, 5.0);
+        let s = v.step(e);
+        assert_eq!(s, Vec3::new(0.0, 1.0, 1.0));
+    }
+
+    // ── Vec4 component ops ────────────────────────────────────────────────────
+
+    #[test]
+    fn vec4_abs_sign() {
+        let v = Vec4::new(-1.0, 2.0, -3.0, 0.0);
+        let a = v.abs();
+        assert_eq!(a, Vec4::new(1.0, 2.0, 3.0, 0.0));
+        let s = v.sign();
+        assert_eq!(s.x, -1.0);
+        assert_eq!(s.y, 1.0);
+        assert_eq!(s.z, -1.0);
+    }
+
+    #[test]
+    fn vec4_floor_fract_roundtrip() {
+        let v = Vec4::new(3.7, -0.3, 1.5, 2.9);
+        let f = v.floor();
+        let frac = v.fract();
+        assert!((f.x + frac.x - v.x).abs() < 1e-5);
+        assert!((f.y + frac.y - v.y).abs() < 1e-5);
+    }
+
     #[test]
     fn test_fast_normalize_accuracy() {
         let v = Vec3::new(1.0, 2.0, 3.0);
@@ -3869,6 +4112,78 @@ impl Vec4 {
     #[inline]
     pub fn reject_from(self, onto: Self) -> Self {
         self - self.project_onto(onto)
+    }
+
+    /// Component-wise absolute value.
+    #[must_use]
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+            w: self.w.abs(),
+        }
+    }
+
+    /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
+    #[must_use]
+    #[inline]
+    pub fn sign(self) -> Self {
+        Self {
+            x: self.x.signum(),
+            y: self.y.signum(),
+            z: self.z.signum(),
+            w: self.w.signum(),
+        }
+    }
+
+    /// Component-wise floor (round toward negative infinity).
+    #[must_use]
+    #[inline]
+    pub fn floor(self) -> Self {
+        Self {
+            x: self.x.floor(),
+            y: self.y.floor(),
+            z: self.z.floor(),
+            w: self.w.floor(),
+        }
+    }
+
+    /// Component-wise ceiling (round toward positive infinity).
+    #[must_use]
+    #[inline]
+    pub fn ceil(self) -> Self {
+        Self {
+            x: self.x.ceil(),
+            y: self.y.ceil(),
+            z: self.z.ceil(),
+            w: self.w.ceil(),
+        }
+    }
+
+    /// Component-wise round (round to nearest, ties to even).
+    #[must_use]
+    #[inline]
+    pub fn round(self) -> Self {
+        Self {
+            x: self.x.round(),
+            y: self.y.round(),
+            z: self.z.round(),
+            w: self.w.round(),
+        }
+    }
+
+    /// Component-wise fractional part (`x - floor(x)`), matching GLSL semantics (result in [0, 1)).
+    #[must_use]
+    #[inline]
+    pub fn fract(self) -> Self {
+        Self {
+            x: self.x - self.x.floor(),
+            y: self.y - self.y.floor(),
+            z: self.z - self.z.floor(),
+            w: self.w - self.w.floor(),
+        }
     }
 }
 

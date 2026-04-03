@@ -102,6 +102,88 @@ pub struct BoundingSphere {
 }
 
 impl BoundingSphere {
+    /// Compute the smallest bounding sphere enclosing `points` using Ritter's algorithm.
+    ///
+    /// Ritter's algorithm is an O(n) approximation that typically produces a sphere
+    /// within 5% of optimal.  Returns `None` if `points` is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::BoundingSphere;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let points = [Vec3::new(1.0, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0)];
+    /// let sphere = BoundingSphere::from_points(&points).unwrap();
+    /// assert!((sphere.center.x).abs() < 1e-5);
+    /// assert!((sphere.radius - 1.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn from_points(points: &[Vec3]) -> Option<Self> {
+        if points.is_empty() {
+            return None;
+        }
+
+        // Pass 1: find the most-separated pair (approximate).
+        // Pick the point with min/max x, y, z in each dimension, then take the
+        // most-separated pair as the initial diameter.
+        let mut min_x = points[0];
+        let mut max_x = points[0];
+        let mut min_y = points[0];
+        let mut max_y = points[0];
+        let mut min_z = points[0];
+        let mut max_z = points[0];
+
+        for &p in points {
+            if p.x < min_x.x {
+                min_x = p;
+            }
+            if p.x > max_x.x {
+                max_x = p;
+            }
+            if p.y < min_y.y {
+                min_y = p;
+            }
+            if p.y > max_y.y {
+                max_y = p;
+            }
+            if p.z < min_z.z {
+                min_z = p;
+            }
+            if p.z > max_z.z {
+                max_z = p;
+            }
+        }
+
+        let dx = (max_x - min_x).length_sq();
+        let dy = (max_y - min_y).length_sq();
+        let dz = (max_z - min_z).length_sq();
+
+        let (p, q) = if dx >= dy && dx >= dz {
+            (min_x, max_x)
+        } else if dy >= dz {
+            (min_y, max_y)
+        } else {
+            (min_z, max_z)
+        };
+
+        let mut center = (p + q) * 0.5;
+        let mut radius = (q - p).length() * 0.5;
+
+        // Pass 2: expand sphere to include any points still outside.
+        for &pt in points {
+            let d = (pt - center).length();
+            if d > radius {
+                let excess = d - radius;
+                radius += excess * 0.5;
+                let dir = (pt - center) * (1.0 / d);
+                center = center + dir * (excess * 0.5);
+            }
+        }
+
+        Some(Self { center, radius })
+    }
+
     /// Transform this bounding sphere by a matrix.
     ///
     /// Applies the transformation to the center and scales the radius by the maximum scale factor
@@ -644,6 +726,206 @@ impl AABB {
     }
 }
 
+// ── Triangle ─────────────────────────────────────────────────────────────────
+
+/// A 3D triangle defined by three vertices `a`, `b`, `c`.
+///
+/// Provides common geometric queries needed for mesh processing, collision
+/// detection, and rasterization support.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::Triangle;
+/// use abrash_core::math::Vec3;
+///
+/// let tri = Triangle::new(
+///     Vec3::new(0.0, 0.0, 0.0),
+///     Vec3::new(1.0, 0.0, 0.0),
+///     Vec3::new(0.0, 1.0, 0.0),
+/// );
+/// assert!((tri.area() - 0.5).abs() < 1e-5);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Triangle {
+    /// First vertex.
+    pub a: Vec3,
+    /// Second vertex.
+    pub b: Vec3,
+    /// Third vertex.
+    pub c: Vec3,
+}
+
+impl Triangle {
+    /// Creates a new triangle from three vertices.
+    #[must_use]
+    #[inline]
+    pub const fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        Self { a, b, c }
+    }
+
+    /// Unnormalized face normal (`(b-a) × (c-a)`).
+    ///
+    /// Length equals twice the triangle's area.  For a unit normal use
+    /// [`Triangle::normal`].
+    #[must_use]
+    #[inline]
+    pub fn normal_unnormalized(self) -> Vec3 {
+        (self.b - self.a).cross(self.c - self.a)
+    }
+
+    /// Unit face normal.
+    ///
+    /// Returns `Vec3::ZERO` for degenerate (zero-area) triangles.
+    #[must_use]
+    #[inline]
+    pub fn normal(self) -> Vec3 {
+        self.normal_unnormalized().normalize_or_zero()
+    }
+
+    /// Area of the triangle.
+    #[must_use]
+    #[inline]
+    pub fn area(self) -> f32 {
+        self.normal_unnormalized().length() * 0.5
+    }
+
+    /// Centroid (arithmetic mean of the three vertices).
+    #[must_use]
+    #[inline]
+    pub fn centroid(self) -> Vec3 {
+        (self.a + self.b + self.c) * (1.0 / 3.0)
+    }
+
+    /// Barycentric coordinates of `point` relative to this triangle.
+    ///
+    /// Returns `(u, v, w)` such that `point ≈ u*a + v*b + w*c` and `u+v+w = 1`.
+    /// If the triangle is degenerate, all three coordinates are `1/3`.
+    ///
+    /// The point is inside the triangle when all coordinates are in `[0, 1]`.
+    #[must_use]
+    pub fn barycentric(self, point: Vec3) -> (f32, f32, f32) {
+        let v0 = self.b - self.a;
+        let v1 = self.c - self.a;
+        let v2 = point - self.a;
+
+        let d00 = v0.dot(v0);
+        let d01 = v0.dot(v1);
+        let d11 = v1.dot(v1);
+        let d20 = v2.dot(v0);
+        let d21 = v2.dot(v1);
+
+        let denom = d00 * d11 - d01 * d01;
+        if denom.abs() < 1e-10 {
+            return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+        }
+        let inv = 1.0 / denom;
+        let v = (d11 * d20 - d01 * d21) * inv;
+        let w = (d00 * d21 - d01 * d20) * inv;
+        let u = 1.0 - v - w;
+        (u, v, w)
+    }
+
+    /// Returns `true` if `point` (projected onto the triangle's plane) lies inside.
+    #[must_use]
+    #[inline]
+    pub fn contains_projected_point(self, point: Vec3) -> bool {
+        let (u, v, w) = self.barycentric(point);
+        u >= 0.0 && v >= 0.0 && w >= 0.0
+    }
+
+    /// Closest point on the triangle surface to `point`.
+    ///
+    /// Uses the Ericson / Real-Time Collision Detection algorithm.
+    #[must_use]
+    pub fn closest_point(self, point: Vec3) -> Vec3 {
+        let ab = self.b - self.a;
+        let ac = self.c - self.a;
+        let ap = point - self.a;
+
+        let d1 = ab.dot(ap);
+        let d2 = ac.dot(ap);
+        if d1 <= 0.0 && d2 <= 0.0 {
+            return self.a;
+        }
+
+        let bp = point - self.b;
+        let d3 = ab.dot(bp);
+        let d4 = ac.dot(bp);
+        if d3 >= 0.0 && d4 <= d3 {
+            return self.b;
+        }
+
+        let vc = d1 * d4 - d3 * d2;
+        if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+            let v = d1 / (d1 - d3);
+            return self.a + ab * v;
+        }
+
+        let cp = point - self.c;
+        let d5 = ab.dot(cp);
+        let d6 = ac.dot(cp);
+        if d6 >= 0.0 && d5 <= d6 {
+            return self.c;
+        }
+
+        let vb = d5 * d2 - d1 * d6;
+        if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+            let w = d2 / (d2 - d6);
+            return self.a + ac * w;
+        }
+
+        let va = d3 * d6 - d5 * d4;
+        if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+            let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+            return self.b + (self.c - self.b) * w;
+        }
+
+        let denom = 1.0 / (va + vb + vc);
+        let v = vb * denom;
+        let w = vc * denom;
+        self.a + ab * v + ac * w
+    }
+
+    /// Squared distance from `point` to the triangle surface.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq_to_point(self, point: Vec3) -> f32 {
+        (point - self.closest_point(point)).length_sq()
+    }
+
+    /// Circumcenter of the triangle (center of the circumscribed circle).
+    ///
+    /// Returns `None` for degenerate triangles.
+    #[must_use]
+    pub fn circumcenter(self) -> Option<Vec3> {
+        let ac = self.c - self.a;
+        let ab = self.b - self.a;
+        let ab_cross_ac = ab.cross(ac);
+
+        let len_sq = ab_cross_ac.length_sq();
+        if len_sq < 1e-10 {
+            return None;
+        }
+
+        let to_circumcenter = (ab_cross_ac.cross(ab) * ac.length_sq()
+            + ac.cross(ab_cross_ac) * ab.length_sq())
+            * (1.0 / (2.0 * len_sq));
+
+        Some(self.a + to_circumcenter)
+    }
+
+    /// Smallest AABB enclosing this triangle.
+    #[must_use]
+    #[inline]
+    pub fn to_aabb(self) -> AABB {
+        AABB::new(
+            self.a.min(self.b).min(self.c),
+            self.a.max(self.b).max(self.c),
+        )
+    }
+}
+
 // ── OBB ───────────────────────────────────────────────────────────────────────
 
 /// Oriented Bounding Box (OBB) for tight-fit culling and collision detection.
@@ -1101,6 +1383,144 @@ mod tests {
     use super::*;
     use crate::math::{Mat4, Vec3};
     use std::f32::consts::PI;
+
+    // ── BoundingSphere::from_points ───────────────────────────────────────────
+
+    #[test]
+    fn bounding_sphere_from_points_empty_is_none() {
+        assert!(BoundingSphere::from_points(&[]).is_none());
+    }
+
+    #[test]
+    fn bounding_sphere_from_points_two_antipodal() {
+        let pts = [Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)];
+        let s = BoundingSphere::from_points(&pts).unwrap();
+        assert!(s.center.x.abs() < 1e-5, "center should be at origin");
+        assert!((s.radius - 1.0).abs() < 1e-5, "radius should be 1");
+    }
+
+    #[test]
+    fn bounding_sphere_from_points_encloses_all() {
+        let pts = [
+            Vec3::new(3.0, 0.0, 0.0),
+            Vec3::new(-1.0, 2.0, 0.0),
+            Vec3::new(0.0, 0.0, -2.0),
+        ];
+        let s = BoundingSphere::from_points(&pts).unwrap();
+        for &p in &pts {
+            let d = (p - s.center).length();
+            assert!(
+                d <= s.radius + 1e-4,
+                "point {p:?} at dist {d} outside sphere radius {}",
+                s.radius
+            );
+        }
+    }
+
+    // ── Triangle ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn triangle_area_unit_right_angle() {
+        let t = Triangle::new(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        assert!((t.area() - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn triangle_normal_unit_xy_plane() {
+        let t = Triangle::new(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let n = t.normal();
+        assert!(n.z.abs() > 0.99, "normal should point along Z: {n:?}");
+    }
+
+    #[test]
+    fn triangle_centroid() {
+        let t = Triangle::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(3.0, 0.0, 0.0),
+            Vec3::new(0.0, 3.0, 0.0),
+        );
+        let c = t.centroid();
+        assert!((c.x - 1.0).abs() < 1e-5);
+        assert!((c.y - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn triangle_barycentric_vertices() {
+        let t = Triangle::new(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let (u, v, w) = t.barycentric(t.a);
+        assert!((u - 1.0).abs() < 1e-5 && v.abs() < 1e-5 && w.abs() < 1e-5);
+        let (u, v, w) = t.barycentric(t.b);
+        assert!(u.abs() < 1e-5 && (v - 1.0).abs() < 1e-5 && w.abs() < 1e-5);
+    }
+
+    #[test]
+    fn triangle_closest_point_inside() {
+        let t = Triangle::new(
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        // Point directly above centroid — closest point should be the projection
+        let p = Vec3::new(0.0, 0.3, 1.0);
+        let cp = t.closest_point(p);
+        assert!((cp.z).abs() < 1e-5, "closest point should be on XY plane");
+    }
+
+    #[test]
+    fn triangle_closest_point_to_vertex() {
+        let t = Triangle::new(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        // Point well beyond vertex A
+        let p = Vec3::new(-1.0, -1.0, 0.0);
+        let cp = t.closest_point(p);
+        assert!((cp - Vec3::ZERO).length() < 1e-5);
+    }
+
+    #[test]
+    fn triangle_circumcenter_equilateral() {
+        // Equilateral triangle — circumcenter should be the centroid.
+        let side = 2.0_f32;
+        let h = (side * side - 1.0_f32).sqrt();
+        let t = Triangle::new(
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, h, 0.0),
+        );
+        let cc = t.circumcenter().unwrap();
+        // All three vertices should be equidistant from circumcenter
+        let r0 = (t.a - cc).length();
+        let r1 = (t.b - cc).length();
+        let r2 = (t.c - cc).length();
+        assert!((r0 - r1).abs() < 1e-4, "r0={r0} r1={r1}");
+        assert!((r1 - r2).abs() < 1e-4, "r1={r1} r2={r2}");
+    }
+
+    #[test]
+    fn triangle_to_aabb() {
+        let t = Triangle::new(
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(-1.0, 0.0, 1.0),
+            Vec3::new(0.0, 3.0, 2.0),
+        );
+        let aabb = t.to_aabb();
+        assert!((aabb.min.x - (-1.0)).abs() < 1e-5);
+        assert!((aabb.max.y - 3.0).abs() < 1e-5);
+    }
 
     #[test]
     fn test_aabb_new() {

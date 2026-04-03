@@ -383,6 +383,107 @@ impl Color {
         let l = self.luminance();
         Self::new(l, l, l, self.a)
     }
+
+    /// Convert this linear-light RGB color to **Oklab** `(L, a, b)`.
+    ///
+    /// Oklab is a perceptually uniform color space designed by Björn Ottosson (2020).
+    /// Equal Euclidean distances in Oklab correspond to equal perceived color differences,
+    /// making it far superior to HSL/HSV for:
+    /// - Gradient generation without muddy midpoints
+    /// - Palette interpolation
+    /// - Color-aware desaturation
+    ///
+    /// `L ∈ [0, 1]` is perceived lightness; `a` and `b` are opponent-color axes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let white = Color::WHITE;
+    /// let (l, a, b) = white.to_oklab();
+    /// assert!((l - 1.0).abs() < 0.01);
+    /// assert!(a.abs() < 0.01);
+    /// assert!(b.abs() < 0.01);
+    /// ```
+    #[must_use]
+    pub fn to_oklab(self) -> (f32, f32, f32) {
+        // Step 1: linear sRGB → XYZ-like intermediate (Oklab M1 matrix)
+        let l = 0.412_221_5 * self.r + 0.536_332_6 * self.g + 0.051_445_9 * self.b;
+        let m = 0.211_903_5 * self.r + 0.680_699_5 * self.g + 0.107_396_9 * self.b;
+        let s = 0.088_302_5 * self.r + 0.281_718_8 * self.g + 0.629_978_8 * self.b;
+
+        // Step 2: cube-root non-linearity
+        let l_ = l.cbrt();
+        let m_ = m.cbrt();
+        let s_ = s.cbrt();
+
+        // Step 3: Oklab M2 matrix → (L, a, b)
+        let ok_l = 0.210_454_26 * l_ + 0.793_617_8 * m_ - 0.004_072_047 * s_;
+        let ok_a = 1.977_998_5 * l_ - 2.428_592_2 * m_ + 0.450_593_7 * s_;
+        let ok_b = 0.025_904_04 * l_ + 0.782_771_77 * m_ - 0.808_675_77 * s_;
+
+        (ok_l, ok_a, ok_b)
+    }
+
+    /// Construct a `Color` from **Oklab** `(L, a, b)` coordinates.
+    ///
+    /// This is the inverse of [`Color::to_oklab`].
+    /// The alpha channel defaults to `1.0` (fully opaque).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let (l, a, b) = Color::RED.to_oklab();
+    /// let back = Color::from_oklab(l, a, b);
+    /// assert!((back.r - 1.0).abs() < 0.01);
+    /// assert!(back.g.abs() < 0.01);
+    /// ```
+    #[must_use]
+    pub fn from_oklab(ok_l: f32, ok_a: f32, ok_b: f32) -> Self {
+        // Inverse M2
+        let l_ = ok_l + 0.396_337_78 * ok_a + 0.215_803_76 * ok_b;
+        let m_ = ok_l - 0.105_561_346 * ok_a - 0.063_854_17 * ok_b;
+        let s_ = ok_l - 0.089_484_18 * ok_a - 1.291_485_5 * ok_b;
+
+        // Cube
+        let l = l_ * l_ * l_;
+        let m = m_ * m_ * m_;
+        let s = s_ * s_ * s_;
+
+        // Inverse M1
+        let r = 4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s;
+        let g = -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s;
+        let b = -0.004_196_086 * l - 0.703_418_6 * m + 1.707_614_7 * s;
+
+        Self::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0)
+    }
+
+    /// Lerp two colors in **Oklab** space for perceptually smooth gradients.
+    ///
+    /// Unlike RGB lerp (which can produce muddy or over-saturated midpoints),
+    /// Oklab lerp maintains constant perceived lightness and hue progression.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let mid = Color::RED.lerp_oklab(Color::BLUE, 0.5);
+    /// // Midpoint should be a neutral purple — not overly dark
+    /// assert!(mid.r > 0.0 && mid.b > 0.0);
+    /// ```
+    #[must_use]
+    pub fn lerp_oklab(self, other: Self, t: f32) -> Self {
+        let (l0, a0, b0) = self.to_oklab();
+        let (l1, a1, b1) = other.to_oklab();
+        let alpha = self.a + (other.a - self.a) * t;
+        let mut c = Self::from_oklab(l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t);
+        c.a = alpha;
+        c
+    }
 }
 
 impl std::ops::Add for Color {
