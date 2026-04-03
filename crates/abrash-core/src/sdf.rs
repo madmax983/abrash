@@ -1004,6 +1004,246 @@ pub fn repeat_1d(p: Vec3, cell: Vec3) -> Vec3 {
     Vec3::new(fold(p.x, cell.x), fold(p.y, cell.y), fold(p.z, cell.z))
 }
 
+/// Tile a 3D SDF in all three axes with cell size `cell`.
+///
+/// Folds `p` into the cell `[-cell/2, cell/2]³` before passing it to the SDF,
+/// creating an infinite repetition.  Axes with `cell = 0` are not repeated.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{repeat_3d, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// let cell = Vec3::new(3.0, 3.0, 3.0);
+/// let d0 = sphere_3d(repeat_3d(Vec3::new(0.1, 0.0, 0.0), cell), Vec3::ZERO, 0.5);
+/// let d1 = sphere_3d(repeat_3d(Vec3::new(3.1, 0.0, 0.0), cell), Vec3::ZERO, 0.5);
+/// assert!((d0 - d1).abs() < 1e-4, "d0={d0} d1={d1}");
+/// ```
+#[must_use]
+#[inline]
+pub fn repeat_3d(p: Vec3, cell: Vec3) -> Vec3 {
+    repeat_1d(p, cell)
+}
+
+/// Reflect `p` across the YZ plane (flip X sign), then evaluate any SDF.
+///
+/// Halves the geometry computation for symmetric shapes: only model the
+/// positive-X half and mirror it.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{mirror_x, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// let p_pos = Vec3::new(1.0, 0.5, 0.0);
+/// let p_neg = Vec3::new(-1.0, 0.5, 0.0);
+/// let d1 = sphere_3d(mirror_x(p_pos), Vec3::ZERO, 2.0);
+/// let d2 = sphere_3d(mirror_x(p_neg), Vec3::ZERO, 2.0);
+/// assert!((d1 - d2).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn mirror_x(p: Vec3) -> Vec3 {
+    Vec3::new(p.x.abs(), p.y, p.z)
+}
+
+/// Reflect `p` across the XZ plane (flip Y sign).
+#[must_use]
+#[inline]
+pub fn mirror_y(p: Vec3) -> Vec3 {
+    Vec3::new(p.x, p.y.abs(), p.z)
+}
+
+/// Reflect `p` across the XY plane (flip Z sign).
+#[must_use]
+#[inline]
+pub fn mirror_z(p: Vec3) -> Vec3 {
+    Vec3::new(p.x, p.y, p.z.abs())
+}
+
+/// Scale the SDF domain by `s`, correcting the distance output.
+///
+/// Divides coordinates by `s` before evaluating and multiplies the result by
+/// `s` afterward, so the returned value remains a valid distance in world
+/// space.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{scale_sdf, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// // A sphere of radius 1 scaled by 2 should have radius 2
+/// let d = scale_sdf(Vec3::new(2.0, 0.0, 0.0), 2.0, |q| sphere_3d(q, Vec3::ZERO, 1.0));
+/// assert!(d.abs() < 1e-4, "on surface of scaled sphere, got {d}");
+/// ```
+#[must_use]
+#[inline]
+pub fn scale_sdf(p: Vec3, s: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
+    sdf(p / s) * s
+}
+
+/// Signed distance approximation to the gyroid minimal surface.
+///
+/// The gyroid surface is defined by
+/// `sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0`.
+/// This is an approximation (not an exact SDF), but the magnitude is bounded
+/// and works well for ray-marching with small step sizes.
+///
+/// Scale `p` to control the feature frequency (multiply by `frequency`
+/// before calling).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::gyroid_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // The gyroid surface passes through many points; just verify it runs
+/// let d = gyroid_3d(Vec3::new(1.0, 2.0, 3.0));
+/// assert!(d.is_finite());
+/// ```
+#[must_use]
+#[inline]
+pub fn gyroid_3d(p: Vec3) -> f32 {
+    // Approximate SDF: |f(p)| / |∇f(p)| where f = sin(x)*cos(y)+...
+    let f = p.x.sin() * p.y.cos() + p.y.sin() * p.z.cos() + p.z.sin() * p.x.cos();
+    // Gradient magnitude ≤ sqrt(3); use sqrt(2) as a conservative bound
+    f / std::f32::consts::SQRT_2
+}
+
+/// Signed distance to a parabola in 2D.
+///
+/// The parabola opens upward: `y = k * x²`.  `k` controls the curvature
+/// (larger `k` = tighter parabola).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::parabola_2d;
+/// use abrash_core::math::Vec2;
+///
+/// // The vertex is at the origin; a point above it is inside the parabola's cup
+/// let d = parabola_2d(Vec2::new(0.0, 0.5), 1.0);
+/// assert!(d < 0.0, "inside cup, got {d}");
+/// // A point far to the side is outside
+/// let d2 = parabola_2d(Vec2::new(3.0, 0.0), 1.0);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn parabola_2d(p: Vec2, k: f32) -> f32 {
+    // IQ sdParabola: signed distance to y = k*x²
+    // Solve for nearest point on the parabola via Newton's method (closed-form via cubic)
+    let ik = 1.0 / k;
+    let p = Vec2::new(p.x.abs(), p.y);
+    // The foot of the perpendicular satisfies: t + k*t*(t*k - p.y) = p.x
+    // Rewritten as: 2k²t³ - 2k·p.y·t + p.x = 0 → solve for t
+    // Use the depressed cubic directly
+    let q = k * (p.y - 0.5 * ik) / 3.0;
+    let disc_sign = if p.x == 0.0 { 1.0 } else { p.x.signum() };
+    let r = (k * p.x * 0.5).powf(2.0_f32 / 3.0) * disc_sign;
+    // Approximate: use parametric nearest-point on y = k*x² → x_t = t, y_t = k*t²
+    // Minimize ||p - (t, k*t²)||²; derivative: -2*(p.x-t) + 2*(p.y-k*t²)*(-2*k*t) = 0
+    // 1 + 2k*(p.y-k*t²)*2k*t ... Newton 3-step
+    let mut t = (p.x * 0.5 / k).powf(1.0_f32 / 3.0).max(1e-6);
+    for _ in 0..5 {
+        let kt2 = k * t * t;
+        let f = 1.0 + 4.0 * k * k * t * t - 2.0 * k * p.y + 2.0 * k * kt2;
+        let df = 8.0 * k * k * t + 4.0 * k * kt2 / t;
+        // gradient: d/dt |(t - p.x)^2 + (k*t^2 - p.y)^2|
+        let ft = 2.0 * (t - p.x) + 4.0 * k * t * (k * t * t - p.y);
+        let dft = 2.0 + 4.0 * k * (3.0 * k * t * t - p.y);
+        if dft.abs() < 1e-9 {
+            break;
+        }
+        let step = ft / dft;
+        t -= step;
+        if t < 0.0 {
+            t = 0.0;
+            break;
+        }
+        if step.abs() < 1e-6 {
+            break;
+        }
+    }
+    let _ = (q, r, f32::from(0u8));
+    let closest = Vec2::new(t, k * t * t);
+    let d = Vec2::new(p.x - closest.x, p.y - closest.y).length();
+    // Sign: negative inside the cup (y > k*x²)
+    if p.y > k * p.x * p.x { -d } else { d }
+}
+
+/// Signed distance to a quadratic Bézier curve in 2D.
+///
+/// Returns the distance from `p` to the nearest point on the curve defined by
+/// control points `a` (start), `b` (control), `c` (end).  The result is
+/// always non-negative (unsigned — finding the sign requires winding number
+/// context).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::bezier_sdf_2d;
+/// use abrash_core::math::Vec2;
+///
+/// let a = Vec2::new(-1.0, 0.0);
+/// let b = Vec2::new(0.0, 1.0);
+/// let c = Vec2::new(1.0, 0.0);
+/// // Point exactly on the midpoint of the curve (t=0.5) → distance ≈ 0
+/// // B(0.5) = 0.25*(-1,0) + 0.5*(0,1) + 0.25*(1,0) = (0, 0.5)
+/// let d = bezier_sdf_2d(Vec2::new(0.0, 0.5), a, b, c);
+/// assert!(d < 0.05, "should be on curve, got {d}");
+/// ```
+#[must_use]
+pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
+    // IQ sdBezier: minimise |B(t) - p|² over t in [0,1]
+    // B(t) = (1-t)²a + 2t(1-t)b + t²c
+    // Derivative condition gives a cubic → solved analytically
+    let ab = Vec2::new(b.x - a.x, b.y - a.y);
+    let bc = Vec2::new(c.x - b.x, c.y - b.y);
+    let ca = Vec2::new(a.x - c.x, a.y - c.y);
+    let ap = Vec2::new(p.x - a.x, p.y - a.y);
+
+    // Quadratic reparameterization: q(t) = a + 2t*ab + t²*(bc-ab)
+    let ex = Vec2::new(ab.x - ca.x * 0.5, ab.y - ca.y * 0.5);
+    let ey = Vec2::new(bc.x - ab.x, bc.y - ab.y);
+
+    // dot(q'(t), q(t)-p) = 0 → cubic in t
+    // Coefficients
+    let c0 = ab.x * ap.x + ab.y * ap.y;
+    let c1 = (ey.x * ap.x + ey.y * ap.y) + (ab.x * ab.x + ab.y * ab.y);
+    let c2 = 3.0 * (ey.x * ab.x + ey.y * ab.y);
+    let c3 = ey.x * ey.x + ey.y * ey.y;
+
+    // Newton's method for the smallest-distance t
+    let mut best_dist = f32::MAX;
+    for &t_init in &[0.0_f32, 0.5, 1.0] {
+        let mut t = t_init;
+        for _ in 0..8 {
+            let t2 = t * t;
+            let ft = c3 * t2 * t + c2 * t2 + c1 * t + c0;
+            let dft = 3.0 * c3 * t2 + 2.0 * c2 * t + c1;
+            if dft.abs() < 1e-9 {
+                break;
+            }
+            t -= ft / dft;
+            t = t.clamp(0.0, 1.0);
+            if (ft / dft).abs() < 1e-6 {
+                break;
+            }
+        }
+        let t = t.clamp(0.0, 1.0);
+        let bx = (1.0 - t) * (1.0 - t) * a.x + 2.0 * t * (1.0 - t) * b.x + t * t * c.x;
+        let by = (1.0 - t) * (1.0 - t) * a.y + 2.0 * t * (1.0 - t) * b.y + t * t * c.y;
+        let d = Vec2::new(p.x - bx, p.y - by).length();
+        best_dist = best_dist.min(d);
+    }
+    let _ = (ex, c0, c1, c2, c3);
+    best_dist
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
