@@ -524,6 +524,10 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "ascii_display_bench"
+harness = false
+
+[[bench]]
 name = "water_ripple_bench"
 harness = false
 required-features = ["nova"]
