@@ -498,6 +498,109 @@ fn grad3(hash: usize, x: f32, y: f32, z: f32) -> f32 {
     }
 }
 
+// ── Ridge, Billow, Domain Warp ───────────────────────────────────────────────
+
+/// Ridge noise (2D): `1 - |fBm|`, sharpened by `sharpness` exponent.
+///
+/// Produces sharp mountain-ridge features — the complement of turbulence.
+/// `sharpness` ≥ 1.0: higher values sharpen the ridges more (2.0 is typical).
+/// Output is in **[0, 1]**.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::ridge_noise_2d;
+/// let v = ridge_noise_2d(1.0, 2.0, 4, 2.0, 0.5, 2.0);
+/// assert!(v >= 0.0 && v <= 1.0);
+/// ```
+#[must_use]
+pub fn ridge_noise_2d(
+    x: f32,
+    y: f32,
+    octaves: u32,
+    lacunarity: f32,
+    gain: f32,
+    sharpness: f32,
+) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+    let mut weight = 1.0_f32;
+
+    for _ in 0..octaves {
+        let n = 1.0 - gradient_noise_2d(x * frequency, y * frequency).abs();
+        let ridge = n * n; // sharpen
+        value += ridge * amplitude * weight;
+        weight = (ridge * sharpness).clamp(0.0, 1.0);
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    value.clamp(0.0, 1.0)
+}
+
+/// Billow noise (2D): `|fBm|` — cloudy, puffy terrain features.
+///
+/// Output is in **[0, ∞)** (unbounded above but typically stays near 1).
+/// Scale by a constant or clamp as needed.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::billow_noise_2d;
+/// let v = billow_noise_2d(1.0, 2.0, 4, 2.0, 0.5);
+/// assert!(v >= 0.0);
+/// ```
+#[must_use]
+pub fn billow_noise_2d(x: f32, y: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+
+    for _ in 0..octaves {
+        value += gradient_noise_2d(x * frequency, y * frequency).abs() * amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    value
+}
+
+/// Domain-warped fBm (2D): `fBm(p + strength * fBm(p))`.
+///
+/// Warps the input coordinates by another layer of noise before evaluating
+/// fBm. Produces the organic, flowing terrain shapes seen in Inigo Quilez's
+/// "Warping" technique.
+///
+/// `strength` controls how much the domain is displaced (0.5–1.5 is typical).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::domain_warp_fbm_2d;
+/// let a = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
+/// let b = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
+/// assert_eq!(a, b); // deterministic
+/// ```
+#[must_use]
+pub fn domain_warp_fbm_2d(
+    x: f32,
+    y: f32,
+    octaves: u32,
+    lacunarity: f32,
+    gain: f32,
+    strength: f32,
+) -> f32 {
+    // First pass: warp offsets
+    let wx = fbm_2d(x, y, octaves, lacunarity, gain);
+    let wy = fbm_2d(x + 5.2, y + 1.3, octaves, lacunarity, gain); // offset seed
+    fbm_2d(
+        x + strength * wx,
+        y + strength * wy,
+        octaves,
+        lacunarity,
+        gain,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -655,6 +758,33 @@ mod tests {
     fn worley_3d_deterministic() {
         let a = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
         let b = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn ridge_range() {
+        for i in 0..50 {
+            let x = i as f32 * 0.13 - 3.0;
+            let y = i as f32 * 0.07 + 1.0;
+            let v = ridge_noise_2d(x, y, 4, 2.0, 0.5, 1.0);
+            assert!(v >= 0.0 && v <= 1.0, "ridge out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn billow_range() {
+        for i in 0..50 {
+            let x = i as f32 * 0.19 - 1.5;
+            let y = i as f32 * 0.11 + 0.3;
+            let v = billow_noise_2d(x, y, 4, 2.0, 0.5);
+            assert!(v >= 0.0, "billow negative: {v}");
+        }
+    }
+
+    #[test]
+    fn domain_warp_deterministic() {
+        let a = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
+        let b = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
         assert_eq!(a, b);
     }
 }

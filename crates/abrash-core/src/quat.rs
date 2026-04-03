@@ -561,6 +561,197 @@ impl Mat4 {
     }
 }
 
+// ── Dual Quaternion ──────────────────────────────────────────��────────────────
+
+/// A dual quaternion encoding a rigid-body transform (rotation + translation).
+///
+/// Stored as two quaternions `real` (rotation) and `dual` (translation encoded
+/// as `0.5 * t * real` where `t` is the pure-quaternion form of the translation).
+///
+/// Dual quaternions are the preferred representation for skeletal animation
+/// blending (DQS — Dual Quaternion Skinning) because they avoid the "candy
+/// wrapper" artifact produced by linear blend skinning (LBS) near joints.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::quat::{DualQuat, Quat};
+/// use abrash_core::math::Vec3;
+/// use std::f32::consts::PI;
+///
+/// let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 2.0);
+/// let t = Vec3::new(1.0, 0.0, 0.0);
+/// let dq = DualQuat::from_rotation_translation(q, t);
+/// let v_out = dq.transform_point(Vec3::ZERO);
+/// // The origin is just translated
+/// assert!((v_out.x - 1.0).abs() < 1e-5);
+/// ```
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DualQuat {
+    /// Real part — encodes rotation (must be a unit quaternion).
+    pub real: Quat,
+    /// Dual part — encodes translation: `dual = 0.5 * t_quat * real`.
+    pub dual: Quat,
+}
+
+impl DualQuat {
+    /// Identity transform (no rotation, no translation).
+    #[must_use]
+    #[inline]
+    pub const fn identity() -> Self {
+        Self {
+            real: Quat {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 1.0,
+            },
+            dual: Quat {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+        }
+    }
+
+    /// Create from a unit quaternion with no translation.
+    #[must_use]
+    #[inline]
+    pub fn from_rotation(q: Quat) -> Self {
+        Self {
+            real: q,
+            dual: Quat {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+        }
+    }
+
+    /// Create from a translation with no rotation.
+    #[must_use]
+    #[inline]
+    pub fn from_translation(t: Vec3) -> Self {
+        Self::from_rotation_translation(
+            Quat {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 1.0,
+            },
+            t,
+        )
+    }
+
+    /// Create from a rotation quaternion and a translation vector.
+    ///
+    /// The dual part is computed as `0.5 * (0, t) * real` where `(0, t)` is the
+    /// pure quaternion form of the translation.
+    #[must_use]
+    pub fn from_rotation_translation(q: Quat, t: Vec3) -> Self {
+        // t as pure quat: (tx, ty, tz, 0)
+        let tx = Quat {
+            x: t.x,
+            y: t.y,
+            z: t.z,
+            w: 0.0,
+        };
+        // dual = 0.5 * t_quat * q
+        let tq = tx * q;
+        let dual = Quat {
+            x: 0.5 * tq.x,
+            y: 0.5 * tq.y,
+            z: 0.5 * tq.z,
+            w: 0.5 * tq.w,
+        };
+        Self { real: q, dual }
+    }
+
+    /// Extract the translation component.
+    #[must_use]
+    pub fn translation(&self) -> Vec3 {
+        // t_quat = 2 * dual * conj(real)
+        let r_conj = self.real.inverse();
+        let tq = Quat {
+            x: 2.0 * self.dual.x,
+            y: 2.0 * self.dual.y,
+            z: 2.0 * self.dual.z,
+            w: 2.0 * self.dual.w,
+        } * r_conj;
+        Vec3::new(tq.x, tq.y, tq.z)
+    }
+
+    /// Normalize so the real part is a unit quaternion.
+    #[must_use]
+    pub fn normalize(&self) -> Self {
+        let inv_len = 1.0 / self.real.length_sq().sqrt();
+        let dot = self.real.dot(self.dual);
+        Self {
+            real: Quat {
+                x: self.real.x * inv_len,
+                y: self.real.y * inv_len,
+                z: self.real.z * inv_len,
+                w: self.real.w * inv_len,
+            },
+            dual: Quat {
+                x: (self.dual.x - self.real.x * dot * inv_len) * inv_len,
+                y: (self.dual.y - self.real.y * dot * inv_len) * inv_len,
+                z: (self.dual.z - self.real.z * dot * inv_len) * inv_len,
+                w: (self.dual.w - self.real.w * dot * inv_len) * inv_len,
+            },
+        }
+    }
+
+    /// Linear blend of two dual quaternions (DLB — Dual Linear Blending).
+    ///
+    /// `t = 0.0` returns `*self`; `t = 1.0` returns `*other`.
+    /// The result is normalized to maintain unit length.
+    ///
+    /// For multi-bone blending use the full DLB formula:
+    /// `(w0*dq0 + w1*dq1 + ...).normalize()`.
+    #[must_use]
+    pub fn lerp(&self, other: &Self, t: f32) -> Self {
+        // Ensure shortest-path in the real component
+        let dot = self.real.dot(other.real);
+        let sign = if dot < 0.0 { -1.0_f32 } else { 1.0_f32 };
+        let s = 1.0 - t;
+        let blended = Self {
+            real: Quat {
+                x: s * self.real.x + t * sign * other.real.x,
+                y: s * self.real.y + t * sign * other.real.y,
+                z: s * self.real.z + t * sign * other.real.z,
+                w: s * self.real.w + t * sign * other.real.w,
+            },
+            dual: Quat {
+                x: s * self.dual.x + t * sign * other.dual.x,
+                y: s * self.dual.y + t * sign * other.dual.y,
+                z: s * self.dual.z + t * sign * other.dual.z,
+                w: s * self.dual.w + t * sign * other.dual.w,
+            },
+        };
+        blended.normalize()
+    }
+
+    /// Transform a 3D point: rotate then translate.
+    #[must_use]
+    pub fn transform_point(&self, p: Vec3) -> Vec3 {
+        // 1. Apply rotation (real part)
+        let rotated = self.real.rotate_vec3(p);
+        // 2. Add translation
+        rotated + self.translation()
+    }
+
+    /// Transform a 3D direction vector (rotation only, no translation).
+    #[must_use]
+    #[inline]
+    pub fn transform_vector(&self, v: Vec3) -> Vec3 {
+        self.real.rotate_vec3(v)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -864,5 +1055,89 @@ mod tests {
         assert!((a.x - b.x).abs() < EPSILON);
         assert!((a.y - b.y).abs() < EPSILON);
         assert!((a.z - b.z).abs() < EPSILON);
+    }
+
+    // ── DualQuat tests ──────────────────────��──────────────────────────��──────
+
+    #[test]
+    fn dual_quat_identity_transform() {
+        let dq = DualQuat::identity();
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let out = dq.transform_point(v);
+        assert!((out.x - v.x).abs() < 1e-5);
+        assert!((out.y - v.y).abs() < 1e-5);
+        assert!((out.z - v.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn dual_quat_from_rotation_no_translation() {
+        use std::f32::consts::PI;
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 2.0);
+        let dq = DualQuat::from_rotation(q);
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let out = dq.transform_point(v);
+        let expected = q.rotate_vec3(v);
+        assert!(
+            (out.x - expected.x).abs() < 1e-5,
+            "x: {} vs {}",
+            out.x,
+            expected.x
+        );
+        assert!(
+            (out.z - expected.z).abs() < 1e-5,
+            "z: {} vs {}",
+            out.z,
+            expected.z
+        );
+    }
+
+    #[test]
+    fn dual_quat_translation() {
+        let t = Vec3::new(3.0, -1.0, 2.0);
+        let dq = DualQuat::from_translation(t);
+        let v = Vec3::new(1.0, 1.0, 1.0);
+        let out = dq.transform_point(v);
+        assert!((out.x - (v.x + t.x)).abs() < 1e-5);
+        assert!((out.y - (v.y + t.y)).abs() < 1e-5);
+        assert!((out.z - (v.z + t.z)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn dual_quat_from_rotation_translation_roundtrip() {
+        use std::f32::consts::PI;
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 3.0).normalize();
+        let t = Vec3::new(1.0, 2.0, -3.0);
+        let dq = DualQuat::from_rotation_translation(q, t);
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        // Manual: rotate then translate
+        let expected = q.rotate_vec3(v) + t;
+        let out = dq.transform_point(v);
+        assert!(
+            (out.x - expected.x).abs() < 1e-4,
+            "x: {} vs {}",
+            out.x,
+            expected.x
+        );
+        assert!(
+            (out.y - expected.y).abs() < 1e-4,
+            "y: {} vs {}",
+            out.y,
+            expected.y
+        );
+        assert!(
+            (out.z - expected.z).abs() < 1e-4,
+            "z: {} vs {}",
+            out.z,
+            expected.z
+        );
+    }
+
+    #[test]
+    fn dual_quat_lerp_midpoint_is_intermediate() {
+        let a = DualQuat::from_translation(Vec3::ZERO);
+        let b = DualQuat::from_translation(Vec3::new(2.0, 0.0, 0.0));
+        let mid = a.lerp(&b, 0.5);
+        let out = mid.transform_point(Vec3::ZERO);
+        assert!((out.x - 1.0).abs() < 1e-4, "x: {}", out.x);
     }
 }
