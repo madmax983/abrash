@@ -1007,6 +1007,45 @@ impl Vec3 {
         (tangent, bitangent)
     }
 
+    /// Computes barycentric coordinates of this point relative to triangle `(a, b, c)`.
+    ///
+    /// Returns `None` for degenerate triangles (near-zero area).
+    /// The returned vector stores `(u, v, w)` such that:
+    /// `self = a * u + b * v + c * w` and `u + v + w = 1`.
+    #[must_use]
+    #[inline]
+    pub fn barycentric_coordinates(self, a: Self, b: Self, c: Self) -> Option<Self> {
+        let v0 = b - a;
+        let v1 = c - a;
+        let v2 = self - a;
+
+        let d00 = v0.dot(v0);
+        let d01 = v0.dot(v1);
+        let d11 = v1.dot(v1);
+        let d20 = v2.dot(v0);
+        let d21 = v2.dot(v1);
+
+        let denom = d00 * d11 - d01 * d01;
+        if denom.abs() <= 1e-8 {
+            return None;
+        }
+
+        let inv_denom = 1.0 / denom;
+        let v = (d11 * d20 - d01 * d21) * inv_denom;
+        let w = (d00 * d21 - d01 * d20) * inv_denom;
+        let u = 1.0 - v - w;
+        Some(Self::new(u, v, w))
+    }
+
+    /// Reconstructs a point from barycentric coordinates over triangle `(a, b, c)`.
+    ///
+    /// `bary` stores `(u, v, w)` weights corresponding to vertices `(a, b, c)`.
+    #[must_use]
+    #[inline]
+    pub fn from_barycentric(a: Self, b: Self, c: Self, bary: Self) -> Self {
+        a * bary.x + b * bary.y + c * bary.z
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -1636,6 +1675,76 @@ impl Mat4 {
         let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z;
         let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z;
         Vec3::new(x, y, z)
+    }
+
+    /// Transforms a batch of direction vectors (w=0), ignoring translation.
+    ///
+    /// This hoists matrix elements out of the loop to reduce indexing overhead
+    /// in hot inner loops.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `vectors.len() != output.len()`.
+    pub fn transform_vectors(&self, vectors: &[Vec3], output: &mut [Vec3]) {
+        assert_eq!(vectors.len(), output.len());
+
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+
+        for (v, out) in vectors.iter().zip(output.iter_mut()) {
+            *out = Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            );
+        }
+    }
+
+    /// Fast path for transforming points by affine matrices (`w` remains 1).
+    ///
+    /// When the matrix is affine, this avoids computing/storing the homogeneous `w`
+    /// component for every vertex.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `points.len() != output.len()`.
+    pub fn transform_points_affine(&self, points: &[Vec3], output: &mut [Vec3]) {
+        assert_eq!(points.len(), output.len());
+
+        if !self.is_affine() {
+            for (point, out) in points.iter().zip(output.iter_mut()) {
+                *out = self.transform_point(*point).0;
+            }
+            return;
+        }
+
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+        let m30 = self.m[3][0];
+        let m31 = self.m[3][1];
+        let m32 = self.m[3][2];
+
+        for (p, out) in points.iter().zip(output.iter_mut()) {
+            *out = Vec3::new(
+                p.x * m00 + p.y * m10 + p.z * m20 + m30,
+                p.x * m01 + p.y * m11 + p.z * m21 + m31,
+                p.x * m02 + p.y * m12 + p.z * m22 + m32,
+            );
+        }
     }
 
     /// Transforms multiple points by this matrix.
@@ -3202,6 +3311,70 @@ mod tests {
         assert!((translated_delta.x - 10.0).abs() < 1e-4);
         assert!((translated_delta.y - 20.0).abs() < 1e-4);
         assert!((translated_delta.z - 30.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_barycentric_roundtrip() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 2.0, 0.0);
+        let p = Vec3::new(0.5, 0.75, 0.0);
+
+        let bary = p.barycentric_coordinates(a, b, c).unwrap();
+        let reconstructed = Vec3::from_barycentric(a, b, c, bary);
+
+        assert!((bary.x + bary.y + bary.z - 1.0).abs() < 1e-5);
+        assert!((reconstructed.x - p.x).abs() < 1e-5);
+        assert!((reconstructed.y - p.y).abs() < 1e-5);
+        assert!((reconstructed.z - p.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_vec3_barycentric_degenerate_triangle_returns_none() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        let c = Vec3::new(2.0, 2.0, 2.0);
+        let p = Vec3::new(0.2, 0.4, 0.6);
+        assert!(p.barycentric_coordinates(a, b, c).is_none());
+    }
+
+    #[test]
+    fn test_mat4_transform_vectors_batch_matches_scalar() {
+        let m = Mat4::rotation_y(0.37) * Mat4::rotation_x(-0.22) * Mat4::translation(4.0, 5.0, 6.0);
+        let input = vec![
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(-1.0, 0.5, 0.0),
+            Vec3::new(0.0, -3.0, 2.0),
+        ];
+        let mut output = vec![Vec3::ZERO; input.len()];
+        m.transform_vectors(&input, &mut output);
+
+        for (i, v) in input.iter().enumerate() {
+            let scalar = m.transform_vector(*v);
+            assert!((scalar.x - output[i].x).abs() < 1e-5);
+            assert!((scalar.y - output[i].y).abs() < 1e-5);
+            assert!((scalar.z - output[i].z).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_mat4_transform_points_affine_matches_transform_point() {
+        let m =
+            Mat4::scale(2.0, 3.0, 4.0) * Mat4::rotation_z(0.5) * Mat4::translation(8.0, -2.0, 1.0);
+        let input = vec![
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(-4.0, 1.5, 0.25),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+        let mut output = vec![Vec3::ZERO; input.len()];
+        m.transform_points_affine(&input, &mut output);
+
+        for (i, p) in input.iter().enumerate() {
+            let scalar = m.transform_point(*p).0;
+            assert!((scalar.x - output[i].x).abs() < 1e-5);
+            assert!((scalar.y - output[i].y).abs() < 1e-5);
+            assert!((scalar.z - output[i].z).abs() < 1e-5);
+        }
     }
 
     #[test]
