@@ -9,7 +9,7 @@ use abrash_core::fixed16_16::Fixed16_16;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
 use abrash_raycast::cast::cast_ray_detailed;
-use abrash_raycast::map::GridMap;
+use abrash_raycast::map::ArrayGridMap;
 use abrash_raycast::types::{Side, Vec2Fixed};
 
 /// Map a material ID and hit side to an ARGB color.
@@ -56,7 +56,7 @@ pub const fn wall_color(material_id: u16, side: Side) -> u32 {
 pub fn render_raycast_view(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,
-    map: &impl GridMap,
+    map: &ArrayGridMap,
     camera_pos: Vec2Fixed,
     camera_angle: Bam,
     fov: Bam,
@@ -123,7 +123,6 @@ pub fn render_raycast_view(
 mod tests {
     use super::*;
     use abrash_core::bam::ANG90;
-    use abrash_raycast::map::ArrayGridMap;
     use abrash_raycast::types::Cell;
 
     /// 8x8 room with solid border walls (material 1).
