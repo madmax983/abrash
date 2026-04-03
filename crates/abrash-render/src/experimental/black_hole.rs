@@ -25,58 +25,72 @@ pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass
     let height = fb.height() as usize;
     let mass_sq = mass * mass;
 
-    // We must clone the source framebuffer because this is a spatial effect
-    // where a destination pixel samples from an arbitrary source location.
-    let src_pixels = fb.as_slice().to_vec();
-    let dst_pixels = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // We must clone the source framebuffer because this is a spatial effect where a
+    // destination pixel might need to sample from an arbitrary source location.
+    // By hoisting this buffer into a `thread_local!` we eliminate a `Vec` heap allocation
+    // (via `.to_vec()`) per frame, reducing memory fragmentation and allocation overhead.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dst_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        src_pixels.clear();
+        src_pixels.extend_from_slice(fb.as_slice());
 
-    row_iter.for_each(|(y, row)| {
-        let dy = (y as f32) - center_y;
-        let dy_sq = dy * dy;
+        // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
+        let src_pixels_slice = src_pixels.as_slice();
+        let dst_pixels = fb.as_mut_slice();
 
-        for (x, pixel) in row.iter_mut().enumerate().take(width) {
-            let dx = (x as f32) - center_x;
-            let dist_sq = dx * dx + dy_sq;
+        #[cfg(feature = "parallel")]
+        let row_iter = dst_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dst_pixels.chunks_exact_mut(width).enumerate();
 
-            // Inside the Event Horizon
-            if dist_sq <= mass_sq {
-                *pixel = 0xFF00_0000; // Pitch Black
-                continue;
+        row_iter.for_each(|(y, row)| {
+            let dy = (y as f32) - center_y;
+            let dy_sq = dy * dy;
+
+            for (x, pixel) in row.iter_mut().enumerate().take(width) {
+                let dx = (x as f32) - center_x;
+                let dist_sq = dx * dx + dy_sq;
+
+                // Inside the Event Horizon
+                if dist_sq <= mass_sq {
+                    *pixel = 0xFF00_0000; // Pitch Black
+                    continue;
+                }
+
+                // Gravitational Lensing Distortion
+                // Instead of a strict Newtonian simulation, we use a simple functional approximation:
+                // The perceived light ray is bent, so we look "outward" for the source pixel.
+                // A simple mapping: distance' = distance / (1 - mass/distance)
+                let dist = dist_sq.sqrt();
+
+                // Avoid division by zero at the exact event horizon boundary (handled by dist_sq <= mass_sq check mostly)
+                // The closer to mass, the closer to 1.0 (1 - 0.99) -> 0.01
+                // So distortion becomes very small, making 1.0/distortion very large.
+                let distortion = 1.0 - (mass / dist);
+
+                // To prevent sampling infinitely far away right at the boundary, clamp it slightly
+                let clamped_distortion = distortion.max(0.01);
+
+                let src_dx = dx / clamped_distortion;
+                let src_dy = dy / clamped_distortion;
+
+                let src_x = (center_x + src_dx) as i32;
+                let src_y = (center_y + src_dy) as i32;
+
+                if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32 {
+                    let src_idx = (src_y as usize) * width + (src_x as usize);
+                    *pixel = src_pixels_slice[src_idx];
+                } else {
+                    // Out of bounds space is black
+                    *pixel = 0xFF00_0000;
+                }
             }
-
-            // Gravitational Lensing Distortion
-            // Instead of a strict Newtonian simulation, we use a simple functional approximation:
-            // The perceived light ray is bent, so we look "outward" for the source pixel.
-            // A simple mapping: distance' = distance / (1 - mass/distance)
-            let dist = dist_sq.sqrt();
-
-            // Avoid division by zero at the exact event horizon boundary (handled by dist_sq <= mass_sq check mostly)
-            // The closer to mass, the closer to 1.0 (1 - 0.99) -> 0.01
-            // So distortion becomes very small, making 1.0/distortion very large.
-            let distortion = 1.0 - (mass / dist);
-
-            // To prevent sampling infinitely far away right at the boundary, clamp it slightly
-            let clamped_distortion = distortion.max(0.01);
-
-            let src_dx = dx / clamped_distortion;
-            let src_dy = dy / clamped_distortion;
-
-            let src_x = (center_x + src_dx) as i32;
-            let src_y = (center_y + src_dy) as i32;
-
-            if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32 {
-                let src_idx = (src_y as usize) * width + (src_x as usize);
-                *pixel = src_pixels[src_idx];
-            } else {
-                // Out of bounds space is black
-                *pixel = 0xFF00_0000;
-            }
-        }
+        });
     });
 }
 
