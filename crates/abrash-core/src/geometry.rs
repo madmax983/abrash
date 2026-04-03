@@ -1709,6 +1709,189 @@ fn segment_segment_dist_sq(p0: Vec3, p1: Vec3, q0: Vec3, q1: Vec3) -> f32 {
     (cp - cq).length_sq()
 }
 
+// ── Segment ───────────────────────────────────────────────────────────────────
+
+/// A 3D line segment defined by two endpoints.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::Segment;
+/// use abrash_core::math::Vec3;
+///
+/// let seg = Segment::new(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0));
+/// assert!((seg.length() - 1.0).abs() < 1e-5);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Segment {
+    /// Start endpoint.
+    pub a: Vec3,
+    /// End endpoint.
+    pub b: Vec3,
+}
+
+impl Segment {
+    /// Construct from two endpoints.
+    #[must_use]
+    #[inline]
+    pub const fn new(a: Vec3, b: Vec3) -> Self {
+        Self { a, b }
+    }
+
+    /// Euclidean length of the segment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Segment;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let s = Segment::new(Vec3::ZERO, Vec3::new(3.0, 4.0, 0.0));
+    /// assert!((s.length() - 5.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn length(&self) -> f32 {
+        (self.b - self.a).length()
+    }
+
+    /// Midpoint of the segment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Segment;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let s = Segment::new(Vec3::ZERO, Vec3::new(4.0, 0.0, 0.0));
+    /// let mid = s.midpoint();
+    /// assert!((mid.x - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn midpoint(&self) -> Vec3 {
+        (self.a + self.b) * 0.5
+    }
+
+    /// The closest point on this segment to `point`.
+    ///
+    /// Clamps the projection to `[0, 1]` so the result is always on the segment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Segment;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let seg = Segment::new(Vec3::ZERO, Vec3::new(2.0, 0.0, 0.0));
+    /// let p = seg.closest_point(Vec3::new(1.0, 5.0, 0.0));
+    /// assert!((p - Vec3::new(1.0, 0.0, 0.0)).length() < 1e-5);
+    ///
+    /// // Past end: clamps to b
+    /// let q = seg.closest_point(Vec3::new(10.0, 0.0, 0.0));
+    /// assert!((q - seg.b).length() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        let dir = self.b - self.a;
+        let len_sq = dir.length_sq();
+        if len_sq < 1e-10 {
+            return self.a;
+        }
+        let t = ((point - self.a).dot(dir) / len_sq).clamp(0.0, 1.0);
+        self.a + dir * t
+    }
+
+    /// Squared distance from `point` to the nearest point on this segment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Segment;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let seg = Segment::new(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0));
+    /// let d2 = seg.distance_sq(Vec3::new(0.5, 3.0, 0.0));
+    /// assert!((d2 - 9.0).abs() < 1e-4);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(&self, point: Vec3) -> f32 {
+        (point - self.closest_point(point)).length_sq()
+    }
+
+    /// Distance from `point` to the nearest point on this segment.
+    #[must_use]
+    #[inline]
+    pub fn distance(&self, point: Vec3) -> f32 {
+        self.distance_sq(point).sqrt()
+    }
+
+    /// Returns the bounding box of this segment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::{Segment, AABB};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let seg = Segment::new(Vec3::new(-1.0, -2.0, 0.0), Vec3::new(3.0, 4.0, 1.0));
+    /// let bb = seg.to_aabb();
+    /// assert!(bb.contains_point(seg.a));
+    /// assert!(bb.contains_point(seg.b));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn to_aabb(&self) -> AABB {
+        AABB::new(self.a.min(self.b), self.a.max(self.b))
+    }
+
+    /// Test whether this segment intersects (or touches) an AABB.
+    ///
+    /// Uses the parametric slab method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::{Segment, AABB};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+    /// let hit  = Segment::new(Vec3::new(-1.0, 0.5, 0.5), Vec3::new(2.0, 0.5, 0.5));
+    /// let miss = Segment::new(Vec3::new(2.0, 2.0, 0.0), Vec3::new(3.0, 3.0, 0.0));
+    /// assert!(hit.intersects_aabb(&aabb));
+    /// assert!(!miss.intersects_aabb(&aabb));
+    /// ```
+    #[must_use]
+    pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
+        let dir = self.b - self.a;
+        let mut t_min = 0.0_f32;
+        let mut t_max = 1.0_f32;
+        for i in 0..3 {
+            let (d, o, lo, hi) = match i {
+                0 => (dir.x, self.a.x, aabb.min.x, aabb.max.x),
+                1 => (dir.y, self.a.y, aabb.min.y, aabb.max.y),
+                _ => (dir.z, self.a.z, aabb.min.z, aabb.max.z),
+            };
+            if d.abs() < 1e-8 {
+                if o < lo || o > hi {
+                    return false;
+                }
+            } else {
+                let inv = 1.0 / d;
+                let t1 = (lo - o) * inv;
+                let t2 = (hi - o) * inv;
+                t_min = t_min.max(t1.min(t2));
+                t_max = t_max.min(t1.max(t2));
+                if t_min > t_max {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
 // ── Plane ────────────────────────────────────────────────────────────────────
 
 /// A 3D plane stored in the form `n·x + d = 0` where `n` is the unit normal.
@@ -2791,5 +2974,56 @@ mod tests {
         let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
         let pt = Plane::intersect_three(&xy, &yz, &xz).expect("must have point");
         assert!(pt.length() < 1e-4, "expected origin, got {pt:?}");
+    }
+
+    // ── Segment ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn segment_length() {
+        let s = Segment::new(Vec3::ZERO, Vec3::new(3.0, 4.0, 0.0));
+        assert!((s.length() - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn segment_midpoint() {
+        let s = Segment::new(Vec3::ZERO, Vec3::new(4.0, 0.0, 0.0));
+        assert!((s.midpoint().x - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn segment_closest_point_mid() {
+        let s = Segment::new(Vec3::ZERO, Vec3::new(2.0, 0.0, 0.0));
+        let cp = s.closest_point(Vec3::new(1.0, 5.0, 0.0));
+        assert!((cp - Vec3::new(1.0, 0.0, 0.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn segment_closest_point_clamped() {
+        let s = Segment::new(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0));
+        let past_end = s.closest_point(Vec3::new(10.0, 0.0, 0.0));
+        assert!((past_end - s.b).length() < 1e-5);
+        let before_start = s.closest_point(Vec3::new(-5.0, 0.0, 0.0));
+        assert!((before_start - s.a).length() < 1e-5);
+    }
+
+    #[test]
+    fn segment_distance_sq() {
+        let s = Segment::new(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0));
+        let d2 = s.distance_sq(Vec3::new(0.5, 3.0, 0.0));
+        assert!((d2 - 9.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn segment_intersects_aabb_hit() {
+        let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let seg = Segment::new(Vec3::new(-1.0, 0.5, 0.5), Vec3::new(2.0, 0.5, 0.5));
+        assert!(seg.intersects_aabb(&aabb));
+    }
+
+    #[test]
+    fn segment_intersects_aabb_miss() {
+        let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let seg = Segment::new(Vec3::new(2.0, 2.0, 0.0), Vec3::new(3.0, 3.0, 0.0));
+        assert!(!seg.intersects_aabb(&aabb));
     }
 }

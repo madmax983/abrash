@@ -1244,6 +1244,129 @@ pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
     best_dist
 }
 
+/// SDF of a regular N-gon (polygon) centred at the origin.
+///
+/// `r` is the circumradius (vertex to centre distance).
+/// `n` must be ≥ 3; fewer sides fall back to `n = 3`.
+///
+/// Uses an O(n) edge-walk: for each edge the signed half-plane test determines
+/// inside/outside, and the minimum segment distance gives the magnitude.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::regular_ngon_2d;
+///
+/// // Point at the centre of a regular hexagon should be inside
+/// let inside = regular_ngon_2d(Vec2::ZERO, 6, 1.0);
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// // Point far outside
+/// let outside = regular_ngon_2d(Vec2::new(3.0, 0.0), 6, 1.0);
+/// assert!(outside > 0.0, "far point should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn regular_ngon_2d(p: Vec2, n: u32, r: f32) -> f32 {
+    use std::f32::consts::TAU;
+    let n = n.max(3);
+    let angle_step = TAU / n as f32;
+    let mut min_dist = f32::MAX;
+    let mut all_inside = true;
+    for k in 0..n {
+        let a0 = k as f32 * angle_step;
+        let a1 = (k + 1) as f32 * angle_step;
+        let v0 = Vec2::new(r * a0.cos(), r * a0.sin());
+        let v1 = Vec2::new(r * a1.cos(), r * a1.sin());
+        let edge = v1 - v0;
+        let len_sq = edge.length_sq();
+        let t = ((p - v0).dot(edge) / len_sq).clamp(0.0, 1.0);
+        let closest = v0 + edge * t;
+        min_dist = min_dist.min((p - closest).length());
+        // Cross product: positive = p is to the left = inside for CCW polygon
+        let cross = edge.x * (p.y - v0.y) - edge.y * (p.x - v0.x);
+        if cross < 0.0 {
+            all_inside = false;
+        }
+    }
+    min_dist * if all_inside { -1.0 } else { 1.0 }
+}
+
+/// SDF of an arc centred at the origin.
+///
+/// The arc lies in the XY plane at radius `r`, opening upward.  `sc` is the
+/// half-angle in `(sin θ, cos θ)` form — use `sc = (half_angle.sin(), half_angle.cos())`.
+/// `ra` and `rb` are the outer and inner radii of the arc's tube cross-section.
+///
+/// The result is the distance to the nearest point on the arc tube surface.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::arc_2d;
+/// use std::f32::consts::FRAC_PI_4;
+///
+/// // Point on the arc centreline at angle 0 (top), radius 1.0
+/// // Arc half-angle = 45°, tube radius = 0.1
+/// let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+/// let on_arc = arc_2d(Vec2::new(0.0, 1.0), sc, 1.0, 0.1);
+/// assert!(on_arc.abs() < 0.15, "should be near the arc surface: {on_arc}");
+/// ```
+#[must_use]
+pub fn arc_2d(p: Vec2, sc: (f32, f32), r: f32, th: f32) -> f32 {
+    // Mirror left-right (arc is symmetric about Y)
+    let p = Vec2::new(p.x.abs(), p.y);
+    let (s, c) = sc; // sc = (sin(half_angle), cos(half_angle))
+    // Condition `c * p.x > s * p.y` is equivalent to `angle_from_Y > half_angle`
+    // i.e., the point is angularly OUTSIDE the arc → use cap distance.
+    // Otherwise (inside the arc angularly) → use radial distance.
+    let dist = if c * p.x > s * p.y {
+        // Outside arc angle: distance to the nearest cap endpoint
+        let cap = Vec2::new(s * r, c * r);
+        (p - cap).length()
+    } else {
+        // Inside arc angle: distance to the arc ring
+        (p.length() - r).abs()
+    };
+    dist - th
+}
+
+/// SDF of a symmetric cross shape centred at the origin.
+///
+/// `b` is the half-length of the cross arms, `r` is the arm half-width.
+/// The shape has four-fold symmetry.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::cross_2d;
+///
+/// // Centre of the cross is inside
+/// let inside = cross_2d(Vec2::ZERO, 1.0, 0.2);
+/// assert!(inside < 0.0);
+///
+/// // Far corner is outside
+/// let outside = cross_2d(Vec2::new(2.0, 2.0), 1.0, 0.2);
+/// assert!(outside > 0.0);
+/// ```
+#[must_use]
+pub fn cross_2d(p: Vec2, b: f32, r: f32) -> f32 {
+    // Fold to first octant, then take the minimum of two box SDFs along each axis
+    let mut p = Vec2::new(p.x.abs(), p.y.abs());
+    // Swap so that the shorter half is y
+    if p.y > p.x {
+        p = Vec2::new(p.y, p.x);
+    }
+    // Two rectangles: horizontal arm and vertical arm merged into one cross
+    let q = p - Vec2::new(b, r);
+    let d1 = q.max(Vec2::ZERO).length() + q.x.max(q.y).min(0.0);
+    let q2 = Vec2::new(p.x - r, p.y - b);
+    let d2 = q2.max(Vec2::ZERO).length() + q2.x.max(q2.y).min(0.0);
+    d1.min(d2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1454,5 +1577,53 @@ mod tests {
         let d0 = sphere_3d(repeat_1d(p0, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
         let d1 = sphere_3d(repeat_1d(p1, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
         assert!((d0 - d1).abs() < TOL, "d0={d0} d1={d1}");
+    }
+
+    // ── regular_ngon_2d ──────────────────────────────────────────────────────
+
+    #[test]
+    fn ngon_centre_inside() {
+        for n in [3u32, 4, 5, 6, 8, 12] {
+            let d = regular_ngon_2d(Vec2::ZERO, n, 1.0);
+            assert!(d < 0.0, "centre of {n}-gon should be inside, got {d}");
+        }
+    }
+
+    #[test]
+    fn ngon_far_outside() {
+        let d = regular_ngon_2d(Vec2::new(5.0, 0.0), 6, 1.0);
+        assert!(d > 0.0);
+    }
+
+    // ── arc_2d ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn arc_2d_on_surface() {
+        use std::f32::consts::FRAC_PI_4;
+        let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+        // Top of arc (θ=0 → top, radius=1.0, tube=0.1)
+        let d = arc_2d(Vec2::new(0.0, 1.0), sc, 1.0, 0.1);
+        assert!(d < 0.11, "should be near arc surface: {d}");
+    }
+
+    // ── cross_2d ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn cross_centre_inside() {
+        let d = cross_2d(Vec2::ZERO, 1.0, 0.2);
+        assert!(d < 0.0, "centre should be inside cross: {d}");
+    }
+
+    #[test]
+    fn cross_corner_outside() {
+        let d = cross_2d(Vec2::new(2.0, 2.0), 1.0, 0.2);
+        assert!(d > 0.0, "far corner should be outside cross: {d}");
+    }
+
+    #[test]
+    fn cross_arm_inside() {
+        // A point inside one arm of the cross
+        let d = cross_2d(Vec2::new(0.8, 0.1), 1.0, 0.2);
+        assert!(d < 0.0, "arm point should be inside cross: {d}");
     }
 }
