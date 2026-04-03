@@ -123,6 +123,7 @@ pub use abrash_core::ivec;
 pub use abrash_core::noise;
 pub use abrash_core::plane;
 pub use abrash_core::quat;
+pub use abrash_core::random;
 pub use abrash_core::ray;
 pub use abrash_core::sdf;
 pub use abrash_core::transform;

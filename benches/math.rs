@@ -4,12 +4,14 @@ use abrash::easing::{
     bounce_out, cubic_in_out, elastic_out, expo_in_out, quint_in_out, sine_in_out,
 };
 use abrash::geometry::AABB;
+use abrash::gradient::Gradient;
 use abrash::irect::IRect;
 use abrash::ivec::{IVec2, IVec3};
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
 use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
 use abrash::quat::Quat;
+use abrash::random::Rng;
 use abrash::ray::Ray;
 use abrash::sdf::{box_3d, capsule_3d, circle_2d, rect_2d, smooth_union, sphere_3d};
 use abrash::transform::Transform;
@@ -441,6 +443,38 @@ fn bench_irect(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_random(c: &mut Criterion) {
+    let mut g = c.benchmark_group("random");
+
+    g.bench_function("u32", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.u32()));
+    });
+
+    g.bench_function("f32", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.f32()));
+    });
+
+    g.bench_function("u32_below_6", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.u32_below(6)));
+    });
+
+    g.bench_function("f32_range", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.f32_range(-1.0, 1.0)));
+    });
+
+    g.bench_function("gradient_sample", |b| {
+        let grad = Gradient::terrain();
+        let mut rng = Rng::seeded(7);
+        b.iter(|| black_box(grad.sample(rng.f32())));
+    });
+
+    g.finish();
+}
+
 fn bench_easing(c: &mut Criterion) {
     let mut g = c.benchmark_group("easing");
 
@@ -553,6 +587,7 @@ criterion_group!(
     bench_curve,
     bench_ivec,
     bench_irect,
+    bench_random,
     bench_easing,
     bench_sdf
 );
