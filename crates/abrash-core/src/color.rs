@@ -484,6 +484,122 @@ impl Color {
         c.a = alpha;
         c
     }
+
+    /// Approximate blackbody radiation color for a given color temperature in Kelvin.
+    ///
+    /// Uses Tanner Helland's curve-fit approximation (2012), valid for 1000K–40000K.
+    /// Returns a fully-opaque linear-light color.
+    ///
+    /// Typical values:
+    /// - 1850K — candle flame (deep orange)
+    /// - 3200K — tungsten bulb (warm white)
+    /// - 5500K — midday sunlight (neutral white)
+    /// - 6500K — overcast sky (cool white)
+    /// - 9000K — blue sky
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let candle = Color::from_temperature(1850.0);
+    /// // Candle light is orange-red: r > g > b
+    /// assert!(candle.r > candle.g && candle.g > candle.b);
+    ///
+    /// let daylight = Color::from_temperature(6500.0);
+    /// // Daylight is roughly white
+    /// assert!((daylight.r - daylight.g).abs() < 0.15);
+    /// ```
+    #[must_use]
+    pub fn from_temperature(kelvin: f32) -> Self {
+        let t = kelvin.clamp(1000.0, 40_000.0) / 100.0;
+
+        let r = if t <= 66.0 {
+            1.0_f32
+        } else {
+            let x = t - 60.0;
+            (329.698_727_44 * x.powf(-0.133_204_759_2) / 255.0).clamp(0.0, 1.0)
+        };
+
+        let g = if t <= 66.0 {
+            (99.470_802_59 * t.ln() - 161.119_568_26) / 255.0
+        } else {
+            let x = t - 60.0;
+            (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+        }
+        .clamp(0.0, 1.0);
+
+        let b = if t >= 66.0 {
+            1.0_f32
+        } else if t <= 19.0 {
+            0.0
+        } else {
+            let x = t - 10.0;
+            ((138.517_731_2 * x.ln() - 305.044_792_6) / 255.0).clamp(0.0, 1.0)
+        };
+
+        // Convert from sRGB (the approximation is in perceptual space) to linear
+        let srgb_to_lin = |v: f32| -> f32 {
+            if v <= 0.040_45 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        Self::new(srgb_to_lin(r), srgb_to_lin(g), srgb_to_lin(b), 1.0)
+    }
+
+    /// Sample a multi-stop color gradient at `t ∈ [0, 1]`.
+    ///
+    /// `stops` is a slice of `(position, color)` pairs sorted in ascending
+    /// `position` order.  The first stop is clamped at `t = 0`, the last at
+    /// `t = 1`.
+    ///
+    /// Colors are interpolated in **linear** light space (same as [`Color::lerp`]).
+    /// For perceptually smooth gradients use Oklab; for that, lerp the stops
+    /// with [`Color::lerp_oklab`] manually.
+    ///
+    /// Returns `Color::BLACK` if `stops` is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let stops = [
+    ///     (0.0, Color::BLACK),
+    ///     (0.5, Color::rgb(1.0, 0.0, 0.0)),
+    ///     (1.0, Color::WHITE),
+    /// ];
+    /// let mid = Color::gradient(0.5, &stops);
+    /// assert!((mid.r - 1.0).abs() < 1e-5, "should be red at midpoint");
+    ///
+    /// let quarter = Color::gradient(0.25, &stops);
+    /// assert!(quarter.r > 0.0 && quarter.r < 1.0);
+    /// ```
+    #[must_use]
+    pub fn gradient(t: f32, stops: &[(f32, Self)]) -> Self {
+        if stops.is_empty() {
+            return Self::BLACK;
+        }
+        if stops.len() == 1 {
+            return stops[0].1;
+        }
+        let t = t.clamp(stops[0].0, stops[stops.len() - 1].0);
+        // Find the segment
+        for i in 0..stops.len() - 1 {
+            let (t0, c0) = stops[i];
+            let (t1, c1) = stops[i + 1];
+            if t <= t1 {
+                let span = t1 - t0;
+                if span < 1e-8 {
+                    return c1;
+                }
+                return c0.lerp(c1, (t - t0) / span);
+            }
+        }
+        stops[stops.len() - 1].1
+    }
 }
 
 impl std::ops::Add for Color {
@@ -691,5 +807,75 @@ mod tests {
         assert!((grey.r - lum).abs() < TOL);
         assert!((grey.g - lum).abs() < TOL);
         assert!((grey.b - lum).abs() < TOL);
+    }
+
+    #[test]
+    fn temperature_candle_is_warm() {
+        // ~1850K candle — strong red, weak blue
+        let c = Color::from_temperature(1850.0);
+        assert!(
+            c.r > c.b,
+            "candle should be red-biased, r={} b={}",
+            c.r,
+            c.b
+        );
+        assert!(c.a == 1.0);
+    }
+
+    #[test]
+    fn temperature_daylight_is_neutral() {
+        // ~6500K daylight — roughly balanced
+        let c = Color::from_temperature(6500.0);
+        assert!(c.r > 0.0 && c.g > 0.0 && c.b > 0.0, "should be non-zero");
+        assert!(c.a == 1.0);
+    }
+
+    #[test]
+    fn temperature_clamps_extremes() {
+        let low = Color::from_temperature(0.0);
+        let high = Color::from_temperature(100_000.0);
+        // Both should equal clamped-range results, not panic
+        assert_eq!(low, Color::from_temperature(1000.0));
+        assert_eq!(high, Color::from_temperature(40_000.0));
+    }
+
+    #[test]
+    fn gradient_endpoints() {
+        let stops = [(0.0, Color::BLACK), (1.0, Color::WHITE)];
+        let start = Color::gradient(0.0, &stops);
+        let end = Color::gradient(1.0, &stops);
+        assert!((start.r).abs() < TOL);
+        assert!((end.r - 1.0).abs() < TOL);
+    }
+
+    #[test]
+    fn gradient_midpoint() {
+        let stops = [(0.0, Color::BLACK), (1.0, Color::WHITE)];
+        let mid = Color::gradient(0.5, &stops);
+        assert!((mid.r - 0.5).abs() < TOL, "r={}", mid.r);
+    }
+
+    #[test]
+    fn gradient_multi_stop() {
+        let stops = [(0.0, Color::BLACK), (0.5, Color::RED), (1.0, Color::WHITE)];
+        // At 0.25 we're halfway between BLACK and RED
+        let c = Color::gradient(0.25, &stops);
+        assert!((c.r - 0.5).abs() < TOL, "r={}", c.r);
+        assert!(c.g.abs() < TOL);
+    }
+
+    #[test]
+    fn gradient_empty_returns_black() {
+        let c = Color::gradient(0.5, &[]);
+        assert_eq!(c, Color::BLACK);
+    }
+
+    #[test]
+    fn gradient_clamps_out_of_range() {
+        let stops = [(0.2, Color::BLACK), (0.8, Color::WHITE)];
+        let under = Color::gradient(0.0, &stops);
+        let over = Color::gradient(1.0, &stops);
+        assert!((under.r).abs() < TOL);
+        assert!((over.r - 1.0).abs() < TOL);
     }
 }

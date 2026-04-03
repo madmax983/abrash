@@ -730,6 +730,139 @@ fn simplex_grad3(hash: usize, x: f32, y: f32, z: f32) -> f32 {
     }
 }
 
+// ── Simplex fBm ──────────────────────────────────────────────────────────────
+
+/// Fractional Brownian Motion built on top of [`simplex_2d`].
+///
+/// Higher quality than [`fbm_2d`] (Perlin-based) because simplex noise has no
+/// axis-aligned bias.  Output is in **\[-1.0, 1.0\]**.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::fbm_simplex_2d;
+///
+/// let h = fbm_simplex_2d(3.0, 7.0, 6, 2.0, 0.5);
+/// assert!(h >= -1.0 && h <= 1.0);
+/// ```
+#[must_use]
+pub fn fbm_simplex_2d(x: f32, y: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+    for _ in 0..octaves {
+        value += simplex_2d(x * frequency, y * frequency) * amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    value.clamp(-1.0, 1.0)
+}
+
+/// Fractional Brownian Motion built on top of [`simplex_3d`].
+///
+/// Output is in **\[-1.0, 1.0\]**.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::fbm_simplex_3d;
+///
+/// let h = fbm_simplex_3d(1.0, 2.0, 3.0, 5, 2.0, 0.5);
+/// assert!(h >= -1.0 && h <= 1.0);
+/// ```
+#[must_use]
+pub fn fbm_simplex_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+    for _ in 0..octaves {
+        value += simplex_3d(x * frequency, y * frequency, z * frequency) * amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    value.clamp(-1.0, 1.0)
+}
+
+// ── Curl Noise ────────────────────────────────────────────────────────────────
+
+/// 2D curl noise — a divergence-free 2D flow field derived from the curl of a
+/// scalar simplex noise potential.
+///
+/// Returns `(vx, vy)` — a velocity vector with no divergence, so the flow
+/// neither sources nor sinks.  Ideal for particle systems, smoke, water surface.
+///
+/// `scale` controls the spatial frequency of the noise.
+///
+/// Curl is estimated numerically with a small epsilon `h = 0.001 / scale`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::curl_noise_2d;
+///
+/// let (vx, vy) = curl_noise_2d(1.0, 2.0, 1.0);
+/// // The result is a velocity — no range guarantee, but should be finite
+/// assert!(vx.is_finite() && vy.is_finite());
+/// ```
+#[must_use]
+pub fn curl_noise_2d(x: f32, y: f32, scale: f32) -> (f32, f32) {
+    // 2D curl of scalar potential N: (∂N/∂y, -∂N/∂x)
+    let h = 0.001 / scale.max(1e-6);
+    let dny = simplex_2d((x) * scale, (y + h) * scale) - simplex_2d((x) * scale, (y - h) * scale);
+    let dnx = simplex_2d((x + h) * scale, (y) * scale) - simplex_2d((x - h) * scale, (y) * scale);
+    let inv2h = 1.0 / (2.0 * h);
+    (dny * inv2h, -dnx * inv2h)
+}
+
+/// 3D curl noise — a divergence-free 3D flow field.
+///
+/// Derives `(u, v, w)` as the curl of a 3-component simplex noise vector field
+/// `(Nx, Ny, Nz)` sampled at offset potentials.
+///
+/// Uses the finite-difference approximation of `∇ × (Nx, Ny, Nz)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::curl_noise_3d;
+/// use abrash_core::math::Vec3;
+///
+/// let flow = curl_noise_3d(Vec3::new(1.0, 2.0, 0.5), 1.0);
+/// assert!(flow.x.is_finite() && flow.y.is_finite() && flow.z.is_finite());
+/// ```
+#[must_use]
+pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
+    // Curl of (Nx, Ny, Nz): ∇×F = (∂Nz/∂y − ∂Ny/∂z, ∂Nx/∂z − ∂Nz/∂x, ∂Ny/∂x − ∂Nx/∂y)
+    // Use three offset potential fields to break symmetry
+    let h = 0.001 / scale.max(1e-6);
+    let s = scale;
+    let (px, py, pz) = (p.x, p.y, p.z);
+
+    // Nx = simplex at (x, y, z)
+    // Ny = simplex at (x+seed1, y+seed1, z+seed1)
+    // Nz = simplex at (x+seed2, y+seed2, z+seed2)
+    const S1: f32 = 3.171_31;
+    const S2: f32 = 7.342_17;
+
+    let nx = |x: f32, y: f32, z: f32| simplex_3d(x * s, y * s, z * s);
+    let ny = |x: f32, y: f32, z: f32| simplex_3d((x + S1) * s, (y + S1) * s, (z + S1) * s);
+    let nz = |x: f32, y: f32, z: f32| simplex_3d((x + S2) * s, (y + S2) * s, (z + S2) * s);
+
+    let inv2h = 1.0 / (2.0 * h);
+
+    // ∂Nz/∂y − ∂Ny/∂z
+    let dnz_dy = (nz(px, py + h, pz) - nz(px, py - h, pz)) * inv2h;
+    let dny_dz = (ny(px, py, pz + h) - ny(px, py, pz - h)) * inv2h;
+    // ∂Nx/∂z − ∂Nz/∂x
+    let dnx_dz = (nx(px, py, pz + h) - nx(px, py, pz - h)) * inv2h;
+    let dnz_dx = (nz(px + h, py, pz) - nz(px - h, py, pz)) * inv2h;
+    // ∂Ny/∂x − ∂Nx/∂y
+    let dny_dx = (ny(px + h, py, pz) - ny(px - h, py, pz)) * inv2h;
+    let dnx_dy = (nx(px, py + h, pz) - nx(px, py - h, pz)) * inv2h;
+
+    crate::math::Vec3::new(dnz_dy - dny_dz, dnx_dz - dnz_dx, dny_dx - dnx_dy)
+}
+
 // ── Ridge, Billow, Domain Warp ───────────────────────────────────────────────
 
 /// Ridge noise (2D): `1 - |fBm|`, sharpened by `sharpness` exponent.
@@ -1068,6 +1201,72 @@ mod tests {
     fn domain_warp_deterministic() {
         let a = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
         let b = domain_warp_fbm_2d(1.7, -0.9, 4, 2.0, 0.5, 0.5);
+        assert_eq!(a, b);
+    }
+
+    // ── fbm_simplex / curl_noise ──────────────────────────────────────────────
+
+    #[test]
+    fn fbm_simplex_2d_range() {
+        for i in 0..80 {
+            let x = i as f32 * 0.21 - 7.0;
+            let y = i as f32 * 0.13 + 1.0;
+            let v = fbm_simplex_2d(x, y, 5, 2.0, 0.5);
+            assert!(v >= -1.0 && v <= 1.0, "fbm_simplex_2d out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn fbm_simplex_3d_range() {
+        for i in 0..50 {
+            let x = i as f32 * 0.17 - 4.0;
+            let y = i as f32 * 0.11;
+            let z = i as f32 * 0.09 - 2.0;
+            let v = fbm_simplex_3d(x, y, z, 4, 2.0, 0.5);
+            assert!(v >= -1.0 && v <= 1.0, "fbm_simplex_3d out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn fbm_simplex_deterministic() {
+        let a = fbm_simplex_2d(3.1, -0.7, 4, 2.0, 0.5);
+        let b = fbm_simplex_2d(3.1, -0.7, 4, 2.0, 0.5);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn curl_2d_nonzero() {
+        // curl should produce non-trivial flow — two nearby points shouldn't
+        // both be zero
+        let (ax, ay) = curl_noise_2d(0.5, 0.3, 1.0);
+        let (bx, by) = curl_noise_2d(1.7, -0.9, 1.0);
+        // At least one component should be non-trivially non-zero
+        assert!(
+            ax.abs() > 1e-5 || ay.abs() > 1e-5 || bx.abs() > 1e-5 || by.abs() > 1e-5,
+            "curl_noise_2d appears zero everywhere"
+        );
+    }
+
+    #[test]
+    fn curl_2d_deterministic() {
+        let a = curl_noise_2d(1.1, -0.3, 0.8);
+        let b = curl_noise_2d(1.1, -0.3, 0.8);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn curl_3d_nonzero() {
+        use crate::math::Vec3;
+        let v = curl_noise_3d(Vec3::new(0.5, 0.3, -0.7), 1.0);
+        // Must produce some non-zero flow
+        assert!(v.length() > 1e-5, "curl_noise_3d appears zero: {v:?}");
+    }
+
+    #[test]
+    fn curl_3d_deterministic() {
+        use crate::math::Vec3;
+        let a = curl_noise_3d(Vec3::new(1.1, -0.3, 0.9), 0.8);
+        let b = curl_noise_3d(Vec3::new(1.1, -0.3, 0.9), 0.8);
         assert_eq!(a, b);
     }
 }
