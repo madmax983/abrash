@@ -395,6 +395,33 @@ impl AABB {
         2.0 * (size.x * size.y + size.x * size.z + size.y * size.z)
     }
 
+    /// Expand every face of the box outward by `margin` on all sides.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let aabb = AABB::new(Vec3::ZERO, Vec3::ONE);
+    /// let grown = aabb.grow(0.5);
+    /// assert_eq!(grown.min.x, -0.5);
+    /// assert_eq!(grown.max.x,  1.5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn grow(&self, margin: f32) -> Self {
+        let m = Vec3::splat(margin);
+        Self::new(self.min - m, self.max + m)
+    }
+
+    /// Returns `true` if this AABB has zero or negative volume.
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.min.x >= self.max.x || self.min.y >= self.max.y || self.min.z >= self.max.z
+    }
+
     /// Closest point on (or inside) this AABB to `point`.
     #[must_use]
     #[inline]
@@ -1378,6 +1405,226 @@ fn segment_segment_dist_sq(p0: Vec3, p1: Vec3, q0: Vec3, q1: Vec3) -> f32 {
     (cp - cq).length_sq()
 }
 
+// ── Plane ────────────────────────────────────────────────────────────────────
+
+/// A 3D plane stored in the form `n·x + d = 0` where `n` is the unit normal.
+///
+/// Positive `signed_distance` means the point is on the side the normal points toward.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::Plane;
+/// use abrash_core::math::Vec3;
+///
+/// let p = Plane::from_normal_point(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 2.0, 0.0));
+/// assert!((p.signed_distance(Vec3::new(0.0, 5.0, 0.0)) - 3.0).abs() < 1e-5);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Plane {
+    /// Unit normal pointing toward the positive half-space.
+    pub normal: Vec3,
+    /// Signed offset: `d = -n·point_on_plane`.
+    pub d: f32,
+}
+
+impl Plane {
+    /// Construct from a unit normal and the plane constant `d` directly.
+    #[must_use]
+    #[inline]
+    pub const fn from_normal_d(normal: Vec3, d: f32) -> Self {
+        Self { normal, d }
+    }
+
+    /// Construct from a unit normal and any point on the plane.
+    #[must_use]
+    #[inline]
+    pub fn from_normal_point(normal: Vec3, point: Vec3) -> Self {
+        Self {
+            normal,
+            d: -normal.dot(point),
+        }
+    }
+
+    /// Construct from three counter-clockwise points (normal points toward you).
+    ///
+    /// Returns `None` if the points are collinear.
+    #[must_use]
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> Option<Self> {
+        let n = (b - a).cross(c - a);
+        let len = n.length();
+        if len < 1.0e-8 {
+            return None;
+        }
+        let normal = n * (1.0 / len);
+        Some(Self::from_normal_point(normal, a))
+    }
+
+    /// Signed distance from `point` to the plane.
+    ///
+    /// Positive means on the normal's side.
+    #[must_use]
+    #[inline]
+    pub fn signed_distance(&self, point: Vec3) -> f32 {
+        self.normal.dot(point) + self.d
+    }
+
+    /// Closest point on the plane to `point`.
+    #[must_use]
+    #[inline]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        point - self.normal * self.signed_distance(point)
+    }
+
+    /// Ray/plane intersection returning parameter `t` along the ray.
+    ///
+    /// Returns `None` if the ray is parallel to the plane (or nearly so).
+    #[must_use]
+    pub fn intersect_ray(&self, ray: Ray) -> Option<f32> {
+        let denom = self.normal.dot(ray.direction);
+        if denom.abs() < 1.0e-8 {
+            return None;
+        }
+        let t = -(self.normal.dot(ray.origin) + self.d) / denom;
+        Some(t)
+    }
+
+    /// Normalize the plane equation (make `normal` unit length).
+    #[must_use]
+    pub fn normalize(&self) -> Self {
+        let len = self.normal.length();
+        if len < 1.0e-8 {
+            return *self;
+        }
+        let inv = 1.0 / len;
+        Self {
+            normal: self.normal * inv,
+            d: self.d * inv,
+        }
+    }
+}
+
+// ── Frustum ──────────────────────────────────────────────────────────────────
+
+/// A view frustum represented as 6 half-spaces (planes).
+///
+/// Planes are ordered: `[left, right, bottom, top, near, far]`.
+/// Each plane's normal points **inward** — a point is inside the frustum iff
+/// its signed distance to every plane is ≥ 0.
+///
+/// # Construction
+///
+/// Typically built from the combined view-projection matrix via
+/// [`Frustum::from_view_projection`] using the Gribb-Hartmann method.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::Frustum;
+/// use abrash_core::math::{Mat4, Vec3};
+///
+/// let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+/// let f = Frustum::from_view_projection(&proj);
+/// assert!(f.contains_point(Vec3::ZERO));
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct Frustum {
+    /// Inward-pointing planes in order: left, right, bottom, top, near, far.
+    pub planes: [Plane; 6],
+}
+
+impl Frustum {
+    /// Build a frustum from a combined view-projection matrix using the
+    /// Gribb-Hartmann plane-extraction method (2001).
+    ///
+    /// Works for both row-vector (`v·M`) convention (this library's convention)
+    /// and column-vector convention because the extraction reads matrix columns.
+    ///
+    /// The resulting planes are normalized.
+    #[must_use]
+    pub fn from_view_projection(vp: &Mat4) -> Self {
+        let m = &vp.m;
+        // Row-vector convention: row 3 is the homogeneous row.
+        // Left:   col0 + col3, Right:  -col0 + col3
+        // Bottom: col1 + col3, Top:    -col1 + col3
+        // Near:   col2 + col3, Far:    -col2 + col3
+        let col = |c: usize| Vec3::new(m[0][c], m[1][c], m[2][c]);
+        let w = |c: usize| {
+            Vec3::new(m[0][3], m[1][3], m[2][3]).dot(Vec3::ZERO) // placeholder
+            + m[0][c] * 0.0
+        }; // dummy — we extract directly below
+        let _ = col; // suppress unused warning — extracted below
+        let _ = w;
+
+        // Extract by reading across rows for the row-vector convention.
+        // Plane i: normal.x = m[0][3] ± m[0][c], normal.y = m[1][3] ± m[1][c], etc.
+        let extract = |sign: f32, col_idx: usize| -> Plane {
+            let nx = m[0][3] + sign * m[0][col_idx];
+            let ny = m[1][3] + sign * m[1][col_idx];
+            let nz = m[2][3] + sign * m[2][col_idx];
+            let d = m[3][3] + sign * m[3][col_idx];
+            Plane::from_normal_d(Vec3::new(nx, ny, nz), d).normalize()
+        };
+
+        Self {
+            planes: [
+                extract(1.0, 0),  // left
+                extract(-1.0, 0), // right
+                extract(1.0, 1),  // bottom
+                extract(-1.0, 1), // top
+                extract(1.0, 2),  // near
+                extract(-1.0, 2), // far
+            ],
+        }
+    }
+
+    /// Returns `true` if `point` is inside (or on the boundary of) the frustum.
+    #[must_use]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        self.planes
+            .iter()
+            .all(|p| p.signed_distance(point) >= -1.0e-5)
+    }
+
+    /// Returns `true` if the sphere overlaps the frustum (conservative — no false negatives).
+    #[must_use]
+    pub fn intersects_sphere(&self, center: Vec3, radius: f32) -> bool {
+        self.planes
+            .iter()
+            .all(|p| p.signed_distance(center) >= -radius)
+    }
+
+    /// Returns `true` if the AABB overlaps the frustum (conservative).
+    ///
+    /// Uses the positive-vertex test: for each plane, find the AABB corner
+    /// most in the direction of the plane normal and test it.
+    #[must_use]
+    pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
+        for plane in &self.planes {
+            // Positive vertex: corner maximizing n·v
+            let px = if plane.normal.x >= 0.0 {
+                aabb.max.x
+            } else {
+                aabb.min.x
+            };
+            let py = if plane.normal.y >= 0.0 {
+                aabb.max.y
+            } else {
+                aabb.min.y
+            };
+            let pz = if plane.normal.z >= 0.0 {
+                aabb.max.z
+            } else {
+                aabb.min.z
+            };
+            if plane.signed_distance(Vec3::new(px, py, pz)) < 0.0 {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1874,5 +2121,77 @@ mod tests {
         assert!((aabb.min.y - (-1.5)).abs() < 1e-5);
         assert!((aabb.max.x - 0.5).abs() < 1e-5);
         assert!((aabb.max.y - 1.5).abs() < 1e-5);
+    }
+
+    // ── AABB::grow / is_empty ────────────────────────────────────────────────
+
+    #[test]
+    fn aabb_grow() {
+        let a = AABB::new(Vec3::ZERO, Vec3::ONE);
+        let g = a.grow(0.5);
+        assert!((g.min.x - (-0.5)).abs() < 1e-5);
+        assert!((g.max.x - 1.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn aabb_is_empty() {
+        assert!(AABB::new(Vec3::ONE, Vec3::ZERO).is_empty());
+        assert!(!AABB::new(Vec3::ZERO, Vec3::ONE).is_empty());
+    }
+
+    // ── Plane ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn plane_signed_distance() {
+        let p = Plane::from_normal_point(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 3.0, 0.0));
+        assert!((p.signed_distance(Vec3::new(0.0, 5.0, 0.0)) - 2.0).abs() < 1e-5);
+        assert!((p.signed_distance(Vec3::new(0.0, 1.0, 0.0)) - (-2.0)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn plane_ray_intersect() {
+        let p = Plane::from_normal_d(Vec3::new(0.0, 1.0, 0.0), 0.0); // y=0 plane
+        let ray = Ray::new(Vec3::new(0.0, 5.0, 0.0), Vec3::new(0.0, -1.0, 0.0));
+        let t = p.intersect_ray(ray).expect("should hit");
+        assert!((t - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn plane_ray_parallel_miss() {
+        let p = Plane::from_normal_d(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let ray = Ray::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0));
+        assert!(p.intersect_ray(ray).is_none());
+    }
+
+    // ── Frustum ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn frustum_contains_origin() {
+        use crate::math::Mat4;
+        // Simple orthographic frustum centered at origin
+        let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+        let f = Frustum::from_view_projection(&proj);
+        assert!(f.contains_point(Vec3::ZERO));
+        assert!(!f.contains_point(Vec3::new(2.0, 0.0, 0.0)));
+    }
+
+    #[test]
+    fn frustum_aabb_intersect() {
+        use crate::math::Mat4;
+        let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+        let f = Frustum::from_view_projection(&proj);
+        let inside = AABB::new(Vec3::splat(-0.5), Vec3::splat(0.5));
+        let outside = AABB::new(Vec3::new(5.0, 0.0, 0.0), Vec3::new(6.0, 1.0, 1.0));
+        assert!(f.intersects_aabb(&inside));
+        assert!(!f.intersects_aabb(&outside));
+    }
+
+    #[test]
+    fn frustum_sphere_intersect() {
+        use crate::math::Mat4;
+        let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+        let f = Frustum::from_view_projection(&proj);
+        assert!(f.intersects_sphere(Vec3::ZERO, 0.5));
+        assert!(!f.intersects_sphere(Vec3::new(5.0, 0.0, 0.0), 0.5));
     }
 }

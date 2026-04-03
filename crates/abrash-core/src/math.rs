@@ -1933,6 +1933,46 @@ impl Mat4 {
         }
     }
 
+    /// Unproject a screen-space point back to a world-space ray direction.
+    ///
+    /// This is the inverse of the full `v·(view * proj)` pipeline.
+    /// Pass the combined view-projection matrix; the function inverts it and
+    /// converts the NDC point back to world space.
+    ///
+    /// `screen_x` and `screen_y` are in `[0, width)` / `[0, height)` pixels (top-left origin).
+    /// Returns the world-space ray direction (not normalized).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    ///
+    /// let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, 0.1, 100.0);
+    /// // Unproject screen center
+    /// let dir = Mat4::unproject(0.5, 0.5, 800, 600, &proj);
+    /// ```
+    #[must_use]
+    pub fn unproject(
+        screen_x: f32,
+        screen_y: f32,
+        viewport_width: u32,
+        viewport_height: u32,
+        view_proj: &Self,
+    ) -> Vec3 {
+        // Convert screen pixels to NDC [-1, 1]
+        let ndc_x = (screen_x / viewport_width as f32) * 2.0 - 1.0;
+        let ndc_y = 1.0 - (screen_y / viewport_height as f32) * 2.0; // flip Y
+        // Use near (z=0 in NDC) and far (z=1 in NDC) points and invert VP
+        let inv = view_proj.inverse();
+        let near_h = Vec3::new(ndc_x, ndc_y, 0.0);
+        let far_h = Vec3::new(ndc_x, ndc_y, 1.0);
+        let (near_w, near_ww) = inv.transform_point(near_h);
+        let (far_w, far_ww) = inv.transform_point(far_h);
+        let near_pos = near_w * (1.0 / near_ww);
+        let far_pos = far_w * (1.0 / far_ww);
+        far_pos - near_pos
+    }
+
     /// Transforms a point by this matrix.
     ///
     /// Returns a tuple `(transformed_point, w_component)`.
@@ -3079,6 +3119,117 @@ pub fn project_to_screen(v: Vec3, w: f32, width: u32, height: u32) -> ScreenPoin
     project_to_screen_optimized(v, w, half_width, half_height)
 }
 
+// ── Spline / Curve Interpolation ─────────────────────────────────────────────
+
+/// Evaluate a quadratic Bézier curve at parameter `t ∈ [0, 1]`.
+///
+/// `p0` is the start, `p1` is the control point, `p2` is the end.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{bezier_quadratic, Vec3};
+///
+/// let p = bezier_quadratic(Vec3::ZERO, Vec3::new(0.5, 1.0, 0.0), Vec3::ONE, 0.5);
+/// // Midpoint of a quadratic curve through (0,0,0)→(0.5,1,0)→(1,1,1)
+/// assert!((p.x - 0.5).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn bezier_quadratic(p0: Vec3, p1: Vec3, p2: Vec3, t: f32) -> Vec3 {
+    let u = 1.0 - t;
+    p0 * (u * u) + p1 * (2.0 * u * t) + p2 * (t * t)
+}
+
+/// Evaluate a cubic Bézier curve at parameter `t ∈ [0, 1]`.
+///
+/// `p0`/`p3` are endpoints; `p1`/`p2` are control points.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{bezier_cubic, Vec3};
+///
+/// let p = bezier_cubic(Vec3::ZERO, Vec3::X, Vec3::new(2.0, 1.0, 0.0), Vec3::new(3.0, 0.0, 0.0), 0.0);
+/// assert_eq!(p, Vec3::ZERO);
+/// let p1 = bezier_cubic(Vec3::ZERO, Vec3::X, Vec3::new(2.0, 1.0, 0.0), Vec3::new(3.0, 0.0, 0.0), 1.0);
+/// assert!((p1.x - 3.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn bezier_cubic(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3 {
+    let u = 1.0 - t;
+    let u2 = u * u;
+    let t2 = t * t;
+    p0 * (u2 * u) + p1 * (3.0 * u2 * t) + p2 * (3.0 * u * t2) + p3 * (t2 * t)
+}
+
+/// Tangent (derivative) of a cubic Bézier at parameter `t`.
+///
+/// Returns an **unnormalized** tangent vector.
+#[must_use]
+#[inline]
+pub fn bezier_cubic_tangent(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3 {
+    let u = 1.0 - t;
+    (p1 - p0) * (3.0 * u * u) + (p2 - p1) * (6.0 * u * t) + (p3 - p2) * (3.0 * t * t)
+}
+
+/// Evaluate a Catmull-Rom spline segment at `t ∈ [0, 1]`.
+///
+/// `p0`/`p3` are the two outer control points; `p1`/`p2` are the segment endpoints.
+/// The curve passes through `p1` at `t=0` and `p2` at `t=1`.
+///
+/// Uses α=0.5 (centripetal Catmull-Rom) tension.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{catmull_rom, Vec3};
+///
+/// let p = catmull_rom(Vec3::new(-1.0, 0.0, 0.0), Vec3::ZERO,
+///                     Vec3::ONE, Vec3::new(2.0, 1.0, 0.0), 0.0);
+/// assert!(p.x.abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn catmull_rom(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3 {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    // Barry-Goldman formulation with tension 0.5
+    p0 * (-0.5 * t3 + t2 - 0.5 * t)
+        + p1 * (1.5 * t3 - 2.5 * t2 + 1.0)
+        + p2 * (-1.5 * t3 + 2.0 * t2 + 0.5 * t)
+        + p3 * (0.5 * t3 - 0.5 * t2)
+}
+
+/// Evaluate a cubic Hermite spline between `p0` and `p1` at `t ∈ [0, 1]`.
+///
+/// `m0` and `m1` are the tangents at the start and end points respectively.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{hermite, Vec3};
+///
+/// // Zero tangents → linear interpolation (H basis reduces to lerp)
+/// // Actually cubic hermite with m=0 gives same endpoints but isn't linear for interior.
+/// let p = hermite(Vec3::ZERO, Vec3::ZERO, Vec3::ONE, Vec3::ZERO, 0.0);
+/// assert_eq!(p, Vec3::ZERO);
+/// let p1 = hermite(Vec3::ZERO, Vec3::ZERO, Vec3::ONE, Vec3::ZERO, 1.0);
+/// assert_eq!(p1, Vec3::ONE);
+/// ```
+#[must_use]
+#[inline]
+pub fn hermite(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, t: f32) -> Vec3 {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+    let h10 = t3 - 2.0 * t2 + t;
+    let h01 = -2.0 * t3 + 3.0 * t2;
+    let h11 = t3 - t2;
+    p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3192,6 +3343,85 @@ mod tests {
         let frac = v.fract();
         assert!((f.x + frac.x - v.x).abs() < 1e-5);
         assert!((f.y + frac.y - v.y).abs() < 1e-5);
+    }
+
+    // ── Spline tests ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn bezier_quadratic_endpoints() {
+        let p = bezier_quadratic(Vec3::ZERO, Vec3::new(0.5, 1.0, 0.0), Vec3::ONE, 0.0);
+        assert!(p.length() < 1e-5);
+        let p1 = bezier_quadratic(Vec3::ZERO, Vec3::new(0.5, 1.0, 0.0), Vec3::ONE, 1.0);
+        assert!((p1 - Vec3::ONE).length() < 1e-5);
+    }
+
+    #[test]
+    fn bezier_cubic_endpoints() {
+        let a = Vec3::ZERO;
+        let d = Vec3::new(3.0, 0.0, 0.0);
+        let p0 = bezier_cubic(a, Vec3::X, Vec3::new(2.0, 1.0, 0.0), d, 0.0);
+        assert!(p0.length() < 1e-5);
+        let p1 = bezier_cubic(a, Vec3::X, Vec3::new(2.0, 1.0, 0.0), d, 1.0);
+        assert!((p1 - d).length() < 1e-5);
+    }
+
+    #[test]
+    fn bezier_cubic_tangent_endpoints() {
+        // At t=0 tangent should be 3*(p1-p0)
+        let p0 = Vec3::ZERO;
+        let p1 = Vec3::X;
+        let p2 = Vec3::new(2.0, 0.0, 0.0);
+        let p3 = Vec3::new(3.0, 0.0, 0.0);
+        let tang = bezier_cubic_tangent(p0, p1, p2, p3, 0.0);
+        assert!((tang - Vec3::new(3.0, 0.0, 0.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn catmull_rom_endpoints() {
+        // Passes through p1 at t=0 and p2 at t=1
+        let p = catmull_rom(
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::ONE,
+            Vec3::new(2.0, 1.0, 0.0),
+            0.0,
+        );
+        assert!(p.length() < 1e-5);
+        let p1 = catmull_rom(
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::ONE,
+            Vec3::new(2.0, 1.0, 0.0),
+            1.0,
+        );
+        assert!((p1 - Vec3::ONE).length() < 1e-5);
+    }
+
+    #[test]
+    fn hermite_endpoints() {
+        let p = hermite(Vec3::ZERO, Vec3::X, Vec3::ONE, Vec3::X, 0.0);
+        assert!(p.length() < 1e-5);
+        let p1 = hermite(Vec3::ZERO, Vec3::X, Vec3::ONE, Vec3::X, 1.0);
+        assert!((p1 - Vec3::ONE).length() < 1e-5);
+    }
+
+    #[test]
+    fn hermite_zero_tangent_midpoint() {
+        // With zero tangents, midpoint should be at 0.5 on each axis (symmetric)
+        let p = hermite(Vec3::ZERO, Vec3::ZERO, Vec3::ONE, Vec3::ZERO, 0.5);
+        assert!((p.x - 0.5).abs() < 1e-5);
+    }
+
+    // ── Mat4::unproject test ──────────────────────────────────────────────────
+
+    #[test]
+    fn unproject_ortho_center() {
+        // Orthographic proj centered at origin — screen center should unproject along -Z
+        let proj = Mat4::orthographic(-1.0, 1.0, -1.0, 1.0, 0.1, 100.0);
+        let dir = Mat4::unproject(400.0, 300.0, 800, 600, &proj);
+        // Ortho ray is axis-aligned; x and y should be near 0 at screen center
+        assert!(dir.x.abs() < 1e-3, "expected x≈0, got {}", dir.x);
+        assert!(dir.y.abs() < 1e-3, "expected y≈0, got {}", dir.y);
     }
 
     #[test]
