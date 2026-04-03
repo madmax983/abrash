@@ -1562,6 +1562,164 @@ pub fn deform_bend(p: Vec3, k: f32) -> Vec3 {
     Vec3::new(c * p.x - s * p.y, s * p.x + c * p.y, p.z)
 }
 
+/// Cheap approximate bend: linear twist without trigonometry.
+///
+/// Bends the X axis by `k` radians per unit.  Compared to [`deform_bend`]
+/// this avoids `sin`/`cos` and is suitable for subtle effects or shaders where
+/// cost matters.  The approximation holds for `k * p.x` within ~±π/4.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::deform_cheap_bend;
+///
+/// // At k=0, identity
+/// let p = Vec3::new(1.0, 2.0, 3.0);
+/// let q = deform_cheap_bend(p, 0.0);
+/// assert!((q - p).length() < 1e-4);
+/// ```
+#[must_use]
+pub fn deform_cheap_bend(p: Vec3, k: f32) -> Vec3 {
+    let angle = k * p.x;
+    // cos ≈ 1 - θ²/2, sin ≈ θ  (first-order Taylor)
+    let c = 1.0 - 0.5 * angle * angle;
+    let s = angle;
+    Vec3::new(c * p.x - s * p.y, s * p.x + c * p.y, p.z)
+}
+
+/// SDF of a heart shape centred at the origin, opening downward.
+///
+/// Based on IQ's analytic heart formula.  The shape has unit extent
+/// along both X and Y at scale `s = 1`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::heart_2d;
+///
+/// // A point in the middle of the heart should be inside (negative)
+/// // Note: (0,0) lies on the cusp boundary; use (0, 0.5) for a robust interior test.
+/// let inside = heart_2d(Vec2::new(0.0, 0.5));
+/// assert!(inside < 0.0, "interior should be inside: {inside}");
+///
+/// // Far point should be outside
+/// let outside = heart_2d(Vec2::new(0.0, 3.0));
+/// assert!(outside > 0.0, "far point should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn heart_2d(p: Vec2) -> f32 {
+    // IQ's analytic heart SDF (https://iquilezles.org/articles/distfunctions2d/)
+    // Fold on X for symmetry
+    let p = Vec2::new(p.x.abs(), p.y);
+    // Inside the upper bump region
+    if p.y + p.x > 1.0 {
+        // Distance to the upper-right lobe (circle of radius sqrt(2)/4 at (0.25, 0.75))
+        let centre = Vec2::new(0.25, 0.75);
+        return (p - centre).length() - 2.0_f32.sqrt() / 4.0;
+    }
+    // Lower region: min distance to tip circle or cusp edge
+    let d1 = (p - Vec2::new(0.0, 1.0)).length_sq();
+    let proj = ((p.x + p.y) * 0.5).max(0.0);
+    let d2 = (p - Vec2::new(proj, proj)).length_sq();
+    d1.min(d2).sqrt() * (p.x - p.y).signum()
+}
+
+/// SDF of a rhombus (diamond) centred at the origin.
+///
+/// `b` is the half-width vector `(half_x, half_y)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::rhombus_2d;
+///
+/// // Centre inside
+/// let inside = rhombus_2d(Vec2::ZERO, Vec2::new(1.0, 0.5));
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// // Far point outside
+/// let outside = rhombus_2d(Vec2::new(2.0, 0.0), Vec2::new(1.0, 0.5));
+/// assert!(outside > 0.0, "outside rhombus: {outside}");
+/// ```
+#[must_use]
+pub fn rhombus_2d(p: Vec2, b: Vec2) -> f32 {
+    let p = p.abs();
+    // Signed distance: project onto edge normal then max with two half-planes
+    let h = ((b.x - b.y - 2.0 * p.x + 2.0 * p.y) / (b.x + b.y)).clamp(-1.0, 1.0);
+    let d = (p - Vec2::new(b.x * (1.0 - h) * 0.5, b.y * (1.0 + h) * 0.5)).length();
+    let s = p.x * b.y + p.y * b.x - b.x * b.y;
+    d * s.signum()
+}
+
+/// SDF of an egg / ovoid centred at the origin.
+///
+/// `ra` is the lower (large) radius and `rb` the upper (small) radius.
+/// Requires `ra > rb > 0`.  The egg sits upright with the pointed end up
+/// and the round end down.
+///
+/// Based on IQ's two-circle egg formula.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::egg_2d;
+///
+/// // A point clearly inside the egg
+/// let inside = egg_2d(Vec2::new(0.0, 0.3), 1.0, 0.5);
+/// assert!(inside < 0.0, "should be inside egg: {inside}");
+///
+/// // Far point outside
+/// let outside = egg_2d(Vec2::new(0.0, 3.0), 1.0, 0.5);
+/// assert!(outside > 0.0, "far point should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn egg_2d(p: Vec2, ra: f32, rb: f32) -> f32 {
+    let k = 3.0_f32.sqrt();
+    let p = Vec2::new(p.x.abs(), p.y);
+    let r = ra - rb;
+    let d = if p.y < 0.0 {
+        p.length() - r
+    } else if k * (p.x + r) < p.y {
+        (p - Vec2::new(0.0, k * r)).length()
+    } else {
+        (p - Vec2::new(-r, 0.0)).length() - 2.0 * r
+    };
+    d - rb
+}
+
+/// Bounded finite repetition operator (3-D).
+///
+/// Tiles the SDF with a grid of period `cell` but only within the range
+/// `[-count, count]` cells on each axis.  Unlike [`repeat_3d`], this does
+/// not repeat forever.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::{repeat_finite_3d, sphere_3d};
+///
+/// // Repeat a unit sphere in a 3×3×3 grid of cells size 3.0
+/// let cell = Vec3::new(3.0, 3.0, 3.0);
+/// let count = Vec3::new(1.0, 1.0, 1.0);
+/// let p = Vec3::new(0.0, 0.0, 0.0); // centre cell, centre of sphere
+/// let q = repeat_finite_3d(p, cell, count);
+/// let d = sphere_3d(q, Vec3::ZERO, 1.0);
+/// assert!(d < 0.0, "should be inside centre sphere: {d}");
+/// ```
+#[must_use]
+pub fn repeat_finite_3d(p: Vec3, cell: Vec3, count: Vec3) -> Vec3 {
+    Vec3::new(
+        p.x - cell.x * (p.x / cell.x).round().clamp(-count.x, count.x),
+        p.y - cell.y * (p.y / cell.y).round().clamp(-count.y, count.y),
+        p.z - cell.z * (p.z / cell.z).round().clamp(-count.z, count.z),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1788,6 +1946,103 @@ mod tests {
     fn ngon_far_outside() {
         let d = regular_ngon_2d(Vec2::new(5.0, 0.0), 6, 1.0);
         assert!(d > 0.0);
+    }
+
+    // ── heart_2d ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn heart_interior_inside() {
+        let d = heart_2d(Vec2::new(0.0, 0.5));
+        assert!(d < 0.0, "interior of heart should be inside: {d}");
+    }
+
+    #[test]
+    fn heart_far_outside() {
+        let d = heart_2d(Vec2::new(0.0, 3.0));
+        assert!(d > 0.0, "far above heart should be outside: {d}");
+    }
+
+    // ── rhombus_2d ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn rhombus_centre_inside() {
+        let d = rhombus_2d(Vec2::ZERO, Vec2::new(1.0, 0.5));
+        assert!(d < 0.0, "centre should be inside: {d}");
+    }
+
+    #[test]
+    fn rhombus_far_outside() {
+        let d = rhombus_2d(Vec2::new(3.0, 0.0), Vec2::new(1.0, 0.5));
+        assert!(d > 0.0, "far right should be outside: {d}");
+    }
+
+    // ── egg_2d ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn egg_interior_inside() {
+        let d = egg_2d(Vec2::new(0.0, 0.3), 1.0, 0.5);
+        assert!(d < 0.0, "interior should be inside egg: {d}");
+    }
+
+    #[test]
+    fn egg_far_outside() {
+        let d = egg_2d(Vec2::new(0.0, 5.0), 1.0, 0.5);
+        assert!(d > 0.0, "far above should be outside: {d}");
+    }
+
+    // ── deform_cheap_bend ────────────────────────────────────────────────────
+
+    #[test]
+    fn cheap_bend_zero_k_identity() {
+        let p = Vec3::new(1.0, 2.0, 3.0);
+        let q = deform_cheap_bend(p, 0.0);
+        assert!((q - p).length() < 1e-5, "k=0 → identity");
+    }
+
+    #[test]
+    fn cheap_bend_small_k_close_to_exact() {
+        // For small angles the Taylor approximation should match exact bend closely
+        let p = Vec3::new(0.2, 0.5, 0.0);
+        let exact = deform_bend(p, 0.1);
+        let approx = deform_cheap_bend(p, 0.1);
+        assert!(
+            (exact - approx).length() < 0.01,
+            "should be close for small k"
+        );
+    }
+
+    // ── repeat_finite_3d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn repeat_finite_centre_cell() {
+        let p = Vec3::new(0.0, 0.0, 0.0);
+        let cell = Vec3::new(3.0, 3.0, 3.0);
+        let count = Vec3::new(1.0, 1.0, 1.0);
+        let q = repeat_finite_3d(p, cell, count);
+        assert!(
+            (q - Vec3::ZERO).length() < 1e-5,
+            "centre maps to centre: {q:?}"
+        );
+    }
+
+    #[test]
+    fn repeat_finite_interior_point_unchanged() {
+        // A point close to the origin maps to itself (no repetition needed)
+        let cell = Vec3::new(3.0, 3.0, 3.0);
+        let count = Vec3::new(2.0, 2.0, 2.0);
+        let p = Vec3::new(0.3, 0.1, -0.2);
+        let q = repeat_finite_3d(p, cell, count);
+        assert!((q - p).length() < 1e-5, "interior maps to self: {q:?}");
+    }
+
+    #[test]
+    fn repeat_finite_maps_neighbour_cell() {
+        // A point in cell +1 (x ∈ [1.5, 4.5] for cell=3, count=1) maps to [-1.5, 1.5]
+        let cell = Vec3::new(3.0, 3.0, 3.0);
+        let count = Vec3::new(1.0, 1.0, 1.0);
+        let p = Vec3::new(3.2, 0.0, 0.0); // in cell +1
+        let q = repeat_finite_3d(p, cell, count);
+        assert!(q.x.abs() <= 1.7, "should map to first cell: {}", q.x); // 3.2 - 3 = 0.2
     }
 
     // ── moon_2d ──────────────────────────────────────────────────────────────

@@ -988,6 +988,136 @@ impl Color {
         let b = c * h.sin();
         Self::from_oklab(l, a, b)
     }
+
+    /// Rotate the hue by `degrees` (positive = counter-clockwise in HSV wheel).
+    ///
+    /// Operates in HSV space; value and saturation are preserved.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Rotating red (0°) by 120° yields green
+    /// let red = Color::new(1.0, 0.0, 0.0, 1.0);
+    /// let green = red.adjust_hue(120.0);
+    /// assert!(green.g > 0.9 && green.r < 0.1 && green.b < 0.1);
+    /// ```
+    #[must_use]
+    pub fn adjust_hue(self, degrees: f32) -> Self {
+        let (h, s, v) = self.to_hsv(); // h in 0-360°
+        let h2 = (h + degrees).rem_euclid(360.0);
+        let mut c = Self::from_hsv(h2, s, v);
+        c.a = self.a;
+        c
+    }
+
+    /// Invert the RGB channels (complement colour), preserving alpha.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let c = Color::new(0.25, 0.5, 0.75, 1.0);
+    /// let inv = c.invert();
+    /// assert!((inv.r - 0.75).abs() < 1e-6);
+    /// assert!((inv.g - 0.5).abs() < 1e-6);
+    /// assert!((inv.b - 0.25).abs() < 1e-6);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn invert(self) -> Self {
+        Self::new(1.0 - self.r, 1.0 - self.g, 1.0 - self.b, self.a)
+    }
+
+    /// Convert sRGB to linear light (remove gamma).
+    ///
+    /// Use this before any physically-based lighting calculations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let c = Color::new(1.0, 1.0, 1.0, 1.0);
+    /// assert_eq!(c.to_linear(), c); // white is white in both spaces
+    /// let mid = Color::new(0.5, 0.5, 0.5, 1.0);
+    /// let lin = mid.to_linear();
+    /// assert!(lin.r < 0.5); // linear 0.5 corresponds to darker sRGB
+    /// ```
+    #[must_use]
+    pub fn to_linear(self) -> Self {
+        #[inline]
+        fn srgb_to_linear(c: f32) -> f32 {
+            if c <= 0.040_448_237 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        Self::new(
+            srgb_to_linear(self.r),
+            srgb_to_linear(self.g),
+            srgb_to_linear(self.b),
+            self.a,
+        )
+    }
+
+    /// Convert linear light to sRGB (apply gamma).
+    ///
+    /// Use this when writing a linear-light colour to an sRGB framebuffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let c = Color::new(0.5, 0.5, 0.5, 1.0);
+    /// let roundtrip = c.to_linear().from_linear();
+    /// assert!((roundtrip.r - c.r).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn from_linear(self) -> Self {
+        #[inline]
+        fn linear_to_srgb(c: f32) -> f32 {
+            if c <= 0.003_130_804_9 {
+                c * 12.92
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            }
+        }
+        Self::new(
+            linear_to_srgb(self.r),
+            linear_to_srgb(self.g),
+            linear_to_srgb(self.b),
+            self.a,
+        )
+    }
+
+    /// Perceptual colour distance using Oklab (approximates CIE ΔE).
+    ///
+    /// Returns 0.0 for identical colours; typical "just noticeable" threshold is ~0.02.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let a = Color::new(1.0, 0.0, 0.0, 1.0);
+    /// assert!(a.delta_e_oklab(a) < 1e-5, "identical colours");
+    /// let b = Color::new(0.0, 0.0, 1.0, 1.0);
+    /// assert!(a.delta_e_oklab(b) > 0.1, "red vs blue should be large");
+    /// ```
+    #[must_use]
+    pub fn delta_e_oklab(self, other: Self) -> f32 {
+        let (l1, a1, b1) = self.to_oklab();
+        let (l2, a2, b2) = other.to_oklab();
+        let dl = l1 - l2;
+        let da = a1 - a2;
+        let db = b1 - b2;
+        (dl * dl + da * da + db * db).sqrt()
+    }
 }
 
 impl std::ops::Add for Color {
@@ -1467,5 +1597,102 @@ mod tests {
             let (_l, _c, h) = col.to_oklch();
             assert!(h >= 0.0 && h <= TAU, "hue out of [0, 2π]: {h}");
         }
+    }
+
+    // ── adjust_hue ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn adjust_hue_red_120_to_green() {
+        let red = Color::new(1.0, 0.0, 0.0, 1.0);
+        let green = red.adjust_hue(120.0);
+        assert!(
+            green.g > 0.9 && green.r < 0.1 && green.b < 0.1,
+            "red+120° = green: {green:?}"
+        );
+    }
+
+    #[test]
+    fn adjust_hue_360_identity() {
+        let c = Color::new(0.5, 0.3, 0.8, 1.0);
+        let back = c.adjust_hue(360.0);
+        assert!((back.r - c.r).abs() < 1e-4 && (back.g - c.g).abs() < 1e-4);
+    }
+
+    #[test]
+    fn adjust_hue_preserves_alpha() {
+        let c = Color::new(1.0, 0.0, 0.0, 0.7);
+        let rotated = c.adjust_hue(90.0);
+        assert!((rotated.a - 0.7).abs() < 1e-5);
+    }
+
+    // ── invert ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn invert_channels() {
+        let c = Color::new(0.25, 0.5, 0.75, 1.0);
+        let inv = c.invert();
+        assert!((inv.r - 0.75).abs() < 1e-6);
+        assert!((inv.g - 0.5).abs() < 1e-6);
+        assert!((inv.b - 0.25).abs() < 1e-6);
+        assert!((inv.a - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn double_invert_is_identity() {
+        let c = Color::new(0.3, 0.6, 0.9, 0.8);
+        let back = c.invert().invert();
+        assert!((back.r - c.r).abs() < 1e-6 && (back.g - c.g).abs() < 1e-6);
+    }
+
+    // ── to_linear / from_linear ──────────────────────────────────────────────
+
+    #[test]
+    fn linear_roundtrip() {
+        for v in [0.0_f32, 0.1, 0.5, 0.9, 1.0] {
+            let c = Color::new(v, v, v, 1.0);
+            let rt = c.to_linear().from_linear();
+            assert!((rt.r - c.r).abs() < 1e-5, "roundtrip at {v}: {}", rt.r);
+        }
+    }
+
+    #[test]
+    fn mid_grey_linearises_darker() {
+        // sRGB 0.5 corresponds to linear ~0.214 (gamma-expanded)
+        let c = Color::new(0.5, 0.5, 0.5, 1.0);
+        let lin = c.to_linear();
+        assert!(
+            lin.r < 0.5,
+            "linear 0.5 sRGB should be < 0.5 linear: {}",
+            lin.r
+        );
+        assert!(lin.r > 0.0, "should be positive: {}", lin.r);
+    }
+
+    #[test]
+    fn white_is_white_in_both_spaces() {
+        let w = Color::new(1.0, 1.0, 1.0, 1.0);
+        let lin = w.to_linear();
+        let srgb = w.from_linear();
+        assert!((lin.r - 1.0).abs() < 1e-4 && (srgb.r - 1.0).abs() < 1e-4);
+    }
+
+    // ── delta_e_oklab ────────────────────────────────────────────────────────
+
+    #[test]
+    fn delta_e_identical_is_zero() {
+        let c = Color::new(0.3, 0.5, 0.7, 1.0);
+        assert!(c.delta_e_oklab(c) < 1e-5);
+    }
+
+    #[test]
+    fn delta_e_red_vs_blue_large() {
+        assert!(Color::RED.delta_e_oklab(Color::BLUE) > 0.1);
+    }
+
+    #[test]
+    fn delta_e_symmetric() {
+        let a = Color::new(0.8, 0.2, 0.3, 1.0);
+        let b = Color::new(0.1, 0.7, 0.5, 1.0);
+        assert!((a.delta_e_oklab(b) - b.delta_e_oklab(a)).abs() < 1e-5);
     }
 }

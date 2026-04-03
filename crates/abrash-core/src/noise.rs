@@ -1189,6 +1189,103 @@ pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gai
     value.clamp(0.0, 1.0)
 }
 
+/// Billow noise (3D): absolute-value fBm — produces cloud-like puffs.
+///
+/// Identical to [`billow_noise_2d`] but evaluates in 3D.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::billow_noise_3d;
+///
+/// let v = billow_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+/// assert!(v >= 0.0, "billow is non-negative: {v}");
+/// ```
+#[must_use]
+pub fn billow_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+    for _ in 0..octaves {
+        value += gradient_noise_3d(x * frequency, y * frequency, z * frequency).abs() * amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    value
+}
+
+/// Turbulence noise (3D): absolute-value sum rescaled to [0, 1].
+///
+/// Analogous to [`turbulence_2d`] but evaluated in 3D space.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::turbulence_3d;
+///
+/// let v = turbulence_3d(0.5, -1.2, 2.3, 4, 2.0, 0.5);
+/// assert!((0.0..=1.0).contains(&v), "turbulence in [0,1]: {v}");
+///
+/// let a = turbulence_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+/// let b = turbulence_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+/// assert_eq!(a, b); // deterministic
+/// ```
+#[must_use]
+pub fn turbulence_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 1.0_f32;
+    let mut frequency = 1.0_f32;
+    let mut max_value = 0.0_f32;
+    for _ in 0..octaves {
+        value += gradient_noise_3d(x * frequency, y * frequency, z * frequency).abs() * amplitude;
+        max_value += amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    if max_value > 0.0 {
+        value / max_value
+    } else {
+        0.0
+    }
+}
+
+/// Domain-warped fBm (3D): `fBm(p + strength * fBm(p))`.
+///
+/// 3D analogue of [`domain_warp_fbm_2d`].  Each of the three warp offsets
+/// is seeded differently to break correlation between axes.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::domain_warp_fbm_3d;
+///
+/// let a = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
+/// let b = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
+/// assert_eq!(a, b); // deterministic
+/// ```
+#[must_use]
+pub fn domain_warp_fbm_3d(
+    x: f32,
+    y: f32,
+    z: f32,
+    octaves: u32,
+    lacunarity: f32,
+    gain: f32,
+    strength: f32,
+) -> f32 {
+    let wx = fbm_3d(x, y, z, octaves, lacunarity, gain);
+    let wy = fbm_3d(x + 5.2, y + 1.3, z + 9.7, octaves, lacunarity, gain);
+    let wz = fbm_3d(x + 2.8, y + 7.1, z + 3.4, octaves, lacunarity, gain);
+    fbm_3d(
+        x + strength * wx,
+        y + strength * wy,
+        z + strength * wz,
+        octaves,
+        lacunarity,
+        gain,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1552,6 +1649,74 @@ mod tests {
         let (_, _, id1) = voronoi_noise_2d(0.1, 0.1, 1.0);
         let (_, _, id2) = voronoi_noise_2d(1.8, 1.8, 1.0);
         assert_ne!(id1, id2, "cells at different positions should differ");
+    }
+
+    // ── billow_noise_3d ──────────────────────────────────────────────────────
+
+    #[test]
+    fn billow_3d_non_negative() {
+        for (x, y, z) in [
+            (0.0_f32, 0.0_f32, 0.0_f32),
+            (1.5, -2.3, 0.7),
+            (-5.0, 3.0, 1.0),
+        ] {
+            let v = billow_noise_3d(x, y, z, 4, 2.0, 0.5);
+            assert!(
+                v >= 0.0,
+                "billow should be non-negative at ({x},{y},{z}): {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn billow_3d_deterministic() {
+        let a = billow_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+        let b = billow_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+        assert_eq!(a, b);
+    }
+
+    // ── turbulence_3d ────────────────────────────────────────────────────────
+
+    #[test]
+    fn turbulence_3d_in_range() {
+        for (x, y, z) in [
+            (0.0_f32, 0.0_f32, 0.0_f32),
+            (2.5, -1.3, 4.7),
+            (-3.0, 0.5, 0.2),
+        ] {
+            let v = turbulence_3d(x, y, z, 4, 2.0, 0.5);
+            assert!(
+                (0.0..=1.0).contains(&v),
+                "turbulence out of [0,1] at ({x},{y},{z}): {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn turbulence_3d_deterministic() {
+        let a = turbulence_3d(0.5, -1.0, 2.0, 4, 2.0, 0.5);
+        let b = turbulence_3d(0.5, -1.0, 2.0, 4, 2.0, 0.5);
+        assert_eq!(a, b);
+    }
+
+    // ── domain_warp_fbm_3d ───────────────────────────────────────────────────
+
+    #[test]
+    fn domain_warp_3d_deterministic() {
+        let a = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
+        let b = domain_warp_fbm_3d(1.7, -0.9, 0.4, 4, 2.0, 0.5, 0.8);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn domain_warp_3d_varies_with_strength() {
+        // Zero strength should equal plain fbm_3d
+        let plain = fbm_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+        let warped_zero = domain_warp_fbm_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5, 0.0);
+        assert!(
+            (plain - warped_zero).abs() < 1e-5,
+            "strength=0 == fbm: {plain} vs {warped_zero}"
+        );
     }
 
     // ── voronoi_noise_3d ─────────────────────────────────────────────────────
