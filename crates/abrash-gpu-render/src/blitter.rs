@@ -256,6 +256,7 @@ pub struct GpuBlitter {
     readback_buffer: wgpu::Buffer,
     commands: Vec<SpriteCommand>,
     atlases: Vec<GpuAtlas>,
+    instances: Vec<SpriteInstance>,
 }
 
 /// Create the frame bind group layout (group 0): screen uniforms + sprite storage.
@@ -464,6 +465,7 @@ impl GpuBlitter {
             readback_buffer,
             commands: Vec::new(),
             atlases: Vec::new(),
+            instances: Vec::new(),
         }
     }
 
@@ -656,12 +658,13 @@ impl GpuBlitter {
         });
 
         // Build the per-sprite storage buffer from the sorted command list.
-        let instances: Vec<SpriteInstance> = self.commands.iter().map(|c| c.instance).collect();
+        self.instances.clear();
+        self.instances.extend(self.commands.iter().map(|c| c.instance));
         let sprite_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Blitter Sprite Buffer"),
-                contents: bytemuck::cast_slice(&instances),
+                contents: bytemuck::cast_slice(&self.instances),
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
@@ -1309,6 +1312,24 @@ mod gpu_tests {
         // Should be blend of red and blue — both channels mid-range
         assert!(r > 60 && r < 220, "red should be mid-range: {r}");
         assert!(b > 60 && b < 220, "blue should be mid-range: {b}");
+    }
+
+    #[test]
+    fn flush_retains_instances_capacity() {
+        let gpu = headless_device();
+        let mut blitter = GpuBlitter::new(&gpu, 64, 64);
+
+        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let atlas = blitter.upload_atlas(&tex);
+        let src = SrcRect { x: 0, y: 0, w: 4, h: 4 };
+
+        blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
+        blitter.queue(atlas, src, 10, 10, BlitMode::Alpha);
+
+        let _ = blitter.flush_and_readback();
+
+        // Internal capacity should be retained, not re-allocated to 0
+        assert!(blitter.instances.capacity() >= 2);
     }
 
     #[test]
