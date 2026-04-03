@@ -114,6 +114,9 @@ pub use abrash_raycast as raycast;
 
 // Animation-related re-exports from abrash-core.
 pub use abrash_core::animatable;
+pub use abrash_core::color;
+pub use abrash_core::curve;
+pub use abrash_core::noise;
 pub use abrash_core::plane;
 pub use abrash_core::quat;
 pub use abrash_core::ray;

@@ -23,7 +23,10 @@ pub mod zbuffer;
 
 pub mod animatable;
 pub mod bam;
+pub mod color;
+pub mod curve;
 pub mod fixed16_16;
+pub mod noise;
 pub mod plane;
 pub mod quat;
 pub mod ray;
