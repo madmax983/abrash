@@ -1022,6 +1022,7 @@ impl Vec3 {
         let d20 = v2.dot(v0);
         let d21 = v2.dot(v1);
 
+        #[allow(clippy::suspicious_operation_groupings)]
         let denom = d00 * d11 - d01 * d01;
         if denom.abs() <= 1e-8 {
             return None;
