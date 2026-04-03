@@ -1367,6 +1367,201 @@ pub fn cross_2d(p: Vec2, b: f32, r: f32) -> f32 {
     d1.min(d2)
 }
 
+/// SDF of a crescent moon centred at the origin.
+///
+/// The moon is the Boolean difference of two circles with radius `ra` (outer)
+/// and `rb` (inner/cutter), whose centres are `d` apart.
+///
+/// - `d`: distance between the two circle centres (must be > 0)
+/// - `ra`: outer (large) circle radius
+/// - `rb`: inner (cutter) circle radius; must satisfy `rb < ra + d`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::moon_2d;
+///
+/// // A typical crescent: outer r=1, cutter r=0.8, offset d=0.5
+/// // (-0.7, 0) is inside the outer circle and outside the cutter circle.
+/// let inside = moon_2d(Vec2::new(-0.7, 0.0), 0.5, 1.0, 0.8);
+/// assert!(inside < 0.0, "should be inside the crescent: {inside}");
+///
+/// let outside = moon_2d(Vec2::new(0.0, 1.5), 0.5, 1.0, 0.8);
+/// assert!(outside > 0.0, "should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn moon_2d(p: Vec2, d: f32, ra: f32, rb: f32) -> f32 {
+    let p = Vec2::new(p.x, p.y.abs());
+    let a = (ra * ra - rb * rb + d * d) / (2.0 * d);
+    let b = (ra * ra - a * a).max(0.0).sqrt();
+    if d * (p.x * b - p.y * a) > d * d * (b - p.y).max(0.0) {
+        (p - Vec2::new(a, b)).length()
+    } else {
+        let d_outer = p.length() - ra; // signed: negative inside outer circle
+        let d_inner = (p - Vec2::new(d, 0.0)).length() - rb;
+        d_outer.max(-d_inner) // max(outside outer, inside cutter)
+    }
+}
+
+/// Analytic SDF of an ellipse centred at the origin with semi-axes `ab`.
+///
+/// Uses IQ's closed-form Cardano solution — exact, not iterative.
+/// `ab.x` and `ab.y` are the half-extents along X and Y respectively;
+/// both must be positive.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::ellipse_2d;
+///
+/// // Point at centre is inside (negative distance = radius of inscribed circle)
+/// let inside = ellipse_2d(Vec2::ZERO, Vec2::new(2.0, 1.0));
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// // Point on the X semi-axis boundary
+/// let on_edge = ellipse_2d(Vec2::new(2.0, 0.0), Vec2::new(2.0, 1.0));
+/// assert!(on_edge.abs() < 1e-4, "on ellipse surface: {on_edge}");
+/// ```
+#[must_use]
+pub fn ellipse_2d(p: Vec2, ab: Vec2) -> f32 {
+    // Fold to first quadrant
+    let mut p = p.abs();
+    let mut ab = ab;
+    if p.x > p.y {
+        p = Vec2::new(p.y, p.x);
+        ab = Vec2::new(ab.y, ab.x);
+    }
+    let l = ab.y * ab.y - ab.x * ab.x;
+    let m = ab.x * p.x / l;
+    let m2 = m * m;
+    let n = ab.y * p.y / l;
+    let n2 = n * n;
+    let c = (m2 + n2 - 1.0) / 3.0;
+    let c3 = c * c * c;
+    let q = c3 + m2 * n2 * 2.0;
+    let d = c3 + m2 * n2;
+    let g = m + m * n2;
+
+    let co = if d < 0.0 {
+        let h = (q / c3).clamp(-1.0, 1.0).acos() / 3.0;
+        let s = h.cos();
+        let t = h.sin() * 3.0_f32.sqrt();
+        let rx = (-c * (s + t + 2.0) + m2).max(0.0).sqrt();
+        let ry = (-c * (s - t + 2.0) + m2).max(0.0).sqrt();
+        (ry + l.signum() * rx + g.abs() / (rx * ry).max(1e-10) - m) / 2.0
+    } else {
+        let h = 2.0 * m * n * d.max(0.0).sqrt();
+        let q_plus_h = q + h;
+        let q_minus_h = q - h;
+        let s = q_plus_h.abs().cbrt() * q_plus_h.signum();
+        let u = q_minus_h.abs().cbrt() * q_minus_h.signum();
+        let rx = -s - u - c * 4.0 + 2.0 * m2;
+        let ry = (s - u) * 3.0_f32.sqrt();
+        let rm = (rx * rx + ry * ry).max(1e-10).sqrt();
+        (ry / (rm - rx).max(1e-10).sqrt() + 2.0 * g / rm - m) / 2.0
+    };
+
+    let co = co.clamp(0.0, 1.0);
+    let ex = ab.x * co;
+    let ey = ab.y * (1.0 - co * co).max(0.0).sqrt();
+    (p - Vec2::new(ex, ey)).length() * (p.y - ey).signum()
+}
+
+/// SDF of a pie slice (sector) centred at the origin.
+///
+/// `sc` is the half-angle as `(sin θ, cos θ)`.
+/// `r` is the outer radius.  The pie opens upward (+Y).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::pie_2d;
+/// use std::f32::consts::FRAC_PI_4;
+///
+/// // Centre of a 90° pie (half-angle 45°, radius 1.0)
+/// let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+/// let inside = pie_2d(Vec2::new(0.0, 0.5), sc, 1.0);
+/// assert!(inside < 0.0, "should be inside: {inside}");
+///
+/// // Point outside radially
+/// let outside = pie_2d(Vec2::new(0.0, 2.0), sc, 1.0);
+/// assert!(outside > 0.0, "should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn pie_2d(p: Vec2, sc: (f32, f32), r: f32) -> f32 {
+    let p = Vec2::new(p.x.abs(), p.y);
+    let (s, c) = sc;
+    let sc_vec = Vec2::new(s, c);
+    let radial = p.length() - r;
+    let edge_proj = p.dot(sc_vec).clamp(0.0, r);
+    let edge_dist = (p - sc_vec * edge_proj).length();
+    // s > 0: outside angular extent → nearest boundary is the straight edge (edge_dist)
+    // s < 0: inside angular extent  → max(radial, -edge_dist) handles both inside
+    //         the disk (returns -min_boundary_dist) and outside (returns radial dist)
+    let s = sc_vec.y * p.x - sc_vec.x * p.y;
+    if s >= 0.0 {
+        edge_dist
+    } else {
+        radial.max(-edge_dist)
+    }
+}
+
+/// Smooth minimum with C² continuity (polynomial blend version).
+///
+/// Blends between `a` and `b` within `k` distance.  This is the same
+/// formula as [`smooth_union`] but exposed as a free function for direct
+/// composition without the two-argument SDF convention.
+///
+/// Returns `(d, t)` where `d` is the blended distance and `t ∈ [0, 1]`
+/// is the blend weight (0 = fully `a`, 1 = fully `b`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::smooth_min;
+///
+/// // Two surfaces at the same distance → blend at midpoint
+/// let (d, t) = smooth_min(0.5, 0.5, 0.2);
+/// assert!((t - 0.5).abs() < 1e-5);
+/// assert!(d <= 0.5);
+/// ```
+#[must_use]
+#[inline]
+pub fn smooth_min(a: f32, b: f32, k: f32) -> (f32, f32) {
+    let h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);
+    let d = b * (1.0 - h) + a * h - k * h * (1.0 - h);
+    (d, h)
+}
+
+/// Deform operator: bend space around the Y axis.
+///
+/// Points near `y = 0` in the XZ plane are wrapped into an arc.  `k`
+/// controls the bend rate (radians per unit of X).
+///
+/// Classic Inigo Quilez domain warp for curved tubes, banana shapes, etc.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::deform_bend;
+///
+/// // With k=0 the transform is identity
+/// let p = Vec3::new(1.0, 2.0, 3.0);
+/// let q = deform_bend(p, 0.0);
+/// assert!((q - p).length() < 1e-4);
+/// ```
+#[must_use]
+pub fn deform_bend(p: Vec3, k: f32) -> Vec3 {
+    let angle = k * p.x;
+    let (s, c) = angle.sin_cos();
+    // Rotate XZ plane by `angle` around Y
+    Vec3::new(c * p.x - s * p.y, s * p.x + c * p.y, p.z)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1593,6 +1788,110 @@ mod tests {
     fn ngon_far_outside() {
         let d = regular_ngon_2d(Vec2::new(5.0, 0.0), 6, 1.0);
         assert!(d > 0.0);
+    }
+
+    // ── moon_2d ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn moon_inside_crescent() {
+        // (-0.7, 0): inside outer circle (r=1), outside cutter (r=0.8 at d=0.5)
+        let d = moon_2d(Vec2::new(-0.7, 0.0), 0.5, 1.0, 0.8);
+        assert!(d < 0.0, "should be inside crescent: {d}");
+    }
+
+    #[test]
+    fn moon_outside_radially() {
+        let d = moon_2d(Vec2::new(0.0, 1.5), 0.5, 1.0, 0.8);
+        assert!(d > 0.0, "outside radially: {d}");
+    }
+
+    #[test]
+    fn moon_inside_cutter() {
+        // (0, 0): at origin, inside the cutter circle centered at (0.5, 0)
+        let d = moon_2d(Vec2::ZERO, 0.5, 1.0, 0.8);
+        assert!(d > 0.0, "inside cutter region = outside crescent: {d}");
+    }
+
+    // ── ellipse_2d ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn ellipse_centre_inside() {
+        let d = ellipse_2d(Vec2::ZERO, Vec2::new(2.0, 1.0));
+        assert!(d < 0.0, "centre should be inside: {d}");
+    }
+
+    #[test]
+    fn ellipse_on_boundary() {
+        let d = ellipse_2d(Vec2::new(2.0, 0.0), Vec2::new(2.0, 1.0));
+        assert!(d.abs() < 1e-3, "on x semi-axis: {d}");
+        let d2 = ellipse_2d(Vec2::new(0.0, 1.0), Vec2::new(2.0, 1.0));
+        assert!(d2.abs() < 1e-3, "on y semi-axis: {d2}");
+    }
+
+    #[test]
+    fn ellipse_outside() {
+        let d = ellipse_2d(Vec2::new(3.0, 0.0), Vec2::new(2.0, 1.0));
+        assert!(d > 0.0, "outside ellipse: {d}");
+    }
+
+    // ── pie_2d ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn pie_centre_inside() {
+        use std::f32::consts::FRAC_PI_4;
+        let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+        let d = pie_2d(Vec2::new(0.0, 0.5), sc, 1.0);
+        assert!(d < 0.0, "centre of 90° pie: {d}");
+    }
+
+    #[test]
+    fn pie_outside_radially() {
+        use std::f32::consts::FRAC_PI_4;
+        let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+        let d = pie_2d(Vec2::new(0.0, 2.0), sc, 1.0);
+        assert!(d > 0.0, "outside radially within angular extent: {d}");
+    }
+
+    #[test]
+    fn pie_outside_angularly() {
+        use std::f32::consts::FRAC_PI_4;
+        let sc = (FRAC_PI_4.sin(), FRAC_PI_4.cos());
+        let d = pie_2d(Vec2::new(2.0, 0.0), sc, 1.0);
+        assert!(d > 0.0, "outside angularly: {d}");
+    }
+
+    // ── smooth_min ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_min_equal_inputs() {
+        let (d, t) = smooth_min(0.5, 0.5, 0.2);
+        assert!((t - 0.5).abs() < 1e-5, "equal inputs → t=0.5: {t}");
+        assert!(d <= 0.5, "smooth_min ≤ min(a,b): {d}");
+    }
+
+    #[test]
+    fn smooth_min_dominates_correctly() {
+        // When a << b (far apart), result ≈ a
+        let (d, t) = smooth_min(-2.0, 5.0, 0.1);
+        assert!((d + 2.0).abs() < 0.2, "dominated by a: {d}");
+        assert!(t > 0.9, "t near 1 (choosing a): {t}");
+    }
+
+    // ── deform_bend ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn deform_bend_identity_at_zero_k() {
+        let p = Vec3::new(1.0, 2.0, 3.0);
+        let q = deform_bend(p, 0.0);
+        assert!((q - p).length() < 1e-5, "k=0 → identity: {q:?}");
+    }
+
+    #[test]
+    fn deform_bend_preserves_length_locally() {
+        // Bending is a rotation, so it preserves distance from origin
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        let q = deform_bend(p, 1.0);
+        assert!((q.length() - p.length()).abs() < 1e-5);
     }
 
     // ── arc_2d ───────────────────────────────────────────────────────────────

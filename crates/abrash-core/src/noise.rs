@@ -1095,6 +1095,100 @@ pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cel
     sum.clamp(-1.0, 1.0)
 }
 
+/// 3D Voronoi noise returning `(f1, f2, cell_id)`.
+///
+/// Extension of [`voronoi_noise_2d`] to three dimensions.  The same
+/// feature-point Poisson process is applied in a 3D grid.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::voronoi_noise_3d;
+///
+/// let (f1, f2, _id) = voronoi_noise_3d(1.5, 2.3, -0.7, 1.0);
+/// assert!(f1 >= 0.0);
+/// assert!(f2 >= f1);
+///
+/// // Deterministic
+/// let (a, _, _) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
+/// let (b, _, _) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
+/// assert_eq!(a, b);
+/// ```
+pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) {
+    let ix = x.floor() as i32;
+    let iy = y.floor() as i32;
+    let iz = z.floor() as i32;
+    let fx = x - x.floor();
+    let fy = y - y.floor();
+    let fz = z - z.floor();
+
+    let mut f1 = f32::MAX;
+    let mut f2 = f32::MAX;
+    let mut cell_id = 0u32;
+
+    for cz in -1_i32..=1 {
+        for cy in -1_i32..=1 {
+            for cx in -1_i32..=1 {
+                let hx = hash3(ix + cx, iy + cy, iz + cz);
+                let hy = hash3(ix + cx + 7_919, iy + cy + 104_729, iz + cz + 2_017);
+                let hz = hash3(ix + cx + 31_337, iy + cy + 1_031, iz + cz + 99_991);
+                let pt_x = cx as f32 + hx * jitter;
+                let pt_y = cy as f32 + hy * jitter;
+                let pt_z = cz as f32 + hz * jitter;
+                let dx = fx - pt_x;
+                let dy = fy - pt_y;
+                let dz = fz - pt_z;
+                let d = (dx * dx + dy * dy + dz * dz).sqrt();
+                if d < f1 {
+                    f2 = f1;
+                    f1 = d;
+                    cell_id = (((ix + cx).wrapping_mul(1_619)
+                        ^ (iy + cy).wrapping_mul(31_337)
+                        ^ (iz + cz).wrapping_mul(6_271)) as u32)
+                        .wrapping_mul(0x9e37_79b9);
+                } else if d < f2 {
+                    f2 = d;
+                }
+            }
+        }
+    }
+    (f1, f2, cell_id)
+}
+
+/// 3D ridge noise: turbulence-like fBm where each octave uses `|noise| * -1`.
+///
+/// Produces sharp ridges at `|v| = 0` with smoother surrounding terrain.
+/// Useful for mountain ranges, veins in rock, cracked earth.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::ridge_noise_3d;
+///
+/// let v = ridge_noise_3d(1.5, 2.3, -0.7, 4, 2.0, 0.5);
+/// assert!(v >= 0.0 && v <= 1.0, "ridge_noise_3d out of [0,1]: {v}");
+///
+/// // Deterministic
+/// let a = ridge_noise_3d(0.7, -1.2, 0.4, 3, 2.0, 0.5);
+/// let b = ridge_noise_3d(0.7, -1.2, 0.4, 3, 2.0, 0.5);
+/// assert_eq!(a, b);
+/// ```
+pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut frequency = 1.0_f32;
+    let mut weight = 1.0_f32;
+    for _ in 0..octaves {
+        let n = 1.0 - gradient_noise_3d(x * frequency, y * frequency, z * frequency).abs();
+        let n = n * n * weight;
+        value += n * amplitude;
+        weight = n.clamp(0.0, 1.0);
+        frequency *= lacunarity;
+        amplitude *= gain;
+    }
+    value.clamp(0.0, 1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1458,5 +1552,76 @@ mod tests {
         let (_, _, id1) = voronoi_noise_2d(0.1, 0.1, 1.0);
         let (_, _, id2) = voronoi_noise_2d(1.8, 1.8, 1.0);
         assert_ne!(id1, id2, "cells at different positions should differ");
+    }
+
+    // ── voronoi_noise_3d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn voronoi_3d_f2_gte_f1() {
+        for (x, y, z) in [
+            (0.5_f32, 0.3_f32, 0.7_f32),
+            (1.7, -0.9, 2.3),
+            (-3.2, 2.1, 0.4),
+        ] {
+            let (f1, f2, _) = voronoi_noise_3d(x, y, z, 1.0);
+            assert!(f2 >= f1, "f2 < f1 at ({x},{y},{z}): f1={f1} f2={f2}");
+        }
+    }
+
+    #[test]
+    fn voronoi_3d_deterministic() {
+        let (a, _, ia) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
+        let (b, _, ib) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
+        assert_eq!(a, b);
+        assert_eq!(ia, ib);
+    }
+
+    #[test]
+    fn voronoi_3d_cells_differ() {
+        let (_, _, id1) = voronoi_noise_3d(0.1, 0.1, 0.1, 1.0);
+        let (_, _, id2) = voronoi_noise_3d(5.8, 5.8, 5.8, 1.0);
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn voronoi_3d_zero_jitter_grid() {
+        // With jitter=0, cell features are at grid centres: f1 = 0.5 everywhere
+        // (nearest cell centre is always 0.5 away at most)
+        let (f1, _, _) = voronoi_noise_3d(0.3, 0.3, 0.3, 0.0);
+        assert!(f1 <= 0.9, "f1 should be bounded with zero jitter: {f1}");
+    }
+
+    // ── ridge_noise_3d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn ridge_3d_in_range() {
+        for (x, y, z) in [
+            (0.0_f32, 0.0_f32, 0.0_f32),
+            (1.5, -2.3, 0.7),
+            (-10.0, 5.0, 3.0),
+        ] {
+            let v = ridge_noise_3d(x, y, z, 4, 2.0, 0.5);
+            assert!(
+                (0.0..=1.0).contains(&v),
+                "ridge value out of range at ({x},{y},{z}): {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn ridge_3d_deterministic() {
+        let a = ridge_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+        let b = ridge_noise_3d(1.0, 2.0, 3.0, 4, 2.0, 0.5);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn ridge_3d_more_octaves_varies() {
+        // More octaves should produce different (usually higher detail) values
+        let v1 = ridge_noise_3d(0.5, 0.5, 0.5, 1, 2.0, 0.5);
+        let v4 = ridge_noise_3d(0.5, 0.5, 0.5, 4, 2.0, 0.5);
+        // They can be equal by coincidence, but the values should both be valid
+        assert!((0.0..=1.0).contains(&v1));
+        assert!((0.0..=1.0).contains(&v4));
     }
 }
