@@ -45,6 +45,7 @@ use abrash_render::render_api::target::RenderTarget;
 // ── Public types ──────────────────────────────────────────────────────────────
 
 /// Camera for a single rendered frame.
+#[derive(Clone)]
 pub struct EmbedCamera {
     /// Camera position in world space.
     pub position: Vec3,
