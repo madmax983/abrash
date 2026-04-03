@@ -644,6 +644,458 @@ impl AABB {
     }
 }
 
+// ── OBB ───────────────────────────────────────────────────────────────────────
+
+/// Oriented Bounding Box (OBB) for tight-fit culling and collision detection.
+///
+/// Unlike an [`AABB`], an OBB stores three local axes and can be arbitrarily
+/// rotated to fit an object. The `axes` field stores the three unit-length
+/// local X, Y, Z axes expressed in world space (row-vector convention).
+///
+/// # Conventions
+///
+/// - `axes[0]` is the local X axis (right).
+/// - `axes[1]` is the local Y axis (up).
+/// - `axes[2]` is the local Z axis (back).
+/// - Axes must be orthonormal; behaviour is undefined otherwise.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::OBB;
+/// use abrash_core::math::Vec3;
+///
+/// let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::ONE);
+/// assert!(obb.contains_point(Vec3::new(0.5, 0.5, 0.5)));
+/// assert!(!obb.contains_point(Vec3::new(2.0, 0.0, 0.0)));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OBB {
+    /// Center of the box in world space.
+    pub center: Vec3,
+    /// Half-extents along each local axis.
+    pub half_extents: Vec3,
+    /// Local axes in world space — `[right, up, back]`. Must be orthonormal.
+    pub axes: [Vec3; 3],
+}
+
+impl OBB {
+    /// Creates an axis-aligned OBB (identical orientation to an AABB).
+    #[must_use]
+    #[inline]
+    pub fn from_center_extents(center: Vec3, half_extents: Vec3) -> Self {
+        Self {
+            center,
+            half_extents,
+            axes: [Vec3::X, Vec3::Y, Vec3::Z],
+        }
+    }
+
+    /// Creates an OBB that covers an [`AABB`] with identity orientation.
+    #[must_use]
+    #[inline]
+    pub fn from_aabb(aabb: &AABB) -> Self {
+        Self::from_center_extents(aabb.center(), aabb.extents())
+    }
+
+    /// Creates an OBB by transforming an [`AABB`].
+    ///
+    /// Rotation and scale are extracted from `transform`; the resulting OBB
+    /// fits the rotated box exactly, with scale baked into `half_extents`.
+    #[must_use]
+    pub fn from_aabb_transform(aabb: &AABB, transform: &Mat4) -> Self {
+        let m = &transform.m;
+        let row0 = Vec3::new(m[0][0], m[0][1], m[0][2]);
+        let row1 = Vec3::new(m[1][0], m[1][1], m[1][2]);
+        let row2 = Vec3::new(m[2][0], m[2][1], m[2][2]);
+
+        let sx = row0.length();
+        let sy = row1.length();
+        let sz = row2.length();
+
+        let ax = if sx > 1e-8 {
+            row0 * (1.0 / sx)
+        } else {
+            Vec3::X
+        };
+        let ay = if sy > 1e-8 {
+            row1 * (1.0 / sy)
+        } else {
+            Vec3::Y
+        };
+        let az = if sz > 1e-8 {
+            row2 * (1.0 / sz)
+        } else {
+            Vec3::Z
+        };
+
+        let extents = aabb.extents();
+        let (world_center, _) = transform.transform_point(aabb.center());
+
+        Self {
+            center: world_center,
+            half_extents: Vec3::new(extents.x * sx, extents.y * sy, extents.z * sz),
+            axes: [ax, ay, az],
+        }
+    }
+
+    /// Project `point` into OBB-local coordinates (signed distances along each axis).
+    #[inline]
+    fn local_coords(&self, point: Vec3) -> Vec3 {
+        let d = point - self.center;
+        Vec3::new(
+            d.dot(self.axes[0]),
+            d.dot(self.axes[1]),
+            d.dot(self.axes[2]),
+        )
+    }
+
+    /// Returns `true` if `point` lies inside or on the OBB surface.
+    #[must_use]
+    #[inline]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        let l = self.local_coords(point);
+        l.x.abs() <= self.half_extents.x
+            && l.y.abs() <= self.half_extents.y
+            && l.z.abs() <= self.half_extents.z
+    }
+
+    /// Closest point on (or inside) the OBB to `point`.
+    #[must_use]
+    #[inline]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        let l = self.local_coords(point);
+        let c = Vec3::new(
+            l.x.clamp(-self.half_extents.x, self.half_extents.x),
+            l.y.clamp(-self.half_extents.y, self.half_extents.y),
+            l.z.clamp(-self.half_extents.z, self.half_extents.z),
+        );
+        self.center + self.axes[0] * c.x + self.axes[1] * c.y + self.axes[2] * c.z
+    }
+
+    /// Squared distance from `point` to this OBB (0 if inside).
+    #[must_use]
+    #[inline]
+    pub fn distance_sq_to_point(&self, point: Vec3) -> f32 {
+        (point - self.closest_point(point)).length_sq()
+    }
+
+    /// Returns `true` if the sphere `(center, radius)` overlaps this OBB.
+    #[must_use]
+    #[inline]
+    pub fn intersects_sphere(&self, center: Vec3, radius: f32) -> bool {
+        self.distance_sq_to_point(center) <= radius * radius
+    }
+
+    /// Ray/OBB intersection using the slab method in OBB-local space.
+    ///
+    /// Returns `(t_entry, t_exit)` on hit.  Filter hits behind the origin with
+    /// `t_exit >= 0`.
+    #[must_use]
+    pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<(f32, f32)> {
+        let d = origin - self.center;
+        let local_origin = Vec3::new(
+            d.dot(self.axes[0]),
+            d.dot(self.axes[1]),
+            d.dot(self.axes[2]),
+        );
+        let local_dir = Vec3::new(
+            dir.dot(self.axes[0]),
+            dir.dot(self.axes[1]),
+            dir.dot(self.axes[2]),
+        );
+        AABB::from_center_extents(Vec3::ZERO, self.half_extents)
+            .intersects_ray(local_origin, local_dir)
+    }
+
+    /// Smallest AABB that encloses this OBB.
+    #[must_use]
+    pub fn to_aabb(&self) -> AABB {
+        let e = self.half_extents;
+        let world_extents = Vec3::new(
+            self.axes[0].x.abs() * e.x + self.axes[1].x.abs() * e.y + self.axes[2].x.abs() * e.z,
+            self.axes[0].y.abs() * e.x + self.axes[1].y.abs() * e.y + self.axes[2].y.abs() * e.z,
+            self.axes[0].z.abs() * e.x + self.axes[1].z.abs() * e.y + self.axes[2].z.abs() * e.z,
+        );
+        AABB::from_center_extents(self.center, world_extents)
+    }
+
+    /// Half-extent of this OBB projected onto `axis` (which must be a unit vector).
+    #[inline]
+    fn project_extent(&self, axis: Vec3) -> f32 {
+        let e = self.half_extents;
+        self.axes[0].dot(axis).abs() * e.x
+            + self.axes[1].dot(axis).abs() * e.y
+            + self.axes[2].dot(axis).abs() * e.z
+    }
+
+    /// SAT overlap test on one separating axis candidate.
+    ///
+    /// Returns `false` (separated) when the axis is valid and shows a gap.
+    #[inline]
+    fn sat_separated(a: &OBB, b: &OBB, axis: Vec3) -> bool {
+        let len_sq = axis.dot(axis);
+        if len_sq < 1e-10 {
+            return false; // degenerate (parallel edges) — not separating
+        }
+        let n = axis * (1.0 / len_sq.sqrt());
+        let dist = (b.center - a.center).dot(n).abs();
+        dist > a.project_extent(n) + b.project_extent(n)
+    }
+
+    /// Returns `true` if this OBB overlaps `other` (Separating Axis Theorem, 15 axes).
+    #[must_use]
+    pub fn intersects_obb(&self, other: &OBB) -> bool {
+        // 3 face normals of self
+        for i in 0..3 {
+            if Self::sat_separated(self, other, self.axes[i]) {
+                return false;
+            }
+        }
+        // 3 face normals of other
+        for i in 0..3 {
+            if Self::sat_separated(self, other, other.axes[i]) {
+                return false;
+            }
+        }
+        // 9 edge cross products
+        for i in 0..3 {
+            for j in 0..3 {
+                if Self::sat_separated(self, other, self.axes[i].cross(other.axes[j])) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Returns `true` if this OBB overlaps `aabb`.
+    #[must_use]
+    #[inline]
+    pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
+        self.intersects_obb(&OBB::from_aabb(aabb))
+    }
+}
+
+// ── Capsule ───────────────────────────────────────────────────────────────────
+
+/// A 3D capsule: a line segment `[a, b]` swept by a sphere of `radius`.
+///
+/// Capsules are the go-to shape for character controllers and swept-sphere
+/// collision because their distance queries are closed-form and cheap.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::geometry::Capsule;
+/// use abrash_core::math::Vec3;
+///
+/// let capsule = Capsule::new(Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.5);
+/// assert!(capsule.contains_point(Vec3::ZERO));
+/// assert!(!capsule.contains_point(Vec3::new(1.0, 0.0, 0.0)));
+/// ```
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Capsule {
+    /// First endpoint of the interior segment.
+    pub a: Vec3,
+    /// Radius of the capsule.
+    pub radius: f32,
+    /// Second endpoint of the interior segment.
+    pub b: Vec3,
+    #[doc(hidden)]
+    pub _pad: f32,
+}
+
+impl Capsule {
+    /// Creates a new capsule from two endpoints and a radius.
+    #[must_use]
+    #[inline]
+    pub const fn new(a: Vec3, b: Vec3, radius: f32) -> Self {
+        Self {
+            a,
+            radius,
+            b,
+            _pad: 0.0,
+        }
+    }
+
+    /// Creates a vertical capsule centered at `center`.
+    ///
+    /// `half_height` is measured from center to the *tip* of a hemisphere
+    /// (i.e., the full half-height including the radius).
+    /// The interior segment half-length is `half_height - radius`.
+    #[must_use]
+    pub fn from_center(center: Vec3, half_height: f32, radius: f32) -> Self {
+        let inner = (half_height - radius).max(0.0);
+        let offset = Vec3::new(0.0, inner, 0.0);
+        Self::new(center - offset, center + offset, radius)
+    }
+
+    /// Closest point on the interior segment `[a, b]` to `point`.
+    ///
+    /// Also returns the interpolation parameter `t ∈ [0, 1]`.
+    #[must_use]
+    #[inline]
+    pub fn closest_point_on_segment(&self, point: Vec3) -> (Vec3, f32) {
+        let ab = self.b - self.a;
+        let len_sq = ab.dot(ab);
+        if len_sq < 1e-10 {
+            return (self.a, 0.0); // degenerate capsule = sphere
+        }
+        let t = ((point - self.a).dot(ab) / len_sq).clamp(0.0, 1.0);
+        (self.a + ab * t, t)
+    }
+
+    /// Squared distance from `point` to the interior segment.
+    #[must_use]
+    #[inline]
+    pub fn segment_dist_sq(&self, point: Vec3) -> f32 {
+        let (cp, _) = self.closest_point_on_segment(point);
+        (point - cp).length_sq()
+    }
+
+    /// Returns `true` if `point` is inside or on the capsule surface.
+    #[must_use]
+    #[inline]
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        self.segment_dist_sq(point) <= self.radius * self.radius
+    }
+
+    /// Returns `true` if the sphere `(center, radius)` overlaps this capsule.
+    #[must_use]
+    #[inline]
+    pub fn intersects_sphere(&self, center: Vec3, radius: f32) -> bool {
+        let r = self.radius + radius;
+        self.segment_dist_sq(center) <= r * r
+    }
+
+    /// Returns `true` if this capsule overlaps `other`.
+    ///
+    /// Tests whether the minimum distance between the two interior segments is
+    /// less than the sum of radii.
+    #[must_use]
+    pub fn intersects_capsule(&self, other: &Capsule) -> bool {
+        let dist_sq = segment_segment_dist_sq(self.a, self.b, other.a, other.b);
+        let r = self.radius + other.radius;
+        dist_sq <= r * r
+    }
+
+    /// Ray/capsule intersection.
+    ///
+    /// Returns the entry distance `t ≥ 0` on hit, or `None` on miss.
+    /// Handles both the cylindrical body and the spherical end-caps correctly.
+    #[must_use]
+    pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<f32> {
+        let v = self.b - self.a; // segment direction (unnormalized)
+        let w = origin - self.a;
+
+        let vv = v.dot(v);
+        let dv = dir.dot(v);
+        let wv = w.dot(v);
+        let wd = w.dot(dir);
+        let ww = w.dot(w);
+        let dd = dir.dot(dir);
+
+        // Quadratic coefficients for the infinite-cylinder intersection
+        let a = vv * dd - dv * dv;
+        let half_b = vv * wd - wv * dv;
+        let c = vv * ww - wv * wv - self.radius * self.radius * vv;
+
+        let mut t_min = f32::MAX;
+
+        if a.abs() > 1e-10 {
+            let disc = half_b * half_b - a * c;
+            if disc >= 0.0 {
+                let sqrt_disc = disc.sqrt();
+                let inv_a = 1.0 / a;
+                for &sign in &[-1.0_f32, 1.0_f32] {
+                    let t = (-half_b + sign * sqrt_disc) * inv_a;
+                    if t >= 0.0 {
+                        // Accept only hits where the projection falls inside [a, b]
+                        let s = (wv + t * dv) / vv;
+                        if (0.0..=1.0).contains(&s) {
+                            t_min = t_min.min(t);
+                        }
+                    }
+                }
+            }
+        }
+
+        // End-cap hemispheres: treat as sphere hits, filter to the correct side
+        let ray = Ray::new(origin, dir);
+        if let Some(t) = ray.intersects_sphere(self.a, self.radius) {
+            // Accept if hit projects onto the a-side (projection ≤ 0)
+            let s = (wv + t * dv) / vv;
+            if s <= 0.0 {
+                t_min = t_min.min(t);
+            }
+        }
+        if let Some(t) = ray.intersects_sphere(self.b, self.radius) {
+            // Accept if hit projects onto the b-side (projection ≥ 1)
+            let s = (wv + t * dv) / vv;
+            if s >= 1.0 {
+                t_min = t_min.min(t);
+            }
+        }
+
+        if t_min < f32::MAX { Some(t_min) } else { None }
+    }
+
+    /// Smallest AABB enclosing this capsule.
+    #[must_use]
+    pub fn to_aabb(&self) -> AABB {
+        let r = Vec3::new(self.radius, self.radius, self.radius);
+        AABB::new(self.a.min(self.b) - r, self.a.max(self.b) + r)
+    }
+}
+
+/// Squared distance between line segments `[p0, p1]` and `[q0, q1]`.
+///
+/// Handles all degenerate cases (one or both segments collapsed to a point).
+fn segment_segment_dist_sq(p0: Vec3, p1: Vec3, q0: Vec3, q1: Vec3) -> f32 {
+    let d1 = p1 - p0;
+    let d2 = q1 - q0;
+    let r = p0 - q0;
+
+    let a = d1.dot(d1);
+    let e = d2.dot(d2);
+    let f = d2.dot(r);
+
+    let (s, t) = if a <= 1e-10 && e <= 1e-10 {
+        (0.0_f32, 0.0_f32)
+    } else if a <= 1e-10 {
+        (0.0, (f / e).clamp(0.0, 1.0))
+    } else {
+        let c = d1.dot(r);
+        if e <= 1e-10 {
+            ((-c / a).clamp(0.0, 1.0), 0.0)
+        } else {
+            let b_dot = d1.dot(d2);
+            let denom = a * e - b_dot * b_dot;
+            let s = if denom.abs() > 1e-10 {
+                ((b_dot * f - c * e) / denom).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let t_unclamped = (b_dot * s + f) / e;
+            if t_unclamped < 0.0 {
+                let s2 = (-c / a).clamp(0.0, 1.0);
+                (s2, 0.0)
+            } else if t_unclamped > 1.0 {
+                let s2 = ((b_dot - c) / a).clamp(0.0, 1.0);
+                (s2, 1.0)
+            } else {
+                (s, t_unclamped)
+            }
+        }
+    };
+
+    let cp = p0 + d1 * s;
+    let cq = q0 + d2 * t;
+    (cp - cq).length_sq()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -831,5 +1283,176 @@ mod tests {
             .expect("expected ray/aabb overlap");
         assert!((t_min - 1.0).abs() < 1e-6);
         assert!((t_max - 3.0).abs() < 1e-6);
+    }
+
+    // ── OBB tests ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn obb_axis_aligned_contains_point() {
+        let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        assert!(obb.contains_point(Vec3::ZERO));
+        assert!(obb.contains_point(Vec3::new(1.0, 0.0, 0.0))); // on boundary
+        assert!(!obb.contains_point(Vec3::new(1.01, 0.0, 0.0)));
+    }
+
+    #[test]
+    fn obb_rotated_contains_and_excludes() {
+        // 45-degree rotation around Z
+        let angle = PI / 4.0;
+        let (s, c) = angle.sin_cos();
+        let m = Mat4 {
+            m: [
+                [c, s, 0.0, 0.0],
+                [-s, c, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        };
+        let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+        let obb = OBB::from_aabb_transform(&aabb, &m);
+
+        // Origin should be inside
+        assert!(obb.contains_point(Vec3::ZERO));
+        // A point along the original X axis at distance < 1 should still be inside
+        assert!(obb.contains_point(Vec3::new(0.5, 0.0, 0.0)));
+    }
+
+    #[test]
+    fn obb_to_aabb_identity() {
+        let obb = OBB::from_center_extents(Vec3::new(5.0, 0.0, 0.0), Vec3::new(2.0, 1.0, 3.0));
+        let aabb = obb.to_aabb();
+        let expected_min = Vec3::new(3.0, -1.0, -3.0);
+        let expected_max = Vec3::new(7.0, 1.0, 3.0);
+        assert!((aabb.min.x - expected_min.x).abs() < 1e-5);
+        assert!((aabb.min.y - expected_min.y).abs() < 1e-5);
+        assert!((aabb.min.z - expected_min.z).abs() < 1e-5);
+        assert!((aabb.max.x - expected_max.x).abs() < 1e-5);
+        assert!((aabb.max.y - expected_max.y).abs() < 1e-5);
+        assert!((aabb.max.z - expected_max.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn obb_ray_hit_axis_aligned() {
+        let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let (t_min, t_max) = obb
+            .intersects_ray(Vec3::new(-3.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+            .expect("should hit");
+        assert!((t_min - 2.0).abs() < 1e-5);
+        assert!((t_max - 4.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn obb_ray_miss() {
+        // Ray offset by 2 in Y — it passes above the OBB and will never hit.
+        let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        assert!(
+            obb.intersects_ray(Vec3::new(-5.0, 2.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn obb_intersects_sphere() {
+        let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        assert!(obb.intersects_sphere(Vec3::new(1.5, 0.0, 0.0), 0.6));
+        assert!(!obb.intersects_sphere(Vec3::new(1.5, 0.0, 0.0), 0.4));
+    }
+
+    #[test]
+    fn obb_intersects_obb_overlapping() {
+        let a = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let b = OBB::from_center_extents(Vec3::new(1.5, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        assert!(a.intersects_obb(&b));
+    }
+
+    #[test]
+    fn obb_intersects_obb_separated() {
+        let a = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let b = OBB::from_center_extents(Vec3::new(3.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        assert!(!a.intersects_obb(&b));
+    }
+
+    #[test]
+    fn obb_intersects_aabb() {
+        let obb = OBB::from_center_extents(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let aabb = AABB::new(Vec3::new(0.5, 0.5, 0.5), Vec3::new(2.0, 2.0, 2.0));
+        assert!(obb.intersects_aabb(&aabb));
+    }
+
+    // ── Capsule tests ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn capsule_contains_point_on_axis() {
+        let cap = Capsule::new(Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.5);
+        assert!(cap.contains_point(Vec3::ZERO));
+        assert!(cap.contains_point(Vec3::new(0.0, 1.5, 0.0))); // inside top hemisphere
+        assert!(!cap.contains_point(Vec3::new(0.0, 2.0, 0.0))); // just outside
+    }
+
+    #[test]
+    fn capsule_contains_point_radially() {
+        let cap = Capsule::new(Vec3::ZERO, Vec3::new(0.0, 2.0, 0.0), 1.0);
+        assert!(cap.contains_point(Vec3::new(0.9, 1.0, 0.0)));
+        assert!(!cap.contains_point(Vec3::new(1.1, 1.0, 0.0)));
+    }
+
+    #[test]
+    fn capsule_intersects_sphere() {
+        let cap = Capsule::new(Vec3::ZERO, Vec3::new(0.0, 2.0, 0.0), 0.5);
+        assert!(cap.intersects_sphere(Vec3::new(1.0, 1.0, 0.0), 0.6));
+        assert!(!cap.intersects_sphere(Vec3::new(1.0, 1.0, 0.0), 0.4));
+    }
+
+    #[test]
+    fn capsule_intersects_capsule_crossing() {
+        let a = Capsule::new(Vec3::new(-2.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0), 0.3);
+        let b = Capsule::new(Vec3::new(0.0, -2.0, 0.0), Vec3::new(0.0, 2.0, 0.0), 0.3);
+        assert!(a.intersects_capsule(&b)); // cross at origin
+    }
+
+    #[test]
+    fn capsule_intersects_capsule_separated() {
+        let a = Capsule::new(Vec3::new(-5.0, 0.0, 0.0), Vec3::new(-3.0, 0.0, 0.0), 0.3);
+        let b = Capsule::new(Vec3::new(3.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0), 0.3);
+        assert!(!a.intersects_capsule(&b));
+    }
+
+    #[test]
+    fn capsule_ray_hit_body() {
+        // Ray along X, capsule along Y — should hit the cylindrical body
+        let cap = Capsule::new(Vec3::new(0.0, -2.0, 0.0), Vec3::new(0.0, 2.0, 0.0), 1.0);
+        let t = cap
+            .intersects_ray(Vec3::new(-3.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+            .expect("should hit capsule body");
+        assert!((t - 2.0).abs() < 1e-4, "expected t≈2, got {t}");
+    }
+
+    #[test]
+    fn capsule_ray_hit_end_cap() {
+        // Ray along Y from below, hitting the bottom hemisphere
+        let cap = Capsule::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 2.0, 0.0), 0.5);
+        let t = cap
+            .intersects_ray(Vec3::new(0.0, -3.0, 0.0), Vec3::new(0.0, 1.0, 0.0))
+            .expect("should hit bottom cap");
+        assert!((t - 2.5).abs() < 1e-4, "expected t≈2.5, got {t}");
+    }
+
+    #[test]
+    fn capsule_ray_miss() {
+        let cap = Capsule::new(Vec3::ZERO, Vec3::new(0.0, 2.0, 0.0), 0.5);
+        assert!(
+            cap.intersects_ray(Vec3::new(2.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn capsule_to_aabb() {
+        let cap = Capsule::new(Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.5);
+        let aabb = cap.to_aabb();
+        assert!((aabb.min.x - (-0.5)).abs() < 1e-5);
+        assert!((aabb.min.y - (-1.5)).abs() < 1e-5);
+        assert!((aabb.max.x - 0.5).abs() < 1e-5);
+        assert!((aabb.max.y - 1.5).abs() < 1e-5);
     }
 }

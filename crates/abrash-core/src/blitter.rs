@@ -1139,10 +1139,7 @@ mod tests {
         for row in 0..8u32 {
             for col in 0..5u32 {
                 let idx = row as usize * fb_w + col as usize;
-                assert_eq!(
-                    fb_pixels[idx], RED,
-                    "pixel ({col}, {row}) should be red"
-                );
+                assert_eq!(fb_pixels[idx], RED, "pixel ({col}, {row}) should be red");
             }
         }
 
