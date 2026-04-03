@@ -122,6 +122,7 @@ pub use abrash_core::noise;
 pub use abrash_core::plane;
 pub use abrash_core::quat;
 pub use abrash_core::ray;
+pub use abrash_core::sdf;
 pub use abrash_core::transform;
 
 // Animation system — re-exported from abrash-anim.

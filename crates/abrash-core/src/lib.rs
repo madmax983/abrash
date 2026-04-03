@@ -36,3 +36,4 @@ pub mod blitter;
 pub mod irect;
 pub mod ivec;
 pub mod obj_loader_havoc;
+pub mod sdf;

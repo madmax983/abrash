@@ -8,6 +8,7 @@ use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
 use abrash::quat::Quat;
 use abrash::ray::Ray;
+use abrash::sdf::{box_3d, capsule_3d, circle_2d, rect_2d, smooth_union, sphere_3d};
 use abrash::transform::Transform;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
@@ -437,6 +438,50 @@ fn bench_irect(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_sdf(c: &mut Criterion) {
+    let mut g = c.benchmark_group("sdf");
+
+    let p2 = Vec2::new(1.5, 0.5);
+    let p3 = Vec3::new(1.5, 0.5, 0.3);
+
+    g.bench_function("circle_2d", |b| {
+        b.iter(|| black_box(circle_2d(black_box(p2), Vec2::ZERO, 1.0)));
+    });
+
+    g.bench_function("rect_2d", |b| {
+        b.iter(|| black_box(rect_2d(black_box(p2), Vec2::ZERO, Vec2::new(1.0, 1.0))));
+    });
+
+    g.bench_function("sphere_3d", |b| {
+        b.iter(|| black_box(sphere_3d(black_box(p3), Vec3::ZERO, 1.0)));
+    });
+
+    g.bench_function("box_3d", |b| {
+        b.iter(|| black_box(box_3d(black_box(p3), Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0))));
+    });
+
+    g.bench_function("capsule_3d", |b| {
+        b.iter(|| {
+            black_box(capsule_3d(
+                black_box(p3),
+                Vec3::new(-1.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                0.3,
+            ))
+        });
+    });
+
+    g.bench_function("smooth_union", |b| {
+        b.iter(|| {
+            let a = circle_2d(black_box(p2), Vec2::ZERO, 1.0);
+            let bb = circle_2d(black_box(p2), Vec2::new(1.0, 0.0), 1.0);
+            black_box(smooth_union(a, bb, 0.5))
+        });
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -472,6 +517,7 @@ criterion_group!(
     bench_noise,
     bench_curve,
     bench_ivec,
-    bench_irect
+    bench_irect,
+    bench_sdf
 );
 criterion_main!(benches);
