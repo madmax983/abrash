@@ -41,6 +41,10 @@ impl Default for RippleConfig {
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+thread_local! {
+    static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new());
+}
+
 pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
     let width = fb.width() as i32;
     let height = fb.height() as i32;
@@ -52,7 +56,11 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
 
     // Clone the source framebuffer because non-linear displacement causes aliasing
     // when reading and writing to the same buffer concurrently.
-    let src_buffer = fb.as_slice().to_vec();
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let src_buffer = &temp[..];
     let dest_buffer = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -96,6 +104,7 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
                 *pixel = src_buffer[src_idx];
             }
         }
+    });
     });
 }
 

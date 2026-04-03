@@ -74,7 +74,14 @@ const FONT: [[u8; 10]; 10] = [
 /// * `fb` - The framebuffer to modify in-place.
 /// * `config` - Configuration for the ASCII display.
 pub fn apply_ascii_display(fb: &mut Framebuffer, config: &AsciiDisplayConfig) {
-    if config.cell_width == 0 || config.cell_height == 0 {
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let original_pixels = &temp[..];
+        if config.cell_width == 0 || config.cell_height == 0 {
         return;
     }
 
@@ -89,7 +96,7 @@ pub fn apply_ascii_display(fb: &mut Framebuffer, config: &AsciiDisplayConfig) {
     let ch = config.cell_height;
 
     // We need to read original pixels, so we clone the buffer
-    let original_pixels = fb.as_slice().to_vec();
+
     let pixels = fb.as_mut_slice();
 
     let cols = width / cw;
@@ -169,6 +176,7 @@ pub fn apply_ascii_display(fb: &mut Framebuffer, config: &AsciiDisplayConfig) {
                 }
             }
         }
+    });
     });
 }
 

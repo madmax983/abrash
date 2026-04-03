@@ -17,7 +17,14 @@ use crate::framebuffer::Framebuffer;
 /// * `fb` - The framebuffer to modify in-place.
 /// * `block_size` - The size of the plastic bricks (must be >= 4 to see the stud).
 pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
-    if block_size < 4 {
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let src_pixels = &temp[..];
+        if block_size < 4 {
         return;
     }
 
@@ -36,7 +43,7 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
     // We need to read from the original and write the blocky version,
     // so we'll clone the current framebuffer to read from safely.
     // This allows for parallel chunking without mutable aliasing issues.
-    let src_pixels = fb.as_slice().to_vec();
+
     let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -110,6 +117,7 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
             }
         }
     }
+    });
 }
 
 #[inline(always)]

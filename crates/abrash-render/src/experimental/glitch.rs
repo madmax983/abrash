@@ -21,7 +21,14 @@ use rayon::prelude::*;
 /// * `intensity` - How strong the glitch effect is (0.0 to 1.0).
 /// * `time` - A continuously increasing time value used to seed the random noise.
 pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
-    if intensity <= 0.0 {
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let src_pixels = &temp[..];
+        if intensity <= 0.0 {
         return;
     }
 
@@ -34,7 +41,7 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
 
     // We need to clone the original framebuffer to safely read pixels
     // that might be shifted horizontally or offset by channel without mutable aliasing.
-    let src_pixels = fb.as_slice().to_vec();
+
     let dest_pixels = fb.as_mut_slice();
 
     // Scale intensity to maximum possible pixel shifts
@@ -110,6 +117,7 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
             // Reconstruct the ARGB pixel
             *pixel = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
         }
+    });
     });
 }
 

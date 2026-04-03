@@ -45,12 +45,19 @@ use rayon::prelude::*;
 ///
 /// Panics if the framebuffer slice length does not exactly match `width * height`.
 pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
-    let width = fb.width() as usize;
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let source_pixels = &temp[..];
+        let width = fb.width() as usize;
     let height = fb.height() as usize;
 
     // Clone the source framebuffer to safely sample non-linear pixel displacements
     // without aliasing issues (as learned from the Water Ripple and Kaleidoscope filters).
-    let source_pixels = fb.as_slice().to_vec();
+
 
     // To satisfy Havoc/Forge panics and par_chunks_exact_mut bounds rules:
     assert_eq!(fb.as_slice().len(), width * height);
@@ -103,6 +110,7 @@ pub fn apply_swirl(fb: &mut Framebuffer, config: &SwirlConfig) {
                 *pixel = source_pixels[y * width + x];
             }
         }
+    });
     });
 }
 

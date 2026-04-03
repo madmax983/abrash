@@ -16,7 +16,14 @@ use crate::framebuffer::Framebuffer;
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
-    if amount <= 0.0 {
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let src = &temp[..];
+        if amount <= 0.0 {
         return;
     }
 
@@ -34,7 +41,7 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     let center_weight_fixed = ((1.0 + 4.0 * amount) * 256.0) as i32;
     let side_weight_fixed = (-amount * 256.0) as i32;
 
-    let src = fb.as_slice().to_vec(); // create a copy of the framebuffer to read from
+     // create a copy of the framebuffer to read from
     let dst = fb.as_mut_slice();
 
     let process_row = |(y_idx, row): (usize, &mut [u32])| {
@@ -111,4 +118,5 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
             .enumerate()
             .for_each(process_row);
     }
+    });
 }

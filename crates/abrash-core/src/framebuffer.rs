@@ -317,12 +317,8 @@ impl Framebuffer {
             self.pixels[start_idx..end_idx].fill(color);
         } else {
             let row_len = ex - sx;
-            let mut current = start_idx + sx;
-            let target_end = end_idx;
-
-            while current < target_end {
-                self.pixels[current..current + row_len].fill(color);
-                current += w;
+            for row in self.pixels[start_idx..end_idx].chunks_exact_mut(w) {
+                row[sx..ex].fill(color);
             }
         }
     }

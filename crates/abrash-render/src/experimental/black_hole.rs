@@ -17,7 +17,14 @@ use rayon::prelude::*;
 /// * `center_y`: The y-coordinate of the black hole center.
 /// * `mass`: The gravitational mass/radius of the event horizon.
 pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass: f32) {
-    if mass <= 0.0 {
+    thread_local! { static TEMP_BUFFER: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new()); }
+
+    TEMP_BUFFER.with(|buffer| {
+        let mut temp = buffer.borrow_mut();
+        temp.clear();
+        temp.extend_from_slice(fb.as_slice());
+        let src_pixels = &temp[..];
+        if mass <= 0.0 {
         return;
     }
 
@@ -27,7 +34,7 @@ pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass
 
     // We must clone the source framebuffer because this is a spatial effect
     // where a destination pixel samples from an arbitrary source location.
-    let src_pixels = fb.as_slice().to_vec();
+
     let dst_pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
@@ -77,6 +84,7 @@ pub fn apply_black_hole(fb: &mut Framebuffer, center_x: f32, center_y: f32, mass
                 *pixel = 0xFF00_0000;
             }
         }
+    });
     });
 }
 
