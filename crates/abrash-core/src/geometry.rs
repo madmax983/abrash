@@ -108,6 +108,32 @@ impl Ray {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         self.at(self.closest_t(point))
     }
+
+    /// Intersect ray with a plane.  Returns the parametric `t` (≥ 0) if the
+    /// ray hits the front face, `None` if parallel or behind the origin.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::{Ray, Plane};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// // XZ ground plane (normal = +Y, d = 0)
+    /// let plane = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+    /// let ray = Ray::new(Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, -1.0, 0.0));
+    /// let t = ray.intersects_plane(&plane).expect("must hit");
+    /// assert!((t - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn intersects_plane(&self, plane: &Plane) -> Option<f32> {
+        let denom = self.direction.dot(plane.normal);
+        if denom.abs() < 1e-8 {
+            return None; // parallel
+        }
+        let t = -(self.origin.dot(plane.normal) + plane.d) / denom;
+        if t >= 0.0 { Some(t) } else { None }
+    }
 }
 
 /// A Bounding Sphere for object-level culling.
@@ -240,6 +266,62 @@ impl BoundingSphere {
         if (max_scale_sq - 1.0).abs() > 0.0001 {
             self.radius *= max_scale_sq.sqrt();
         }
+    }
+
+    /// Smallest bounding sphere containing both `a` and `b`.
+    ///
+    /// Uses the "two-sphere merge" formula: the result encompasses both inputs
+    /// with the minimum possible radius.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::BoundingSphere;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let a = BoundingSphere { center: Vec3::new(-1.0, 0.0, 0.0), radius: 0.5 };
+    /// let b = BoundingSphere { center: Vec3::new( 1.0, 0.0, 0.0), radius: 0.5 };
+    /// let m = BoundingSphere::merge(&a, &b);
+    /// assert!(m.contains_sphere(&a));
+    /// assert!(m.contains_sphere(&b));
+    /// ```
+    #[must_use]
+    pub fn merge(a: &Self, b: &Self) -> Self {
+        let diff = b.center - a.center;
+        let dist = diff.length();
+        // If one sphere is already inside the other
+        if dist + b.radius <= a.radius {
+            return *a;
+        }
+        if dist + a.radius <= b.radius {
+            return *b;
+        }
+        let new_radius = (dist + a.radius + b.radius) * 0.5;
+        let new_center = a.center + diff * ((new_radius - a.radius) / dist);
+        Self {
+            center: new_center,
+            radius: new_radius,
+        }
+    }
+
+    /// Returns `true` if this sphere fully contains `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::BoundingSphere;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let big = BoundingSphere { center: Vec3::ZERO, radius: 2.0 };
+    /// let small = BoundingSphere { center: Vec3::new(0.5, 0.0, 0.0), radius: 0.5 };
+    /// assert!(big.contains_sphere(&small));
+    /// assert!(!small.contains_sphere(&big));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn contains_sphere(&self, other: &Self) -> bool {
+        let dist = (other.center - self.center).length();
+        dist + other.radius <= self.radius + 1e-6
     }
 }
 
@@ -802,6 +884,117 @@ impl AABB {
             )
         }
     }
+
+    /// Smallest AABB containing both `a` and `b`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let a = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(0.0, 0.0, 0.0));
+    /// let b = AABB::new(Vec3::new( 0.5,  0.5,  0.5), Vec3::new(2.0, 2.0, 2.0));
+    /// let m = AABB::merge(&a, &b);
+    /// assert!(m.contains_aabb(&a));
+    /// assert!(m.contains_aabb(&b));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn merge(a: &Self, b: &Self) -> Self {
+        Self::new(a.min.min(b.min), a.max.max(b.max))
+    }
+
+    /// Volume of the bounding box.
+    ///
+    /// Returns 0 for empty or degenerate boxes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let aabb = AABB::new(Vec3::ZERO, Vec3::new(2.0, 3.0, 4.0));
+    /// assert!((aabb.volume() - 24.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn volume(&self) -> f32 {
+        let e = self.extents() * 2.0; // full width/height/depth
+        e.x.max(0.0) * e.y.max(0.0) * e.z.max(0.0)
+    }
+
+    /// All 8 corners of the bounding box.
+    ///
+    /// Returned in the order `(min/max x) × (min/max y) × (min/max z)`.
+    /// Useful for transforming the AABB to a new space to compute a new
+    /// axis-aligned bound.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let aabb = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+    /// let corners = aabb.corners();
+    /// // All 8 corners are within the box
+    /// for c in &corners {
+    ///     assert!(aabb.contains_point(*c));
+    /// }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn corners(&self) -> [Vec3; 8] {
+        let mn = self.min;
+        let mx = self.max;
+        [
+            Vec3::new(mn.x, mn.y, mn.z),
+            Vec3::new(mx.x, mn.y, mn.z),
+            Vec3::new(mn.x, mx.y, mn.z),
+            Vec3::new(mx.x, mx.y, mn.z),
+            Vec3::new(mn.x, mn.y, mx.z),
+            Vec3::new(mx.x, mn.y, mx.z),
+            Vec3::new(mn.x, mx.y, mx.z),
+            Vec3::new(mx.x, mx.y, mx.z),
+        ]
+    }
+
+    /// Test whether this AABB overlaps a plane.
+    ///
+    /// Returns `true` if the box straddles the plane (i.e. at least one
+    /// corner on each side), or if any corner lies exactly on it.
+    /// A box entirely on one side returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::{AABB, Plane};
+    /// use abrash_core::math::Vec3;
+    ///
+    /// // Unit box centred at origin — the XZ plane (y=0) splits it
+    /// let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+    /// let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+    /// assert!(aabb.intersects_plane(&xz));
+    ///
+    /// // Box entirely above y=2 does NOT intersect the XZ plane
+    /// let high = AABB::new(Vec3::new(0.0, 3.0, 0.0), Vec3::new(1.0, 4.0, 1.0));
+    /// assert!(!high.intersects_plane(&xz));
+    /// ```
+    #[must_use]
+    pub fn intersects_plane(&self, plane: &Plane) -> bool {
+        // Project box extents onto the plane normal — this gives the half-extent
+        // along that direction.  If the center distance to the plane is less than
+        // this projection, the box straddles.
+        let center = self.center();
+        let extents = self.extents(); // half-extents
+        let r = extents.x * plane.normal.x.abs()
+            + extents.y * plane.normal.y.abs()
+            + extents.z * plane.normal.z.abs();
+        let d = center.dot(plane.normal) + plane.d;
+        d.abs() <= r
+    }
 }
 
 // ── Triangle ─────────────────────────────────────────────────────────────────
@@ -1001,6 +1194,66 @@ impl Triangle {
             self.a.min(self.b).min(self.c),
             self.a.max(self.b).max(self.c),
         )
+    }
+
+    /// Incenter: point equidistant from all three sides, weighted by edge lengths.
+    ///
+    /// `incenter = (|BC|·a + |CA|·b + |AB|·c) / (|BC| + |CA| + |AB|)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Triangle;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// // Equilateral triangle — incenter = centroid
+    /// let t = Triangle::new(
+    ///     Vec3::new(0.0, 0.0, 0.0),
+    ///     Vec3::new(1.0, 0.0, 0.0),
+    ///     Vec3::new(0.5, 0.866, 0.0),
+    /// );
+    /// let ic = t.incenter();
+    /// let cg = t.centroid();
+    /// assert!((ic - cg).length() < 0.01);
+    /// ```
+    #[must_use]
+    pub fn incenter(self) -> Vec3 {
+        let len_bc = (self.c - self.b).length();
+        let len_ca = (self.a - self.c).length();
+        let len_ab = (self.b - self.a).length();
+        let perimeter = len_bc + len_ca + len_ab;
+        if perimeter < 1e-8 {
+            return self.centroid();
+        }
+        (self.a * len_bc + self.b * len_ca + self.c * len_ab) * (1.0 / perimeter)
+    }
+
+    /// Returns `true` if this triangle is degenerate (zero or near-zero area).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Triangle;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let collapsed = Triangle::new(
+    ///     Vec3::new(0.0, 0.0, 0.0),
+    ///     Vec3::new(1.0, 0.0, 0.0),
+    ///     Vec3::new(0.5, 0.0, 0.0), // collinear
+    /// );
+    /// assert!(collapsed.is_degenerate());
+    ///
+    /// let ok = Triangle::new(
+    ///     Vec3::new(0.0, 0.0, 0.0),
+    ///     Vec3::new(1.0, 0.0, 0.0),
+    ///     Vec3::new(0.0, 1.0, 0.0),
+    /// );
+    /// assert!(!ok.is_degenerate());
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn is_degenerate(self) -> bool {
+        self.area() < 1e-8
     }
 }
 
@@ -1481,6 +1734,15 @@ pub struct Plane {
 
 impl Plane {
     /// Construct from a unit normal and the plane constant `d` directly.
+    ///
+    /// Alias for [`from_normal_d`](Self::from_normal_d).
+    #[must_use]
+    #[inline]
+    pub const fn new(normal: Vec3, d: f32) -> Self {
+        Self { normal, d }
+    }
+
+    /// Construct from a unit normal and the plane constant `d` directly.
     #[must_use]
     #[inline]
     pub const fn from_normal_d(normal: Vec3, d: f32) -> Self {
@@ -1552,6 +1814,95 @@ impl Plane {
             normal: self.normal * inv,
             d: self.d * inv,
         }
+    }
+
+    /// Flip the plane (negate normal and d), pointing it in the opposite direction.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Plane;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let p = Plane::new(Vec3::new(0.0, 1.0, 0.0), -2.0);
+    /// let flipped = p.flip();
+    /// assert!((flipped.normal.y + 1.0).abs() < 1e-5);
+    /// assert!((flipped.d - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn flip(&self) -> Self {
+        Self {
+            normal: self.normal * -1.0,
+            d: -self.d,
+        }
+    }
+
+    /// Find the line of intersection between two planes.
+    ///
+    /// Returns `Some((point, direction))` where `point` is one point on the
+    /// line and `direction` is a unit vector along it.  Returns `None` if the
+    /// planes are parallel (or near-parallel).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Plane;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0); // y=0
+    /// let yz = Plane::new(Vec3::new(1.0, 0.0, 0.0), 0.0); // x=0
+    /// let (pt, dir) = xz.intersect_plane(&yz).expect("must intersect");
+    /// // Intersection line is the Z axis
+    /// assert!(dir.z.abs() > 0.99);
+    /// assert!(pt.x.abs() < 1e-5 && pt.y.abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn intersect_plane(&self, other: &Self) -> Option<(Vec3, Vec3)> {
+        let dir = self.normal.cross(other.normal);
+        let len_sq = dir.length_sq();
+        if len_sq < 1e-10 {
+            return None; // parallel
+        }
+        let dir = dir * (1.0 / len_sq.sqrt());
+        // Solve for a point on both planes using the formula from Graphics Gems.
+        // point = (d2·(n1×n2×n1) - d1·(n1×n2×n2)) / |n1×n2|²
+        // Simplified: project out a point via cross products.
+        let n1_cross_n2 = self.normal.cross(other.normal);
+        let point =
+            (other.normal * -self.d - self.normal * -other.d).cross(n1_cross_n2) * (1.0 / len_sq);
+        Some((point, dir))
+    }
+
+    /// Find the point of intersection of three planes.
+    ///
+    /// Returns `None` if the planes do not all meet at a single point (e.g. two
+    /// are parallel, or all three share a common line).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Plane;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// // Three coordinate planes meet at the origin
+    /// let xy = Plane::new(Vec3::new(0.0, 0.0, 1.0), 0.0);
+    /// let yz = Plane::new(Vec3::new(1.0, 0.0, 0.0), 0.0);
+    /// let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+    /// let pt = Plane::intersect_three(&xy, &yz, &xz).expect("must intersect");
+    /// assert!(pt.length() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn intersect_three(a: &Self, b: &Self, c: &Self) -> Option<Vec3> {
+        let n1_x_n2 = a.normal.cross(b.normal);
+        let denom = n1_x_n2.dot(c.normal);
+        if denom.abs() < 1e-10 {
+            return None;
+        }
+        let p =
+            (c.normal.cross(b.normal) * -a.d + a.normal.cross(c.normal) * -b.d + n1_x_n2 * -c.d)
+                * (1.0 / denom);
+        Some(p)
     }
 }
 
@@ -2271,5 +2622,174 @@ mod tests {
         let f = Frustum::from_view_projection(&proj);
         assert!(f.intersects_sphere(Vec3::ZERO, 0.5));
         assert!(!f.intersects_sphere(Vec3::new(5.0, 0.0, 0.0), 0.5));
+    }
+
+    // ── Ray::intersects_plane ────────────────────────────────────────────────
+
+    #[test]
+    fn ray_intersects_plane_hit() {
+        let plane = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let ray = Ray::new(Vec3::new(0.0, 3.0, 0.0), Vec3::new(0.0, -1.0, 0.0));
+        let t = ray.intersects_plane(&plane).expect("must hit");
+        assert!((t - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_intersects_plane_parallel() {
+        let plane = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let ray = Ray::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0));
+        assert!(ray.intersects_plane(&plane).is_none());
+    }
+
+    #[test]
+    fn ray_intersects_plane_behind() {
+        let plane = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let ray = Ray::new(Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 0.0));
+        assert!(ray.intersects_plane(&plane).is_none());
+    }
+
+    // ── BoundingSphere::merge / contains_sphere ──────────────────────────────
+
+    #[test]
+    fn bounding_sphere_merge_contains_both() {
+        let a = BoundingSphere {
+            center: Vec3::new(-2.0, 0.0, 0.0),
+            radius: 0.5,
+        };
+        let b = BoundingSphere {
+            center: Vec3::new(2.0, 0.0, 0.0),
+            radius: 0.5,
+        };
+        let m = BoundingSphere::merge(&a, &b);
+        assert!(m.contains_sphere(&a));
+        assert!(m.contains_sphere(&b));
+        assert!((m.radius - 2.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn bounding_sphere_contained_returns_outer() {
+        let big = BoundingSphere {
+            center: Vec3::ZERO,
+            radius: 3.0,
+        };
+        let small = BoundingSphere {
+            center: Vec3::new(0.5, 0.0, 0.0),
+            radius: 0.5,
+        };
+        let m = BoundingSphere::merge(&big, &small);
+        assert!((m.radius - big.radius).abs() < 1e-4);
+    }
+
+    // ── AABB::merge / volume / corners / intersects_plane ────────────────────
+
+    #[test]
+    fn aabb_merge_contains_both() {
+        let a = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::ZERO);
+        let b = AABB::new(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
+        let m = AABB::merge(&a, &b);
+        assert!(m.contains_aabb(&a));
+        assert!(m.contains_aabb(&b));
+    }
+
+    #[test]
+    fn aabb_volume_unit_cube() {
+        let cube = AABB::new(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        assert!((cube.volume() - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn aabb_corners_count_and_containment() {
+        let aabb = AABB::new(Vec3::ZERO, Vec3::new(2.0, 3.0, 4.0));
+        let corners = aabb.corners();
+        assert_eq!(corners.len(), 8);
+        for c in &corners {
+            assert!(aabb.contains_point(*c), "corner {c:?} not in aabb");
+        }
+    }
+
+    #[test]
+    fn aabb_intersects_plane_straddled() {
+        let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+        let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        assert!(aabb.intersects_plane(&xz));
+    }
+
+    #[test]
+    fn aabb_intersects_plane_above() {
+        let aabb = AABB::new(Vec3::new(0.0, 3.0, 0.0), Vec3::new(1.0, 4.0, 1.0));
+        let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        assert!(!aabb.intersects_plane(&xz));
+    }
+
+    // ── Triangle::incenter / is_degenerate ───────────────────────────────────
+
+    #[test]
+    fn triangle_incenter_equilateral() {
+        let tri = Triangle::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.5, 0.866, 0.0),
+        );
+        let ic = tri.incenter();
+        let cg = tri.centroid();
+        assert!(
+            (ic - cg).length() < 0.02,
+            "incenter ≈ centroid for equilateral"
+        );
+    }
+
+    #[test]
+    fn triangle_degenerate_collinear() {
+        let t = Triangle::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.5, 0.0, 0.0),
+        );
+        assert!(t.is_degenerate());
+    }
+
+    #[test]
+    fn triangle_not_degenerate() {
+        let t = Triangle::new(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        assert!(!t.is_degenerate());
+    }
+
+    // ── Plane::flip / intersect_plane / intersect_three ──────────────────────
+
+    #[test]
+    fn plane_flip_negates() {
+        let p = Plane::new(Vec3::new(0.0, 1.0, 0.0), -3.0);
+        let f = p.flip();
+        assert!((f.normal.y + 1.0).abs() < 1e-5);
+        assert!((f.d - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn plane_intersect_plane_z_axis() {
+        let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let yz = Plane::new(Vec3::new(1.0, 0.0, 0.0), 0.0);
+        let (pt, dir) = xz.intersect_plane(&yz).expect("must intersect");
+        assert!(dir.z.abs() > 0.99, "dir.z={}", dir.z);
+        assert!(pt.x.abs() < 1e-4 && pt.y.abs() < 1e-4);
+    }
+
+    #[test]
+    fn plane_intersect_plane_parallel_none() {
+        let a = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let b = Plane::new(Vec3::new(0.0, 1.0, 0.0), 2.0);
+        assert!(a.intersect_plane(&b).is_none());
+    }
+
+    #[test]
+    fn plane_intersect_three_origin() {
+        let xy = Plane::new(Vec3::new(0.0, 0.0, 1.0), 0.0);
+        let yz = Plane::new(Vec3::new(1.0, 0.0, 0.0), 0.0);
+        let xz = Plane::new(Vec3::new(0.0, 1.0, 0.0), 0.0);
+        let pt = Plane::intersect_three(&xy, &yz, &xz).expect("must have point");
+        assert!(pt.length() < 1e-4, "expected origin, got {pt:?}");
     }
 }
