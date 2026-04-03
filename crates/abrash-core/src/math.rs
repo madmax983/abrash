@@ -310,6 +310,137 @@ pub fn angle_diff(a: f32, b: f32) -> f32 {
     ((b - a).rem_euclid(TAU) + std::f32::consts::PI).rem_euclid(TAU) - std::f32::consts::PI
 }
 
+/// Ping-pong (triangle wave): bounces `t` back and forth between 0 and `length`.
+///
+/// Equivalent to `abs(fract(t / (2·length)) * 2·length - length)`.
+/// Returns a value always in `[0, length]` with no discontinuities.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ping_pong;
+///
+/// assert!((ping_pong(0.0,  1.0) - 0.0).abs() < 1e-5);
+/// assert!((ping_pong(0.5,  1.0) - 0.5).abs() < 1e-5);
+/// assert!((ping_pong(1.0,  1.0) - 1.0).abs() < 1e-5);
+/// assert!((ping_pong(1.5,  1.0) - 0.5).abs() < 1e-5); // bouncing back
+/// assert!((ping_pong(2.0,  1.0) - 0.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ping_pong(t: f32, length: f32) -> f32 {
+    let period = 2.0 * length;
+    let t = t - (t / period).floor() * period;
+    if t < length { t } else { period - t }
+}
+
+/// Map a value from one range to another.
+///
+/// Equivalent to `lerp(to_min, to_max, (x - from_min) / (from_max - from_min))`.
+/// Does NOT clamp the output — use [`remap`] for a clamped version.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::map_range;
+///
+/// assert!((map_range(5.0, 0.0, 10.0, 0.0, 1.0) - 0.5).abs() < 1e-5);
+/// assert!((map_range(0.0, 0.0, 10.0, -1.0, 1.0) - (-1.0)).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn map_range(x: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> f32 {
+    let t = (x - from_min) / (from_max - from_min);
+    to_min + t * (to_max - to_min)
+}
+
+/// Wrap `x` into `[min, max)` by repeating.
+///
+/// Similar to GLSL `mod(x - min, max - min) + min`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::wrap;
+///
+/// assert!((wrap(1.5, 0.0, 1.0) - 0.5).abs() < 1e-5);
+/// assert!((wrap(-0.5, 0.0, 1.0) - 0.5).abs() < 1e-5);
+/// assert!((wrap(3.0, 1.0, 4.0) - 3.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn wrap(x: f32, min: f32, max: f32) -> f32 {
+    let range = max - min;
+    min + (x - min).rem_euclid(range)
+}
+
+/// Evaluate a quadratic (degree-2) Bézier curve at `t ∈ [0, 1]`.
+///
+/// Uses de Casteljau's algorithm: two linear lerps then one more.
+/// `p0`, `p1`, `p2` are the control points; `p0` and `p2` are endpoints.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{quadratic_bezier_eval, Vec3};
+///
+/// let p0 = Vec3::ZERO;
+/// let p1 = Vec3::new(0.5, 1.0, 0.0);
+/// let p2 = Vec3::new(1.0, 0.0, 0.0);
+///
+/// // At t=0 we should be at p0
+/// let at0 = quadratic_bezier_eval(p0, p1, p2, 0.0);
+/// assert!((at0 - p0).length() < 1e-5);
+///
+/// // At t=1 we should be at p2
+/// let at1 = quadratic_bezier_eval(p0, p1, p2, 1.0);
+/// assert!((at1 - p2).length() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn quadratic_bezier_eval(p0: Vec3, p1: Vec3, p2: Vec3, t: f32) -> Vec3 {
+    let q0 = p0.lerp(p1, t);
+    let q1 = p1.lerp(p2, t);
+    q0.lerp(q1, t)
+}
+
+/// Evaluate a cubic (degree-3) Bézier curve at `t ∈ [0, 1]`.
+///
+/// Uses de Casteljau's algorithm with three control points plus two endpoints.
+/// `p0`..`p3` are the four control points; `p0` and `p3` are endpoints.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{cubic_bezier_eval, Vec3};
+///
+/// let p0 = Vec3::ZERO;
+/// let p1 = Vec3::new(0.0, 1.0, 0.0);
+/// let p2 = Vec3::new(1.0, 1.0, 0.0);
+/// let p3 = Vec3::new(1.0, 0.0, 0.0);
+///
+/// let at0 = cubic_bezier_eval(p0, p1, p2, p3, 0.0);
+/// assert!((at0 - p0).length() < 1e-5);
+///
+/// let at1 = cubic_bezier_eval(p0, p1, p2, p3, 1.0);
+/// assert!((at1 - p3).length() < 1e-5);
+///
+/// // Midpoint should be between the endpoints
+/// let mid = cubic_bezier_eval(p0, p1, p2, p3, 0.5);
+/// assert!(mid.x > 0.0 && mid.x < 1.0);
+/// assert!(mid.y > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn cubic_bezier_eval(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3 {
+    let q0 = p0.lerp(p1, t);
+    let q1 = p1.lerp(p2, t);
+    let q2 = p2.lerp(p3, t);
+    let r0 = q0.lerp(q1, t);
+    let r1 = q1.lerp(q2, t);
+    r0.lerp(r1, t)
+}
+
 /// Fast polynomial approximation of `atan2(y, x)`.
 ///
 /// Maximum error is approximately 0.005 radians (~0.3°).
@@ -742,6 +873,71 @@ impl Vec2 {
     #[inline]
     pub fn max_component(self) -> f32 {
         self.x.max(self.y)
+    }
+
+    /// Construct from polar coordinates `(r, theta)`.
+    ///
+    /// `r` is the radius and `theta` is the angle in radians from the +x axis.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    /// use std::f32::consts::FRAC_PI_2;
+    ///
+    /// let v = Vec2::from_polar(2.0, FRAC_PI_2);
+    /// // Should point in the +y direction
+    /// assert!((v.x).abs() < 1e-5);
+    /// assert!((v.y - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn from_polar(r: f32, theta: f32) -> Self {
+        let (s, c) = theta.sin_cos();
+        Self::new(r * c, r * s)
+    }
+
+    /// Convert to polar coordinates `(r, theta)`.
+    ///
+    /// Returns `(radius, angle_radians)` where angle is in `[−π, π]`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    ///
+    /// let v = Vec2::new(1.0, 0.0);
+    /// let (r, theta) = v.to_polar();
+    /// assert!((r - 1.0).abs() < 1e-5);
+    /// assert!(theta.abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn to_polar(self) -> (f32, f32) {
+        (self.length(), self.y.atan2(self.x))
+    }
+
+    /// Signed angle from `self` to `other` in radians, in `[−π, π]`.
+    ///
+    /// Positive = counter-clockwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    /// use std::f32::consts::FRAC_PI_2;
+    ///
+    /// let right = Vec2::new(1.0, 0.0);
+    /// let up    = Vec2::new(0.0, 1.0);
+    /// let angle = right.angle_to(up);
+    /// assert!((angle - FRAC_PI_2).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn angle_to(self, other: Self) -> f32 {
+        let cross = self.cross(other); // signed area
+        let dot = self.dot(other);
+        cross.atan2(dot)
     }
 }
 
@@ -5338,6 +5534,89 @@ mod tests_scalar_utils {
                 "atan2 mismatch at {deg}°: got={got} expected={expected}"
             );
         }
+    }
+
+    // ── ping_pong / map_range / wrap ─────────────────────────────────────────
+
+    #[test]
+    fn ping_pong_basic() {
+        assert!((ping_pong(0.0, 1.0) - 0.0).abs() < 1e-5);
+        assert!((ping_pong(0.5, 1.0) - 0.5).abs() < 1e-5);
+        assert!((ping_pong(1.0, 1.0) - 1.0).abs() < 1e-5);
+        assert!((ping_pong(1.5, 1.0) - 0.5).abs() < 1e-5);
+        assert!((ping_pong(2.0, 1.0) - 0.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn map_range_basic() {
+        assert!((map_range(5.0, 0.0, 10.0, 0.0, 1.0) - 0.5).abs() < 1e-5);
+        assert!((map_range(0.0, 0.0, 10.0, -1.0, 1.0) - (-1.0)).abs() < 1e-5);
+        assert!((map_range(10.0, 0.0, 10.0, -1.0, 1.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn wrap_basic() {
+        assert!((wrap(1.5, 0.0, 1.0) - 0.5).abs() < 1e-5);
+        assert!((wrap(-0.5, 0.0, 1.0) - 0.5).abs() < 1e-5);
+        assert!((wrap(0.3, 0.0, 1.0) - 0.3).abs() < 1e-5);
+    }
+
+    // ── Bézier eval ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn quadratic_bezier_endpoints() {
+        let p0 = Vec3::ZERO;
+        let p1 = Vec3::new(0.5, 1.0, 0.0);
+        let p2 = Vec3::new(1.0, 0.0, 0.0);
+        let at0 = quadratic_bezier_eval(p0, p1, p2, 0.0);
+        let at1 = quadratic_bezier_eval(p0, p1, p2, 1.0);
+        assert!((at0 - p0).length() < 1e-5);
+        assert!((at1 - p2).length() < 1e-5);
+    }
+
+    #[test]
+    fn cubic_bezier_endpoints() {
+        let p0 = Vec3::ZERO;
+        let p1 = Vec3::new(0.0, 1.0, 0.0);
+        let p2 = Vec3::new(1.0, 1.0, 0.0);
+        let p3 = Vec3::new(1.0, 0.0, 0.0);
+        let at0 = cubic_bezier_eval(p0, p1, p2, p3, 0.0);
+        let at1 = cubic_bezier_eval(p0, p1, p2, p3, 1.0);
+        assert!((at0 - p0).length() < 1e-5);
+        assert!((at1 - p3).length() < 1e-5);
+    }
+
+    // ── Vec2 polar / angle_to ────────────────────────────────────────────────
+
+    #[test]
+    fn vec2_from_to_polar_roundtrip() {
+        let orig = Vec2::new(3.0, 4.0);
+        let (r, theta) = orig.to_polar();
+        let back = Vec2::from_polar(r, theta);
+        assert!((back.x - orig.x).abs() < 1e-5);
+        assert!((back.y - orig.y).abs() < 1e-5);
+    }
+
+    #[test]
+    fn vec2_angle_to_ccw() {
+        let right = Vec2::new(1.0, 0.0);
+        let up = Vec2::new(0.0, 1.0);
+        let a = right.angle_to(up);
+        assert!(
+            (a - std::f32::consts::FRAC_PI_2).abs() < 1e-5,
+            "expected π/2, got {a}"
+        );
+    }
+
+    #[test]
+    fn vec2_angle_to_cw_negative() {
+        let up = Vec2::new(0.0, 1.0);
+        let right = Vec2::new(1.0, 0.0);
+        let a = up.angle_to(right);
+        assert!(
+            (a + std::f32::consts::FRAC_PI_2).abs() < 1e-5,
+            "expected -π/2, got {a}"
+        );
     }
 
     #[test]
