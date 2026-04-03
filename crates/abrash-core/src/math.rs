@@ -1343,6 +1343,32 @@ impl Vec3 {
     /// Builds an orthonormal basis from this direction.
     ///
     /// Returns two unit vectors `(tangent, bitangent)` that are perpendicular
+    /// The smallest of the three components.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// assert_eq!(Vec3::new(3.0, 1.0, 2.0).min_component(), 1.0);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn min_component(self) -> f32 {
+        self.x.min(self.y).min(self.z)
+    }
+
+    /// The largest of the three components.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// assert_eq!(Vec3::new(3.0, 1.0, 2.0).max_component(), 3.0);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn max_component(self) -> f32 {
+        self.x.max(self.y).max(self.z)
+    }
+
     /// to the (normalized) input and each other.
     #[must_use]
     #[inline]
@@ -1838,6 +1864,33 @@ impl Mat4 {
                 ],
             ],
         }
+    }
+
+    /// Normal matrix: the inverse-transpose of the upper-left 3×3.
+    ///
+    /// Used to correctly transform surface normals when the model matrix
+    /// contains non-uniform scale.  A uniform-scale rotation matrix has
+    /// `normal_matrix == rotation_part`, but non-uniform scale would shear
+    /// normals without this correction.
+    ///
+    /// Returns `Mat3::identity()` if the matrix is singular.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Mat3, Vec3};
+    ///
+    /// // Pure rotation: normal_matrix == upper-3x3
+    /// let m = Mat4::rotation_y(0.5);
+    /// let nm = m.normal_matrix();
+    /// let n = Vec3::new(1.0, 0.0, 0.0);
+    /// let by_nm  = nm.transform(n);
+    /// let by_rot = Mat3::from_mat4(&m).transform(n);
+    /// assert!((by_nm.x - by_rot.x).abs() < 1e-4);
+    /// ```
+    #[must_use]
+    pub fn normal_matrix(&self) -> Mat3 {
+        Mat3::from_mat4(self).inverse_transpose()
     }
 
     /// Creates a rotation matrix around the X axis.
@@ -3542,6 +3595,39 @@ pub fn cubic_solve(a: f32, b: f32, c: f32, d: f32) -> ([f32; 3], usize) {
         r.sort_by(f32::total_cmp);
         (r, 3)
     }
+}
+
+/// Build an orthonormal tangent-bitangent frame from a surface normal.
+///
+/// Uses the Duff et al. 2017 ("Building an Orthonormal Basis, Revisited")
+/// revision of Frisvad's method.  Branchless, numerically stable for all
+/// normals including those near `(0, -1, 0)`.
+///
+/// Returns `(tangent, bitangent)` such that `(tangent, bitangent, normal)` form
+/// a right-handed orthonormal basis.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{basis_from_normal, Vec3};
+///
+/// let n = Vec3::new(0.0, 1.0, 0.0);
+/// let (t, b) = basis_from_normal(n);
+/// assert!(t.dot(n).abs() < 1e-5, "t must be perp to n");
+/// assert!(b.dot(n).abs() < 1e-5, "b must be perp to n");
+/// assert!(t.dot(b).abs() < 1e-5, "t and b must be perp");
+/// assert!((t.length() - 1.0).abs() < 1e-5, "t must be unit");
+/// assert!((b.length() - 1.0).abs() < 1e-5, "b must be unit");
+/// ```
+#[must_use]
+pub fn basis_from_normal(n: Vec3) -> (Vec3, Vec3) {
+    // Duff et al. 2017 — sign(n.z) trick avoids the n.z ≈ -1 singularity
+    let sign = n.z.signum(); // ±1, never 0 (signum(0) = 1 in Rust)
+    let a = -1.0 / (sign + n.z);
+    let b = n.x * n.y * a;
+    let tangent = Vec3::new(1.0 + sign * n.x * n.x * a, sign * b, -sign * n.x);
+    let bitangent = Vec3::new(b, sign + n.y * n.y * a, -n.y);
+    (tangent, bitangent)
 }
 
 #[cfg(test)]
@@ -5346,5 +5432,71 @@ mod tests_mat3 {
         let (left, right) = bezier_cubic_split(p0, p1, p2, p3, 0.3);
         assert!((left[0].x - p0.x).abs() < 1e-5);
         assert!((right[3].x - p3.x).abs() < 1e-5);
+    }
+
+    // ── Vec3 min/max component ────────────────────────────────────────────────
+
+    #[test]
+    fn vec3_min_max_component() {
+        let v = Vec3::new(3.0, 1.0, 2.0);
+        assert_eq!(v.min_component(), 1.0);
+        assert_eq!(v.max_component(), 3.0);
+    }
+
+    #[test]
+    fn vec3_min_max_negative() {
+        let v = Vec3::new(-1.0, -5.0, -2.0);
+        assert_eq!(v.min_component(), -5.0);
+        assert_eq!(v.max_component(), -1.0);
+    }
+
+    // ── Mat4::normal_matrix ──────────────────────────────────────────────────
+
+    #[test]
+    fn normal_matrix_pure_rotation_is_same() {
+        let m = Mat4::rotation_y(0.7);
+        let nm = m.normal_matrix();
+        let upper = Mat3::from_mat4(&m);
+        let n = Vec3::new(1.0, 0.0, 0.0).normalize();
+        let by_nm = nm.transform(n);
+        let by_upper = upper.transform(n);
+        assert!(
+            (by_nm.x - by_upper.x).abs() < 1e-4,
+            "x: {} vs {}",
+            by_nm.x,
+            by_upper.x
+        );
+    }
+
+    #[test]
+    fn normal_matrix_non_uniform_scale_corrects() {
+        // With non-uniform scale, normals transformed by model matrix get sheared;
+        // normal_matrix corrects this.
+        let model = Mat4::scale(2.0, 1.0, 1.0);
+        let nm = model.normal_matrix();
+        // The face normal (1,0,0) of an X-scaled box should still point in (1,0,0)
+        let n = Vec3::new(1.0, 0.0, 0.0);
+        let corrected = nm.transform(n).normalize();
+        assert!((corrected.x - 1.0).abs() < 0.01, "x={}", corrected.x);
+        assert!(corrected.y.abs() < 0.01);
+    }
+
+    // ── basis_from_normal ────────────────────────────────────────────────────
+
+    #[test]
+    fn basis_from_normal_orthonormal() {
+        for n in [
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.577, 0.577, 0.577).normalize(),
+        ] {
+            let (t, b) = basis_from_normal(n);
+            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {:?}", n);
+            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {:?}", n);
+            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {:?}", n);
+            assert!((t.length() - 1.0).abs() < 1e-4);
+            assert!((b.length() - 1.0).abs() < 1e-4);
+        }
     }
 }
