@@ -559,6 +559,31 @@ impl Mat4 {
         let rotation = Quat::from_mat4(rot);
         (translation, rotation, scale)
     }
+
+    /// Build a TRS (Scale→Rotate→Translate) matrix from components.
+    ///
+    /// This is the inverse of [`Mat4::decompose`].
+    /// The resulting matrix follows row-vector convention: `v' = v · M`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    /// use abrash_core::quat::Quat;
+    ///
+    /// let q = Quat::identity();
+    /// let m = Mat4::from_srt(Vec3::ONE, q, Vec3::new(1.0, 2.0, 3.0));
+    /// let (t, _, _) = m.decompose();
+    /// assert!((t.x - 1.0).abs() < 1e-5);
+    /// assert!((t.z - 3.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn from_srt(scale: Vec3, rotation: Quat, translation: Vec3) -> Self {
+        // Build scale * rotation * translation in row-vector order
+        Self::scale(scale.x, scale.y, scale.z)
+            * rotation.to_mat4()
+            * Self::translation(translation.x, translation.y, translation.z)
+    }
 }
 
 // ── Dual Quaternion ──────────────────────────────────────────��────────────────
@@ -1008,6 +1033,24 @@ mod tests {
         assert!((s.x - 2.0).abs() < 1e-5, "sx");
         assert!((s.y - 3.0).abs() < 1e-5, "sy");
         assert!((s.z - 0.5).abs() < 1e-5, "sz");
+    }
+
+    #[test]
+    fn from_srt_roundtrip() {
+        use std::f32::consts::PI;
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), PI / 6.0).normalize();
+        let s = Vec3::new(2.0, 1.5, 0.5);
+        let t = Vec3::new(-3.0, 1.0, 4.0);
+        let m = Mat4::from_srt(s, q, t);
+        let (t_out, q_out, s_out) = m.decompose();
+        assert!((t_out.x - t.x).abs() < 1e-4, "tx {}", t_out.x);
+        assert!((t_out.z - t.z).abs() < 1e-4, "tz {}", t_out.z);
+        assert!((s_out.x - s.x).abs() < 1e-4, "sx {}", s_out.x);
+        // rotation should preserve vector rotation
+        let v = Vec3::X;
+        let a = q.rotate_vec3(v);
+        let b = q_out.rotate_vec3(v);
+        assert!((a.x - b.x).abs() < 1e-4);
     }
 
     #[test]

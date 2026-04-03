@@ -498,6 +498,238 @@ fn grad3(hash: usize, x: f32, y: f32, z: f32) -> f32 {
     }
 }
 
+// ── Simplex Noise ────────────────────────────────────────────────────────────
+
+/// 2D Simplex noise in `[-1.0, 1.0]` (Stefan Gustavson / Ken Perlin 2001).
+///
+/// Simplex noise uses a triangular lattice instead of a square grid, which
+/// eliminates the axis-aligned bias visible in gradient (Perlin) noise at large
+/// scales and is ~30% faster in 3D.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::simplex_2d;
+///
+/// let n = simplex_2d(1.5, 2.3);
+/// assert!(n >= -1.0 && n <= 1.0);
+///
+/// // Deterministic
+/// assert_eq!(simplex_2d(0.7, -1.2), simplex_2d(0.7, -1.2));
+/// ```
+#[must_use]
+pub fn simplex_2d(x: f32, y: f32) -> f32 {
+    // Skew input to simplex grid
+    const F2: f32 = 0.366_025_4; // (sqrt(3) - 1) / 2
+    const G2: f32 = 0.211_324_87; // (3 - sqrt(3)) / 6
+
+    let s = (x + y) * F2;
+    let i = (x + s).floor() as i32;
+    let j = (y + s).floor() as i32;
+
+    let t = (i + j) as f32 * G2;
+    let x0 = x - (i as f32 - t);
+    let y0 = y - (j as f32 - t);
+
+    // Which simplex are we in?
+    let (i1, j1) = if x0 > y0 { (1i32, 0i32) } else { (0i32, 1i32) };
+
+    let x1 = x0 - i1 as f32 + G2;
+    let y1 = y0 - j1 as f32 + G2;
+    let x2 = x0 - 1.0 + 2.0 * G2;
+    let y2 = y0 - 1.0 + 2.0 * G2;
+
+    // Gradient contributions
+    let ii = (i & 255) as usize;
+    let jj = (j & 255) as usize;
+
+    let gi0 = (PERM[ii + PERM[jj] as usize] % 12) as usize;
+    let gi1 = (PERM[ii + i1 as usize + PERM[jj + j1 as usize] as usize] % 12) as usize;
+    let gi2 = (PERM[ii + 1 + PERM[jj + 1] as usize] % 12) as usize;
+
+    let n0 = {
+        let t0 = 0.5 - x0 * x0 - y0 * y0;
+        if t0 < 0.0 {
+            0.0
+        } else {
+            let t02 = t0 * t0;
+            t02 * t02 * simplex_grad2(gi0, x0, y0)
+        }
+    };
+    let n1 = {
+        let t1 = 0.5 - x1 * x1 - y1 * y1;
+        if t1 < 0.0 {
+            0.0
+        } else {
+            let t12 = t1 * t1;
+            t12 * t12 * simplex_grad2(gi1, x1, y1)
+        }
+    };
+    let n2 = {
+        let t2 = 0.5 - x2 * x2 - y2 * y2;
+        if t2 < 0.0 {
+            0.0
+        } else {
+            let t22 = t2 * t2;
+            t22 * t22 * simplex_grad2(gi2, x2, y2)
+        }
+    };
+
+    // Scale to [-1, 1] (empirical constant from Gustavson)
+    70.0 * (n0 + n1 + n2)
+}
+
+/// 3D Simplex noise in `[-1.0, 1.0]` (Stefan Gustavson / Ken Perlin 2001).
+///
+/// Uses 4 gradient contributions from tetrahedron corners instead of the 8
+/// cube corners Perlin noise uses — approximately O(n) vs O(2^n) in dimension n.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::simplex_3d;
+///
+/// let n = simplex_3d(1.5, 2.3, -0.7);
+/// assert!(n >= -1.0 && n <= 1.0);
+///
+/// // Deterministic
+/// assert_eq!(simplex_3d(0.7, -1.2, 0.3), simplex_3d(0.7, -1.2, 0.3));
+/// ```
+#[must_use]
+pub fn simplex_3d(x: f32, y: f32, z: f32) -> f32 {
+    const F3: f32 = 1.0 / 3.0;
+    const G3: f32 = 1.0 / 6.0;
+
+    // Skew to simplex grid
+    let s = (x + y + z) * F3;
+    let i = (x + s).floor() as i32;
+    let j = (y + s).floor() as i32;
+    let k = (z + s).floor() as i32;
+
+    let t = (i + j + k) as f32 * G3;
+    let x0 = x - (i as f32 - t);
+    let y0 = y - (j as f32 - t);
+    let z0 = z - (k as f32 - t);
+
+    // Simplex traversal order
+    let (i1, j1, k1, i2, j2, k2) = if x0 >= y0 {
+        if y0 >= z0 {
+            (1, 0, 0, 1, 1, 0)
+        } else if x0 >= z0 {
+            (1, 0, 0, 1, 0, 1)
+        } else {
+            (0, 0, 1, 1, 0, 1)
+        }
+    } else {
+        if y0 < z0 {
+            (0, 0, 1, 0, 1, 1)
+        } else if x0 < z0 {
+            (0, 1, 0, 0, 1, 1)
+        } else {
+            (0, 1, 0, 1, 1, 0)
+        }
+    };
+
+    let x1 = x0 - i1 as f32 + G3;
+    let y1 = y0 - j1 as f32 + G3;
+    let z1 = z0 - k1 as f32 + G3;
+    let x2 = x0 - i2 as f32 + 2.0 * G3;
+    let y2 = y0 - j2 as f32 + 2.0 * G3;
+    let z2 = z0 - k2 as f32 + 2.0 * G3;
+    let x3 = x0 - 1.0 + 3.0 * G3;
+    let y3 = y0 - 1.0 + 3.0 * G3;
+    let z3 = z0 - 1.0 + 3.0 * G3;
+
+    let ii = (i & 255) as usize;
+    let jj = (j & 255) as usize;
+    let kk = (k & 255) as usize;
+
+    let gi0 = (PERM[ii + PERM[jj + PERM[kk] as usize] as usize] % 12) as usize;
+    let gi1 = (PERM[ii + i1 + PERM[jj + j1 + PERM[kk + k1] as usize] as usize] % 12) as usize;
+    let gi2 = (PERM[ii + i2 + PERM[jj + j2 + PERM[kk + k2] as usize] as usize] % 12) as usize;
+    let gi3 = (PERM[ii + 1 + PERM[jj + 1 + PERM[kk + 1] as usize] as usize] % 12) as usize;
+
+    let n0 = {
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+        if t0 < 0.0 {
+            0.0
+        } else {
+            let t02 = t0 * t0;
+            t02 * t02 * simplex_grad3(gi0, x0, y0, z0)
+        }
+    };
+    let n1 = {
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+        if t1 < 0.0 {
+            0.0
+        } else {
+            let t12 = t1 * t1;
+            t12 * t12 * simplex_grad3(gi1, x1, y1, z1)
+        }
+    };
+    let n2 = {
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+        if t2 < 0.0 {
+            0.0
+        } else {
+            let t22 = t2 * t2;
+            t22 * t22 * simplex_grad3(gi2, x2, y2, z2)
+        }
+    };
+    let n3 = {
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+        if t3 < 0.0 {
+            0.0
+        } else {
+            let t32 = t3 * t3;
+            t32 * t32 * simplex_grad3(gi3, x3, y3, z3)
+        }
+    };
+
+    32.0 * (n0 + n1 + n2 + n3)
+}
+
+/// 12-direction gradient table for simplex noise (x,y pairs).
+#[inline]
+fn simplex_grad2(hash: usize, x: f32, y: f32) -> f32 {
+    const GRAD2: [(f32, f32); 12] = [
+        (1.0, 1.0),
+        (-1.0, 1.0),
+        (1.0, -1.0),
+        (-1.0, -1.0),
+        (1.0, 0.0),
+        (-1.0, 0.0),
+        (1.0, 0.0),
+        (-1.0, 0.0),
+        (0.0, 1.0),
+        (0.0, -1.0),
+        (0.0, 1.0),
+        (0.0, -1.0),
+    ];
+    let (gx, gy) = GRAD2[hash % 12];
+    gx * x + gy * y
+}
+
+/// 12-direction gradient table for simplex noise (x,y,z).
+#[inline]
+fn simplex_grad3(hash: usize, x: f32, y: f32, z: f32) -> f32 {
+    // 12 edges of a cube
+    match hash % 12 {
+        0 => x + y,
+        1 => -x + y,
+        2 => x - y,
+        3 => -x - y,
+        4 => x + z,
+        5 => -x + z,
+        6 => x - z,
+        7 => -x - z,
+        8 => y + z,
+        9 => -y + z,
+        10 => y - z,
+        _ => -y - z,
+    }
+}
+
 // ── Ridge, Billow, Domain Warp ───────────────────────────────────────────────
 
 /// Ridge noise (2D): `1 - |fBm|`, sharpened by `sharpness` exponent.
@@ -758,6 +990,57 @@ mod tests {
     fn worley_3d_deterministic() {
         let a = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
         let b = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
+        assert_eq!(a, b);
+    }
+
+    // ── Simplex noise ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn simplex_2d_range() {
+        for i in 0..100 {
+            let x = i as f32 * 0.17 - 8.0;
+            let y = i as f32 * 0.11 + 0.3;
+            let v = simplex_2d(x, y);
+            assert!(
+                v >= -1.0 && v <= 1.0,
+                "simplex_2d out of range at ({x},{y}): {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn simplex_2d_deterministic() {
+        let a = simplex_2d(1.7, -0.9);
+        let b = simplex_2d(1.7, -0.9);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn simplex_2d_not_constant() {
+        // Should vary — two distant samples shouldn't be identical
+        let a = simplex_2d(0.0, 0.0);
+        let b = simplex_2d(10.5, 7.3);
+        assert!(
+            (a - b).abs() > 0.001,
+            "simplex_2d appears constant: {a} vs {b}"
+        );
+    }
+
+    #[test]
+    fn simplex_3d_range() {
+        for i in 0..100 {
+            let x = i as f32 * 0.13 - 5.0;
+            let y = i as f32 * 0.09 + 1.0;
+            let z = i as f32 * 0.07 - 3.0;
+            let v = simplex_3d(x, y, z);
+            assert!(v >= -1.0 && v <= 1.0, "simplex_3d out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn simplex_3d_deterministic() {
+        let a = simplex_3d(0.7, -1.2, 0.3);
+        let b = simplex_3d(0.7, -1.2, 0.3);
         assert_eq!(a, b);
     }
 
