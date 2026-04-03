@@ -281,6 +281,17 @@ impl Quat {
         if len_sq < f32::EPSILON * f32::EPSILON {
             return Self::identity();
         }
+        let inv = len_sq.sqrt().recip();
+        Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
+    }
+
+    /// Normalize to unit length using fast inverse square root approximation.
+    #[must_use]
+    pub fn fast_normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq < f32::EPSILON * f32::EPSILON {
+            return Self::identity();
+        }
         let inv = fast_inv_sqrt(len_sq);
         Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
     }
@@ -575,6 +586,23 @@ mod tests {
         let n = q.normalize();
         let len = (n.x * n.x + n.y * n.y + n.z * n.z + n.w * n.w).sqrt();
         assert!((len - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn fast_normalize_accuracy() {
+        let q = Quat::new(1.0, 2.0, 3.0, 4.0);
+        let n1 = q.normalize();
+        let n2 = q.fast_normalize();
+
+        let diff_x = (n1.x - n2.x).abs();
+        let diff_y = (n1.y - n2.y).abs();
+        let diff_z = (n1.z - n2.z).abs();
+        let diff_w = (n1.w - n2.w).abs();
+
+        assert!(diff_x < 0.001);
+        assert!(diff_y < 0.001);
+        assert!(diff_z < 0.001);
+        assert!(diff_w < 0.001);
     }
 
     #[test]

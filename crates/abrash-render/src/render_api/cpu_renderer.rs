@@ -101,26 +101,52 @@ impl CpuRenderer {
     /// Returns an error if any handle in the frame is stale. On success the
     /// returned `DrawList` is self-contained and can be executed or inspected
     /// independently of this renderer's internal pools.
-    #[allow(clippy::missing_errors_doc)]
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
         let mut draw_list = DrawList::new(frame.camera);
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
+        // Pre-calculate total required vertices to avoid dynamic reallocations
+        let mut total_vertices = 0;
+        for cmd in &frame.commands {
+            let cpu_mesh = self
+                .meshes
+                .get(from_mesh_handle(cmd.mesh))
+                .ok_or(RenderError::StaleHandle("mesh"))?;
+            total_vertices += cpu_mesh.mesh.vertices.len();
+        }
+
+        draw_list.batches.reserve(frame.commands.len());
+        draw_list.vertices.reserve(total_vertices);
+
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
+
+            // Calculate vertex ranges first to know where each mesh writes
+            let mut ranges = Vec::with_capacity(frame.commands.len());
+            let mut current_offset = 0;
+            for cmd in &frame.commands {
+                // Since we already checked handles above, unwraps here are safe
+                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                let len = cpu_mesh.mesh.vertices.len();
+                ranges.push((current_offset, current_offset + len));
+                current_offset += len;
+            }
+
+            // Safety: We ensure `ranges` accurately bounds writes to disjoint sections
+            // of the pre-allocated buffer exactly `total_vertices` in length.
+            let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
 
             // Map each command to a result to collect into a Result<Vec, Error>
             let results: Result<Vec<DrawBatch>, RenderError> = frame
                 .commands
                 .par_iter()
-                .map(|cmd| {
-                    let cpu_mesh = self
-                        .meshes
-                        .get(from_mesh_handle(cmd.mesh))
-                        .ok_or(RenderError::StaleHandle("mesh"))?;
+                .zip(&ranges)
+                .map(|(cmd, &(start, end))| {
+                    let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
                     let material = self
                         .materials
                         .get(from_material_handle(cmd.material))
@@ -129,37 +155,37 @@ impl CpuRenderer {
                     let mvp = cmd.transform * view_proj;
                     let mesh = &cpu_mesh.mesh;
 
-                    let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                    let uninit_slice = vertices.spare_capacity_mut();
-                    // We know the slice length exactly matches `mesh.vertices.len()`
-                    let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
-
-                    // Instead of parallelizing the transform over vertices (which is now
-                    // inefficient since we're parallelizing over meshes), we just run
-                    // the scalar transform per mesh in parallel.
-                    mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
-
-                    // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
+                    // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                    // The buffer is pre-allocated with `total_vertices` capacity.
                     unsafe {
-                        vertices.set_len(mesh.vertices.len());
+                        let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                        // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                        let slice = std::slice::from_raw_parts_mut(
+                            offset_ptr as *mut std::mem::MaybeUninit<(crate::math::Vec3, f32)>,
+                            mesh.vertices.len()
+                        );
+                        mvp.transform_points_uninit(&mesh.vertices, slice);
                     }
 
                     Ok(DrawBatch::new(
-                        vertices,
+                        start..end,
                         std::sync::Arc::clone(&cpu_mesh.shared_indices),
                         material.color,
                     ))
                 })
                 .collect();
 
-            draw_list.batches = results?;
+            let batches = results?;
+            draw_list.batches.extend(batches);
+
+            // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
+            unsafe {
+                draw_list.vertices.set_len(total_vertices);
+            }
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            // Pre-allocate the batches vector if we know how many commands there are
-            draw_list.batches.reserve(frame.commands.len());
-
             for cmd in &frame.commands {
                 let cpu_mesh = self
                     .meshes
@@ -173,20 +199,20 @@ impl CpuRenderer {
                 let mvp = cmd.transform * view_proj;
                 let mesh = &cpu_mesh.mesh;
 
-                let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                let uninit_slice = vertices.spare_capacity_mut();
-                // We know the slice length exactly matches `mesh.vertices.len()`
+                let start_idx = draw_list.vertices.len();
+                let end_idx = start_idx + mesh.vertices.len();
+
+                let uninit_slice = draw_list.vertices.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
-                // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
                 unsafe {
-                    vertices.set_len(mesh.vertices.len());
+                    draw_list.vertices.set_len(end_idx);
                 }
 
                 draw_list.push(DrawBatch::new(
-                    vertices,
+                    start_idx..end_idx,
                     std::sync::Arc::clone(&cpu_mesh.shared_indices),
                     material.color,
                 ));
@@ -211,8 +237,11 @@ impl CpuRenderer {
 
         self.tile_renderer.begin_frame();
         for batch in &draw_list.batches {
-            self.tile_renderer
-                .submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            self.tile_renderer.submit_mesh(
+                &batch.indices,
+                &draw_list.vertices[batch.vertex_range.clone()],
+                batch.color,
+            );
         }
         self.tile_renderer
             .end_frame(&mut target.framebuffer, &mut target.zbuffer);
