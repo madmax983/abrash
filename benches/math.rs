@@ -1,6 +1,7 @@
 use abrash::color::Color;
 use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
 use abrash::geometry::AABB;
+use abrash::irect::IRect;
 use abrash::ivec::{IVec2, IVec3};
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
 use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
@@ -406,6 +407,36 @@ fn bench_ivec(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_irect(c: &mut Criterion) {
+    let mut g = c.benchmark_group("irect");
+
+    let screen = IRect::from_size(1920, 1080);
+    let sprite = IRect::from_pos_size(IVec2::new(100, 100), 64, 64);
+    let offset = IVec2::new(10, 5);
+
+    g.bench_function("intersect", |b| {
+        b.iter(|| black_box(black_box(screen).intersect(black_box(sprite))));
+    });
+
+    g.bench_function("union", |b| {
+        b.iter(|| black_box(black_box(screen).union(black_box(sprite))));
+    });
+
+    g.bench_function("contains_point", |b| {
+        b.iter(|| black_box(black_box(screen).contains_point(black_box(IVec2::new(960, 540)))));
+    });
+
+    g.bench_function("translate", |b| {
+        b.iter(|| black_box(black_box(sprite).translate(black_box(offset))));
+    });
+
+    g.bench_function("inflate", |b| {
+        b.iter(|| black_box(black_box(sprite).inflate(4)));
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -440,6 +471,7 @@ criterion_group!(
     bench_color,
     bench_noise,
     bench_curve,
-    bench_ivec
+    bench_ivec,
+    bench_irect
 );
 criterion_main!(benches);
