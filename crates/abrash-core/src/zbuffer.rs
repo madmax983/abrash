@@ -106,13 +106,8 @@ impl ZBuffer {
         if sx == 0 && ex == w {
             self.depths[start_idx..end_idx].fill(f32::INFINITY);
         } else {
-            let row_len = ex - sx;
-            let mut current = start_idx + sx;
-            let target_end = end_idx;
-
-            while current < target_end {
-                self.depths[current..current + row_len].fill(f32::INFINITY);
-                current += w;
+            for row in self.depths[start_idx..end_idx].chunks_exact_mut(w) {
+                row[sx..ex].fill(f32::INFINITY);
             }
         }
     }

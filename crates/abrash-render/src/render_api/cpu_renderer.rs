@@ -161,8 +161,8 @@ impl CpuRenderer {
                         let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
                         // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
                         let slice = std::slice::from_raw_parts_mut(
-                            offset_ptr as *mut std::mem::MaybeUninit<(crate::math::Vec3, f32)>,
-                            mesh.vertices.len()
+                            offset_ptr.cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                            mesh.vertices.len(),
                         );
                         mvp.transform_points_uninit(&mesh.vertices, slice);
                     }
