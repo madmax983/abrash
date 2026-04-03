@@ -90,6 +90,18 @@ impl Frame {
         }
     }
 
+    /// ⚡ Bolt: Create an empty frame, pre-allocating the underlying vectors.
+    /// This drastically reduces heap reallocations per frame when drawing many objects.
+    #[must_use]
+    pub fn with_capacity(camera: FrameCamera, num_commands: usize, num_lights: usize) -> Self {
+        Self {
+            camera,
+            lights: Vec::with_capacity(num_lights),
+            commands: Vec::with_capacity(num_commands),
+            clear_color: Some(0xFF00_0000),
+        }
+    }
+
     /// Add a draw command.
     pub fn draw(&mut self, mesh: MeshHandle, material: MaterialHandle, transform: Mat4) {
         self.commands.push(DrawCommand {

@@ -2,6 +2,82 @@
 
 use crate::math::{Mat4, Vec3};
 
+/// A 3D ray represented by `origin + direction * t`.
+///
+/// For best numerical behavior, `direction` should be normalized.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ray {
+    /// Ray start point.
+    pub origin: Vec3,
+    /// Ray direction.
+    pub direction: Vec3,
+}
+
+impl Ray {
+    /// Creates a new ray.
+    #[must_use]
+    #[inline]
+    pub const fn new(origin: Vec3, direction: Vec3) -> Self {
+        Self { origin, direction }
+    }
+
+    /// Evaluate point on ray at parameter `t`.
+    #[must_use]
+    #[inline]
+    pub fn at(self, t: f32) -> Vec3 {
+        self.origin + self.direction * t
+    }
+
+    /// Ray/sphere intersection returning nearest non-negative `t`.
+    #[must_use]
+    pub fn intersects_sphere(self, center: Vec3, radius: f32) -> Option<f32> {
+        let oc = self.origin - center;
+        let a = self.direction.dot(self.direction);
+        let b = 2.0 * oc.dot(self.direction);
+        let c = oc.dot(oc) - radius * radius;
+        let disc = b * b - 4.0 * a * c;
+        if disc < 0.0 {
+            return None;
+        }
+        let sqrt_disc = disc.sqrt();
+        let inv_2a = 0.5 / a;
+        let t0 = (-b - sqrt_disc) * inv_2a;
+        if t0 >= 0.0 {
+            return Some(t0);
+        }
+        let t1 = (-b + sqrt_disc) * inv_2a;
+        (t1 >= 0.0).then_some(t1)
+    }
+
+    /// Ray/triangle intersection (Möller–Trumbore).
+    ///
+    /// Returns hit distance `t` if the intersection lies in front of the ray origin.
+    #[must_use]
+    pub fn intersects_triangle(self, v0: Vec3, v1: Vec3, v2: Vec3) -> Option<f32> {
+        let edge1 = v1 - v0;
+        let edge2 = v2 - v0;
+        let pvec = self.direction.cross(edge2);
+        let det = edge1.dot(pvec);
+        if det.abs() < 1.0e-8 {
+            return None;
+        }
+        let inv_det = 1.0 / det;
+        let tvec = self.origin - v0;
+        let u = tvec.dot(pvec) * inv_det;
+        if !(0.0..=1.0).contains(&u) {
+            return None;
+        }
+        let qvec = tvec.cross(edge1);
+        let v = self.direction.dot(qvec) * inv_det;
+        if v < 0.0 || u + v > 1.0 {
+            return None;
+        }
+        let t = edge2.dot(qvec) * inv_det;
+        (t >= 0.0).then_some(t)
+    }
+}
+
 /// A Bounding Sphere for object-level culling.
 ///
 /// used for coarse intersection tests before checking individual triangles.
@@ -235,6 +311,89 @@ impl AABB {
     pub fn surface_area(&self) -> f32 {
         let size = self.max - self.min;
         2.0 * (size.x * size.y + size.x * size.z + size.y * size.z)
+    }
+
+    /// Closest point on (or inside) this AABB to `point`.
+    #[must_use]
+    #[inline]
+    pub const fn closest_point(&self, point: Vec3) -> Vec3 {
+        point.clamp(self.min, self.max)
+    }
+
+    /// Squared distance from `point` to this AABB.
+    ///
+    /// Returns 0 when the point lies inside the box.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq_to_point(&self, point: Vec3) -> f32 {
+        let clamped = self.closest_point(point);
+        (point - clamped).length_sq()
+    }
+
+    /// Returns `true` if the sphere intersects this AABB.
+    #[must_use]
+    #[inline]
+    pub fn intersects_sphere(&self, center: Vec3, radius: f32) -> bool {
+        self.distance_sq_to_point(center) <= radius * radius
+    }
+
+    /// Ray/AABB intersection that accepts a full [`Ray`].
+    ///
+    /// Returns `(t_min, t_max)` on hit, where hit points are `ray.at(t)`.
+    #[must_use]
+    #[inline]
+    pub fn intersects_ray_struct(&self, ray: Ray) -> Option<(f32, f32)> {
+        self.intersects_ray(ray.origin, ray.direction)
+    }
+
+    /// Ray/AABB intersection using the branch-light slab algorithm.
+    ///
+    /// Returns `(t_min, t_max)` on hit, where ray points are `origin + dir * t`.
+    /// Caller can filter hits behind origin by checking `t_max >= 0.0`.
+    #[must_use]
+    pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<(f32, f32)> {
+        #[inline]
+        fn update_axis(
+            min: f32,
+            max: f32,
+            origin: f32,
+            dir: f32,
+            t_min: &mut f32,
+            t_max: &mut f32,
+        ) -> bool {
+            if dir.abs() <= f32::EPSILON {
+                return origin >= min && origin <= max;
+            }
+            let inv = 1.0 / dir;
+            let mut t0 = (min - origin) * inv;
+            let mut t1 = (max - origin) * inv;
+            if t0 > t1 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            *t_min = (*t_min).max(t0);
+            *t_max = (*t_max).min(t1);
+            *t_min <= *t_max
+        }
+
+        let mut t_min = f32::NEG_INFINITY;
+        let mut t_max = f32::INFINITY;
+
+        if !update_axis(
+            self.min.x, self.max.x, origin.x, dir.x, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        if !update_axis(
+            self.min.y, self.max.y, origin.y, dir.y, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        if !update_axis(
+            self.min.z, self.max.z, origin.z, dir.z, &mut t_min, &mut t_max,
+        ) {
+            return None;
+        }
+        Some((t_min, t_max))
     }
 
     /// Transform this AABB by a matrix.
@@ -640,5 +799,37 @@ mod tests {
             "Max mismatch: {:?}",
             transformed.max
         );
+    }
+
+    #[test]
+    fn test_ray_sphere_intersection() {
+        let ray = Ray::new(Vec3::new(-5.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0));
+        let t = ray
+            .intersects_sphere(Vec3::ZERO, 1.0)
+            .expect("expected hit");
+        assert!((t - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_ray_triangle_intersection() {
+        let ray = Ray::new(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 0.0, -1.0));
+        let v0 = Vec3::new(-1.0, -1.0, 0.0);
+        let v1 = Vec3::new(1.0, -1.0, 0.0);
+        let v2 = Vec3::new(0.0, 1.0, 0.0);
+        let t = ray
+            .intersects_triangle(v0, v1, v2)
+            .expect("expected hit on triangle");
+        assert!((t - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_aabb_intersects_ray_struct() {
+        let aabb = AABB::new(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
+        let ray = Ray::new(Vec3::new(-2.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0));
+        let (t_min, t_max) = aabb
+            .intersects_ray_struct(ray)
+            .expect("expected ray/aabb overlap");
+        assert!((t_min - 1.0).abs() < 1e-6);
+        assert!((t_max - 3.0).abs() < 1e-6);
     }
 }

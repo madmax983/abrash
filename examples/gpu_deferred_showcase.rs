@@ -136,7 +136,10 @@ impl ShowcaseApp {
             Mat4::perspective(0.8, aspect, 0.1, 200.0),
         );
 
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use `with_capacity` to prevent vector reallocations for draw commands and lights
+        // 1 directional light + 3 point lights = 4 lights
+        // 1 ground + 1 center sphere + 1 orbit + 6 outer objects + 16 inner boxes = 25 meshes
+        let mut frame = Frame::with_capacity(camera, 25, 4);
         frame.clear_color = Some(0xFF0A_0A12); // dark blue-black
 
         // --- Lights ---

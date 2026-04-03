@@ -13,7 +13,7 @@ use crate::plane::Plane;
 /// use abrash_core::ray::Ray;
 ///
 /// let ray = Ray::new(Vec3::ZERO, Vec3::Z);
-/// assert_eq!(ray.at(3.0), Vec3::new(0.0, 0.0, -3.0));
+/// assert_eq!(ray.at(3.0), Vec3::new(0.0, 0.0, 3.0));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ray {

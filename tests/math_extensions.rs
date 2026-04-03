@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_vec2_new_primitives() {
         let v = Vec2::new(3.0, 4.0);
-        assert_eq!(v.length_sq(), 25.0);
+        assert!((v.length_sq() - 25.0).abs() < f32::EPSILON);
         assert!((v.length() - 5.0).abs() < 1e-6);
 
         let n = v.normalize();
@@ -49,10 +49,23 @@ mod tests {
         assert_eq!(rej, Vec2::new(0.0, 4.0));
 
         let cross = Vec2::new(1.0, 0.0).cross(Vec2::new(0.0, 1.0));
-        assert_eq!(cross, 1.0);
+        assert!((cross - 1.0).abs() < f32::EPSILON);
 
         let angle = x_axis.angle_between(Vec2::new(0.0, 1.0));
         assert!((angle - FRAC_PI_2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_vec2_normalize_or_zero_and_move_towards() {
+        let tiny = Vec2::new(1e-10, -1e-10);
+        assert_eq!(tiny.normalize_or_zero(), Vec2::ZERO);
+
+        let start = Vec2::new(0.0, 0.0);
+        let target = Vec2::new(3.0, 4.0);
+        let step = start.move_towards(target, 2.0);
+        assert!((step.x - 1.2).abs() < 1e-4);
+        assert!((step.y - 1.6).abs() < 1e-4);
+        assert_eq!(step.move_towards(target, 10.0), target);
     }
 
     #[test]
@@ -85,13 +98,27 @@ mod tests {
     }
 
     #[test]
+    fn test_vec3_normalize_or_zero_and_move_towards() {
+        let tiny = Vec3::new(1e-10, -1e-10, 0.0);
+        assert_eq!(tiny.normalize_or_zero(), Vec3::ZERO);
+
+        let start = Vec3::new(1.0, 2.0, 3.0);
+        let target = Vec3::new(4.0, 6.0, 3.0);
+        let step = start.move_towards(target, 2.5);
+        assert!((step.x - 2.5).abs() < 1e-4);
+        assert!((step.y - 4.0).abs() < 1e-4);
+        assert!((step.z - 3.0).abs() < 1e-4);
+        assert_eq!(step.move_towards(target, 10.0), target);
+    }
+
+    #[test]
     fn test_mat4_transpose_determinant_and_affine_inverse() {
         let m =
             Mat4::rotation_z(0.3) * Mat4::translation(2.0, -1.0, 0.5) * Mat4::scale(2.0, 3.0, 4.0);
 
         let mt = m.transpose();
-        assert_eq!(mt.m[1][0], m.m[0][1]);
-        assert_eq!(mt.m[3][2], m.m[2][3]);
+        assert!((mt.m[1][0] - m.m[0][1]).abs() < f32::EPSILON);
+        assert!((mt.m[3][2] - m.m[2][3]).abs() < f32::EPSILON);
 
         let det = m.determinant();
         assert!((det - 24.0).abs() < 1e-3);

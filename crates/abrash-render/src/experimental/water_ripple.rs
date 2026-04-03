@@ -64,13 +64,15 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
         let y_f32 = y as f32;
         let dy = y_f32 - center_y_px;
         let dy_sq = dy * dy;
+        let max_radius_px_sq = max_radius_px * max_radius_px;
 
         for (x, pixel) in row.iter_mut().enumerate() {
             let x_f32 = x as f32;
             let dx = x_f32 - center_x_px;
-            let distance = (dx * dx + dy_sq).sqrt();
+            let dist_sq = dx * dx + dy_sq;
 
-            if distance < max_radius_px {
+            if dist_sq < max_radius_px_sq {
+                let distance = dist_sq.sqrt();
                 // Calculate displacement amount using a sine wave based on distance and phase
                 // Dampen the amplitude based on distance to the edge of the radius
                 let damping = 1.0 - (distance / max_radius_px);

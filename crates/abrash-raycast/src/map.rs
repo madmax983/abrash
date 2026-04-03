@@ -2,21 +2,6 @@
 
 use crate::types::Cell;
 
-/// A rectangular grid of cells that rays can be cast against.
-pub trait GridMap {
-    /// Width of the grid in cells.
-    fn width(&self) -> u32;
-
-    /// Height of the grid in cells.
-    fn height(&self) -> u32;
-
-    /// Return the cell at `(x, y)`. Coordinates are zero-based.
-    ///
-    /// # Panics
-    /// May panic if `x >= width()` or `y >= height()`.
-    fn cell_at(&self, x: u32, y: u32) -> Cell;
-}
-
 /// A simple owned grid map backed by a flat `Vec<Cell>`.
 #[derive(Clone, Debug)]
 pub struct ArrayGridMap {
@@ -54,21 +39,28 @@ impl ArrayGridMap {
         let idx = (y as usize) * (self.width as usize) + (x as usize);
         self.cells[idx] = cell;
     }
-}
 
-impl GridMap for ArrayGridMap {
+    /// Width of the grid in cells.
     #[inline]
-    fn width(&self) -> u32 {
+    #[must_use]
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
+    /// Height of the grid in cells.
     #[inline]
-    fn height(&self) -> u32 {
+    #[must_use]
+    pub const fn height(&self) -> u32 {
         self.height
     }
 
+    /// Return the cell at `(x, y)`. Coordinates are zero-based.
+    ///
+    /// # Panics
+    /// May panic if `x >= width()` or `y >= height()`.
     #[inline]
-    fn cell_at(&self, x: u32, y: u32) -> Cell {
+    #[must_use]
+    pub fn cell_at(&self, x: u32, y: u32) -> Cell {
         assert!(
             x < self.width,
             "x ({x}) out of bounds (width {})",

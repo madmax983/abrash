@@ -103,8 +103,16 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
     let tex_w_i = texture.width() as usize;
     let tex_h_i = texture.height() as usize;
 
-    let tex_w_mask = if tex_w_i.is_power_of_two() { tex_w_i - 1 } else { 0 };
-    let tex_h_mask = if tex_h_i.is_power_of_two() { tex_h_i - 1 } else { 0 };
+    let tex_w_mask = if tex_w_i.is_power_of_two() {
+        tex_w_i - 1
+    } else {
+        0
+    };
+    let tex_h_mask = if tex_h_i.is_power_of_two() {
+        tex_h_i - 1
+    } else {
+        0
+    };
 
     // Check if texture is empty
     if tex_w_i == 0 || tex_h_i == 0 {
@@ -121,9 +129,15 @@ pub fn render_mode7(fb: &mut Framebuffer, texture: &Texture, config: &Mode7Confi
     let target_slice = &mut buffer[start_y * w..start_y * w + row_count * w];
 
     #[cfg(feature = "parallel")]
-    let row_iter = target_slice.par_chunks_mut(w).enumerate();
+    // Bolt Optimization: Replaced `.par_chunks_mut(width)` with `.par_chunks_exact_mut(width)` to eliminate
+    // remainder chunk handling and bounds checking, eliminating bounds check overhead
+    // when iterating row-by-row over a 1D slice representing a 2D grid.
+    let row_iter = target_slice.par_chunks_exact_mut(w).enumerate();
     #[cfg(not(feature = "parallel"))]
-    let row_iter = target_slice.chunks_mut(w).enumerate();
+    // Bolt Optimization: Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
+    // remainder chunk handling and bounds checking, eliminating bounds check overhead
+    // when iterating row-by-row over a 1D slice representing a 2D grid.
+    let row_iter = target_slice.chunks_exact_mut(w).enumerate();
 
     row_iter.for_each(|(dy, row)| {
         let y = start_y + dy;

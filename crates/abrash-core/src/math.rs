@@ -442,7 +442,7 @@ impl Vec2 {
     pub fn normalize(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -462,18 +462,65 @@ impl Vec2 {
         }
     }
 
+    /// Rotates the vector by `angle` radians.
+    ///
+    /// Uses [`fast_sin_cos`] to reduce trig overhead in tight animation/render loops.
+    #[must_use]
+    #[inline]
+    pub fn rotate(self, angle: f32) -> Self {
+        let (s, c) = fast_sin_cos(angle);
+        Self {
+            x: self.x * c - self.y * s,
+            y: self.x * s + self.y * c,
+        }
+    }
+
     /// Distance to another vector.
     #[must_use]
     #[inline]
+    #[allow(clippy::imprecise_flops)]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        (dx * dx + dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        dx * dx + dy * dy
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = len_sq.sqrt().recip();
+            Self::new(self.x * inv_len, self.y * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = dist_sq.sqrt().recip();
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Projects this vector onto another vector.
@@ -647,14 +694,14 @@ impl Mat2 {
         let m01 = self.m[0][1];
         let m10 = self.m[1][0];
         let m11 = self.m[1][1];
-
-        vertices
-            .iter()
-            .map(|&v| Vec2 {
+        let mut out = Vec::with_capacity(vertices.len());
+        for &v in vertices {
+            out.push(Vec2 {
                 x: m00 * v.x + m01 * v.y,
                 y: m10 * v.x + m11 * v.y,
-            })
-            .collect()
+            });
+        }
+        out
     }
 
     /// Transform vertices in place.
@@ -704,6 +751,33 @@ impl Vec3 {
             y: self.y + (other.y - self.y) * t,
             z: self.z + (other.z - self.z) * t,
         }
+    }
+
+    /// Spherical interpolation between this vector and another.
+    ///
+    /// Inputs are treated as directions and normalized internally.
+    /// Falls back to normalized linear interpolation when vectors are nearly parallel.
+    #[must_use]
+    #[inline]
+    pub fn slerp(self, other: Self, t: f32) -> Self {
+        let a = self.normalize_or_zero();
+        let b = other.normalize_or_zero();
+        let dot = a.dot(b).clamp(-1.0, 1.0);
+
+        // For tiny angles, lerp is numerically more stable and faster.
+        if dot > 0.999_5 {
+            return a.lerp(b, t).normalize_or_zero();
+        }
+
+        let theta = dot.acos();
+        let sin_theta = theta.sin();
+        if sin_theta.abs() <= 1e-6 {
+            return a;
+        }
+
+        let w0 = ((1.0 - t) * theta).sin() / sin_theta;
+        let w1 = (t * theta).sin() / sin_theta;
+        (a * w0) + (b * w1)
     }
 
     #[allow(missing_docs)]
@@ -841,6 +915,7 @@ impl Vec3 {
     /// and improve register allocation for small `Copy` types.
     #[must_use]
     #[inline]
+    #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -873,12 +948,9 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn normalize(self) -> Self {
-        // Optimization: Use rsqrt instead of 1.0/sqrt.
-        // We use len_sq to avoid sqrt if the vector is too small.
-        // 0.0001^2 = 0.000_000_01
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -933,14 +1005,49 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn distance(self, other: Self) -> f32 {
-        (self - other).length()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        (dx * dx + dy * dy + dz * dz).sqrt()
     }
 
     /// Squared distance to another vector.
     #[must_use]
     #[inline]
     pub fn distance_sq(self, other: Self) -> f32 {
-        (self - other).length_sq()
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        let dz = self.z - other.z;
+        dx * dx + dy * dy + dz * dz
+    }
+
+    /// Returns a normalized unit vector or zero for tiny inputs.
+    ///
+    /// Unlike `normalize`, this never returns denormal tiny vectors.
+    #[must_use]
+    #[inline]
+    pub fn normalize_or_zero(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = len_sq.sqrt().recip();
+            Self::new(self.x * inv_len, self.y * inv_len, self.z * inv_len)
+        } else {
+            Self::ZERO
+        }
+    }
+
+    /// Moves this point toward `target` by at most `max_delta`.
+    #[must_use]
+    #[inline]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let to = target - self;
+        let dist_sq = to.length_sq();
+        if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
+            target
+        } else {
+            let inv_dist = dist_sq.sqrt().recip();
+            self + to * (max_delta * inv_dist)
+        }
     }
 
     /// Reflects this vector around a given normal vector.
@@ -977,6 +1084,21 @@ impl Vec3 {
             x: self.x - normal.x * dot2,
             y: self.y - normal.y * dot2,
             z: self.z - normal.z * dot2,
+        }
+    }
+
+    /// Reflects this vector around a *unit-length* normal vector.
+    ///
+    /// This avoids any extra normalization/division and is ideal for hot shading paths
+    /// where normals are already normalized.
+    #[must_use]
+    #[inline]
+    pub fn reflect_normalized(self, unit_normal: Self) -> Self {
+        let dot2 = 2.0 * self.dot(unit_normal);
+        Self {
+            x: self.x - unit_normal.x * dot2,
+            y: self.y - unit_normal.y * dot2,
+            z: self.z - unit_normal.z * dot2,
         }
     }
 
@@ -1023,6 +1145,19 @@ impl Vec3 {
         onto * (self.dot(onto) / denom)
     }
 
+    /// Projects this vector onto a *unit-length* direction.
+    ///
+    /// Returns `Vec3::ZERO` for degenerate inputs to avoid amplification of NaNs/Infs.
+    #[must_use]
+    #[inline]
+    pub fn project_onto_normalized(self, onto_unit: Self) -> Self {
+        let len_sq = onto_unit.length_sq();
+        if len_sq <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto_unit * self.dot(onto_unit)
+    }
+
     /// Reject this vector from another vector (component orthogonal to `onto`).
     #[must_use]
     #[inline]
@@ -1043,6 +1178,70 @@ impl Vec3 {
         (self.dot(other) / denom).clamp(-1.0, 1.0).acos()
     }
 
+    /// Builds an orthonormal basis from this direction.
+    ///
+    /// Returns two unit vectors `(tangent, bitangent)` that are perpendicular
+    /// to the (normalized) input and each other.
+    #[must_use]
+    #[inline]
+    pub fn orthonormal_basis(self) -> (Self, Self) {
+        let n = if self.length_sq() > 0.000_000_01 {
+            self.normalize()
+        } else {
+            Self::new(0.0, 0.0, 1.0)
+        };
+
+        let helper = if n.z.abs() < 0.999 {
+            Self::new(0.0, 0.0, 1.0)
+        } else {
+            Self::new(0.0, 1.0, 0.0)
+        };
+
+        let tangent = helper.cross(n).normalize();
+        let bitangent = n.cross(tangent);
+        (tangent, bitangent)
+    }
+
+    /// Computes barycentric coordinates of this point relative to triangle `(a, b, c)`.
+    ///
+    /// Returns `None` for degenerate triangles (near-zero area).
+    /// The returned vector stores `(u, v, w)` such that:
+    /// `self = a * u + b * v + c * w` and `u + v + w = 1`.
+    #[must_use]
+    #[inline]
+    pub fn barycentric_coordinates(self, a: Self, b: Self, c: Self) -> Option<Self> {
+        let v0 = b - a;
+        let v1 = c - a;
+        let v2 = self - a;
+
+        let d00 = v0.dot(v0);
+        let d01 = v0.dot(v1);
+        let d11 = v1.dot(v1);
+        let d20 = v2.dot(v0);
+        let d21 = v2.dot(v1);
+
+        #[allow(clippy::suspicious_operation_groupings)]
+        let denom = d00 * d11 - d01 * d01;
+        if denom.abs() <= 1e-8 {
+            return None;
+        }
+
+        let inv_denom = 1.0 / denom;
+        let v = (d11 * d20 - d01 * d21) * inv_denom;
+        let w = (d00 * d21 - d01 * d20) * inv_denom;
+        let u = 1.0 - v - w;
+        Some(Self::new(u, v, w))
+    }
+
+    /// Reconstructs a point from barycentric coordinates over triangle `(a, b, c)`.
+    ///
+    /// `bary` stores `(u, v, w)` weights corresponding to vertices `(a, b, c)`.
+    #[must_use]
+    #[inline]
+    pub fn from_barycentric(a: Self, b: Self, c: Self, bary: Self) -> Self {
+        a * bary.x + b * bary.y + c * bary.z
+    }
+
     /// Linearly interpolate between this vector and another.
     ///
     /// `t` is the interpolation factor (0.0 = self, 1.0 = other).
@@ -1059,7 +1258,7 @@ impl Vec3 {
     /// Returns a new vector containing the maximum value for each component.
     #[must_use]
     #[inline]
-    pub const fn max(&self, other: Self) -> Self {
+    pub const fn max(self, other: Self) -> Self {
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -1086,6 +1285,34 @@ impl Vec3 {
             x: self.x.clamp(min.x, max.x),
             y: self.y.clamp(min.y, max.y),
             z: self.z.clamp(min.z, max.z),
+        }
+    }
+
+    /// Returns true when all components are finite.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn is_finite(self) -> bool {
+        self.x.is_finite() && self.y.is_finite() && self.z.is_finite()
+    }
+
+    /// Clamps vector magnitude to at most `max_length`.
+    ///
+    /// Useful for velocity limiting and stable iterative solvers.
+    #[must_use]
+    #[inline]
+    pub fn clamp_length(self, max_length: f32) -> Self {
+        if max_length <= 0.0 {
+            return Self::ZERO;
+        }
+
+        let len_sq = self.length_sq();
+        let max_sq = max_length * max_length;
+        if len_sq <= max_sq || len_sq <= 0.000_000_01 {
+            self
+        } else {
+            let scale = max_length * len_sq.sqrt().recip();
+            self * scale
         }
     }
 }
@@ -1418,6 +1645,49 @@ impl Mat4 {
         }
     }
 
+    /// Creates a rotation matrix around an arbitrary axis.
+    ///
+    /// If `axis` is near zero, returns identity.
+    #[must_use]
+    #[inline]
+    pub fn rotation_axis(axis: Vec3, angle: f32) -> Self {
+        let n = axis.normalize_or_zero();
+        if n.length_sq() <= 1e-8 {
+            return Self::identity();
+        }
+
+        let (s, c) = angle.sin_cos();
+        let one_minus_c = 1.0 - c;
+        let x = n.x;
+        let y = n.y;
+        let z = n.z;
+
+        // Row-major for row-vector convention.
+        Self {
+            m: [
+                [
+                    c + x * x * one_minus_c,
+                    x * y * one_minus_c + z * s,
+                    x * z * one_minus_c - y * s,
+                    0.0,
+                ],
+                [
+                    y * x * one_minus_c - z * s,
+                    c + y * y * one_minus_c,
+                    y * z * one_minus_c + x * s,
+                    0.0,
+                ],
+                [
+                    z * x * one_minus_c + y * s,
+                    z * y * one_minus_c - x * s,
+                    c + z * z * one_minus_c,
+                    0.0,
+                ],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
     /// Creates an orthographic projection matrix.
     ///
     /// # Arguments
@@ -1594,6 +1864,86 @@ impl Mat4 {
         }
     }
 
+    /// Transforms a direction vector (w=0), ignoring translation.
+    #[must_use]
+    #[inline]
+    pub fn transform_vector(&self, v: Vec3) -> Vec3 {
+        let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[2][0] * v.z;
+        let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[2][1] * v.z;
+        let z = self.m[0][2] * v.x + self.m[1][2] * v.y + self.m[2][2] * v.z;
+        Vec3::new(x, y, z)
+    }
+
+    /// Transforms a batch of direction vectors (w=0), ignoring translation.
+    ///
+    /// This hoists matrix elements out of the loop to reduce indexing overhead
+    /// in hot inner loops.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `vectors.len() != output.len()`.
+    pub fn transform_vectors(&self, vectors: &[Vec3], output: &mut [Vec3]) {
+        assert_eq!(vectors.len(), output.len());
+
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+
+        for (v, out) in vectors.iter().zip(output.iter_mut()) {
+            *out = Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            );
+        }
+    }
+
+    /// Fast path for transforming points by affine matrices (`w` remains 1).
+    ///
+    /// When the matrix is affine, this avoids computing/storing the homogeneous `w`
+    /// component for every vertex.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `points.len() != output.len()`.
+    pub fn transform_points_affine(&self, points: &[Vec3], output: &mut [Vec3]) {
+        assert_eq!(points.len(), output.len());
+
+        if !self.is_affine() {
+            for (point, out) in points.iter().zip(output.iter_mut()) {
+                *out = self.transform_point(*point).0;
+            }
+            return;
+        }
+
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+        let m30 = self.m[3][0];
+        let m31 = self.m[3][1];
+        let m32 = self.m[3][2];
+
+        for (p, out) in points.iter().zip(output.iter_mut()) {
+            *out = Vec3::new(
+                p.x * m00 + p.y * m10 + p.z * m20 + m30,
+                p.x * m01 + p.y * m11 + p.z * m21 + m31,
+                p.x * m02 + p.y * m12 + p.z * m22 + m32,
+            );
+        }
+    }
+
     /// Transforms multiple points by this matrix.
     ///
     /// Output buffer must have same length as input points.
@@ -1645,8 +1995,38 @@ impl Mat4 {
             return;
         }
 
+        self.transform_points_scalar_uninit(points, output);
+    }
+
+    #[inline]
+    fn transform_points_scalar_uninit(
+        &self,
+        points: &[Vec3],
+        output: &mut [MaybeUninit<(Vec3, f32)>],
+    ) {
+        let m00 = self.m[0][0];
+        let m01 = self.m[0][1];
+        let m02 = self.m[0][2];
+        let m03 = self.m[0][3];
+        let m10 = self.m[1][0];
+        let m11 = self.m[1][1];
+        let m12 = self.m[1][2];
+        let m13 = self.m[1][3];
+        let m20 = self.m[2][0];
+        let m21 = self.m[2][1];
+        let m22 = self.m[2][2];
+        let m23 = self.m[2][3];
+        let m30 = self.m[3][0];
+        let m31 = self.m[3][1];
+        let m32 = self.m[3][2];
+        let m33 = self.m[3][3];
+
         for (p, out) in points.iter().zip(output.iter_mut()) {
-            out.write(self.transform_point(*p));
+            let x = p.x * m00 + p.y * m10 + p.z * m20 + m30;
+            let y = p.x * m01 + p.y * m11 + p.z * m21 + m31;
+            let z = p.x * m02 + p.y * m12 + p.z * m22 + m32;
+            let w = p.x * m03 + p.y * m13 + p.z * m23 + m33;
+            out.write((Vec3::new(x, y, z), w));
         }
     }
 
@@ -2864,6 +3244,13 @@ mod tests {
     }
 
     #[test]
+    fn test_vec2_rotate() {
+        let rotated = Vec2::new(1.0, 0.0).rotate(std::f32::consts::FRAC_PI_2);
+        assert!(rotated.x.abs() < 0.02);
+        assert!((rotated.y - 1.0).abs() < 0.02);
+    }
+
+    #[test]
     fn test_vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         assert!((v.x - 1.0).abs() < f32::EPSILON);
@@ -2902,6 +3289,17 @@ mod tests {
         assert!((r.x - 1.0).abs() < 1e-6);
         assert!((r.y - 1.0).abs() < 1e-6);
         assert!(r.z.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec3_reflect_normalized_matches_reflect() {
+        let v = Vec3::new(0.25, -0.5, 1.2);
+        let n = Vec3::new(0.0, 1.0, 0.0);
+        let a = v.reflect(n);
+        let b = v.reflect_normalized(n);
+        assert!((a.x - b.x).abs() < 1e-6);
+        assert!((a.y - b.y).abs() < 1e-6);
+        assert!((a.z - b.z).abs() < 1e-6);
     }
 
     #[test]
@@ -2963,6 +3361,53 @@ mod tests {
     }
 
     #[test]
+    fn test_vec4_dot_length_normalize() {
+        let a = Vec4::new(1.0, 2.0, 2.0, 1.0);
+        let b = Vec4::new(-1.0, 0.5, 3.0, 2.0);
+        assert!((a.dot(b) - 8.0).abs() < 1e-6);
+        assert!((a.length_sq() - 10.0).abs() < 1e-6);
+        assert!((a.length() - 10.0_f32.sqrt()).abs() < 1e-6);
+
+        let n = a.normalize();
+        assert!((n.length() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_vec4_project_and_reject() {
+        let v = Vec4::new(3.0, 4.0, 0.0, 0.0);
+        let onto = Vec4::new(1.0, 0.0, 0.0, 0.0);
+        let proj = v.project_onto(onto);
+        let rej = v.reject_from(onto);
+
+        assert!((proj.x - 3.0).abs() < 1e-6);
+        assert!(proj.y.abs() < 1e-6);
+        assert!(proj.z.abs() < 1e-6);
+        assert!(proj.w.abs() < 1e-6);
+
+        assert!(rej.x.abs() < 1e-6);
+        assert!((rej.y - 4.0).abs() < 1e-6);
+        assert!(rej.z.abs() < 1e-6);
+        assert!(rej.w.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec4_min_max_clamp_distance() {
+        let a = Vec4::new(-1.0, 3.0, 10.0, 0.5);
+        let b = Vec4::new(2.0, 1.0, 7.0, 2.0);
+
+        let min = a.min(b);
+        let max = a.max(b);
+        assert_eq!(min, Vec4::new(-1.0, 1.0, 7.0, 0.5));
+        assert_eq!(max, Vec4::new(2.0, 3.0, 10.0, 2.0));
+
+        let clamped = Vec4::new(3.0, 0.0, 8.0, 1.5).clamp(min, max);
+        assert_eq!(clamped, Vec4::new(2.0, 1.0, 8.0, 1.5));
+
+        assert!((a.distance_sq(b) - 24.25).abs() < 1e-6);
+        assert!((a.distance(b) - 24.25_f32.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
     fn test_vec3_min_max() {
         let a = Vec3::new(1.0, 5.0, -2.0);
         let b = Vec3::new(3.0, 2.0, -1.0);
@@ -2976,6 +3421,157 @@ mod tests {
         assert!((max.x - 3.0).abs() < f32::EPSILON);
         assert!((max.y - 5.0).abs() < f32::EPSILON);
         assert!((max.z - -1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis() {
+        let n = Vec3::new(0.3, 0.5, 0.8).normalize();
+        let (t, b) = n.orthonormal_basis();
+
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(n.dot(t).abs() < 1e-4);
+        assert!(n.dot(b).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_orthonormal_basis_degenerate_input() {
+        let (t, b) = Vec3::ZERO.orthonormal_basis();
+        assert!((t.length() - 1.0).abs() < 1e-4);
+        assert!((b.length() - 1.0).abs() < 1e-4);
+        assert!(t.dot(b).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_slerp_midpoint() {
+        let x = Vec3::new(1.0, 0.0, 0.0);
+        let y = Vec3::new(0.0, 1.0, 0.0);
+        let mid = x.slerp(y, 0.5);
+        let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();
+        assert!((mid.x - inv_sqrt2).abs() < 1e-4);
+        assert!((mid.y - inv_sqrt2).abs() < 1e-4);
+        assert!(mid.z.abs() < 1e-4);
+        assert!((mid.length() - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_project_onto_normalized_matches_regular_projection() {
+        let v = Vec3::new(3.0, 4.0, 5.0);
+        let unit = Vec3::new(2.0, -1.0, 3.0).normalize();
+        let a = v.project_onto(unit);
+        let b = v.project_onto_normalized(unit);
+        assert!((a.x - b.x).abs() < 1e-5);
+        assert!((a.y - b.y).abs() < 1e-5);
+        assert!((a.z - b.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_vec3_clamp_length() {
+        let v = Vec3::new(3.0, 4.0, 0.0);
+        let clamped = v.clamp_length(2.0);
+        assert!((clamped.length() - 2.0).abs() < 1e-4);
+
+        let unchanged = v.clamp_length(10.0);
+        assert!((unchanged.x - v.x).abs() < 1e-6);
+        assert!((unchanged.y - v.y).abs() < 1e-6);
+        assert!((unchanged.z - v.z).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vec3_is_finite() {
+        assert!(Vec3::new(1.0, -2.0, 3.0).is_finite());
+        assert!(!Vec3::new(f32::INFINITY, 0.0, 0.0).is_finite());
+        assert!(!Vec3::new(0.0, f32::NAN, 0.0).is_finite());
+    }
+
+    #[test]
+    fn test_mat4_rotation_axis_matches_rotation_y() {
+        use std::f32::consts::FRAC_PI_2;
+        let rot_axis = Mat4::rotation_axis(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let rot_y = Mat4::rotation_y(FRAC_PI_2);
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let (a, _) = rot_axis.transform_point(v);
+        let (b, _) = rot_y.transform_point(v);
+        assert!((a.x - b.x).abs() < 1e-5);
+        assert!((a.y - b.y).abs() < 1e-5);
+        assert!((a.z - b.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_mat4_transform_vector_ignores_translation() {
+        let m = Mat4::rotation_z(1.0) * Mat4::translation(10.0, 20.0, 30.0);
+        let v = Vec3::new(2.0, -1.0, 3.0);
+        let transformed = m.transform_vector(v);
+        let (point_transformed, _) = m.transform_point(v);
+        let translated_delta = point_transformed - transformed;
+        assert!((translated_delta.x - 10.0).abs() < 1e-4);
+        assert!((translated_delta.y - 20.0).abs() < 1e-4);
+        assert!((translated_delta.z - 30.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_vec3_barycentric_roundtrip() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 2.0, 0.0);
+        let p = Vec3::new(0.5, 0.75, 0.0);
+
+        let bary = p.barycentric_coordinates(a, b, c).unwrap();
+        let reconstructed = Vec3::from_barycentric(a, b, c, bary);
+
+        assert!((bary.x + bary.y + bary.z - 1.0).abs() < 1e-5);
+        assert!((reconstructed.x - p.x).abs() < 1e-5);
+        assert!((reconstructed.y - p.y).abs() < 1e-5);
+        assert!((reconstructed.z - p.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_vec3_barycentric_degenerate_triangle_returns_none() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        let c = Vec3::new(2.0, 2.0, 2.0);
+        let p = Vec3::new(0.2, 0.4, 0.6);
+        assert!(p.barycentric_coordinates(a, b, c).is_none());
+    }
+
+    #[test]
+    fn test_mat4_transform_vectors_batch_matches_scalar() {
+        let m = Mat4::rotation_y(0.37) * Mat4::rotation_x(-0.22) * Mat4::translation(4.0, 5.0, 6.0);
+        let input = vec![
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(-1.0, 0.5, 0.0),
+            Vec3::new(0.0, -3.0, 2.0),
+        ];
+        let mut output = vec![Vec3::ZERO; input.len()];
+        m.transform_vectors(&input, &mut output);
+
+        for (i, v) in input.iter().enumerate() {
+            let scalar = m.transform_vector(*v);
+            assert!((scalar.x - output[i].x).abs() < 1e-5);
+            assert!((scalar.y - output[i].y).abs() < 1e-5);
+            assert!((scalar.z - output[i].z).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_mat4_transform_points_affine_matches_transform_point() {
+        let m =
+            Mat4::scale(2.0, 3.0, 4.0) * Mat4::rotation_z(0.5) * Mat4::translation(8.0, -2.0, 1.0);
+        let input = vec![
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(-4.0, 1.5, 0.25),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+        let mut output = vec![Vec3::ZERO; input.len()];
+        m.transform_points_affine(&input, &mut output);
+
+        for (i, p) in input.iter().enumerate() {
+            let scalar = m.transform_point(*p).0;
+            assert!((scalar.x - output[i].x).abs() < 1e-5);
+            assert!((scalar.y - output[i].y).abs() < 1e-5);
+            assert!((scalar.z - output[i].z).abs() < 1e-5);
+        }
     }
 
     #[test]
@@ -3120,64 +3716,6 @@ impl Vec4 {
         Vec3::new(self.x, self.y, self.z)
     }
 
-    /// Dot product.
-    #[must_use]
-    #[inline]
-    pub fn dot(self, other: Self) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
-    }
-
-    /// Squared length.
-    #[must_use]
-    #[inline]
-    pub fn length_sq(self) -> f32 {
-        self.dot(self)
-    }
-
-    /// Euclidean length.
-    #[must_use]
-    #[inline]
-    pub fn length(self) -> f32 {
-        self.length_sq().sqrt()
-    }
-
-    /// Normalized unit vector. Returns self unchanged if near-zero length.
-    #[must_use]
-    #[inline]
-    pub fn normalize(self) -> Self {
-        let len_sq = self.length_sq();
-        if len_sq > 1e-8 {
-            let inv = fast_inv_sqrt(len_sq);
-            self * inv
-        } else {
-            self
-        }
-    }
-
-    /// Component-wise minimum.
-    #[must_use]
-    #[inline]
-    pub const fn min(self, other: Self) -> Self {
-        Self {
-            x: self.x.min(other.x),
-            y: self.y.min(other.y),
-            z: self.z.min(other.z),
-            w: self.w.min(other.w),
-        }
-    }
-
-    /// Component-wise maximum.
-    #[must_use]
-    #[inline]
-    pub const fn max(self, other: Self) -> Self {
-        Self {
-            x: self.x.max(other.x),
-            y: self.y.max(other.y),
-            z: self.z.max(other.z),
-            w: self.w.max(other.w),
-        }
-    }
-
     /// Linearly interpolate between this vector and another.
     ///
     /// The `t` factor dictates the blend: `0.0` returns `self`, `1.0` returns `other`.
@@ -3222,6 +3760,118 @@ impl Vec4 {
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }
+
+    /// Calculates dot product between two vectors.
+    #[must_use]
+    #[inline]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    /// Calculates squared length (magnitude²) of the vector.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.dot(self)
+    }
+
+    /// Calculates the Euclidean length (magnitude) of the vector.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::imprecise_flops)]
+    pub fn length(self) -> f32 {
+        self.length_sq().sqrt()
+    }
+
+    /// Returns a normalized unit vector (length of 1.0).
+    ///
+    /// For tiny vectors (length² <= `1e-8`), returns the original vector.
+    #[must_use]
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > 0.000_000_01 {
+            let inv_len = len_sq.sqrt().recip();
+            Self {
+                x: self.x * inv_len,
+                y: self.y * inv_len,
+                z: self.z * inv_len,
+                w: self.w * inv_len,
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance(self, other: Self) -> f32 {
+        (self - other).length()
+    }
+
+    /// Squared distance to another vector.
+    #[must_use]
+    #[inline]
+    pub fn distance_sq(self, other: Self) -> f32 {
+        (self - other).length_sq()
+    }
+
+    /// Component-wise minimum.
+    #[must_use]
+    #[inline]
+    pub const fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
+            w: self.w.min(other.w),
+        }
+    }
+
+    /// Component-wise maximum.
+    #[must_use]
+    #[inline]
+    pub const fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
+            w: self.w.max(other.w),
+        }
+    }
+
+    /// Clamp each component between corresponding min/max components.
+    #[must_use]
+    #[inline]
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
+        Self {
+            x: self.x.clamp(min.x, max.x),
+            y: self.y.clamp(min.y, max.y),
+            z: self.z.clamp(min.z, max.z),
+            w: self.w.clamp(min.w, max.w),
+        }
+    }
+
+    /// Projects this vector onto another vector.
+    ///
+    /// Returns `Vec4::ZERO` when `onto` is near zero to avoid division by tiny values.
+    #[must_use]
+    #[inline]
+    pub fn project_onto(self, onto: Self) -> Self {
+        let denom = onto.length_sq();
+        if denom <= 0.000_000_01 {
+            return Self::ZERO;
+        }
+        onto * (self.dot(onto) / denom)
+    }
+
+    /// Reject this vector from another vector (component orthogonal to `onto`).
+    #[must_use]
+    #[inline]
+    pub fn reject_from(self, onto: Self) -> Self {
+        self - self.project_onto(onto)
+    }
 }
 
 /// Multiply vector by scalar.
@@ -3234,6 +3884,20 @@ impl std::ops::Mul<f32> for Vec4 {
             y: self.y * scalar,
             z: self.z * scalar,
             w: self.w * scalar,
+        }
+    }
+}
+
+/// Component-wise multiply.
+impl std::ops::Mul for Vec4 {
+    type Output = Self;
+    #[inline]
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+            w: self.w * other.w,
         }
     }
 }
@@ -3441,6 +4105,20 @@ impl std::ops::Mul for Mat3 {
 impl Default for Mat3 {
     fn default() -> Self {
         Self::identity()
+    }
+}
+
+impl std::ops::Div<f32> for Vec4 {
+    type Output = Self;
+    #[inline]
+    fn div(self, scalar: f32) -> Self {
+        let inv = 1.0 / scalar;
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
+            z: self.z * inv,
+            w: self.w * inv,
+        }
     }
 }
 

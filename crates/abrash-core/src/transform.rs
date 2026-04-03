@@ -1,5 +1,7 @@
 //! Decomposed TRS transform for smooth animation interpolation.
 
+use std::ops::Mul;
+
 use crate::math::{Mat4, Vec3};
 use crate::quat::Quat;
 
@@ -36,6 +38,64 @@ pub struct Transform {
 }
 
 impl Transform {
+    #[inline]
+    fn inverse_rotation_matrix(rotation: Quat) -> [[f32; 3]; 3] {
+        let inv_rotation = rotation.inverse().normalize();
+        let x2 = inv_rotation.x + inv_rotation.x;
+        let y2 = inv_rotation.y + inv_rotation.y;
+        let z2 = inv_rotation.z + inv_rotation.z;
+        let xx = inv_rotation.x * x2;
+        let xy = inv_rotation.x * y2;
+        let xz = inv_rotation.x * z2;
+        let yy = inv_rotation.y * y2;
+        let yz = inv_rotation.y * z2;
+        let zz = inv_rotation.z * z2;
+        let wx = inv_rotation.w * x2;
+        let wy = inv_rotation.w * y2;
+        let wz = inv_rotation.w * z2;
+
+        [
+            [1.0 - (yy + zz), xy + wz, xz - wy],
+            [xy - wz, 1.0 - (xx + zz), yz + wx],
+            [xz + wy, yz - wx, 1.0 - (xx + yy)],
+        ]
+    }
+
+    #[inline]
+    fn scaled_rotation_basis(&self) -> [[f32; 3]; 3] {
+        let rotation = self.rotation.normalize();
+        let x2 = rotation.x + rotation.x;
+        let y2 = rotation.y + rotation.y;
+        let z2 = rotation.z + rotation.z;
+        let xx = rotation.x * x2;
+        let xy = rotation.x * y2;
+        let xz = rotation.x * z2;
+        let yy = rotation.y * y2;
+        let yz = rotation.y * z2;
+        let zz = rotation.z * z2;
+        let wx = rotation.w * x2;
+        let wy = rotation.w * y2;
+        let wz = rotation.w * z2;
+
+        [
+            [
+                (1.0 - (yy + zz)) * self.scale.x,
+                (xy + wz) * self.scale.x,
+                (xz - wy) * self.scale.x,
+            ],
+            [
+                (xy - wz) * self.scale.y,
+                (1.0 - (xx + zz)) * self.scale.y,
+                (yz + wx) * self.scale.y,
+            ],
+            [
+                (xz + wy) * self.scale.z,
+                (yz - wx) * self.scale.z,
+                (1.0 - (xx + yy)) * self.scale.z,
+            ],
+        ]
+    }
+
     /// Create a transform from explicit position, rotation, and scale components.
     #[must_use]
     #[inline]
@@ -78,41 +138,13 @@ impl Transform {
     /// Compose into a 4x4 matrix: Scale * Rotation * Translation (row-vector convention).
     #[must_use]
     pub fn to_mat4(&self) -> Mat4 {
-        let rotation = self.rotation.normalize();
-
-        let x2 = rotation.x + rotation.x;
-        let y2 = rotation.y + rotation.y;
-        let z2 = rotation.z + rotation.z;
-        let xx = rotation.x * x2;
-        let xy = rotation.x * y2;
-        let xz = rotation.x * z2;
-        let yy = rotation.y * y2;
-        let yz = rotation.y * z2;
-        let zz = rotation.z * z2;
-        let wx = rotation.w * x2;
-        let wy = rotation.w * y2;
-        let wz = rotation.w * z2;
+        let basis = self.scaled_rotation_basis();
 
         Mat4 {
             m: [
-                [
-                    (1.0 - (yy + zz)) * self.scale.x,
-                    (xy + wz) * self.scale.x,
-                    (xz - wy) * self.scale.x,
-                    0.0,
-                ],
-                [
-                    (xy - wz) * self.scale.y,
-                    (1.0 - (xx + zz)) * self.scale.y,
-                    (yz + wx) * self.scale.y,
-                    0.0,
-                ],
-                [
-                    (xz + wy) * self.scale.z,
-                    (yz - wx) * self.scale.z,
-                    (1.0 - (xx + yy)) * self.scale.z,
-                    0.0,
-                ],
+                [basis[0][0], basis[0][1], basis[0][2], 0.0],
+                [basis[1][0], basis[1][1], basis[1][2], 0.0],
+                [basis[2][0], basis[2][1], basis[2][2], 0.0],
                 [self.position.x, self.position.y, self.position.z, 1.0],
             ],
         }
@@ -169,6 +201,203 @@ impl Transform {
             local.y / self.scale.y,
             local.z / self.scale.z,
         )
+    }
+
+    /// Transform a batch of points, reusing one output allocation.
+    #[must_use]
+    pub fn transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(points.len());
+        self.transform_points_into(points, &mut out);
+        out
+    }
+
+    /// Transform a batch of points and write into `out`.
+    ///
+    /// This hoists quaternion basis expansion outside the loop.
+    pub fn transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        out.clear();
+        out.reserve(points.len());
+        out.extend(points.iter().map(|p| {
+            Vec3::new(
+                p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
+                p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
+                p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
+            )
+        }));
+    }
+
+    /// Transform points in place (scale + rotate + translate).
+    pub fn transform_points_in_place(&self, points: &mut [Vec3]) {
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        for p in points {
+            let x = p.x;
+            let y = p.y;
+            let z = p.z;
+            *p = Vec3::new(
+                x * m00 + y * m10 + z * m20 + self.position.x,
+                x * m01 + y * m11 + z * m21 + self.position.y,
+                x * m02 + y * m12 + z * m22 + self.position.z,
+            );
+        }
+    }
+
+    /// Transform a batch of direction vectors (scale + rotate, no translation).
+    #[must_use]
+    pub fn transform_vectors(&self, vectors: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(vectors.len());
+        self.transform_vectors_into(vectors, &mut out);
+        out
+    }
+
+    /// Transform a batch of direction vectors and write into `out`.
+    pub fn transform_vectors_into(&self, vectors: &[Vec3], out: &mut Vec<Vec3>) {
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        out.clear();
+        out.reserve(vectors.len());
+        out.extend(vectors.iter().map(|v| {
+            Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            )
+        }));
+    }
+
+    /// Transform vectors in place (scale + rotate, no translation).
+    pub fn transform_vectors_in_place(&self, vectors: &mut [Vec3]) {
+        let basis = self.scaled_rotation_basis();
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        for v in vectors {
+            let x = v.x;
+            let y = v.y;
+            let z = v.z;
+            *v = Vec3::new(
+                x * m00 + y * m10 + z * m20,
+                x * m01 + y * m11 + z * m21,
+                x * m02 + y * m12 + z * m22,
+            );
+        }
+    }
+
+    /// Apply the inverse transform to a batch of points.
+    #[must_use]
+    pub fn inverse_transform_points(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(points.len());
+        self.inverse_transform_points_into(points, &mut out);
+        out
+    }
+
+    /// Apply the inverse transform to a batch of points and write into `out`.
+    pub fn inverse_transform_points_into(&self, points: &[Vec3], out: &mut Vec<Vec3>) {
+        let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
+        let basis = Self::inverse_rotation_matrix(self.rotation);
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        out.clear();
+        out.reserve(points.len());
+        out.extend(points.iter().map(|p| {
+            let local = *p - self.position;
+            Vec3::new(
+                (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
+                (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
+                (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
+            )
+        }));
+    }
+
+    /// Apply the inverse transform to points in place.
+    pub fn inverse_transform_points_in_place(&self, points: &mut [Vec3]) {
+        let inv_scale = Vec3::new(1.0 / self.scale.x, 1.0 / self.scale.y, 1.0 / self.scale.z);
+        let basis = Self::inverse_rotation_matrix(self.rotation);
+        let m00 = basis[0][0];
+        let m01 = basis[0][1];
+        let m02 = basis[0][2];
+        let m10 = basis[1][0];
+        let m11 = basis[1][1];
+        let m12 = basis[1][2];
+        let m20 = basis[2][0];
+        let m21 = basis[2][1];
+        let m22 = basis[2][2];
+
+        for p in points {
+            let local = *p - self.position;
+            *p = Vec3::new(
+                (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
+                (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
+                (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
+            );
+        }
+    }
+
+    /// Compose transforms so that `self` is applied first, then `other`.
+    ///
+    /// This matches row-vector convention used by [`Mat4`]:
+    /// `point * self.to_mat4() * other.to_mat4()`.
+    ///
+    /// For exact closure in decomposed TRS form, inputs should use uniform scales.
+    #[must_use]
+    pub fn then(self, other: Self) -> Self {
+        Self::new(
+            other.transform_point(self.position),
+            self.rotation * other.rotation,
+            self.scale * other.scale,
+        )
+    }
+}
+
+impl Mul for Transform {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.then(rhs)
     }
 }
 

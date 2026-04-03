@@ -354,3 +354,155 @@ fn ray_triangle_hit_at_origin() {
     let t = ray.intersect_triangle(v0, v1, v2).expect("hit");
     assert!((t - 5.0).abs() < RAY_TOL, "ray-triangle t: {t}");
 }
+
+#[test]
+fn transform_batch_path_matches_scalar_path() {
+    let transform = Transform::new(
+        Vec3::new(1.0, -2.0, 3.0),
+        Quat::from_euler(0.4, -0.3, 0.2),
+        Vec3::new(2.0, 0.5, 1.5),
+    );
+    let points = vec![
+        Vec3::new(-2.0, 0.0, 1.0),
+        Vec3::new(0.5, 1.5, -3.0),
+        Vec3::new(4.0, -1.0, 2.0),
+    ];
+
+    let batch = transform.transform_points(&points);
+    assert_eq!(batch.len(), points.len());
+    for (actual, point) in batch.iter().zip(points.iter()) {
+        let expected = transform.transform_point(*point);
+        assert_vec3_close(*actual, expected);
+    }
+}
+
+#[test]
+fn transform_vector_batch_matches_scalar_path() {
+    let transform = Transform::new(
+        Vec3::new(1.0, -2.0, 3.0),
+        Quat::from_euler(0.25, -0.5, 0.125),
+        Vec3::new(0.5, 2.0, 1.5),
+    );
+    let vectors = vec![
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, -1.0),
+        Vec3::new(-2.0, 0.5, 0.25),
+    ];
+
+    let batch = transform.transform_vectors(&vectors);
+    assert_eq!(batch.len(), vectors.len());
+    for (actual, vector) in batch.iter().zip(vectors.iter()) {
+        let expected = transform.transform_vector(*vector);
+        assert_vec3_close(*actual, expected);
+    }
+}
+
+#[test]
+fn inverse_transform_batch_roundtrips_points() {
+    let transform = Transform::new(
+        Vec3::new(-3.0, 4.5, 1.0),
+        Quat::from_euler(0.4, 0.2, -0.6),
+        Vec3::new(1.25, 0.75, 2.5),
+    );
+    let local_points = vec![
+        Vec3::new(-1.0, 2.0, 0.5),
+        Vec3::new(0.0, -3.0, 4.0),
+        Vec3::new(2.5, 1.5, -2.0),
+    ];
+    let world_points = transform.transform_points(&local_points);
+
+    let restored = transform.inverse_transform_points(&world_points);
+    assert_eq!(restored.len(), local_points.len());
+    for (actual, expected) in restored.iter().zip(local_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
+fn transform_in_place_paths_match_allocating_paths() {
+    let transform = Transform::new(
+        Vec3::new(2.0, -1.0, 4.0),
+        Quat::from_euler(0.35, -0.45, 0.2),
+        Vec3::new(1.5, 0.75, 2.25),
+    );
+
+    let points = vec![
+        Vec3::new(-1.0, 0.5, 2.0),
+        Vec3::new(3.0, -2.0, 1.5),
+        Vec3::new(0.0, 4.0, -3.5),
+    ];
+    let vectors = vec![
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 2.0, -1.0),
+        Vec3::new(-1.5, 0.25, 0.5),
+    ];
+
+    let expected_points = transform.transform_points(&points);
+    let expected_vectors = transform.transform_vectors(&vectors);
+
+    let mut in_place_points = points;
+    transform.transform_points_in_place(&mut in_place_points);
+    for (actual, expected) in in_place_points.iter().zip(expected_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+
+    let mut in_place_vectors = vectors;
+    transform.transform_vectors_in_place(&mut in_place_vectors);
+    for (actual, expected) in in_place_vectors.iter().zip(expected_vectors.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
+fn inverse_transform_in_place_roundtrips_world_points() {
+    let transform = Transform::new(
+        Vec3::new(-6.0, 2.0, 1.0),
+        Quat::from_euler(-0.2, 0.6, -0.35),
+        Vec3::new(1.25, 1.25, 1.25),
+    );
+    let local_points = vec![
+        Vec3::new(1.0, 2.0, 3.0),
+        Vec3::new(-2.5, 0.0, 4.0),
+        Vec3::new(0.25, -1.25, -0.5),
+    ];
+    let mut world_points = transform.transform_points(&local_points);
+
+    transform.inverse_transform_points_in_place(&mut world_points);
+    for (actual, expected) in world_points.iter().zip(local_points.iter()) {
+        assert_vec3_close(*actual, *expected);
+    }
+}
+
+#[test]
+fn transform_then_matches_matrix_composition() {
+    let a = Transform::new(
+        Vec3::new(1.0, -2.0, 0.5),
+        Quat::from_euler(0.2, -0.3, 0.1),
+        Vec3::new(1.2, 1.2, 1.2),
+    );
+    let b = Transform::new(
+        Vec3::new(-4.0, 0.5, 2.0),
+        Quat::from_euler(-0.4, 0.25, 0.6),
+        Vec3::new(0.75, 0.75, 0.75),
+    );
+    let combined = a.then(b);
+    let point = Vec3::new(-1.0, 3.0, 2.25);
+
+    let matrix_expected = (a.to_mat4() * b.to_mat4()).transform_point(point).0;
+    let actual = combined.transform_point(point);
+    assert_vec3_close(actual, matrix_expected);
+}
+
+#[test]
+fn aabb_ray_and_sphere_queries_hit_expected_ranges() {
+    let aabb = AABB::new(Vec3::new(-1.0, -2.0, -3.0), Vec3::new(2.0, 1.0, 4.0));
+
+    let (t_near, t_far) = aabb
+        .intersects_ray(Vec3::new(-5.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0))
+        .expect("expected ray hit");
+    assert!((t_near - 4.0).abs() < EPSILON);
+    assert!((t_far - 7.0).abs() < EPSILON);
+
+    assert!(aabb.intersects_sphere(Vec3::new(2.5, 0.0, 0.0), 0.5));
+    assert!(!aabb.intersects_sphere(Vec3::new(3.0, 3.0, 3.0), 0.5));
+}

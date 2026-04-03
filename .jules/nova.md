@@ -74,6 +74,11 @@
 **Concept:** A procedural string-rewriting system (L-System) interpreted by a 3D Turtle to generate intricate branching structures (plants, fractals) directly into a `Mesh`.
 **Fate:** Implemented
 **Lesson:** Interpreting expanded strings using a stack-based state (Push/Pop orientation and position) is extremely powerful for generating recursive geometry like trees. To prevent OOM DoS attacks when expanding strings recursively, enforcing a strict char count capacity limit early inside the evaluation loop safely avoids excessive allocations and returns a graceful error.
+## [Starfield]
+**Concept:** A retro post-processing effect that renders a classic 3D flying starfield using simple perspective projection and depth-based dimming.
+**Fate:** Implemented
+**Lesson:** Storing only 3D coordinates and manually projecting them to 2D using a simple `(x/z) * scale` formula is extremely fast and effective for this kind of retro effect. Using an internal PRNG to recycle stars when they pass the camera (`z <= 0.0`) keeps memory usage constant without needing to allocate new stars.
+
 ## [Ascii Exporter]
 **Concept:** A mashup feature extending the `Framebuffer` with an `AsciiExporter` trait that uses the existing `AsciiConverter`. It allows exporting any rendered frame to a `.txt` or colored `.ans` (ANSI) file directly, turning visual output into viewable text files via `cat`.
 **Fate:** Implemented
@@ -187,3 +192,11 @@
 **Concept:** A retro post-processing effect simulating analog night vision goggles. Amplifies luminance non-linearly to boost dark areas, applies a green phosphor tint, and adds high-frequency noise and a vignette.
 **Fate:** Implemented
 **Lesson:** Simple non-linear luminance amplification combined with additive noise creates a convincing light amplification effect. Calculating the vignette using distance-squared instead of a square root and clamping before applying it provides an inexpensive but very smooth falloff at the edges.
+## [Color Blindness Simulator]
+**Concept:** A post-processing effect that simulates various types of color vision deficiencies (CVD) like Protanopia, Deuteranopia, Tritanopia, and Achromatopsia using accurate transformation matrices.
+**Fate:** Merged
+**Lesson:** Using fixed-point arithmetic instead of floating-point operations in the inner loop avoids significant performance drops. Applying the transformation correctly allows testing the visual clarity of the renderer for different users, making it highly useful for accessibility and testing.
+## [Plasma Filter]
+**Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
+**Fate:** Implemented
+**Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.

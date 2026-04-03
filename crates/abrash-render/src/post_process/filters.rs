@@ -242,13 +242,20 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
 /// apply_chromatic_aberration(&mut fb, 5);
 /// ```
-pub fn apply_chromatic_aberration(fb: &mut Framebuffer, offset: u32) {
-    if offset == 0 {
+
+/// Configuration for the chromatic aberration filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChromaticAberrationConfig {
+    pub offset: u32,
+}
+
+pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
+    if config.offset == 0 {
         return;
     }
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    let offset = offset as usize;
+    let offset = config.offset as usize;
 
     let pixels = fb.as_mut_slice();
 
@@ -472,7 +479,7 @@ pub fn apply_vignette(fb: &mut Framebuffer, config: &VignetteConfig) {
                     height as usize,
                     intensity,
                     roundness,
-                )
+                );
             };
             return;
         }
@@ -705,21 +712,21 @@ fn apply_vignette_scalar(
         0.0
     };
 
+    let scale = intensity * inv_max_dist_sq;
+
     // ⚡ Bolt: Eliminate Manual Slice Bounds Checks in 2D Block Iteration
     // Iterate over chunks instead of doing index calculations inside the hot loop.
     for (y, row) in pixels.chunks_exact_mut(width).take(height).enumerate() {
         let dy = y as f32 - center_y;
-        let dy_sq = dy * dy;
+        let dy_sq_scaled = dy * dy * scale;
+        let row_base_factor = 1.0 - dy_sq_scaled;
 
         for (x, p_ref) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x;
-            let dist_sq = dx * dx + dy_sq;
-
-            // Normalize distance squared: 0.0 at center, 1.0 at corner
-            let normalized_dist_sq = dist_sq * inv_max_dist_sq;
+            let dx_sq_scaled = dx * dx * scale;
 
             // Quadratic falloff
-            let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+            let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
             // Fixed point approximation to match SIMD precision (8.8 fixed point)
             let factor_fixed = (factor * 256.0) as u32;
@@ -743,8 +750,20 @@ fn apply_vignette_scalar(
 
 #[cfg(all(target_arch = "x86_64", feature = "simd"))]
 mod simd {
-    use super::*;
-    use std::arch::x86_64::*;
+    use super::{CA_BUFFER, apply_color_adjust_scalar, pixel_luminance};
+    use std::arch::x86_64::{
+        _mm_loadu_si128, _mm_srli_si128, _mm256_abs_epi16, _mm256_add_epi16, _mm256_add_epi32,
+        _mm256_add_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_castsi256_si128,
+        _mm256_cvtepu8_epi16, _mm256_cvtepu8_epi32, _mm256_cvttps_epi32, _mm256_extracti128_si256,
+        _mm256_hadd_epi32, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_max_epi32, _mm256_max_ps,
+        _mm256_min_epi32, _mm256_min_ps, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32,
+        _mm256_or_si256, _mm256_packus_epi16, _mm256_packus_epi32, _mm256_permute4x64_epi64,
+        _mm256_permutevar8x32_epi32, _mm256_set_ps, _mm256_set1_epi16, _mm256_set1_epi32,
+        _mm256_set1_epi64x, _mm256_set1_ps, _mm256_setr_epi8, _mm256_setr_epi32, _mm256_setzero_ps,
+        _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_slli_epi32, _mm256_srai_epi32,
+        _mm256_srli_epi16, _mm256_srli_epi32, _mm256_storeu_si256, _mm256_sub_epi16,
+        _mm256_sub_epi32, _mm256_sub_ps,
+    };
 
     #[target_feature(enable = "avx2")]
     pub unsafe fn apply_grayscale_avx2(pixels: &mut [u32]) {
@@ -1363,9 +1382,9 @@ mod simd {
             0.0
         };
 
+        let scale = intensity * inv_max_dist_sq;
+        let scale_vec = _mm256_set1_ps(scale);
         let center_x_vec = _mm256_set1_ps(center_x);
-        let inv_max_vec = _mm256_set1_ps(inv_max_dist_sq);
-        let intensity_vec = _mm256_set1_ps(intensity);
         let one_f = _mm256_set1_ps(1.0);
         let zero_f = _mm256_setzero_ps();
         let scale_256 = _mm256_set1_ps(256.0);
@@ -1382,8 +1401,9 @@ mod simd {
 
         for y in 0..height {
             let dy = y as f32 - center_y;
-            let dy_sq = dy * dy;
-            let dy_sq_vec = _mm256_set1_ps(dy_sq);
+            let dy_sq_scaled = dy * dy * scale;
+            let row_base_factor = 1.0 - dy_sq_scaled;
+            let row_base_factor_vec = _mm256_set1_ps(row_base_factor);
 
             let row_start = y * width;
             let mut ptr = unsafe { pixels.as_mut_ptr().add(row_start) };
@@ -1394,10 +1414,9 @@ mod simd {
                 let x_coords = _mm256_add_ps(x_base, x_offsets);
                 let dx = _mm256_sub_ps(x_coords, center_x_vec);
                 let dx_sq = _mm256_mul_ps(dx, dx);
-                let dist_sq = _mm256_add_ps(dx_sq, dy_sq_vec);
+                let dx_sq_scaled = _mm256_mul_ps(dx_sq, scale_vec);
 
-                let term = _mm256_mul_ps(intensity_vec, _mm256_mul_ps(dist_sq, inv_max_vec));
-                let factor = _mm256_sub_ps(one_f, term);
+                let factor = _mm256_sub_ps(row_base_factor_vec, dx_sq_scaled);
                 let factor_clamped = _mm256_max_ps(zero_f, _mm256_min_ps(one_f, factor));
 
                 // Convert to fixed point 0..256
@@ -1440,9 +1459,8 @@ mod simd {
             // Tail
             while x < width {
                 let dx = x as f32 - center_x;
-                let dist_sq = dx * dx + dy_sq;
-                let normalized_dist_sq = dist_sq * inv_max_dist_sq;
-                let factor = (1.0 - intensity * normalized_dist_sq).clamp(0.0, 1.0);
+                let dx_sq_scaled = dx * dx * scale;
+                let factor = (row_base_factor - dx_sq_scaled).clamp(0.0, 1.0);
 
                 let p = unsafe { *ptr };
                 let a = p & 0xFF00_0000;
@@ -1751,7 +1769,7 @@ mod tests {
         }
 
         // Apply offset 1
-        apply_chromatic_aberration(&mut fb, 1);
+        apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 1 });
 
         // Pixel 2 (x=2)
         // Original: R=30, G=40, B=50

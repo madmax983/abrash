@@ -4,7 +4,38 @@
 
 use crate::framebuffer::Framebuffer;
 
-/// Draw an empty circle using Bresenham's algorithm.
+/// Draw an empty circle (outline) using Bresenham's algorithm.
+///
+/// This uses Bresenham's midpoint circle algorithm, which determines the pixels needed
+/// to rasterize a circle without requiring floating-point trigonometry. It calculates
+/// the first octant and mirrors it to the other seven octants.
+///
+/// # Details
+///
+/// - The function safely handles off-screen coordinates by clipping points to the [`Framebuffer`] boundaries.
+/// - The circle is drawn with a 1-pixel thickness.
+/// - If the circle is entirely visible on screen, a fast-path is used that skips per-pixel bounds checks.
+/// - If `radius` is less than or equal to 0, nothing is drawn.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::draw_circle;
+///
+/// // Create a 100x100 framebuffer
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.clear(0xFF00_0000); // Black background
+///
+/// // Draw a red circle outline at center (50, 50) with radius 20
+/// let color_red = 0xFFFF_0000;
+/// draw_circle(&mut fb, 50, 50, 20, color_red);
+///
+/// // The center remains uncolored (black)
+/// assert_eq!(fb.get_pixel(50, 50), Some(0xFF00_0000));
+/// // The top edge of the circle is red
+/// assert_eq!(fb.get_pixel(50, 30), Some(color_red));
+/// ```
 ///
 /// # Arguments
 ///
@@ -26,6 +57,10 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let max_x = i64::from(xc) + i64::from(radius);
     let min_y = i64::from(yc) - i64::from(radius);
     let max_y = i64::from(yc) + i64::from(radius);
+
+    if min_x >= i64::from(fb.width()) || max_x < 0 || min_y >= i64::from(fb.height()) || max_y < 0 {
+        return;
+    }
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         draw_circle_points_unchecked(fb, xc, yc, x, y, color);
@@ -88,7 +123,37 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
     fb.set_pixel(xc.saturating_sub(y), yc.saturating_sub(x), color);
 }
 
-/// Draw a filled circle using Bresenham's algorithm.
+/// Draw a solid, filled circle using Bresenham's algorithm.
+///
+/// Unlike [`draw_circle`], which only plots individual pixels on the perimeter, this function
+/// draws solid horizontal lines connecting the left and right edges of the circle for each vertical scanline.
+/// This approach is much more efficient than drawing multiple smaller circles to fill the interior.
+///
+/// # Details
+///
+/// - The function safely handles off-screen coordinates by clipping scanlines to the [`Framebuffer`] boundaries.
+/// - If the circle is entirely visible on screen, a fast-path is used that skips per-scanline bounds checks.
+/// - If `radius` is less than or equal to 0, nothing is drawn.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::rasterizer::fill_circle;
+///
+/// // Create a 100x100 framebuffer
+/// let mut fb = Framebuffer::new(100, 100).unwrap();
+/// fb.clear(0xFF00_0000); // Black background
+///
+/// // Draw a solid blue circle at center (50, 50) with radius 10
+/// let color_blue = 0xFF00_00FF;
+/// fill_circle(&mut fb, 50, 50, 10, color_blue);
+///
+/// // The center is colored blue
+/// assert_eq!(fb.get_pixel(50, 50), Some(color_blue));
+/// // The edges are also blue
+/// assert_eq!(fb.get_pixel(50, 40), Some(color_blue));
+/// ```
 ///
 /// # Arguments
 ///
@@ -110,6 +175,10 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     let max_x = i64::from(xc) + i64::from(radius);
     let min_y = i64::from(yc) - i64::from(radius);
     let max_y = i64::from(yc) + i64::from(radius);
+
+    if min_x >= i64::from(fb.width()) || max_x < 0 || min_y >= i64::from(fb.height()) || max_y < 0 {
+        return;
+    }
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
         fill_circle_lines_unchecked(fb, xc, yc, x, y, color);

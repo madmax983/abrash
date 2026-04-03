@@ -12,6 +12,9 @@ use std::f32::consts::PI;
 use std::fmt;
 use std::io::Error as IoError;
 
+use comfy_table::{Cell, Color, Table, presets};
+use crossterm::style::Stylize;
+
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const BACKGROUND: u32 = 0xFF10_1010;
@@ -24,6 +27,45 @@ const COLORS: [u32; 6] = [
     0xFFFF_00FF,
     0xFF00_FFFF,
 ];
+
+fn print_banner() {
+    println!("\n{}", "🌙 Night Vision Demo".bold().cyan());
+    println!("{}", "=====================".dark_grey());
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Property").fg(Color::Cyan),
+            Cell::new("Value").fg(Color::Cyan),
+        ])
+        .add_row(vec![
+            Cell::new("Description"),
+            Cell::new("Simulates military-grade night vision goggles").fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Renderer"),
+            Cell::new("Software Rasterizer + Post-Process").fg(Color::Yellow),
+        ]);
+
+    println!("\n{}", "⚙️  Info".bold());
+    println!("{table}");
+
+    println!("\n{}", "🎮 Controls".bold());
+    let mut controls = Table::new();
+    controls
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("Input").fg(Color::Cyan),
+            Cell::new("Action").fg(Color::Cyan),
+        ])
+        .add_row(vec![Cell::new("Mouse"), Cell::new("None")])
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Auto-rotating scene"),
+        ]);
+    println!("{controls}\n");
+}
 
 #[derive(Debug)]
 struct AppError(String);
@@ -187,7 +229,7 @@ impl WindowApp for NightVisionDemoApp {
 }
 
 fn main() -> Result<(), AppError> {
-    println!("Starting Night Vision Demo...");
+    print_banner();
     run_windowed(NightVisionDemoApp::new()?)?;
     Ok(())
 }

@@ -173,3 +173,28 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Performance] mode7 calculation optimization**
 **Learning:** Using `f32::rem_euclid` is extremely slow. We can cast the f32 values to i32, then calculate `& mask` if the texture has power of two dimensions, or use `rem_euclid(i32)`. Moving branch `if fog_factor > 0.0` out of inner loop also speeds it up.
 **Action:** Replaced `rem_euclid` with fast i32 bitwise AND when power of two size, and moved `fog_factor` check outside inner loop in `mode7.rs`.
+
+## [Performance] f32::powf in Post-Processing
+**Learning:** In hot per-pixel post-processing loops (like night vision or vignette effects), `f32::powf()` calls down to the C math library, introducing significant computational overhead that prevents vectorization and slows down rendering.
+**Action:** Approximate fractional powers by chaining highly optimized `.sqrt()` operations. For example, replace `x.powf(0.65)` and `x.powf(0.8)` with the mathematically equivalent approximation of `x^0.75` using `x.sqrt() * x.sqrt().sqrt()`. This yields substantial execution speedups without breaking stylistic visual intent.
+
+## SIMD AABB Transform using Arvo's Extents
+**Learning:** When transforming Axis-Aligned Bounding Boxes (AABBs) using SIMD/AVX2, prefer Arvo's extent-based algorithm (transforming the center and multiplying extents by the absolute value of the rotation matrix) over calculating and finding the min/max of all 8 corners. This avoids expensive cross-lane permutations and shuffling, significantly reducing execution latency.
+**Action:** When implementing or reviewing bounding box transformations, prioritize center-extent representations and absolute matrix multiplication over explicitly processing individual corner vertices.
+**[Frame Vector Pre-allocation]
+**Learning:** Found a bottleneck where `Frame::new()` was defaulting `commands` and `lights` vectors to `Vec::new()`, causing dynamic heap re-allocations on the hot path (per-frame loop) when rendering scenes with multiple objects.
+**Action:** Introduced `Frame::with_capacity(num_commands, num_lights)` to explicitly pre-allocate these vectors. When constructing repetitive frames, manually configuring capacities entirely eliminates these heap re-allocations.
+
+**Test Float Comparison Lints**
+**Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
+**Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).
+
+**[Performance Optimization: Eliminate Manual Slice Bounds Checks in clear_rect]**
+**Learning:** In operations that write to a sub-region (a rectangle) of a 1D slice representing a 2D grid, manually calculating array boundaries inside a `while` loop (or `for` loop) via `y * width + x` triggers implicit bounds checking on every single row assignment. Replacing this with `chunks_exact_mut(width)` on the bounded slice entirely removes the inner-loop bounds checking overhead.
+**Action:** Replace `while current < target_end` nested loops with `for row in slice[start_idx..end_idx].chunks_exact_mut(width)` and then `row[sx..ex].fill(color)`. This yields direct access to the exact sub-slice and completely elides runtime array bounds checking, significantly improving performance (e.g., ~12-26% speedup for clearing framebuffers).
+**[Performance Optimization: Optimize Iterator Batching with Extend]**
+**Learning:** Replacing manual `for` loops that use `out.push(...)` inside pre-allocated vectors with `out.extend(iterator.map(...))` allows LLVM to better vectorize transformations (like 3D coordinate math) and can yield significant performance speedups (~24%) without needing `unsafe` or manual SIMD.
+**Action:** Always prefer `extend` with `map` over manual `for` loops with `push` when processing slices or arrays into vectors.
+**[Struct of Arrays for DrawBatch]**
+**Learning:** When attempting to remove per-mesh allocations inside hot frame processing, using unsafe pointer casting (`ptr as usize`) inside a Rayon parallel iterator to write to disjoint array slices is highly discouraged. A better and safer pattern is collecting individual pre-allocated `Vec`s in parallel and sequentially extending a single global vector, or using safe mutable slice splitting. In this case, `Vec::extend` sequentially was fast enough. Also, replacing `Vec` inside child objects with an index `Range` into a root data structure completely eliminates the per-object dynamic heap allocations.
+**Action:** When migrating an array-of-structs to a struct-of-arrays approach, always prefer `std::ops::Range` for child objects to reference elements inside a single flattened root `Vec`.

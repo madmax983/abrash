@@ -207,7 +207,7 @@ unsafe fn draw_scanline_reflection_simd(
 
             let i_len_sq = i_x * i_x + i_y * i_y + i_z * i_z;
             if i_len_sq > 0.0001 {
-                let inv_len = 1.0 / i_len_sq.sqrt();
+                let inv_len = crate::math::fast_inv_sqrt(i_len_sq);
                 i_x *= inv_len;
                 i_y *= inv_len;
                 i_z *= inv_len;
@@ -218,7 +218,7 @@ unsafe fn draw_scanline_reflection_simd(
             let mut n_z = nz;
             let n_len_sq = n_x * n_x + n_y * n_y + n_z * n_z;
             if n_len_sq > 0.0001 {
-                let inv_len = 1.0 / n_len_sq.sqrt();
+                let inv_len = crate::math::fast_inv_sqrt(n_len_sq);
                 n_x *= inv_len;
                 n_y *= inv_len;
                 n_z *= inv_len;
@@ -339,7 +339,7 @@ fn draw_scanline_reflection(
             // Normalize Incident
             let i_len_sq = i_x * i_x + i_y * i_y + i_z * i_z;
             if i_len_sq > 0.0001 {
-                let inv_len = 1.0 / i_len_sq.sqrt();
+                let inv_len = crate::math::fast_inv_sqrt(i_len_sq);
                 i_x *= inv_len;
                 i_y *= inv_len;
                 i_z *= inv_len;
@@ -351,7 +351,7 @@ fn draw_scanline_reflection(
             let mut n_z = nz;
             let n_len_sq = n_x * n_x + n_y * n_y + n_z * n_z;
             if n_len_sq > 0.0001 {
-                let inv_len = 1.0 / n_len_sq.sqrt();
+                let inv_len = crate::math::fast_inv_sqrt(n_len_sq);
                 n_x *= inv_len;
                 n_y *= inv_len;
                 n_z *= inv_len;

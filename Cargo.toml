@@ -68,7 +68,15 @@ name = "math_bench"
 harness = false
 
 [[bench]]
+name = "tangent_space_bench"
+harness = false
+
+[[bench]]
 name = "vec2_bench"
+harness = false
+
+[[bench]]
+name = "quat_nlerp_bench"
 harness = false
 
 [lib]
@@ -516,6 +524,10 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "ascii_display_bench"
+harness = false
+
+[[bench]]
 name = "water_ripple_bench"
 harness = false
 required-features = ["nova"]
@@ -647,4 +659,19 @@ required-features = ["nova"]
 [[example]]
 name = "night_vision_demo"
 path = "examples/night_vision_demo.rs"
+required-features = ["nova"]
+
+[[bench]]
+name = "night_vision_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "plasma_demo"
+path = "examples/plasma_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "starfield_demo"
+path = "examples/starfield_demo.rs"
 required-features = ["nova"]

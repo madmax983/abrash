@@ -8,7 +8,19 @@ use abrash_render::render_api::frame::{Frame, FrameCamera};
 use abrash_render::render_api::material::Material;
 
 fn try_create_renderer() -> Option<GpuRenderer> {
-    GpuRenderer::new_headless().ok()
+    if let Ok(renderer) = GpuRenderer::new_headless() {
+        #[cfg(feature = "ray-tracing")]
+        if !renderer
+            .device()
+            .features()
+            .contains(wgpu::Features::EXPERIMENTAL_RAY_QUERY)
+        {
+            return None;
+        }
+        Some(renderer)
+    } else {
+        None
+    }
 }
 
 fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {

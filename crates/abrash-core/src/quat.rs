@@ -5,7 +5,7 @@
 
 use std::ops::Mul;
 
-use crate::math::{Mat4, Vec3};
+use crate::math::{Mat4, Vec3, fast_inv_sqrt};
 
 /// A unit quaternion representing a 3D rotation.
 ///
@@ -260,10 +260,11 @@ impl Quat {
     /// Faster than [`Self::slerp`] and typically suitable for frame-to-frame blending.
     #[must_use]
     pub fn nlerp(&self, other: &Self, t: f32) -> Self {
-        let mut end = *other;
-        if self.dot(*other) < 0.0 {
-            end = Self::new(-other.x, -other.y, -other.z, -other.w);
-        }
+        let end = if self.dot(*other) < 0.0 {
+            Self::new(-other.x, -other.y, -other.z, -other.w)
+        } else {
+            *other
+        };
         Self::new(
             self.x + (end.x - self.x) * t,
             self.y + (end.y - self.y) * t,
@@ -276,11 +277,22 @@ impl Quat {
     /// Normalize to unit length.
     #[must_use]
     pub fn normalize(self) -> Self {
-        let len = self.length_sq().sqrt();
-        if len < f32::EPSILON {
+        let len_sq = self.length_sq();
+        if len_sq < f32::EPSILON * f32::EPSILON {
             return Self::identity();
         }
-        let inv = 1.0 / len;
+        let inv = len_sq.sqrt().recip();
+        Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
+    }
+
+    /// Normalize to unit length using fast inverse square root approximation.
+    #[must_use]
+    pub fn fast_normalize(self) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq < f32::EPSILON * f32::EPSILON {
+            return Self::identity();
+        }
+        let inv = fast_inv_sqrt(len_sq);
         Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
     }
 
@@ -292,6 +304,108 @@ impl Quat {
         let qv = Vec3::new(self.x, self.y, self.z);
         let t = qv.cross(v) * 2.0;
         v + t * self.w + qv.cross(t)
+    }
+
+    /// Rotate many vectors with one quaternion.
+    ///
+    /// This hoists the quaternion-to-matrix expansion out of the loop so each
+    /// point only performs a compact 3x3 transform.
+    #[must_use]
+    pub fn rotate_vec3_batch(self, vectors: &[Vec3]) -> Vec<Vec3> {
+        let mut out = Vec::with_capacity(vectors.len());
+        self.rotate_vec3_batch_into(vectors, &mut out);
+        out
+    }
+
+    /// Rotate many vectors with one quaternion and append into `out`.
+    ///
+    /// `out` is cleared and re-used to avoid temporary allocations in frame loops.
+    pub fn rotate_vec3_batch_into(self, vectors: &[Vec3], out: &mut Vec<Vec3>) {
+        let x2 = self.x + self.x;
+        let y2 = self.y + self.y;
+        let z2 = self.z + self.z;
+        let xx = self.x * x2;
+        let xy = self.x * y2;
+        let xz = self.x * z2;
+        let yy = self.y * y2;
+        let yz = self.y * z2;
+        let zz = self.z * z2;
+        let wx = self.w * x2;
+        let wy = self.w * y2;
+        let wz = self.w * z2;
+
+        let m00 = 1.0 - (yy + zz);
+        let m01 = xy + wz;
+        let m02 = xz - wy;
+        let m10 = xy - wz;
+        let m11 = 1.0 - (xx + zz);
+        let m12 = yz + wx;
+        let m20 = xz + wy;
+        let m21 = yz - wx;
+        let m22 = 1.0 - (xx + yy);
+
+        out.clear();
+        out.resize(vectors.len(), Vec3::ZERO);
+        for (dst, &v) in out.iter_mut().zip(vectors.iter()) {
+            *dst = Vec3::new(
+                v.x * m00 + v.y * m10 + v.z * m20,
+                v.x * m01 + v.y * m11 + v.z * m21,
+                v.x * m02 + v.y * m12 + v.z * m22,
+            );
+        }
+    }
+
+    /// Rotate many vectors in place with one quaternion.
+    pub fn rotate_vec3_batch_in_place(self, vectors: &mut [Vec3]) {
+        let x2 = self.x + self.x;
+        let y2 = self.y + self.y;
+        let z2 = self.z + self.z;
+        let xx = self.x * x2;
+        let xy = self.x * y2;
+        let xz = self.x * z2;
+        let yy = self.y * y2;
+        let yz = self.y * z2;
+        let zz = self.z * z2;
+        let wx = self.w * x2;
+        let wy = self.w * y2;
+        let wz = self.w * z2;
+
+        let m00 = 1.0 - (yy + zz);
+        let m01 = xy + wz;
+        let m02 = xz - wy;
+        let m10 = xy - wz;
+        let m11 = 1.0 - (xx + zz);
+        let m12 = yz + wx;
+        let m20 = xz + wy;
+        let m21 = yz - wx;
+        let m22 = 1.0 - (xx + yy);
+
+        for v in vectors {
+            let x = v.x;
+            let y = v.y;
+            let z = v.z;
+            *v = Vec3::new(
+                x * m00 + y * m10 + z * m20,
+                x * m01 + y * m11 + z * m21,
+                x * m02 + y * m12 + z * m22,
+            );
+        }
+    }
+
+    /// Convert this quaternion to axis-angle form `(axis, angle_radians)`.
+    #[must_use]
+    pub fn to_axis_angle(self) -> (Vec3, f32) {
+        let q = self.normalize();
+        let angle = 2.0 * q.w.clamp(-1.0, 1.0).acos();
+        let s_sq = (1.0 - q.w * q.w).max(0.0);
+        if s_sq <= 1e-12 {
+            return (Vec3::new(1.0, 0.0, 0.0), 0.0);
+        }
+        let inv_s = s_sq.sqrt().recip();
+        (
+            Vec3::new(q.x * inv_s, q.y * inv_s, q.z * inv_s).normalize(),
+            angle,
+        )
     }
 
     /// Convert to a 4x4 rotation matrix (row-major, row-vector convention).
@@ -475,6 +589,23 @@ mod tests {
     }
 
     #[test]
+    fn fast_normalize_accuracy() {
+        let q = Quat::new(1.0, 2.0, 3.0, 4.0);
+        let n1 = q.normalize();
+        let n2 = q.fast_normalize();
+
+        let diff_x = (n1.x - n2.x).abs();
+        let diff_y = (n1.y - n2.y).abs();
+        let diff_z = (n1.z - n2.z).abs();
+        let diff_w = (n1.w - n2.w).abs();
+
+        assert!(diff_x < 0.001);
+        assert!(diff_y < 0.001);
+        assert!(diff_z < 0.001);
+        assert!(diff_w < 0.001);
+    }
+
+    #[test]
     fn compose_rotations() {
         let ry = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
         let rx = Quat::from_axis_angle(Vec3::new(1.0, 0.0, 0.0), FRAC_PI_2);
@@ -569,5 +700,57 @@ mod tests {
         assert!((looked.x - forward.x).abs() < 1e-4);
         assert!((looked.y - forward.y).abs() < 1e-4);
         assert!((looked.z - forward.z).abs() < 1e-4);
+    }
+
+    #[test]
+    fn rotate_vec3_batch_matches_scalar_path() {
+        let q = Quat::from_euler(0.3, -0.7, 0.2).normalize();
+        let input = [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(-2.3, 4.1, 0.75),
+        ];
+        let output = q.rotate_vec3_batch(&input);
+        assert_eq!(output.len(), input.len());
+        for i in 0..input.len() {
+            let scalar = q.rotate_vec3(input[i]);
+            let batched = output[i];
+            assert!((scalar.x - batched.x).abs() < EPSILON);
+            assert!((scalar.y - batched.y).abs() < EPSILON);
+            assert!((scalar.z - batched.z).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn rotate_vec3_batch_in_place_matches_allocating_path() {
+        let q = Quat::from_euler(0.2, -0.6, 0.4).normalize();
+        let mut in_place = vec![
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-2.0, 1.5, 3.0),
+            Vec3::new(0.25, -0.75, 2.5),
+        ];
+        let expected = q.rotate_vec3_batch(&in_place);
+        q.rotate_vec3_batch_in_place(&mut in_place);
+        for (a, b) in in_place.iter().zip(expected.iter()) {
+            assert!((a.x - b.x).abs() < EPSILON);
+            assert!((a.y - b.y).abs() < EPSILON);
+            assert!((a.z - b.z).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn to_axis_angle_roundtrip_preserves_rotation() {
+        let axis = Vec3::new(0.3, -0.4, 0.5).normalize();
+        let angle = 1.234;
+        let q = Quat::from_axis_angle(axis, angle).normalize();
+        let (out_axis, out_angle) = q.to_axis_angle();
+        let reconstructed = Quat::from_axis_angle(out_axis, out_angle).normalize();
+        let v = Vec3::new(0.7, -0.2, 0.5);
+        let a = q.rotate_vec3(v);
+        let b = reconstructed.rotate_vec3(v);
+        assert!((a.x - b.x).abs() < EPSILON);
+        assert!((a.y - b.y).abs() < EPSILON);
+        assert!((a.z - b.z).abs() < EPSILON);
     }
 }

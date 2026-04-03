@@ -163,9 +163,9 @@ pub fn render_sdf(
     // Column 0 = Right (View.m[0][0], View.m[1][0], View.m[2][0])
     // Column 1 = Up    (View.m[0][1], View.m[1][1], View.m[2][1])
     // Column 2 = Back  (View.m[0][2], View.m[1][2], View.m[2][2]) -> Forward = -Back
-    let right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]).normalize();
-    let up = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]).normalize();
-    let forward = Vec3::new(-view.m[0][2], -view.m[1][2], -view.m[2][2]).normalize();
+    let right = Vec3::new(view.m[0][0], view.m[1][0], view.m[2][0]).fast_normalize();
+    let up = Vec3::new(view.m[0][1], view.m[1][1], view.m[2][1]).fast_normalize();
+    let forward = Vec3::new(-view.m[0][2], -view.m[1][2], -view.m[2][2]).fast_normalize();
 
     // Calculate FoV factor
     // Projection Matrix [0][0] = 1 / (aspect * tan(fov/2))
@@ -175,7 +175,7 @@ pub fn render_sdf(
     let aspect = proj.m[1][1] / proj.m[0][0];
 
     // Light direction (fixed for now)
-    let light_dir = Vec3::new(0.5, 1.0, 0.5).normalize();
+    let light_dir = Vec3::new(0.5, 1.0, 0.5).fast_normalize();
 
     // Ray Marching Loop
     for y in 0..height {
@@ -191,9 +191,9 @@ pub fn render_sdf(
 
             // Ray Direction in Camera Space: (screen_x, screen_y, -1.0)
             // Transform to World Space
-            // ray_dir = (right * screen_x + up * screen_y + forward).normalize()
+            // ray_dir = (right * screen_x + up * screen_y + forward).fast_normalize()
             // (assuming 'forward' is -Z in camera space, so forward * 1.0 is correct if forward is normalized view direction)
-            let ray_dir = (right * screen_x + up * screen_y + forward).normalize();
+            let ray_dir = (right * screen_x + up * screen_y + forward).fast_normalize();
 
             let mut t = 0.1; // Near plane offset
             let max_dist = 100.0;

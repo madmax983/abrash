@@ -63,12 +63,8 @@ mod app {
 
         // Generate
         let start_time = std::time::Instant::now();
-        let expanded = lsys
-            .expand(args.iterations)
-            .expect("L-system memory limit exceeded");
-        let mesh = lsys
-            .generate_mesh(args.iterations)
-            .expect("L-system memory limit exceeded");
+        let expanded = lsys.expand(args.iterations)?;
+        let mesh = lsys.generate_mesh(args.iterations)?;
         let duration = start_time.elapsed();
 
         // TUI Setup
@@ -229,9 +225,12 @@ mod app {
                 let mut current_span = String::new();
                 let mut current_color = Color::White;
 
-                // Optimization: Don't render huge strings entirely, just a preview
-                let preview_len = expanded.len().min(2000);
-                let display_str = &expanded[..preview_len];
+                // Optimization: Don't render huge strings entirely, just a preview.
+                // Safely iterate by chars to avoid slicing inside a multi-byte codepoint.
+                let max_chars = 2000;
+                let mut char_iter = expanded.chars();
+                let display_str: String = char_iter.by_ref().take(max_chars).collect();
+                let is_truncated = char_iter.next().is_some();
 
                 for c in display_str.chars() {
                     let color = match c {
@@ -258,7 +257,7 @@ mod app {
                     ));
                 }
 
-                if expanded.len() > preview_len {
+                if is_truncated {
                     styled_dna.push(Span::styled("...", Style::default().fg(Color::DarkGray)));
                 }
 

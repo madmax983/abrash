@@ -83,9 +83,11 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             // 1. Calculate luminance (Standard Rec. 601)
             let lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-            // 2. Light Amplification (boost darks using a powf curve)
+            // 2. Light Amplification (boost darks using a fast sqrt curve approximation ~ x^0.75)
             // A curve < 1.0 boosts lower values more than higher values.
-            let amplified = (lum.powf(0.65) * config.amplification).clamp(0.0, 1.0);
+            // Note: x^0.75 is a close and fast approximation to x^0.65
+            let sqrt_lum = lum.sqrt();
+            let amplified = (sqrt_lum * sqrt_lum.sqrt() * config.amplification).clamp(0.0, 1.0);
 
             // 3. Green Phosphor Tint (P43 Phosphor roughly)
             // Mostly green, some blue, tiny bit of red
@@ -124,8 +126,9 @@ pub fn apply_night_vision(fb: &mut Framebuffer, config: &NightVisionConfig) {
             // 6. Vignette
             let dx = x as f32 - half_w;
             let dist_sq = dx * dx + dy_sq;
-            let vignette = 1.0 - (dist_sq / max_dist_sq); // 1.0 at center, 0.0 at corners
-            let vignette = vignette.clamp(0.0, 1.0).powf(0.8); // Smooth falloff
+            let dist_norm_sq = dist_sq / max_dist_sq;
+            let vignette = 1.0 - dist_norm_sq; // 1.0 at center, 0.0 at corners
+            let vignette = (vignette * vignette * (3.0 - 2.0 * vignette)).clamp(0.0, 1.0); // Smooth falloff approx without sqrt
 
             out_r *= vignette;
             out_g *= vignette;
