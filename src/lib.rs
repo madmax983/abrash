@@ -116,12 +116,16 @@ pub use abrash_raycast as raycast;
 pub use abrash_core::animatable;
 pub use abrash_core::color;
 pub use abrash_core::curve;
+pub use abrash_core::easing;
+pub use abrash_core::gradient;
 pub use abrash_core::irect;
 pub use abrash_core::ivec;
 pub use abrash_core::noise;
 pub use abrash_core::plane;
 pub use abrash_core::quat;
+pub use abrash_core::random;
 pub use abrash_core::ray;
+pub use abrash_core::sdf;
 pub use abrash_core::transform;
 
 // Animation system — re-exported from abrash-anim.

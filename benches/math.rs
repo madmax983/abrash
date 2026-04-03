@@ -1,13 +1,19 @@
 use abrash::color::Color;
 use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
+use abrash::easing::{
+    bounce_out, cubic_in_out, elastic_out, expo_in_out, quint_in_out, sine_in_out,
+};
 use abrash::geometry::AABB;
+use abrash::gradient::Gradient;
 use abrash::irect::IRect;
 use abrash::ivec::{IVec2, IVec3};
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
 use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
 use abrash::quat::Quat;
+use abrash::random::Rng;
 use abrash::ray::Ray;
+use abrash::sdf::{box_3d, capsule_3d, circle_2d, rect_2d, smooth_union, sphere_3d};
 use abrash::transform::Transform;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
@@ -437,6 +443,114 @@ fn bench_irect(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_random(c: &mut Criterion) {
+    let mut g = c.benchmark_group("random");
+
+    g.bench_function("u32", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.u32()));
+    });
+
+    g.bench_function("f32", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.f32()));
+    });
+
+    g.bench_function("u32_below_6", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.u32_below(6)));
+    });
+
+    g.bench_function("f32_range", |b| {
+        let mut rng = Rng::seeded(42);
+        b.iter(|| black_box(rng.f32_range(-1.0, 1.0)));
+    });
+
+    g.bench_function("gradient_sample", |b| {
+        let grad = Gradient::terrain();
+        let mut rng = Rng::seeded(7);
+        b.iter(|| black_box(grad.sample(rng.f32())));
+    });
+
+    g.finish();
+}
+
+fn bench_easing(c: &mut Criterion) {
+    let mut g = c.benchmark_group("easing");
+
+    let t = 0.35_f32;
+
+    g.bench_function("cubic_in_out", |b| {
+        b.iter(|| black_box(cubic_in_out(black_box(t))));
+    });
+
+    g.bench_function("quint_in_out", |b| {
+        b.iter(|| black_box(quint_in_out(black_box(t))));
+    });
+
+    g.bench_function("sine_in_out", |b| {
+        b.iter(|| black_box(sine_in_out(black_box(t))));
+    });
+
+    g.bench_function("expo_in_out", |b| {
+        b.iter(|| black_box(expo_in_out(black_box(t))));
+    });
+
+    g.bench_function("elastic_out", |b| {
+        b.iter(|| black_box(elastic_out(black_box(t))));
+    });
+
+    g.bench_function("bounce_out", |b| {
+        b.iter(|| black_box(bounce_out(black_box(t))));
+    });
+
+    g.finish();
+}
+
+fn bench_sdf(c: &mut Criterion) {
+    let mut g = c.benchmark_group("sdf");
+
+    let p2 = Vec2::new(1.5, 0.5);
+    let p3 = Vec3::new(1.5, 0.5, 0.3);
+
+    g.bench_function("circle_2d", |b| {
+        b.iter(|| black_box(circle_2d(black_box(p2), Vec2::ZERO, 1.0)));
+    });
+
+    g.bench_function("rect_2d", |b| {
+        b.iter(|| black_box(rect_2d(black_box(p2), Vec2::ZERO, Vec2::new(1.0, 1.0))));
+    });
+
+    g.bench_function("sphere_3d", |b| {
+        b.iter(|| black_box(sphere_3d(black_box(p3), Vec3::ZERO, 1.0)));
+    });
+
+    g.bench_function("box_3d", |b| {
+        b.iter(|| black_box(box_3d(black_box(p3), Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0))));
+    });
+
+    g.bench_function("capsule_3d", |b| {
+        b.iter(|| {
+            black_box(capsule_3d(
+                black_box(p3),
+                Vec3::new(-1.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                0.3,
+            ))
+        });
+    });
+
+    g.bench_function("smooth_union", |b| {
+        b.iter(|| {
+            let a = circle_2d(black_box(p2), Vec2::ZERO, 1.0);
+            let bb = circle_2d(black_box(p2), Vec2::new(1.0, 0.0), 1.0);
+            black_box(smooth_union(a, bb, 0.5))
+        });
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -472,6 +586,9 @@ criterion_group!(
     bench_noise,
     bench_curve,
     bench_ivec,
-    bench_irect
+    bench_irect,
+    bench_random,
+    bench_easing,
+    bench_sdf
 );
 criterion_main!(benches);
