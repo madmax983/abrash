@@ -1,6 +1,7 @@
 use abrash::color::Color;
 use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
 use abrash::geometry::AABB;
+use abrash::ivec::{IVec2, IVec3};
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
 use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
@@ -357,6 +358,54 @@ fn bench_curve(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_ivec(c: &mut Criterion) {
+    let mut g = c.benchmark_group("ivec");
+
+    let a = IVec2::new(3, 4);
+    let b = IVec2::new(1, -2);
+
+    g.bench_function("ivec2_add", |bench| {
+        bench.iter(|| black_box(black_box(a) + black_box(b)));
+    });
+
+    g.bench_function("ivec2_dot", |bench| {
+        bench.iter(|| black_box(black_box(a).dot(black_box(b))));
+    });
+
+    g.bench_function("ivec2_cross", |bench| {
+        bench.iter(|| black_box(black_box(a).cross(black_box(b))));
+    });
+
+    g.bench_function("ivec2_length", |bench| {
+        bench.iter(|| black_box(black_box(a).length()));
+    });
+
+    g.bench_function("ivec2_manhattan", |bench| {
+        bench.iter(|| black_box(black_box(a).manhattan(black_box(b))));
+    });
+
+    g.bench_function("ivec2_to_index", |bench| {
+        bench.iter(|| black_box(black_box(a).to_index(64)));
+    });
+
+    let ca = IVec3::new(1, 2, 3);
+    let cb = IVec3::new(4, 5, 6);
+
+    g.bench_function("ivec3_cross", |bench| {
+        bench.iter(|| black_box(black_box(ca).cross(black_box(cb))));
+    });
+
+    g.bench_function("ivec3_dot", |bench| {
+        bench.iter(|| black_box(black_box(ca).dot(black_box(cb))));
+    });
+
+    g.bench_function("ivec3_to_index_3d", |bench| {
+        bench.iter(|| black_box(black_box(ca).to_index_3d(64, 64)));
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -390,6 +439,7 @@ criterion_group!(
     bench_frustum_contains_sphere,
     bench_color,
     bench_noise,
-    bench_curve
+    bench_curve,
+    bench_ivec
 );
 criterion_main!(benches);
