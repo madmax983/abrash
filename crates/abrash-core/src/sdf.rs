@@ -422,6 +422,93 @@ pub const fn subtraction(a: f32, b: f32) -> f32 {
     if a > -b { a } else { -b }
 }
 
+/// Signed distance to an infinite cylinder along the Y axis.
+///
+/// The cylinder is centred at `centre_xz` (X and Z components only) with
+/// radius `r` and extends infinitely along Y.  Useful as a CSG primitive.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::inf_cylinder_3d;
+/// use abrash_core::math::{Vec2, Vec3};
+///
+/// // Point on the surface of a unit cylinder at origin
+/// let d = inf_cylinder_3d(Vec3::new(1.0, 5.0, 0.0), Vec2::new(0.0, 0.0), 1.0);
+/// assert!(d.abs() < 1e-5, "should be on surface, got {d}");
+/// // Inside
+/// let d2 = inf_cylinder_3d(Vec3::new(0.5, 100.0, 0.0), Vec2::new(0.0, 0.0), 1.0);
+/// assert!(d2 < 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn inf_cylinder_3d(p: Vec3, centre_xz: Vec2, r: f32) -> f32 {
+    let dx = p.x - centre_xz.x;
+    let dz = p.z - centre_xz.y;
+    (dx * dx + dz * dz).sqrt() - r
+}
+
+/// Signed distance to a rounded cylinder (a cylinder with hemispherical caps).
+///
+/// Unlike [`capsule_3d`] — which is defined by two endpoint *centres* — this
+/// primitive is defined by a cylinder *half-height* `h` and a rounding radius
+/// `r`.  The overall shape is `2*(h+r)` tall and `2*ra` wide where `ra = r`.
+///
+/// Useful for rounded columns, pillars, and physics capsule shapes.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::rounded_cylinder_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Centre is inside
+/// let d = rounded_cylinder_3d(Vec3::ZERO, Vec3::ZERO, 0.5, 0.1, 1.0);
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// // Far outside
+/// let d2 = rounded_cylinder_3d(Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO, 0.5, 0.1, 1.0);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f32 {
+    // IQ sdRoundedCylinder: ra = cylinder radius, rb = rounding radius, h = half-height
+    let p = p - centre;
+    let d_xz = (p.x * p.x + p.z * p.z).sqrt() - ra + rb;
+    let d_y = p.y.abs() - h;
+    let d = (d_xz.max(0.0).hypot(d_y.max(0.0))) + d_xz.min(0.0).min(d_y.min(0.0)) - rb;
+    d
+}
+
+/// Signed distance to a chain-link (torus with a section cut out and rejoined).
+///
+/// Modelled as a torus with tube-radius `r` whose cross-section is elongated
+/// by `le` along the Y axis (like a stadium).  The link lies in the XY plane.
+///
+/// `r1` is the major radius (distance from link centre to tube centre), `r2` is
+/// the tube radius, `le` is the link elongation half-length.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::link_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // A point inside the tube (near the torus ring, r1=1.0) is inside
+/// let d = link_3d(Vec3::new(0.9, 0.0, 0.0), Vec3::ZERO, 1.0, 0.2, 0.5);
+/// assert!(d < 0.0, "should be inside tube, got {d}");
+/// // Far away is outside
+/// let d2 = link_3d(Vec3::new(10.0, 0.0, 0.0), Vec3::ZERO, 1.0, 0.2, 0.5);
+/// assert!(d2 > 0.0);
+/// ```
+#[must_use]
+pub fn link_3d(p: Vec3, centre: Vec3, r1: f32, r2: f32, le: f32) -> f32 {
+    // IQ sdLink: r1 = major radius, r2 = tube radius, le = elongation half-length
+    let p = p - centre;
+    let qx = (p.x * p.x + p.z * p.z).sqrt() - r1;
+    let qy = p.y.abs() - le;
+    (qx * qx + qy.max(0.0) * qy.max(0.0)).sqrt() - r2
+}
+
 /// Smooth union blends two shapes with a soft merging radius `k`.
 ///
 /// `k = 0` degenerates to `min(a, b)`. Larger `k` creates a fatter junction.
