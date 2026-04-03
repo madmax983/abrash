@@ -145,7 +145,8 @@ impl AbrashBackend {
         let proj = Mat4::perspective(scene.camera.fov_y, self.aspect, 0.1, 1000.0);
         let camera = FrameCamera::new(view, proj);
 
-        let mut frame = Frame::new(camera);
+        // ⚡ Bolt: Use Frame::with_capacity to avoid per-frame vector allocations
+        let mut frame = Frame::with_capacity(camera, scene.draws.len(), 0);
 
         // Collect transient material handles so we can destroy them after the frame.
         let mut mat_handles = Vec::with_capacity(scene.draws.len());
