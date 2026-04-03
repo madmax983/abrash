@@ -1,5 +1,8 @@
+use abrash::color::Color;
+use abrash::curve::{CatmullRom, CubicBezier, bezier_cubic};
 use abrash::geometry::AABB;
 use abrash::math::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4, fast_atan2, lerp, smoothstep};
+use abrash::noise::{fbm_2d, gradient_noise_2d, value_noise_2d};
 use abrash::plane::Frustum;
 use abrash::quat::Quat;
 use abrash::ray::Ray;
@@ -253,6 +256,107 @@ fn bench_frustum_contains_sphere(c: &mut Criterion) {
     });
 }
 
+fn bench_color(c: &mut Criterion) {
+    let mut g = c.benchmark_group("color");
+
+    g.bench_function("from_srgb_u8", |b| {
+        b.iter(|| {
+            black_box(Color::from_srgb_u8(
+                black_box(128),
+                black_box(200),
+                black_box(64),
+                black_box(255),
+            ))
+        });
+    });
+
+    g.bench_function("to_argb_u32", |b| {
+        let col = Color::new(0.5, 0.8, 0.2, 1.0);
+        b.iter(|| black_box(col.to_argb_u32()));
+    });
+
+    g.bench_function("blend_over", |b| {
+        let src = Color::new(1.0, 0.0, 0.0, 0.5);
+        let dst = Color::new(0.0, 0.0, 1.0, 1.0);
+        b.iter(|| black_box(Color::blend_over(black_box(src), black_box(dst))));
+    });
+
+    g.bench_function("to_hsv", |b| {
+        let col = Color::rgb(0.7, 0.3, 0.1);
+        b.iter(|| black_box(col.to_hsv()));
+    });
+
+    g.bench_function("from_hsv", |b| {
+        b.iter(|| {
+            black_box(Color::from_hsv(
+                black_box(210.0),
+                black_box(0.8),
+                black_box(0.9),
+            ))
+        });
+    });
+
+    g.finish();
+}
+
+fn bench_noise(c: &mut Criterion) {
+    let mut g = c.benchmark_group("noise");
+
+    g.bench_function("value_noise_2d", |b| {
+        b.iter(|| black_box(value_noise_2d(black_box(1.23), black_box(4.56))));
+    });
+
+    g.bench_function("gradient_noise_2d", |b| {
+        b.iter(|| black_box(gradient_noise_2d(black_box(1.23), black_box(4.56))));
+    });
+
+    g.bench_function("fbm_2d_6oct", |b| {
+        b.iter(|| black_box(fbm_2d(black_box(1.23), black_box(4.56), 6, 2.0, 0.5)));
+    });
+
+    g.finish();
+}
+
+fn bench_curve(c: &mut Criterion) {
+    let mut g = c.benchmark_group("curve");
+
+    let p0 = Vec3::new(0.0, 0.0, 0.0);
+    let p1 = Vec3::new(1.0, 2.0, 0.0);
+    let p2 = Vec3::new(2.0, 2.0, 0.0);
+    let p3 = Vec3::new(3.0, 0.0, 0.0);
+
+    g.bench_function("bezier_cubic_eval", |b| {
+        b.iter(|| black_box(bezier_cubic(p0, p1, p2, p3, black_box(0.5))));
+    });
+
+    let bez = CubicBezier::new(p0, p1, p2, p3);
+    g.bench_function("bezier_arc_length_64", |b| {
+        b.iter(|| black_box(bez.arc_length(64)));
+    });
+
+    g.bench_function("bezier_split", |b| {
+        b.iter(|| black_box(bez.split(black_box(0.5))));
+    });
+
+    let spline = CatmullRom::new(vec![
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(1.0, 1.0, 0.0),
+        Vec3::new(2.0, 0.5, 0.0),
+        Vec3::new(3.0, 1.0, 0.0),
+        Vec3::new(4.0, 0.0, 0.0),
+    ]);
+
+    g.bench_function("catmull_rom_evaluate", |b| {
+        b.iter(|| black_box(spline.evaluate(black_box(0.5))));
+    });
+
+    g.bench_function("catmull_rom_sample_64", |b| {
+        b.iter(|| black_box(spline.sample(64)));
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_vec2_add,
@@ -283,6 +387,9 @@ criterion_group!(
     bench_ray_intersect_aabb,
     bench_ray_intersect_triangle,
     bench_frustum_contains_aabb,
-    bench_frustum_contains_sphere
+    bench_frustum_contains_sphere,
+    bench_color,
+    bench_noise,
+    bench_curve
 );
 criterion_main!(benches);
