@@ -539,14 +539,14 @@ impl Mat2 {
         let m01 = self.m[0][1];
         let m10 = self.m[1][0];
         let m11 = self.m[1][1];
-        let mut out = Vec::with_capacity(vertices.len());
-        for &v in vertices {
-            out.push(Vec2 {
+
+        vertices
+            .iter()
+            .map(|&v| Vec2 {
                 x: m00 * v.x + m01 * v.y,
                 y: m10 * v.x + m11 * v.y,
-            });
-        }
-        out
+            })
+            .collect()
     }
 
     /// Transform vertices in place.
