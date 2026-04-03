@@ -190,6 +190,6 @@ impl WindowApp for DirectionalBlurDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(DirectionalBlurDemoApp::new()?)?;
+    run_windowed(DirectionalBlurDemoApp::new().unwrap());
     Ok(())
 }

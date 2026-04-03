@@ -231,7 +231,7 @@ impl WindowApp for GlitchDemo {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(GlitchDemo::new()?)
+    run_windowed(GlitchDemo::new().unwrap())
 }

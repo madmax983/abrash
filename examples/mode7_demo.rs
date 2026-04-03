@@ -166,7 +166,7 @@ impl WindowApp for Mode7Demo {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 

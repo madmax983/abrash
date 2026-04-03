@@ -232,6 +232,6 @@ impl WindowApp for VoronoiDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(VoronoiDemoApp::new()?)?;
+    run_windowed(VoronoiDemoApp::new().unwrap());
     Ok(())
 }

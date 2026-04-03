@@ -135,9 +135,9 @@ impl WindowApp for FisheyeDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(FisheyeDemoApp::new()?)
+    run_windowed(FisheyeDemoApp::new().unwrap())
 }

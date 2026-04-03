@@ -153,9 +153,9 @@ impl WindowApp for HalftoneDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(HalftoneDemoApp::new()?)
+    run_windowed(HalftoneDemoApp::new().unwrap())
 }

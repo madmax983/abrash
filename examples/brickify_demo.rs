@@ -221,9 +221,9 @@ impl WindowApp for BrickifyDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(BrickifyDemoApp::new()?)
+    run_windowed(BrickifyDemoApp::new().unwrap())
 }

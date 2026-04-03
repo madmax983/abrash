@@ -159,7 +159,7 @@ impl WindowApp for SkyboxDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(SkyboxDemoApp::new()?)
+    run_windowed(SkyboxDemoApp::new().unwrap())
 }

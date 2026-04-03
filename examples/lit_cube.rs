@@ -216,7 +216,7 @@ impl WindowApp for LitCubeApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(LitCubeApp::new()?)
+    run_windowed(LitCubeApp::new().unwrap())
 }

@@ -261,7 +261,7 @@ fn main() {
 }
 
 #[cfg(feature = "nova")]
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(AsciiDisplayDemo::new()?)
+    run_windowed(AsciiDisplayDemo::new().unwrap())
 }

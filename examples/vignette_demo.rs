@@ -143,7 +143,7 @@ impl WindowApp for VignetteApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(VignetteApp::new()?)
+    run_windowed(VignetteApp::new().unwrap())
 }

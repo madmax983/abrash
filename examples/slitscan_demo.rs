@@ -225,6 +225,6 @@ impl WindowApp for SlitScanDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(SlitScanDemoApp::new()?)?;
+    run_windowed(SlitScanDemoApp::new().unwrap());
     Ok(())
 }

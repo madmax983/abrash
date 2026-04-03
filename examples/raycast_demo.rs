@@ -264,7 +264,7 @@ impl WindowApp for RaycastDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(RaycastDemoApp::new()?)
+    run_windowed(RaycastDemoApp::new().unwrap())
 }

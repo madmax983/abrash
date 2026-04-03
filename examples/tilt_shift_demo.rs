@@ -162,7 +162,7 @@ impl WindowApp for TiltShiftApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
@@ -174,5 +174,5 @@ fn main() -> Result<(), HostError> {
         println!("  Esc/Q: Close window to exit");
     }
 
-    run_windowed(TiltShiftApp::new()?)
+    run_windowed(TiltShiftApp::new().unwrap())
 }
