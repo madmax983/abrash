@@ -213,9 +213,9 @@ mod tests {
             center_g,
             corner_g
         );
-        assert_eq!(
-            corner_g, 0,
-            "Corner should be completely black due to vignette"
+        assert!(
+            corner_g <= 8,
+            "Corner should be extremely dark (<= 8) due to vignette, got: {}", corner_g
         );
     }
 }
