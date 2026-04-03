@@ -34,6 +34,7 @@ pub mod transform;
 
 pub mod blitter;
 pub mod easing;
+pub mod gradient;
 pub mod irect;
 pub mod ivec;
 pub mod obj_loader_havoc;
