@@ -37,40 +37,47 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
         let y_sin_a = y_f32 * sin_a;
         let y_cos_a = y_f32 * cos_a;
 
-        for (x, pixel) in row.iter_mut().enumerate().take(width) {
+        let mut rx = -y_sin_a;
+        let mut ry = y_cos_a;
+
+        let inv_dot_size = 1.0 / dot_size;
+
+        for pixel in row.iter_mut() {
             let p = *pixel;
 
-            // Extract RGB
-            let r = ((p >> 16) & 0xFF) as f32;
-            let g = ((p >> 8) & 0xFF) as f32;
-            let b = (p & 0xFF) as f32;
+            // Fast integer luminance (0 to 255)
+            // L = 0.299*R + 0.587*G + 0.114*B
+            // Approximate with (2 * R + 5 * G + 1 * B) / 8 or similar fast int math
+            // Actually, keeping standard Rec.601 via integer: (77 * r + 150 * g + 29 * b) >> 8
+            let r = (p >> 16) & 0xFF;
+            let g = (p >> 8) & 0xFF;
+            let b = p & 0xFF;
 
-            // Calculate luminance (0.0 to 1.0)
-            let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-
-            // Map (x, y) to the rotated grid coordinates
-            let x_f32 = x as f32;
-            let rx = x_f32 * cos_a - y_sin_a;
-            let ry = x_f32 * sin_a + y_cos_a;
+            let lum_i = (77 * r + 150 * g + 29 * b) >> 8;
+            let lum = lum_i as f32 * (1.0 / 255.0);
 
             // Find the center of the nearest halftone cell in the rotated space
-            let cx = (rx / dot_size).round() * dot_size;
-            let cy = (ry / dot_size).round() * dot_size;
+            let cx = (rx * inv_dot_size).round() * dot_size;
+            let cy = (ry * inv_dot_size).round() * dot_size;
+
+            let dx = rx - cx;
+            let dy = ry - cy;
 
             // Calculate the distance from the pixel to the cell center
-            let dist_sq = (rx - cx) * (rx - cx) + (ry - cy) * (ry - cy);
+            let dist_sq = dx * dx + dy * dy;
 
             // The radius of the dot we should draw (squared).
-            // Lighter pixels (lum closer to 1.0) have smaller black dots.
-            // Darker pixels (lum closer to 0.0) have larger black dots.
             let dot_radius_sq = (1.0 - lum) * max_dist_sq;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
-            if dist_sq < dot_radius_sq {
-                *pixel = 0xFF00_0000; // Black
+            *pixel = if dist_sq < dot_radius_sq {
+                0xFF00_0000
             } else {
-                *pixel = 0xFFFF_FFFF; // White
-            }
+                0xFFFF_FFFF
+            };
+
+            rx += cos_a;
+            ry += sin_a;
         }
     });
 }
