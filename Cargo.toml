@@ -641,6 +641,11 @@ harness = false
 name = "mode7_bench"
 harness = false
 
+[[bench]]
+name = "duotone_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "brickify_demo"
 path = "examples/brickify_demo.rs"
@@ -674,4 +679,9 @@ required-features = ["nova"]
 [[example]]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "duotone_demo"
+path = "examples/duotone_demo.rs"
 required-features = ["nova"]
