@@ -966,6 +966,77 @@ pub fn domain_warp_fbm_2d(
     )
 }
 
+/// Gabor noise kernel — a single oriented sinusoidal blob.
+///
+/// Models a Gaussian-windowed sine wave at position `(x, y)` relative to
+/// the kernel centre.  Parameters:
+///
+/// - `freq`: spatial frequency of the sine wave (cycles per unit)
+/// - `theta`: orientation angle of the sine (radians, measured from +x axis)
+/// - `bandwidth`: Gaussian half-bandwidth controlling kernel extent (σ in units)
+///
+/// Returns a value in roughly `[−1, 1]`.  Use [`gabor_noise_2d`] for the
+/// full noise function built by summing many kernels.
+#[inline]
+fn gabor_kernel(dx: f32, dy: f32, freq: f32, theta: f32, bandwidth: f32) -> f32 {
+    let g = (-(dx * dx + dy * dy) / (2.0 * bandwidth * bandwidth)).exp();
+    let s = std::f32::consts::TAU * freq * (dx * theta.cos() + dy * theta.sin());
+    g * s.cos()
+}
+
+/// Gabor noise: spatially-controlled anisotropic band-pass noise.
+///
+/// Tiles the plane with a Poisson-distributed set of Gabor kernels (here
+/// approximated by jittered grid cells, one kernel per cell) and sums their
+/// contributions.  The result has a dominant frequency `freq` and orientation
+/// `theta`, making it ideal for wood grain, fabric, turbulent flow lines, and
+/// any texture with directional structure.
+///
+/// - `x`, `y`: sample position
+/// - `freq`: dominant spatial frequency (≈ 2–10 for typical noise)
+/// - `theta`: orientation angle in radians
+/// - `bandwidth`: kernel Gaussian width (≈ 0.1–0.5; smaller = narrower bands)
+/// - `cells`: number of grid cells per axis (more = smoother but slower)
+///
+/// Returns a value approximately in `[−1, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::gabor_noise_2d;
+///
+/// // Deterministic and non-trivial
+/// let v = gabor_noise_2d(1.5, 2.3, 3.0, 0.0, 0.3, 4);
+/// assert!(v.abs() <= 1.5, "Gabor noise out of expected range: {v}");
+///
+/// // Same inputs → same output
+/// let a = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
+/// let b = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
+/// assert_eq!(a, b);
+/// ```
+pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cells: i32) -> f32 {
+    let ix = x.floor() as i32;
+    let iy = y.floor() as i32;
+    let mut sum = 0.0_f32;
+    for cy in -cells..=cells {
+        for cx in -cells..=cells {
+            // Jitter the kernel centre within each grid cell
+            let hx = hash2(ix + cx, iy + cy);
+            let hy = hash2(ix + cx + 7_919, iy + cy + 104_729); // coprime offsets
+            let kx = (ix + cx) as f32 + hx;
+            let ky = (iy + cy) as f32 + hy;
+            let dx = x - kx;
+            let dy = y - ky;
+            // Only accumulate kernels close enough to matter
+            let r2 = dx * dx + dy * dy;
+            if r2 < (3.0 * bandwidth) * (3.0 * bandwidth) {
+                sum += gabor_kernel(dx, dy, freq, theta, bandwidth);
+            }
+        }
+    }
+    sum.clamp(-1.0, 1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1268,5 +1339,40 @@ mod tests {
         let a = curl_noise_3d(Vec3::new(1.1, -0.3, 0.9), 0.8);
         let b = curl_noise_3d(Vec3::new(1.1, -0.3, 0.9), 0.8);
         assert_eq!(a, b);
+    }
+
+    // ── Gabor noise ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn gabor_in_range() {
+        for (x, y) in [(0.5_f32, 0.7_f32), (1.3, -0.9), (-2.1, 1.6)] {
+            let v = gabor_noise_2d(x, y, 3.0, 0.0, 0.3, 3);
+            assert!(v.abs() <= 1.0, "gabor out of [-1,1]: {v} at ({x},{y})");
+        }
+    }
+
+    #[test]
+    fn gabor_deterministic() {
+        let a = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
+        let b = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn gabor_nonzero() {
+        // Non-trivial sample should produce meaningful output
+        let v = gabor_noise_2d(1.5, 2.3, 3.0, 0.0, 0.3, 4);
+        assert!(v.abs() > 1e-6, "gabor appears zero: {v}");
+    }
+
+    #[test]
+    fn gabor_orientation_differs() {
+        // Two different orientations should produce different results at the same point
+        let h = gabor_noise_2d(1.0, 0.5, 4.0, 0.0, 0.25, 3);
+        let v = gabor_noise_2d(1.0, 0.5, 4.0, std::f32::consts::FRAC_PI_2, 0.25, 3);
+        assert!(
+            (h - v).abs() > 1e-4,
+            "gabor ignoring orientation: h={h} v={v}"
+        );
     }
 }

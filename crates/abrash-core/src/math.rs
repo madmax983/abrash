@@ -259,6 +259,57 @@ pub fn remap(x: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> 
     to_min + t * (to_max - to_min)
 }
 
+/// Shortest-path lerp between two angles (in radians).
+///
+/// Interpolates by the shortest arc, wrapping through the ±π boundary
+/// so that `lerp_angle(3.1, -3.1, 0.5)` goes through π rather than
+/// all the way around.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::lerp_angle;
+/// use std::f32::consts::PI;
+///
+/// // Halfway between 0 and PI/2 → PI/4
+/// let a = lerp_angle(0.0, PI / 2.0, 0.5);
+/// assert!((a - PI / 4.0).abs() < 1e-5);
+///
+/// // Wraps correctly: from 3.0 to -3.0 goes through ±PI
+/// let b = lerp_angle(3.0, -3.0, 0.5);
+/// assert!(b.abs() > 3.0 || b.abs() < 0.2, "should be near ±PI, got {b}");
+/// ```
+#[must_use]
+#[inline]
+pub fn lerp_angle(a: f32, b: f32, t: f32) -> f32 {
+    use std::f32::consts::TAU;
+    let diff =
+        ((b - a).rem_euclid(TAU) + std::f32::consts::PI).rem_euclid(TAU) - std::f32::consts::PI;
+    a + diff * t
+}
+
+/// Signed shortest angular difference from `a` to `b` (both in radians).
+///
+/// Returns a value in `(-π, π]`: positive means counter-clockwise.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::angle_diff;
+/// use std::f32::consts::PI;
+///
+/// assert!((angle_diff(0.0, PI / 2.0) - PI / 2.0).abs() < 1e-5);
+/// // Going the short way: from 3.0 rad to -3.0 rad is ~0.28 rad
+/// let d = angle_diff(3.0, -3.0);
+/// assert!(d.abs() < 0.3, "short arc, got {d}");
+/// ```
+#[must_use]
+#[inline]
+pub fn angle_diff(a: f32, b: f32) -> f32 {
+    use std::f32::consts::TAU;
+    ((b - a).rem_euclid(TAU) + std::f32::consts::PI).rem_euclid(TAU) - std::f32::consts::PI
+}
+
 /// Fast polynomial approximation of `atan2(y, x)`.
 ///
 /// Maximum error is approximately 0.005 radians (~0.3°).
@@ -677,6 +728,20 @@ impl Vec2 {
         let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).clamp(0.0, 1.0);
         let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).clamp(0.0, 1.0);
         Self::new(tx * tx * (3.0 - 2.0 * tx), ty * ty * (3.0 - 2.0 * ty))
+    }
+
+    /// The smallest of the two components.
+    #[must_use]
+    #[inline]
+    pub fn min_component(self) -> f32 {
+        self.x.min(self.y)
+    }
+
+    /// The largest of the two components.
+    #[must_use]
+    #[inline]
+    pub fn max_component(self) -> f32 {
+        self.x.max(self.y)
     }
 }
 
@@ -1367,6 +1432,50 @@ impl Vec3 {
     #[inline]
     pub fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
+    }
+
+    /// Component-wise `x^exp`.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// let v = Vec3::new(2.0, 3.0, 4.0).pow(2.0);
+    /// assert!((v.x - 4.0).abs() < 1e-5);
+    /// assert!((v.y - 9.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn pow(self, exp: f32) -> Self {
+        Self::new(self.x.powf(exp), self.y.powf(exp), self.z.powf(exp))
+    }
+
+    /// Component-wise `e^x`.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// let v = Vec3::new(0.0, 1.0, 2.0).exp();
+    /// assert!((v.x - 1.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn exp(self) -> Self {
+        Self::new(self.x.exp(), self.y.exp(), self.z.exp())
+    }
+
+    /// Component-wise natural log `ln(x)`.  Returns `-inf` for non-positive components.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::Vec3;
+    /// let v = Vec3::new(1.0, std::f32::consts::E, 1.0).log();
+    /// assert!(v.x.abs() < 1e-5);
+    /// assert!((v.y - 1.0).abs() < 1e-4);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn log(self) -> Self {
+        Self::new(self.x.ln(), self.y.ln(), self.z.ln())
     }
 
     /// to the (normalized) input and each other.
@@ -4861,6 +4970,46 @@ impl Vec4 {
             w: self.w - self.w.floor(),
         }
     }
+
+    /// Smallest of the four components.
+    #[must_use]
+    #[inline]
+    pub fn min_component(self) -> f32 {
+        self.x.min(self.y).min(self.z).min(self.w)
+    }
+
+    /// Largest of the four components.
+    #[must_use]
+    #[inline]
+    pub fn max_component(self) -> f32 {
+        self.x.max(self.y).max(self.z).max(self.w)
+    }
+
+    /// Component-wise `x^exp`.
+    #[must_use]
+    #[inline]
+    pub fn pow(self, exp: f32) -> Self {
+        Self::new(
+            self.x.powf(exp),
+            self.y.powf(exp),
+            self.z.powf(exp),
+            self.w.powf(exp),
+        )
+    }
+
+    /// Component-wise `e^x`.
+    #[must_use]
+    #[inline]
+    pub fn exp(self) -> Self {
+        Self::new(self.x.exp(), self.y.exp(), self.z.exp(), self.w.exp())
+    }
+
+    /// Component-wise natural log.
+    #[must_use]
+    #[inline]
+    pub fn log(self) -> Self {
+        Self::new(self.x.ln(), self.y.ln(), self.z.ln(), self.w.ln())
+    }
 }
 
 /// Multiply vector by scalar.
@@ -5498,5 +5647,77 @@ mod tests_mat3 {
             assert!((t.length() - 1.0).abs() < 1e-4);
             assert!((b.length() - 1.0).abs() < 1e-4);
         }
+    }
+
+    // ── Vec2 min/max_component ───────────────────────────────────────────────
+
+    #[test]
+    fn vec2_min_max_component() {
+        let v = Vec2::new(3.0, -1.0);
+        assert_eq!(v.min_component(), -1.0);
+        assert_eq!(v.max_component(), 3.0);
+        let v = Vec2::new(5.0, 5.0);
+        assert_eq!(v.min_component(), 5.0);
+        assert_eq!(v.max_component(), 5.0);
+    }
+
+    // ── Vec3 pow/exp/log ─────────────────────────────────────────────────────
+
+    #[test]
+    fn vec3_pow_exp_log() {
+        let v = Vec3::new(4.0, 9.0, 16.0);
+        let sq = v.pow(0.5);
+        assert!((sq.x - 2.0).abs() < 1e-5);
+        assert!((sq.y - 3.0).abs() < 1e-5);
+        assert!((sq.z - 4.0).abs() < 1e-5);
+        let one = Vec3::ZERO.exp();
+        assert!((one.x - 1.0).abs() < 1e-5);
+        let e_val = Vec3::new(1.0_f32.exp(), 1.0, 1.0);
+        let l = e_val.log();
+        assert!((l.x - 1.0).abs() < 1e-5);
+    }
+
+    // ── Vec4 min/max_component / pow/exp/log ─────────────────────────────────
+
+    #[test]
+    fn vec4_component_ops() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        assert_eq!(v.min_component(), 1.0);
+        assert_eq!(v.max_component(), 4.0);
+        let sq = v.pow(2.0);
+        assert!((sq.x - 1.0).abs() < 1e-5);
+        assert!((sq.w - 16.0).abs() < 1e-5);
+    }
+
+    // ── lerp_angle / angle_diff ──────────────────────────────────────────────
+
+    #[test]
+    fn lerp_angle_basic() {
+        use std::f32::consts::PI;
+        // Lerp from 0 to 90° — unambiguous short path
+        let a = lerp_angle(0.0, PI / 2.0, 0.5);
+        assert!((a - PI / 4.0).abs() < 1e-5, "expected π/4 got {a}");
+    }
+
+    #[test]
+    fn lerp_angle_wraps() {
+        // lerping from 350° to 10° should go through 0° (short path), not 180°
+        let deg350 = 350.0_f32.to_radians();
+        let deg10 = 10.0_f32.to_radians();
+        let mid = lerp_angle(deg350, deg10, 0.5);
+        let mid_deg = mid.to_degrees().rem_euclid(360.0);
+        assert!(
+            mid_deg < 20.0 || mid_deg > 340.0,
+            "expected near 0°, got {mid_deg}°"
+        );
+    }
+
+    #[test]
+    fn angle_diff_sign() {
+        use std::f32::consts::PI;
+        let d = angle_diff(0.0, PI / 2.0);
+        assert!((d - PI / 2.0).abs() < 1e-5);
+        let d2 = angle_diff(PI / 2.0, 0.0);
+        assert!((d2 + PI / 2.0).abs() < 1e-5);
     }
 }

@@ -771,6 +771,223 @@ impl Color {
         }
         stops[stops.len() - 1].1
     }
+
+    /// Color dodge: brightens `self` by the inverse of `other`.
+    ///
+    /// Result = clamp(self / (1 − other)).  Produces values brighter than
+    /// either input — the photographic "dodge" operation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let grey = Color::rgb(0.5, 0.5, 0.5);
+    /// let dark = Color::rgb(0.25, 0.25, 0.25);
+    /// let out = grey.blend_dodge(dark);
+    /// // dodge always brightens — result > grey
+    /// assert!(out.r > grey.r);
+    /// ```
+    #[must_use]
+    pub fn blend_dodge(self, other: Self) -> Self {
+        let f = |a: f32, b: f32| -> f32 {
+            if b >= 1.0 {
+                1.0
+            } else {
+                (a / (1.0 - b)).clamp(0.0, 1.0)
+            }
+        };
+        Self::new(
+            f(self.r, other.r),
+            f(self.g, other.g),
+            f(self.b, other.b),
+            self.a,
+        )
+    }
+
+    /// Color burn: darkens `self` toward `other`.
+    ///
+    /// Result = 1 − clamp((1 − self) / other).  The complement of dodge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let grey = Color::rgb(0.5, 0.5, 0.5);
+    /// let light = Color::rgb(0.75, 0.75, 0.75);
+    /// let out = grey.blend_burn(light);
+    /// // burn always darkens — result < grey
+    /// assert!(out.r < grey.r);
+    /// ```
+    #[must_use]
+    pub fn blend_burn(self, other: Self) -> Self {
+        let f = |a: f32, b: f32| -> f32 {
+            if b <= 0.0 {
+                0.0
+            } else {
+                (1.0 - (1.0 - a) / b).clamp(0.0, 1.0)
+            }
+        };
+        Self::new(
+            f(self.r, other.r),
+            f(self.g, other.g),
+            f(self.b, other.b),
+            self.a,
+        )
+    }
+
+    /// Difference blend: absolute difference of each channel.
+    ///
+    /// Identical pixels produce black; complementary pairs produce white.
+    /// Useful for comparing two layers or creating psychedelic effects.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let a = Color::rgb(0.8, 0.3, 0.5);
+    /// let b = Color::rgb(0.3, 0.3, 0.5);
+    /// let out = a.blend_difference(b);
+    /// assert!((out.r - 0.5).abs() < 1e-5);
+    /// assert!(out.g < 1e-5); // identical channels → 0
+    /// ```
+    #[must_use]
+    pub fn blend_difference(self, other: Self) -> Self {
+        Self::new(
+            (self.r - other.r).abs(),
+            (self.g - other.g).abs(),
+            (self.b - other.b).abs(),
+            self.a,
+        )
+    }
+
+    /// Exclusion blend: softer version of difference, avoids extreme contrast.
+    ///
+    /// Formula: `a + b − 2·a·b`.  Identical pixels produce mid-grey (0.5),
+    /// not black.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let white = Color::WHITE;
+    /// let black = Color::BLACK;
+    /// // white exclusion black = white (max contrast)
+    /// assert!((white.blend_exclusion(black).r - 1.0).abs() < 1e-5);
+    /// // identical mid-grey → 0.5
+    /// let grey = Color::rgb(0.5, 0.5, 0.5);
+    /// assert!((grey.blend_exclusion(grey).r - 0.5).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn blend_exclusion(self, other: Self) -> Self {
+        let f = |a: f32, b: f32| a + b - 2.0 * a * b;
+        Self::new(
+            f(self.r, other.r),
+            f(self.g, other.g),
+            f(self.b, other.b),
+            self.a,
+        )
+    }
+
+    /// Convert from linear RGB to CIE XYZ (D65 illuminant).
+    ///
+    /// The alpha channel is preserved unchanged.  Uses the IEC 61966-2-1
+    /// sRGB primaries matrix.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let (x, y, z) = Color::WHITE.to_xyz();
+    /// // D65 white point: (0.9505, 1.0, 1.089)
+    /// assert!((x - 0.9505).abs() < 0.002);
+    /// assert!((y - 1.0).abs() < 0.002);
+    /// assert!((z - 1.0890).abs() < 0.002);
+    /// ```
+    #[must_use]
+    pub fn to_xyz(self) -> (f32, f32, f32) {
+        let r = self.r;
+        let g = self.g;
+        let b = self.b;
+        let x = 0.412_456_4 * r + 0.357_576_1 * g + 0.180_437_5 * b;
+        let y = 0.212_672_9 * r + 0.715_152_2 * g + 0.072_174_9 * b;
+        let z = 0.019_333_9 * r + 0.119_192_0 * g + 0.950_304_1 * b;
+        (x, y, z)
+    }
+
+    /// Construct a [`Color`] from CIE XYZ (D65 illuminant).
+    ///
+    /// The result is in linear light space.  Out-of-gamut values are clamped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let c = Color::from_xyz(0.9505, 1.0, 1.0890);
+    /// assert!((c.r - 1.0).abs() < 0.01);
+    /// assert!((c.g - 1.0).abs() < 0.01);
+    /// assert!((c.b - 1.0).abs() < 0.01);
+    /// ```
+    #[must_use]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        let r = 3.240_454_2 * x - 1.537_138_5 * y - 0.498_531_4 * z;
+        let g = -0.969_266_0 * x + 1.876_010_8 * y + 0.041_556_0 * z;
+        let b = 0.055_643_4 * x - 0.204_025_9 * y + 1.057_225_2 * z;
+        Self::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0)
+    }
+
+    /// Convert to Oklch (L, Chroma, Hue) — the cylindrical form of Oklab.
+    ///
+    /// - `L` ∈ [0, 1]: perceptual lightness
+    /// - `C` ≥ 0: chroma (saturation magnitude)
+    /// - `H` ∈ [0, 2π]: hue angle in radians
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let grey = Color::rgb(0.5, 0.5, 0.5);
+    /// let (l, c, _h) = grey.to_oklch();
+    /// assert!(c < 0.01, "grey has near-zero chroma: {c}");
+    /// assert!(l > 0.0 && l < 1.0);
+    /// ```
+    #[must_use]
+    pub fn to_oklch(self) -> (f32, f32, f32) {
+        let (l, a, b) = self.to_oklab();
+        let c = (a * a + b * b).sqrt();
+        let h = b.atan2(a).rem_euclid(std::f32::consts::TAU);
+        (l, c, h)
+    }
+
+    /// Construct a [`Color`] from Oklch (L, Chroma, Hue).
+    ///
+    /// `H` is in radians.  Converts via Oklab → linear RGB.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Round-trip: linear red → Oklch → back
+    /// let red = Color::rgb(1.0, 0.0, 0.0);
+    /// let (l, c, h) = red.to_oklch();
+    /// let back = Color::from_oklch(l, c, h);
+    /// assert!((back.r - red.r).abs() < 1e-4);
+    /// assert!((back.g - red.g).abs() < 1e-4);
+    /// assert!((back.b - red.b).abs() < 1e-4);
+    /// ```
+    #[must_use]
+    pub fn from_oklch(l: f32, c: f32, h: f32) -> Self {
+        let a = c * h.cos();
+        let b = c * h.sin();
+        Self::from_oklab(l, a, b)
+    }
 }
 
 impl std::ops::Add for Color {
@@ -1135,5 +1352,120 @@ mod tests {
         let same = blue.adjust_saturation(1.0);
         assert!((same.r - blue.r).abs() < 0.01);
         assert!((same.b - blue.b).abs() < 0.01);
+    }
+
+    // ── blend_dodge / blend_burn ─────────────────────────────────────────────
+
+    #[test]
+    fn dodge_brightens() {
+        let base = Color::rgb(0.4, 0.4, 0.4);
+        let factor = Color::rgb(0.5, 0.5, 0.5);
+        let out = base.blend_dodge(factor);
+        assert!(out.r > base.r, "dodge must brighten");
+    }
+
+    #[test]
+    fn burn_darkens() {
+        let base = Color::rgb(0.6, 0.6, 0.6);
+        let factor = Color::rgb(0.5, 0.5, 0.5);
+        let out = base.blend_burn(factor);
+        assert!(out.r < base.r, "burn must darken");
+    }
+
+    #[test]
+    fn dodge_full_divisor_clamps() {
+        let out = Color::rgb(0.5, 0.5, 0.5).blend_dodge(Color::WHITE);
+        assert!((out.r - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn burn_zero_divisor_clamps() {
+        let out = Color::rgb(0.5, 0.5, 0.5).blend_burn(Color::BLACK);
+        assert!(out.r < 1e-5);
+    }
+
+    // ── blend_difference / blend_exclusion ───────────────────────────────────
+
+    #[test]
+    fn difference_identical_is_black() {
+        let c = Color::rgb(0.7, 0.3, 0.5);
+        let out = c.blend_difference(c);
+        assert!(out.r < 1e-5);
+        assert!(out.g < 1e-5);
+        assert!(out.b < 1e-5);
+    }
+
+    #[test]
+    fn difference_is_commutative() {
+        let a = Color::rgb(0.8, 0.2, 0.6);
+        let b = Color::rgb(0.3, 0.7, 0.1);
+        let ab = a.blend_difference(b);
+        let ba = b.blend_difference(a);
+        assert!((ab.r - ba.r).abs() < 1e-5);
+        assert!((ab.g - ba.g).abs() < 1e-5);
+    }
+
+    #[test]
+    fn exclusion_grey_is_midgrey() {
+        let grey = Color::rgb(0.5, 0.5, 0.5);
+        let out = grey.blend_exclusion(grey);
+        assert!(
+            (out.r - 0.5).abs() < 1e-5,
+            "exclusion of grey with itself = 0.5"
+        );
+    }
+
+    // ── to_xyz / from_xyz ────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_white_point_d65() {
+        let (x, y, z) = Color::WHITE.to_xyz();
+        assert!((x - 0.9505).abs() < 0.003, "x={x}");
+        assert!((y - 1.0).abs() < 0.003, "y={y}");
+        assert!((z - 1.0890).abs() < 0.003, "z={z}");
+    }
+
+    #[test]
+    fn xyz_roundtrip() {
+        let c = Color::rgb(0.8, 0.3, 0.5);
+        let (x, y, z) = c.to_xyz();
+        let back = Color::from_xyz(x, y, z);
+        assert!((back.r - c.r).abs() < 1e-4, "r");
+        assert!((back.g - c.g).abs() < 1e-4, "g");
+        assert!((back.b - c.b).abs() < 1e-4, "b");
+    }
+
+    #[test]
+    fn xyz_black_is_zero() {
+        let (x, y, z) = Color::BLACK.to_xyz();
+        assert!(x < 1e-5 && y < 1e-5 && z < 1e-5);
+    }
+
+    // ── to_oklch / from_oklch ────────────────────────────────────────────────
+
+    #[test]
+    fn oklch_grey_zero_chroma() {
+        let grey = Color::rgb(0.5, 0.5, 0.5);
+        let (_l, c, _h) = grey.to_oklch();
+        assert!(c < 0.01, "grey chroma should be near zero, got {c}");
+    }
+
+    #[test]
+    fn oklch_roundtrip() {
+        let col = Color::rgb(0.9, 0.2, 0.4);
+        let (l, c, h) = col.to_oklch();
+        let back = Color::from_oklch(l, c, h);
+        assert!((back.r - col.r).abs() < 1e-4, "r");
+        assert!((back.g - col.g).abs() < 1e-4, "g");
+        assert!((back.b - col.b).abs() < 1e-4, "b");
+    }
+
+    #[test]
+    fn oklch_hue_in_range() {
+        use std::f32::consts::TAU;
+        for col in [Color::RED, Color::GREEN, Color::BLUE] {
+            let (_l, _c, h) = col.to_oklch();
+            assert!(h >= 0.0 && h <= TAU, "hue out of [0, 2π]: {h}");
+        }
     }
 }
