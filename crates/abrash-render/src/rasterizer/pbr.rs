@@ -871,12 +871,14 @@ unsafe fn draw_scanline_pbr_simd(
                 // We need to write depths and colors where z < depth
                 _mm256_storeu_ps(depths_ptr, _mm256_blendv_ps(current_depths, z_vec, mask));
 
+                #[allow(clippy::cast_ptr_alignment)]
                 let old_pixels = _mm256_loadu_si256(pixels_ptr.cast::<__m256i>());
                 let final_pixels_ps = _mm256_blendv_ps(
                     _mm256_castsi256_ps(old_pixels),
                     _mm256_castsi256_ps(final_colors),
                     mask,
                 );
+                #[allow(clippy::cast_ptr_alignment)]
                 _mm256_storeu_si256(
                     pixels_ptr.cast::<__m256i>(),
                     _mm256_castps_si256(final_pixels_ps),

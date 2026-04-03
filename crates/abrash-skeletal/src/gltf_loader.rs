@@ -224,10 +224,15 @@ fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
             let indices: Vec<[usize; 3]> = reader
                 .read_indices()
                 .map(|iter| {
-                    let flat: Vec<usize> = iter.into_u32().map(|i| i as usize).collect();
-                    flat.chunks_exact(3)
-                        .map(|tri| [tri[0], tri[1], tri[2]])
-                        .collect()
+                    let iter_u32 = iter.into_u32();
+                    let mut indices = Vec::with_capacity(iter_u32.len() / 3);
+                    let mut iter_usize = iter_u32.map(|i| i as usize);
+                    while let (Some(a), Some(b), Some(c)) =
+                        (iter_usize.next(), iter_usize.next(), iter_usize.next())
+                    {
+                        indices.push([a, b, c]);
+                    }
+                    indices
                 })
                 .unwrap_or_default();
 

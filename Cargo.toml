@@ -60,6 +60,11 @@ ratatui = "0.30.0"
 crossterm = "0.29.0"
 
 [[bench]]
+name = "plasma_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "math"
 harness = false
 
@@ -674,4 +679,9 @@ required-features = ["nova"]
 [[example]]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "neon_outline_demo"
+path = "examples/neon_outline_demo.rs"
 required-features = ["nova"]

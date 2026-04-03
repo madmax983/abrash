@@ -137,9 +137,9 @@ impl WindowApp for ChromaticAberrationDemo {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(ChromaticAberrationDemo::new()?)
+    run_windowed(ChromaticAberrationDemo::new().unwrap())
 }

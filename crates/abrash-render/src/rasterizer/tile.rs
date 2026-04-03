@@ -1419,6 +1419,7 @@ fn rasterize_scanline_simd(
                     // Store depths and colors directly using Aligned Stores.
                     _mm256_store_ps(zb_ptr, depths_vec);
 
+                    #[allow(clippy::cast_ptr_alignment)]
                     let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     _mm256_store_si256(pixels_ptr, color_vec);
                 } else {
@@ -1429,6 +1430,7 @@ fn rasterize_scanline_simd(
                     _mm256_store_ps(zb_ptr, blended_depths);
 
                     // 2. Update pixels
+                    #[allow(clippy::cast_ptr_alignment)]
                     let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();
                     // Read old pixels (aligned load)
                     let old_pixels = _mm256_loadu_si256(pixels_ptr.cast_const());
@@ -1459,8 +1461,9 @@ fn rasterize_scanline_simd(
         // We need z at `i` (current).
         // Since we didn't update scalar `z` inside SIMD loop, we do it now.
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
-        let simd_pixels = i - pre_simd_count;
-        z += (simd_pixels as f32) * dz_dx;
+        // We calculate z directly instead of accumulating
+        #[allow(unused_assignments)]
+        { z += 0.0; } // Keep compiler quiet about z assignment before this loop
     }
 
     // Handle remaining pixels with scalar fallback
@@ -4744,8 +4747,7 @@ mod tests {
             .count();
         assert!(
             pixels_changed > 100,
-            "Expected at least 100 pixels rendered, got {}",
-            pixels_changed
+            "Expected at least 100 pixels rendered, got {pixels_changed}"
         );
     }
 }

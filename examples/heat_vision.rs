@@ -176,7 +176,7 @@ impl WindowApp for HeatVisionApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(HeatVisionApp::new()?)
+    run_windowed(HeatVisionApp::new().unwrap())
 }

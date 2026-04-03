@@ -175,11 +175,11 @@ impl WindowApp for BlackHoleDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     {
         print_banner();
-        run_windowed(BlackHoleDemoApp::new()?)
+        run_windowed(BlackHoleDemoApp::new().unwrap())
     }
     #[cfg(not(feature = "nova"))]
     {

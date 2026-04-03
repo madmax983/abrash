@@ -81,7 +81,7 @@ pub struct RtShadowPass {
     pub(crate) pipeline: wgpu::ComputePipeline,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) light_buffer: wgpu::Buffer,
-    /// Output shadow factor texture (R8Unorm, same size as G-Buffer).
+    /// Output shadow factor texture (`R8Unorm`, same size as G-Buffer).
     pub(crate) shadow_texture: Option<wgpu::Texture>,
     pub(crate) shadow_view: Option<wgpu::TextureView>,
     pub(crate) width: u32,
@@ -212,6 +212,10 @@ impl RtShadowPass {
     }
 
     /// Encode the RT shadow compute pass.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `ensure_output` was not called prior to encoding.
     pub fn encode(
         &self,
         device: &wgpu::Device,

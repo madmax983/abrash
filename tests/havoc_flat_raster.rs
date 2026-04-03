@@ -1,6 +1,6 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_core::zbuffer::ZBuffer;
 use abrash_core::math::Vec3;
+use abrash_core::zbuffer::ZBuffer;
 use abrash_render::rasterizer::fill_triangle_3d;
 use proptest::prelude::*;
 
@@ -20,7 +20,7 @@ proptest! {
             (Vec3::new(v0x, v0y, v0z), v0w),
             (Vec3::new(v1x, v1y, v1z), v1w),
             (Vec3::new(v2x, v2y, v2z), v2w),
-            0xFFFFFFFF
+            0xFFFF_FFFF
         );
     }
 }

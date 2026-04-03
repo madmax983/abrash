@@ -130,9 +130,9 @@ impl WindowApp for WobbleDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(WobbleDemoApp::new()?)
+    run_windowed(WobbleDemoApp::new().unwrap())
 }

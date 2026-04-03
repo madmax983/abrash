@@ -254,6 +254,6 @@ impl WindowApp for VisionDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(VisionDemoApp::new()?)?;
+    run_windowed(VisionDemoApp::new().unwrap());
     Ok(())
 }
