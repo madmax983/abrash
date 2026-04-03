@@ -308,14 +308,12 @@ mod tests {
             assert_eq!(
                 indices.len(),
                 expected_triangles[case],
-                "Case {} failed",
-                case
+                "Case {case} failed"
             );
             assert_eq!(
                 vertices.len(),
                 expected_triangles[case] * 3,
-                "Case {} vertices failed",
-                case
+                "Case {case} vertices failed"
             );
         }
     }

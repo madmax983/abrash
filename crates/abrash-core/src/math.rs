@@ -3019,9 +3019,7 @@ mod tests {
         );
         assert!(
             (simd_w - scalar_w).abs() < 0.0001,
-            "W mismatch: {} vs {}",
-            simd_w,
-            scalar_w
+            "W mismatch: {simd_w} vs {scalar_w}"
         );
     }
 
@@ -4137,17 +4135,11 @@ mod tests_fast_sin {
 
             assert!(
                 (fs - s).abs() < 0.005,
-                "sin mismatch at {}: {} vs {}",
-                i,
-                fs,
-                s
+                "sin mismatch at {i}: {fs} vs {s}"
             );
             assert!(
                 (fc - c).abs() < 0.005,
-                "cos mismatch at {}: {} vs {}",
-                i,
-                fc,
-                c
+                "cos mismatch at {i}: {fc} vs {c}"
             );
         }
     }

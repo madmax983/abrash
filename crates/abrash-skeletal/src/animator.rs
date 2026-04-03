@@ -319,8 +319,7 @@ mod tests {
         let joint1_rot = pose.local_transforms[1].rotation;
         assert!(
             (joint1_rot.w - 1.0).abs() < EPSILON,
-            "joint1 rotation should be identity, got {:?}",
-            joint1_rot
+            "joint1 rotation should be identity, got {joint1_rot:?}"
         );
 
         let joint1_scale = pose.local_transforms[1].scale;
@@ -328,8 +327,7 @@ mod tests {
             (joint1_scale.x - 1.0).abs() < EPSILON
                 && (joint1_scale.y - 1.0).abs() < EPSILON
                 && (joint1_scale.z - 1.0).abs() < EPSILON,
-            "joint1 scale should be (1,1,1), got {:?}",
-            joint1_scale
+            "joint1 scale should be (1,1,1), got {joint1_scale:?}"
         );
     }
 

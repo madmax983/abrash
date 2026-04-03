@@ -104,7 +104,7 @@ pub struct RtReflectionPass {
     _pipeline: wgpu::ComputePipeline,
     _bind_group_layout: wgpu::BindGroupLayout,
     _params_buffer: wgpu::Buffer,
-    /// Output reflection texture (Rgba16Float, noisy 1-spp).
+    /// Output reflection texture (`Rgba16Float`, noisy 1-spp).
     pub(crate) reflection_texture: Option<wgpu::Texture>,
     pub(crate) reflection_view: Option<wgpu::TextureView>,
     pub(crate) width: u32,
@@ -114,6 +114,7 @@ pub struct RtReflectionPass {
 impl RtReflectionPass {
     /// Create the RT reflection pass.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("RT Reflection Compute"),
