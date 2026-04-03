@@ -966,6 +966,64 @@ pub fn domain_warp_fbm_2d(
     )
 }
 
+/// Voronoi noise returning `(f1, f2, cell_id)` — F1 distance, F2 distance, and cell identifier.
+///
+/// Unlike [`worley_noise_2d`] which only returns F1, this returns both the
+/// distance to the nearest feature point (`f1`) and second nearest (`f2`),
+/// plus an integer cell identifier.
+///
+/// Common uses:
+/// - `f1` alone: cellular / organic texture
+/// - `f2 - f1`: "cracks" and cell borders
+/// - `cell_id` as a seed: per-cell colour variation
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::voronoi_noise_2d;
+///
+/// let (f1, f2, _id) = voronoi_noise_2d(1.5, 2.3, 1.0);
+/// assert!(f1 >= 0.0, "f1 must be non-negative");
+/// assert!(f2 >= f1, "f2 must be >= f1");
+///
+/// // Deterministic
+/// let (a1, _, _) = voronoi_noise_2d(0.7, -1.2, 0.8);
+/// let (b1, _, _) = voronoi_noise_2d(0.7, -1.2, 0.8);
+/// assert_eq!(a1, b1);
+/// ```
+pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
+    let ix = x.floor() as i32;
+    let iy = y.floor() as i32;
+    let fx = x - x.floor();
+    let fy = y - y.floor();
+
+    let mut f1 = f32::MAX;
+    let mut f2 = f32::MAX;
+    let mut cell_id = 0u32;
+
+    for cy in -2_i32..=2 {
+        for cx in -2_i32..=2 {
+            let hx = hash2(ix + cx, iy + cy);
+            let hy = hash2(ix + cx + 7_919, iy + cy + 104_729);
+            let pt_x = cx as f32 + hx * jitter;
+            let pt_y = cy as f32 + hy * jitter;
+            let dx = fx - pt_x;
+            let dy = fy - pt_y;
+            let d = (dx * dx + dy * dy).sqrt();
+            if d < f1 {
+                f2 = f1;
+                f1 = d;
+                // Deterministic cell id from grid coordinates
+                cell_id = (((ix + cx).wrapping_mul(1_619) ^ (iy + cy).wrapping_mul(31_337)) as u32)
+                    .wrapping_mul(0x9e37_79b9);
+            } else if d < f2 {
+                f2 = d;
+            }
+        }
+    }
+    (f1, f2, cell_id)
+}
+
 /// Gabor noise kernel — a single oriented sinusoidal blob.
 ///
 /// Models a Gaussian-windowed sine wave at position `(x, y)` relative to
@@ -1374,5 +1432,31 @@ mod tests {
             (h - v).abs() > 1e-4,
             "gabor ignoring orientation: h={h} v={v}"
         );
+    }
+
+    // ── Voronoi noise ────────────────────────────────────────────────────────
+
+    #[test]
+    fn voronoi_f2_gte_f1() {
+        for (x, y) in [(0.5_f32, 0.3_f32), (1.7, -0.9), (-3.2, 2.1)] {
+            let (f1, f2, _) = voronoi_noise_2d(x, y, 1.0);
+            assert!(f2 >= f1, "f2 < f1 at ({x},{y}): f1={f1} f2={f2}");
+        }
+    }
+
+    #[test]
+    fn voronoi_deterministic() {
+        let (a, _, ia) = voronoi_noise_2d(0.7, -1.2, 0.8);
+        let (b, _, ib) = voronoi_noise_2d(0.7, -1.2, 0.8);
+        assert_eq!(a, b);
+        assert_eq!(ia, ib);
+    }
+
+    #[test]
+    fn voronoi_cells_differ() {
+        // Nearby but clearly different cells should have different ids
+        let (_, _, id1) = voronoi_noise_2d(0.1, 0.1, 1.0);
+        let (_, _, id2) = voronoi_noise_2d(1.8, 1.8, 1.0);
+        assert_ne!(id1, id2, "cells at different positions should differ");
     }
 }
