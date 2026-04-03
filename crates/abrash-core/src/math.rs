@@ -287,7 +287,7 @@ impl Vec2 {
     pub fn normalize(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -347,7 +347,7 @@ impl Vec2 {
     pub fn normalize_or_zero(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self::new(self.x * inv_len, self.y * inv_len)
         } else {
             Self::ZERO
@@ -363,7 +363,7 @@ impl Vec2 {
         if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
             target
         } else {
-            let inv_dist = fast_inv_sqrt(dist_sq);
+            let inv_dist = dist_sq.sqrt().recip();
             self + to * (max_delta * inv_dist)
         }
     }
@@ -750,12 +750,9 @@ impl Vec3 {
     #[must_use]
     #[inline]
     pub fn normalize(self) -> Self {
-        // Optimization: Use rsqrt instead of 1.0/sqrt.
-        // We use len_sq to avoid sqrt if the vector is too small.
-        // 0.0001^2 = 0.000_000_01
         let len_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -834,7 +831,7 @@ impl Vec3 {
     pub fn normalize_or_zero(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self::new(self.x * inv_len, self.y * inv_len, self.z * inv_len)
         } else {
             Self::ZERO
@@ -850,7 +847,7 @@ impl Vec3 {
         if dist_sq <= max_delta * max_delta || dist_sq <= f32::EPSILON {
             target
         } else {
-            let inv_dist = fast_inv_sqrt(dist_sq);
+            let inv_dist = dist_sq.sqrt().recip();
             self + to * (max_delta * inv_dist)
         }
     }
@@ -1115,7 +1112,7 @@ impl Vec3 {
         if len_sq <= max_sq || len_sq <= 0.000_000_01 {
             self
         } else {
-            let scale = max_length * fast_inv_sqrt(len_sq);
+            let scale = max_length * len_sq.sqrt().recip();
             self * scale
         }
     }
@@ -3576,7 +3573,7 @@ impl Vec4 {
     pub fn normalize(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
