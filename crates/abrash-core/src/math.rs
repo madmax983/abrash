@@ -666,6 +666,18 @@ impl Vec2 {
     pub fn reflect(self, normal: Self) -> Self {
         self - normal * (2.0 * self.dot(normal))
     }
+
+    /// Component-wise Hermite smoothstep between `edge0` and `edge1`.
+    ///
+    /// Each component of `self` is clamped and smoothed independently,
+    /// matching GLSL `smoothstep(edge0, edge1, self)`.
+    #[must_use]
+    #[inline]
+    pub fn smoothstep(self, edge0: Self, edge1: Self) -> Self {
+        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).clamp(0.0, 1.0);
+        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).clamp(0.0, 1.0);
+        Self::new(tx * tx * (3.0 - 2.0 * tx), ty * ty * (3.0 - 2.0 * ty))
+    }
 }
 
 impl Add for Vec2 {
@@ -1463,6 +1475,22 @@ impl Vec3 {
             y: if self.y >= edge.y { 1.0 } else { 0.0 },
             z: if self.z >= edge.z { 1.0 } else { 0.0 },
         }
+    }
+
+    /// Component-wise Hermite smoothstep between `edge0` and `edge1`.
+    ///
+    /// Matches GLSL `smoothstep(edge0, edge1, self)`.
+    #[must_use]
+    #[inline]
+    pub fn smoothstep(self, edge0: Self, edge1: Self) -> Self {
+        let tx = ((self.x - edge0.x) / (edge1.x - edge0.x)).clamp(0.0, 1.0);
+        let ty = ((self.y - edge0.y) / (edge1.y - edge0.y)).clamp(0.0, 1.0);
+        let tz = ((self.z - edge0.z) / (edge1.z - edge0.z)).clamp(0.0, 1.0);
+        Self::new(
+            tx * tx * (3.0 - 2.0 * tx),
+            ty * ty * (3.0 - 2.0 * ty),
+            tz * tz * (3.0 - 2.0 * tz),
+        )
     }
 }
 
@@ -2685,6 +2713,34 @@ impl Mat4 {
             self.m[3][index],
         )
     }
+
+    /// Return the given row as a [`Vec4`].
+    ///
+    /// Row 3 is the translation row in this library's row-vector convention.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= 4`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec4};
+    ///
+    /// let m = Mat4::identity();
+    /// assert_eq!(m.row(0), Vec4::new(1.0, 0.0, 0.0, 0.0));
+    /// assert_eq!(m.row(3), Vec4::new(0.0, 0.0, 0.0, 1.0));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn row(&self, index: usize) -> Vec4 {
+        Vec4::new(
+            self.m[index][0],
+            self.m[index][1],
+            self.m[index][2],
+            self.m[index][3],
+        )
+    }
 }
 
 impl Default for Mat4 {
@@ -3422,6 +3478,52 @@ mod tests {
         // Ortho ray is axis-aligned; x and y should be near 0 at screen center
         assert!(dir.x.abs() < 1e-3, "expected x≈0, got {}", dir.x);
         assert!(dir.y.abs() < 1e-3, "expected y≈0, got {}", dir.y);
+    }
+
+    // ── Mat4::row ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mat4_row_identity() {
+        let m = Mat4::identity();
+        assert_eq!(m.row(0), Vec4::new(1.0, 0.0, 0.0, 0.0));
+        assert_eq!(m.row(1), Vec4::new(0.0, 1.0, 0.0, 0.0));
+        assert_eq!(m.row(3), Vec4::new(0.0, 0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    fn mat4_row_translation() {
+        let m = Mat4::translation(5.0, -3.0, 7.0);
+        // Translation is in row 3 in row-vector convention
+        let r3 = m.row(3);
+        assert!((r3.x - 5.0).abs() < 1e-5);
+        assert!((r3.y - (-3.0)).abs() < 1e-5);
+        assert!((r3.z - 7.0).abs() < 1e-5);
+    }
+
+    // ── Vec smoothstep ────────────────────────────────────────────────────────
+
+    #[test]
+    fn vec2_smoothstep_endpoints() {
+        let e0 = Vec2::ZERO;
+        let e1 = Vec2::ONE;
+        assert_eq!(Vec2::ZERO.smoothstep(e0, e1), Vec2::ZERO);
+        assert_eq!(Vec2::ONE.smoothstep(e0, e1), Vec2::ONE);
+    }
+
+    #[test]
+    fn vec2_smoothstep_midpoint() {
+        let v = Vec2::splat(0.5).smoothstep(Vec2::ZERO, Vec2::ONE);
+        assert!((v.x - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn vec3_smoothstep_endpoints() {
+        let e0 = Vec3::ZERO;
+        let e1 = Vec3::ONE;
+        let at_zero = Vec3::ZERO.smoothstep(e0, e1);
+        let at_one = Vec3::ONE.smoothstep(e0, e1);
+        assert!(at_zero.length() < 1e-5);
+        assert!((at_one - Vec3::ONE).length() < 1e-5);
     }
 
     #[test]

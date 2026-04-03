@@ -457,6 +457,126 @@ pub fn smooth_subtraction(a: f32, b: f32, k: f32) -> f32 {
     mix(a, -b, h) + k * h * (1.0 - h)
 }
 
+/// Signed distance to a regular octahedron centred at `centre` with "radius" `s`.
+///
+/// `s` is the distance from the centre to each face along its normal direction
+/// (equivalently, the surface satisfies `|x|+|y|+|z| = s` in object space).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::octahedron_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Centre is strictly inside
+/// let d = octahedron_3d(Vec3::ZERO, Vec3::ZERO, 1.0);
+/// assert!(d < 0.0, "origin should be inside, got {d}");
+/// // A vertex along X is at distance sqrt(2)*s/sqrt(3) ≈ s*0.8165 from centre;
+/// // confirmed outside a unit octahedron
+/// let d2 = octahedron_3d(Vec3::new(2.0, 0.0, 0.0), Vec3::ZERO, 1.0);
+/// assert!(d2 > 0.0, "far point should be outside, got {d2}");
+/// ```
+#[must_use]
+pub fn octahedron_3d(p: Vec3, centre: Vec3, s: f32) -> f32 {
+    // IQ exact octahedron (sdOctahedron)
+    let p = (p - centre).abs();
+    let m = p.x + p.y + p.z - s;
+    // Find the region and project
+    let (qx, qy, qz) = if 3.0 * p.x < m {
+        (p.x, p.y, p.z)
+    } else if 3.0 * p.y < m {
+        (p.y, p.z, p.x)
+    } else if 3.0 * p.z < m {
+        (p.z, p.x, p.y)
+    } else {
+        return m * 0.577_350_27; // inside — scale by 1/sqrt(3)
+    };
+    let k = (0.5 * (qz - qy + s)).clamp(0.0, s);
+    (Vec3::new(qx, qy - s + k, qz - k)).length()
+}
+
+/// Signed distance to a square pyramid.
+///
+/// The pyramid is centred at `centre` with a unit square base (half-size = 0.5)
+/// in the XZ plane and apex at `centre + (0, height, 0)`.
+/// Scale `p` relative to `centre` if you need a different base size.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::pyramid_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Centre (middle of pyramid volume) is inside
+/// let d = pyramid_3d(Vec3::new(0.0, 0.5, 0.0), Vec3::ZERO, 1.0);
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// // Far above apex is outside
+/// let d2 = pyramid_3d(Vec3::new(0.0, 3.0, 0.0), Vec3::ZERO, 1.0);
+/// assert!(d2 > 0.0, "above apex should be outside, got {d2}");
+/// ```
+#[must_use]
+pub fn pyramid_3d(p: Vec3, centre: Vec3, height: f32) -> f32 {
+    // IQ sdPyramid — base is unit square [-0.5,0.5]^2 at y=0, apex at y=height
+    let mut p = p - centre;
+    let m2 = height * height + 0.25;
+    // Fold XZ into first quadrant and sort
+    p = Vec3::new(p.x.abs(), p.y, p.z.abs());
+    if p.z > p.x {
+        p = Vec3::new(p.z, p.y, p.x);
+    }
+    p = Vec3::new(p.x - 0.5, p.y, p.z - 0.5);
+    // Build rotated coordinate q
+    let qx = p.z;
+    let qy = height * p.y - 0.5 * p.x;
+    let qz = height * p.x + 0.5 * p.y;
+    let s = (-qx).max(0.0);
+    let t = ((qy - 0.5 * p.z) / (m2 + 0.25)).clamp(0.0, 1.0);
+    let a = m2 * (qx + s) * (qx + s) + qy * qy;
+    let b = m2 * (qx + 0.5 * t) * (qx + 0.5 * t) + (qy - m2 * t) * (qy - m2 * t);
+    let d = if qy.min(-qx * m2 - qy * 0.5) > 0.0 {
+        0.0
+    } else {
+        a.min(b)
+    };
+    ((d + qz * qz) / m2).sqrt() * (qz.max(-p.y)).signum()
+}
+
+/// Signed distance to a hexagonal prism.
+///
+/// The prism is centred at `centre` with the hexagon in the XY plane
+/// (circumradius `r`) and half-height `h` along the Z-axis.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::hexagonal_prism_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Centre is inside
+/// let d = hexagonal_prism_3d(Vec3::ZERO, Vec3::ZERO, 1.0, 1.0);
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// // Far along X is outside
+/// let d2 = hexagonal_prism_3d(Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO, 1.0, 1.0);
+/// assert!(d2 > 0.0, "far point should be outside, got {d2}");
+/// ```
+#[must_use]
+pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
+    // IQ sdHexPrism — hex in XY plane, extends along Z
+    let p = (p - centre).abs();
+    // k = (-sqrt(3)/2, 0.5, 1/sqrt(3))
+    const KX: f32 = -0.866_025_4;
+    const KY: f32 = 0.5;
+    const KZ: f32 = 0.577_350_3;
+    let dot = (KX * p.x + KY * p.y).min(0.0);
+    let px = p.x - 2.0 * dot * KX;
+    let py = p.y - 2.0 * dot * KY;
+    // Clamp hex boundary
+    let cx = (px - (px).clamp(-KZ * r, KZ * r)).hypot(py - r);
+    let dx = cx * (py - r).signum();
+    let dz = p.z - h;
+    dx.max(dz).min(0.0) + Vec2::new(dx.max(0.0), dz.max(0.0)).length()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

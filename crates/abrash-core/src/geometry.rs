@@ -76,6 +76,38 @@ impl Ray {
         let t = edge2.dot(qvec) * inv_det;
         (t >= 0.0).then_some(t)
     }
+
+    /// Return the parameter `t` such that `self.at(t)` is the closest point on
+    /// the (infinite) ray line to `point`.
+    ///
+    /// For a ray (half-line), clamp the result to `t >= 0` if you want the
+    /// closest point on the *ray* rather than the full line.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::Ray;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let ray = Ray::new(Vec3::ZERO, Vec3::X);
+    /// // Point directly above the midpoint of the ray
+    /// let t = ray.closest_t(Vec3::new(2.0, 5.0, 0.0));
+    /// assert!((t - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn closest_t(&self, point: Vec3) -> f32 {
+        (point - self.origin).dot(self.direction) / self.direction.dot(self.direction)
+    }
+
+    /// The closest point on the (infinite) ray line to `point`.
+    ///
+    /// Equivalent to `self.at(self.closest_t(point))`.
+    #[must_use]
+    #[inline]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        self.at(self.closest_t(point))
+    }
 }
 
 /// A Bounding Sphere for object-level culling.
@@ -393,6 +425,25 @@ impl AABB {
     pub fn surface_area(&self) -> f32 {
         let size = self.max - self.min;
         2.0 * (size.x * size.y + size.x * size.z + size.y * size.z)
+    }
+
+    /// Build the tight AABB enclosing a sphere.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::geometry::AABB;
+    /// use abrash_core::math::Vec3;
+    ///
+    /// let aabb = AABB::from_sphere(Vec3::ZERO, 2.0);
+    /// assert_eq!(aabb.min, Vec3::splat(-2.0));
+    /// assert_eq!(aabb.max, Vec3::splat(2.0));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn from_sphere(center: Vec3, radius: f32) -> Self {
+        let r = Vec3::splat(radius);
+        Self::new(center - r, center + r)
     }
 
     /// Expand every face of the box outward by `margin` on all sides.
@@ -2121,6 +2172,33 @@ mod tests {
         assert!((aabb.min.y - (-1.5)).abs() < 1e-5);
         assert!((aabb.max.x - 0.5).abs() < 1e-5);
         assert!((aabb.max.y - 1.5).abs() < 1e-5);
+    }
+
+    // ── Ray::closest_t / closest_point ──────────────────────────────────────
+
+    #[test]
+    fn ray_closest_t_perpendicular() {
+        let ray = Ray::new(Vec3::ZERO, Vec3::X);
+        let t = ray.closest_t(Vec3::new(3.0, 5.0, 0.0));
+        assert!((t - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_closest_point_perpendicular() {
+        let ray = Ray::new(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0));
+        let cp = ray.closest_point(Vec3::new(5.0, 2.0, 0.0));
+        assert!(cp.x.abs() < 1e-5);
+        assert!((cp.y - 2.0).abs() < 1e-5);
+    }
+
+    // ── AABB::from_sphere ────────────────────────────────────────────────────
+
+    #[test]
+    fn aabb_from_sphere() {
+        let aabb = AABB::from_sphere(Vec3::new(1.0, 2.0, 3.0), 0.5);
+        assert!((aabb.min.x - 0.5).abs() < 1e-5);
+        assert!((aabb.max.y - 2.5).abs() < 1e-5);
+        assert!((aabb.max.z - 3.5).abs() < 1e-5);
     }
 
     // ── AABB::grow / is_empty ────────────────────────────────────────────────
