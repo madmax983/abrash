@@ -226,6 +226,13 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
     }
 }
 
+/// Configuration for the chromatic aberration filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChromaticAberrationConfig {
+    /// The number of pixels to shift the red and blue channels.
+    pub offset: u32,
+}
+
 /// Applies chromatic aberration by shifting Red and Blue channels.
 ///
 /// *   Red channel is shifted left by `offset`.
@@ -236,18 +243,12 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 ///
 /// ```
 /// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_chromatic_aberration;
+/// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
-/// apply_chromatic_aberration(&mut fb, 5);
+/// apply_chromatic_aberration(&mut fb, &ChromaticAberrationConfig { offset: 5 });
 /// ```
-
-/// Configuration for the chromatic aberration filter.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChromaticAberrationConfig {
-    pub offset: u32,
-}
 
 pub fn apply_chromatic_aberration(fb: &mut Framebuffer, config: &ChromaticAberrationConfig) {
     if config.offset == 0 {
