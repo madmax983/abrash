@@ -211,10 +211,6 @@ impl Scene {
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
         let mut draw_list = DrawList::new(camera);
 
-        // Pre-allocate assuming roughly half the objects might be visible on average,
-        // or up to all objects to avoid reallocation
-        draw_list.batches.reserve(self.objects.len());
-
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
             let ctx = &mut *ctx_guard;
@@ -236,6 +232,19 @@ impl Scene {
                 .frustum
                 .cull_aabbs_prealloc(world_aabbs, cull_results);
 
+            // Pre-calculate visible objects and total required vertices to avoid dynamic reallocations
+            let mut total_vertices = 0;
+            let mut visible_count = 0;
+            for (i, obj) in self.objects.iter().enumerate() {
+                if cull_results[i] {
+                    total_vertices += obj.mesh.vertices.len();
+                    visible_count += 1;
+                }
+            }
+
+            draw_list.batches.reserve(visible_count);
+            draw_list.vertices.reserve(total_vertices);
+
             for (i, obj) in self.objects.iter().enumerate() {
                 if !cull_results[i] {
                     continue;
@@ -244,8 +253,11 @@ impl Scene {
                 let mvp = obj.transform * view_proj;
                 let mesh = &obj.mesh;
 
-                let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                let uninit_slice = vertices.spare_capacity_mut();
+                let start_idx = draw_list.vertices.len();
+                let end_idx = start_idx + mesh.vertices.len();
+
+                // Extract uninitialized slice from the reserved capacity
+                let uninit_slice = draw_list.vertices.spare_capacity_mut();
                 let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
 
                 #[cfg(feature = "parallel")]
@@ -254,13 +266,13 @@ impl Scene {
                 #[cfg(not(feature = "parallel"))]
                 mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
 
-                // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
+                // SAFETY: We have initialized `mesh.vertices.len()` elements via `transform_points_uninit*`.
                 unsafe {
-                    vertices.set_len(mesh.vertices.len());
+                    draw_list.vertices.set_len(end_idx);
                 }
 
                 draw_list.push(DrawBatch::new(
-                    vertices,
+                    start_idx..end_idx,
                     std::sync::Arc::clone(&obj.shared_indices),
                     obj.color,
                 ));
@@ -285,7 +297,11 @@ impl Scene {
 
         renderer.begin_frame();
         for batch in &draw_list.batches {
-            renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            renderer.submit_mesh(
+                &batch.indices,
+                &draw_list.vertices[batch.vertex_range.clone()],
+                batch.color,
+            );
         }
         renderer.end_frame(fb, zb);
     }
@@ -420,7 +436,10 @@ mod tests {
         assert_eq!(dl.batches.len(), 1);
         assert_eq!(dl.batches[0].color, 0xFFFF_0000);
         assert_eq!(dl.batches[0].indices.len(), mesh.indices.len());
-        assert_eq!(dl.batches[0].vertices.len(), mesh.vertices.len());
+        assert_eq!(
+            dl.vertices[dl.batches[0].vertex_range.clone()].len(),
+            mesh.vertices.len()
+        );
     }
 
     #[test]

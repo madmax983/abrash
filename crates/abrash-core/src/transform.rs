@@ -228,13 +228,13 @@ impl Transform {
 
         out.clear();
         out.reserve(points.len());
-        for &p in points {
-            out.push(Vec3::new(
+        out.extend(points.iter().map(|p| {
+            Vec3::new(
                 p.x * m00 + p.y * m10 + p.z * m20 + self.position.x,
                 p.x * m01 + p.y * m11 + p.z * m21 + self.position.y,
                 p.x * m02 + p.y * m12 + p.z * m22 + self.position.z,
-            ));
-        }
+            )
+        }));
     }
 
     /// Transform points in place (scale + rotate + translate).
@@ -285,13 +285,13 @@ impl Transform {
 
         out.clear();
         out.reserve(vectors.len());
-        for &v in vectors {
-            out.push(Vec3::new(
+        out.extend(vectors.iter().map(|v| {
+            Vec3::new(
                 v.x * m00 + v.y * m10 + v.z * m20,
                 v.x * m01 + v.y * m11 + v.z * m21,
                 v.x * m02 + v.y * m12 + v.z * m22,
-            ));
-        }
+            )
+        }));
     }
 
     /// Transform vectors in place (scale + rotate, no translation).
@@ -343,14 +343,14 @@ impl Transform {
 
         out.clear();
         out.reserve(points.len());
-        for &p in points {
-            let local = p - self.position;
-            out.push(Vec3::new(
+        out.extend(points.iter().map(|p| {
+            let local = *p - self.position;
+            Vec3::new(
                 (local.x * m00 + local.y * m10 + local.z * m20) * inv_scale.x,
                 (local.x * m01 + local.y * m11 + local.z * m21) * inv_scale.y,
                 (local.x * m02 + local.y * m12 + local.z * m22) * inv_scale.z,
-            ));
-        }
+            )
+        }));
     }
 
     /// Apply the inverse transform to points in place.
