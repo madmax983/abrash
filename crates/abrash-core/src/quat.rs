@@ -501,6 +501,66 @@ impl Default for Quat {
     }
 }
 
+// ── Mat4::decompose ───────────────────────────────────────────────────────────
+
+impl Mat4 {
+    /// Decompose this matrix into translation, rotation, and scale components.
+    ///
+    /// Returns `(translation, rotation, scale)`.
+    ///
+    /// This is the inverse of the `Transform::to_mat4` / `Mat4::scale * rotate * translate`
+    /// pattern.  Assumes the matrix was constructed without shear; shear is
+    /// silently ignored and folded into the rotation.
+    ///
+    /// # Notes
+    ///
+    /// - Sign of scale is lost for reflections; check `determinant() < 0` if
+    ///   that matters.
+    /// - The matrix uses **row-vector convention**: translation lives in row 3.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    /// use abrash_core::quat::Quat;
+    ///
+    /// let m = Mat4::scale(2.0, 3.0, 4.0) * Mat4::translation(1.0, 2.0, 3.0);
+    /// let (t, _q, s) = m.decompose();
+    /// assert!((t.x - 1.0).abs() < 1e-5);
+    /// assert!((s.y - 3.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn decompose(&self) -> (Vec3, Quat, Vec3) {
+        let m = &self.m;
+
+        // Row-vector convention: translation in row 3, xyz.
+        let translation = Vec3::new(m[3][0], m[3][1], m[3][2]);
+
+        // Scale = length of each basis-vector row.
+        let sx = Vec3::new(m[0][0], m[0][1], m[0][2]).length();
+        let sy = Vec3::new(m[1][0], m[1][1], m[1][2]).length();
+        let sz = Vec3::new(m[2][0], m[2][1], m[2][2]).length();
+        let scale = Vec3::new(sx, sy, sz);
+
+        // Rotation = normalised basis rows assembled back into a pure-rotation Mat4.
+        let inv_sx = if sx > 1e-8 { 1.0 / sx } else { 0.0 };
+        let inv_sy = if sy > 1e-8 { 1.0 / sy } else { 0.0 };
+        let inv_sz = if sz > 1e-8 { 1.0 / sz } else { 0.0 };
+
+        let rot = Mat4 {
+            m: [
+                [m[0][0] * inv_sx, m[0][1] * inv_sx, m[0][2] * inv_sx, 0.0],
+                [m[1][0] * inv_sy, m[1][1] * inv_sy, m[1][2] * inv_sy, 0.0],
+                [m[2][0] * inv_sz, m[2][1] * inv_sz, m[2][2] * inv_sz, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        };
+
+        let rotation = Quat::from_mat4(rot);
+        (translation, rotation, scale)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -737,6 +797,58 @@ mod tests {
             assert!((a.y - b.y).abs() < EPSILON);
             assert!((a.z - b.z).abs() < EPSILON);
         }
+    }
+
+    #[test]
+    fn decompose_translation_roundtrip() {
+        let t = Vec3::new(3.0, -1.5, 7.0);
+        let m = Mat4::translation(t.x, t.y, t.z);
+        let (out_t, _q, out_s) = m.decompose();
+        assert!((out_t.x - t.x).abs() < 1e-5, "tx");
+        assert!((out_t.y - t.y).abs() < 1e-5, "ty");
+        assert!((out_t.z - t.z).abs() < 1e-5, "tz");
+        assert!((out_s.x - 1.0).abs() < 1e-5, "sx should be 1");
+    }
+
+    #[test]
+    fn decompose_scale_roundtrip() {
+        let m = Mat4::scale(2.0, 3.0, 0.5);
+        let (_t, _q, s) = m.decompose();
+        assert!((s.x - 2.0).abs() < 1e-5, "sx");
+        assert!((s.y - 3.0).abs() < 1e-5, "sy");
+        assert!((s.z - 0.5).abs() < 1e-5, "sz");
+    }
+
+    #[test]
+    fn decompose_trs_roundtrip() {
+        use std::f32::consts::PI;
+        let axis = Vec3::new(0.0, 1.0, 0.0);
+        let angle = PI / 4.0;
+        let q_in = Quat::from_axis_angle(axis, angle).normalize();
+        let s_in = Vec3::new(2.0, 2.0, 2.0);
+        let t_in = Vec3::new(5.0, -3.0, 1.0);
+
+        // Build TRS matrix (row-vector convention: scale * rotate * translate)
+        let m = Mat4::scale(s_in.x, s_in.y, s_in.z)
+            * q_in.to_mat4()
+            * Mat4::translation(t_in.x, t_in.y, t_in.z);
+
+        let (t_out, q_out, s_out) = m.decompose();
+
+        assert!((t_out.x - t_in.x).abs() < 1e-4, "tx {}", t_out.x);
+        assert!((t_out.y - t_in.y).abs() < 1e-4, "ty {}", t_out.y);
+        assert!((t_out.z - t_in.z).abs() < 1e-4, "tz {}", t_out.z);
+        assert!((s_out.x - s_in.x).abs() < 1e-4, "sx {}", s_out.x);
+        assert!((s_out.y - s_in.y).abs() < 1e-4, "sy {}", s_out.y);
+        assert!((s_out.z - s_in.z).abs() < 1e-4, "sz {}", s_out.z);
+
+        // Rotation: verify a test vector rotated by q_in ≈ rotated by q_out
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let a = q_in.rotate_vec3(v);
+        let b = q_out.rotate_vec3(v);
+        assert!((a.x - b.x).abs() < 1e-4, "qx");
+        assert!((a.y - b.y).abs() < 1e-4, "qy");
+        assert!((a.z - b.z).abs() < 1e-4, "qz");
     }
 
     #[test]

@@ -4133,14 +4133,8 @@ mod tests_fast_sin {
             let s = rad.sin();
             let c = rad.cos();
 
-            assert!(
-                (fs - s).abs() < 0.005,
-                "sin mismatch at {i}: {fs} vs {s}"
-            );
-            assert!(
-                (fc - c).abs() < 0.005,
-                "cos mismatch at {i}: {fc} vs {c}"
-            );
+            assert!((fs - s).abs() < 0.005, "sin mismatch at {i}: {fs} vs {s}");
+            assert!((fc - c).abs() < 0.005, "cos mismatch at {i}: {fc} vs {c}");
         }
     }
 }

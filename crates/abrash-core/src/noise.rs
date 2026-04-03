@@ -285,6 +285,121 @@ pub fn turbulence_2d(x: f32, y: f32, octaves: u32, lacunarity: f32, gain: f32) -
     value / max_amplitude
 }
 
+// ── Worley (cellular) noise ───────────────────────────────────────────────────
+
+/// 2D Worley (cellular / Voronoi) noise.
+///
+/// Returns **F1**: the Euclidean distance to the nearest cell feature point.
+/// Output is in roughly `[0.0, 0.7]` for `jitter = 1.0`.
+///
+/// `jitter ∈ [0.0, 1.0]` controls how randomly the feature point is displaced
+/// from its cell center.  `0.0` → perfectly regular grid; `1.0` → full random.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::worley_noise_2d;
+///
+/// let d = worley_noise_2d(1.5, 2.3, 1.0);
+/// assert!(d >= 0.0 && d <= 1.5);
+/// ```
+#[must_use]
+pub fn worley_noise_2d(x: f32, y: f32, jitter: f32) -> f32 {
+    let xi = x.floor() as i32;
+    let yi = y.floor() as i32;
+    let xf = x - xi as f32;
+    let yf = y - yi as f32;
+
+    let mut min_dist_sq = f32::MAX;
+
+    for dy in -1_i32..=1 {
+        for dx in -1_i32..=1 {
+            let cx = xi + dx;
+            let cy = yi + dy;
+
+            // Two independent hash values for x and y jitter, each in [0.0, 1.0].
+            let rx = hash2(cx, cy);
+            let ry = hash2(cx ^ 0x1abe_cd5, cy ^ 0x9e37_79b9u32 as i32);
+
+            // Feature point at cell center + jitter offset.
+            let fp_x = dx as f32 + 0.5 + (rx - 0.5) * jitter;
+            let fp_y = dy as f32 + 0.5 + (ry - 0.5) * jitter;
+
+            let ddx = fp_x - xf;
+            let ddy = fp_y - yf;
+            let d_sq = ddx * ddx + ddy * ddy;
+            if d_sq < min_dist_sq {
+                min_dist_sq = d_sq;
+            }
+        }
+    }
+
+    min_dist_sq.sqrt()
+}
+
+/// 3D Worley (cellular / Voronoi) noise.
+///
+/// Returns **F1**: the Euclidean distance to the nearest cell feature point.
+/// Output is in roughly `[0.0, 0.9]` for `jitter = 1.0`.
+///
+/// See [`worley_noise_2d`] for the `jitter` parameter description.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::noise::worley_noise_3d;
+///
+/// let d = worley_noise_3d(1.0, 2.0, 3.0, 1.0);
+/// assert!(d >= 0.0 && d <= 2.0);
+/// ```
+#[must_use]
+pub fn worley_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> f32 {
+    let xi = x.floor() as i32;
+    let yi = y.floor() as i32;
+    let zi = z.floor() as i32;
+    let xf = x - xi as f32;
+    let yf = y - yi as f32;
+    let zf = z - zi as f32;
+
+    let mut min_dist_sq = f32::MAX;
+
+    for dz in -1_i32..=1 {
+        for dy in -1_i32..=1 {
+            for dx in -1_i32..=1 {
+                let cx = xi + dx;
+                let cy = yi + dy;
+                let cz = zi + dz;
+
+                let rx = hash3(cx, cy, cz);
+                let ry = hash3(
+                    cx ^ 0x1abe_cd5,
+                    cy ^ 0x9e37_79b9u32 as i32,
+                    cz ^ 0x6c62_272e,
+                );
+                let rz = hash3(
+                    cx ^ 0x517c_c1b7,
+                    cy ^ 0x27d4_eb2fu32 as i32,
+                    cz ^ 0xb492_2022u32 as i32,
+                );
+
+                let fp_x = dx as f32 + 0.5 + (rx - 0.5) * jitter;
+                let fp_y = dy as f32 + 0.5 + (ry - 0.5) * jitter;
+                let fp_z = dz as f32 + 0.5 + (rz - 0.5) * jitter;
+
+                let ddx = fp_x - xf;
+                let ddy = fp_y - yf;
+                let ddz = fp_z - zf;
+                let d_sq = ddx * ddx + ddy * ddy + ddz * ddz;
+                if d_sq < min_dist_sq {
+                    min_dist_sq = d_sq;
+                }
+            }
+        }
+    }
+
+    min_dist_sq.sqrt()
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 /// Quintic fade: `6t⁵ - 15t⁴ + 10t³` — zero first and second derivatives at 0 and 1.
@@ -491,5 +606,55 @@ mod tests {
         // (not exactly 0 due to gradient dot product, but small)
         let n = gradient_noise_2d(0.0, 0.0);
         assert!(n.abs() < 0.1, "gradient at origin: {n}");
+    }
+
+    #[test]
+    fn worley_2d_non_negative() {
+        for i in 0..200 {
+            let x = i as f32 * 0.37 - 3.7;
+            let y = i as f32 * 0.13 + 1.2;
+            let d = worley_noise_2d(x, y, 1.0);
+            assert!(d >= 0.0, "worley_noise_2d returned negative: {d}");
+        }
+    }
+
+    #[test]
+    fn worley_2d_jitter_zero_is_regular_grid() {
+        // With jitter=0, every cell center is equidistant from the four
+        // surrounding feature points (which sit at cell centers).
+        // The cell center (0.5, 0.5) in any cell should yield distance ≈ 0.
+        let d = worley_noise_2d(0.5, 0.5, 0.0);
+        assert!(d < 0.01, "distance at own cell center should be ~0: {d}");
+    }
+
+    #[test]
+    fn worley_2d_deterministic() {
+        let a = worley_noise_2d(1.23, 4.56, 0.8);
+        let b = worley_noise_2d(1.23, 4.56, 0.8);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn worley_3d_non_negative() {
+        for i in 0..200 {
+            let x = i as f32 * 0.41 - 2.1;
+            let y = i as f32 * 0.17 + 0.5;
+            let z = i as f32 * 0.23 - 1.3;
+            let d = worley_noise_3d(x, y, z, 1.0);
+            assert!(d >= 0.0, "worley_noise_3d returned negative: {d}");
+        }
+    }
+
+    #[test]
+    fn worley_3d_jitter_zero_is_regular_grid() {
+        let d = worley_noise_3d(0.5, 0.5, 0.5, 0.0);
+        assert!(d < 0.01, "distance at own cell center should be ~0: {d}");
+    }
+
+    #[test]
+    fn worley_3d_deterministic() {
+        let a = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
+        let b = worley_noise_3d(7.1, -2.3, 0.9, 0.7);
+        assert_eq!(a, b);
     }
 }
