@@ -253,6 +253,74 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_polygonize_tetrahedron_cases() {
+        let p = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::default(),
+            Vec3::default(),
+            Vec3::default(),
+            Vec3::default(),
+        ];
+        let idxs = [0, 1, 2, 3];
+
+        let expected_triangles = [
+            0, // 0: ----
+            1, // 1: 0---
+            1, // 2: -1--
+            2, // 3: 01--
+            1, // 4: --2-
+            2, // 5: 0-2-
+            2, // 6: -12-
+            1, // 7: 012-
+            1, // 8: ---3
+            2, // 9: 0--3
+            2, // 10:-1-3
+            1, // 11:01-3
+            2, // 12:--23
+            1, // 13:0-23
+            1, // 14:-123
+            0, // 15:0123
+        ];
+
+        for case in 0..16 {
+            let mut v = [1.0; 8];
+            if case & 1 != 0 {
+                v[0] = -1.0;
+            }
+            if case & 2 != 0 {
+                v[1] = -1.0;
+            }
+            if case & 4 != 0 {
+                v[2] = -1.0;
+            }
+            if case & 8 != 0 {
+                v[3] = -1.0;
+            }
+
+            let mut vertices = Vec::new();
+            let mut indices = Vec::new();
+
+            polygonize_tetrahedron(&mut vertices, &mut indices, &p, &v, idxs);
+
+            assert_eq!(
+                indices.len(),
+                expected_triangles[case],
+                "Case {} failed",
+                case
+            );
+            assert_eq!(
+                vertices.len(),
+                expected_triangles[case] * 3,
+                "Case {} vertices failed",
+                case
+            );
+        }
+    }
+
+    #[test]
     fn test_sphere_mesh() {
         let sphere_sdf = |p: Vec3| p.length() - 1.0;
         let min = Vec3::new(-1.5, -1.5, -1.5);
