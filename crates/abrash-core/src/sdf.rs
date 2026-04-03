@@ -283,6 +283,122 @@ pub fn plane_3d(p: Vec3, normal: Vec3, d: f32) -> f32 {
     p.dot(normal) - d
 }
 
+/// Signed distance from `p` to an ellipsoid centred at `centre` with semi-axes `r`.
+///
+/// `r.x`, `r.y`, `r.z` are the half-lengths along each world axis.
+/// The result is an *approximation* — exact ellipsoid SDFs have no closed form,
+/// but this Inigo Quilez formula is tight near the surface.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::ellipsoid_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Unit sphere: all radii equal 1.
+/// let d = ellipsoid_3d(Vec3::new(1.5, 0.0, 0.0), Vec3::ZERO, Vec3::ONE);
+/// assert!((d - 0.5).abs() < 0.01);
+/// ```
+#[must_use]
+#[inline]
+pub fn ellipsoid_3d(p: Vec3, centre: Vec3, r: Vec3) -> f32 {
+    let q = p - centre;
+    // Scaled-space position and its length
+    let k0 = Vec3::new(q.x / r.x, q.y / r.y, q.z / r.z).length();
+    let k1 = Vec3::new(q.x / (r.x * r.x), q.y / (r.y * r.y), q.z / (r.z * r.z)).length();
+    k0 * (k0 - 1.0) / k1
+}
+
+/// Signed distance from `p` to a solid cone opening downward from its tip at `tip`,
+/// pointing in direction `axis` (unit vector), with half-angle `angle` in radians.
+///
+/// The cone is infinite in the direction of `axis`.  Positive = outside the cone.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::cone_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // Tip at origin, pointing down (−Y), 45° half-angle.
+/// let d = cone_3d(Vec3::new(0.0, -2.0, 0.0), Vec3::ZERO, Vec3::new(0.0, -1.0, 0.0), std::f32::consts::FRAC_PI_4);
+/// // Point on the axis inside the cone — should be negative.
+/// assert!(d < 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn cone_3d(p: Vec3, tip: Vec3, axis: Vec3, half_angle: f32) -> f32 {
+    let q = p - tip;
+    // Project onto axis
+    let along = q.dot(axis);
+    // Radial distance from axis
+    let radial = (q - axis * along).length();
+    // Point in (along, radial) 2D space
+    let sin_a = half_angle.sin();
+    let cos_a = half_angle.cos();
+    // Distance to the cone's slanted surface
+    let dot = radial * cos_a - along * sin_a;
+    // Only valid for the solid cone half (along >= 0 from tip)
+    if along < 0.0 {
+        // Above tip: nearest point is the tip itself
+        q.length()
+    } else {
+        // d to cone surface; negative = inside
+        let d = dot;
+        // Also clamp to the cone axis for interior points
+        d.max(-along)
+    }
+}
+
+/// Signed distance from `p` to a **truncated cone** (capped frustum).
+///
+/// Defined by two circular caps at arbitrary 3D positions:
+/// - bottom cap centred at `a` with radius `ra`
+/// - top cap centred at `b` with radius `rb`
+///
+/// Implements Inigo Quilez's `sdCappedCone` formula.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::truncated_cone_3d;
+/// use abrash_core::math::Vec3;
+///
+/// // A cylinder (equal radii) from (0,-1,0) to (0,1,0), radius 1.
+/// let d = truncated_cone_3d(Vec3::new(0.5, 0.0, 0.0),
+///     Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 1.0, 1.0);
+/// assert!(d < 0.0); // inside
+/// ```
+#[must_use]
+pub fn truncated_cone_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32) -> f32 {
+    let rba = rb - ra;
+    let baba = (b - a).dot(b - a);
+    let papa = (p - a).dot(p - a);
+    let paba = (p - a).dot(b - a) / baba;
+
+    // Radial distance from the cone axis
+    let x = (papa - paba * paba * baba).max(0.0).sqrt();
+
+    let cax = (x - if paba < 0.5 { ra } else { rb }).max(0.0);
+    let cay = (paba - 0.5).abs() - 0.5;
+
+    let k = rba * rba + baba;
+    let f = ((rba * (x - ra) + paba * baba) / k).clamp(0.0, 1.0);
+
+    let cbx = x - ra - f * rba;
+    let cby = paba - f;
+
+    let s = if cbx < 0.0 && cay < 0.0 {
+        -1.0_f32
+    } else {
+        1.0_f32
+    };
+
+    s * (cax * cax + cay * cay * baba)
+        .min(cbx * cbx + cby * cby * baba)
+        .sqrt()
+}
+
 // ── Boolean / blending operators ──────────────────────────────────────────────
 
 /// Union: smallest distance to either shape.
