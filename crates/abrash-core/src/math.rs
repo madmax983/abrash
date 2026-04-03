@@ -441,6 +441,114 @@ pub fn cubic_bezier_eval(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32) -> Vec3
     r0.lerp(r1, t)
 }
 
+/// Convert spherical coordinates to Cartesian (physics convention).
+///
+/// - `r`: radial distance from origin
+/// - `theta`: polar angle from the +Y axis, in `[0, π]`
+/// - `phi`: azimuthal angle from the +X axis toward +Z, in `[0, 2π]`
+///
+/// Returns `(x, y, z) = (r sin θ cos φ, r cos θ, r sin θ sin φ)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::spherical_to_cartesian;
+/// use std::f32::consts::FRAC_PI_2;
+///
+/// // θ=0 → +Y pole
+/// let p = spherical_to_cartesian(1.0, 0.0, 0.0);
+/// assert!((p.y - 1.0).abs() < 1e-5);
+///
+/// // θ=π/2, φ=0 → +X equator
+/// let q = spherical_to_cartesian(1.0, FRAC_PI_2, 0.0);
+/// assert!((q.x - 1.0).abs() < 1e-5);
+/// assert!(q.y.abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn spherical_to_cartesian(r: f32, theta: f32, phi: f32) -> Vec3 {
+    let sin_theta = theta.sin();
+    Vec3::new(
+        r * sin_theta * phi.cos(),
+        r * theta.cos(),
+        r * sin_theta * phi.sin(),
+    )
+}
+
+/// Convert Cartesian coordinates to spherical (physics convention).
+///
+/// Returns `(r, theta, phi)`:
+/// - `r` ≥ 0: radial distance
+/// - `theta` ∈ `[0, π]`: polar angle from +Y
+/// - `phi` ∈ `[0, 2π]`: azimuthal angle from +X toward +Z
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{cartesian_to_spherical, Vec3};
+///
+/// let v = Vec3::new(0.0, 1.0, 0.0);
+/// let (r, theta, phi) = cartesian_to_spherical(v);
+/// assert!((r - 1.0).abs() < 1e-5);
+/// assert!(theta.abs() < 1e-5); // pointing up = θ=0
+/// ```
+#[must_use]
+#[inline]
+pub fn cartesian_to_spherical(v: Vec3) -> (f32, f32, f32) {
+    let r = v.length();
+    if r < 1e-10 {
+        return (0.0, 0.0, 0.0);
+    }
+    let theta = (v.y / r).clamp(-1.0, 1.0).acos();
+    let phi = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
+    (r, theta, phi)
+}
+
+/// Convert cylindrical coordinates to Cartesian.
+///
+/// - `r`: radial distance in XZ plane
+/// - `theta`: azimuthal angle from +X toward +Z
+/// - `y`: height along Y axis
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::cylindrical_to_cartesian;
+///
+/// let p = cylindrical_to_cartesian(1.0, 0.0, 2.0);
+/// assert!((p.x - 1.0).abs() < 1e-5);
+/// assert!((p.y - 2.0).abs() < 1e-5);
+/// assert!(p.z.abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn cylindrical_to_cartesian(r: f32, theta: f32, y: f32) -> Vec3 {
+    Vec3::new(r * theta.cos(), y, r * theta.sin())
+}
+
+/// Convert Cartesian coordinates to cylindrical.
+///
+/// Returns `(r, theta, y)` where `theta ∈ [0, 2π]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{cartesian_to_cylindrical, Vec3};
+///
+/// let v = Vec3::new(1.0, 3.0, 0.0);
+/// let (r, theta, y) = cartesian_to_cylindrical(v);
+/// assert!((r - 1.0).abs() < 1e-5);
+/// assert!(theta.abs() < 1e-5);
+/// assert!((y - 3.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn cartesian_to_cylindrical(v: Vec3) -> (f32, f32, f32) {
+    let r = (v.x * v.x + v.z * v.z).sqrt();
+    let theta = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
+    (r, theta, v.y)
+}
+
 /// Fast polynomial approximation of `atan2(y, x)`.
 ///
 /// Maximum error is approximately 0.005 radians (~0.3°).
@@ -2384,6 +2492,90 @@ impl Mat4 {
                 [s.y, u.y, -f.y, 0.0],
                 [s.z, u.z, -f.z, 0.0],
                 [-s.dot(eye), -u.dot(eye), f.dot(eye), 1.0],
+            ],
+        }
+    }
+
+    /// 3D shear matrix — skews one axis as a linear function of the other two.
+    ///
+    /// The six parameters shear the axes in pairs:
+    /// - `xy`: X shifts by `xy * Y`
+    /// - `xz`: X shifts by `xz * Z`
+    /// - `yx`: Y shifts by `yx * X`
+    /// - `yz`: Y shifts by `yz * Z`
+    /// - `zx`: Z shifts by `zx * X`
+    /// - `zy`: Z shifts by `zy * Y`
+    ///
+    /// Uses row-vector convention (`v * M`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    ///
+    /// // Shear X by 0.5*Y
+    /// let m = Mat4::shear(0.5, 0.0, 0.0, 0.0, 0.0, 0.0);
+    /// let v = Vec3::new(0.0, 2.0, 0.0);
+    /// let (result, _) = m.transform_point(v);
+    /// assert!((result.x - 1.0).abs() < 1e-5); // x = 0 + 0.5 * 2 = 1
+    /// assert!((result.y - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+        // Row-vector: v * M.  Column j of M is the destination for basis vector j.
+        // Row 0 = X basis:   x → x + yx*y + zx*z
+        // Row 1 = Y basis:   y → xy*x + y + zy*z
+        // Row 2 = Z basis:   z → xz*x + yz*y + z
+        // Row-vector: result[j] = sum_i v[i] * m[i][j]
+        // m[1][0] = xy gives:  x_out = x + xy*y  (X shifts by xy*Y)
+        Self {
+            m: [
+                [1.0, yx, zx, 0.0],
+                [xy, 1.0, zy, 0.0],
+                [xz, yz, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
+    /// Householder reflection matrix: reflect through the plane with given `normal`.
+    ///
+    /// The plane passes through `point` and has `normal` as its unit normal.
+    /// Points on the plane are unchanged; points off the plane are mirrored.
+    ///
+    /// Uses row-vector convention (`v * M`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::{Mat4, Vec3};
+    ///
+    /// // Mirror through the XZ plane (normal = +Y, point = origin)
+    /// let m = Mat4::reflect_plane(Vec3::new(0.0, 1.0, 0.0), Vec3::ZERO);
+    /// let v = Vec3::new(1.0, 3.0, 2.0);
+    /// let (r, _) = m.transform_point(v);
+    /// assert!((r.x - 1.0).abs() < 1e-5);
+    /// assert!((r.y + 3.0).abs() < 1e-5); // y flipped
+    /// assert!((r.z - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    pub fn reflect_plane(normal: Vec3, point: Vec3) -> Self {
+        // Householder: R = I - 2 * n⊗n (for plane through origin)
+        // For plane through `point`: translate to origin, reflect, translate back.
+        // Expand: p' = p - 2*(p·n - d)*n  where d = point·n
+        let n = normal.normalize();
+        let nx = n.x;
+        let ny = n.y;
+        let nz = n.z;
+        let d = point.dot(n); // signed distance from origin to plane
+        // Row-vector form: v' = v * M
+        // M = I - 2 * n⊗n (for plane through origin), with translation folded in
+        Self {
+            m: [
+                [1.0 - 2.0 * nx * nx, -2.0 * ny * nx, -2.0 * nz * nx, 0.0],
+                [-2.0 * nx * ny, 1.0 - 2.0 * ny * ny, -2.0 * nz * ny, 0.0],
+                [-2.0 * nx * nz, -2.0 * ny * nz, 1.0 - 2.0 * nz * nz, 0.0],
+                [2.0 * d * nx, 2.0 * d * ny, 2.0 * d * nz, 1.0],
             ],
         }
     }
@@ -6120,5 +6312,128 @@ mod tests_mat3 {
         assert!(len > 0.0);
         // Arc length must be >= straight-line distance
         assert!(len >= (p3 - p0).length());
+    }
+
+    // ── spherical / cylindrical coordinates ──────────────────────────────────
+
+    #[test]
+    fn spherical_round_trip() {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let (r, theta, phi) = cartesian_to_spherical(v);
+        let v2 = spherical_to_cartesian(r, theta, phi);
+        assert!((v2 - v).length() < 1e-5, "round trip: {v2:?} vs {v:?}");
+    }
+
+    #[test]
+    fn spherical_poles() {
+        // +Y pole: theta = 0
+        let (r, theta, _phi) = cartesian_to_spherical(Vec3::new(0.0, 5.0, 0.0));
+        assert!((r - 5.0).abs() < 1e-5);
+        assert!(theta.abs() < 1e-5);
+        // -Y pole: theta = pi
+        let (r2, theta2, _) = cartesian_to_spherical(Vec3::new(0.0, -3.0, 0.0));
+        assert!((r2 - 3.0).abs() < 1e-5);
+        assert!((theta2 - std::f32::consts::PI).abs() < 1e-5);
+    }
+
+    #[test]
+    fn spherical_equator() {
+        // Point on equator (+X axis): theta = pi/2, phi = 0
+        let (r, theta, phi) = cartesian_to_spherical(Vec3::new(2.0, 0.0, 0.0));
+        assert!((r - 2.0).abs() < 1e-5);
+        assert!((theta - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert!(phi.abs() < 1e-5 || (phi - std::f32::consts::TAU).abs() < 1e-5);
+    }
+
+    #[test]
+    fn cylindrical_round_trip() {
+        let v = Vec3::new(1.5, 4.0, -2.0);
+        let (r, theta, y) = cartesian_to_cylindrical(v);
+        let v2 = cylindrical_to_cartesian(r, theta, y);
+        assert!((v2 - v).length() < 1e-5, "round trip: {v2:?} vs {v:?}");
+    }
+
+    #[test]
+    fn cylindrical_y_preserved() {
+        let v = Vec3::new(3.0, 7.0, 4.0);
+        let (r, theta, y) = cartesian_to_cylindrical(v);
+        assert!((y - 7.0).abs() < 1e-5);
+        assert!((r - 5.0).abs() < 1e-5); // sqrt(9+16)
+        let v2 = cylindrical_to_cartesian(r, theta, y);
+        assert!((v2.y - 7.0).abs() < 1e-5);
+    }
+
+    // ── Mat4::shear ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn shear_x_by_y() {
+        let m = Mat4::shear(0.5, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let v = Vec3::new(0.0, 2.0, 0.0);
+        let (result, _) = m.transform_point(v);
+        assert!(
+            (result.x - 1.0).abs() < 1e-5,
+            "x = 0 + 0.5*2 = 1, got {}",
+            result.x
+        );
+        assert!((result.y - 2.0).abs() < 1e-5);
+        assert!((result.z).abs() < 1e-5);
+    }
+
+    #[test]
+    fn shear_identity_zero_params() {
+        let m = Mat4::shear(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let v = Vec3::new(3.0, -1.0, 2.0);
+        let (result, _) = m.transform_point(v);
+        assert!((result - v).length() < 1e-5);
+    }
+
+    #[test]
+    fn shear_y_by_x() {
+        let m = Mat4::shear(0.0, 0.0, 2.0, 0.0, 0.0, 0.0); // yx = 2
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let (result, _) = m.transform_point(v);
+        assert!(
+            (result.y - 2.0).abs() < 1e-5,
+            "y = 0 + 2*1 = 2, got {}",
+            result.y
+        );
+        assert!((result.x - 1.0).abs() < 1e-5);
+    }
+
+    // ── Mat4::reflect_plane ──────────────────────────────────────────────────
+
+    #[test]
+    fn reflect_through_origin_xz_plane() {
+        // Reflect through XZ plane (normal = +Y, point = origin)
+        let m = Mat4::reflect_plane(Vec3::Y, Vec3::ZERO);
+        let v = Vec3::new(1.0, 3.0, 2.0);
+        let (result, _) = m.transform_point(v);
+        assert!((result.x - 1.0).abs() < 1e-5);
+        assert!((result.y + 3.0).abs() < 1e-5, "y flipped: {}", result.y);
+        assert!((result.z - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn reflect_idempotent() {
+        // Reflecting twice returns original point
+        let n = Vec3::new(1.0, 1.0, 0.0).normalize();
+        let m = Mat4::reflect_plane(n, Vec3::new(1.0, 0.0, 0.0));
+        let v = Vec3::new(2.0, 3.0, 1.0);
+        let (once, _) = m.transform_point(v);
+        let (twice, _) = m.transform_point(once);
+        assert!(
+            (twice - v).length() < 1e-4,
+            "double reflect = identity: {twice:?}"
+        );
+    }
+
+    #[test]
+    fn reflect_point_on_plane_unchanged() {
+        // A point on the reflection plane should be unchanged
+        let n = Vec3::Y;
+        let p_on_plane = Vec3::new(3.0, 0.0, -1.0); // y = 0 plane
+        let m = Mat4::reflect_plane(n, Vec3::ZERO);
+        let (result, _) = m.transform_point(p_on_plane);
+        assert!((result - p_on_plane).length() < 1e-5);
     }
 }
