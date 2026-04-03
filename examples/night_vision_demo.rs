@@ -230,6 +230,6 @@ impl WindowApp for NightVisionDemoApp {
 
 fn main() -> Result<(), AppError> {
     print_banner();
-    run_windowed(NightVisionDemoApp::new()?)?;
+    run_windowed(NightVisionDemoApp::new().unwrap());
     Ok(())
 }

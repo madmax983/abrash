@@ -494,6 +494,6 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
-fn main() -> Result<(), abrash::platform::HostError> {
-    run_windowed(ShowcaseApp::new())
+fn main() {
+    run_windowed(ShowcaseApp::new().unwrap())
 }

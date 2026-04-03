@@ -188,9 +188,9 @@ impl WindowApp for VhsDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(VhsDemoApp::new()?)
+    run_windowed(VhsDemoApp::new().unwrap())
 }

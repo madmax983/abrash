@@ -145,7 +145,7 @@ mod winit_demo {
     const HEIGHT: u32 = 600;
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(ClothApp::new()?)?;
+        run_windowed(ClothApp::new().unwrap());
         Ok(())
     }
 

@@ -106,8 +106,8 @@ impl WindowApp for PlasmaDemoApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
 
-    run_windowed(PlasmaDemoApp::new()?)
+    run_windowed(PlasmaDemoApp::new().unwrap())
 }

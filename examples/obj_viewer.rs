@@ -213,7 +213,7 @@ mod winit_demo {
         normals: Vec<Vec3>,
         source_name: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        run_windowed(ObjViewerApp::new(mesh, normals, source_name)?)?;
+        run_windowed(ObjViewerApp::new(mesh, normals, source_name).unwrap());
         Ok(())
     }
 

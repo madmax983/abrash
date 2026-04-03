@@ -186,7 +186,7 @@ impl WindowApp for Cube3dApp {
     }
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
-    run_windowed(Cube3dApp::new()?)
+    run_windowed(Cube3dApp::new().unwrap())
 }

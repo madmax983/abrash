@@ -164,99 +164,125 @@ pub trait WindowApp {
     fn render(&mut self, ctx: WindowContext<'_>) -> Result<(), Self::Error>;
 }
 
+use comfy_table::{Cell, Color, Table, presets};
+
+fn print_host_error_and_exit(err: HostError) -> ! {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_header(vec![
+            Cell::new("❌ Window Application Error")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(Color::Red),
+        ])
+        .add_row(vec![
+            Cell::new(format!("{err}")).fg(Color::Yellow),
+        ]);
+
+    eprintln!("\n{table}");
+    std::process::exit(1);
+}
+
 /// Run an app inside a native desktop `winit` event loop.
 ///
-/// # Errors
-///
-/// Returns an error if window creation fails, the event loop fails, or an app
-/// callback returns an error.
-pub fn run_windowed<A>(mut app: A) -> Result<(), HostError>
+/// Handles initialization and main event loop. Prints a formatted
+/// error table and exits cleanly if any window or application error occurs.
+pub fn run_windowed<A>(mut app: A)
 where
     A: WindowApp,
 {
-    let event_loop = EventLoop::new().map_err(|error| HostError::EventLoop(error.to_string()))?;
+    let event_loop = match EventLoop::new() {
+        Ok(el) => el,
+        Err(error) => print_host_error_and_exit(HostError::EventLoop(error.to_string())),
+    };
     let config = app.config();
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title(config.title)
-            .with_inner_size(winit::dpi::PhysicalSize::new(config.width, config.height))
-            .build(&event_loop)
-            .map_err(|error| HostError::Window(error.to_string()))?,
-    );
+    let window = Arc::new(match WindowBuilder::new()
+        .with_title(config.title)
+        .with_inner_size(winit::dpi::PhysicalSize::new(config.width, config.height))
+        .build(&event_loop)
+    {
+        Ok(w) => w,
+        Err(error) => print_host_error_and_exit(HostError::Window(error.to_string())),
+    });
 
-    app.init(WindowContext {
+    if let Err(error) = app.init(WindowContext {
         event_loop: &event_loop,
         window: window.clone(),
         dt_seconds: 0.0,
-    })
-    .map_err(|error| HostError::App(error.to_string()))?;
+    }) {
+        print_host_error_and_exit(HostError::App(error.to_string()));
+    }
 
     let last_error: Rc<RefCell<Option<HostError>>> = Rc::new(RefCell::new(None));
     let error_slot = last_error.clone();
     let window_for_loop = window;
     let mut clock = FrameClock::new();
 
-    event_loop
-        .run(move |event, event_loop_target| {
-            event_loop_target.set_control_flow(ControlFlow::Poll);
+    let event_loop_result = event_loop.run(move |event, event_loop_target| {
+        event_loop_target.set_control_flow(ControlFlow::Poll);
 
-            let context = WindowContext {
-                event_loop: event_loop_target,
-                window: window_for_loop.clone(),
-                dt_seconds: 0.0,
-            };
+        let context = WindowContext {
+            event_loop: event_loop_target,
+            window: window_for_loop.clone(),
+            dt_seconds: 0.0,
+        };
 
-            match event {
-                Event::WindowEvent { event, window_id } if window_id == window_for_loop.id() => {
-                    match event {
-                        WindowEvent::CloseRequested => event_loop_target.exit(),
-                        WindowEvent::Resized(size) => {
-                            if size.width != 0 && size.height != 0 {
-                                if let Err(error) = app.resize(
-                                    WindowContext {
-                                        dt_seconds: 0.0,
-                                        ..context.clone()
-                                    },
-                                    size.width,
-                                    size.height,
-                                ) {
-                                    *error_slot.borrow_mut() =
-                                        Some(HostError::App(error.to_string()));
-                                    event_loop_target.exit();
-                                }
-                            }
-                        }
-                        WindowEvent::RedrawRequested => {
-                            let dt_seconds = clock.tick();
-                            let redraw_context = WindowContext {
-                                dt_seconds,
-                                ..context.clone()
-                            };
-                            if let Err(error) = app.update(redraw_context.clone()) {
-                                *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                                event_loop_target.exit();
-                            } else if let Err(error) = app.render(redraw_context) {
-                                *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
-                                event_loop_target.exit();
-                            }
-                        }
-                        other => {
-                            if let Err(error) = app.input(context, &other) {
-                                *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
+        match event {
+            Event::WindowEvent { event, window_id } if window_id == window_for_loop.id() => {
+                match event {
+                    WindowEvent::CloseRequested => event_loop_target.exit(),
+                    WindowEvent::Resized(size) => {
+                        if size.width != 0 && size.height != 0 {
+                            if let Err(error) = app.resize(
+                                WindowContext {
+                                    dt_seconds: 0.0,
+                                    ..context.clone()
+                                },
+                                size.width,
+                                size.height,
+                            ) {
+                                *error_slot.borrow_mut() =
+                                    Some(HostError::App(error.to_string()));
                                 event_loop_target.exit();
                             }
                         }
                     }
+                    WindowEvent::RedrawRequested => {
+                        let dt_seconds = clock.tick();
+                        let redraw_context = WindowContext {
+                            dt_seconds,
+                            ..context.clone()
+                        };
+                        if let Err(error) = app.update(redraw_context.clone()) {
+                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
+                            event_loop_target.exit();
+                        } else if let Err(error) = app.render(redraw_context) {
+                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
+                            event_loop_target.exit();
+                        }
+                    }
+                    other => {
+                        if let Err(error) = app.input(context, &other) {
+                            *error_slot.borrow_mut() = Some(HostError::App(error.to_string()));
+                            event_loop_target.exit();
+                        }
+                    }
                 }
-                Event::AboutToWait => {
-                    window_for_loop.request_redraw();
-                }
-                _ => {}
             }
-        })
-        .map_err(|error| HostError::EventLoop(error.to_string()))?;
+            Event::AboutToWait => {
+                window_for_loop.request_redraw();
+            }
+            _ => {}
+        }
+    });
 
-    last_error.take().map_or(Ok(()), Err)
+    if let Err(error) = event_loop_result {
+        print_host_error_and_exit(HostError::EventLoop(error.to_string()));
+    }
+
+    if let Some(err) = last_error.take() {
+        print_host_error_and_exit(err);
+    }
 }
 
 /// Cross-platform presenter for software-rendered framebuffers.

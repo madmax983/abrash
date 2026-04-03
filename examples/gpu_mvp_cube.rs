@@ -167,6 +167,6 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
-fn main() -> Result<(), abrash::platform::HostError> {
-    run_windowed(GpuMvpCubeApp::new())
+fn main() {
+    run_windowed(GpuMvpCubeApp::new().unwrap())
 }

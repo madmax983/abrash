@@ -303,7 +303,7 @@ fn show_error_and_exit(msg: &str) -> ! {
     std::process::exit(1);
 }
 
-fn main() -> Result<(), HostError> {
+fn main() {
     print_banner();
 
     let args: Vec<String> = std::env::args().collect();
@@ -392,6 +392,6 @@ fn main() -> Result<(), HostError> {
     println!("\n{}", "🎮 Controls".bold());
     println!("{controls}\n");
 
-    let app = GltfViewerApp::new(scene)?;
+    let app = GltfViewerApp::new(scene).unwrap();
     run_windowed(app)
 }
