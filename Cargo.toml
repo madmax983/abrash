@@ -675,3 +675,8 @@ required-features = ["nova"]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "neon_outline_demo"
+path = "examples/neon_outline_demo.rs"
+required-features = ["nova"]
