@@ -871,6 +871,139 @@ pub fn solid_angle_3d(p: Vec3, centre: Vec3, ra: f32, angle: f32) -> f32 {
     l.max(m * (c.y * q.x - c.x * q.y).signum())
 }
 
+// ── SDF Domain Operators ──────────────────────────────────────────────────────
+
+/// Extrude a 2D SDF into 3D along the Y axis.
+///
+/// Evaluates the 2D SDF in the XZ plane and combines with a half-height cap,
+/// producing a solid extrusion of height `2 * h`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{extrude_y, circle_2d};
+/// use abrash_core::math::{Vec2, Vec3};
+///
+/// // A cylinder is a circle extruded along Y
+/// let d = extrude_y(Vec3::new(0.0, 0.0, 0.0), 1.0, |xz| circle_2d(xz, Vec2::ZERO, 0.5));
+/// assert!(d < 0.0, "centre should be inside, got {d}");
+/// let d2 = extrude_y(Vec3::new(0.0, 5.0, 0.0), 1.0, |xz| circle_2d(xz, Vec2::ZERO, 0.5));
+/// assert!(d2 > 0.0, "above cap should be outside");
+/// ```
+#[must_use]
+#[inline]
+pub fn extrude_y(p: Vec3, h: f32, sdf2d: impl Fn(Vec2) -> f32) -> f32 {
+    let d = sdf2d(Vec2::new(p.x, p.z));
+    let w = Vec2::new(d, p.y.abs() - h);
+    w.x.max(w.y).min(0.0) + Vec2::new(w.x.max(0.0), w.y.max(0.0)).length()
+}
+
+/// Revolve a 2D SDF around the Y axis to create a surface of revolution.
+///
+/// The 2D SDF is evaluated in the XY plane on the profile `(r, p.y)` where
+/// `r` is the radial distance from the Y axis, offset by `o` (the revolution
+/// offset).  With `o = 0` the shape is fully revolved; with `o > 0` a ring
+/// of that radius is revolved.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{revolve_y, circle_2d};
+/// use abrash_core::math::{Vec2, Vec3};
+///
+/// // A torus: revolve a circle profile at offset r=1 around Y
+/// let d = revolve_y(Vec3::new(1.0, 0.0, 0.0), 1.0, |p| circle_2d(p, Vec2::ZERO, 0.2));
+/// assert!(d < 0.0, "on torus tube center, got {d}");
+/// let d2 = revolve_y(Vec3::ZERO, 1.0, |p| circle_2d(p, Vec2::ZERO, 0.2));
+/// assert!(d2 > 0.0, "hole center should be outside");
+/// ```
+#[must_use]
+#[inline]
+pub fn revolve_y(p: Vec3, o: f32, sdf2d: impl Fn(Vec2) -> f32) -> f32 {
+    let q = Vec2::new(Vec2::new(p.x, p.z).length() - o, p.y);
+    sdf2d(q)
+}
+
+/// Twist the SDF domain around the Y axis.
+///
+/// Rotates the XZ plane by `k * p.y` radians as y increases, creating a
+/// helical warp.  Apply before evaluating any 3D SDF to get a twisted shape.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{twist_y, box_3d};
+/// use abrash_core::math::Vec3;
+///
+/// // The twisted box is different from the original at non-zero y
+/// let p = Vec3::new(0.5, 1.0, 0.0);
+/// let plain  = box_3d(p, Vec3::ZERO, Vec3::new(0.5, 2.0, 0.5));
+/// let twisted = box_3d(twist_y(p, 1.0), Vec3::ZERO, Vec3::new(0.5, 2.0, 0.5));
+/// assert!((plain - twisted).abs() > 1e-4, "twist should change the result");
+/// ```
+#[must_use]
+#[inline]
+pub fn twist_y(p: Vec3, k: f32) -> Vec3 {
+    let (s, c) = (k * p.y).sin_cos();
+    Vec3::new(c * p.x - s * p.z, p.y, s * p.x + c * p.z)
+}
+
+/// Displace an SDF by adding a displacement function to the distance.
+///
+/// Useful for adding bumps, waves, or texture to any shape.  The result is
+/// an **approximate** SDF — the Lipschitz condition may be violated if the
+/// displacement amplitude exceeds 1.  For accurate ray-marching use a small
+/// step size or clamp the result.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{displace, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// let d_plain = sphere_3d(Vec3::new(1.0, 0.0, 0.0), Vec3::ZERO, 1.0);
+/// // Displace outward with a constant 0.1 bump
+/// let d_bumped = displace(d_plain, 0.1);
+/// assert!((d_bumped - (d_plain + 0.1)).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn displace(d: f32, displacement: f32) -> f32 {
+    d + displacement
+}
+
+/// Symmetry / infinite repetition along one axis.
+///
+/// Maps `p` into the repeating cell of size `cell` centered at the nearest
+/// grid point.  Pass the result to any SDF to tile it.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{repeat_1d, sphere_3d};
+/// use abrash_core::math::Vec3;
+///
+/// // Spheres repeat every 3 units along X
+/// let p0 = Vec3::new(0.0, 0.0, 0.0);  // inside the sphere at x=0
+/// let p1 = Vec3::new(3.0, 0.0, 0.0);  // inside the sphere at x=3
+/// let d0 = sphere_3d(repeat_1d(p0, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
+/// let d1 = sphere_3d(repeat_1d(p1, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
+/// assert!((d0 - d1).abs() < 1e-5, "repeated cells should match: d0={d0} d1={d1}");
+/// ```
+#[must_use]
+#[inline]
+pub fn repeat_1d(p: Vec3, cell: Vec3) -> Vec3 {
+    // For each non-zero component of cell, fold p into [-cell/2, cell/2]
+    let fold = |v: f32, c: f32| -> f32 {
+        if c.abs() < 1e-7 {
+            v
+        } else {
+            v - c * (v / c).round()
+        }
+    };
+    Vec3::new(fold(p.x, cell.x), fold(p.y, cell.y), fold(p.z, cell.z))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1030,5 +1163,56 @@ mod tests {
         let a = 1.0_f32;
         let b = 0.5_f32;
         assert!((smooth_intersection(a, b, 0.0) - intersection(a, b)).abs() < TOL);
+    }
+
+    // ── Domain operators ────────────────────────────────────────────────────
+
+    #[test]
+    fn extrude_y_cylinder_matches() {
+        // Extruding a unit circle by h=2 should give same result as cylinder_3d
+        let p = Vec3::new(0.5, 1.0, 0.0);
+        let ext = extrude_y(p, 2.0, |xz| circle_2d(xz, Vec2::ZERO, 1.0));
+        let cyl = cylinder_3d(p, Vec3::ZERO, 1.0, 2.0);
+        assert!((ext - cyl).abs() < TOL, "ext={ext} cyl={cyl}");
+    }
+
+    #[test]
+    fn extrude_y_above_cap_is_outside() {
+        let p = Vec3::new(0.0, 3.0, 0.0);
+        let d = extrude_y(p, 1.0, |xz| circle_2d(xz, Vec2::ZERO, 0.5));
+        assert!(d > 0.0, "above cap: {d}");
+    }
+
+    #[test]
+    fn revolve_y_gives_torus() {
+        // Revolving a circle of radius 0.2 at offset 1.0 gives a torus
+        let p = Vec3::new(1.0, 0.0, 0.0); // on tube center
+        let d = revolve_y(p, 1.0, |q| circle_2d(q, Vec2::ZERO, 0.2));
+        assert!(d < 0.0, "on tube centre: {d}");
+        // Far from torus
+        let far = Vec3::new(5.0, 0.0, 0.0);
+        let d2 = revolve_y(far, 1.0, |q| circle_2d(q, Vec2::ZERO, 0.2));
+        assert!(d2 > 0.0);
+    }
+
+    #[test]
+    fn twist_y_changes_result() {
+        let p = Vec3::new(0.5, 1.0, 0.0);
+        let plain = box_3d(p, Vec3::ZERO, Vec3::new(0.5, 2.0, 0.5));
+        let twisted = box_3d(twist_y(p, 1.5), Vec3::ZERO, Vec3::new(0.5, 2.0, 0.5));
+        assert!(
+            (plain - twisted).abs() > TOL,
+            "twist should differ: {plain} vs {twisted}"
+        );
+    }
+
+    #[test]
+    fn repeat_1d_tiles_correctly() {
+        // Spheres at x=0 and x=3 should both look the same when repeated with cell=3
+        let p0 = Vec3::new(0.1, 0.0, 0.0);
+        let p1 = Vec3::new(3.1, 0.0, 0.0);
+        let d0 = sphere_3d(repeat_1d(p0, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
+        let d1 = sphere_3d(repeat_1d(p1, Vec3::new(3.0, 0.0, 0.0)), Vec3::ZERO, 0.5);
+        assert!((d0 - d1).abs() < TOL, "d0={d0} d1={d1}");
     }
 }

@@ -343,6 +343,177 @@ impl Color {
         }
     }
 
+    /// Overlay blend: multiply for darks, screen for lights.
+    ///
+    /// Uses `self` as the base layer and `other` as the blend layer.
+    /// Where `self < 0.5`, darkens; where `self >= 0.5`, lightens.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Overlaying grey over grey should return grey
+    /// let grey = Color::grey(0.5);
+    /// let out = grey.blend_overlay(grey);
+    /// assert!((out.r - 0.5).abs() < 1e-4, "r={}", out.r);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn blend_overlay(self, other: Self) -> Self {
+        let overlay = |base: f32, blend: f32| -> f32 {
+            if base < 0.5 {
+                2.0 * base * blend
+            } else {
+                1.0 - 2.0 * (1.0 - base) * (1.0 - blend)
+            }
+        };
+        Self {
+            r: overlay(self.r, other.r),
+            g: overlay(self.g, other.g),
+            b: overlay(self.b, other.b),
+            a: self.a,
+        }
+    }
+
+    /// Hard light blend: like overlay but with blend/base roles swapped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Hard light of grey over grey equals grey
+    /// let grey = Color::grey(0.5);
+    /// let out = grey.blend_hard_light(grey);
+    /// assert!((out.r - 0.5).abs() < 1e-4, "r={}", out.r);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn blend_hard_light(self, other: Self) -> Self {
+        // Hard light = overlay with base and blend swapped
+        other.blend_overlay(self)
+    }
+
+    /// Soft light blend: gentle dodge/burn based on blend layer.
+    ///
+    /// Uses the W3C / Photoshop soft-light formula.  Results in a softer
+    /// contrast adjustment than hard light.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Soft light of grey over grey equals grey
+    /// let grey = Color::grey(0.5);
+    /// let out = grey.blend_soft_light(grey);
+    /// assert!((out.r - 0.5).abs() < 0.01, "r={}", out.r);
+    /// ```
+    #[must_use]
+    pub fn blend_soft_light(self, other: Self) -> Self {
+        let soft = |base: f32, blend: f32| -> f32 {
+            if blend <= 0.5 {
+                base - (1.0 - 2.0 * blend) * base * (1.0 - base)
+            } else {
+                let d = if base <= 0.25 {
+                    ((16.0 * base - 12.0) * base + 4.0) * base
+                } else {
+                    base.sqrt()
+                };
+                base + (2.0 * blend - 1.0) * (d - base)
+            }
+        };
+        Self {
+            r: soft(self.r, other.r),
+            g: soft(self.g, other.g),
+            b: soft(self.b, other.b),
+            a: self.a,
+        }
+    }
+
+    /// Adjust brightness by adding `amount` to each RGB channel.
+    ///
+    /// Positive values brighten, negative values darken.  Result is clamped to
+    /// `[0, 1]`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// let c = Color::grey(0.5).adjust_brightness(0.2);
+    /// assert!((c.r - 0.7).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn adjust_brightness(self, amount: f32) -> Self {
+        Self {
+            r: (self.r + amount).clamp(0.0, 1.0),
+            g: (self.g + amount).clamp(0.0, 1.0),
+            b: (self.b + amount).clamp(0.0, 1.0),
+            a: self.a,
+        }
+    }
+
+    /// Adjust contrast around the midpoint (0.5).
+    ///
+    /// `factor > 1` increases contrast (pushes towards extremes); `factor < 1`
+    /// decreases contrast (pushes towards grey).  `factor = 0` produces flat
+    /// 50% grey.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Grey is unaffected by contrast adjustment
+    /// let grey = Color::grey(0.5);
+    /// let c = grey.adjust_contrast(2.0);
+    /// assert!((c.r - 0.5).abs() < 1e-5);
+    ///
+    /// // Dark colour gets darker with more contrast
+    /// let dark = Color::grey(0.3);
+    /// let boosted = dark.adjust_contrast(2.0);
+    /// assert!(boosted.r < dark.r);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn adjust_contrast(self, factor: f32) -> Self {
+        let adj = |v: f32| ((v - 0.5) * factor + 0.5).clamp(0.0, 1.0);
+        Self {
+            r: adj(self.r),
+            g: adj(self.g),
+            b: adj(self.b),
+            a: self.a,
+        }
+    }
+
+    /// Adjust HSV saturation by multiplying the S component.
+    ///
+    /// `factor = 0` produces greyscale; `factor = 1` is unchanged; `factor > 1`
+    /// boosts saturation (clamped to `[0, 1]`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::color::Color;
+    ///
+    /// // Desaturate to zero → greyscale
+    /// let red = Color::RED;
+    /// let grey = red.adjust_saturation(0.0);
+    /// assert!((grey.r - grey.g).abs() < 0.01, "should be grey");
+    ///
+    /// // Saturation of 1 is a no-op
+    /// let same = red.adjust_saturation(1.0);
+    /// assert!((same.r - red.r).abs() < 0.01);
+    /// ```
+    #[must_use]
+    pub fn adjust_saturation(self, factor: f32) -> Self {
+        let (h, s, v) = self.to_hsv();
+        Self::from_hsv(h, (s * factor).clamp(0.0, 1.0), v).with_alpha(self.a)
+    }
+
     /// Perceptual luminance: `0.2126·R + 0.7152·G + 0.0722·B` (ITU-R BT.709).
     ///
     /// Returns a value in `[0.0, 1.0]` for colors in `[0.0, 1.0]`.
@@ -877,5 +1048,92 @@ mod tests {
         let over = Color::gradient(1.0, &stops);
         assert!((under.r).abs() < TOL);
         assert!((over.r - 1.0).abs() < TOL);
+    }
+
+    // ── Blend modes ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn overlay_grey_is_grey() {
+        let grey = Color::grey(0.5);
+        let out = grey.blend_overlay(grey);
+        assert!((out.r - 0.5).abs() < 0.01, "r={}", out.r);
+    }
+
+    #[test]
+    fn overlay_white_stays_white() {
+        let out = Color::WHITE.blend_overlay(Color::WHITE);
+        assert!((out.r - 1.0).abs() < TOL);
+    }
+
+    #[test]
+    fn overlay_black_stays_black() {
+        let out = Color::BLACK.blend_overlay(Color::BLACK);
+        assert!(out.r.abs() < TOL);
+    }
+
+    #[test]
+    fn hard_light_is_swapped_overlay() {
+        let a = Color::rgb(0.3, 0.5, 0.7);
+        let b = Color::rgb(0.6, 0.4, 0.2);
+        let hl = a.blend_hard_light(b);
+        let ol = b.blend_overlay(a);
+        assert!((hl.r - ol.r).abs() < TOL, "r: hl={} ol={}", hl.r, ol.r);
+    }
+
+    #[test]
+    fn soft_light_grey_is_grey() {
+        let grey = Color::grey(0.5);
+        let out = grey.blend_soft_light(grey);
+        assert!((out.r - 0.5).abs() < 0.01, "r={}", out.r);
+    }
+
+    // ── Adjustments ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn brightness_up() {
+        let c = Color::grey(0.4).adjust_brightness(0.2);
+        assert!((c.r - 0.6).abs() < TOL);
+    }
+
+    #[test]
+    fn brightness_clamps() {
+        let c = Color::WHITE.adjust_brightness(0.5);
+        assert!((c.r - 1.0).abs() < TOL);
+        let c2 = Color::BLACK.adjust_brightness(-0.5);
+        assert!(c2.r.abs() < TOL);
+    }
+
+    #[test]
+    fn contrast_midpoint_unchanged() {
+        let grey = Color::grey(0.5);
+        let c = grey.adjust_contrast(3.0);
+        assert!((c.r - 0.5).abs() < TOL);
+    }
+
+    #[test]
+    fn contrast_increases_spread() {
+        let dark = Color::grey(0.3);
+        let boosted = dark.adjust_contrast(2.0);
+        assert!(
+            boosted.r < dark.r,
+            "contrast boost should darken r={}",
+            boosted.r
+        );
+    }
+
+    #[test]
+    fn saturation_zero_is_greyscale() {
+        let red = Color::RED;
+        let grey = red.adjust_saturation(0.0);
+        assert!((grey.r - grey.g).abs() < 0.01);
+        assert!((grey.r - grey.b).abs() < 0.01);
+    }
+
+    #[test]
+    fn saturation_one_is_noop() {
+        let blue = Color::BLUE;
+        let same = blue.adjust_saturation(1.0);
+        assert!((same.r - blue.r).abs() < 0.01);
+        assert!((same.b - blue.b).abs() < 0.01);
     }
 }
