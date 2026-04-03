@@ -739,7 +739,7 @@ fn render_help_bar(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
     f.render_widget(help, area);
 }
 
-fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
+fn print_launch_header(name: &str) {
     let mut table = ComfyTable::new();
     table
         .load_preset(ComfyPresets::UTF8_FULL)
@@ -752,6 +752,44 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
             "Preparing to launch '{name}'..."
         ))]);
     println!("\n{table}");
+}
+
+fn print_launch_success() {
+    let mut success_table = ComfyTable::new();
+    success_table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![
+            ComfyCell::new("✅ Demo Exited Successfully")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Green),
+        ]);
+    println!("\n{success_table}");
+    println!("\n{}", "Press Enter to return to dashboard...".grey());
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn print_launch_error(status: std::process::ExitStatus) {
+    let mut error_table = ComfyTable::new();
+    error_table
+        .load_preset(ComfyPresets::UTF8_FULL)
+        .set_header(vec![
+            ComfyCell::new("❌ Demo Crashed")
+                .add_attribute(comfy_table::Attribute::Bold)
+                .fg(ComfyColor::Red),
+        ])
+        .add_row(vec![
+            ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
+        ]);
+
+    println!("\n{error_table}");
+
+    // Give user a chance to read the error
+    println!("\n{}", "Press Enter to return to dashboard...".grey());
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
+    print_launch_header(name);
 
     let args = build_demo_command_args(name, use_tui_backend);
     let mut cmd = Command::new(&args[0]);
@@ -764,42 +802,9 @@ fn run_demo(name: &str, use_tui_backend: bool) -> Result<(), Box<dyn Error>> {
     let status = child.wait()?;
 
     if status.success() {
-        let mut success_table = ComfyTable::new();
-        success_table
-            .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![
-                ComfyCell::new("✅ Demo Exited Successfully")
-                    .add_attribute(comfy_table::Attribute::Bold)
-                    .fg(ComfyColor::Green),
-            ]);
-        println!(
-            "
-{success_table}"
-        );
-        println!(
-            "
-{}",
-            "Press Enter to return to dashboard...".grey()
-        );
-        let _ = std::io::stdin().read_line(&mut String::new());
+        print_launch_success();
     } else {
-        let mut error_table = ComfyTable::new();
-        error_table
-            .load_preset(ComfyPresets::UTF8_FULL)
-            .set_header(vec![
-                ComfyCell::new("❌ Demo Crashed")
-                    .add_attribute(comfy_table::Attribute::Bold)
-                    .fg(ComfyColor::Red),
-            ])
-            .add_row(vec![
-                ComfyCell::new(format!("Exit Status: {status}")).fg(ComfyColor::Yellow),
-            ]);
-
-        println!("\n{error_table}");
-
-        // Give user a chance to read the error
-        println!("\n{}", "Press Enter to return to dashboard...".grey());
-        let _ = std::io::stdin().read_line(&mut String::new());
+        print_launch_error(status);
     }
 
     Ok(())
