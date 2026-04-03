@@ -166,7 +166,7 @@ mod tests {
     use super::*;
     use abrash_core::bam::{ANG90, ANG180, ANG270};
 
-    /// Helper: create a Vec2Fixed from f32 pair for readability.
+    /// Helper: create a `Vec2Fixed` from f32 pair for readability.
     fn pos(x: f32, y: f32) -> Vec2Fixed {
         Vec2Fixed::from_f32(x, y)
     }

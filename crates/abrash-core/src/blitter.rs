@@ -889,8 +889,7 @@ mod tests {
                 let idx = row as usize * fb_w + col as usize;
                 assert_eq!(
                     fb_pixels[idx], expected,
-                    "Mismatch at fb ({}, {}), src_x={}",
-                    col, row, src_x
+                    "Mismatch at fb ({col}, {row}), src_x={src_x}"
                 );
             }
         }
@@ -915,7 +914,7 @@ mod tests {
 
         // Every pixel in the framebuffer should be untouched.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
-            assert_eq!(pixel, 0xFF000000, "Pixel {} should be black", i);
+            assert_eq!(pixel, 0xFF000000, "Pixel {i} should be black");
         }
     }
 
@@ -1104,7 +1103,7 @@ mod tests {
 
         // Every pixel in the framebuffer should still be blue.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
-            assert_eq!(pixel, BLUE, "pixel {} should be blue (all transparent)", i);
+            assert_eq!(pixel, BLUE, "pixel {i} should be blue (all transparent)");
         }
     }
 
@@ -1142,8 +1141,7 @@ mod tests {
                 let idx = row as usize * fb_w + col as usize;
                 assert_eq!(
                     fb_pixels[idx], RED,
-                    "pixel ({}, {}) should be red",
-                    col, row
+                    "pixel ({col}, {row}) should be red"
                 );
             }
         }
@@ -1151,7 +1149,7 @@ mod tests {
         // Column 5 onward should still be blue.
         for row in 0..8u32 {
             let idx = row as usize * fb_w + 5;
-            assert_eq!(fb_pixels[idx], BLUE, "pixel (5, {}) should be blue", row);
+            assert_eq!(fb_pixels[idx], BLUE, "pixel (5, {row}) should be blue");
         }
     }
 
@@ -1294,7 +1292,7 @@ mod tests {
 
         // Every pixel in the framebuffer should still be blue.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
-            assert_eq!(pixel, BLUE, "pixel {} should be blue (all transparent)", i);
+            assert_eq!(pixel, BLUE, "pixel {i} should be blue (all transparent)");
         }
     }
 
@@ -1322,19 +1320,19 @@ mod tests {
 
         // R channel: src=255, dst=0 -> blended ~128
         let r = channel(result, 16);
-        assert!(r.abs_diff(128) <= 2, "R channel should be ~128, got {}", r);
+        assert!(r.abs_diff(128) <= 2, "R channel should be ~128, got {r}");
 
         // G channel: src=0, dst=0 -> blended 0
         let g = channel(result, 8);
-        assert_eq!(g, 0, "G channel should be 0, got {}", g);
+        assert_eq!(g, 0, "G channel should be 0, got {g}");
 
         // B channel: src=0, dst=255 -> blended ~127
         let b = channel(result, 0);
-        assert!(b.abs_diff(127) <= 2, "B channel should be ~127, got {}", b);
+        assert!(b.abs_diff(127) <= 2, "B channel should be ~127, got {b}");
 
         // A channel: always 0xFF for framebuffer output.
         let a = channel(result, 24);
-        assert_eq!(a, 0xFF, "A channel should be 0xFF, got {}", a);
+        assert_eq!(a, 0xFF, "A channel should be 0xFF, got {a}");
     }
 
     #[test]
@@ -1447,7 +1445,7 @@ mod tests {
         for y in 3..8u32 {
             for x in 2..6u32 {
                 let idx = y as usize * fb_w + x as usize;
-                assert_eq!(fb_pixels[idx], RED, "pixel ({}, {}) should be red", x, y);
+                assert_eq!(fb_pixels[idx], RED, "pixel ({x}, {y}) should be red");
             }
         }
 
@@ -1484,7 +1482,7 @@ mod tests {
         for y in 0..3u32 {
             for x in 0..3u32 {
                 let idx = y as usize * fb_w + x as usize;
-                assert_eq!(fb_pixels[idx], RED, "pixel ({}, {}) should be red", x, y);
+                assert_eq!(fb_pixels[idx], RED, "pixel ({x}, {y}) should be red");
             }
         }
 
@@ -1505,7 +1503,7 @@ mod tests {
 
         // Every pixel should remain default.
         for (i, &pixel) in fb.as_slice().iter().enumerate() {
-            assert_eq!(pixel, DEFAULT, "pixel {} should be default", i);
+            assert_eq!(pixel, DEFAULT, "pixel {i} should be default");
         }
     }
 
@@ -1532,25 +1530,19 @@ mod tests {
                 let r = channel(result, 16);
                 assert!(
                     r.abs_diff(128) <= 2,
-                    "pixel ({}, {}) R should be ~128, got {}",
-                    x,
-                    y,
-                    r
+                    "pixel ({x}, {y}) R should be ~128, got {r}"
                 );
 
                 // B channel: src=0, dst=255 -> blended ~127
                 let b = channel(result, 0);
                 assert!(
                     b.abs_diff(127) <= 2,
-                    "pixel ({}, {}) B should be ~127, got {}",
-                    x,
-                    y,
-                    b
+                    "pixel ({x}, {y}) B should be ~127, got {b}"
                 );
 
                 // A channel: always 0xFF for framebuffer output.
                 let a = channel(result, 24);
-                assert_eq!(a, 0xFF, "pixel ({}, {}) A should be 0xFF, got {}", x, y, a);
+                assert_eq!(a, 0xFF, "pixel ({x}, {y}) A should be 0xFF, got {a}");
             }
         }
 

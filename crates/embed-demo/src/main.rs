@@ -36,11 +36,7 @@ fn main() {
         let angle = frame_idx as f32 * (std::f32::consts::TAU / FRAMES as f32);
 
         let pixels = backend.render(&EmbedScene {
-            camera: EmbedCamera {
-                position: camera.position,
-                target: camera.target,
-                fov_y: camera.fov_y,
-            },
+            camera: camera.clone(),
             draws: &[
                 EmbedDraw {
                     mesh_index: cube,

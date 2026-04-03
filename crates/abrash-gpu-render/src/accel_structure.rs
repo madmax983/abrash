@@ -16,6 +16,7 @@ impl MeshBlas {
     /// Build a BLAS from a mesh's vertex and index buffers.
     ///
     /// The vertex buffer must contain positions at offset 0 with the given stride.
+    #[must_use]
     pub fn build(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -80,6 +81,7 @@ impl SceneTlas {
     /// Build a TLAS from a list of (BLAS, transform) pairs.
     ///
     /// Each instance gets a 3×4 affine transform matrix derived from the Mat4.
+    #[must_use]
     pub fn build(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

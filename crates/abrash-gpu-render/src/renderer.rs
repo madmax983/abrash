@@ -569,7 +569,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (replaces shadow map when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -713,7 +713,7 @@ impl GpuRenderer {
 
         // Pass 2.5: RT shadows (when RT available)
         #[cfg(feature = "ray-tracing")]
-        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws)?;
+        self.encode_rt_shadow_pass(&mut encoder, frame, &prepared_draws);
 
         // Pass 3: Deferred lighting → HDR
         self.ensure_hdr_target(w, h);
@@ -1129,9 +1129,9 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         frame: &Frame,
         prepared_draws: &[PreparedDraw],
-    ) -> Result<(), String> {
+    ) {
         if !self.rt_enabled {
-            return Ok(());
+            return;
         }
 
         // Find directional light for shadow rays
@@ -1141,7 +1141,7 @@ impl GpuRenderer {
         });
 
         let Some(dir_light) = dir_light else {
-            return Ok(());
+            return;
         };
 
         // Build TLAS from all draw instances
@@ -1155,7 +1155,7 @@ impl GpuRenderer {
         }
 
         if instances.is_empty() {
-            return Ok(());
+            return;
         }
 
         let tlas = crate::accel_structure::SceneTlas::build(
@@ -1183,8 +1183,6 @@ impl GpuRenderer {
                 ],
             );
         }
-
-        Ok(())
     }
 
     fn encode_deferred_lighting(&self, encoder: &mut wgpu::CommandEncoder) {

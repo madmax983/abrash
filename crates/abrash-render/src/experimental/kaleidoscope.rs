@@ -211,7 +211,7 @@ mod tests {
             ), // Bottom-Left
         ];
 
-        for (y, x, expected) in points.iter() {
+        for (y, x, expected) in &points {
             let mut std_atan2 = (*y as f32).atan2(*x as f32);
             if std_atan2 < 0.0 {
                 std_atan2 += std::f32::consts::TAU;
@@ -221,11 +221,7 @@ mod tests {
             // Allow for a max error of about 4 degrees (0.07 rads) for the approximation
             assert!(
                 (fast - expected).abs() < 0.08,
-                "fast_atan2({}, {}) = {} vs expected std {}",
-                y,
-                x,
-                fast,
-                expected
+                "fast_atan2({y}, {x}) = {fast} vs expected std {expected}"
             );
         }
     }

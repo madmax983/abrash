@@ -358,8 +358,7 @@ mod tests {
         let diff = neg.0.wrapping_sub(ANG270.0);
         assert!(
             diff < 0x0010_0000 || diff > 0xFFF0_0000,
-            "from_radians(-π/2) should be near ANG270, got {}",
-            neg
+            "from_radians(-π/2) should be near ANG270, got {neg}"
         );
     }
 
@@ -373,7 +372,7 @@ mod tests {
         while i < FINE_TABLE_SIZE {
             let angle = (i as f64) * core::f64::consts::TAU / (FINE_TABLE_SIZE as f64);
             let expected = angle.sin();
-            let actual = SINE_TABLE[i].to_f32() as f64;
+            let actual = f64::from(SINE_TABLE[i].to_f32());
             let error = (actual - expected).abs();
             if error > worst_error {
                 worst_error = error;
@@ -391,10 +390,10 @@ mod tests {
 
     #[test]
     fn display_shows_degrees() {
-        let s = format!("{}", ANG90);
+        let s = format!("{ANG90}");
         assert_eq!(s, "90.00\u{00B0}");
 
-        let s2 = format!("{}", ANG180);
+        let s2 = format!("{ANG180}");
         assert_eq!(s2, "180.00\u{00B0}");
 
         let s3 = format!("{}", Bam::ZERO);

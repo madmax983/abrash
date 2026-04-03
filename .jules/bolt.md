@@ -198,3 +198,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Struct of Arrays for DrawBatch]**
 **Learning:** When attempting to remove per-mesh allocations inside hot frame processing, using unsafe pointer casting (`ptr as usize`) inside a Rayon parallel iterator to write to disjoint array slices is highly discouraged. A better and safer pattern is collecting individual pre-allocated `Vec`s in parallel and sequentially extending a single global vector, or using safe mutable slice splitting. In this case, `Vec::extend` sequentially was fast enough. Also, replacing `Vec` inside child objects with an index `Range` into a root data structure completely eliminates the per-object dynamic heap allocations.
 **Action:** When migrating an array-of-structs to a struct-of-arrays approach, always prefer `std::ops::Range` for child objects to reference elements inside a single flattened root `Vec`.
+## Plasma Optimization
+**Learning:** Hoisting invariant math (like y-dependent trig functions) out of inner loops provides massive performance benefits in tight pixel processing loops. Also, it's necessary to ensure benchmarks specify required features in `Cargo.toml`.
+**Action:** Created `plasma_bench`, hoisted `y_sin` and `y_cos` from inner `x` loop, resulting in ~20-27% speedup.
