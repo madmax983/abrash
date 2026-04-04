@@ -1463,7 +1463,9 @@ fn rasterize_scanline_simd(
         // The SIMD loop ran (i - pre_simd_count) / 8 iterations.
         // We calculate z directly instead of accumulating
         #[allow(unused_assignments)]
-        { z += 0.0; } // Keep compiler quiet about z assignment before this loop
+        {
+            z += 0.0;
+        } // Keep compiler quiet about z assignment before this loop
     }
 
     // Handle remaining pixels with scalar fallback

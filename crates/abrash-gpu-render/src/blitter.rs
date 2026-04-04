@@ -659,7 +659,8 @@ impl GpuBlitter {
 
         // Build the per-sprite storage buffer from the sorted command list.
         self.instances.clear();
-        self.instances.extend(self.commands.iter().map(|c| c.instance));
+        self.instances
+            .extend(self.commands.iter().map(|c| c.instance));
         let sprite_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -1321,7 +1322,12 @@ mod gpu_tests {
 
         let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
         let atlas = blitter.upload_atlas(&tex);
-        let src = SrcRect { x: 0, y: 0, w: 4, h: 4 };
+        let src = SrcRect {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 4,
+        };
 
         blitter.queue(atlas, src, 0, 0, BlitMode::Opaque);
         blitter.queue(atlas, src, 10, 10, BlitMode::Alpha);

@@ -200,3 +200,7 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+## [Duotone Filter]
+**Concept:** A retro post-processing effect that maps the pixel luminance of the framebuffer to a gradient between two user-defined colors, creating a stylized two-tone look similar to Spotify's iconic marketing style.
+**Fate:** Implemented
+**Lesson:** Simple fixed-point integer interpolation mapping the luminance value against two chosen colors runs extremely fast without needing floating-point math. Utilizing `rayon::par_chunks_exact_mut` allows this simple pixel mapping to scale cleanly across available threads for maximum throughput without mutable aliasing issues, as each pixel mapping is completely independent.
