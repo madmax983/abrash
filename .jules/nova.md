@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Duotone Filter]
+**Concept:** A post-processing effect that maps the luminance of each pixel to an interpolated color between a user-defined dark color and light color.
+**Fate:** Implemented
+**Lesson:** Fixed-point integer math (`>> 16` and `>> 8`) for computing luminance and color interpolation is drastically faster than using floating-point multiplication and division within a per-pixel post-processing loop. Rayon's `par_chunks_exact_mut` allows for very efficient row-by-row parallelization of the calculation.
