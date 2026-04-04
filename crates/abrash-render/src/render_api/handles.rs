@@ -313,6 +313,41 @@ mod tests {
     }
 
     #[test]
+    fn test_pool_get_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.get(invalid_h), None);
+    }
+
+    #[test]
+    fn test_pool_get_mut_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.get_mut(invalid_h), None);
+    }
+
+    #[test]
+    fn test_pool_remove_invalid_generation() {
+        let mut pool: ResourcePool<i32> = ResourcePool::new();
+        let h = pool.insert(42);
+
+        // Access occupied slot but with wrong generation
+        let invalid_h = Handle::new(h.index, h.generation + 1);
+
+        assert_eq!(pool.remove(invalid_h), None);
+        // Ensure the valid handle still works and the value was not removed
+        assert_eq!(pool.get(h), Some(&42));
+    }
+
+    #[test]
     #[should_panic(expected = "free list pointed to occupied slot")]
     fn test_pool_free_list_occupied_slot_panic() {
         let mut pool: ResourcePool<i32> = ResourcePool::new();
