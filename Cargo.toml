@@ -497,6 +497,11 @@ name = "dof_bench"
 harness = false
 
 [[bench]]
+name = "duotone_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
@@ -689,4 +694,9 @@ required-features = ["nova"]
 [[example]]
 name = "neon_outline_demo"
 path = "examples/neon_outline_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "duotone_demo"
+path = "examples/duotone_demo.rs"
 required-features = ["nova"]
