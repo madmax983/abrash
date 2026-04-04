@@ -115,6 +115,16 @@ impl CpuRenderer {
                 .meshes
                 .get(from_mesh_handle(cmd.mesh))
                 .ok_or(RenderError::StaleHandle("mesh"))?;
+
+            // Validate material handles sequentially to eliminate intermediate Result vectors later
+            if self
+                .materials
+                .get(from_material_handle(cmd.material))
+                .is_none()
+            {
+                return Err(RenderError::StaleHandle("material"));
+            }
+
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
@@ -140,43 +150,44 @@ impl CpuRenderer {
             // of the pre-allocated buffer exactly `total_vertices` in length.
             let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
 
-            // Map each command to a result to collect into a Result<Vec, Error>
-            let results: Result<Vec<DrawBatch>, RenderError> = frame
-                .commands
-                .par_iter()
-                .zip(&ranges)
-                .map(|(cmd, &(start, end))| {
-                    let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                    let material = self
-                        .materials
-                        .get(from_material_handle(cmd.material))
-                        .ok_or(RenderError::StaleHandle("material"))?;
+            // Use par_extend to directly populate batches without an intermediate Vec allocation.
+            draw_list
+                .batches
+                .par_extend(
+                    frame
+                        .commands
+                        .par_iter()
+                        .zip(&ranges)
+                        .map(|(cmd, &(start, end))| {
+                            let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                            let material = self
+                                .materials
+                                .get(from_material_handle(cmd.material))
+                                .unwrap();
 
-                    let mvp = cmd.transform * view_proj;
-                    let mesh = &cpu_mesh.mesh;
+                            let mvp = cmd.transform * view_proj;
+                            let mesh = &cpu_mesh.mesh;
 
-                    // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
-                    // The buffer is pre-allocated with `total_vertices` capacity.
-                    unsafe {
-                        let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
-                        // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
-                        let slice = std::slice::from_raw_parts_mut(
-                            offset_ptr.cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
-                            mesh.vertices.len(),
-                        );
-                        mvp.transform_points_uninit(&mesh.vertices, slice);
-                    }
+                            // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                            // The buffer is pre-allocated with `total_vertices` capacity.
+                            unsafe {
+                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                                // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                                let slice = std::slice::from_raw_parts_mut(
+                                    offset_ptr
+                                        .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                                    mesh.vertices.len(),
+                                );
+                                mvp.transform_points_uninit(&mesh.vertices, slice);
+                            }
 
-                    Ok(DrawBatch::new(
-                        start..end,
-                        std::sync::Arc::clone(&cpu_mesh.shared_indices),
-                        material.color,
-                    ))
-                })
-                .collect();
-
-            let batches = results?;
-            draw_list.batches.extend(batches);
+                            DrawBatch::new(
+                                start..end,
+                                std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                                material.color,
+                            )
+                        }),
+                );
 
             // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
             unsafe {
