@@ -613,7 +613,10 @@ unsafe fn draw_scanline_point_lit_simd(
             let lv_z = light_pos.z - world_pos.z;
 
             let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
-            let inv_dist = fast_inv_sqrt(dist_sq);
+
+            // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
+            // on modern architectures with dedicated floating-point units.
+            let inv_dist = dist_sq.sqrt().recip();
             let dist = dist_sq * inv_dist;
 
             let att_factor = 1.0 / (attenuation.x + attenuation.y * dist + attenuation.z * dist_sq);
@@ -622,7 +625,7 @@ unsafe fn draw_scanline_point_lit_simd(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
 
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
@@ -738,7 +741,10 @@ fn draw_scanline_point_lit(
             let lv_z = light_pos.z - world_pos.z;
 
             let dist_sq = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
-            let inv_dist = fast_inv_sqrt(dist_sq);
+
+            // ⚡ Bolt: Using `sqrt().recip()` is often faster and strictly more precise than `fast_inv_sqrt`
+            // on modern architectures with dedicated floating-point units.
+            let inv_dist = dist_sq.sqrt().recip();
             let dist = dist_sq * inv_dist;
 
             // Attenuation
@@ -750,7 +756,7 @@ fn draw_scanline_point_lit(
             let dot_unorm = nx * lv_x + ny * lv_y + nz * lv_z;
 
             let intensity = if len_sq > 0.0001 && dist > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
 
                 (dot_unorm * inv_len * inv_dist).max(0.0)
             } else {
