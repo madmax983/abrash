@@ -32,7 +32,6 @@ pub mod particles;
 pub mod post_process;
 pub mod procedural;
 pub mod rasterizer;
-pub mod raycaster;
 pub mod render_api;
 pub mod scene;
 pub mod skybox;

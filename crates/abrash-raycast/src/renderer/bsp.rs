@@ -22,13 +22,13 @@ use abrash_core::fixed16_16::Fixed16_16;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
 
-use abrash_raycast::bsp::{BspMap, BspSector, BspSeg};
-use abrash_raycast::bsp_clip::{
+use crate::bsp::{BspMap, BspSector, BspSeg};
+use crate::bsp_clip::{
     ColumnClip, angle_to_column, clip_seg_angles, point_to_angle, projection_distance,
     seg_perpendicular_distance, wall_scale_at_column,
 };
-use abrash_raycast::bsp_visplane::VisplaneAllocator;
-use abrash_raycast::types::Vec2Fixed;
+use crate::bsp_visplane::VisplaneAllocator;
+use crate::types::Vec2Fixed;
 
 use super::bsp_lighting::{BspTextures, colormap_index};
 
@@ -798,7 +798,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     use abrash_core::bam::{ANG90, ANG180, ANG270};
-    use abrash_raycast::bsp::{BspMap, BspSector, BspSeg};
+    use crate::bsp::{BspMap, BspSector, BspSeg};
 
     /// Integration BSP map: a single 512x512 room with 4 solid walls.
     struct IntegrationBspMap {

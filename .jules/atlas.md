@@ -80,3 +80,10 @@
 3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration struct.
 
 **Stability:** Improved high cohesion by standardizing the effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effect, making the public API cleaner and more extensible.
+
+## [Decoupling Raycaster from Render Crate]
+**Tangle:** The `abrash-render` crate depended on the `abrash-raycast` crate solely to host the raycasting rendering implementation modules (`bsp.rs`, `bsp_lighting.rs`, `hybrid.rs`). This artificially coupled a specialized rendering logic to the core software rasterization pipeline of `abrash-render`.
+**Blueprint:**
+1.  **Relocate:** Moved the raycaster implementation modules from `crates/abrash-render/src/raycaster` to `crates/abrash-raycast/src/renderer`.
+2.  **Prune Dependency:** Removed `abrash-raycast` dependency from `abrash-render`'s `Cargo.toml`.
+3.  **Facade:** Updated the root workspace facade (`src/lib.rs`) to re-export the relocated module via `pub use abrash_raycast::renderer as raycaster;`, preserving the public API while severing the structural dependency.
