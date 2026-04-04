@@ -141,7 +141,8 @@ fn main() -> Result<(), AppError> {
         presenter: None,
     };
 
-    run_windowed(app).map_err(Into::into)
+    run_windowed(app);
+    Ok(())
 }
 
 #[cfg(not(feature = "nova"))]

@@ -167,6 +167,7 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
-fn main() {
-    run_windowed(GpuMvpCubeApp::new().unwrap())
+fn main() -> Result<(), DemoError> {
+    run_windowed(GpuMvpCubeApp::new());
+    Ok(())
 }
