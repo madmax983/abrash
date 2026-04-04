@@ -32,84 +32,92 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
         return;
     }
 
-    // We need to clone the original framebuffer to safely read pixels
-    // that might be shifted horizontally or offset by channel without mutable aliasing.
-    let src_pixels = fb.as_slice().to_vec();
-    let dest_pixels = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // Eliminate the massive `Vec` heap allocation per frame by caching the source buffer
+    // in a `thread_local`. This read-only buffer prevents mutable aliasing issues when
+    // chunks are processed in parallel.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    // Scale intensity to maximum possible pixel shifts
-    let max_shift = (width as f32 * 0.1 * intensity) as i32;
-    let channel_shift_max = (width as f32 * 0.05 * intensity) as i32;
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        src_pixels.clear();
+        src_pixels.extend_from_slice(fb.as_slice());
 
-    // Seed the PRNG with the current time (scaled and converted to u32)
-    // Add an arbitrary prime offset to ensure it's never 0
-    let global_seed = (time * 1000.0) as u32 ^ 0x1337_BEEF;
+        let src_slice = src_pixels.as_slice();
+        let dest_pixels = fb.as_mut_slice();
 
-    #[cfg(feature = "parallel")]
-    let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
-    #[cfg(not(feature = "parallel"))]
-    let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
+        // Scale intensity to maximum possible pixel shifts
+        let max_shift = (width as f32 * 0.1 * intensity) as i32;
+        let channel_shift_max = (width as f32 * 0.05 * intensity) as i32;
 
-    row_iter.for_each(|(y, row)| {
-        // Initialize a row-specific PRNG using the global seed and row index.
-        // This ensures the noise is deterministic per row for Rayon parallelization
-        // but changes over time.
-        let mut prng_state = global_seed.wrapping_add((y as u32).wrapping_mul(7919));
-        if prng_state == 0 {
-            prng_state = 1; // Prevent XorShift from getting stuck at 0
-        }
-        let mut prng = XorShift32::new(prng_state);
+        // Seed the PRNG with the current time (scaled and converted to u32)
+        // Add an arbitrary prime offset to ensure it's never 0
+        let global_seed = (time * 1000.0) as u32 ^ 0x1337_BEEF;
 
-        // Determine if this row is currently "glitching"
-        // Use a threshold so only SOME blocks of rows glitch at a given time
-        let row_noise = (prng.next_u32() % 1000) as f32 / 1000.0;
+        #[cfg(feature = "parallel")]
+        let row_iter = dest_pixels.par_chunks_exact_mut(width).enumerate();
+        #[cfg(not(feature = "parallel"))]
+        let row_iter = dest_pixels.chunks_exact_mut(width).enumerate();
 
-        // Block-based glitching (groups of rows glitch together)
-        // We simulate this by blending the row index into the PRNG differently
-        let block_idx = y / 10;
-        let mut block_prng = XorShift32::new(
-            global_seed
-                .wrapping_add((block_idx as u32).wrapping_mul(31337))
-                .max(1),
-        );
-        let is_glitched = (block_prng.next_u32() % 100) as f32 / 100.0 < intensity;
+        row_iter.for_each(|(y, row)| {
+            // Initialize a row-specific PRNG using the global seed and row index.
+            // This ensures the noise is deterministic per row for Rayon parallelization
+            // but changes over time.
+            let mut prng_state = global_seed.wrapping_add((y as u32).wrapping_mul(7919));
+            if prng_state == 0 {
+                prng_state = 1; // Prevent XorShift from getting stuck at 0
+            }
+            let mut prng = XorShift32::new(prng_state);
 
-        if !is_glitched {
-            // Fast path: Just copy the original row back if it's not affected
-            let src_offset = y * width;
-            row.copy_from_slice(&src_pixels[src_offset..src_offset + width]);
-            return;
-        }
+            // Block-based glitching (groups of rows glitch together)
+            // We simulate this by blending the row index into the PRNG differently
+            let block_idx = y / 10;
+            let mut block_prng = XorShift32::new(
+                global_seed
+                    .wrapping_add((block_idx as u32).wrapping_mul(31337))
+                    .max(1),
+            );
+            let is_glitched = (block_prng.next_u32() % 100) as f32 / 100.0 < intensity;
 
-        // Calculate shifts for this specific glitched row
-        // `prng.next_u32() % N` isn't perfectly uniform, but fine for glitch effects.
+            if !is_glitched {
+                // Fast path: Just copy the original row back if it's not affected
+                let src_offset = y * width;
+                row.copy_from_slice(&src_slice[src_offset..src_offset + width]);
+                return;
+            }
 
-        // Random horizontal shift for the entire row (-max_shift to +max_shift)
-        let row_shift = (prng.next_u32() % (max_shift.max(1) as u32 * 2 + 1)) as i32 - max_shift;
+            // Calculate shifts for this specific glitched row
+            // `prng.next_u32() % N` isn't perfectly uniform, but fine for glitch effects.
 
-        // Random color channel offsets
-        let r_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
-            - channel_shift_max;
-        let g_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
-            - channel_shift_max;
-        let b_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
-            - channel_shift_max;
+            // Random horizontal shift for the entire row (-max_shift to +max_shift)
+            let row_shift = (prng.next_u32() % (max_shift.max(1) as u32 * 2 + 1)) as i32 - max_shift;
 
-        for (x, pixel) in row.iter_mut().enumerate() {
-            // Base x coordinate after the entire row is shifted
-            let base_x = x as i32 - row_shift;
+            // Random color channel offsets
+            let r_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+                - channel_shift_max;
+            let g_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+                - channel_shift_max;
+            let b_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
+                - channel_shift_max;
 
-            // Sample each channel independently
-            let sample_r =
-                get_channel_safe(&src_pixels, width, height, base_x - r_shift, y as i32, 16);
-            let sample_g =
-                get_channel_safe(&src_pixels, width, height, base_x - g_shift, y as i32, 8);
-            let sample_b =
-                get_channel_safe(&src_pixels, width, height, base_x - b_shift, y as i32, 0);
+            for (x, pixel) in row.iter_mut().enumerate() {
+                // Base x coordinate after the entire row is shifted
+                let base_x = x as i32 - row_shift;
 
-            // Reconstruct the ARGB pixel
-            *pixel = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
-        }
+                // Sample each channel independently
+                let sample_r =
+                    get_channel_safe(src_slice, width, height, base_x - r_shift, y as i32, 16);
+                let sample_g =
+                    get_channel_safe(src_slice, width, height, base_x - g_shift, y as i32, 8);
+                let sample_b =
+                    get_channel_safe(src_slice, width, height, base_x - b_shift, y as i32, 0);
+
+                // Reconstruct the ARGB pixel
+                *pixel = 0xFF00_0000 | (sample_r << 16) | (sample_g << 8) | sample_b;
+            }
+        });
     });
 }
 
