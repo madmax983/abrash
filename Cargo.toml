@@ -531,6 +531,7 @@ required-features = ["nova"]
 [[bench]]
 name = "ascii_display_bench"
 harness = false
+required-features = ["nova"]
 
 [[bench]]
 name = "water_ripple_bench"
@@ -544,6 +545,11 @@ required-features = ["nova"]
 
 [[bench]]
 name = "voronoi_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "duotone_bench"
 harness = false
 required-features = ["nova"]
 
@@ -650,6 +656,7 @@ harness = false
 [[bench]]
 name = "mode7_bench"
 harness = false
+required-features = ["nova"]
 
 [[example]]
 name = "brickify_demo"
