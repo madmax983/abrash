@@ -1316,6 +1316,16 @@ mod simd {
         let mut ptr = pixels.as_mut_ptr();
         let end_ptr = unsafe { ptr.add(simd_len) };
 
+        macro_rules! adjust_channel {
+            ($raw:expr) => {{
+                let sub = _mm256_sub_epi32($raw, c128);
+                let mul = _mm256_mullo_epi32(sub, c_contrast);
+                let sra = _mm256_srai_epi32(mul, 8);
+                let add = _mm256_add_epi32(sra, c_brightness);
+                _mm256_max_epi32(zero, _mm256_min_epi32(add, max_val))
+            }};
+        }
+
         while ptr < end_ptr {
             let chunk = unsafe { _mm256_loadu_si256(ptr.cast()) };
             let alphas = _mm256_and_si256(chunk, alpha_mask);
@@ -1324,27 +1334,15 @@ mod simd {
 
             // Channel B
             let b_raw = _mm256_and_si256(chunk, max_val);
-            let b_sub = _mm256_sub_epi32(b_raw, c128);
-            let b_mul = _mm256_mullo_epi32(b_sub, c_contrast);
-            let b_sra = _mm256_srai_epi32(b_mul, 8);
-            let b_add = _mm256_add_epi32(b_sra, c_brightness);
-            let b_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(b_add, max_val));
+            let b_clamped = adjust_channel!(b_raw);
 
             // Channel G
             let g_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 8), max_val);
-            let g_sub = _mm256_sub_epi32(g_raw, c128);
-            let g_mul = _mm256_mullo_epi32(g_sub, c_contrast);
-            let g_sra = _mm256_srai_epi32(g_mul, 8);
-            let g_add = _mm256_add_epi32(g_sra, c_brightness);
-            let g_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(g_add, max_val));
+            let g_clamped = adjust_channel!(g_raw);
 
             // Channel R
             let r_raw = _mm256_and_si256(_mm256_srli_epi32(chunk, 16), max_val);
-            let r_sub = _mm256_sub_epi32(r_raw, c128);
-            let r_mul = _mm256_mullo_epi32(r_sub, c_contrast);
-            let r_sra = _mm256_srai_epi32(r_mul, 8);
-            let r_add = _mm256_add_epi32(r_sra, c_brightness);
-            let r_clamped = _mm256_max_epi32(zero, _mm256_min_epi32(r_add, max_val));
+            let r_clamped = adjust_channel!(r_raw);
 
             let g_shift = _mm256_slli_epi32(g_clamped, 8);
             let r_shift = _mm256_slli_epi32(r_clamped, 16);
