@@ -153,6 +153,7 @@ impl GpuRenderer {
 
     /// Construct a renderer from an already-created GPU device.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
         let device = gpu.device();
         let min_align = u64::from(device.limits().min_uniform_buffer_offset_alignment).max(1);
@@ -1262,7 +1263,7 @@ impl GpuRenderer {
         let (jx, jy) = self.taa_pass.current_jitter();
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
-            jitter: <[f32; 2]>::from((jx, jy)),
+            jitter: [jx, jy],
             feedback: 0.9,
             _pad: 0.0,
         };

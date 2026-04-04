@@ -120,7 +120,8 @@ pub struct TaaParams {
     pub jitter: [f32; 2],
     /// History blend factor (0.9 = keep 90% history).
     pub feedback: f32,
-    pub(crate) _pad: f32,
+    #[allow(clippy::pub_underscore_fields)]
+    pub _pad: f32,
 }
 
 /// Temporal Anti-Aliasing pass.

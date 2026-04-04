@@ -106,7 +106,8 @@ pub struct TemporalParams {
     pub prev_view_proj: [f32; 16],
     /// Blend factor (0.05 = 95% history, 1.0 = no history).
     pub alpha: f32,
-    pub(crate) _pad: [f32; 3],
+    #[allow(clippy::pub_underscore_fields)]
+    pub _pad: [f32; 3],
 }
 
 /// Temporal accumulation pass for SVGF denoising.
@@ -208,6 +209,7 @@ impl TemporalAccumulationPass {
 
     /// Create the temporal accumulation pass.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Temporal Accumulation Compute"),

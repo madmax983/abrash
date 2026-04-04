@@ -115,7 +115,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CompositionParams {
     pub debug_mode: u32,
-    pub(crate) _pad: [u32; 3],
+    #[allow(clippy::pub_underscore_fields)]
+    pub _pad: [u32; 3],
 }
 
 /// Final composition pass with debug visualization support.

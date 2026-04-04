@@ -141,6 +141,7 @@ impl ShadowMap {
 
     /// Create a shadow map with depth-only pipeline.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn new(device: &wgpu::Device) -> Self {
         // Depth texture (Depth32Float so it can be sampled)
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
