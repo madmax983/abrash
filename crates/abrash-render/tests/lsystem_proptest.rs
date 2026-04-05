@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use abrash_render::experimental::lsystem::LSystem;
 use proptest::prelude::*;
 
