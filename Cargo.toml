@@ -583,6 +583,11 @@ name = "tilt_shift_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "lens_distortion_bench"
+harness = false
+required-features = ["nova"]
+
 [[example]]
 name = "tilt_shift_demo"
 path = "examples/tilt_shift_demo.rs"
@@ -596,6 +601,11 @@ required-features = ["nova"]
 [[example]]
 name = "fisheye_demo"
 path = "examples/fisheye_demo.rs"
+required-features = ["nova"]
+
+[[example]]
+name = "lens_distortion_demo"
+path = "examples/lens_distortion_demo.rs"
 required-features = ["nova"]
 
 [[example]]

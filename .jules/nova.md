@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Lens Distortion Filter]
+**Concept:** A post-processing effect that applies radial distortion to the framebuffer, simulating barrel or pincushion distortion found in camera lenses.
+**Fate:** Implemented
+**Lesson:** Using normalized coordinates relative to the maximum dimension ensures consistent behavior across different screen aspect ratios. Parallelizing using Rayon while safely writing to a mutable slice and reading from a cloned source slice prevents any mutable aliasing bugs.

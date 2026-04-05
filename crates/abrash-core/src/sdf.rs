@@ -445,7 +445,7 @@ pub const fn subtraction(a: f32, b: f32) -> f32 {
 pub fn inf_cylinder_3d(p: Vec3, centre_xz: Vec2, r: f32) -> f32 {
     let dx = p.x - centre_xz.x;
     let dz = p.z - centre_xz.y;
-    (dx * dx + dz * dz).sqrt() - r
+    dx.hypot(dz) - r
 }
 
 /// Signed distance to a rounded cylinder (a cylinder with hemispherical caps).
@@ -473,7 +473,7 @@ pub fn inf_cylinder_3d(p: Vec3, centre_xz: Vec2, r: f32) -> f32 {
 pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f32 {
     // IQ sdRoundedCylinder: ra = cylinder radius, rb = rounding radius, h = half-height
     let p = p - centre;
-    let d_xz = (p.x * p.x + p.z * p.z).sqrt() - ra + rb;
+    let d_xz = p.x.hypot(p.z) - ra + rb;
     let d_y = p.y.abs() - h;
     let d = (d_xz.max(0.0).hypot(d_y.max(0.0))) + d_xz.min(0.0).min(d_y.min(0.0)) - rb;
     d
@@ -504,7 +504,7 @@ pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f
 pub fn link_3d(p: Vec3, centre: Vec3, r1: f32, r2: f32, le: f32) -> f32 {
     // IQ sdLink: r1 = major radius, r2 = tube radius, le = elongation half-length
     let p = p - centre;
-    let qx = (p.x * p.x + p.z * p.z).sqrt() - r1;
+    let qx = p.x.hypot(p.z) - r1;
     let qy = p.y.abs() - le;
     (qx * qx + qy.max(0.0) * qy.max(0.0)).sqrt() - r2
 }
@@ -650,9 +650,18 @@ pub fn pyramid_3d(p: Vec3, centre: Vec3, height: f32) -> f32 {
 pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
     // IQ sdHexPrism — hex in XY plane, extends along Z
     let p = (p - centre).abs();
+    #[allow(clippy::items_after_statements)]
     // k = (-sqrt(3)/2, 0.5, 1/sqrt(3))
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
     const KX: f32 = -0.866_025_4;
+    #[allow(clippy::items_after_statements)]
     const KY: f32 = 0.5;
+    #[allow(clippy::items_after_statements)]
     const KZ: f32 = 0.577_350_3;
     let dot = (KX * p.x + KY * p.y).min(0.0);
     let px = p.x - 2.0 * dot * KX;
@@ -1045,21 +1054,21 @@ pub fn repeat_3d(p: Vec3, cell: Vec3) -> Vec3 {
 /// ```
 #[must_use]
 #[inline]
-pub fn mirror_x(p: Vec3) -> Vec3 {
+pub const fn mirror_x(p: Vec3) -> Vec3 {
     Vec3::new(p.x.abs(), p.y, p.z)
 }
 
 /// Reflect `p` across the XZ plane (flip Y sign).
 #[must_use]
 #[inline]
-pub fn mirror_y(p: Vec3) -> Vec3 {
+pub const fn mirror_y(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y.abs(), p.z)
 }
 
 /// Reflect `p` across the XY plane (flip Z sign).
 #[must_use]
 #[inline]
-pub fn mirror_z(p: Vec3) -> Vec3 {
+pub const fn mirror_z(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y, p.z.abs())
 }
 
@@ -1147,7 +1156,7 @@ pub fn parabola_2d(p: Vec2, k: f32) -> f32 {
     // Approximate: use parametric nearest-point on y = k*x² → x_t = t, y_t = k*t²
     // Minimize ||p - (t, k*t²)||²; derivative: -2*(p.x-t) + 2*(p.y-k*t²)*(-2*k*t) = 0
     // 1 + 2k*(p.y-k*t²)*2k*t ... Newton 3-step
-    let mut t = (p.x * 0.5 / k).powf(1.0_f32 / 3.0).max(1e-6);
+    let mut t = (p.x * 0.5 / k).cbrt().max(1e-6);
     for _ in 0..5 {
         let kt2 = k * t * t;
         let f = 1.0 + 4.0 * k * k * t * t - 2.0 * k * p.y + 2.0 * k * kt2;
@@ -1213,6 +1222,7 @@ pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
     // dot(q'(t), q(t)-p) = 0 → cubic in t
     // Coefficients
     let c0 = ab.x * ap.x + ab.y * ap.y;
+    #[allow(clippy::suspicious_operation_groupings)]
     let c1 = (ey.x * ap.x + ey.y * ap.y) + (ab.x * ab.x + ab.y * ab.y);
     let c2 = 3.0 * (ey.x * ab.x + ey.y * ab.y);
     let c3 = ey.x * ey.x + ey.y * ey.y;
@@ -1823,7 +1833,7 @@ pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
 
 /// SDF of a 2D uneven (asymmetric) capsule.
 ///
-/// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+/// Like a `capsule_2d` but with different radii `ra` and `rb` at each end cap.
 /// `a` and `b` are the centres; `ra` the radius at `a`, `rb` at `b`.
 ///
 /// # Examples
@@ -1982,7 +1992,7 @@ pub fn capped_torus_3d(p: Vec3, sc: (f32, f32), ra: f32, rb: f32) -> f32 {
     let k = if co * px > si * py {
         px * co + py * si
     } else {
-        (px * px + py * py).sqrt()
+        px.hypot(py)
     };
     let d_sq = p.x * p.x + p.y * p.y + p.z * p.z + ra * ra - 2.0 * ra * k;
     d_sq.max(0.0).sqrt() - rb
@@ -2037,7 +2047,7 @@ pub fn triangular_prism_3d(p: Vec3, h: (f32, f32)) -> f32 {
 pub fn cut_sphere_3d(p: Vec3, r: f32, h: f32) -> f32 {
     // Half-width of the cut disk
     let w = (r * r - h * h).max(0.0).sqrt();
-    let q = (p.x * p.x + p.z * p.z).sqrt();
+    let q = p.x.hypot(p.z);
     // Two regions: flat cap and spherical surface
     // sign: +1 outside, -1 inside
     let d_sphere = p.length() - r;

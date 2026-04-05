@@ -842,7 +842,7 @@ pub fn cylindrical_to_cartesian(r: f32, theta: f32, y: f32) -> Vec3 {
 #[must_use]
 #[inline]
 pub fn cartesian_to_cylindrical(v: Vec3) -> (f32, f32, f32) {
-    let r = (v.x * v.x + v.z * v.z).sqrt();
+    let r = v.x.hypot(v.z);
     let theta = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
     (r, theta, v.y)
 }
@@ -1294,7 +1294,7 @@ impl Vec2 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -1304,7 +1304,7 @@ impl Vec2 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -1314,7 +1314,7 @@ impl Vec2 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -1324,7 +1324,7 @@ impl Vec2 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -1334,7 +1334,7 @@ impl Vec2 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -1387,14 +1387,14 @@ impl Vec2 {
     /// The smallest of the two components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y)
     }
 
     /// The largest of the two components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y)
     }
 
@@ -2186,7 +2186,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z)
     }
 
@@ -2199,7 +2199,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
@@ -2385,7 +2385,7 @@ impl Vec3 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -2396,7 +2396,7 @@ impl Vec3 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -2407,7 +2407,7 @@ impl Vec3 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -2418,7 +2418,7 @@ impl Vec3 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -2986,7 +2986,7 @@ impl Mat4 {
     /// assert!((result.y - 2.0).abs() < 1e-5);
     /// ```
     #[must_use]
-    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+    pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
         // Row-vector: v * M.  Column j of M is the destination for basis vector j.
         // Row 0 = X basis:   x → x + yx*y + zx*z
         // Row 1 = Y basis:   y → xy*x + y + zy*z
@@ -3817,7 +3817,7 @@ impl Mat4 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn row(&self, index: usize) -> Vec4 {
+    pub const fn row(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[index][0],
             self.m[index][1],
@@ -5865,7 +5865,7 @@ impl Vec4 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -5877,7 +5877,7 @@ impl Vec4 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -5889,7 +5889,7 @@ impl Vec4 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -5901,7 +5901,7 @@ impl Vec4 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -5913,7 +5913,7 @@ impl Vec4 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -5937,14 +5937,14 @@ impl Vec4 {
     /// Smallest of the four components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z).min(self.w)
     }
 
     /// Largest of the four components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z).max(self.w)
     }
 
@@ -6687,9 +6687,9 @@ mod tests_mat3 {
             Vec3::new(0.577, 0.577, 0.577).normalize(),
         ] {
             let (t, b) = basis_from_normal(n);
-            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {:?}", n);
-            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {:?}", n);
-            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {:?}", n);
+            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {n:?}");
+            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {n:?}");
+            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {n:?}");
             assert!((t.length() - 1.0).abs() < 1e-4);
             assert!((b.length() - 1.0).abs() < 1e-4);
         }

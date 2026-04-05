@@ -839,9 +839,14 @@ pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
     let (px, py, pz) = (p.x, p.y, p.z);
 
     // Nx = simplex at (x, y, z)
+    #[allow(clippy::items_after_statements)]
     // Ny = simplex at (x+seed1, y+seed1, z+seed1)
     // Nz = simplex at (x+seed2, y+seed2, z+seed2)
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
+    #[allow(clippy::items_after_statements)]
     const S1: f32 = 3.171_31;
+    #[allow(clippy::items_after_statements)]
     const S2: f32 = 7.342_17;
 
     let nx = |x: f32, y: f32, z: f32| simplex_3d(x * s, y * s, z * s);
@@ -991,6 +996,7 @@ pub fn domain_warp_fbm_2d(
 /// let (b1, _, _) = voronoi_noise_2d(0.7, -1.2, 0.8);
 /// assert_eq!(a1, b1);
 /// ```
+#[must_use]
 pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1009,7 +1015,7 @@ pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
             let pt_y = cy as f32 + hy * jitter;
             let dx = fx - pt_x;
             let dy = fy - pt_y;
-            let d = (dx * dx + dy * dy).sqrt();
+            let d = dx.hypot(dy);
             if d < f1 {
                 f2 = f1;
                 f1 = d;
@@ -1072,6 +1078,7 @@ fn gabor_kernel(dx: f32, dy: f32, freq: f32, theta: f32, bandwidth: f32) -> f32 
 /// let b = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cells: i32) -> f32 {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1114,6 +1121,7 @@ pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cel
 /// let (b, _, _) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1173,6 +1181,7 @@ pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) 
 /// let b = ridge_noise_3d(0.7, -1.2, 0.4, 3, 2.0, 0.5);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
     let mut value = 0.0_f32;
     let mut amplitude = 0.5_f32;
