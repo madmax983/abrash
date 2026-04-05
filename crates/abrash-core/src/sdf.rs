@@ -2050,6 +2050,96 @@ pub fn cut_sphere_3d(p: Vec3, r: f32, h: f32) -> f32 {
     d_sphere.max(dist_cap)
 }
 
+/// SDF of a 2D oriented (rotated) box centred at the origin.
+///
+/// `half_size` is the box half-extents before rotation; `angle` is the
+/// counter-clockwise rotation in radians.  Equivalent to rotating the query
+/// point by `-angle` and then evaluating an axis-aligned box.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::oriented_box_2d;
+///
+/// // Axis-aligned box: angle = 0
+/// let inside = oriented_box_2d(Vec2::new(0.3, 0.2), Vec2::new(0.5, 0.5), 0.0);
+/// assert!(inside < 0.0, "inside AABB: {inside}");
+///
+/// // Same box rotated 45° — point near centre is inside
+/// let inside45 = oriented_box_2d(Vec2::new(0.1, 0.0), Vec2::new(0.5, 0.2), std::f32::consts::FRAC_PI_4);
+/// assert!(inside45 < 0.0, "inside rotated box: {inside45}");
+/// ```
+#[must_use]
+pub fn oriented_box_2d(p: Vec2, half_size: Vec2, angle: f32) -> f32 {
+    let (s, c) = angle.sin_cos();
+    // Rotate p by -angle (inverse rotation)
+    let q = Vec2::new(c * p.x + s * p.y, -s * p.x + c * p.y);
+    // Standard axis-aligned box SDF
+    let d = q.abs() - half_size;
+    let ext = Vec2::new(d.x.max(0.0), d.y.max(0.0));
+    ext.length() + d.x.max(d.y).min(0.0)
+}
+
+/// SDF of a 2D arrow pointing from `a` to `b`.
+///
+/// `head_w` and `head_h` are the arrowhead half-width and height;
+/// `shaft_r` is the shaft half-thickness.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::arrow_2d;
+///
+/// let a = Vec2::new(0.0, 0.0);
+/// let b = Vec2::new(2.0, 0.0);
+/// let inside = arrow_2d(Vec2::new(1.0, 0.0), a, b, 0.3, 0.5, 0.1);
+/// assert!(inside < 0.0, "on shaft should be inside: {inside}");
+///
+/// let outside = arrow_2d(Vec2::new(1.0, 2.0), a, b, 0.3, 0.5, 0.1);
+/// assert!(outside > 0.0, "far above should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn arrow_2d(p: Vec2, a: Vec2, b: Vec2, head_w: f32, head_h: f32, shaft_r: f32) -> f32 {
+    let ab = b - a;
+    let len = ab.length();
+    if len < 1e-10 {
+        return p.length() - shaft_r;
+    }
+    let dir = ab * (1.0 / len);
+    let perp = Vec2::new(-dir.y, dir.x);
+    // Local coords: t along axis, u perpendicular
+    let ap = p - a;
+    let t = ap.dot(dir);
+    let u = ap.dot(perp).abs();
+    // Shaft portion [0, len - head_h]
+    let shaft_end = (len - head_h).max(0.0);
+    let d_shaft = if t >= 0.0 && t <= shaft_end {
+        u - shaft_r
+    } else {
+        f32::MAX
+    };
+    // Head (triangle): from shaft_end to len
+    let d_head = if t >= shaft_end && t <= len {
+        // Linearly taper from head_w at shaft_end to 0 at tip (t = len)
+        let frac = (t - shaft_end) / (len - shaft_end).max(1e-10);
+        let half_w = head_w * (1.0 - frac);
+        u - half_w
+    } else {
+        f32::MAX
+    };
+    // Behind the tail or past the tip: distance to endpoints
+    let d_tail = if t < 0.0 {
+        (p - a).length() - shaft_r
+    } else if t > len {
+        (p - b).length()
+    } else {
+        f32::MAX
+    };
+    d_shaft.min(d_head).min(d_tail)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2689,5 +2779,42 @@ mod tests {
         // y=-0.5 < h=0.5 → outside
         let d = cut_sphere_3d(Vec3::new(0.0, -0.5, 0.0), 1.0, 0.5);
         assert!(d > 0.0, "below cut → outside: {d}");
+    }
+
+    // ── oriented_box_2d ───────────────────────────────────────────────────
+    #[test]
+    fn oriented_box_axis_aligned_inside() {
+        let d = oriented_box_2d(Vec2::new(0.3, 0.2), Vec2::new(0.5, 0.5), 0.0);
+        assert!(d < 0.0, "inside axis-aligned box: {d}");
+    }
+
+    #[test]
+    fn oriented_box_axis_aligned_outside() {
+        let d = oriented_box_2d(Vec2::new(1.0, 0.0), Vec2::new(0.5, 0.5), 0.0);
+        assert!(d > 0.0, "outside axis-aligned box: {d}");
+    }
+
+    #[test]
+    fn oriented_box_rotated_centre_inside() {
+        // Rotation doesn't affect origin (centre of box)
+        let d = oriented_box_2d(Vec2::ZERO, Vec2::new(0.5, 0.5), std::f32::consts::FRAC_PI_4);
+        assert!(d < 0.0, "origin always inside: {d}");
+    }
+
+    // ── arrow_2d ──────────────────────────────────────────────────────────
+    #[test]
+    fn arrow_shaft_midpoint_inside() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(2.0, 0.0);
+        let d = arrow_2d(Vec2::new(0.7, 0.0), a, b, 0.3, 0.5, 0.1);
+        assert!(d < 0.0, "midpoint of shaft inside: {d}");
+    }
+
+    #[test]
+    fn arrow_far_outside() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(2.0, 0.0);
+        let d = arrow_2d(Vec2::new(1.0, 2.0), a, b, 0.3, 0.5, 0.1);
+        assert!(d > 0.0, "far above arrow: {d}");
     }
 }
