@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Frosted Glass Effect]
+**Concept:** Implement a post-processing filter that simulates looking through frosted glass using randomized pixel displacement.
+**Fate:** Implemented successfully in `experimental/frosted_glass.rs` using a naive PRNG scatter approach, then optimized with `rayon`.
+**Lesson:** Iterating over flat 1D pixel buffers using `par_chunks_exact_mut` combined with an inline PRNG (like Xorshift) allows for rapid, lock-free random scatter effects. Calculating offsets and fetching from a read-only clone/slice of the source is much faster than mutating in place when random displacement is involved, and using standard Rayon avoids manual chunk management.

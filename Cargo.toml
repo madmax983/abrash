@@ -501,6 +501,16 @@ name = "mesh_modifiers_bench"
 harness = false
 required-features = ["nova"]
 
+[[bench]]
+name = "frosted_glass_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "frosted_glass_demo"
+path = "examples/frosted_glass_demo.rs"
+required-features = ["nova"]
+
 [[bin]]
 name = "run_film_grain"
 path = "benches/run_film_grain.rs"

@@ -81,3 +81,4 @@ pub mod voxelizer;
 pub mod water_ripple;
 pub mod wobble;
 pub mod duotone;
+pub mod frosted_glass;
