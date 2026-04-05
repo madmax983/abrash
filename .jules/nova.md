@@ -200,3 +200,7 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+## [Lens Flare Filter]
+**Concept:** A retro post-processing effect that simulates camera lens flare by adding bright, colored ghosting artifacts and a halo along a vector passing through the light source and the screen center.
+**Fate:** Implemented
+**Lesson:** Replacing manual indexing via `chunks_mut` with `chunks_exact_mut` allows for better parallelization via Rayon on row slices.

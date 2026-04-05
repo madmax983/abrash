@@ -65,6 +65,11 @@ harness = false
 required-features = ["nova"]
 
 [[bench]]
+name = "lens_flare_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
 name = "math"
 harness = false
 

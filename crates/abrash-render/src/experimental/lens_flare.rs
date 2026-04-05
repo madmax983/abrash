@@ -72,7 +72,7 @@ fn add_blend_int(dest: u32, src: u32, intensity: u32) -> u32 {
 struct RenderableGhost {
     cx: f32,
     cy: f32,
-    r: f32,
+    r_inv: f32,
     r_sq: f32,
     color: u32,
     min_y: i32,
@@ -102,7 +102,7 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
         renderables.push(RenderableGhost {
             cx: ghost_cx,
             cy: ghost_cy,
-            r: ghost.radius,
+            r_inv: 1.0 / ghost.radius,
             r_sq: ghost.radius * ghost.radius,
             color: ghost.color,
             min_y: (ghost_cy as i32 - r_i32).max(0),
@@ -155,7 +155,9 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
                     let dist_sq = dx * dx + dy_sq;
                     if dist_sq <= g.r_sq {
                         let dist = dist_sq.sqrt();
-                        let intensity = (256.0 * (1.0 - (dist / g.r))) as u32;
+
+                        // Using fixed integer thresholding instead of floats for intensity
+                        let intensity = (256.0 * (1.0 - (dist * g.r_inv))) as u32;
                         if intensity > 0 {
                             let idx = x as usize;
                             row_slice[idx] = add_blend_int(row_slice[idx], g.color, intensity);
@@ -168,6 +170,7 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
         if has_halo && y >= halo_min_y && y <= halo_max_y {
             let dy = y_f32 - halo_cy;
             let dy_sq = dy * dy;
+            let thickness_inv = 1.0 / config.halo_thickness;
 
             for x in halo_min_x..=halo_max_x {
                 let dx = x as f32 - halo_cx;
@@ -175,7 +178,7 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
                 if dist_sq <= halo_max_r_sq && dist_sq >= halo_min_r_sq {
                     let dist = dist_sq.sqrt();
                     let center_dist = (dist - config.halo_radius).abs();
-                    let intensity = (256.0 * (1.0 - (center_dist / config.halo_thickness))) as i32;
+                    let intensity = (256.0 * (1.0 - (center_dist * thickness_inv))) as i32;
                     if intensity > 0 {
                         let idx = x as usize;
                         row_slice[idx] = add_blend_int(row_slice[idx], config.halo_color, intensity as u32);
@@ -197,5 +200,44 @@ pub fn apply_lens_flare(fb: &mut Framebuffer, light_pos: Vec2, config: &LensFlar
         pixels.chunks_exact_mut(width as usize).enumerate().for_each(|(y, row_slice)| {
             process_row(y as i32, row_slice);
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::framebuffer::Framebuffer;
+    use crate::math::Vec2;
+
+    #[test]
+    fn test_apply_lens_flare() {
+        let mut fb = Framebuffer::new(200, 200).unwrap();
+        fb.clear(0xFF000000);
+
+        let mut config = LensFlareConfig::default();
+        config.ghosts = vec![
+            FlareGhost {
+                offset_scale: 0.5,
+                radius: 10.0,
+                color: 0x88FFFFFF,
+            }
+        ];
+        config.halo_radius = 20.0;
+        config.halo_thickness = 5.0;
+        config.halo_color = 0x88FFFFFF;
+
+        apply_lens_flare(&mut fb, Vec2::new(100.0, 100.0), &config);
+
+        // Verify some pixels were modified (not just black)
+        let mut modified = false;
+        for y in 0..200 {
+            for x in 0..200 {
+                if fb.get_pixel(x, y).unwrap() != 0xFF000000 {
+                    modified = true;
+                    break;
+                }
+            }
+        }
+        assert!(modified, "Lens flare should modify the framebuffer");
     }
 }
