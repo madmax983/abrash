@@ -4,13 +4,13 @@
 //! to a [`ZBuffer`], enabling hybrid rendering where raycasted environments and
 //! triangle-rasterized objects share a unified depth buffer.
 
+use crate::cast::cast_ray_detailed;
+use crate::map::ArrayGridMap;
+use crate::types::{Side, Vec2Fixed};
 use abrash_core::bam::Bam;
 use abrash_core::fixed16_16::Fixed16_16;
 use abrash_core::framebuffer::Framebuffer;
 use abrash_core::zbuffer::ZBuffer;
-use crate::cast::cast_ray_detailed;
-use crate::map::ArrayGridMap;
-use crate::types::{Side, Vec2Fixed};
 
 /// Map a material ID and hit side to an ARGB color.
 ///
@@ -122,8 +122,8 @@ pub fn render_raycast_view(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abrash_core::bam::ANG90;
     use crate::types::Cell;
+    use abrash_core::bam::ANG90;
 
     /// 8x8 room with solid border walls (material 1).
     fn simple_room() -> ArrayGridMap {

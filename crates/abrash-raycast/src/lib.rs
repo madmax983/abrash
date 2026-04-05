@@ -11,5 +11,5 @@ pub mod bsp_visplane;
 pub mod cast;
 pub mod dda;
 pub mod map;
-pub mod types;
 pub mod renderer;
+pub mod types;

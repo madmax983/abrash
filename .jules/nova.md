@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Pop Art Filter]
+**Concept:** A retro post-processing effect that splits the screen into 4 quadrants, scaling the image to fit each quadrant and recoloring each section with a different high-contrast Andy Warhol inspired palette based on pixel luminance.
+**Fate:** Implemented
+**Lesson:** Splitting the screen and resampling the original image requires copying the original framebuffer to safely read pixels when recalculating coordinates (`src_y * width + src_x`). The effect parallelizes perfectly across rows using `rayon::par_chunks_exact_mut`. Simple linear interpolation between a dark and light color based on normalized luminance effectively simulates the silkscreen printing style.

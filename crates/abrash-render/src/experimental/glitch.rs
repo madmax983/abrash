@@ -92,7 +92,8 @@ pub fn apply_glitch(fb: &mut Framebuffer, intensity: f32, time: f32) {
             // `prng.next_u32() % N` isn't perfectly uniform, but fine for glitch effects.
 
             // Random horizontal shift for the entire row (-max_shift to +max_shift)
-            let row_shift = (prng.next_u32() % (max_shift.max(1) as u32 * 2 + 1)) as i32 - max_shift;
+            let row_shift =
+                (prng.next_u32() % (max_shift.max(1) as u32 * 2 + 1)) as i32 - max_shift;
 
             // Random color channel offsets
             let r_shift = (prng.next_u32() % (channel_shift_max.max(1) as u32 * 2 + 1)) as i32
