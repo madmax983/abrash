@@ -2,10 +2,36 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
+use std::io::{self, Write};
 use std::time::Instant;
 
+use clap::Parser;
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about = "TileRenderer Benchmark CLI", long_about = None)]
+pub struct Args {
+    /// Framebuffer width
+    #[arg(short = 'W', long, default_value_t = 3840)]
+    pub width: u32,
+
+    /// Framebuffer height
+    #[arg(short = 'H', long, default_value_t = 2160)]
+    pub height: u32,
+
+    /// Number of triangles to render
+    #[arg(short, long, default_value_t = 500)]
+    pub triangles: usize,
+
+    /// Number of warmup frames
+    #[arg(short, long, default_value_t = 10)]
+    pub warmup: usize,
+
+    /// Number of benchmark frames
+    #[arg(short, long, default_value_t = 20)]
+    pub iterations: usize,
+}
 
 fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {
     let mut tris = Vec::with_capacity(count);
@@ -31,7 +57,7 @@ fn generate_overlapping_triangles(count: usize) -> Vec<ClipTriangle> {
     tris
 }
 
-fn print_banner(width: u32, height: u32, triangle_count: usize) {
+fn print_banner(width: u32, height: u32, triangle_count: usize, warmup: usize, iterations: usize) {
     println!("\n{}", "🚀 TileRenderer Benchmark".bold().cyan());
     println!("{}", "=========================".dark_grey());
 
@@ -49,6 +75,14 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
         .add_row(vec![
             Cell::new("Triangles"),
             Cell::new(triangle_count.to_string()).fg(Color::Green),
+        ])
+        .add_row(vec![
+            Cell::new("Warmup Frames"),
+            Cell::new(warmup.to_string()).fg(Color::Magenta),
+        ])
+        .add_row(vec![
+            Cell::new("Benchmark Frames"),
+            Cell::new(iterations.to_string()).fg(Color::Magenta),
         ]);
 
     println!("\n{}", "⚙️  Configuration".bold());
@@ -56,42 +90,41 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
 }
 
 fn main() {
-    let width = 3840;
-    let height = 2160;
-    let triangle_count = 500;
-
-    // Check args for triangle count
-    let args: Vec<String> = std::env::args().collect();
-    let triangle_count = if args.len() > 1 {
-        args[1].parse().unwrap_or(triangle_count)
-    } else {
-        triangle_count
-    };
+    let args = Args::parse();
+    let width = args.width;
+    let height = args.height;
+    let triangle_count = args.triangles;
 
     let mut fb = Framebuffer::new(width, height).unwrap();
     let mut zb = ZBuffer::new(width, height).unwrap();
     let mut tr = TileRenderer::new(width, height);
 
-    print_banner(width, height, triangle_count);
+    print_banner(width, height, triangle_count, args.warmup, args.iterations);
 
     let triangles = generate_overlapping_triangles(triangle_count);
 
-    println!("\n{}", "🔥 Warming up (10 frames)...".yellow());
+    println!();
     // Warmup
-    for _ in 0..10 {
+    for i in 0..args.warmup {
+        print!("\r{} Warming up (frame {}/{})...", "🔥".yellow(), i + 1, args.warmup);
+        io::stdout().flush().unwrap();
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+    println!();
 
-    let iterations = 20;
-    println!("⏱️  Running benchmark ({iterations} frames)...");
+    println!();
+    let iterations = args.iterations;
     let start = Instant::now();
-    for _ in 0..iterations {
+    for i in 0..iterations {
+        print!("\r{} Running benchmark (frame {}/{})...", "⏱️ ".cyan(), i + 1, iterations);
+        io::stdout().flush().unwrap();
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+    println!();
     let duration = start.elapsed();
-    let avg_time = duration.as_secs_f64() * 1000.0 / f64::from(iterations);
+    let avg_time = duration.as_secs_f64() * 1000.0 / (iterations as f64);
 
     let mut results = Table::new();
     results
