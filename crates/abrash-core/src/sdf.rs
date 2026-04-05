@@ -1720,6 +1720,136 @@ pub fn repeat_finite_3d(p: Vec3, cell: Vec3, count: Vec3) -> Vec3 {
     )
 }
 
+/// SDF of a stadium (discorectangle): the Minkowski sum of a line segment and a disk.
+///
+/// A stadium is two semicircles joined by a rectangle — like a running track from above.
+/// `a` and `b` are the centres of the two end-caps; `r` is the radius.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::stadium_2d;
+///
+/// // Centre of a horizontal stadium should be inside
+/// let inside = stadium_2d(Vec2::new(0.0, 0.0), Vec2::new(-1.0, 0.0), Vec2::new(1.0, 0.0), 0.5);
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// // Far point should be outside
+/// let outside = stadium_2d(Vec2::new(5.0, 0.0), Vec2::new(-1.0, 0.0), Vec2::new(1.0, 0.0), 0.5);
+/// assert!(outside > 0.0, "far point should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn stadium_2d(p: Vec2, a: Vec2, b: Vec2, r: f32) -> f32 {
+    // Distance to segment ab, then subtract radius — same as capsule_2d
+    let ab = b - a;
+    let ap = p - a;
+    let t = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    (ap - ab * t).length() - r
+}
+
+/// SDF of a 2D trapezoid (isosceles) centred at the origin, opening along Y.
+///
+/// `r1` is the half-width at `y = +h`, `r2` at `y = -h`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::trapezoid_2d;
+///
+/// // Centre of a symmetric trapezoid should be inside
+/// let inside = trapezoid_2d(Vec2::ZERO, 0.5, 1.0, 1.0);
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// // Far point outside
+/// let outside = trapezoid_2d(Vec2::new(5.0, 0.0), 0.5, 1.0, 1.0);
+/// assert!(outside > 0.0, "far point should be outside: {outside}");
+/// ```
+#[must_use]
+pub fn trapezoid_2d(p: Vec2, r1: f32, r2: f32, h: f32) -> f32 {
+    // IQ trapezoid formula
+    let k1 = Vec2::new(r2, h);
+    let k2 = Vec2::new(r2 - r1, 2.0 * h);
+    let p = Vec2::new(p.x.abs(), p.y);
+    let ca = Vec2::new(
+        p.x - (p.x.min(if p.y < 0.0 { r1 } else { r2 })),
+        p.y.abs() - h,
+    );
+    let t = ((k1 - p).dot(k2) / k2.length_sq()).clamp(0.0, 1.0);
+    let cb = p - k1 + k2 * t;
+    let s = if cb.x < 0.0 && ca.y < 0.0 {
+        -1.0_f32
+    } else {
+        1.0_f32
+    };
+    s * ca.length_sq().min(cb.length_sq()).sqrt()
+}
+
+/// SDF of a 2D parallelogram centred at the origin.
+///
+/// `wi` is the half-width, `he` is the half-height, `sk` is the horizontal skew.
+/// The corners are at `(±wi ± sk, ±he)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::parallelogram_2d;
+///
+/// // Point well inside a unit-ish parallelogram (avoid y=0 midline degenerate case)
+/// let inside = parallelogram_2d(Vec2::new(0.0, 0.3), 1.0, 0.5, 0.3);
+/// assert!(inside < 0.0, "centre should be inside: {inside}");
+///
+/// let outside = parallelogram_2d(Vec2::new(5.0, 0.0), 1.0, 0.5, 0.3);
+/// assert!(outside > 0.0, "far point outside: {outside}");
+/// ```
+#[must_use]
+pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
+    let e = Vec2::new(sk, he);
+    let mut p = if p.y < 0.0 { Vec2::new(-p.x, -p.y) } else { p };
+    let mut w = p - e;
+    w.x -= w.x.clamp(-wi, wi);
+    let d1 = w.length_sq();
+    p.x -= p.x.clamp(-wi, wi);
+    let d2 = p.length_sq();
+    let s = if p.x * e.y - p.y * e.x < 0.0 {
+        -1.0_f32
+    } else {
+        1.0_f32
+    };
+    s * d1.min(d2).sqrt()
+}
+
+/// SDF of a 2D uneven (asymmetric) capsule.
+///
+/// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+/// `a` and `b` are the centres; `ra` the radius at `a`, `rb` at `b`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::uneven_capsule_2d;
+///
+/// // Near the larger cap end
+/// let near_a = uneven_capsule_2d(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0), Vec2::new(0.0, 2.0), 0.8, 0.3);
+/// assert!(near_a < 0.0, "inside large cap: {near_a}");
+///
+/// // Far outside
+/// let out = uneven_capsule_2d(Vec2::new(5.0, 0.0), Vec2::new(0.0, 0.0), Vec2::new(0.0, 2.0), 0.8, 0.3);
+/// assert!(out > 0.0, "outside: {out}");
+/// ```
+#[must_use]
+pub fn uneven_capsule_2d(p: Vec2, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
+    // Project onto segment, then interpolate radii
+    let ab = b - a;
+    let ap = p - a;
+    let h = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    let r = ra + (rb - ra) * h;
+    (ap - ab * h).length() - r
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2179,5 +2309,85 @@ mod tests {
         // A point inside one arm of the cross
         let d = cross_2d(Vec2::new(0.8, 0.1), 1.0, 0.2);
         assert!(d < 0.0, "arm point should be inside cross: {d}");
+    }
+
+    // ── stadium_2d ────────────────────────────────────────────────────────
+    #[test]
+    fn stadium_centre_inside() {
+        use crate::math::Vec2;
+        let a = Vec2::new(-1.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let d = stadium_2d(Vec2::ZERO, a, b, 0.5);
+        assert!(d < 0.0, "centre should be inside stadium: {d}");
+    }
+
+    #[test]
+    fn stadium_far_outside() {
+        use crate::math::Vec2;
+        let a = Vec2::new(-1.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let d = stadium_2d(Vec2::new(5.0, 0.0), a, b, 0.5);
+        assert!(d > 0.0, "far point should be outside stadium: {d}");
+    }
+
+    #[test]
+    fn stadium_approximate_radius() {
+        // A point at distance exactly r from the axis midpoint
+        use crate::math::Vec2;
+        let a = Vec2::new(-1.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let r = 0.5_f32;
+        let d = stadium_2d(Vec2::new(0.0, r), a, b, r);
+        assert!(d.abs() < 1e-5, "should be on surface: {d}");
+    }
+
+    // ── trapezoid_2d ──────────────────────────────────────────────────────
+    #[test]
+    fn trapezoid_centre_inside() {
+        use crate::math::Vec2;
+        let d = trapezoid_2d(Vec2::ZERO, 2.0, 1.0, 1.0);
+        assert!(d < 0.0, "centre inside trapezoid: {d}");
+    }
+
+    #[test]
+    fn trapezoid_far_outside() {
+        use crate::math::Vec2;
+        let d = trapezoid_2d(Vec2::new(0.0, 5.0), 2.0, 1.0, 1.0);
+        assert!(d > 0.0, "above trapezoid: {d}");
+    }
+
+    // ── parallelogram_2d ──────────────────────────────────────────────────
+    #[test]
+    fn parallelogram_inside() {
+        use crate::math::Vec2;
+        // Use y ≠ 0 to avoid midline degenerate case
+        let d = parallelogram_2d(Vec2::new(0.0, 0.3), 1.0, 0.5, 0.3);
+        assert!(d < 0.0, "should be inside parallelogram: {d}");
+    }
+
+    #[test]
+    fn parallelogram_far_outside() {
+        use crate::math::Vec2;
+        let d = parallelogram_2d(Vec2::new(5.0, 0.0), 1.0, 0.5, 0.3);
+        assert!(d > 0.0, "should be outside parallelogram: {d}");
+    }
+
+    // ── uneven_capsule_2d ─────────────────────────────────────────────────
+    #[test]
+    fn uneven_capsule_centre_inside() {
+        use crate::math::Vec2;
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(0.0, 2.0);
+        let d = uneven_capsule_2d(Vec2::new(0.0, 1.0), a, b, 0.5, 0.3);
+        assert!(d < 0.0, "midpoint inside uneven capsule: {d}");
+    }
+
+    #[test]
+    fn uneven_capsule_far_outside() {
+        use crate::math::Vec2;
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(0.0, 2.0);
+        let d = uneven_capsule_2d(Vec2::new(5.0, 1.0), a, b, 0.5, 0.3);
+        assert!(d > 0.0, "far point outside uneven capsule: {d}");
     }
 }
