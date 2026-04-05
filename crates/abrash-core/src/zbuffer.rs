@@ -283,6 +283,18 @@ mod tests {
     }
 
     #[test]
+    fn test_clear_rect_overflow() {
+        let mut zb = ZBuffer::new(100, 100).unwrap();
+
+        // This should safely clamp and not panic from integer overflow
+        zb.clear_rect(10, 10, u32::MAX, 10);
+        zb.clear_rect(10, 10, 10, u32::MAX);
+
+        // Also test huge negative start offset combined with huge width
+        zb.clear_rect(-100, -100, u32::MAX, u32::MAX);
+    }
+
+    #[test]
     fn test_test_and_set() {
         let mut zb = ZBuffer::new(2, 2).unwrap();
 
