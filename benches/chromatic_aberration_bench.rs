@@ -1,5 +1,5 @@
 use abrash::framebuffer::Framebuffer;
-use abrash::post_process::apply_chromatic_aberration;
+use abrash_render::experimental::chromatic_aberration::apply_chromatic_aberration;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -12,7 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             apply_chromatic_aberration(
                 black_box(&mut fb),
-                black_box(&abrash::post_process::ChromaticAberrationConfig { offset: 5 }),
+                black_box(5),
             );
         });
     });

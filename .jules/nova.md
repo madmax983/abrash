@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Chromatic Aberration Filter]
+**Concept:** A retro post-processing effect simulating the color fringing seen in imperfect camera lenses by independently shifting the red and blue color channels horizontally.
+**Fate:** Implemented
+**Lesson:** Creating spatial distortions safely requires cloning the framebuffer (`fb.as_slice().to_vec()`) to avoid mutable aliasing. To optimize performance, bounds checking should be implemented manually with integer logic instead of `.clamp()` or method calls in the tight inner loop. Using `rayon::par_chunks_exact_mut` yields a ~65% speedup by parallelizing across rows.
