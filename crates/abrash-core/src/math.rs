@@ -522,6 +522,78 @@ pub fn triangle_wave(t: f32) -> f32 {
     if t < 0.5 { t * 2.0 } else { 2.0 - t * 2.0 }
 }
 
+/// Sawtooth wave: ramps linearly from 0 to 1 then instantly resets, period 1.
+///
+/// `t = 0` → 0, `t = 0.999` → ~1, `t = 1` → 0.  Useful for repeating
+/// animations, UV scrolling, and cheap oscillators.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::sawtooth_wave;
+///
+/// assert!((sawtooth_wave(0.0)   - 0.0).abs() < 1e-6);
+/// assert!((sawtooth_wave(0.5)   - 0.5).abs() < 1e-6);
+/// assert!((sawtooth_wave(1.0)   - 0.0).abs() < 1e-6); // reset
+/// assert!((sawtooth_wave(1.75)  - 0.75).abs() < 1e-6); // next cycle
+/// ```
+#[must_use]
+#[inline]
+pub fn sawtooth_wave(t: f32) -> f32 {
+    t.rem_euclid(1.0)
+}
+
+/// Square wave: 1.0 for the first `duty` fraction of each period, 0.0 otherwise.
+///
+/// `duty = 0.5` produces a symmetric square wave; `duty = 0.1` produces narrow pulses.
+/// Outputs only 0.0 or 1.0 (no smoothing).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::square_wave;
+///
+/// assert_eq!(square_wave(0.25, 0.5), 1.0); // first half
+/// assert_eq!(square_wave(0.75, 0.5), 0.0); // second half
+/// assert_eq!(square_wave(0.05, 0.1), 1.0); // narrow pulse on
+/// assert_eq!(square_wave(0.15, 0.1), 0.0); // narrow pulse off
+/// ```
+#[must_use]
+#[inline]
+pub fn square_wave(t: f32, duty: f32) -> f32 {
+    if t.rem_euclid(1.0) < duty.clamp(0.0, 1.0) {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Pulse wave: 1.0 within `±width/2` of `center` in each period, 0.0 elsewhere.
+///
+/// Unlike `square_wave` which aligns to the start of the period, `pulse_wave`
+/// places the "on" window around an arbitrary `center` offset (both in `[0, 1]`).
+/// Wraps cleanly so a pulse centered near 0 or 1 spans the period boundary.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::pulse_wave;
+///
+/// // Pulse centred at 0.5, width 0.2: on in [0.4, 0.6]
+/// assert_eq!(pulse_wave(0.5, 0.5, 0.2), 1.0);
+/// assert_eq!(pulse_wave(0.3, 0.5, 0.2), 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn pulse_wave(t: f32, center: f32, width: f32) -> f32 {
+    let t = t.rem_euclid(1.0);
+    let half = (width * 0.5).clamp(0.0, 0.5);
+    // Wrap-aware distance to center
+    let d = (t - center.rem_euclid(1.0)).rem_euclid(1.0);
+    let d = d.min(1.0 - d); // shortest arc on the unit circle
+    if d < half { 1.0 } else { 0.0 }
+}
+
 /// Exponential decay: `exp(-rate * t)`, clamped so `rate > 0`.
 ///
 /// Commonly used for damping, fade-out, and spring-settling effects.
@@ -830,6 +902,123 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
             -FRAC_PI_2 - a
         }
     }
+}
+
+/// Signed area of a 2D polygon (shoelace / surveyor's formula).
+///
+/// Positive for counter-clockwise winding, negative for clockwise.
+/// The absolute value is the polygon area. Returns 0 for fewer than 3 vertices.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, signed_area_2d};
+///
+/// // CCW unit square: area = 1.0
+/// let sq = [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0),
+///           Vec2::new(1.0, 1.0), Vec2::new(0.0, 1.0)];
+/// assert!((signed_area_2d(&sq) - 1.0).abs() < 1e-6);
+/// ```
+#[must_use]
+pub fn signed_area_2d(polygon: &[Vec2]) -> f32 {
+    let n = polygon.len();
+    if n < 3 {
+        return 0.0;
+    }
+    let mut area = 0.0_f32;
+    for i in 0..n {
+        let j = (i + 1) % n;
+        area += polygon[i].x * polygon[j].y - polygon[j].x * polygon[i].y;
+    }
+    area * 0.5
+}
+
+/// Centroid (geometric centre) of a 2D polygon.
+///
+/// Uses the area-weighted centroid formula; correct for non-convex polygons.
+/// Falls back to the vertex mean for degenerate (zero-area) polygons.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, polygon_centroid_2d};
+///
+/// // Centroid of a unit square centred at (0.5, 0.5)
+/// let sq = [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0),
+///           Vec2::new(1.0, 1.0), Vec2::new(0.0, 1.0)];
+/// let c = polygon_centroid_2d(&sq);
+/// assert!((c.x - 0.5).abs() < 1e-5);
+/// assert!((c.y - 0.5).abs() < 1e-5);
+/// ```
+#[must_use]
+pub fn polygon_centroid_2d(polygon: &[Vec2]) -> Vec2 {
+    let n = polygon.len();
+    if n == 0 {
+        return Vec2::ZERO;
+    }
+    if n == 1 {
+        return polygon[0];
+    }
+    let area = signed_area_2d(polygon);
+    if area.abs() < 1e-30 {
+        // Degenerate: mean of vertices
+        let sum = polygon.iter().fold(Vec2::ZERO, |acc, &v| acc + v);
+        return sum * (1.0 / n as f32);
+    }
+    let mut cx = 0.0_f32;
+    let mut cy = 0.0_f32;
+    for i in 0..n {
+        let j = (i + 1) % n;
+        let cross = polygon[i].x * polygon[j].y - polygon[j].x * polygon[i].y;
+        cx += (polygon[i].x + polygon[j].x) * cross;
+        cy += (polygon[i].y + polygon[j].y) * cross;
+    }
+    let inv = 1.0 / (6.0 * area);
+    Vec2::new(cx * inv, cy * inv)
+}
+
+/// Test whether point `p` lies inside a 2D polygon (winding-number test).
+///
+/// Returns `true` for interior points. Works for concave polygons. Points
+/// exactly on an edge have unspecified (but consistent) results.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, point_in_polygon_2d};
+///
+/// let tri = [Vec2::new(0.0, 0.0), Vec2::new(2.0, 0.0), Vec2::new(1.0, 2.0)];
+/// assert!( point_in_polygon_2d(Vec2::new(1.0, 0.5), &tri)); // inside
+/// assert!(!point_in_polygon_2d(Vec2::new(3.0, 1.0), &tri)); // outside
+/// ```
+#[must_use]
+pub fn point_in_polygon_2d(p: Vec2, polygon: &[Vec2]) -> bool {
+    let n = polygon.len();
+    if n < 3 {
+        return false;
+    }
+    let mut winding = 0i32;
+    for i in 0..n {
+        let j = (i + 1) % n;
+        let a = polygon[i];
+        let b = polygon[j];
+        if a.y <= p.y {
+            if b.y > p.y {
+                // Upward crossing — left of edge?
+                let cross = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+                if cross > 0.0 {
+                    winding += 1;
+                }
+            }
+        } else if b.y <= p.y {
+            // Downward crossing — right of edge?
+            let cross = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+            if cross < 0.0 {
+                winding -= 1;
+            }
+        }
+    }
+    winding != 0
 }
 
 /// A 2-component vector, used for texture coordinates (UVs) and 2D positions.
@@ -1272,6 +1461,33 @@ impl Vec2 {
         let cross = self.cross(other); // signed area
         let dot = self.dot(other);
         cross.atan2(dot)
+    }
+
+    /// Clamp the vector's length to at most `max_length`.
+    ///
+    /// Returns `self` unchanged if already shorter; otherwise scales down to `max_length`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec2;
+    ///
+    /// let v = Vec2::new(3.0, 4.0); // length 5
+    /// let clamped = v.clamp_length(2.0);
+    /// assert!((clamped.length() - 2.0).abs() < 1e-5);
+    ///
+    /// let short = Vec2::new(0.5, 0.0);
+    /// assert_eq!(short.clamp_length(2.0), short); // unchanged
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn clamp_length(self, max_length: f32) -> Self {
+        let len_sq = self.length_sq();
+        if len_sq > max_length * max_length {
+            self * (max_length / len_sq.sqrt())
+        } else {
+            self
+        }
     }
 }
 
@@ -6979,5 +7195,168 @@ mod tests_pass_15 {
     #[test]
     fn sign_no_zero_at_zero() {
         assert_eq!(sign_no_zero(0.0), 1.0, "zero maps to +1");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_16 {
+    use super::*;
+
+    // ── sawtooth_wave ─────────────────────────────────────────────────────
+    #[test]
+    fn sawtooth_ramps_0_to_1() {
+        assert!((sawtooth_wave(0.0) - 0.0).abs() < 1e-6);
+        assert!((sawtooth_wave(0.5) - 0.5).abs() < 1e-6);
+        assert!((sawtooth_wave(1.0) - 0.0).abs() < 1e-6); // resets
+    }
+
+    #[test]
+    fn sawtooth_periodic() {
+        for t in [0.1_f32, 0.37, 0.9] {
+            assert!((sawtooth_wave(t) - sawtooth_wave(t + 1.0)).abs() < 1e-6);
+        }
+    }
+
+    // ── square_wave ───────────────────────────────────────────────────────
+    #[test]
+    fn square_wave_duty_half() {
+        assert_eq!(square_wave(0.25, 0.5), 1.0); // first half
+        assert_eq!(square_wave(0.75, 0.5), 0.0); // second half
+    }
+
+    #[test]
+    fn square_wave_duty_zero_always_off() {
+        for t in [0.0_f32, 0.5, 0.99] {
+            assert_eq!(square_wave(t, 0.0), 0.0);
+        }
+    }
+
+    #[test]
+    fn square_wave_duty_one_always_on() {
+        for t in [0.0_f32, 0.5, 0.99] {
+            assert_eq!(square_wave(t, 1.0), 1.0);
+        }
+    }
+
+    // ── pulse_wave ────────────────────────────────────────────────────────
+    #[test]
+    fn pulse_wave_inside() {
+        // Centre 0.5, width 0.2 → on in [0.4, 0.6]
+        assert_eq!(pulse_wave(0.5, 0.5, 0.2), 1.0);
+        assert_eq!(pulse_wave(0.45, 0.5, 0.2), 1.0);
+    }
+
+    #[test]
+    fn pulse_wave_outside() {
+        assert_eq!(pulse_wave(0.2, 0.5, 0.2), 0.0);
+        assert_eq!(pulse_wave(0.8, 0.5, 0.2), 0.0);
+    }
+
+    // ── signed_area_2d ────────────────────────────────────────────────────
+    #[test]
+    fn signed_area_ccw_square() {
+        let sq = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        let a = signed_area_2d(&sq);
+        assert!((a - 1.0).abs() < 1e-6, "CCW unit square area = 1: {a}");
+    }
+
+    #[test]
+    fn signed_area_cw_square_negative() {
+        let sq = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(1.0, 0.0),
+        ];
+        let a = signed_area_2d(&sq);
+        assert!((a + 1.0).abs() < 1e-6, "CW square area = -1: {a}");
+    }
+
+    #[test]
+    fn signed_area_degenerate_line() {
+        let line = [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)];
+        assert_eq!(signed_area_2d(&line), 0.0); // < 3 vertices
+    }
+
+    // ── polygon_centroid_2d ───────────────────────────────────────────────
+    #[test]
+    fn centroid_unit_square() {
+        let sq = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        let c = polygon_centroid_2d(&sq);
+        assert!((c.x - 0.5).abs() < 1e-5, "cx: {}", c.x);
+        assert!((c.y - 0.5).abs() < 1e-5, "cy: {}", c.y);
+    }
+
+    #[test]
+    fn centroid_right_triangle() {
+        // Right triangle (0,0),(3,0),(0,3): centroid at (1,1)
+        let tri = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(0.0, 3.0),
+        ];
+        let c = polygon_centroid_2d(&tri);
+        assert!((c.x - 1.0).abs() < 1e-5, "cx: {}", c.x);
+        assert!((c.y - 1.0).abs() < 1e-5, "cy: {}", c.y);
+    }
+
+    // ── point_in_polygon_2d ───────────────────────────────────────────────
+    #[test]
+    fn point_in_triangle() {
+        let tri = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(1.0, 2.0),
+        ];
+        assert!(point_in_polygon_2d(Vec2::new(1.0, 0.5), &tri));
+        assert!(!point_in_polygon_2d(Vec2::new(3.0, 1.0), &tri));
+        assert!(!point_in_polygon_2d(Vec2::new(1.0, 2.5), &tri));
+    }
+
+    #[test]
+    fn point_in_square() {
+        let sq = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(0.0, 2.0),
+        ];
+        assert!(point_in_polygon_2d(Vec2::new(1.0, 1.0), &sq));
+        assert!(!point_in_polygon_2d(Vec2::new(3.0, 1.0), &sq));
+        assert!(!point_in_polygon_2d(Vec2::new(-1.0, 1.0), &sq));
+    }
+
+    // ── Vec2::clamp_length ────────────────────────────────────────────────
+    #[test]
+    fn clamp_length_shrinks_long_vector() {
+        let v = Vec2::new(3.0, 4.0); // length 5
+        let c = v.clamp_length(2.0);
+        assert!((c.length() - 2.0).abs() < 1e-5);
+        // Direction preserved
+        let ratio = c.x / v.x;
+        assert!((c.y / v.y - ratio).abs() < 1e-5);
+    }
+
+    #[test]
+    fn clamp_length_leaves_short_vector() {
+        let v = Vec2::new(0.5, 0.0);
+        assert_eq!(v.clamp_length(2.0), v);
+    }
+
+    #[test]
+    fn clamp_length_at_exact_max() {
+        let v = Vec2::new(2.0, 0.0);
+        let c = v.clamp_length(2.0);
+        assert!((c.length() - 2.0).abs() < 1e-5);
     }
 }
