@@ -374,6 +374,87 @@ pub fn wrap(x: f32, min: f32, max: f32) -> f32 {
     min + (x - min).rem_euclid(range)
 }
 
+/// Inverse lerp: given a `value` in `[a, b]`, returns the `t` that produced it.
+///
+/// `inverse_lerp(0.0, 10.0, 5.0) == 0.5`. Does not clamp — extrapolates outside the range.
+/// Undefined if `a == b` (returns `0.0`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::inverse_lerp;
+///
+/// assert!((inverse_lerp(0.0, 10.0, 5.0) - 0.5).abs() < 1e-6);
+/// assert!((inverse_lerp(0.0, 10.0, 0.0) - 0.0).abs() < 1e-6);
+/// assert!((inverse_lerp(0.0, 10.0, 10.0) - 1.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
+    let denom = b - a;
+    if denom.abs() < 1e-30 {
+        0.0
+    } else {
+        (value - a) / denom
+    }
+}
+
+/// Remaps `x` from `[from_min, from_max]` to `[to_min, to_max]`, clamping the result.
+///
+/// Like [`remap`] but the output is clamped so it never exceeds the target range.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::remap_clamped;
+///
+/// assert!((remap_clamped(5.0, 0.0, 10.0, 0.0, 1.0) - 0.5).abs() < 1e-6);
+/// assert!((remap_clamped(20.0, 0.0, 10.0, 0.0, 1.0) - 1.0).abs() < 1e-6); // clamped
+/// assert!((remap_clamped(-5.0, 0.0, 10.0, 0.0, 1.0) - 0.0).abs() < 1e-6); // clamped
+/// ```
+#[must_use]
+#[inline]
+pub fn remap_clamped(x: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> f32 {
+    let t = ((x - from_min) / (from_max - from_min)).clamp(0.0, 1.0);
+    to_min + t * (to_max - to_min)
+}
+
+/// Scalar GLSL `step(edge, x)`: returns 0.0 if `x < edge`, else 1.0.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::step;
+///
+/// assert_eq!(step(0.5, 0.3), 0.0);
+/// assert_eq!(step(0.5, 0.5), 1.0);
+/// assert_eq!(step(0.5, 0.8), 1.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn step(edge: f32, x: f32) -> f32 {
+    if x < edge { 0.0 } else { 1.0 }
+}
+
+/// Sign function that never returns zero: `+1.0` if `x >= 0.0`, `-1.0` if `x < 0.0`.
+///
+/// Useful in SDF formulas where `sign(0)` = 0 would cause issues.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::sign_no_zero;
+///
+/// assert_eq!(sign_no_zero(5.0), 1.0);
+/// assert_eq!(sign_no_zero(-3.0), -1.0);
+/// assert_eq!(sign_no_zero(0.0), 1.0);  // no zero
+/// ```
+#[must_use]
+#[inline]
+pub fn sign_no_zero(x: f32) -> f32 {
+    if x < 0.0 { -1.0 } else { 1.0 }
+}
+
 /// Bias curve: `t^(log(b)/log(0.5))` — pushes `t` toward 0 when `b < 0.5`, toward 1 when `b > 0.5`.
 ///
 /// From Ken Perlin & Eric Hoffert's 1989 "Hypertexture" paper.
@@ -6813,5 +6894,90 @@ mod tests_pass_14 {
         let v = Vec4::new(1.0, 2.0, 3.0, 0.0);
         let p = v.homogenize();
         assert_eq!(p, Vec3::ZERO);
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_15 {
+    use super::*;
+
+    // ── inverse_lerp ──────────────────────────────────────────────────────
+    #[test]
+    fn inverse_lerp_midpoint() {
+        let t = inverse_lerp(0.0, 10.0, 5.0);
+        assert!((t - 0.5).abs() < 1e-6, "midpoint: {t}");
+    }
+
+    #[test]
+    fn inverse_lerp_endpoints() {
+        assert!((inverse_lerp(0.0, 10.0, 0.0) - 0.0).abs() < 1e-6);
+        assert!((inverse_lerp(0.0, 10.0, 10.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn inverse_lerp_degenerate_returns_zero() {
+        // a == b → division by zero guard
+        let t = inverse_lerp(5.0, 5.0, 5.0);
+        assert_eq!(t, 0.0);
+    }
+
+    #[test]
+    fn inverse_lerp_is_lerp_inverse() {
+        // lerp(a, b, inverse_lerp(a, b, v)) == v
+        let (a, b, v) = (3.0_f32, 7.0, 5.5);
+        let t = inverse_lerp(a, b, v);
+        let roundtrip = lerp(a, b, t);
+        assert!((roundtrip - v).abs() < 1e-5);
+    }
+
+    // ── remap_clamped ─────────────────────────────────────────────────────
+    #[test]
+    fn remap_clamped_midpoint() {
+        let v = remap_clamped(5.0, 0.0, 10.0, 0.0, 1.0);
+        assert!((v - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn remap_clamped_clamps_high() {
+        let v = remap_clamped(20.0, 0.0, 10.0, 0.0, 1.0);
+        assert!((v - 1.0).abs() < 1e-6, "should clamp to 1: {v}");
+    }
+
+    #[test]
+    fn remap_clamped_clamps_low() {
+        let v = remap_clamped(-5.0, 0.0, 10.0, 0.0, 1.0);
+        assert!((v - 0.0).abs() < 1e-6, "should clamp to 0: {v}");
+    }
+
+    // ── step ──────────────────────────────────────────────────────────────
+    #[test]
+    fn step_below_edge() {
+        assert_eq!(step(0.5, 0.3), 0.0);
+    }
+
+    #[test]
+    fn step_at_edge() {
+        assert_eq!(step(0.5, 0.5), 1.0);
+    }
+
+    #[test]
+    fn step_above_edge() {
+        assert_eq!(step(0.5, 0.8), 1.0);
+    }
+
+    // ── sign_no_zero ──────────────────────────────────────────────────────
+    #[test]
+    fn sign_no_zero_positive() {
+        assert_eq!(sign_no_zero(3.0), 1.0);
+    }
+
+    #[test]
+    fn sign_no_zero_negative() {
+        assert_eq!(sign_no_zero(-2.0), -1.0);
+    }
+
+    #[test]
+    fn sign_no_zero_at_zero() {
+        assert_eq!(sign_no_zero(0.0), 1.0, "zero maps to +1");
     }
 }

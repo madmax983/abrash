@@ -1850,6 +1850,206 @@ pub fn uneven_capsule_2d(p: Vec2, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
     (ap - ab * h).length() - r
 }
 
+/// SDF of a 2D horseshoe (C-shape / partial arc with thickness).
+///
+/// `c` = (cos, sin) of the half-opening angle.
+/// `r` is the arc radius. `w` is the half-width of the bar `(half_x, half_y)`.
+///
+/// Direct port of Inigo Quilez's sdHorseshoe.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::horseshoe_2d;
+///
+/// // Full horseshoe (c.x=1, c.y=0): arc at y-axis, opening toward +x.
+/// // Point on the arc at (0, r) is inside.
+/// let r = 1.5_f32;
+/// let inside = horseshoe_2d(Vec2::new(0.0, r), (1.0, 0.0), r, Vec2::new(0.2, 0.2));
+/// assert!(inside < 0.0, "on arc should be inside: {inside}");
+///
+/// let outside = horseshoe_2d(Vec2::new(5.0, 0.0), (1.0, 0.0), r, Vec2::new(0.2, 0.2));
+/// assert!(outside > 0.0, "far point outside: {outside}");
+/// ```
+#[must_use]
+pub fn horseshoe_2d(p: Vec2, c: (f32, f32), r: f32, w: Vec2) -> f32 {
+    // Direct translation of IQ's sdHorseshoe (GLSL → Rust).
+    // c = (cos(half_angle), sin(half_angle)); mat2 is column-major in GLSL.
+    let mut p = Vec2::new(p.x.abs(), p.y);
+    let l = p.length();
+    let (cx, cy) = c;
+    // mat2(-cx, cy, cy, cx) * p  (GLSL column-major: col0=(-cx,cy), col1=(cy,cx))
+    let (rx, ry) = (-cx * p.x + cy * p.y, cy * p.x + cx * p.y);
+    p = Vec2::new(rx, ry);
+    let px2 = if p.y > 0.0 || p.x > 0.0 {
+        p.x
+    } else {
+        l * (-cx).signum()
+    };
+    let py2 = if p.x > 0.0 { p.y } else { l };
+    p = Vec2::new(px2, (py2 - r).abs()) - w;
+    // Standard 2D box SDF from origin
+    let ext = Vec2::new(p.x.max(0.0), p.y.max(0.0));
+    ext.length() + 0.0_f32.min(p.x.max(p.y))
+}
+
+/// SDF of a 2D cut disk (circle with a flat chord cut at the bottom).
+///
+/// `r` is the radius, `h` is the y-position of the horizontal cut (`-r ≤ h ≤ r`).
+/// The shape retains the **y ≥ h** portion (the upper part).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::cut_disk_2d;
+///
+/// // Point above the cut and inside the circle → inside the shape
+/// let inside = cut_disk_2d(Vec2::new(0.0, 0.7), 1.0, 0.5);
+/// assert!(inside < 0.0, "above cut, in circle → inside: {inside}");
+///
+/// // Point below the cut → outside (flat face is boundary)
+/// let outside = cut_disk_2d(Vec2::new(0.0, -0.5), 1.0, 0.5);
+/// assert!(outside > 0.0, "below cut → outside: {outside}");
+/// ```
+#[must_use]
+pub fn cut_disk_2d(p: Vec2, r: f32, h: f32) -> f32 {
+    // Half-width of the cut chord
+    let w = (r * r - h * h).max(0.0).sqrt();
+    let px = p.x.abs();
+    let py = p.y;
+    // IQ's sdCutDisk: max of two expressions selects the correct region
+    let s = ((h - r) * px * px + w * w * (h + r - 2.0 * py)).max(h * px - w * py);
+    if s < 0.0 {
+        p.length() - r
+    } else if px < w {
+        h - py
+    } else {
+        Vec2::new(px - w, py - h).length()
+    }
+}
+
+/// SDF of a 2D rounded X (two crossing lines with rounded caps).
+///
+/// `w` is the half-length of each arm, `r` is the rounding radius.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::rounded_x_2d;
+///
+/// let inside = rounded_x_2d(Vec2::new(0.1, 0.1), 1.0, 0.1);
+/// assert!(inside < 0.0, "near centre inside: {inside}");
+///
+/// let outside = rounded_x_2d(Vec2::new(0.0, 3.0), 1.0, 0.1);
+/// assert!(outside > 0.0, "far outside: {outside}");
+/// ```
+#[must_use]
+pub fn rounded_x_2d(p: Vec2, w: f32, r: f32) -> f32 {
+    let p = p.abs();
+    let s = (p.x + p.y).min(w);
+    (Vec2::new(p.x - s * 0.5, p.y - s * 0.5)).length() - r
+}
+
+/// SDF of a 3D capped torus — a torus cut by two symmetric planes through the Y-axis.
+///
+/// `sc` = (sin, cos) of the half-opening angle. `ra` = tube-centre radius, `rb` = tube radius.
+/// For a full torus with no cap, use `sc = (0.0, -1.0)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::capped_torus_3d;
+///
+/// // sc=(0,-1): full torus. Point on tube centre ring at (ra, 0, 0) → distance = -rb (inside).
+/// let ra = 1.5_f32;
+/// let rb = 0.3_f32;
+/// let inside = capped_torus_3d(Vec3::new(ra, 0.0, 0.0), (0.0, -1.0), ra, rb);
+/// assert!(inside < 0.0, "on tube centre should be inside: {inside}");
+///
+/// let outside = capped_torus_3d(Vec3::new(5.0, 0.0, 0.0), (0.0, -1.0), ra, rb);
+/// assert!(outside > 0.0, "far outside: {outside}");
+/// ```
+#[must_use]
+pub fn capped_torus_3d(p: Vec3, sc: (f32, f32), ra: f32, rb: f32) -> f32 {
+    let (si, co) = sc;
+    let px = p.x.abs();
+    let py = p.y;
+    // Choose closest end-cap or full-torus distance
+    let k = if co * px > si * py {
+        px * co + py * si
+    } else {
+        (px * px + py * py).sqrt()
+    };
+    let d_sq = p.x * p.x + p.y * p.y + p.z * p.z + ra * ra - 2.0 * ra * k;
+    d_sq.max(0.0).sqrt() - rb
+}
+
+/// SDF of a 3D triangular prism.
+///
+/// The prism has an equilateral triangle cross-section in the XY plane.
+/// `h.x` is the triangle "radius" (inradius), `h.y` is the half-height along Z.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::triangular_prism_3d;
+///
+/// let inside = triangular_prism_3d(Vec3::new(0.0, 0.0, 0.0), (0.5, 1.0));
+/// assert!(inside < 0.0, "centre inside prism: {inside}");
+///
+/// let outside = triangular_prism_3d(Vec3::new(0.0, 0.0, 3.0), (0.5, 1.0));
+/// assert!(outside > 0.0, "above prism: {outside}");
+/// ```
+#[must_use]
+pub fn triangular_prism_3d(p: Vec3, h: (f32, f32)) -> f32 {
+    let q = p.abs();
+    // max of: distance from end-cap, distance from triangle edges
+    // Triangle has vertices at (cos(90°), sin(90°)), (cos(210°), sin(210°)), (cos(330°), sin(330°))
+    // IQ formula: max(q.z - h.y, max(q.x * 0.866025 + p.y * 0.5, -p.y) - h.x * 0.5)
+    (q.z - h.1).max((q.x * 0.866_025 + p.y * 0.5).max(-p.y) - h.0 * 0.5)
+}
+
+/// SDF of a 3D cut sphere (a sphere with a flat planar cap).
+///
+/// `r` is the sphere radius, `h` is the y-position of the horizontal cut (`-r ≤ h ≤ r`).
+/// The shape retains the **y ≥ h** portion (the cap, like a mushroom top).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::cut_sphere_3d;
+///
+/// // Point above the cut inside the sphere → inside the shape
+/// let inside = cut_sphere_3d(Vec3::new(0.0, 0.7, 0.0), 1.0, 0.5);
+/// assert!(inside < 0.0, "above cut and inside sphere: {inside}");
+///
+/// // Point below the cut → outside
+/// let outside = cut_sphere_3d(Vec3::new(0.0, -0.5, 0.0), 1.0, 0.5);
+/// assert!(outside > 0.0, "below cut → outside: {outside}");
+/// ```
+#[must_use]
+pub fn cut_sphere_3d(p: Vec3, r: f32, h: f32) -> f32 {
+    // Half-width of the cut disk
+    let w = (r * r - h * h).max(0.0).sqrt();
+    let q = (p.x * p.x + p.z * p.z).sqrt();
+    // Two regions: flat cap and spherical surface
+    // sign: +1 outside, -1 inside
+    let d_sphere = p.length() - r;
+    // Flat cap contribution
+    let d_cap_q = q - w;
+    let d_cap_y = p.y - h;
+    // Choose the larger (furthest outside = correct SDF)
+    let n = Vec2::new(h, -w).normalize();
+    let dist_cap = Vec2::new(q, p.y).dot(n) - Vec2::new(0.0, h).dot(n);
+    d_sphere.max(dist_cap)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2389,5 +2589,105 @@ mod tests {
         let b = Vec2::new(0.0, 2.0);
         let d = uneven_capsule_2d(Vec2::new(5.0, 1.0), a, b, 0.5, 0.3);
         assert!(d > 0.0, "far point outside uneven capsule: {d}");
+    }
+
+    // ── horseshoe_2d ──────────────────────────────────────────────────────
+    #[test]
+    fn horseshoe_on_arc_inside() {
+        use crate::math::Vec2;
+        let r = 1.5_f32;
+        // Full horseshoe (c=(1,0)): arc at radius r along y-axis → inside
+        let d = horseshoe_2d(Vec2::new(0.0, r), (1.0, 0.0), r, Vec2::new(0.2, 0.2));
+        assert!(d < 0.0, "on arc inside horseshoe: {d}");
+    }
+
+    #[test]
+    fn horseshoe_far_outside() {
+        use crate::math::Vec2;
+        let d = horseshoe_2d(Vec2::new(5.0, 0.0), (1.0, 0.0), 1.5, Vec2::new(0.2, 0.2));
+        assert!(d > 0.0, "far outside horseshoe: {d}");
+    }
+
+    // ── cut_disk_2d ───────────────────────────────────────────────────────
+    #[test]
+    fn cut_disk_above_cut_inside() {
+        use crate::math::Vec2;
+        // y=0.7 > h=0.5, within unit circle → inside
+        let d = cut_disk_2d(Vec2::new(0.0, 0.7), 1.0, 0.5);
+        assert!(d < 0.0, "above cut and in circle → inside: {d}");
+    }
+
+    #[test]
+    fn cut_disk_below_cut_outside() {
+        use crate::math::Vec2;
+        // y=-0.5 < h=0.5 → outside (removed region)
+        let d = cut_disk_2d(Vec2::new(0.0, -0.5), 1.0, 0.5);
+        assert!(d > 0.0, "below cut → outside: {d}");
+    }
+
+    // ── rounded_x_2d ─────────────────────────────────────────────────────
+    #[test]
+    fn rounded_x_near_centre_inside() {
+        use crate::math::Vec2;
+        let d = rounded_x_2d(Vec2::new(0.1, 0.1), 1.0, 0.15);
+        assert!(d < 0.0, "near centre inside rounded X: {d}");
+    }
+
+    #[test]
+    fn rounded_x_far_outside() {
+        use crate::math::Vec2;
+        let d = rounded_x_2d(Vec2::new(0.0, 3.0), 1.0, 0.1);
+        assert!(d > 0.0, "far outside rounded X: {d}");
+    }
+
+    // ── capped_torus_3d ───────────────────────────────────────────────────
+    #[test]
+    fn capped_torus_on_tube_centre_inside() {
+        use crate::math::Vec3;
+        let ra = 1.5_f32;
+        let rb = 0.3_f32;
+        // sc=(0,-1) = full torus; point on tube centre ring → distance = -rb
+        let d = capped_torus_3d(Vec3::new(ra, 0.0, 0.0), (0.0, -1.0), ra, rb);
+        assert!((d + rb).abs() < 1e-5, "distance should be -rb: {d}");
+        assert!(d < 0.0, "on tube centre inside: {d}");
+    }
+
+    #[test]
+    fn capped_torus_far_outside() {
+        use crate::math::Vec3;
+        let d = capped_torus_3d(Vec3::new(5.0, 0.0, 0.0), (0.0, -1.0), 1.5, 0.3);
+        assert!(d > 0.0, "far outside capped torus: {d}");
+    }
+
+    // ── triangular_prism_3d ───────────────────────────────────────────────
+    #[test]
+    fn triangular_prism_centre_inside() {
+        use crate::math::Vec3;
+        let d = triangular_prism_3d(Vec3::new(0.0, 0.0, 0.0), (0.5, 1.0));
+        assert!(d < 0.0, "centre inside triangular prism: {d}");
+    }
+
+    #[test]
+    fn triangular_prism_above_outside() {
+        use crate::math::Vec3;
+        let d = triangular_prism_3d(Vec3::new(0.0, 0.0, 3.0), (0.5, 1.0));
+        assert!(d > 0.0, "above prism: {d}");
+    }
+
+    // ── cut_sphere_3d ─────────────────────────────────────────────────────
+    #[test]
+    fn cut_sphere_above_cut_inside() {
+        use crate::math::Vec3;
+        // y=0.7 > h=0.5, within unit sphere → inside
+        let d = cut_sphere_3d(Vec3::new(0.0, 0.7, 0.0), 1.0, 0.5);
+        assert!(d < 0.0, "above cut and in sphere → inside: {d}");
+    }
+
+    #[test]
+    fn cut_sphere_below_cut_outside() {
+        use crate::math::Vec3;
+        // y=-0.5 < h=0.5 → outside
+        let d = cut_sphere_3d(Vec3::new(0.0, -0.5, 0.0), 1.0, 0.5);
+        assert!(d > 0.0, "below cut → outside: {d}");
     }
 }
