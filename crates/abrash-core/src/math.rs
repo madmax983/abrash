@@ -374,6 +374,151 @@ pub fn wrap(x: f32, min: f32, max: f32) -> f32 {
     min + (x - min).rem_euclid(range)
 }
 
+/// Bias curve: `t^(log(b)/log(0.5))` — pushes `t` toward 0 when `b < 0.5`, toward 1 when `b > 0.5`.
+///
+/// From Ken Perlin & Eric Hoffert's 1989 "Hypertexture" paper.
+/// `b = 0.5` is identity; `b → 0` crushes t to 0; `b → 1` crushes t to 1.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::bias;
+///
+/// assert!((bias(0.5, 0.5) - 0.5).abs() < 1e-5); // identity at b=0.5
+/// assert!(bias(0.5, 0.2) < 0.5);  // b<0.5 pulls toward 0
+/// assert!(bias(0.5, 0.8) > 0.5);  // b>0.5 pulls toward 1
+/// ```
+#[must_use]
+#[inline]
+pub fn bias(t: f32, b: f32) -> f32 {
+    // exponent = log(b) / log(0.5) = −log(b) / log(2)
+    let b = b.clamp(1e-6, 1.0 - 1e-6);
+    t.powf(-b.ln() / std::f32::consts::LN_2)
+}
+
+/// Gain curve: S-shaped contrast enhancement via two symmetric `bias` calls.
+///
+/// `g = 0.5` is identity; `g < 0.5` flattens the curve; `g > 0.5` steepens it (more contrast).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::gain;
+///
+/// assert!((gain(0.5, 0.5) - 0.5).abs() < 1e-3); // midpoint preserved
+/// assert!((gain(0.0, 0.8) - 0.0).abs() < 1e-5); // endpoints fixed
+/// assert!((gain(1.0, 0.8) - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn gain(t: f32, g: f32) -> f32 {
+    if t < 0.5 {
+        bias(2.0 * t, 1.0 - g) * 0.5
+    } else {
+        1.0 - bias(2.0 - 2.0 * t, 1.0 - g) * 0.5
+    }
+}
+
+/// Triangle wave: oscillates linearly between 0 and 1 with period 1.
+///
+/// `t = 0` → 0, `t = 0.5` → 1, `t = 1` → 0, and so on. Useful for ping-pong
+/// animations and cheap oscillators without trigonometry.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::triangle_wave;
+///
+/// assert!((triangle_wave(0.0) - 0.0).abs() < 1e-6);
+/// assert!((triangle_wave(0.25) - 0.5).abs() < 1e-6);
+/// assert!((triangle_wave(0.5) - 1.0).abs() < 1e-6);
+/// assert!((triangle_wave(1.0) - 0.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn triangle_wave(t: f32) -> f32 {
+    let t = t.rem_euclid(1.0);
+    if t < 0.5 { t * 2.0 } else { 2.0 - t * 2.0 }
+}
+
+/// Exponential decay: `exp(-rate * t)`, clamped so `rate > 0`.
+///
+/// Commonly used for damping, fade-out, and spring-settling effects.
+/// At `t = 1/rate` the value is `1/e ≈ 0.368`; at `t = 4/rate` it's `< 2%`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::exp_decay;
+///
+/// assert!((exp_decay(0.0, 2.0) - 1.0).abs() < 1e-6);
+/// assert!(exp_decay(1.0, 2.0) < 0.5);  // decayed after 1 second
+/// assert!(exp_decay(10.0, 2.0) < 0.01); // nearly zero at t=10, rate=2
+/// ```
+#[must_use]
+#[inline]
+pub fn exp_decay(t: f32, rate: f32) -> f32 {
+    (-rate.max(0.0) * t.max(0.0)).exp()
+}
+
+/// Smooth `ease_in` (cubic): `t³` — starts slow, ends fast.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_in;
+///
+/// assert!((ease_in(0.0) - 0.0).abs() < 1e-6);
+/// assert!((ease_in(1.0) - 1.0).abs() < 1e-6);
+/// assert!(ease_in(0.5) < 0.25); // slower than linear near 0
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_in(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * t
+}
+
+/// Smooth `ease_out` (cubic): `1 - (1-t)³` — starts fast, ends slow.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_out;
+///
+/// assert!((ease_out(0.0) - 0.0).abs() < 1e-6);
+/// assert!((ease_out(1.0) - 1.0).abs() < 1e-6);
+/// assert!(ease_out(0.5) > 0.75); // faster than linear near 0
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    let inv = 1.0 - t;
+    1.0 - inv * inv * inv
+}
+
+/// Smooth `ease_in_out` (cubic Hermite): `3t² - 2t³` — same as `smoothstep`.
+///
+/// Equivalent to `smoothstep(0, 1, t)` but without the range remapping. The
+/// name makes the animation intent explicit.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_in_out;
+///
+/// assert!((ease_in_out(0.0) - 0.0).abs() < 1e-6);
+/// assert!((ease_in_out(0.5) - 0.5).abs() < 1e-6); // midpoint preserved
+/// assert!((ease_in_out(1.0) - 1.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_in_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// Evaluate a quadratic (degree-2) Bézier curve at `t ∈ [0, 1]`.
 ///
 /// Uses de Casteljau's algorithm: two linear lerps then one more.
@@ -1694,6 +1839,29 @@ impl Vec3 {
     #[inline]
     pub fn reject_from(self, onto: Self) -> Self {
         self - self.project_onto(onto)
+    }
+
+    /// Projects this vector onto a plane defined by its unit normal.
+    ///
+    /// Removes the component along `normal`, leaving only the tangential part.
+    /// `unit_normal` must be unit-length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec3;
+    ///
+    /// // Project onto XZ plane (normal = +Y): Y component becomes zero
+    /// let v = Vec3::new(1.0, 5.0, 2.0);
+    /// let flat = v.project_onto_plane(Vec3::Y);
+    /// assert!(flat.y.abs() < 1e-5);
+    /// assert!((flat.x - 1.0).abs() < 1e-5);
+    /// assert!((flat.z - 2.0).abs() < 1e-5);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn project_onto_plane(self, unit_normal: Self) -> Self {
+        self - unit_normal * self.dot(unit_normal)
     }
 
     /// Returns angle between vectors in radians.
@@ -5370,6 +5538,33 @@ impl Vec4 {
         self - self.project_onto(onto)
     }
 
+    /// Perspective divide: divide `x`, `y`, `z` by `w` and return as a [`Vec3`].
+    ///
+    /// Used after matrix-vector multiplication to convert homogeneous clip-space
+    /// coordinates to NDC (Normalised Device Coordinates).  Returns `Vec3::ZERO`
+    /// if `w` is zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abrash_core::math::Vec4;
+    ///
+    /// let h = Vec4::new(2.0, 4.0, 6.0, 2.0);
+    /// let ndc = h.homogenize();
+    /// assert!((ndc.x - 1.0).abs() < 1e-6);
+    /// assert!((ndc.y - 2.0).abs() < 1e-6);
+    /// assert!((ndc.z - 3.0).abs() < 1e-6);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn homogenize(self) -> Vec3 {
+        if self.w.abs() < 1e-10 {
+            return Vec3::ZERO;
+        }
+        let inv_w = 1.0 / self.w;
+        Vec3::new(self.x * inv_w, self.y * inv_w, self.z * inv_w)
+    }
+
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
@@ -6435,5 +6630,188 @@ mod tests_mat3 {
         let m = Mat4::reflect_plane(n, Vec3::ZERO);
         let (result, _) = m.transform_point(p_on_plane);
         assert!((result - p_on_plane).length() < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_14 {
+    use super::*;
+
+    // ── bias ──────────────────────────────────────────────────────────────
+    #[test]
+    fn bias_midpoint_at_half() {
+        // bias(0.5, 0.5) should equal 0.5 (identity knob)
+        let v = bias(0.5, 0.5);
+        assert!((v - 0.5).abs() < 1e-5, "bias(0.5,0.5) = {v}");
+    }
+
+    #[test]
+    fn bias_b_near_one_biases_toward_one() {
+        // b close to 1 → small exponent → output > t for t in (0,1)
+        let v = bias(0.5, 0.9);
+        assert!(
+            v > 0.5,
+            "bias(0.5,0.9) should be > 0.5 (biased up), got {v}"
+        );
+    }
+
+    #[test]
+    fn bias_b_near_zero_biases_toward_zero() {
+        // b close to 0 → large exponent → output < t for t in (0,1)
+        let v = bias(0.5, 0.1);
+        assert!(
+            v < 0.5,
+            "bias(0.5,0.1) should be < 0.5 (biased down), got {v}"
+        );
+    }
+
+    #[test]
+    fn bias_extremes_clamped() {
+        // t=0 → 0, t=1 → 1 regardless of b
+        assert!((bias(0.0, 0.3) - 0.0).abs() < 1e-6);
+        assert!((bias(1.0, 0.7) - 1.0).abs() < 1e-6);
+    }
+
+    // ── gain ──────────────────────────────────────────────────────────────
+    #[test]
+    fn gain_midpoint_always_half() {
+        // gain(0.5, g) = 0.5 for any g
+        for g in [0.1, 0.3, 0.5, 0.7, 0.9] {
+            let v = gain(0.5, g);
+            assert!((v - 0.5).abs() < 1e-5, "gain(0.5,{g}) = {v}");
+        }
+    }
+
+    #[test]
+    fn gain_symmetric_about_half() {
+        // gain(1-t, g) = 1 - gain(t, g)
+        let g = 0.4_f32;
+        for t in [0.1_f32, 0.25, 0.4, 0.75] {
+            let a = gain(t, g);
+            let b = gain(1.0 - t, g);
+            assert!(
+                (a + b - 1.0).abs() < 1e-5,
+                "symmetry fail at t={t}: {a}+{b}"
+            );
+        }
+    }
+
+    // ── triangle_wave ─────────────────────────────────────────────────────
+    #[test]
+    fn triangle_wave_peaks() {
+        assert!((triangle_wave(0.25) - 0.5).abs() < 1e-6);
+        assert!((triangle_wave(0.75) - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn triangle_wave_extremes() {
+        assert!((triangle_wave(0.0) - 0.0).abs() < 1e-6);
+        assert!((triangle_wave(0.5) - 1.0).abs() < 1e-6);
+        assert!((triangle_wave(1.0) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn triangle_wave_periodic() {
+        // t and t+1 give same result
+        for t in [0.1_f32, 0.37, 0.88] {
+            let a = triangle_wave(t);
+            let b = triangle_wave(t + 1.0);
+            assert!((a - b).abs() < 1e-6, "periodic fail at t={t}");
+        }
+    }
+
+    // ── exp_decay ─────────────────────────────────────────────────────────
+    #[test]
+    fn exp_decay_at_zero_is_one() {
+        assert!((exp_decay(0.0, 5.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn exp_decay_decreases_monotonically() {
+        let v1 = exp_decay(1.0, 2.0);
+        let v2 = exp_decay(2.0, 2.0);
+        assert!(v1 > v2, "should decrease: {v1} > {v2}");
+    }
+
+    #[test]
+    fn exp_decay_negative_t_clamped() {
+        // t<0 treated as t=0 → should return 1.0
+        assert!((exp_decay(-1.0, 3.0) - 1.0).abs() < 1e-6);
+    }
+
+    // ── ease_in / ease_out / ease_in_out ──────────────────────────────────
+    #[test]
+    fn ease_in_clamps_and_monotone() {
+        assert!((ease_in(0.0) - 0.0).abs() < 1e-6);
+        assert!((ease_in(1.0) - 1.0).abs() < 1e-6);
+        assert!(ease_in(0.5) < 0.5); // slow start
+    }
+
+    #[test]
+    fn ease_out_clamps_and_monotone() {
+        assert!((ease_out(0.0) - 0.0).abs() < 1e-6);
+        assert!((ease_out(1.0) - 1.0).abs() < 1e-6);
+        assert!(ease_out(0.5) > 0.5); // fast start
+    }
+
+    #[test]
+    fn ease_in_out_symmetry() {
+        // ease_in_out(1-t) = 1 - ease_in_out(t)
+        for t in [0.1_f32, 0.3, 0.4] {
+            let a = ease_in_out(t);
+            let b = ease_in_out(1.0 - t);
+            assert!((a + b - 1.0).abs() < 1e-5, "symmetry at t={t}: a={a} b={b}");
+        }
+    }
+
+    #[test]
+    fn ease_in_out_midpoint() {
+        assert!((ease_in_out(0.5) - 0.5).abs() < 1e-6);
+    }
+
+    // ── Vec3::project_onto_plane ──────────────────────────────────────────
+    #[test]
+    fn project_onto_xz_plane() {
+        // Projecting onto XZ plane (normal=Y) removes Y component
+        let v = Vec3::new(3.0, 5.0, 2.0);
+        let proj = v.project_onto_plane(Vec3::Y);
+        assert!((proj.x - 3.0).abs() < 1e-6);
+        assert!((proj.y - 0.0).abs() < 1e-6);
+        assert!((proj.z - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn project_orthogonal_to_normal() {
+        // Result must be perpendicular to the normal
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let n = Vec3::new(1.0, 1.0, 0.0).normalize();
+        let proj = v.project_onto_plane(n);
+        assert!(proj.dot(n).abs() < 1e-5, "not orthogonal: {}", proj.dot(n));
+    }
+
+    // ── Vec4::homogenize ─────────────────────────────────────────────────
+    #[test]
+    fn homogenize_unit_w() {
+        let v = Vec4::new(3.0, 6.0, 9.0, 1.0);
+        let p = v.homogenize();
+        assert!((p.x - 3.0).abs() < 1e-6);
+        assert!((p.y - 6.0).abs() < 1e-6);
+        assert!((p.z - 9.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn homogenize_divides_by_w() {
+        let v = Vec4::new(6.0, 9.0, 12.0, 3.0);
+        let p = v.homogenize();
+        assert!((p.x - 2.0).abs() < 1e-6, "x={}", p.x);
+        assert!((p.y - 3.0).abs() < 1e-6, "y={}", p.y);
+        assert!((p.z - 4.0).abs() < 1e-6, "z={}", p.z);
+    }
+
+    #[test]
+    fn homogenize_zero_w_returns_zero() {
+        let v = Vec4::new(1.0, 2.0, 3.0, 0.0);
+        let p = v.homogenize();
+        assert_eq!(p, Vec3::ZERO);
     }
 }
