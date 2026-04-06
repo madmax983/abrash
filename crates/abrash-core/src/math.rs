@@ -14746,3 +14746,219 @@ mod tests_pass_40 {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 41 — Sobel filter, height-to-normal, trilinear interp, mip LOD,
+//           contrast adjust, saturation adjust
+// ---------------------------------------------------------------------------
+
+/// Compute Sobel edge gradient `(gx, gy)` from a 3×3 neighbourhood.
+///
+/// `pixels` is row-major: `[row0_col0, row0_col1, row0_col2, row1_col0, …]`.
+/// Returns the un-normalised horizontal and vertical gradient components.
+pub fn sobel_filter_3x3(pixels: &[f32; 9]) -> (f32, f32) {
+    //  Sobel kernels
+    //  Kx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+    //  Ky = [[ 1, 2, 1], [ 0, 0, 0], [-1,-2,-1]]
+    let gx = -pixels[0] + pixels[2] - 2.0 * pixels[3] + 2.0 * pixels[5] - pixels[6] + pixels[8];
+    let gy = pixels[0] + 2.0 * pixels[1] + pixels[2] - pixels[6] - 2.0 * pixels[7] - pixels[8];
+    (gx, gy)
+}
+
+/// Convert a heightmap 3×3 neighbourhood to a tangent-space normal.
+///
+/// Uses Sobel derivatives scaled by `texel_size` (world-space size of one
+/// texel). Returns a unit normal pointing in the +Z direction for flat surfaces.
+pub fn height_to_normal(pixels: &[f32; 9], texel_size: f32, height_scale: f32) -> Vec3 {
+    let (gx, gy) = sobel_filter_3x3(pixels);
+    let dx = gx * height_scale / (8.0 * texel_size);
+    let dy = gy * height_scale / (8.0 * texel_size);
+    // Normal = normalise(-dx, -dy, 1)
+    let n = Vec3::new(-dx, -dy, 1.0);
+    let len = n.length();
+    if len > 0.0 {
+        Vec3::new(n.x / len, n.y / len, n.z / len)
+    } else {
+        Vec3::new(0.0, 0.0, 1.0)
+    }
+}
+
+/// Trilinear interpolation of 8 corner scalars of a unit cube.
+///
+/// Corner layout (x, y, z) — 0 = min, 1 = max:
+/// `v000, v100, v010, v110, v001, v101, v011, v111`.
+/// `u, v, w` are all in `[0, 1]`.
+pub fn trilinear_interp(
+    v000: f32,
+    v100: f32,
+    v010: f32,
+    v110: f32,
+    v001: f32,
+    v101: f32,
+    v011: f32,
+    v111: f32,
+    u: f32,
+    v: f32,
+    w: f32,
+) -> f32 {
+    let c00 = v000 * (1.0 - u) + v100 * u;
+    let c10 = v010 * (1.0 - u) + v110 * u;
+    let c01 = v001 * (1.0 - u) + v101 * u;
+    let c11 = v011 * (1.0 - u) + v111 * u;
+    let c0 = c00 * (1.0 - v) + c10 * v;
+    let c1 = c01 * (1.0 - v) + c11 * v;
+    c0 * (1.0 - w) + c1 * w
+}
+
+/// Compute texture mip level (LOD) from UV partial derivatives.
+///
+/// Uses the OpenGL spec formula: `λ = 0.5 * log2(max(|∂uv/∂x|², |∂uv/∂y|²))`.
+/// `dudx, dvdx` — UV derivative along screen X; `dudy, dvdy` — along screen Y.
+/// Result is clamped to `[0, max_level]`.
+pub fn mip_level(dudx: f32, dvdx: f32, dudy: f32, dvdy: f32, max_level: f32) -> f32 {
+    let rho_x = dudx * dudx + dvdx * dvdx;
+    let rho_y = dudy * dudy + dvdy * dvdy;
+    let rho = rho_x.max(rho_y).max(1e-20);
+    (0.5 * rho.log2()).clamp(0.0, max_level)
+}
+
+/// Adjust contrast of a value `x ∈ [0,1]` around midpoint 0.5.
+///
+/// `contrast > 1.0` increases contrast; `0 < contrast < 1.0` reduces it.
+/// Output is clamped to `[0, 1]`.
+pub fn contrast_adjust(x: f32, contrast: f32) -> f32 {
+    ((x - 0.5) * contrast + 0.5).clamp(0.0, 1.0)
+}
+
+/// Adjust saturation of an RGB colour using Rec.709 luma.
+///
+/// `factor = 1.0` → unchanged; `0.0` → greyscale; `> 1.0` → oversaturated.
+/// Returns clamped `(r, g, b)`.
+pub fn saturation_adjust(r: f32, g: f32, b: f32, factor: f32) -> (f32, f32, f32) {
+    // Rec.709 luma coefficients
+    let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    let nr = (luma + factor * (r - luma)).clamp(0.0, 1.0);
+    let ng = (luma + factor * (g - luma)).clamp(0.0, 1.0);
+    let nb = (luma + factor * (b - luma)).clamp(0.0, 1.0);
+    (nr, ng, nb)
+}
+
+#[cfg(test)]
+mod tests_pass_41 {
+    use super::*;
+
+    // ── sobel_filter_3x3 ──────────────────────────────────────────────────
+
+    #[test]
+    fn sobel_flat_image_zero_gradient() {
+        let pixels = [1.0_f32; 9];
+        let (gx, gy) = sobel_filter_3x3(&pixels);
+        assert!(gx.abs() < 1e-6, "gx={gx}");
+        assert!(gy.abs() < 1e-6, "gy={gy}");
+    }
+
+    #[test]
+    fn sobel_vertical_edge_detects_gx() {
+        // Left column = 0, right column = 1 → strong gx, weak gy.
+        let pixels = [0.0, 0.5, 1.0, 0.0, 0.5, 1.0, 0.0, 0.5, 1.0];
+        let (gx, gy) = sobel_filter_3x3(&pixels);
+        assert!(gx > 0.0, "gx should be positive: {gx}");
+        assert!(gy.abs() < 1e-5, "gy should be ~0: {gy}");
+    }
+
+    // ── height_to_normal ──────────────────────────────────────────────────
+
+    #[test]
+    fn height_to_normal_flat_is_up() {
+        let pixels = [0.5_f32; 9];
+        let n = height_to_normal(&pixels, 1.0, 1.0);
+        assert!((n.z - 1.0).abs() < 1e-5, "z={}", n.z);
+    }
+
+    #[test]
+    fn height_to_normal_is_unit() {
+        let pixels = [0.0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0];
+        let n = height_to_normal(&pixels, 0.5, 2.0);
+        assert!((n.length() - 1.0).abs() < 1e-5);
+    }
+
+    // ── trilinear_interp ──────────────────────────────────────────────────
+
+    #[test]
+    fn trilinear_corner_values() {
+        // t=0,0,0 → v000
+        let v = trilinear_interp(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        assert!((v - 1.0).abs() < 1e-6, "v={v}");
+        // t=1,1,1 → v111
+        let v = trilinear_interp(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0);
+        assert!((v - 1.0).abs() < 1e-6, "v={v}");
+    }
+
+    #[test]
+    fn trilinear_center_averages() {
+        let v = trilinear_interp(0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.5, 0.5, 0.5);
+        assert!((v - 0.5).abs() < 1e-5, "v={v}");
+    }
+
+    // ── mip_level ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn mip_level_zero_for_tiny_derivatives() {
+        let lod = mip_level(0.001, 0.001, 0.001, 0.001, 10.0);
+        assert!(lod >= 0.0, "lod={lod}");
+    }
+
+    #[test]
+    fn mip_level_increases_with_derivatives() {
+        // LOD > 0 requires rho > 1 (i.e. derivative magnitude > 1 texel/pixel).
+        let lod_small = mip_level(1.5, 0.0, 1.5, 0.0, 10.0);
+        let lod_large = mip_level(4.0, 0.0, 4.0, 0.0, 10.0);
+        assert!(lod_large > lod_small, "small={lod_small} large={lod_large}");
+        assert!(lod_small > 0.0, "lod_small={lod_small}");
+    }
+
+    // ── contrast_adjust ───────────────────────────────────────────────────
+
+    #[test]
+    fn contrast_one_is_identity() {
+        for x in [0.0_f32, 0.25, 0.5, 0.75, 1.0] {
+            let c = contrast_adjust(x, 1.0);
+            assert!((c - x).abs() < 1e-5, "x={x} c={c}");
+        }
+    }
+
+    #[test]
+    fn contrast_zero_gives_midpoint() {
+        for x in [0.0_f32, 0.3, 0.7, 1.0] {
+            let c = contrast_adjust(x, 0.0);
+            assert!((c - 0.5).abs() < 1e-5, "x={x} c={c}");
+        }
+    }
+
+    // ── saturation_adjust ─────────────────────────────────────────────────
+
+    #[test]
+    fn saturation_factor_one_is_identity() {
+        let (r, g, b) = saturation_adjust(0.8, 0.4, 0.2, 1.0);
+        assert!((r - 0.8).abs() < 1e-5);
+        assert!((g - 0.4).abs() < 1e-5);
+        assert!((b - 0.2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn saturation_factor_zero_gives_greyscale() {
+        let (r, g, b) = saturation_adjust(0.8, 0.4, 0.2, 0.0);
+        let luma = 0.2126 * 0.8 + 0.7152 * 0.4 + 0.0722 * 0.2;
+        assert!((r - luma).abs() < 1e-4);
+        assert!((g - luma).abs() < 1e-4);
+        assert!((b - luma).abs() < 1e-4);
+    }
+
+    #[test]
+    fn saturation_output_clamped() {
+        let (r, g, b) = saturation_adjust(1.0, 0.0, 0.0, 5.0);
+        assert!(r <= 1.0 && r >= 0.0);
+        assert!(g <= 1.0 && g >= 0.0);
+        assert!(b <= 1.0 && b >= 0.0);
+    }
+}
