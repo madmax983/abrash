@@ -47,11 +47,3 @@ pub mod tui;
 
 #[cfg(feature = "backend-wasm")]
 pub mod wasm;
-
-// Compile-time check: at least one native backend must be selected (WASM has its own entry point)
-#[cfg(not(any(
-    feature = "backend-winit",
-    feature = "backend-tui",
-    feature = "backend-wasm"
-)))]
-compile_error!("No backend selected. Enable one of: backend-winit, backend-tui, backend-wasm");

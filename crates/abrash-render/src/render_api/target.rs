@@ -2,6 +2,7 @@
 
 use crate::framebuffer::Framebuffer;
 use crate::hiz_buffer::HiZBuffer;
+use crate::render_api::borrowed_target::BorrowedRenderTarget;
 use crate::zbuffer::ZBuffer;
 
 /// A render target combining pixel buffer, depth buffer, and optional Hi-Z pyramid.
@@ -81,6 +82,23 @@ impl RenderTarget {
     #[must_use]
     pub fn depths(&self) -> &[f32] {
         self.zbuffer.as_slice()
+    }
+
+    /// Borrow the underlying buffers as a borrowed render target.
+    #[must_use]
+    pub fn borrow_mut(&mut self) -> BorrowedRenderTarget<'_> {
+        BorrowedRenderTarget::new(
+            self.width(),
+            self.height(),
+            self.framebuffer.as_mut_slice(),
+            self.zbuffer.as_mut_slice(),
+        )
+        .expect("owned render target has matching color and depth buffers")
+    }
+
+    /// Split the target into mutable pixel and depth slices.
+    pub fn split_mut(&mut self) -> (&mut [u32], &mut [f32]) {
+        (self.framebuffer.as_mut_slice(), self.zbuffer.as_mut_slice())
     }
 
     /// Access the underlying Framebuffer (for compatibility with existing code).
