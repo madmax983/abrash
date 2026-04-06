@@ -24,3 +24,7 @@
 **Bloat:** Redundant clones and unreadable literals
 **Cut:** Removed redundant clones of data variables in test, marked `Vec3::is_finite` as a const function as it calculates constants on copy-types, spaced large numbers out using '_' delimiters.
 **Saved:** Multiple compiler warnings, enforcing cleanly building codebase.
+## [Reduction]
+**Bloat:** Factory Factories (SequenceBuilder and TweenSegmentBuilder in abrash-anim)
+**Cut:** Deleted the builders entirely as they were only used in a single unit test. Speculative generality representing "future proofing" for complex timelines that the codebase does not currently need.
+**Saved:** ~100 lines of complex builder boilerplate and multiple Box<dyn> allocations.
