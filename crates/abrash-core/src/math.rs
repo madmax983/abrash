@@ -16872,3 +16872,261 @@ mod tests_pass_49 {
         assert!((v2 - v8).abs() > 1e-4, "should differ: v2={v2} v8={v8}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 50 — numerical analysis & signal processing
+//   finite_diff_deriv, integrate_trapezoid, integrate_simpson,
+//   convolve_1d, pearson_correlation, covariance, zero_crossings
+// ---------------------------------------------------------------------------
+
+/// 5-point central-difference numerical derivative of `f` at `x`.
+///
+/// 4th-order accurate: error ∝ h⁴. Use `h ≈ ε^(1/5)` where ε is machine epsilon.
+/// Good balance of accuracy and function evaluation cost (4 evaluations).
+pub fn finite_diff_deriv(f: impl Fn(f32) -> f32, x: f32, h: f32) -> f32 {
+    (-f(x + 2.0 * h) + 8.0 * f(x + h) - 8.0 * f(x - h) + f(x - 2.0 * h)) / (12.0 * h)
+}
+
+/// Trapezoidal rule integration over uniformly-spaced samples.
+///
+/// `values` — sampled function values at equally-spaced points.
+/// `dx` — spacing between samples.
+/// Returns `∫ f(x) dx ≈ dx * (v[0]/2 + v[1] + … + v[n-2] + v[n-1]/2)`.
+pub fn integrate_trapezoid(values: &[f32], dx: f32) -> f32 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+    let n = values.len();
+    let interior: f32 = values[1..n - 1].iter().sum();
+    dx * (0.5 * values[0] + interior + 0.5 * values[n - 1])
+}
+
+/// Simpson's 1/3 rule integration over uniformly-spaced samples.
+///
+/// 4th-order accurate. Requires an **even** number of intervals (odd sample count).
+/// If the sample count is even, falls back to trapezoid for the last interval.
+/// `dx` — spacing between samples.
+pub fn integrate_simpson(values: &[f32], dx: f32) -> f32 {
+    let n = values.len();
+    if n < 2 {
+        return 0.0;
+    }
+    if n == 2 {
+        return integrate_trapezoid(values, dx);
+    }
+    // Process pairs of intervals (Simpson's rule needs groups of 3 points = 2 intervals).
+    let pairs = (n - 1) / 2; // number of complete Simpson pairs
+    let mut sum = 0.0_f32;
+    for i in 0..pairs {
+        let j = i * 2;
+        sum += values[j] + 4.0 * values[j + 1] + values[j + 2];
+    }
+    sum *= dx / 3.0;
+    // If n is even (odd number of intervals), add trapezoid for the last interval.
+    if (n - 1) % 2 == 1 {
+        sum += 0.5 * dx * (values[n - 2] + values[n - 1]);
+    }
+    sum
+}
+
+/// Discrete 1D convolution of `signal` with `kernel` (full mode).
+///
+/// Returns a vector of length `signal.len() + kernel.len() - 1`.
+/// The kernel is not flipped (cross-correlation convention) — if you need
+/// true convolution, reverse the kernel before passing it.
+pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
+    if signal.is_empty() || kernel.is_empty() {
+        return Vec::new();
+    }
+    let out_len = signal.len() + kernel.len() - 1;
+    let mut out = vec![0.0_f32; out_len];
+    for (i, &s) in signal.iter().enumerate() {
+        for (j, &k) in kernel.iter().enumerate() {
+            out[i + j] += s * k;
+        }
+    }
+    out
+}
+
+/// Sample covariance of two equal-length slices (uses n-1 denominator).
+///
+/// Returns `None` if fewer than 2 samples or lengths differ.
+pub fn covariance(x: &[f32], y: &[f32]) -> Option<f32> {
+    if x.len() != y.len() || x.len() < 2 {
+        return None;
+    }
+    let n = x.len() as f32;
+    let mx = x.iter().sum::<f32>() / n;
+    let my = y.iter().sum::<f32>() / n;
+    let cov = x
+        .iter()
+        .zip(y)
+        .map(|(&xi, &yi)| (xi - mx) * (yi - my))
+        .sum::<f32>()
+        / (n - 1.0);
+    Some(cov)
+}
+
+/// Pearson correlation coefficient `r ∈ [-1, 1]` between two equal-length slices.
+///
+/// Returns `None` if fewer than 2 samples, lengths differ, or either series has zero variance.
+pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Option<f32> {
+    let cov = covariance(x, y)?;
+    let n = x.len() as f32;
+    let mx = x.iter().sum::<f32>() / n;
+    let my = y.iter().sum::<f32>() / n;
+    let sx = (x.iter().map(|&v| (v - mx).powi(2)).sum::<f32>() / (n - 1.0)).sqrt();
+    let sy = (y.iter().map(|&v| (v - my).powi(2)).sum::<f32>() / (n - 1.0)).sqrt();
+    if sx < 1e-10 || sy < 1e-10 {
+        return None;
+    }
+    Some((cov / (sx * sy)).clamp(-1.0, 1.0))
+}
+
+/// Count the number of zero crossings in a signal (sign changes between adjacent samples).
+pub fn zero_crossings(signal: &[f32]) -> usize {
+    signal.windows(2).filter(|w| w[0] * w[1] < 0.0).count()
+}
+
+#[cfg(test)]
+mod tests_pass_50 {
+    use super::*;
+
+    // ── finite_diff_deriv ─────────────────────────────────────────────────
+
+    #[test]
+    fn finite_diff_sin_derivative() {
+        // d/dx sin(x) = cos(x); f32 precision limits us to ~1e-4
+        let x = 1.0_f32;
+        let d = finite_diff_deriv(|x| x.sin(), x, 1e-3);
+        assert!((d - x.cos()).abs() < 1e-3, "d={d} cos={}", x.cos());
+    }
+
+    #[test]
+    fn finite_diff_polynomial() {
+        // d/dx (x³) = 3x²; at x=2 → 12
+        let d = finite_diff_deriv(|x| x.powi(3), 2.0, 1e-3);
+        assert!((d - 12.0).abs() < 1e-2, "d={d}");
+    }
+
+    // ── integrate_trapezoid ───────────────────────────────────────────────
+
+    #[test]
+    fn trapezoid_constant_function() {
+        // ∫₀¹ 3 dx = 3
+        let vals = vec![3.0_f32; 101];
+        let result = integrate_trapezoid(&vals, 0.01);
+        assert!((result - 3.0).abs() < 1e-4, "result={result}");
+    }
+
+    #[test]
+    fn trapezoid_linear_function() {
+        // ∫₀¹ x dx = 0.5
+        let n = 1001;
+        let vals: Vec<f32> = (0..n).map(|i| i as f32 / (n - 1) as f32).collect();
+        let result = integrate_trapezoid(&vals, 1.0 / (n - 1) as f32);
+        assert!((result - 0.5).abs() < 1e-4, "result={result}");
+    }
+
+    // ── integrate_simpson ─────────────────────────────────────────────────
+
+    #[test]
+    fn simpson_quadratic() {
+        // ∫₀¹ x² dx = 1/3; Simpson is exact for polynomials up to degree 3.
+        let n = 101;
+        let vals: Vec<f32> = (0..n)
+            .map(|i| {
+                let x = i as f32 / (n - 1) as f32;
+                x * x
+            })
+            .collect();
+        let result = integrate_simpson(&vals, 1.0 / (n - 1) as f32);
+        assert!((result - 1.0 / 3.0).abs() < 1e-5, "result={result}");
+    }
+
+    #[test]
+    fn simpson_more_accurate_than_trapezoid() {
+        // ∫₀^π sin(x) dx = 2.0; use a coarse grid to expose differences.
+        use std::f32::consts::PI;
+        let n = 11;
+        let dx = PI / (n - 1) as f32;
+        let vals: Vec<f32> = (0..n).map(|i| (i as f32 * dx).sin()).collect();
+        let trap = integrate_trapezoid(&vals, dx);
+        let simp = integrate_simpson(&vals, dx);
+        assert!(
+            (simp - 2.0).abs() < (trap - 2.0).abs(),
+            "simp_err={} trap_err={}",
+            (simp - 2.0).abs(),
+            (trap - 2.0).abs()
+        );
+    }
+
+    // ── convolve_1d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn convolve_output_length() {
+        let sig = [1.0_f32; 5];
+        let ker = [1.0_f32; 3];
+        let out = convolve_1d(&sig, &ker);
+        assert_eq!(out.len(), 7);
+    }
+
+    #[test]
+    fn convolve_box_filter_sums() {
+        // Signal of all-ones convolved with [1,1,1] → [1,2,3,3,3,2,1]
+        let sig = [1.0_f32; 5];
+        let ker = [1.0_f32; 3];
+        let out = convolve_1d(&sig, &ker);
+        let expected = [1.0, 2.0, 3.0, 3.0, 3.0, 2.0, 1.0];
+        for (i, (&a, &b)) in out.iter().zip(expected.iter()).enumerate() {
+            assert!((a - b).abs() < 1e-5, "i={i} a={a} b={b}");
+        }
+    }
+
+    // ── covariance / pearson_correlation ──────────────────────────────────
+
+    #[test]
+    fn covariance_identical_series() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0, 5.0];
+        let cov = covariance(&x, &x).unwrap();
+        // Var(x) for [1..5] = 2.5
+        assert!((cov - 2.5).abs() < 1e-5, "cov={cov}");
+    }
+
+    #[test]
+    fn pearson_perfect_correlation() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0, 5.0];
+        let y: Vec<f32> = x.iter().map(|&v| 2.0 * v + 1.0).collect();
+        let r = pearson_correlation(&x, &y).unwrap();
+        assert!((r - 1.0).abs() < 1e-5, "r={r}");
+    }
+
+    #[test]
+    fn pearson_anti_correlation() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0, 5.0];
+        let y: Vec<f32> = x.iter().map(|&v| -v).collect();
+        let r = pearson_correlation(&x, &y).unwrap();
+        assert!((r + 1.0).abs() < 1e-5, "r={r}");
+    }
+
+    // ── zero_crossings ────────────────────────────────────────────────────
+
+    #[test]
+    fn zero_crossings_sine() {
+        // Alternating ±1 signal: every adjacent pair is a sign flip → 4 crossings.
+        // Avoids f32 sin(π)≈-8.74e-8 precision issues that make sample-based counts fragile.
+        let sig = vec![1.0_f32, -1.0, 1.0, -1.0, 1.0];
+        let zc = zero_crossings(&sig);
+        assert_eq!(zc, 4, "zc={zc}");
+
+        // Sanity check with a real sine-like shape: 3 bumps, 2 crossings.
+        let sig2 = vec![-0.5_f32, 0.5, 0.8, 0.5, -0.5, -0.8, -0.3];
+        let zc2 = zero_crossings(&sig2);
+        assert_eq!(zc2, 2, "zc2={zc2}");
+    }
+
+    #[test]
+    fn zero_crossings_flat() {
+        assert_eq!(zero_crossings(&[1.0, 1.0, 1.0, 1.0]), 0);
+    }
+}
