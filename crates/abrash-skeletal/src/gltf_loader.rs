@@ -186,7 +186,7 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 
 /// Extract all meshes (with optional skin data) from the document.
 fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SkinnedMesh> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(document.meshes().count());
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
@@ -480,10 +480,10 @@ fn extract_clips(
     buffers: &[gltf::buffer::Data],
     node_to_joint: &HashMap<usize, usize>,
 ) -> Vec<AnimationClip> {
-    let mut clips = Vec::new();
+    let mut clips = Vec::with_capacity(document.animations().len());
 
     for animation in document.animations() {
-        let mut channels = Vec::new();
+        let mut channels = Vec::with_capacity(animation.channels().count());
         let mut max_time: f32 = 0.0;
 
         for channel in animation.channels() {
