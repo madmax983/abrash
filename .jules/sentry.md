@@ -21,3 +21,6 @@
 **[Testing Isosurface Polygonization Configurations]
 **Learning:** When testing complex geometric lookup tables like `tri_table` in Marching Tetrahedra algorithms, it's easy to miss edge cases. A table-driven unit test that iterates through all possible vertex sign permutations (e.g., 16 cases for 4 vertices) and asserts the expected number of generated triangles ensures full branch coverage of the extraction logic.
 **Action:** Use table-driven unit tests to iterate through all possible vertex sign permutations (e.g., 16 cases for 4 vertices) and assert the expected number of generated triangles to ensure full branch coverage of the extraction logic.
+## [Line Frustum Clipping Constraints]
+**Learning:** When writing tests for rasterization or line drawing functions that utilize homogeneous frustum clipping (e.g., `clip_line_to_frustum`), ensure mock vertices strictly adhere to the `-w <= x, y, z <= w` boundaries. Using arbitrary deep Z values (like `z = 5.0` with `w = 1.0`) will cause the geometry to be silently culled, resulting in false test failures where nothing is drawn.
+**Action:** When mocking clip-space geometry for tests, either use realistic projection matrices to generate the coordinates or manually ensure that $x, y, z$ are all within the $[-w, w]$ range to survive frustum clipping.
