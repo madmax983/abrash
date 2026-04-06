@@ -8825,3 +8825,259 @@ mod tests_pass_21 {
         assert!((out_val - (1.0 - in_val)).abs() < 1e-5, "out ≈ 1-in(1-t)");
     }
 }
+
+// ── Pass 22: Tone mapping, UV utilities, linear/sRGB ─────────────────────────
+
+/// Simple **Reinhard** tone mapping: maps HDR `[0,∞)` → `[0,1)`.
+///
+/// Apply per-channel.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::reinhard;
+/// assert!((reinhard(0.0) - 0.0).abs() < 1e-6);
+/// assert!((reinhard(1.0) - 0.5).abs() < 1e-6);
+/// ```
+#[inline]
+pub fn reinhard(x: f32) -> f32 {
+    x / (1.0 + x)
+}
+
+/// Extended Reinhard with a white point `w` — prevents extreme highlights from
+/// clipping at different rates than mid-tones.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::reinhard_white;
+/// // Smaller white point → higher output for the same input (more aggressive)
+/// assert!(reinhard_white(2.0, 4.0) > reinhard_white(2.0, 100.0));
+/// ```
+pub fn reinhard_white(x: f32, white: f32) -> f32 {
+    x * (1.0 + x / (white * white)) / (1.0 + x)
+}
+
+/// **ACES filmic** tone mapping (Stephen Hill's simplified rational fit).
+///
+/// Industry-standard curve used in Unreal Engine, Godot, and film pipelines.
+/// Input is linear HDR; output is clamped to `[0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::aces_filmic;
+/// assert!((aces_filmic(0.0)).abs() < 1e-4);
+/// assert!(aces_filmic(100.0) <= 1.0); // large input clamps to exactly 1.0
+/// ```
+pub fn aces_filmic(x: f32) -> f32 {
+    ((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)).clamp(0.0, 1.0)
+}
+
+/// Exposure adjustment: multiply by `2^ev` stops.
+///
+/// EV=1 doubles brightness; EV=-1 halves it.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::exposure;
+/// assert!((exposure(0.5, 0.0) - 0.5).abs() < 1e-6);
+/// assert!((exposure(0.25, 1.0) - 0.5).abs() < 1e-5);
+/// ```
+#[inline]
+pub fn exposure(x: f32, ev: f32) -> f32 {
+    x * (2.0_f32).powf(ev)
+}
+
+/// Convert a unit-sphere **normal** to equirectangular `(u, v)` in `[0,1]²`.
+///
+/// `u` is longitude (wraps around equator), `v` is latitude (0=south, 1=north).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, sphere_normal_to_uv};
+/// let (_, v) = sphere_normal_to_uv(Vec3::Y);
+/// assert!((v - 1.0).abs() < 1e-5, "north pole v=1: {v}");
+/// let (_, v2) = sphere_normal_to_uv(Vec3::new(0.0,-1.0,0.0));
+/// assert!((v2 - 0.0).abs() < 1e-5, "south pole v=0: {v2}");
+/// ```
+pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
+    let u = (n.x.atan2(n.z) / core::f32::consts::TAU + 0.5).clamp(0.0, 1.0);
+    let v = (n.y.clamp(-1.0, 1.0).asin() / core::f32::consts::PI + 0.5).clamp(0.0, 1.0);
+    (u, v)
+}
+
+/// Construct a **view ray direction** from screen UV and camera parameters.
+///
+/// `uv` is `[0,1]²` (top-left origin).  `fov_y` in radians.  Returns a
+/// normalised direction in view space (+X right, +Y up, −Z forward).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, Vec3, make_view_ray};
+/// let dir = make_view_ray(Vec2::new(0.5, 0.5), std::f32::consts::FRAC_PI_2, 1.0);
+/// assert!(dir.z < 0.0, "centre points -Z: {dir:?}");
+/// assert!((dir.length() - 1.0).abs() < 1e-5);
+/// ```
+pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
+    let half_h = (fov_y * 0.5).tan();
+    let half_w = half_h * aspect;
+    let px = (uv.x * 2.0 - 1.0) * half_w;
+    let py = (1.0 - uv.y * 2.0) * half_h;
+    Vec3::new(px, py, -1.0).normalize_or_zero()
+}
+
+/// Convert a linear light value to the sRGB perceptual encoding.
+///
+/// Uses the exact IEC 61966-2-1 piecewise formula.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::linear_to_srgb;
+/// assert!((linear_to_srgb(0.0)).abs() < 1e-6);
+/// assert!((linear_to_srgb(1.0) - 1.0).abs() < 1e-5);
+/// assert!(linear_to_srgb(0.5) > 0.70);
+/// ```
+pub fn linear_to_srgb(x: f32) -> f32 {
+    let x = x.clamp(0.0, 1.0);
+    if x <= 0.003_130_8 {
+        x * 12.92
+    } else {
+        1.055 * x.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+/// Convert an sRGB perceptual value to linear light.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::srgb_to_linear;
+/// assert!((srgb_to_linear(0.0)).abs() < 1e-6);
+/// assert!((srgb_to_linear(1.0) - 1.0).abs() < 1e-5);
+/// ```
+pub fn srgb_to_linear(x: f32) -> f32 {
+    let x = x.clamp(0.0, 1.0);
+    if x <= 0.04045 {
+        x / 12.92
+    } else {
+        ((x + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_22 {
+    use super::*;
+
+    // ── reinhard ──────────────────────────────────────────────────────────
+    #[test]
+    fn reinhard_known_values() {
+        assert!((reinhard(0.0) - 0.0).abs() < 1e-6);
+        assert!((reinhard(1.0) - 0.5).abs() < 1e-6);
+        assert!((reinhard(3.0) - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn reinhard_monotone() {
+        let mut prev = reinhard(0.0);
+        for i in 1..20u32 {
+            let v = reinhard(i as f32 * 0.5);
+            assert!(v > prev, "not increasing at {i}");
+            prev = v;
+        }
+    }
+
+    #[test]
+    fn reinhard_white_brighter_than_plain() {
+        let plain = reinhard(1.0);
+        let white = reinhard_white(1.0, 100.0);
+        assert!(white > plain, "{plain} vs {white}");
+    }
+
+    // ── aces_filmic ───────────────────────────────────────────────────────
+    #[test]
+    fn aces_black_and_clamp() {
+        assert!(aces_filmic(0.0).abs() < 1e-4);
+        assert!(aces_filmic(100.0) <= 1.0);
+    }
+
+    #[test]
+    fn aces_output_in_01() {
+        for i in 0..50u32 {
+            let v = aces_filmic(i as f32 * 0.2);
+            assert!(v >= 0.0 && v <= 1.0, "aces({}) = {v}", i as f32 * 0.2);
+        }
+    }
+
+    // ── exposure ──────────────────────────────────────────────────────────
+    #[test]
+    fn exposure_zero_ev_identity() {
+        assert!((exposure(0.7, 0.0) - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn exposure_one_stop_doubles() {
+        assert!((exposure(0.25, 1.0) - 0.5).abs() < 1e-5);
+    }
+
+    // ── sphere_normal_to_uv ───────────────────────────────────────────────
+    #[test]
+    fn sphere_uv_poles() {
+        let (_, v_n) = sphere_normal_to_uv(Vec3::Y);
+        let (_, v_s) = sphere_normal_to_uv(Vec3::new(0.0, -1.0, 0.0));
+        assert!((v_n - 1.0).abs() < 1e-5, "north pole: {v_n}");
+        assert!(v_s.abs() < 1e-5, "south pole: {v_s}");
+    }
+
+    #[test]
+    fn sphere_uv_in_range() {
+        for d in [Vec3::X, Vec3::Y, Vec3::Z, Vec3::new(0.577, 0.577, 0.577)] {
+            let (u, v) = sphere_normal_to_uv(d);
+            assert!(
+                u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0,
+                "uv out of range for {d:?}"
+            );
+        }
+    }
+
+    // ── make_view_ray ─────────────────────────────────────────────────────
+    #[test]
+    fn view_ray_centre_forward() {
+        let dir = make_view_ray(Vec2::new(0.5, 0.5), core::f32::consts::FRAC_PI_2, 1.0);
+        assert!(dir.z < 0.0, "centre -Z: {dir:?}");
+        assert!(dir.x.abs() < 1e-5 && dir.y.abs() < 1e-5);
+    }
+
+    #[test]
+    fn view_ray_unit_length() {
+        for uv in [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.3, 0.7),
+        ] {
+            let d = make_view_ray(uv, 1.0, 1.6);
+            assert!((d.length() - 1.0).abs() < 1e-5, "uv={uv:?}: {}", d.length());
+        }
+    }
+
+    // ── linear_to_srgb / srgb_to_linear ──────────────────────────────────
+    #[test]
+    fn srgb_round_trip() {
+        for i in 0..=10u32 {
+            let linear = i as f32 / 10.0;
+            let back = srgb_to_linear(linear_to_srgb(linear));
+            assert!((back - linear).abs() < 1e-5, "round-trip {linear}: {back}");
+        }
+    }
+
+    #[test]
+    fn srgb_midgrey() {
+        // Linear 0.5 maps to ~0.735 in sRGB
+        let s = linear_to_srgb(0.5);
+        assert!(s > 0.70 && s < 0.76, "mid-grey: {s}");
+    }
+}
