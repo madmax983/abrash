@@ -14962,3 +14962,217 @@ mod tests_pass_41 {
         assert!(b <= 1.0 && b >= 0.0);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 42 — Horner polynomial eval, Newton-Raphson, bisection,
+//           BT.601 YUV ↔ RGB, CIE ΔE 1976
+// ---------------------------------------------------------------------------
+
+/// Evaluate a polynomial using Horner's method.
+///
+/// `coeffs` are in **ascending degree** order: `coeffs[0] + coeffs[1]*x + coeffs[2]*x² + …`
+/// This requires exactly `n-1` multiplications and additions (optimal for dense polynomials).
+pub fn horner_eval(coeffs: &[f32], x: f32) -> f32 {
+    coeffs.iter().rev().fold(0.0_f32, |acc, &c| acc * x + c)
+}
+
+/// Find a root of `f` near `x0` using Newton-Raphson iteration.
+///
+/// * `f`       — function whose root is sought
+/// * `df`      — derivative of `f`
+/// * `x0`      — initial guess
+/// * `tol`     — convergence tolerance on `|f(x)|`
+/// * `max_iter`— maximum iterations
+///
+/// Returns the root estimate and whether it converged.
+pub fn newton_raphson(
+    f: impl Fn(f32) -> f32,
+    df: impl Fn(f32) -> f32,
+    x0: f32,
+    tol: f32,
+    max_iter: u32,
+) -> (f32, bool) {
+    let mut x = x0;
+    for _ in 0..max_iter {
+        let fx = f(x);
+        if fx.abs() < tol {
+            return (x, true);
+        }
+        let dfx = df(x);
+        if dfx.abs() < 1e-30 {
+            break; // zero derivative — can't continue
+        }
+        x -= fx / dfx;
+    }
+    (x, f(x).abs() < tol)
+}
+
+/// Find a root of `f` in `[a, b]` using bisection (requires `f(a)` and `f(b)` to have opposite signs).
+///
+/// Returns the root estimate and whether it converged within tolerance.
+pub fn bisect(
+    f: impl Fn(f32) -> f32,
+    mut a: f32,
+    mut b: f32,
+    tol: f32,
+    max_iter: u32,
+) -> (f32, bool) {
+    let mut fa = f(a);
+    for _ in 0..max_iter {
+        let mid = 0.5 * (a + b);
+        if (b - a) * 0.5 < tol {
+            return (mid, true);
+        }
+        let fmid = f(mid);
+        if fmid.abs() < tol {
+            return (mid, true);
+        }
+        if fa * fmid < 0.0 {
+            b = mid;
+        } else {
+            a = mid;
+            fa = fmid;
+        }
+    }
+    (0.5 * (a + b), false)
+}
+
+/// Convert linear RGB to YUV using BT.601 (SDTV) coefficients.
+///
+/// Y ∈ [0, 1], U ∈ [-0.5, 0.5], V ∈ [-0.5, 0.5].
+pub fn rgb_to_yuv_bt601(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let y = 0.299 * r + 0.587 * g + 0.114 * b;
+    let u = -0.168_736 * r - 0.331_264 * g + 0.5 * b;
+    let v = 0.5 * r - 0.418_688 * g - 0.081_312 * b;
+    (y, u, v)
+}
+
+/// Convert BT.601 YUV back to linear RGB.
+pub fn yuv_bt601_to_rgb(y: f32, u: f32, v: f32) -> (f32, f32, f32) {
+    let r = y + 1.402 * v;
+    let g = y - 0.344_136 * u - 0.714_136 * v;
+    let b = y + 1.772 * u;
+    (r, g, b)
+}
+
+/// CIE 1976 colour difference ΔE between two L\*a\*b\* colours.
+///
+/// ΔE < 1 → imperceptible; 1–2 → just noticeable; > 5 → clearly different.
+pub fn delta_e_cie76(l1: f32, a1: f32, b1: f32, l2: f32, a2: f32, b2: f32) -> f32 {
+    let dl = l1 - l2;
+    let da = a1 - a2;
+    let db = b1 - b2;
+    (dl * dl + da * da + db * db).sqrt()
+}
+
+#[cfg(test)]
+mod tests_pass_42 {
+    use super::*;
+
+    // ── horner_eval ───────────────────────────────────────────────────────
+
+    #[test]
+    fn horner_constant_poly() {
+        // p(x) = 7 for all x
+        assert!((horner_eval(&[7.0], 3.0) - 7.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn horner_linear() {
+        // p(x) = 2 + 3x; p(4) = 14
+        assert!((horner_eval(&[2.0, 3.0], 4.0) - 14.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn horner_quadratic() {
+        // p(x) = 1 + 2x + x²; p(3) = 16
+        assert!((horner_eval(&[1.0, 2.0, 1.0], 3.0) - 16.0).abs() < 1e-5);
+    }
+
+    // ── newton_raphson ────────────────────────────────────────────────────
+
+    #[test]
+    fn newton_sqrt2() {
+        // f(x) = x² - 2; root = √2
+        let (root, converged) = newton_raphson(|x| x * x - 2.0, |x| 2.0 * x, 1.5, 1e-6, 50);
+        assert!(converged, "did not converge");
+        assert!((root - 2.0_f32.sqrt()).abs() < 1e-5, "root={root}");
+    }
+
+    #[test]
+    fn newton_cube_root() {
+        // f(x) = x³ - 8; root = 2
+        let (root, converged) = newton_raphson(|x| x * x * x - 8.0, |x| 3.0 * x * x, 1.0, 1e-6, 50);
+        assert!(converged);
+        assert!((root - 2.0).abs() < 1e-4, "root={root}");
+    }
+
+    // ── bisect ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn bisect_sqrt2() {
+        let (root, converged) = bisect(|x| x * x - 2.0, 1.0, 2.0, 1e-6, 60);
+        assert!(converged, "did not converge");
+        assert!((root - 2.0_f32.sqrt()).abs() < 1e-5, "root={root}");
+    }
+
+    #[test]
+    fn bisect_sin_root() {
+        // sin(x) = 0 near x = π
+        use std::f32::consts::PI;
+        let (root, converged) = bisect(|x| x.sin(), 3.0, 3.5, 1e-6, 60);
+        assert!(converged);
+        assert!((root - PI).abs() < 1e-4, "root={root}");
+    }
+
+    // ── rgb_to_yuv_bt601 / yuv_bt601_to_rgb ──────────────────────────────
+
+    #[test]
+    fn yuv_bt601_white_round_trip() {
+        let (y, u, v) = rgb_to_yuv_bt601(1.0, 1.0, 1.0);
+        assert!((y - 1.0).abs() < 1e-4, "y={y}");
+        assert!(u.abs() < 1e-4, "u={u}");
+        assert!(v.abs() < 1e-4, "v={v}");
+        let (r, g, b) = yuv_bt601_to_rgb(y, u, v);
+        assert!((r - 1.0).abs() < 1e-3);
+        assert!((g - 1.0).abs() < 1e-3);
+        assert!((b - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn yuv_bt601_black_round_trip() {
+        let (y, u, v) = rgb_to_yuv_bt601(0.0, 0.0, 0.0);
+        assert!(y.abs() < 1e-6);
+        let (r, g, b) = yuv_bt601_to_rgb(y, u, v);
+        assert!(r.abs() < 1e-6 && g.abs() < 1e-6 && b.abs() < 1e-6);
+    }
+
+    #[test]
+    fn yuv_bt601_grey_uv_zero() {
+        // Neutral grey → U = V = 0
+        let (_, u, v) = rgb_to_yuv_bt601(0.5, 0.5, 0.5);
+        assert!(u.abs() < 1e-4, "u={u}");
+        assert!(v.abs() < 1e-4, "v={v}");
+    }
+
+    // ── delta_e_cie76 ─────────────────────────────────────────────────────
+
+    #[test]
+    fn delta_e_identical_colours() {
+        assert!(delta_e_cie76(50.0, 20.0, -10.0, 50.0, 20.0, -10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn delta_e_known_value() {
+        // ΔE between (50,0,0) and (53,0,0) = 3.0
+        let de = delta_e_cie76(50.0, 0.0, 0.0, 53.0, 0.0, 0.0);
+        assert!((de - 3.0).abs() < 1e-5, "de={de}");
+    }
+
+    #[test]
+    fn delta_e_symmetric() {
+        let d1 = delta_e_cie76(50.0, 10.0, 5.0, 55.0, 5.0, 10.0);
+        let d2 = delta_e_cie76(55.0, 5.0, 10.0, 50.0, 10.0, 5.0);
+        assert!((d1 - d2).abs() < 1e-5);
+    }
+}
