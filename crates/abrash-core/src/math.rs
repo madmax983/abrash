@@ -18626,3 +18626,302 @@ mod tests_pass_54 {
         assert!(seen.iter().all(|&v| v), "not all cells covered");
     }
 }
+
+// ── Pass 55 — window functions, DCT-II, RMS, SDF normal ──────────────────────
+// hann_window, hamming_window, blackman_window, apply_window,
+// rms, dct_ii, idct_ii, sdf_normal_3d
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Hann window coefficient for sample `i` in a window of length `n`.
+///
+/// `w[i] = 0.5 * (1 - cos(2π·i / n))`.  Periodic form (suitable for
+/// overlap-add); for symmetric use `n - 1` in the denominator.
+#[inline]
+pub fn hann_window(n: usize, i: usize) -> f32 {
+    use std::f32::consts::TAU;
+    0.5 * (1.0 - (TAU * i as f32 / n as f32).cos())
+}
+
+/// Hamming window coefficient for sample `i` in a window of length `n`.
+///
+/// `w[i] = 0.54 - 0.46·cos(2π·i / (n-1))`.  Symmetric form.
+#[inline]
+pub fn hamming_window(n: usize, i: usize) -> f32 {
+    use std::f32::consts::TAU;
+    let denom = if n > 1 { (n - 1) as f32 } else { 1.0 };
+    0.54 - 0.46 * (TAU * i as f32 / denom).cos()
+}
+
+/// Blackman window coefficient for sample `i` in a window of length `n`.
+///
+/// `w[i] = 0.42 - 0.5·cos(2π·i/(n-1)) + 0.08·cos(4π·i/(n-1))`.
+/// Symmetric form; ~18 dB lower sidelobes than Hamming at the cost of a
+/// wider main lobe.
+#[inline]
+pub fn blackman_window(n: usize, i: usize) -> f32 {
+    use std::f32::consts::TAU;
+    let denom = if n > 1 { (n - 1) as f32 } else { 1.0 };
+    let x = TAU * i as f32 / denom;
+    0.42 - 0.5 * x.cos() + 0.08 * (2.0 * x).cos()
+}
+
+/// Apply a window function to `signal`, returning the element-wise product.
+///
+/// `window_fn(n, i)` should return the window coefficient for sample `i` in a
+/// window of total length `n`.  Pairs with `hann_window`, `hamming_window`, etc.
+pub fn apply_window(signal: &[f32], window_fn: impl Fn(usize, usize) -> f32) -> Vec<f32> {
+    let n = signal.len();
+    signal
+        .iter()
+        .enumerate()
+        .map(|(i, &s)| s * window_fn(n, i))
+        .collect()
+}
+
+/// Root-mean-square amplitude of `signal`.
+///
+/// Returns 0 for an empty slice.
+#[inline]
+pub fn rms(signal: &[f32]) -> f32 {
+    if signal.is_empty() {
+        return 0.0;
+    }
+    let sum_sq: f32 = signal.iter().map(|&x| x * x).sum();
+    (sum_sq / signal.len() as f32).sqrt()
+}
+
+/// Discrete Cosine Transform — Type II (DCT-II), O(n²) naive implementation.
+///
+/// `X[k] = Σ_{n=0}^{N-1} x[n] · cos(π·k·(2n+1) / (2N))`
+///
+/// This is the transform used in JPEG block coding.  For an efficient O(n log n)
+/// version, compose with the FFT.
+pub fn dct_ii(signal: &[f32]) -> Vec<f32> {
+    let big_n = signal.len();
+    if big_n == 0 {
+        return Vec::new();
+    }
+    let scale = std::f32::consts::PI / (2 * big_n) as f32;
+    (0..big_n)
+        .map(|k| {
+            signal
+                .iter()
+                .enumerate()
+                .map(|(n, &x)| x * (scale * k as f32 * (2 * n + 1) as f32).cos())
+                .sum()
+        })
+        .collect()
+}
+
+/// Inverse DCT-II (IDCT-II = scaled DCT-III), O(n²) naive implementation.
+///
+/// Recovers `x` from DCT-II coefficients `X`:
+/// `x[n] = (1/N)·X[0] + (2/N)·Σ_{k=1}^{N-1} X[k]·cos(π·k·(2n+1)/(2N))`
+pub fn idct_ii(coeffs: &[f32]) -> Vec<f32> {
+    let big_n = coeffs.len();
+    if big_n == 0 {
+        return Vec::new();
+    }
+    let inv_n = 1.0 / big_n as f32;
+    let scale = std::f32::consts::PI / (2 * big_n) as f32;
+    (0..big_n)
+        .map(|n| {
+            let dc = coeffs[0] * inv_n;
+            let ac: f32 = coeffs[1..]
+                .iter()
+                .enumerate()
+                .map(|(k, &x)| x * (scale * (k + 1) as f32 * (2 * n + 1) as f32).cos())
+                .sum::<f32>()
+                * (2.0 * inv_n);
+            dc + ac
+        })
+        .collect()
+}
+
+/// Estimate the surface normal at point `p` for an arbitrary SDF via central
+/// differences.
+///
+/// Makes 6 SDF evaluations.  `eps` controls the finite-difference step;
+/// typical values are 1e-3 to 1e-4.  Returns a unit normal.
+pub fn sdf_normal_3d(p: Vec3, sdf: impl Fn(Vec3) -> f32, eps: f32) -> Vec3 {
+    let dx = sdf(Vec3::new(p.x + eps, p.y, p.z)) - sdf(Vec3::new(p.x - eps, p.y, p.z));
+    let dy = sdf(Vec3::new(p.x, p.y + eps, p.z)) - sdf(Vec3::new(p.x, p.y - eps, p.z));
+    let dz = sdf(Vec3::new(p.x, p.y, p.z + eps)) - sdf(Vec3::new(p.x, p.y, p.z - eps));
+    let len = (dx * dx + dy * dy + dz * dz).sqrt();
+    if len < 1e-10 {
+        return Vec3::new(0.0, 1.0, 0.0);
+    }
+    Vec3::new(dx / len, dy / len, dz / len)
+}
+
+// ── Tests — Pass 55 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_55 {
+    use super::*;
+
+    // ── hann_window ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn hann_zero_at_endpoints() {
+        let n = 16;
+        assert!(hann_window(n, 0).abs() < 1e-6, "w[0]={}", hann_window(n, 0));
+        // Periodic form: w[n] = w[0] = 0 (not actually evaluated, but w[n-1] != 0).
+    }
+
+    #[test]
+    fn hann_peak_at_centre() {
+        let n = 16;
+        let mid = n / 2;
+        let w_mid = hann_window(n, mid);
+        for i in 0..n {
+            assert!(hann_window(n, i) <= w_mid + 1e-6, "i={i}");
+        }
+    }
+
+    #[test]
+    fn hann_in_range() {
+        for i in 0..64 {
+            let w = hann_window(64, i);
+            assert!(w >= 0.0 && w <= 1.0, "i={i} w={w}");
+        }
+    }
+
+    // ── hamming_window ────────────────────────────────────────────────────────
+
+    #[test]
+    fn hamming_in_range() {
+        for i in 0..64 {
+            let w = hamming_window(64, i);
+            assert!(w >= 0.0 && w <= 1.0, "i={i} w={w}");
+        }
+    }
+
+    #[test]
+    fn hamming_nonzero_at_endpoints() {
+        // Hamming never reaches 0 (minimum is ~0.08).
+        let w0 = hamming_window(16, 0);
+        assert!(w0 > 0.0 && w0 < 0.2, "w[0]={w0}");
+    }
+
+    // ── blackman_window ───────────────────────────────────────────────────────
+
+    #[test]
+    fn blackman_in_range() {
+        for i in 0..64 {
+            let w = blackman_window(64, i);
+            assert!(w >= -0.01 && w <= 1.0, "i={i} w={w}");
+        }
+    }
+
+    #[test]
+    fn blackman_larger_sidelobe_suppression() {
+        // Blackman at endpoint approaches 0 more than Hamming.
+        let bw = blackman_window(64, 0).abs();
+        let hw = hamming_window(64, 0).abs();
+        assert!(bw < hw, "bw={bw} hw={hw}");
+    }
+
+    // ── apply_window ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn apply_window_hann_zeroes_first_sample() {
+        let signal = vec![1.0_f32; 16];
+        let windowed = apply_window(&signal, hann_window);
+        assert!(windowed[0].abs() < 1e-6, "w[0]={}", windowed[0]);
+    }
+
+    #[test]
+    fn apply_window_length_preserved() {
+        let signal = vec![1.0_f32; 32];
+        let windowed = apply_window(&signal, hamming_window);
+        assert_eq!(windowed.len(), 32);
+    }
+
+    // ── rms ───────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn rms_constant_signal() {
+        let signal = vec![3.0_f32; 100];
+        assert!((rms(&signal) - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn rms_sine_half_amplitude() {
+        use std::f32::consts::TAU;
+        // RMS of sin is 1/sqrt(2).
+        let n = 1024;
+        let sig: Vec<f32> = (0..n).map(|i| (TAU * i as f32 / n as f32).sin()).collect();
+        let expected = 1.0_f32 / 2.0_f32.sqrt();
+        assert!((rms(&sig) - expected).abs() < 0.001, "rms={}", rms(&sig));
+    }
+
+    #[test]
+    fn rms_empty_is_zero() {
+        assert_eq!(rms(&[]), 0.0);
+    }
+
+    // ── dct_ii / idct_ii ──────────────────────────────────────────────────────
+
+    #[test]
+    fn dct_round_trip() {
+        let original = vec![1.0_f32, 2.0, 3.0, 4.0, 3.0, 2.0, 1.0, 0.0];
+        let coeffs = dct_ii(&original);
+        let recovered = idct_ii(&coeffs);
+        for (a, b) in original.iter().zip(recovered.iter()) {
+            assert!((a - b).abs() < 1e-4, "orig={a} rec={b}");
+        }
+    }
+
+    #[test]
+    fn dct_constant_signal_dc_only() {
+        // Constant signal: only DC coefficient (k=0) is non-zero.
+        let n = 8;
+        let sig = vec![2.0_f32; n];
+        let coeffs = dct_ii(&sig);
+        // DC = sum of all samples.
+        assert!(
+            (coeffs[0] - 2.0 * n as f32).abs() < 1e-4,
+            "dc={}",
+            coeffs[0]
+        );
+        for k in 1..n {
+            assert!(coeffs[k].abs() < 1e-4, "k={k} coeff={}", coeffs[k]);
+        }
+    }
+
+    #[test]
+    fn dct_empty_returns_empty() {
+        assert!(dct_ii(&[]).is_empty());
+        assert!(idct_ii(&[]).is_empty());
+    }
+
+    // ── sdf_normal_3d ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn sdf_normal_sphere_points_outward() {
+        // On the surface of a unit sphere at (1,0,0), normal should point +X.
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        let n = sdf_normal_3d(p, |q| sdf_sphere(q, 1.0), 1e-3);
+        assert!((n.x - 1.0).abs() < 0.01, "n.x={}", n.x);
+        assert!(n.y.abs() < 0.01, "n.y={}", n.y);
+        assert!(n.z.abs() < 0.01, "n.z={}", n.z);
+    }
+
+    #[test]
+    fn sdf_normal_is_unit_length() {
+        let p = Vec3::new(0.7, 0.5, 0.2);
+        let n = sdf_normal_3d(p, |q| sdf_sphere(q, 1.0), 1e-3);
+        let len = (n.x * n.x + n.y * n.y + n.z * n.z).sqrt();
+        assert!((len - 1.0).abs() < 1e-4, "len={len}");
+    }
+
+    #[test]
+    fn sdf_normal_box_face() {
+        // On +Y face of a box, normal should point +Y.
+        let p = Vec3::new(0.0, 1.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        let n = sdf_normal_3d(p, |q| sdf_box_3d(q, b), 1e-3);
+        assert!((n.y - 1.0).abs() < 0.01, "n.y={}", n.y);
+    }
+}
