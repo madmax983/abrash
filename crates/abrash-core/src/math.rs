@@ -15674,3 +15674,263 @@ mod tests_pass_44 {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 45 — signal processing & control theory
+//   exponential_smooth, one_euro_filter_step, half_life ↔ decay,
+//   smooth_damp, delta_angle, angular_lerp, welford_update
+// ---------------------------------------------------------------------------
+
+/// Exponential moving average (first-order IIR low-pass filter).
+///
+/// `alpha ∈ (0, 1]`: fraction of the **new** sample to blend in.
+/// - `alpha = 1` → no smoothing (tracks instantly)
+/// - `alpha → 0` → heavy smoothing (slow response)
+///
+/// Call once per frame: `state = exponential_smooth(state, new_value, alpha)`.
+pub fn exponential_smooth(current: f32, target: f32, alpha: f32) -> f32 {
+    current + alpha.clamp(0.0, 1.0) * (target - current)
+}
+
+/// One-step of the **1€ filter** (Casiez et al. 2012) for adaptive smoothing.
+///
+/// The filter auto-tunes its cutoff: high for fast motion (low lag),
+/// low for slow motion (high smoothing). Ideal for pointer/gesture data.
+///
+/// Parameters:
+/// - `prev_filtered` — last filtered value
+/// - `prev_deriv`    — last filtered derivative (initialise to 0)
+/// - `raw`           — new raw sample
+/// - `dt`            — time delta in seconds
+/// - `min_cutoff`    — minimum frequency cutoff (Hz), e.g. 1.0
+/// - `beta`          — speed coefficient (larger → less lag), e.g. 0.007
+/// - `d_cutoff`      — derivative cutoff frequency (Hz), e.g. 1.0
+///
+/// Returns `(filtered_value, new_deriv)`.
+pub fn one_euro_filter_step(
+    prev_filtered: f32,
+    prev_deriv: f32,
+    raw: f32,
+    dt: f32,
+    min_cutoff: f32,
+    beta: f32,
+    d_cutoff: f32,
+) -> (f32, f32) {
+    // Alpha from cutoff frequency: α = 1 / (1 + τ/dt) where τ = 1/(2π*fc)
+    let alpha_of = |cutoff: f32| -> f32 {
+        let tau = 1.0 / (std::f32::consts::TAU * cutoff);
+        1.0 / (1.0 + tau / dt.max(1e-10))
+    };
+    // Derivative estimate
+    let raw_deriv = (raw - prev_filtered) / dt.max(1e-10);
+    let d_alpha = alpha_of(d_cutoff);
+    let new_deriv = prev_deriv + d_alpha * (raw_deriv - prev_deriv);
+    // Adaptive cutoff based on speed
+    let cutoff = min_cutoff + beta * new_deriv.abs();
+    let alpha = alpha_of(cutoff);
+    let filtered = prev_filtered + alpha * (raw - prev_filtered);
+    (filtered, new_deriv)
+}
+
+/// Convert a **half-life** (time for value to halve) to a per-second decay constant `λ`.
+///
+/// Usage: `value *= (-lambda * dt).exp()` each frame, or equivalently
+/// `value *= decay_factor.powf(dt)` where `decay_factor = 0.5^(1/half_life)`.
+pub fn half_life_to_decay(half_life: f32) -> f32 {
+    // e^(-λ * t½) = 0.5  →  λ = ln(2) / t½
+    std::f32::consts::LN_2 / half_life.max(1e-10)
+}
+
+/// Convert a per-second decay constant `λ` back to a half-life in seconds.
+pub fn decay_to_half_life(lambda: f32) -> f32 {
+    std::f32::consts::LN_2 / lambda.max(1e-10)
+}
+
+/// Unity-style critically-damped spring smoother.
+///
+/// Smoothly moves `current` toward `target` without overshoot.
+/// Pass `velocity` by value and store the returned `(new_position, new_velocity)`.
+///
+/// - `omega` — natural frequency (radians/s); higher = faster response (e.g. 10–30)
+/// - `dt`    — time step in seconds
+pub fn smooth_damp(current: f32, target: f32, velocity: f32, omega: f32, dt: f32) -> (f32, f32) {
+    // Exact solution for critically-damped harmonic oscillator.
+    let omega = omega.max(0.0);
+    let x = current - target;
+    let exp = (-omega * dt).exp();
+    let new_x = (x + (velocity + omega * x) * dt) * exp;
+    let new_v = (velocity - omega * (velocity + omega * x) * dt) * exp;
+    (target + new_x, new_v)
+}
+
+/// Signed shortest angular difference from angle `a` to angle `b` (radians).
+///
+/// Result is in `(-π, π]`. Use this instead of `b - a` to always take the
+/// short path around the circle.
+pub fn delta_angle(a: f32, b: f32) -> f32 {
+    wrap_angle(b - a)
+}
+
+/// Lerp between two angles, always taking the shortest arc.
+///
+/// `t = 0` → `a`, `t = 1` → `b`. Result is normalised to `(-π, π]`.
+pub fn angular_lerp(a: f32, b: f32, t: f32) -> f32 {
+    wrap_angle(a + t * delta_angle(a, b))
+}
+
+/// Welford online mean/variance update (numerically stable single-pass algorithm).
+///
+/// Call once per sample. Returns updated `(count, mean, m2)` where
+/// `variance = m2 / count` (population) or `m2 / (count - 1)` (sample, when count > 1).
+///
+/// Initialise state as `(0u32, 0.0f32, 0.0f32)`.
+pub fn welford_update(count: u32, mean: f32, m2: f32, new_value: f32) -> (u32, f32, f32) {
+    let count = count + 1;
+    let delta = new_value - mean;
+    let mean = mean + delta / count as f32;
+    let delta2 = new_value - mean;
+    let m2 = m2 + delta * delta2;
+    (count, mean, m2)
+}
+
+#[cfg(test)]
+mod tests_pass_45 {
+    use super::*;
+    use std::f32::consts::PI;
+
+    // ── exponential_smooth ────────────────────────────────────────────────
+
+    #[test]
+    fn exp_smooth_alpha_one_tracks_instantly() {
+        assert!((exponential_smooth(0.0, 5.0, 1.0) - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn exp_smooth_alpha_zero_no_change() {
+        assert!((exponential_smooth(3.0, 10.0, 0.0) - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn exp_smooth_converges() {
+        let mut v = 0.0_f32;
+        for _ in 0..200 {
+            v = exponential_smooth(v, 1.0, 0.05);
+        }
+        assert!((v - 1.0).abs() < 0.01, "v={v}");
+    }
+
+    // ── one_euro_filter_step ──────────────────────────────────────────────
+
+    #[test]
+    fn one_euro_static_signal_converges() {
+        let (mut f, mut d) = (0.0_f32, 0.0_f32);
+        for _ in 0..100 {
+            (f, d) = one_euro_filter_step(f, d, 1.0, 0.016, 1.0, 0.007, 1.0);
+        }
+        assert!((f - 1.0).abs() < 0.05, "f={f}");
+    }
+
+    #[test]
+    fn one_euro_output_bounded_by_inputs() {
+        // Output should stay between initial state and target for a monotone signal.
+        let (f, _) = one_euro_filter_step(0.5, 0.0, 0.8, 0.016, 1.0, 0.007, 1.0);
+        assert!(f >= 0.0 && f <= 1.0, "f={f}");
+    }
+
+    // ── half_life ↔ decay ─────────────────────────────────────────────────
+
+    #[test]
+    fn half_life_round_trip() {
+        let hl = 2.0_f32;
+        let lambda = half_life_to_decay(hl);
+        let hl2 = decay_to_half_life(lambda);
+        assert!((hl2 - hl).abs() < 1e-5, "hl2={hl2}");
+    }
+
+    #[test]
+    fn half_life_decay_correct() {
+        // After one half-life the value should halve.
+        let hl = 1.0_f32;
+        let lambda = half_life_to_decay(hl);
+        let remaining = (-lambda * hl).exp();
+        assert!((remaining - 0.5).abs() < 1e-5, "remaining={remaining}");
+    }
+
+    // ── smooth_damp ───────────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_damp_converges_to_target() {
+        let (mut pos, mut vel) = (0.0_f32, 0.0_f32);
+        for _ in 0..300 {
+            (pos, vel) = smooth_damp(pos, 10.0, vel, 10.0, 0.016);
+        }
+        assert!((pos - 10.0).abs() < 0.01, "pos={pos}");
+    }
+
+    #[test]
+    fn smooth_damp_no_overshoot() {
+        // Critically damped — should never exceed target.
+        let (mut pos, mut vel) = (0.0_f32, 0.0_f32);
+        let target = 1.0_f32;
+        for _ in 0..500 {
+            (pos, vel) = smooth_damp(pos, target, vel, 5.0, 0.016);
+            assert!(pos <= target + 1e-4, "overshoot: pos={pos}");
+        }
+        let _ = vel;
+    }
+
+    // ── delta_angle / angular_lerp ────────────────────────────────────────
+
+    #[test]
+    fn delta_angle_short_path() {
+        // From 10° to 350° the short path is -20° (going backwards).
+        let a = 10.0_f32.to_radians();
+        let b = 350.0_f32.to_radians();
+        let d = delta_angle(a, b);
+        assert!((d.abs() - 20.0_f32.to_radians()).abs() < 1e-4, "d={d}");
+        assert!(d < 0.0, "should be negative (backwards)");
+    }
+
+    #[test]
+    fn angular_lerp_midpoint() {
+        // Lerp halfway from 0 to π/2 should give π/4.
+        use std::f32::consts::FRAC_PI_4;
+        let mid = angular_lerp(0.0, FRAC_PI_4 * 2.0, 0.5);
+        assert!((mid - FRAC_PI_4).abs() < 1e-5, "mid={mid}");
+    }
+
+    #[test]
+    fn angular_lerp_wraps() {
+        // From 170° to -170° the short path is 20°; at t=0.5 should be 180°.
+        let a = 170.0_f32.to_radians();
+        let b = (-170.0_f32).to_radians();
+        let mid = angular_lerp(a, b, 0.5);
+        assert!((mid.abs() - PI).abs() < 1e-4, "mid={mid}");
+    }
+
+    // ── welford_update ────────────────────────────────────────────────────
+
+    #[test]
+    fn welford_mean_correct() {
+        let samples = [2.0_f32, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
+        let (mut cnt, mut mean, mut m2) = (0, 0.0_f32, 0.0_f32);
+        for &s in &samples {
+            (cnt, mean, m2) = welford_update(cnt, mean, m2, s);
+        }
+        assert!((mean - 5.0).abs() < 1e-5, "mean={mean}");
+        let _ = (cnt, m2);
+    }
+
+    #[test]
+    fn welford_variance_correct() {
+        // Variance of [2,4,4,4,5,5,7,9] = 4.0 (population).
+        let samples = [2.0_f32, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
+        let (mut cnt, mut mean, mut m2) = (0, 0.0_f32, 0.0_f32);
+        for &s in &samples {
+            (cnt, mean, m2) = welford_update(cnt, mean, m2, s);
+        }
+        let variance = m2 / cnt as f32;
+        assert!((variance - 4.0).abs() < 1e-4, "variance={variance}");
+        let _ = mean;
+    }
+}
