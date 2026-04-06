@@ -163,12 +163,17 @@ impl WindowApp for DirectionalBlurDemoApp {
     }
 
     fn render(&mut self, _ctx: WindowContext<'_>) -> Result<(), Self::Error> {
-        self.framebuffer.clear(0xFF11_1111);
-        let mut zbuffer = abrash::zbuffer::ZBuffer::new(WIDTH, HEIGHT)?;
+        let mut target = abrash::render_api::RenderTarget::new(WIDTH, HEIGHT)?;
+        let mut renderer = abrash::render_api::cpu_renderer::CpuRenderer::new(WIDTH, HEIGHT);
 
-        let mut renderer = abrash::rasterizer::tile::TileRenderer::new(WIDTH, HEIGHT);
-        self.scene
-            .render(&mut renderer, &mut self.framebuffer, &mut zbuffer);
+        let mut draw_list = self.scene.extract();
+        draw_list.clear_color = Some(0xFF11_1111);
+        renderer.execute_draw_list(&draw_list, &mut target);
+
+        // Copy rendered output back to framebuffer for post-processing
+        self.framebuffer
+            .pixels_mut()
+            .copy_from_slice(target.pixels());
 
         let cube_x = (self.time * 3.0).sin() * 3.0;
         let cube_y = (self.time * 5.0).cos().abs() * 2.0;

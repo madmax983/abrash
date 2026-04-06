@@ -87,3 +87,10 @@
 1.  **Relocate:** Moved the raycaster implementation modules from `crates/abrash-render/src/raycaster` to `crates/abrash-raycast/src/renderer`.
 2.  **Prune Dependency:** Removed `abrash-raycast` dependency from `abrash-render`'s `Cargo.toml`.
 3.  **Facade:** Updated the root workspace facade (`src/lib.rs`) to re-export the relocated module via `pub use abrash_raycast::renderer as raycaster;`, preserving the public API while severing the structural dependency.
+
+## [Decoupling Scene from TileRenderer]
+**Tangle:** The `Scene` struct inside `crates/abrash-render/src/scene.rs` defined a `render()` method that directly passed `&mut TileRenderer`. This bypassed the stable `render_api`'s `CpuRenderer` completely, creating a redundant path for rendering geometries and coupling the high-level scene graph directly to low-level rasterization details.
+**Blueprint:**
+1. **Remove Coupling:** Deleted the `render` method from `Scene` and removed all references to `TileRenderer` inside the module.
+2. **Standardize Workflows:** Reoriented dependent examples (like `directional_blur_demo.rs`) and test cases to use `Scene::extract()` to produce a `DrawList` and then dispatch it via `CpuRenderer::execute_draw_list`.
+**Stability:** Restored unidirectional dependencies (`Scene` -> `DrawList` -> `CpuRenderer` -> `TileRenderer`) matching the engine's core graphics pipeline philosophy.

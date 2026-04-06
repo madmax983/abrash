@@ -1,9 +1,7 @@
-use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::mesh::Mesh;
-use abrash::rasterizer::TileRenderer;
+use abrash::render_api::{RenderTarget, cpu_renderer::CpuRenderer};
 use abrash::scene::{Camera, Scene, SceneObject};
-use abrash::zbuffer::ZBuffer;
 use std::sync::Arc;
 
 #[test]
@@ -11,16 +9,15 @@ fn test_scene_render() {
     // 1. Setup Renderer and Buffers
     let width = 100;
     let height = 100;
-    let mut fb = Framebuffer::new(width, height).unwrap();
-    let mut zb = ZBuffer::new(width, height).unwrap();
-    let mut renderer = TileRenderer::new(width, height);
+    let mut render_target = RenderTarget::new(width, height).unwrap();
+    let mut renderer = CpuRenderer::new(width, height);
 
     // 2. Setup Camera
     let eye = Vec3::new(0.0, 0.0, 5.0);
-    let target = Vec3::new(0.0, 0.0, 0.0);
+    let target_pos = Vec3::new(0.0, 0.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
-    let view = Mat4::look_at(eye, target, up);
+    let view = Mat4::look_at(eye, target_pos, up);
     let proj = Mat4::perspective(1.57, width as f32 / height as f32, 0.1, 100.0);
     let camera = Camera::new(view, proj);
 
@@ -41,10 +38,12 @@ fn test_scene_render() {
     scene.add_object(object);
 
     // 5. Render
-    scene.render(&mut renderer, &mut fb, &mut zb);
+    let mut draw_list = scene.extract();
+    draw_list.clear_color = Some(0xFF00_0000);
+    renderer.execute_draw_list(&draw_list, &mut render_target);
 
     // 6. Verify
     // Check center pixel
-    let center = fb.get_pixel(50, 50);
+    let center = render_target.framebuffer().get_pixel(50, 50);
     assert_eq!(center, Some(0xFFFF_0000), "Center pixel should be red");
 }

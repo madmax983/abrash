@@ -10,7 +10,7 @@
 //!
 //! 1.  **Spatial Organization**: Managing objects and their transforms.
 //! 2.  **Culling**: Determining which objects are visible to the camera (Frustum Culling).
-//! 3.  **Rendering**: Submitting visible geometry to a [`TileRenderer`] or other rasterizer.
+//! 3.  **Rendering**: Extracting visible geometry into a `DrawList` for the Render API.
 //!
 //! # Coordinate Spaces
 //!
@@ -28,17 +28,14 @@
 //! use abrash_render::scene::{Scene, SceneObject, Camera};
 //! use abrash_core::mesh::Mesh;
 //! use abrash_core::math::{Mat4, Vec3};
-//! use abrash_render::rasterizer::TileRenderer;
-//! use abrash_core::framebuffer::Framebuffer;
-//! use abrash_core::zbuffer::ZBuffer;
+//! use abrash_render::render_api::{RenderTarget, cpu_renderer::CpuRenderer};
 //! use std::sync::Arc;
 //!
 //! // 1. Setup Renderer and Buffers
 //! let width = 800;
 //! let height = 600;
-//! let mut fb = Framebuffer::new(width, height).unwrap();
-//! let mut zb = ZBuffer::new(width, height).unwrap();
-//! let mut renderer = TileRenderer::new(width, height);
+//! let mut target = RenderTarget::new(width, height).unwrap();
+//! let mut renderer = CpuRenderer::new(width, height);
 //!
 //! // 2. Setup Camera
 //! let eye = Vec3::new(0.0, 5.0, 10.0);
@@ -59,18 +56,16 @@
 //! scene.add_object(object);
 //!
 //! // 5. Render
-//! scene.render(&mut renderer, &mut fb, &mut zb);
+//! let draw_list = scene.extract();
+//! renderer.execute_draw_list(&draw_list, &mut target);
 //! ```
 
 use crate::culling::Frustum;
-use crate::framebuffer::Framebuffer;
 use crate::geometry::AABB;
 use crate::math::{Mat4, Vec3};
 use crate::mesh::Mesh;
-use crate::rasterizer::TileRenderer;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
 use crate::render_api::frame::FrameCamera;
-use crate::zbuffer::ZBuffer;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -280,30 +275,6 @@ impl Scene {
         });
 
         draw_list
-    }
-
-    /// Render the scene using the provided renderer.
-    ///
-    /// Internally calls [`extract`](Self::extract) to build a [`DrawList`], then executes
-    /// it through the tile renderer. Use `extract` directly when you need to inspect
-    /// or manipulate the draw list before rasterization.
-    ///
-    /// # Performance
-    ///
-    /// *   **Culling**: Objects completely outside the frustum are skipped entirely.
-    /// *   **Batching**: Vertex transformations use thread-local scratch buffers.
-    pub fn render(&self, renderer: &mut TileRenderer, fb: &mut Framebuffer, zb: &mut ZBuffer) {
-        let draw_list = self.extract();
-
-        renderer.begin_frame();
-        for batch in &draw_list.batches {
-            renderer.submit_mesh(
-                &batch.indices,
-                &draw_list.vertices[batch.vertex_range.clone()],
-                batch.color,
-            );
-        }
-        renderer.end_frame(fb, zb);
     }
 }
 
