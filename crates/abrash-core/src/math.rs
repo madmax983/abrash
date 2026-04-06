@@ -9922,3 +9922,269 @@ mod tests_pass_24 {
         assert_eq!(lcm_u32(7, 3), 21);
     }
 }
+
+// ── Pass 25: OKLab ops, PBR sampling, back/elastic easing ────────────────────
+
+/// **Perceptual luminance** using the Rec.709 / sRGB luma coefficients.
+///
+/// Input should be **linear** (not gamma-encoded) RGB.
+/// Returns a value in `[0, 1]` when the input channels are in `[0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::luminance_rec709;
+/// assert!((luminance_rec709(1.0, 1.0, 1.0) - 1.0).abs() < 1e-5);
+/// assert!(luminance_rec709(0.0, 0.0, 0.0).abs() < 1e-9);
+/// // Green contributes most to luminance
+/// assert!(luminance_rec709(0.0, 1.0, 0.0) > luminance_rec709(1.0, 0.0, 0.0));
+/// ```
+#[inline]
+pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/// **OKLab interpolation** — perceptually uniform colour blend.
+///
+/// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+/// by factor `t ∈ [0, 1]`, returning the interpolated `(L, a, b)`.
+///
+/// Unlike sRGB lerp, this preserves perceived colour saturation through the
+/// midpoint.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{linear_rgb_to_oklab, oklab_mix};
+/// let c0 = linear_rgb_to_oklab(1.0, 0.0, 0.0); // red
+/// let c1 = linear_rgb_to_oklab(0.0, 0.0, 1.0); // blue
+/// let (l, a, b) = oklab_mix(c0.0, c0.1, c0.2, c1.0, c1.1, c1.2, 0.5);
+/// assert!(l > 0.0 && l < 1.0, "mid-lightness: {l}");
+/// ```
+#[inline]
+pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -> (f32, f32, f32) {
+    (l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t)
+}
+
+/// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+///
+/// Preserves the lightness `L` and chroma magnitude `sqrt(a² + b²)` while
+/// shifting the hue by `angle_deg` degrees.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::oklab_rotate_hue;
+/// // 180-degree rotation inverts a and b
+/// let (l, a, b) = oklab_rotate_hue(0.5, 0.2, 0.1, 180.0);
+/// assert!((a + 0.2).abs() < 1e-5 && (b + 0.1).abs() < 1e-5);
+/// ```
+#[inline]
+pub fn oklab_rotate_hue(l: f32, a: f32, b: f32, angle_deg: f32) -> (f32, f32, f32) {
+    let rad = angle_deg * core::f32::consts::PI / 180.0;
+    let (s, c) = rad.sin_cos();
+    (l, c * a - s * b, s * a + c * b)
+}
+
+/// **Cosine-weighted hemisphere** sample (Malley's method).
+///
+/// Maps a uniform 2D sample `(u1, u2) ∈ [0, 1)²` to a direction on the
+/// hemisphere whose probability density is proportional to `cos θ`.
+///
+/// The returned direction has `y > 0` (hemisphere normal along +Y).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::sample_cosine_hemisphere;
+/// let d = sample_cosine_hemisphere(0.5, 0.5);
+/// // Should be a unit vector on the hemisphere
+/// let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+/// assert!((len - 1.0).abs() < 1e-5 && d.y >= 0.0);
+/// ```
+pub fn sample_cosine_hemisphere(u1: f32, u2: f32) -> Vec3 {
+    let r = u1.sqrt();
+    let theta = core::f32::consts::TAU * u2;
+    let x = r * theta.cos();
+    let z = r * theta.sin();
+    let y = (1.0 - u1).max(0.0).sqrt();
+    Vec3::new(x, y, z).normalize_or_zero()
+}
+
+/// **Uniform sphere** sample.
+///
+/// Maps a uniform 2D sample `(u1, u2) ∈ [0, 1)²` to a uniformly distributed
+/// direction on the unit sphere.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::sample_uniform_sphere;
+/// let d = sample_uniform_sphere(0.25, 0.75);
+/// let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+/// assert!((len - 1.0).abs() < 1e-5);
+/// ```
+pub fn sample_uniform_sphere(u1: f32, u2: f32) -> Vec3 {
+    let z = 1.0 - 2.0 * u1;
+    let r = (1.0 - z * z).max(0.0).sqrt();
+    let phi = core::f32::consts::TAU * u2;
+    Vec3::new(r * phi.cos(), z, r * phi.sin())
+}
+
+/// **Back ease-in** — easing function with overshoot.
+///
+/// Starts by going slightly *backwards* before accelerating forward.
+/// `overshoot ≈ 1.70158` gives the standard CSS `cubic-bezier` back effect.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_back_in;
+/// assert!(ease_back_in(0.0, 1.70158).abs() < 1e-5);
+/// assert!((ease_back_in(1.0, 1.70158) - 1.0).abs() < 1e-5);
+/// // Goes negative initially (overshoot)
+/// assert!(ease_back_in(0.2, 1.70158) < 0.0);
+/// ```
+#[inline]
+pub fn ease_back_in(t: f32, overshoot: f32) -> f32 {
+    let s = overshoot;
+    t * t * ((s + 1.0) * t - s)
+}
+
+/// **Back ease-out** — easing function with overshoot on arrival.
+///
+/// Arrives by going slightly *past* the target before settling.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_back_out;
+/// assert!(ease_back_out(0.0, 1.70158).abs() < 1e-5);
+/// assert!((ease_back_out(1.0, 1.70158) - 1.0).abs() < 1e-5);
+/// // Overshoots past 1 near the end
+/// assert!(ease_back_out(0.8, 1.70158) > 1.0);
+/// ```
+#[inline]
+pub fn ease_back_out(t: f32, overshoot: f32) -> f32 {
+    let s = overshoot;
+    let t1 = t - 1.0;
+    1.0 + t1 * t1 * ((s + 1.0) * t1 + s)
+}
+
+/// **Elastic ease-out** — spring-overshoot easing.
+///
+/// Snaps past the target and oscillates back, settling at 1.0.
+/// `amplitude ≥ 1.0` and `period > 0.0` (typically `0.3`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_elastic_out;
+/// assert!(ease_elastic_out(0.0, 1.0, 0.3).abs() < 1e-5);
+/// assert!((ease_elastic_out(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
+/// ```
+pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
+    if t <= 0.0 {
+        return 0.0;
+    }
+    if t >= 1.0 {
+        return 1.0;
+    }
+    let a = amplitude.max(1.0);
+    let s = (a.recip()).asin() * period / core::f32::consts::TAU;
+    a * (2.0_f32).powf(-10.0 * t) * ((t - s) * core::f32::consts::TAU / period).sin() + 1.0
+}
+
+// ── Pass 25 tests ──────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_25 {
+    use super::*;
+
+    // ── luminance_rec709 ───────────────────────────────────────────────────
+    #[test]
+    fn luminance_white_and_black() {
+        assert!((luminance_rec709(1.0, 1.0, 1.0) - 1.0).abs() < 1e-5);
+        assert!(luminance_rec709(0.0, 0.0, 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn luminance_green_dominates() {
+        assert!(luminance_rec709(0.0, 1.0, 0.0) > luminance_rec709(1.0, 0.0, 0.0));
+        assert!(luminance_rec709(0.0, 1.0, 0.0) > luminance_rec709(0.0, 0.0, 1.0));
+    }
+
+    // ── oklab_mix ─────────────────────────────────────────────────────────
+    #[test]
+    fn oklab_mix_endpoints() {
+        let (l, a, b) = oklab_mix(0.5, 0.1, 0.2, 0.8, 0.3, 0.4, 0.0);
+        assert!((l - 0.5).abs() < 1e-6 && (a - 0.1).abs() < 1e-6);
+        let (l, a, b) = oklab_mix(0.5, 0.1, 0.2, 0.8, 0.3, 0.4, 1.0);
+        assert!((l - 0.8).abs() < 1e-6 && (a - 0.3).abs() < 1e-6 && (b - 0.4).abs() < 1e-6);
+    }
+
+    // ── oklab_rotate_hue ──────────────────────────────────────────────────
+    #[test]
+    fn oklab_hue_rotation_180() {
+        let (l, a, b) = oklab_rotate_hue(0.6, 0.2, 0.1, 180.0);
+        assert!((l - 0.6).abs() < 1e-5, "L unchanged: {l}");
+        assert!((a + 0.2).abs() < 1e-5, "a inverted: {a}");
+        assert!((b + 0.1).abs() < 1e-5, "b inverted: {b}");
+    }
+
+    #[test]
+    fn oklab_hue_rotation_preserves_chroma() {
+        let a0 = 0.3_f32;
+        let b0 = 0.1_f32;
+        let chroma0 = (a0 * a0 + b0 * b0).sqrt();
+        let (_, a1, b1) = oklab_rotate_hue(0.5, a0, b0, 90.0);
+        let chroma1 = (a1 * a1 + b1 * b1).sqrt();
+        assert!(
+            (chroma0 - chroma1).abs() < 1e-5,
+            "chroma preserved: {chroma0} vs {chroma1}"
+        );
+    }
+
+    // ── sample_cosine_hemisphere ──────────────────────────────────────────
+    #[test]
+    fn cosine_hemisphere_unit_length() {
+        for i in 0..20u32 {
+            let u1 = (i as f32 + 0.5) / 20.0;
+            let u2 = ((i * 7 + 3) as f32) / 20.0 % 1.0;
+            let d = sample_cosine_hemisphere(u1, u2);
+            let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+            assert!((len - 1.0).abs() < 1e-4, "unit: {len}");
+            assert!(d.y >= -1e-5, "upper hemisphere: {}", d.y);
+        }
+    }
+
+    // ── sample_uniform_sphere ─────────────────────────────────────────────
+    #[test]
+    fn uniform_sphere_unit_length() {
+        for i in 0..20u32 {
+            let u1 = (i as f32 + 0.5) / 20.0;
+            let u2 = ((i * 7 + 3) as f32) / 20.0 % 1.0;
+            let d = sample_uniform_sphere(u1, u2);
+            let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+            assert!((len - 1.0).abs() < 1e-4, "unit: {len}");
+        }
+    }
+
+    // ── ease_back ─────────────────────────────────────────────────────────
+    #[test]
+    fn back_in_endpoints() {
+        assert!(ease_back_in(0.0, 1.70158).abs() < 1e-5);
+        assert!((ease_back_in(1.0, 1.70158) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn back_out_overshoots() {
+        assert!(ease_back_out(0.75, 1.70158) > 1.0, "overshoot near end");
+    }
+
+    // ── ease_elastic_out ──────────────────────────────────────────────────
+    #[test]
+    fn elastic_out_endpoints() {
+        assert!(ease_elastic_out(0.0, 1.0, 0.3).abs() < 1e-5);
+        assert!((ease_elastic_out(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
+    }
+}

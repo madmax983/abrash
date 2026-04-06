@@ -4805,3 +4805,311 @@ mod tests_pass_24 {
         assert!(d > 0.0, "outside: {d}");
     }
 }
+
+// ── Pass 25: Lens, spiral, polyline, torus knot, metaballs ───────────────────
+
+/// **Convex lens** SDF — symmetric intersection of two equal circles.
+///
+/// The lens is centred at the origin. `d` is the distance between the two
+/// circle centres (determines sharpness), `r` is their shared radius (`r > d/2`
+/// for a non-degenerate lens).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::lens_2d;
+/// // Origin should be inside a wide lens
+/// let d = lens_2d(Vec2::ZERO, 0.5, 1.0);
+/// assert!(d < 0.0, "inside: {d}");
+/// // A far point is outside
+/// let d2 = lens_2d(Vec2::new(2.0, 0.0), 0.5, 1.0);
+/// assert!(d2 > 0.0, "outside: {d2}");
+/// ```
+pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
+    let half = d * 0.5;
+    let c1 = circle_2d(p, Vec2::new(-half, 0.0), r);
+    let c2 = circle_2d(p, Vec2::new(half, 0.0), r);
+    c1.max(c2)
+}
+
+/// **Archimedean spiral** SDF.
+///
+/// The spiral centreline is `r = spacing * θ / (2π)` (radius grows by
+/// `spacing` per revolution).  `r_tube` is the tube/line thickness radius.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::spiral_2d;
+/// // The spiral starts at the origin (t=0, r=0), so the tube surface near
+/// // (spacing/2, 0) should be close to 0 (on the first half-revolution arm)
+/// let d = spiral_2d(Vec2::new(0.3, 0.0), 1.0, 0.05);
+/// assert!(d.is_finite(), "finite: {d}");
+/// // Off-axis (angle = π/2): nearest spiral arms are at r = spacing*(0.25+n),
+/// // so r=20 is between arms and clearly outside.
+/// let d2 = spiral_2d(Vec2::new(0.0, 20.0), 1.0, 0.05);
+/// assert!(d2 > 0.0, "far outside (off-axis): {d2}");
+/// ```
+pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
+    let len = (p.x * p.x + p.y * p.y).sqrt();
+    if len < 1e-9 {
+        return -r_tube; // at origin, which is on the spiral (t=0)
+    }
+    let theta = p.y.atan2(p.x);
+    // Angle on the spiral at this radius: r = spacing * t / TAU → t = len * TAU / spacing
+    let t_approx = len * core::f32::consts::TAU / spacing;
+    // The nearest spiral point could be in several wraps
+    let k = (t_approx - theta) / core::f32::consts::TAU;
+    let k_round = k.round() as i32;
+    let mut best = f32::INFINITY;
+    for dk in [0_i32, -1, 1, -2, 2] {
+        let t = theta + (k_round + dk) as f32 * core::f32::consts::TAU;
+        if t < 0.0 {
+            continue;
+        }
+        let sr = spacing * t / core::f32::consts::TAU;
+        let sx = sr * t.cos();
+        let sy = sr * t.sin();
+        let dx = p.x - sx;
+        let dy = p.y - sy;
+        let d = (dx * dx + dy * dy).sqrt() - r_tube;
+        if d < best {
+            best = d;
+        }
+    }
+    best
+}
+
+/// **Open polyline** SDF — nearest distance to any segment in the path.
+///
+/// Returns the distance to the nearest point on the polyline (always
+/// non-negative; the polyline has no inside).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::polyline_2d;
+/// let pts = [Vec2::new(-1.0, 0.0), Vec2::new(0.0, 1.0), Vec2::new(1.0, 0.0)];
+/// // Mid-vertex is on the polyline
+/// let d = polyline_2d(Vec2::new(0.0, 1.0), &pts);
+/// assert!(d.abs() < 1e-5, "on vertex: {d}");
+/// let d2 = polyline_2d(Vec2::new(0.0, 2.0), &pts);
+/// assert!((d2 - 1.0).abs() < 1e-5, "above middle vertex: {d2}");
+/// ```
+pub fn polyline_2d(p: Vec2, pts: &[Vec2]) -> f32 {
+    if pts.len() < 2 {
+        return if pts.is_empty() {
+            0.0
+        } else {
+            let dx = p.x - pts[0].x;
+            let dy = p.y - pts[0].y;
+            (dx * dx + dy * dy).sqrt()
+        };
+    }
+    pts.windows(2)
+        .map(|seg| segment_2d(p, seg[0], seg[1]))
+        .fold(f32::INFINITY, f32::min)
+}
+
+/// **Torus knot** SDF.
+///
+/// A `(p_folds, q_folds)` torus knot wound on a torus of major radius
+/// `r_torus` with inner radius `r_torus / 2`.  Set `(2, 3)` for the trefoil.
+///
+/// Uses 32 initial parametric samples followed by 8 Newton iterations to find
+/// the nearest point on the knot centreline.
+///
+/// * `r_tube`  — tube radius (final subtraction)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::torus_knot_3d;
+/// // Origin is inside the trefoil loop so distance should be finite
+/// let d = torus_knot_3d(Vec3::new(1.0, 0.0, 0.0), 0.1, 1.0, 2, 3);
+/// assert!(d.is_finite(), "finite: {d}");
+/// // Far point is outside
+/// let d2 = torus_knot_3d(Vec3::new(10.0, 0.0, 0.0), 0.1, 1.0, 2, 3);
+/// assert!(d2 > 0.0, "outside: {d2}");
+/// ```
+pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: u32) -> f32 {
+    let r_inner = r_torus * 0.5;
+    let pf = p_folds as f32;
+    let qf = q_folds as f32;
+
+    let knot_pt = |t: f32| -> Vec3 {
+        let (sp, cp) = (pf * t).sin_cos();
+        let (sq, cq) = (qf * t).sin_cos();
+        let ro = r_torus + r_inner * cq;
+        Vec3::new(ro * cp, r_inner * sq, ro * sp)
+    };
+    let knot_dt = |t: f32| -> Vec3 {
+        let (sp, cp) = (pf * t).sin_cos();
+        let (sq, cq) = (qf * t).sin_cos();
+        let ro = r_torus + r_inner * cq;
+        Vec3::new(
+            -ro * pf * sp - r_inner * qf * sq * cp,
+            r_inner * qf * cq,
+            ro * pf * cp - r_inner * qf * sq * sp,
+        )
+    };
+
+    // Initial search
+    const N_INIT: u32 = 32;
+    let mut best_t = 0.0_f32;
+    let mut best_d2 = f32::INFINITY;
+    for i in 0..N_INIT {
+        let t = (i as f32 / N_INIT as f32) * core::f32::consts::TAU;
+        let q = knot_pt(t);
+        let dx = p.x - q.x;
+        let dy = p.y - q.y;
+        let dz = p.z - q.z;
+        let d2 = dx * dx + dy * dy + dz * dz;
+        if d2 < best_d2 {
+            best_d2 = d2;
+            best_t = t;
+        }
+    }
+
+    // Newton refinement: minimize f(t) = (P(t)-p)·P'(t) = 0
+    let mut t = best_t;
+    for _ in 0..8 {
+        let q = knot_pt(t);
+        let dq = knot_dt(t);
+        let diff = Vec3::new(q.x - p.x, q.y - p.y, q.z - p.z);
+        let f = diff.x * dq.x + diff.y * dq.y + diff.z * dq.z;
+        let df = dq.x * dq.x + dq.y * dq.y + dq.z * dq.z;
+        if df < 1e-10 {
+            break;
+        }
+        t = (t - f / df).rem_euclid(core::f32::consts::TAU);
+    }
+
+    let q = knot_pt(t);
+    let dx = p.x - q.x;
+    let dy = p.y - q.y;
+    let dz = p.z - q.z;
+    (dx * dx + dy * dy + dz * dz).sqrt() - r_tube
+}
+
+/// **Metaballs** (smooth union of circles, 2D).
+///
+/// Evaluates the smooth union of all provided `(centre, radius)` circles
+/// with blending radius `k`.  Larger `k` = more blending between balls.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::metaballs_2d;
+/// // Use radius 0.6 so origin is already inside each ball (d = 0.5 - 0.6 = -0.1)
+/// let balls = [(Vec2::new(-0.5, 0.0), 0.6), (Vec2::new(0.5, 0.0), 0.6)];
+/// // Origin is inside both balls individually, so the merged shape is negative there
+/// let d = metaballs_2d(Vec2::ZERO, &balls, 0.3);
+/// assert!(d < 0.0, "inside merged shape: {d}");
+/// ```
+pub fn metaballs_2d(p: Vec2, circles: &[(Vec2, f32)], k: f32) -> f32 {
+    if circles.is_empty() {
+        return 0.0;
+    }
+    let mut d = circle_2d(p, circles[0].0, circles[0].1);
+    for &(c, r) in &circles[1..] {
+        d = smooth_union(d, circle_2d(p, c, r), k);
+    }
+    d
+}
+
+// ── Pass 25 SDF tests ──────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_25 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── lens_2d ────────────────────────────────────────────────────────────
+    #[test]
+    fn lens_inside_outside() {
+        assert!(lens_2d(Vec2::ZERO, 0.5, 1.0) < 0.0, "inside");
+        assert!(lens_2d(Vec2::new(2.0, 0.0), 0.5, 1.0) > 0.0, "outside");
+    }
+
+    #[test]
+    fn lens_symmetric() {
+        let d1 = lens_2d(Vec2::new(0.3, 0.0), 0.5, 1.0);
+        let d2 = lens_2d(Vec2::new(-0.3, 0.0), 0.5, 1.0);
+        assert!((d1 - d2).abs() < 1e-5, "left-right symmetric: {d1} vs {d2}");
+    }
+
+    // ── spiral_2d ──────────────────────────────────────────────────────────
+    #[test]
+    fn spiral_far_outside() {
+        // Avoid angle=0 since spiral arms land on the +X axis at every integer
+        // multiple of spacing.  Use angle=π/2 where the nearest arms are at
+        // r = spacing*(0.25 + n), so r=20 is well between arms.
+        let d = spiral_2d(Vec2::new(0.0, 20.0), 1.0, 0.05);
+        assert!(d > 0.0, "far off-axis: {d}");
+    }
+
+    #[test]
+    fn spiral_finite() {
+        for i in 0..16u32 {
+            let d = spiral_2d(Vec2::new((i as f32) * 0.5, (i as f32) * 0.3), 1.0, 0.05);
+            assert!(d.is_finite(), "finite at i={i}: {d}");
+        }
+    }
+
+    // ── polyline_2d ────────────────────────────────────────────────────────
+    #[test]
+    fn polyline_on_vertex() {
+        let pts = [
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+        ];
+        let d = polyline_2d(Vec2::new(0.0, 1.0), &pts);
+        assert!(d.abs() < 1e-5, "on mid-vertex: {d}");
+    }
+
+    #[test]
+    fn polyline_above_midpoint() {
+        let pts = [Vec2::new(-1.0, 0.0), Vec2::new(1.0, 0.0)];
+        // Point (0, 1) is 1 unit above mid-segment
+        let d = polyline_2d(Vec2::new(0.0, 1.0), &pts);
+        assert!((d - 1.0).abs() < 1e-5, "dist to horizontal segment: {d}");
+    }
+
+    // ── torus_knot_3d ──────────────────────────────────────────────────────
+    #[test]
+    fn torus_knot_trefoil_finite() {
+        for i in 0..8u32 {
+            let d = torus_knot_3d(Vec3::new(i as f32 * 0.5, 0.0, 0.0), 0.1, 1.0, 2, 3);
+            assert!(d.is_finite(), "trefoil finite at {i}: {d}");
+        }
+    }
+
+    #[test]
+    fn torus_knot_far_outside() {
+        let d = torus_knot_3d(Vec3::new(20.0, 0.0, 0.0), 0.1, 1.0, 2, 3);
+        assert!(d > 0.0, "far outside trefoil: {d}");
+    }
+
+    // ── metaballs_2d ───────────────────────────────────────────────────────
+    #[test]
+    fn metaballs_merged_inside() {
+        // Use radius 0.6 so origin is already inside each ball (d=-0.1 each),
+        // guaranteeing the smooth union is also negative there.
+        let balls = [(Vec2::new(-0.5, 0.0), 0.6), (Vec2::new(0.5, 0.0), 0.6)];
+        let d = metaballs_2d(Vec2::ZERO, &balls, 0.3);
+        assert!(d < 0.0, "inside merged: {d}");
+    }
+
+    #[test]
+    fn metaballs_far_outside() {
+        let balls = [(Vec2::new(0.0, 0.0), 0.3)];
+        let d = metaballs_2d(Vec2::new(5.0, 0.0), &balls, 0.3);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+}
