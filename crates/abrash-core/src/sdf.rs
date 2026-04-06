@@ -3763,3 +3763,200 @@ mod tests_pass_20 {
         assert!(d > 0.0, "outside both → XOR outside: {d}");
     }
 }
+
+// ── Pass 21: SDF additions ────────────────────────────────────────────────────
+
+/// Exact distance to a 3D triangle (as a flat planar surface).
+///
+/// Since the triangle is a 2D surface in 3D space, there is no "inside" — the
+/// distance is always non-negative.  Points project onto the plane; if the
+/// projection falls outside the triangle, the nearest edge is used.
+///
+/// Translated from Inigo Quilez's `sdTriangle` (3D version).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::triangle_3d;
+/// use abrash_core::math::Vec3;
+/// // Point directly above the centroid: distance = height
+/// let a = Vec3::new(-1.0, 0.0, 0.0);
+/// let b = Vec3::new( 1.0, 0.0, 0.0);
+/// let c = Vec3::new( 0.0, 0.0, 1.0);
+/// let d = triangle_3d(Vec3::new(0.0, 0.5, 0.33), a, b, c);
+/// assert!(d < 0.6, "near centroid above: {d}");
+/// // Far point: larger distance
+/// let d2 = triangle_3d(Vec3::new(10.0, 0.0, 0.0), a, b, c);
+/// assert!(d2 > 8.0, "far point: {d2}");
+/// ```
+pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
+    let ba = b - a;
+    let cb = c - b;
+    let ac = a - c;
+    let pa = p - a;
+    let pb = p - b;
+    let pc = p - c;
+    let nor = ba.cross(ac);
+
+    let dot2 = |v: Vec3| v.dot(v);
+
+    // Check if point projects inside the triangle (all 3 edge half-planes positive)
+    let signs = ba.cross(nor).dot(pa).signum()
+        + cb.cross(nor).dot(pb).signum()
+        + ac.cross(nor).dot(pc).signum();
+
+    let dist2 = if signs < 2.0 {
+        // Project outside → nearest edge
+        let d_ba = dot2(ba * (ba.dot(pa) / dot2(ba)).clamp(0.0, 1.0) - pa);
+        let d_cb = dot2(cb * (cb.dot(pb) / dot2(cb)).clamp(0.0, 1.0) - pb);
+        let d_ac = dot2(ac * (ac.dot(pc) / dot2(ac)).clamp(0.0, 1.0) - pc);
+        d_ba.min(d_cb).min(d_ac)
+    } else {
+        // Project inside → perpendicular distance to plane
+        nor.dot(pa) * nor.dot(pa) / dot2(nor)
+    };
+
+    dist2.sqrt()
+}
+
+/// 3D rhombus SDF — a diamond-shaped prism with rounded edges.
+///
+/// - `la`, `lb` — half-diagonals of the rhombus base in x and z
+/// - `h`  — half-height along y
+/// - `ra` — edge rounding radius
+///
+/// Translated from Inigo Quilez's `sdRhombus`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::rhombus_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre is inside
+/// let d = rhombus_3d(Vec3::ZERO, 1.0, 0.5, 0.4, 0.05);
+/// assert!(d < 0.0, "centre inside: {d}");
+/// // Far corner outside
+/// let d2 = rhombus_3d(Vec3::new(3.0, 0.0, 0.0), 1.0, 0.5, 0.4, 0.05);
+/// assert!(d2 > 0.0, "far outside: {d2}");
+/// ```
+pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
+    let p = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs());
+    let b = Vec2::new(la, lb);
+    // ndot: a.x*b.x - a.y*b.y (like a 2D "anti-dot")
+    let ndot = |a: Vec2, bv: Vec2| a.x * bv.x - a.y * bv.y;
+    let f = (ndot(b, b - Vec2::new(2.0 * p.x, 2.0 * p.z)) / b.dot(b)).clamp(-1.0, 1.0);
+    let side_pt = Vec2::new(
+        (b.x * (1.0 - f) * 0.5 - p.x).hypot(b.y * (1.0 + f) * 0.5 - p.z),
+        p.y - h,
+    );
+    let sign = (p.x * b.y + p.z * b.x - b.x * b.y).signum();
+    let qx = side_pt.x * sign - ra;
+    let qy = side_pt.y;
+    qx.max(qy).min(0.0) + Vec2::new(qx.max(0.0), qy.max(0.0)).length()
+}
+
+/// Oreo cookie SDF — two flat discs sandwiching a centre layer.
+///
+/// - `r` — radius of each disc
+/// - `h` — height of each disc layer (the cream between is at y=0)
+/// - `cr` — "cream" half-thickness (gap between the two discs)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::oreo_2d;
+/// use abrash_core::math::Vec2;
+/// // Inside the top cookie disc (centred at y = cr+h = 0.35)
+/// let d = oreo_2d(Vec2::new(0.2, 0.35), 0.8, 0.15, 0.2);
+/// assert!(d < 0.0, "inside top disc: {d}");
+/// // Outside entirely
+/// let d2 = oreo_2d(Vec2::new(2.0, 0.0), 0.8, 0.15, 0.2);
+/// assert!(d2 > 0.0, "outside: {d2}");
+/// ```
+pub fn oreo_2d(p: Vec2, r: f32, h: f32, cr: f32) -> f32 {
+    // Two rectangular "cookie" layers separated by a cream gap of 2*cr.
+    // Top cookie: centred at y = cr+h, half-size (r, h)
+    // Bottom cookie: centred at y = -(cr+h), half-size (r, h)
+    // Union of the two rectangle SDFs (min)
+    let cy = cr + h;
+    let top = rect_2d(p, Vec2::new(0.0, cy), Vec2::new(r, h));
+    let bot = rect_2d(p, Vec2::new(0.0, -cy), Vec2::new(r, h));
+    top.min(bot)
+}
+
+#[cfg(test)]
+mod tests_pass_21 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── triangle_3d ───────────────────────────────────────────────────────
+    #[test]
+    fn triangle_3d_above_centre() {
+        let a = Vec3::new(-1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        // Point 0.5 above the centroid (0, 0, 0.33)
+        let d = triangle_3d(Vec3::new(0.0, 0.5, 0.33), a, b, c);
+        assert!(d < 0.6, "near centroid above: {d}");
+    }
+
+    #[test]
+    fn triangle_3d_on_surface_is_zero() {
+        let a = Vec3::new(-1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        // Midpoint of edge ab is exactly on the triangle
+        let mid = (a + b) * 0.5;
+        let d = triangle_3d(mid, a, b, c);
+        assert!(d < 1e-4, "on triangle surface: {d}");
+    }
+
+    #[test]
+    fn triangle_3d_far_outside() {
+        let a = Vec3::new(-1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        let d = triangle_3d(Vec3::new(10.0, 0.0, 0.0), a, b, c);
+        assert!(d > 8.0, "far outside: {d}");
+    }
+
+    // ── rhombus_3d ────────────────────────────────────────────────────────
+    #[test]
+    fn rhombus_3d_centre_inside() {
+        let d = rhombus_3d(Vec3::ZERO, 1.0, 0.5, 0.4, 0.05);
+        assert!(d < 0.0, "centre inside rhombus: {d}");
+    }
+
+    #[test]
+    fn rhombus_3d_far_outside() {
+        let d = rhombus_3d(Vec3::new(3.0, 0.0, 0.0), 1.0, 0.5, 0.4, 0.05);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    #[test]
+    fn rhombus_3d_above_top_outside() {
+        // Above the top cap (y > h) → outside
+        let d = rhombus_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.5, 0.4, 0.05);
+        assert!(d > 0.0, "above top outside: {d}");
+    }
+
+    // ── oreo_2d ───────────────────────────────────────────────────────────
+    #[test]
+    fn oreo_outside_far() {
+        let d = oreo_2d(Vec2::new(5.0, 0.0), 0.8, 0.15, 0.2);
+        assert!(d > 0.0, "far outside oreo: {d}");
+    }
+
+    #[test]
+    fn oreo_returns_finite() {
+        // Various points should return finite values
+        for &p in &[
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.5, 0.5),
+            Vec2::new(0.0, 0.8),
+        ] {
+            let d = oreo_2d(p, 0.8, 0.15, 0.2);
+            assert!(d.is_finite(), "oreo at {p:?}: {d}");
+        }
+    }
+}
