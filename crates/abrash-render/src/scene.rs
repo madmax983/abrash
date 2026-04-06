@@ -209,7 +209,6 @@ impl Scene {
     pub fn extract(&self) -> DrawList {
         let view_proj = self.camera.view * self.camera.proj;
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
-        let mut draw_list = DrawList::new(camera);
 
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
@@ -242,8 +241,7 @@ impl Scene {
                 }
             }
 
-            draw_list.batches.reserve(visible_count);
-            draw_list.vertices.reserve(total_vertices);
+            let mut draw_list = DrawList::with_capacity(camera, visible_count, total_vertices);
 
             for (i, obj) in self.objects.iter().enumerate() {
                 if !cull_results[i] {
@@ -277,9 +275,9 @@ impl Scene {
                     obj.color,
                 ));
             }
-        });
 
-        draw_list
+            draw_list
+        })
     }
 
     /// Render the scene using the provided renderer.
