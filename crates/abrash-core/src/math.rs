@@ -12615,3 +12615,361 @@ mod tests_pass_31 {
         assert!(hit.is_some(), "should hit end cap");
     }
 }
+
+// ── Pass 32 ────────────────────────────────────────────────────────────────────
+
+/// Quartic ease-in: accelerates with `t⁴`.
+#[must_use]
+#[inline]
+pub fn ease_quart_in(t: f32) -> f32 {
+    t.clamp(0.0, 1.0).powi(4)
+}
+
+/// Quartic ease-out: decelerates with `(1−t)⁴`.
+#[must_use]
+#[inline]
+pub fn ease_quart_out(t: f32) -> f32 {
+    let t = 1.0 - t.clamp(0.0, 1.0);
+    1.0 - t.powi(4)
+}
+
+/// Quartic ease-in-out: accelerates then decelerates with `t⁴` / `(1−t)⁴`.
+#[must_use]
+#[inline]
+pub fn ease_quart_in_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    if t < 0.5 {
+        8.0 * t.powi(4)
+    } else {
+        let t = 1.0 - t;
+        1.0 - 8.0 * t.powi(4)
+    }
+}
+
+/// Quintic ease-in: accelerates with `t⁵`.
+#[must_use]
+#[inline]
+pub fn ease_quint_in(t: f32) -> f32 {
+    t.clamp(0.0, 1.0).powi(5)
+}
+
+/// Quintic ease-out: decelerates with `(1−t)⁵`.
+#[must_use]
+#[inline]
+pub fn ease_quint_out(t: f32) -> f32 {
+    let t = 1.0 - t.clamp(0.0, 1.0);
+    1.0 - t.powi(5)
+}
+
+/// Quintic ease-in-out: accelerates then decelerates with `t⁵` / `(1−t)⁵`.
+#[must_use]
+#[inline]
+pub fn ease_quint_in_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    if t < 0.5 {
+        16.0 * t.powi(5)
+    } else {
+        let t = 1.0 - t;
+        1.0 - 16.0 * t.powi(5)
+    }
+}
+
+/// Returns `true` if `p` lies inside or on the axis-aligned box `[min, max]`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{aabb_contains_point_3d, Vec3};
+/// assert!(aabb_contains_point_3d(Vec3::ZERO, Vec3::new(-1.0,-1.0,-1.0), Vec3::new(1.0,1.0,1.0)));
+/// assert!(!aabb_contains_point_3d(Vec3::new(2.0,0.0,0.0), Vec3::new(-1.0,-1.0,-1.0), Vec3::new(1.0,1.0,1.0)));
+/// ```
+#[must_use]
+#[inline]
+pub fn aabb_contains_point_3d(p: Vec3, min: Vec3, max: Vec3) -> bool {
+    p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y && p.z >= min.z && p.z <= max.z
+}
+
+/// Returns `true` if two axis-aligned bounding boxes overlap (inclusive).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{aabb_intersects_aabb_3d, Vec3};
+/// let min_a = Vec3::new(-1.0,-1.0,-1.0);
+/// let max_a = Vec3::new( 1.0, 1.0, 1.0);
+/// let min_b = Vec3::new( 0.5, 0.5, 0.5);
+/// let max_b = Vec3::new( 2.0, 2.0, 2.0);
+/// assert!(aabb_intersects_aabb_3d(min_a, max_a, min_b, max_b));
+/// ```
+#[must_use]
+#[inline]
+pub fn aabb_intersects_aabb_3d(a_min: Vec3, a_max: Vec3, b_min: Vec3, b_max: Vec3) -> bool {
+    a_min.x <= b_max.x
+        && a_max.x >= b_min.x
+        && a_min.y <= b_max.y
+        && a_max.y >= b_min.y
+        && a_min.z <= b_max.z
+        && a_max.z >= b_min.z
+}
+
+/// Ray vs. oriented bounding box (OBB) intersection.
+///
+/// Returns the smallest positive `t` along `ro + t * rd` that enters the OBB,
+/// or `None` if the ray misses.
+///
+/// Uses the slab method in OBB-local space: project the ray origin and
+/// direction onto each of the three OBB axes and perform the standard
+/// parametric slab clipping.
+///
+/// # Arguments
+/// * `ro`        – ray origin
+/// * `rd`        – ray direction (need not be unit length)
+/// * `centre`    – OBB centre
+/// * `axes`      – three orthonormal local-space axes (columns of the rotation matrix)
+/// * `half_size` – half-extents along each axis
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{ray_obb_intersect, Vec3};
+/// let hit = ray_obb_intersect(
+///     Vec3::new(0.0, 0.0, -5.0), Vec3::Z,
+///     Vec3::ZERO,
+///     [Vec3::X, Vec3::Y, Vec3::Z],
+///     Vec3::new(1.0, 1.0, 1.0),
+/// );
+/// assert!(hit.is_some());
+/// ```
+#[must_use]
+pub fn ray_obb_intersect(
+    ro: Vec3,
+    rd: Vec3,
+    centre: Vec3,
+    axes: [Vec3; 3],
+    half_size: Vec3,
+) -> Option<f32> {
+    let delta = Vec3::new(centre.x - ro.x, centre.y - ro.y, centre.z - ro.z);
+    let hs = [half_size.x, half_size.y, half_size.z];
+
+    let mut t_min = f32::NEG_INFINITY;
+    let mut t_max = f32::INFINITY;
+
+    for (i, axis) in axes.iter().enumerate() {
+        let e = axis.dot(delta);
+        let f = axis.dot(rd);
+        if f.abs() > 1e-10 {
+            let t1 = (e - hs[i]) / f;
+            let t2 = (e + hs[i]) / f;
+            let (t1, t2) = if t1 < t2 { (t1, t2) } else { (t2, t1) };
+            t_min = t_min.max(t1);
+            t_max = t_max.min(t2);
+            if t_min > t_max {
+                return None;
+            }
+        } else if e.abs() > hs[i] {
+            // Ray is parallel to slab but outside it.
+            return None;
+        }
+    }
+
+    if t_max < 0.0 {
+        return None; // OBB is behind the ray.
+    }
+    let t = if t_min >= 0.0 { t_min } else { t_max };
+    Some(t)
+}
+
+/// Convert **linear RGB** to **CIE XYZ** (D65 white point, sRGB primaries).
+///
+/// The input is linear light, **not** gamma-encoded sRGB.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::linear_rgb_to_xyz;
+/// let (x, y, z) = linear_rgb_to_xyz(1.0, 1.0, 1.0);
+/// // D65 white: Y ≈ 1.0
+/// assert!((y - 1.0).abs() < 1e-4);
+/// ```
+#[must_use]
+#[inline]
+pub fn linear_rgb_to_xyz(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    // IEC 61966-2-1 / sRGB D65
+    let x = r * 0.412_456_4 + g * 0.357_576_1 + b * 0.180_437_5;
+    let y = r * 0.212_672_9 + g * 0.715_152_2 + b * 0.072_175_0;
+    let z = r * 0.019_333_9 + g * 0.119_192_0 + b * 0.950_304_1;
+    (x, y, z)
+}
+
+/// Convert **CIE XYZ** to **linear RGB** (D65 white point, sRGB primaries).
+///
+/// The output is linear light before gamma encoding.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::xyz_to_linear_rgb;
+/// let (r, g, b) = xyz_to_linear_rgb(0.950456, 1.0, 1.08906);
+/// // Should be close to (1, 1, 1)
+/// assert!((r - 1.0).abs() < 1e-3 && (g - 1.0).abs() < 1e-3 && (b - 1.0).abs() < 1e-3);
+/// ```
+#[must_use]
+#[inline]
+pub fn xyz_to_linear_rgb(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
+    // Inverse of the sRGB D65 matrix
+    let r = x * 3.240_454_2 - y * 1.537_138_5 - z * 0.498_531_4;
+    let g = -x * 0.969_266_0 + y * 1.876_010_8 + z * 0.041_556_0;
+    let b = x * 0.055_648_0 - y * 0.204_043_4 + z * 1.057_110_5;
+    (r, g, b)
+}
+
+#[cfg(test)]
+mod tests_pass_32 {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── quartic easing ────────────────────────────────────────────────────────
+
+    #[test]
+    fn quart_easing_endpoints() {
+        assert!(ease_quart_in(0.0).abs() < 1e-6);
+        assert!((ease_quart_in(1.0) - 1.0).abs() < 1e-6);
+        assert!(ease_quart_out(0.0).abs() < 1e-6);
+        assert!((ease_quart_out(1.0) - 1.0).abs() < 1e-6);
+        assert!((ease_quart_in_out(0.5) - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn quart_in_very_slow_early() {
+        // At t=0.5 quartic-in should still be small (0.5^4 = 0.0625).
+        assert!((ease_quart_in(0.5) - 0.0625).abs() < 1e-5);
+    }
+
+    // ── quintic easing ────────────────────────────────────────────────────────
+
+    #[test]
+    fn quint_easing_endpoints() {
+        assert!(ease_quint_in(0.0).abs() < 1e-6);
+        assert!((ease_quint_in(1.0) - 1.0).abs() < 1e-6);
+        assert!(ease_quint_out(0.0).abs() < 1e-6);
+        assert!((ease_quint_out(1.0) - 1.0).abs() < 1e-6);
+        assert!((ease_quint_in_out(0.5) - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn quint_slower_than_quart_midpoint() {
+        // Higher power → slower start.
+        assert!(ease_quint_in(0.5) < ease_quart_in(0.5));
+    }
+
+    // ── aabb_contains_point_3d ────────────────────────────────────────────────
+
+    #[test]
+    fn aabb_contains_origin() {
+        assert!(aabb_contains_point_3d(
+            Vec3::ZERO,
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0)
+        ));
+    }
+
+    #[test]
+    fn aabb_excludes_outside() {
+        assert!(!aabb_contains_point_3d(
+            Vec3::new(2.0, 0.0, 0.0),
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0)
+        ));
+    }
+
+    // ── aabb_intersects_aabb_3d ───────────────────────────────────────────────
+
+    #[test]
+    fn aabb_overlap() {
+        assert!(aabb_intersects_aabb_3d(
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(0.5, 0.5, 0.5),
+            Vec3::new(2.0, 2.0, 2.0),
+        ));
+    }
+
+    #[test]
+    fn aabb_no_overlap() {
+        assert!(!aabb_intersects_aabb_3d(
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(2.0, 2.0, 2.0),
+        ));
+    }
+
+    // ── ray_obb_intersect ─────────────────────────────────────────────────────
+
+    #[test]
+    fn ray_obb_axis_aligned_hit() {
+        // Degenerate OBB (identity axes) == AABB; ray from −Z should hit.
+        let hit = ray_obb_intersect(
+            Vec3::new(0.0, 0.0, -5.0),
+            Vec3::Z,
+            Vec3::ZERO,
+            [Vec3::X, Vec3::Y, Vec3::Z],
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        assert!(hit.is_some(), "should hit AABB-mode OBB");
+        assert!((hit.unwrap() - 4.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn ray_obb_miss() {
+        let hit = ray_obb_intersect(
+            Vec3::new(5.0, 0.0, -5.0),
+            Vec3::Z,
+            Vec3::ZERO,
+            [Vec3::X, Vec3::Y, Vec3::Z],
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        assert!(hit.is_none(), "should miss");
+    }
+
+    #[test]
+    fn ray_obb_rotated_45_degrees() {
+        // OBB rotated 45° around Y; ray along +Z should still hit a unit box at origin.
+        use core::f32::consts::FRAC_1_SQRT_2;
+        let axes = [
+            Vec3::new(FRAC_1_SQRT_2, 0.0, -FRAC_1_SQRT_2), // X rotated 45° CW around Y
+            Vec3::Y,
+            Vec3::new(FRAC_1_SQRT_2, 0.0, FRAC_1_SQRT_2), // Z rotated 45° CW around Y
+        ];
+        let hit = ray_obb_intersect(
+            Vec3::new(0.0, 0.0, -5.0),
+            Vec3::Z,
+            Vec3::ZERO,
+            axes,
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        assert!(hit.is_some(), "rotated OBB should still be hit");
+    }
+
+    // ── CIE XYZ ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn xyz_white_point() {
+        // Linear white (1,1,1) → Y ≈ 1.0.
+        let (_, y, _) = linear_rgb_to_xyz(1.0, 1.0, 1.0);
+        assert!((y - 1.0).abs() < 1e-4, "Y white: {y}");
+    }
+
+    #[test]
+    fn xyz_round_trip() {
+        let cases = [(0.8, 0.3, 0.1_f32), (0.0, 0.5, 1.0), (0.2, 0.7, 0.4)];
+        for (r, g, b) in cases {
+            let (x, y, z) = linear_rgb_to_xyz(r, g, b);
+            let (r2, g2, b2) = xyz_to_linear_rgb(x, y, z);
+            assert!((r - r2).abs() < 5e-4, "r: {r} vs {r2}");
+            assert!((g - g2).abs() < 5e-4, "g: {g} vs {g2}");
+            assert!((b - b2).abs() < 5e-4, "b: {b} vs {b2}");
+        }
+    }
+
+    #[test]
+    fn xyz_black_is_black() {
+        let (x, y, z) = linear_rgb_to_xyz(0.0, 0.0, 0.0);
+        assert!(x.abs() < 1e-10 && y.abs() < 1e-10 && z.abs() < 1e-10);
+    }
+}
