@@ -16618,3 +16618,257 @@ mod tests_pass_48 {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 49 — advanced noise variants
+//   perlin_2d, ridged_fbm_3d, billow_fbm_3d, curl_noise_3d,
+//   domain_warp_2d, fbm_ridged_2d, voronoi_smooth_2d
+// ---------------------------------------------------------------------------
+
+/// 2D Perlin gradient noise, returns value in approximately `[-1, 1]`.
+///
+/// Complements the existing [`perlin_noise_3d`]; simply calls it with `z = 0`.
+pub fn perlin_2d(p: Vec2) -> f32 {
+    perlin_noise_3d(Vec3::new(p.x, p.y, 0.0))
+}
+
+/// Ridged multifractal noise (Musgrave 1994) — produces sharp ridges.
+///
+/// Great for mountain ranges, canyons, and eroded terrain.
+/// `octaves`, `lacunarity` (frequency multiplier), `gain` (amplitude multiplier) work
+/// the same as in [`fbm_3d`], but each octave uses `1 - |noise|` to create ridges.
+pub fn ridged_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut weight = 1.0_f32;
+    for _ in 0..octaves.max(1) {
+        let n = 1.0 - perlin_noise_3d(p).abs();
+        let n = n * n * weight;
+        value += n * amplitude;
+        weight = n.clamp(0.0, 1.0);
+        p = Vec3::new(p.x * lacunarity, p.y * lacunarity, p.z * lacunarity);
+        amplitude *= gain;
+    }
+    value
+}
+
+/// Billow noise — absolute-value fBm, produces rounded bumps like cumulus clouds.
+///
+/// Same parameters as [`fbm_3d`]; each octave uses `|noise|` instead of `noise`.
+pub fn billow_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    for _ in 0..octaves.max(1) {
+        value += perlin_noise_3d(p).abs() * amplitude;
+        p = Vec3::new(p.x * lacunarity, p.y * lacunarity, p.z * lacunarity);
+        amplitude *= gain;
+    }
+    value
+}
+
+/// 3D curl noise — divergence-free vector field via finite-difference curl of Perlin potential.
+///
+/// Returns a `Vec3` velocity. Use for smoke, fire, and fluid-like particle advection.
+/// `epsilon` — finite-difference step (typically 0.001–0.01).
+pub fn curl_noise_3d(p: Vec3, epsilon: f32) -> Vec3 {
+    // Curl = (∂Fz/∂y - ∂Fy/∂z,  ∂Fx/∂z - ∂Fz/∂x,  ∂Fy/∂x - ∂Fx/∂y)
+    // Use three independent Perlin channels (offset by large constants).
+    let off = 3.7_f32;
+    let fx = |q: Vec3| perlin_noise_3d(q);
+    let fy = |q: Vec3| perlin_noise_3d(Vec3::new(q.x + off, q.y, q.z));
+    let fz = |q: Vec3| perlin_noise_3d(Vec3::new(q.x, q.y + off, q.z));
+
+    let dfz_dy = (fz(Vec3::new(p.x, p.y + epsilon, p.z)) - fz(Vec3::new(p.x, p.y - epsilon, p.z)))
+        / (2.0 * epsilon);
+    let dfy_dz = (fy(Vec3::new(p.x, p.y, p.z + epsilon)) - fy(Vec3::new(p.x, p.y, p.z - epsilon)))
+        / (2.0 * epsilon);
+    let dfx_dz = (fx(Vec3::new(p.x, p.y, p.z + epsilon)) - fx(Vec3::new(p.x, p.y, p.z - epsilon)))
+        / (2.0 * epsilon);
+    let dfz_dx = (fz(Vec3::new(p.x + epsilon, p.y, p.z)) - fz(Vec3::new(p.x - epsilon, p.y, p.z)))
+        / (2.0 * epsilon);
+    let dfy_dx = (fy(Vec3::new(p.x + epsilon, p.y, p.z)) - fy(Vec3::new(p.x - epsilon, p.y, p.z)))
+        / (2.0 * epsilon);
+    let dfx_dy = (fx(Vec3::new(p.x, p.y + epsilon, p.z)) - fx(Vec3::new(p.x, p.y - epsilon, p.z)))
+        / (2.0 * epsilon);
+
+    Vec3::new(dfz_dy - dfy_dz, dfx_dz - dfz_dx, dfy_dx - dfx_dy)
+}
+
+/// 2D domain warping (Inigo Quilez technique).
+///
+/// Feeds the output of one fBm pass back as an offset into a second pass,
+/// producing strongly turbulent, cave-like patterns.
+/// `strength` controls how far the domain is displaced (typically 0.5–4.0).
+pub fn domain_warp_2d(p: Vec2, strength: f32, octaves: u32) -> f32 {
+    let q = Vec2::new(
+        fbm_2d(p, octaves, 2.0, 0.5),
+        fbm_2d(Vec2::new(p.x + 5.2, p.y + 1.3), octaves, 2.0, 0.5),
+    );
+    fbm_2d(
+        Vec2::new(p.x + strength * q.x, p.y + strength * q.y),
+        octaves,
+        2.0,
+        0.5,
+    )
+}
+
+/// 2D ridged fBm — sharp ridges in 2D (good for height maps and procedural textures).
+pub fn fbm_ridged_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut value = 0.0_f32;
+    let mut amplitude = 0.5_f32;
+    let mut weight = 1.0_f32;
+    for _ in 0..octaves.max(1) {
+        let n = 1.0 - perlin_2d(p).abs();
+        let n = n * n * weight;
+        value += n * amplitude;
+        weight = n.clamp(0.0, 1.0);
+        p = Vec2::new(p.x * lacunarity, p.y * lacunarity);
+        amplitude *= gain;
+    }
+    value
+}
+
+/// Smooth Voronoi in 2D — blends cell distances for a softer look than hard F1.
+///
+/// Uses exponential smooth-minimum over surrounding cell distances.
+/// `k` controls blend sharpness (larger = sharper, approaching standard F1).
+/// Returns a value roughly in `[0, 1]`.
+pub fn voronoi_smooth_2d(p: Vec2, k: f32) -> f32 {
+    let pi = Vec2::new(p.x.floor(), p.y.floor());
+    let mut res = 0.0_f32;
+    for dy in -2i32..=2 {
+        for dx in -2i32..=2 {
+            let b = Vec2::new(dx as f32, dy as f32);
+            // Hash cell to get random offset in [0,1]²
+            let cell = Vec2::new(pi.x + b.x, pi.y + b.y);
+            let hx = (cell.x * 127.1 + cell.y * 311.7).sin() * 43758.547;
+            let hy = (cell.x * 269.5 + cell.y * 183.3).sin() * 43758.547;
+            let h = Vec2::new(hx - hx.floor(), hy - hy.floor());
+            let r = Vec2::new(
+                b.x + h.x - (p.x - p.x.floor()),
+                b.y + h.y - (p.y - p.y.floor()),
+            );
+            let d = (r.x * r.x + r.y * r.y).sqrt();
+            res += (-k * d).exp();
+        }
+    }
+    -(1.0 / k) * res.ln()
+}
+
+#[cfg(test)]
+mod tests_pass_49 {
+    use super::*;
+
+    // ── perlin_2d ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn perlin_2d_integer_coords_near_zero() {
+        // Gradient noise at integer lattice points should be zero.
+        for (x, y) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (2.0, 3.0)] {
+            let v = perlin_2d(Vec2::new(x, y));
+            assert!(v.abs() < 1e-5, "({x},{y}) v={v}");
+        }
+    }
+
+    #[test]
+    fn perlin_2d_in_range() {
+        for i in 0..8 {
+            let v = perlin_2d(Vec2::new(i as f32 * 0.37 + 0.1, i as f32 * 0.53 + 0.2));
+            assert!(v.abs() <= 1.0, "v={v}");
+        }
+    }
+
+    // ── ridged_fbm_3d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn ridged_fbm_nonnegative() {
+        // Ridged noise should be non-negative (uses 1 - |noise|).
+        for i in 0..8 {
+            let v = ridged_fbm_3d(Vec3::new(i as f32 * 0.4, i as f32 * 0.3, 0.1), 4, 2.0, 0.5);
+            assert!(v >= 0.0, "v={v}");
+        }
+    }
+
+    #[test]
+    fn ridged_fbm_differs_from_fbm() {
+        let p = Vec3::new(1.7, 2.3, 0.5);
+        let ridged = ridged_fbm_3d(p, 4, 2.0, 0.5);
+        let smooth = fbm_3d(p, 4, 2.0, 0.5);
+        assert!((ridged - smooth).abs() > 1e-4, "should differ");
+    }
+
+    // ── billow_fbm_3d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn billow_fbm_nonnegative() {
+        for i in 0..8 {
+            let v = billow_fbm_3d(Vec3::new(i as f32 * 0.4, i as f32 * 0.3, 0.1), 4, 2.0, 0.5);
+            assert!(v >= 0.0, "v={v}");
+        }
+    }
+
+    // ── curl_noise_3d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn curl_noise_3d_nonzero() {
+        let v = curl_noise_3d(Vec3::new(1.3, 2.7, 0.9), 0.01);
+        assert!(v.x.abs() + v.y.abs() + v.z.abs() > 0.0);
+    }
+
+    #[test]
+    fn curl_noise_3d_finite() {
+        let v = curl_noise_3d(Vec3::new(0.5, 1.5, 2.5), 0.001);
+        assert!(v.x.is_finite() && v.y.is_finite() && v.z.is_finite());
+    }
+
+    // ── domain_warp_2d ────────────────────────────────────────────────────
+
+    #[test]
+    fn domain_warp_2d_finite() {
+        let v = domain_warp_2d(Vec2::new(1.3, 2.7), 1.0, 4);
+        assert!(v.is_finite(), "v={v}");
+    }
+
+    #[test]
+    fn domain_warp_2d_differs_from_fbm() {
+        let p = Vec2::new(1.3, 2.7);
+        let warped = domain_warp_2d(p, 2.0, 4);
+        let plain = fbm_2d(p, 4, 2.0, 0.5);
+        assert!((warped - plain).abs() > 1e-4, "should differ");
+    }
+
+    // ── fbm_ridged_2d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn fbm_ridged_2d_nonnegative() {
+        for i in 0..8 {
+            let v = fbm_ridged_2d(
+                Vec2::new(i as f32 * 0.4 + 0.1, i as f32 * 0.3 + 0.2),
+                4,
+                2.0,
+                0.5,
+            );
+            assert!(v >= 0.0, "v={v}");
+        }
+    }
+
+    // ── voronoi_smooth_2d ─────────────────────────────────────────────────
+
+    #[test]
+    fn voronoi_smooth_2d_finite() {
+        for i in 0..8 {
+            let v = voronoi_smooth_2d(Vec2::new(i as f32 * 0.7 + 0.1, i as f32 * 0.5 + 0.3), 8.0);
+            assert!(v.is_finite(), "v={v}");
+        }
+    }
+
+    #[test]
+    fn voronoi_smooth_varies_with_k() {
+        // Different k values should produce different outputs.
+        let p = Vec2::new(0.4, 0.6);
+        let v2 = voronoi_smooth_2d(p, 2.0);
+        let v8 = voronoi_smooth_2d(p, 8.0);
+        assert!(v2.is_finite() && v8.is_finite());
+        assert!((v2 - v8).abs() > 1e-4, "should differ: v2={v2} v8={v8}");
+    }
+}
