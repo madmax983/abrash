@@ -7887,3 +7887,392 @@ mod tests_pass_18 {
         }
     }
 }
+
+// ── Pass 19: Spring dynamics, fast bit-ops, scalar utilities ──────────────────
+
+/// Simulate one step of a **critically-damped spring** toward a target.
+///
+/// This is the standard game-dev approach for smooth follow-cameras, UI
+/// animations, and procedural physics.  Unlike `exp_decay`, it correctly models
+/// velocity so that fast-moving targets are tracked without overshoot.
+///
+/// - `current`  — current position
+/// - `velocity` — current velocity (updated in-place)
+/// - `target`   — desired position
+/// - `omega`    — angular frequency (larger = stiffer spring, faster response)
+/// - `dt`       — time step in seconds
+///
+/// Returns `(new_position, new_velocity)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::spring_damper;
+/// let mut vel = 0.0_f32;
+/// let (pos, v) = spring_damper(0.0, &mut vel, 10.0, 5.0, 0.016);
+/// assert!(pos > 0.0, "moved toward target");
+/// assert!(v > 0.0, "velocity increased");
+/// ```
+pub fn spring_damper(
+    current: f32,
+    velocity: &mut f32,
+    target: f32,
+    omega: f32,
+    dt: f32,
+) -> (f32, f32) {
+    // Stable semi-implicit Euler for critically-damped spring
+    // ω = sqrt(k/m), damping = 2*sqrt(k*m) => ζ=1 (critically damped)
+    let x = current - target;
+    let f = 1.0 + 2.0 * dt * omega;
+    let oo = omega * omega;
+    let hoo = dt * oo;
+    let hhoo = dt * hoo;
+    let det_inv = 1.0 / (f + hhoo);
+    let new_x = (x * f + dt * *velocity) * det_inv;
+    let new_v = (*velocity - x * hoo) * det_inv;
+    *velocity = new_v;
+    (target + new_x, new_v)
+}
+
+/// Fast approximate base-2 logarithm using IEEE 754 exponent bits.
+///
+/// Extracts the exponent from the float representation for a quick integer
+/// floor(log2(x)).  Error is < 1 ULP for the integer part; the fractional
+/// part uses a linear approximation with error < 0.086.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_log2;
+/// assert!((fast_log2(8.0) - 3.0).abs() < 0.1);
+/// assert!((fast_log2(1.0) - 0.0).abs() < 0.1);
+/// assert!((fast_log2(0.5) - (-1.0)).abs() < 0.1);
+/// ```
+pub fn fast_log2(x: f32) -> f32 {
+    debug_assert!(x > 0.0, "fast_log2 requires positive input");
+    let bits = x.to_bits();
+    // Exponent field: bits 30..23
+    let exp = ((bits >> 23) & 0xFF) as i32 - 127;
+    // Mantissa normalized to [1,2): f = 1 + mantissa/2^23
+    let mantissa_bits = (bits & 0x007F_FFFF) | 0x3F80_0000; // set exp=0 => value in [1,2)
+    let f = f32::from_bits(mantissa_bits);
+    // Linear approximation: log2(f) ≈ f - 1 (error < 0.086 in [1,2))
+    exp as f32 + (f - 1.0)
+}
+
+/// Fast approximate base-2 exponentiation.
+///
+/// Uses the inverse of the `fast_log2` trick.  Error is < 5% for integer
+/// inputs; useful for fog/attenuation where exact values don't matter.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fast_exp2;
+/// assert!((fast_exp2(3.0) - 8.0).abs() < 0.5);
+/// assert!((fast_exp2(0.0) - 1.0).abs() < 0.1);
+/// assert!((fast_exp2(-1.0) - 0.5).abs() < 0.1);
+/// ```
+pub fn fast_exp2(x: f32) -> f32 {
+    let xi = x.floor() as i32;
+    let xf = x - xi as f32;
+    // Reconstruct via mantissa approximation: exp2(frac) ≈ 1 + frac
+    let mantissa = ((xf + 1.0).to_bits() & 0x007F_FFFF) | (((xi + 127) as u32) << 23);
+    f32::from_bits(mantissa)
+}
+
+/// Round up to the next power of two (or return `x` if already a power of two).
+///
+/// Returns 1 for `x = 0`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::next_power_of_two;
+/// assert_eq!(next_power_of_two(0), 1);
+/// assert_eq!(next_power_of_two(1), 1);
+/// assert_eq!(next_power_of_two(5), 8);
+/// assert_eq!(next_power_of_two(8), 8);
+/// ```
+pub const fn next_power_of_two(x: u32) -> u32 {
+    if x == 0 {
+        return 1;
+    }
+    let mut v = x - 1;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v + 1
+}
+
+/// Return the largest power of two that is ≤ `x`.
+///
+/// Returns 0 for `x = 0`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::prev_power_of_two;
+/// assert_eq!(prev_power_of_two(0), 0);
+/// assert_eq!(prev_power_of_two(1), 1);
+/// assert_eq!(prev_power_of_two(7), 4);
+/// assert_eq!(prev_power_of_two(8), 8);
+/// ```
+pub const fn prev_power_of_two(x: u32) -> u32 {
+    if x == 0 {
+        return 0;
+    }
+    1 << (31 - x.leading_zeros())
+}
+
+/// 5th-order ("Perlin's smootherstep") smooth interpolation.
+///
+/// Zero first AND second derivatives at t=0 and t=1, giving C² continuity —
+/// preferred over the classic `smoothstep` for terrain heightmaps and SDF
+/// blending where curvature must be continuous.
+///
+/// Formula: `6t⁵ - 15t⁴ + 10t³`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::smootherstep5;
+/// assert_eq!(smootherstep5(0.0), 0.0);
+/// assert_eq!(smootherstep5(1.0), 1.0);
+/// assert!((smootherstep5(0.5) - 0.5).abs() < 1e-6);
+/// ```
+pub fn smootherstep5(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+}
+
+/// 7th-order smooth interpolation (C³ continuous).
+///
+/// Zero derivatives through order 3 at both endpoints — maximally smooth for
+/// procedural texture blending where even curvature derivatives must not pop.
+///
+/// Formula: `-20t⁷ + 70t⁶ - 84t⁵ + 35t⁴`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::smootherstep7;
+/// assert_eq!(smootherstep7(0.0), 0.0);
+/// assert_eq!(smootherstep7(1.0), 1.0);
+/// assert!((smootherstep7(0.5) - 0.5).abs() < 1e-6);
+/// ```
+pub fn smootherstep7(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    let t2 = t * t;
+    let t4 = t2 * t2;
+    t4 * (-20.0 * t * t * t + 70.0 * t2 - 84.0 * t + 35.0)
+}
+
+/// Return the median of three values without branching.
+///
+/// Useful for noise filtering (3×3 median kernel inner loop) and as a
+/// robust replacement for `clamp` when the bound ordering is unknown.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::median3;
+/// assert_eq!(median3(1.0_f32, 3.0, 2.0), 2.0);
+/// assert_eq!(median3(5.0_f32, 1.0, 3.0), 3.0);
+/// assert_eq!(median3(2.0_f32, 2.0, 2.0), 2.0);
+/// ```
+pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+    a.max(b).min(c).max(a.min(b))
+}
+
+/// Return `true` if `v` lies in the closed interval \[`lo`, `hi`\].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::in_range;
+/// assert!(in_range(0.5_f32, 0.0, 1.0));
+/// assert!(!in_range(1.5_f32, 0.0, 1.0));
+/// assert!(in_range(0.0_f32, 0.0, 1.0));  // inclusive
+/// ```
+#[inline]
+pub fn in_range(v: f32, lo: f32, hi: f32) -> bool {
+    v >= lo && v <= hi
+}
+
+/// Return `true` if `a` and `b` are within `eps` of each other.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::approx_eq;
+/// assert!(approx_eq(1.0_f32, 1.0 + 1e-6, 1e-5));
+/// assert!(!approx_eq(1.0_f32, 1.1, 1e-5));
+/// ```
+#[inline]
+pub fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
+    (a - b).abs() <= eps
+}
+
+#[cfg(test)]
+mod tests_pass_19 {
+    use super::*;
+
+    // ── spring_damper ─────────────────────────────────────────────────────
+    #[test]
+    fn spring_converges_to_target() {
+        let mut vel = 0.0_f32;
+        let mut pos = 0.0_f32;
+        let target = 10.0_f32;
+        for _ in 0..500 {
+            let (p, v) = spring_damper(pos, &mut vel, target, 10.0, 0.016);
+            pos = p;
+            vel = v;
+        }
+        assert!(
+            (pos - target).abs() < 0.01,
+            "spring should converge: pos={pos}"
+        );
+    }
+
+    #[test]
+    fn spring_no_overshoot() {
+        let mut vel = 0.0_f32;
+        let mut pos = 0.0_f32;
+        let target = 1.0_f32;
+        let mut max_pos = 0.0_f32;
+        for _ in 0..200 {
+            let (p, v) = spring_damper(pos, &mut vel, target, 8.0, 0.016);
+            pos = p;
+            vel = v;
+            max_pos = max_pos.max(pos);
+        }
+        // Critically damped: should not overshoot by more than 1%
+        assert!(
+            max_pos <= 1.01,
+            "critically damped spring overshot: {max_pos}"
+        );
+    }
+
+    #[test]
+    fn spring_stationary_stays_still() {
+        let mut vel = 0.0_f32;
+        let (p, v) = spring_damper(5.0, &mut vel, 5.0, 10.0, 0.016);
+        assert!((p - 5.0).abs() < 1e-5, "at target, should stay: {p}");
+        assert!(v.abs() < 1e-5, "velocity should be zero: {v}");
+    }
+
+    // ── fast_log2 ─────────────────────────────────────────────────────────
+    #[test]
+    fn fast_log2_powers_of_two() {
+        for i in 0u32..8 {
+            let x = (1u32 << i) as f32;
+            let expected = i as f32;
+            let got = fast_log2(x);
+            assert!(
+                (got - expected).abs() < 0.01,
+                "fast_log2({x}) = {got}, expected {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn fast_log2_one_half() {
+        assert!((fast_log2(0.5) - (-1.0)).abs() < 0.01);
+    }
+
+    // ── fast_exp2 ─────────────────────────────────────────────────────────
+    #[test]
+    fn fast_exp2_integer_inputs() {
+        for i in -3i32..=8 {
+            let expected = (2.0_f32).powi(i);
+            let got = fast_exp2(i as f32);
+            let rel = (got - expected).abs() / expected;
+            assert!(rel < 0.05, "fast_exp2({i}) = {got}, expected {expected}");
+        }
+    }
+
+    // ── next_power_of_two / prev_power_of_two ────────────────────────────
+    #[test]
+    fn next_pow2_known() {
+        assert_eq!(next_power_of_two(0), 1);
+        assert_eq!(next_power_of_two(1), 1);
+        assert_eq!(next_power_of_two(2), 2);
+        assert_eq!(next_power_of_two(3), 4);
+        assert_eq!(next_power_of_two(100), 128);
+        assert_eq!(next_power_of_two(256), 256);
+    }
+
+    #[test]
+    fn prev_pow2_known() {
+        assert_eq!(prev_power_of_two(0), 0);
+        assert_eq!(prev_power_of_two(1), 1);
+        assert_eq!(prev_power_of_two(7), 4);
+        assert_eq!(prev_power_of_two(8), 8);
+        assert_eq!(prev_power_of_two(255), 128);
+    }
+
+    // ── smootherstep5 / smootherstep7 ────────────────────────────────────
+    #[test]
+    fn smootherstep5_endpoints_and_midpoint() {
+        assert_eq!(smootherstep5(0.0), 0.0);
+        assert_eq!(smootherstep5(1.0), 1.0);
+        assert!((smootherstep5(0.5) - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn smootherstep5_clamps() {
+        assert_eq!(smootherstep5(-1.0), 0.0);
+        assert_eq!(smootherstep5(2.0), 1.0);
+    }
+
+    #[test]
+    fn smootherstep7_endpoints_and_midpoint() {
+        assert_eq!(smootherstep7(0.0), 0.0);
+        assert_eq!(smootherstep7(1.0), 1.0);
+        assert!((smootherstep7(0.5) - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn smootherstep5_steeper_than_smoothstep_near_edges() {
+        // smootherstep5 has zero second derivative at endpoints → flatter shoulders
+        // Check that 0.25 is below the 3rd-order smoothstep
+        let s3 = smoothstep(0.0, 1.0, 0.25);
+        let s5 = smootherstep5(0.25);
+        assert!(
+            s5 < s3,
+            "smootherstep5 should be flatter near 0: {s5} vs {s3}"
+        );
+    }
+
+    // ── median3 ───────────────────────────────────────────────────────────
+    #[test]
+    fn median3_all_permutations() {
+        let vals = [1.0_f32, 3.0, 2.0];
+        // All 6 orderings of (1, 2, 3) should give median=2
+        assert_eq!(median3(vals[0], vals[1], vals[2]), 2.0);
+        assert_eq!(median3(vals[0], vals[2], vals[1]), 2.0);
+        assert_eq!(median3(vals[1], vals[0], vals[2]), 2.0);
+        assert_eq!(median3(vals[1], vals[2], vals[0]), 2.0);
+        assert_eq!(median3(vals[2], vals[0], vals[1]), 2.0);
+        assert_eq!(median3(vals[2], vals[1], vals[0]), 2.0);
+    }
+
+    // ── in_range / approx_eq ─────────────────────────────────────────────
+    #[test]
+    fn in_range_inclusive_bounds() {
+        assert!(in_range(0.0_f32, 0.0, 1.0));
+        assert!(in_range(1.0_f32, 0.0, 1.0));
+        assert!(!in_range(1.001_f32, 0.0, 1.0));
+        assert!(!in_range(-0.001_f32, 0.0, 1.0));
+    }
+
+    #[test]
+    fn approx_eq_within_eps() {
+        assert!(approx_eq(1.0_f32, 1.0 + 1e-6, 1e-5));
+        assert!(!approx_eq(1.0_f32, 1.1, 1e-5));
+        assert!(approx_eq(-1.0_f32, -1.0, 0.0));
+    }
+}
