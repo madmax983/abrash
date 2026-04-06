@@ -13985,3 +13985,254 @@ mod tests_pass_37 {
         assert!(h.z > 0.999, "near-specular peak: {}", h.z);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 38 — frustum culling, signed angle, vec3 slerp
+// ---------------------------------------------------------------------------
+
+/// Extract the 6 view-frustum planes from a combined VP or MVP matrix using
+/// Gribb–Hartmann plane extraction. The matrix is column-major (`m[col][row]`).
+///
+/// Row vectors: `row_r = (m[0][r], m[1][r], m[2][r], m[3][r])`.
+/// Plane layout: `[left, right, bottom, top, near, far]`.
+/// Each plane is `[a, b, c, d]` (not normalised) s.t. `ax+by+cz+d >= 0` is inside.
+pub fn extract_frustum_planes(m: &Mat4) -> [[f32; 4]; 6] {
+    // Helper: extract row r as a 4-component vector from the column-major matrix.
+    let row = |r: usize| -> [f32; 4] { [m.m[0][r], m.m[1][r], m.m[2][r], m.m[3][r]] };
+
+    let r0 = row(0);
+    let r1 = row(1);
+    let r2 = row(2);
+    let r3 = row(3);
+
+    let add = |a: [f32; 4], b: [f32; 4]| -> [f32; 4] {
+        [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
+    };
+    let sub = |a: [f32; 4], b: [f32; 4]| -> [f32; 4] {
+        [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]]
+    };
+
+    [
+        add(r3, r0), // left:   row3 + row0
+        sub(r3, r0), // right:  row3 - row0
+        add(r3, r1), // bottom: row3 + row1
+        sub(r3, r1), // top:    row3 - row1
+        add(r3, r2), // near:   row3 + row2
+        sub(r3, r2), // far:    row3 - row2
+    ]
+}
+
+/// Test whether a sphere (`centre`, `radius`) intersects the frustum defined by
+/// the six planes returned by [`extract_frustum_planes`].
+///
+/// Returns `true` if the sphere is not fully outside any plane.
+pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> bool {
+    for p in planes {
+        let dist = p[0] * centre.x + p[1] * centre.y + p[2] * centre.z + p[3];
+        let len = (p[0] * p[0] + p[1] * p[1] + p[2] * p[2]).sqrt();
+        if len > 0.0 && dist < -radius * len {
+            return false;
+        }
+    }
+    true
+}
+
+/// Test whether an AABB (`min`, `max`) intersects the frustum. Uses the
+/// p-vertex (positive-vertex) test: for each plane the "most positive" corner
+/// is tested; if that corner is outside the plane the AABB is fully outside.
+pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
+    for p in planes {
+        // p-vertex: choose the corner that maximises dot(p.xyz, corner)
+        let px = if p[0] >= 0.0 { max.x } else { min.x };
+        let py = if p[1] >= 0.0 { max.y } else { min.y };
+        let pz = if p[2] >= 0.0 { max.z } else { min.z };
+        if p[0] * px + p[1] * py + p[2] * pz + p[3] < 0.0 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Signed angle (radians) from `from` to `to` measured around `axis`.
+///
+/// Positive means counter-clockwise when looking in the direction of `axis`.
+/// All three vectors should be unit-length.
+pub fn signed_angle_3d(from: Vec3, to: Vec3, axis: Vec3) -> f32 {
+    let cross = from.cross(to);
+    let unsigned = cross.length().atan2(from.dot(to));
+    if axis.dot(cross) < 0.0 {
+        -unsigned
+    } else {
+        unsigned
+    }
+}
+
+/// Spherical linear interpolation between two **unit** vectors.
+///
+/// Smoothly traces the great-circle arc from `a` to `b`. Falls back to `lerp`
+/// when the vectors are nearly parallel (angle < ~0.1°) to avoid divide-by-zero.
+pub fn vec3_slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+    let cos_theta = a.dot(b).clamp(-1.0, 1.0);
+    if cos_theta > 1.0 - 1e-6 {
+        // Nearly identical — linear blend then re-normalise
+        let v = Vec3::new(
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t,
+            a.z + (b.z - a.z) * t,
+        );
+        let len = v.length();
+        return if len > 0.0 {
+            Vec3::new(v.x / len, v.y / len, v.z / len)
+        } else {
+            a
+        };
+    }
+    let theta = cos_theta.acos();
+    let sin_theta = theta.sin();
+    let wa = ((1.0 - t) * theta).sin() / sin_theta;
+    let wb = (t * theta).sin() / sin_theta;
+    Vec3::new(
+        wa * a.x + wb * b.x,
+        wa * a.y + wb * b.y,
+        wa * a.z + wb * b.z,
+    )
+}
+
+#[cfg(test)]
+mod tests_pass_38 {
+    use super::*;
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    // ── extract_frustum_planes ──────────────────────────────────────────────
+
+    #[test]
+    fn frustum_identity_planes_bracket_ndc() {
+        // Identity matrix: clip space == NDC.  The "inside" half-space for each
+        // plane should accept (0,0,0,1).
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        // Point at origin: ax+by+cz+d with (x,y,z)=(0,0,0) → just d term.
+        for (i, p) in planes.iter().enumerate() {
+            // d == p[3].  For identity the row sums are ±1 so d should be ≥ 0.
+            assert!(p[3] >= 0.0, "plane {i} d={} should be ≥0 for origin", p[3]);
+        }
+    }
+
+    #[test]
+    fn frustum_planes_count() {
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        assert_eq!(planes.len(), 6);
+    }
+
+    // ── sphere_vs_frustum ──────────────────────────────────────────────────
+
+    #[test]
+    fn sphere_inside_identity_frustum() {
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        // Origin with radius 0 should be inside.
+        assert!(sphere_vs_frustum(Vec3::new(0.0, 0.0, 0.0), 0.0, &planes));
+    }
+
+    #[test]
+    fn sphere_outside_identity_frustum() {
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        // A sphere far off-axis with tiny radius should be outside.
+        assert!(!sphere_vs_frustum(Vec3::new(10.0, 0.0, 0.0), 0.01, &planes));
+    }
+
+    // ── aabb_vs_frustum ────────────────────────────────────────────────────
+
+    #[test]
+    fn aabb_inside_identity_frustum() {
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        let min = Vec3::new(-0.1, -0.1, -0.1);
+        let max = Vec3::new(0.1, 0.1, 0.1);
+        assert!(aabb_vs_frustum(min, max, &planes));
+    }
+
+    #[test]
+    fn aabb_outside_identity_frustum() {
+        let m = Mat4::identity();
+        let planes = extract_frustum_planes(&m);
+        let min = Vec3::new(5.0, 0.0, 0.0);
+        let max = Vec3::new(6.0, 1.0, 1.0);
+        assert!(!aabb_vs_frustum(min, max, &planes));
+    }
+
+    // ── signed_angle_3d ────────────────────────────────────────────────────
+
+    #[test]
+    fn signed_angle_quarter_turn_positive() {
+        let from = Vec3::new(1.0, 0.0, 0.0);
+        let to = Vec3::new(0.0, 1.0, 0.0);
+        let axis = Vec3::new(0.0, 0.0, 1.0); // +Z up
+        let a = signed_angle_3d(from, to, axis);
+        assert!((a - FRAC_PI_2).abs() < 1e-5, "expected π/2, got {a}");
+    }
+
+    #[test]
+    fn signed_angle_quarter_turn_negative() {
+        let from = Vec3::new(1.0, 0.0, 0.0);
+        let to = Vec3::new(0.0, -1.0, 0.0);
+        let axis = Vec3::new(0.0, 0.0, 1.0);
+        let a = signed_angle_3d(from, to, axis);
+        assert!((a + FRAC_PI_2).abs() < 1e-5, "expected -π/2, got {a}");
+    }
+
+    #[test]
+    fn signed_angle_half_turn() {
+        let from = Vec3::new(1.0, 0.0, 0.0);
+        let to = Vec3::new(-1.0, 0.0, 0.0);
+        let axis = Vec3::new(0.0, 0.0, 1.0);
+        let a = signed_angle_3d(from, to, axis);
+        assert!((a.abs() - PI).abs() < 1e-5, "expected ±π, got {a}");
+    }
+
+    // ── vec3_slerp ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn slerp_endpoints() {
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+        let s0 = vec3_slerp(a, b, 0.0);
+        let s1 = vec3_slerp(a, b, 1.0);
+        assert!((s0.x - 1.0).abs() < 1e-5 && s0.y.abs() < 1e-5);
+        assert!(s1.x.abs() < 1e-5 && (s1.y - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn slerp_midpoint_is_diagonal() {
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+        let mid = vec3_slerp(a, b, 0.5);
+        let expected = 1.0_f32 / 2.0_f32.sqrt();
+        assert!((mid.x - expected).abs() < 1e-5, "x={}", mid.x);
+        assert!((mid.y - expected).abs() < 1e-5, "y={}", mid.y);
+    }
+
+    #[test]
+    fn slerp_output_is_unit() {
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 0.0, 1.0);
+        for i in 0..=10 {
+            let t = i as f32 / 10.0;
+            let v = vec3_slerp(a, b, t);
+            let len = v.length();
+            assert!((len - 1.0).abs() < 1e-5, "t={t}: len={len}");
+        }
+    }
+
+    #[test]
+    fn slerp_parallel_fallback_is_unit() {
+        // Nearly identical vectors should not NaN out.
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0 - 1e-8, 1e-8, 0.0).normalize();
+        let v = vec3_slerp(a, b, 0.5);
+        let len = v.length();
+        assert!((len - 1.0).abs() < 1e-4, "len={len}");
+    }
+}
