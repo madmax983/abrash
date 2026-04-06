@@ -15176,3 +15176,349 @@ mod tests_pass_42 {
         assert!((d1 - d2).abs() < 1e-5);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 43 — 2×2/3×3 linear solvers (Cramer), Gram-Schmidt, Givens rotation,
+//           2D linear regression, plane fit from point cloud
+// ---------------------------------------------------------------------------
+
+/// Solve the 2×2 linear system `A * x = b` using Cramer's rule.
+///
+/// `a` is row-major: `[[a00, a01], [a10, a11]]`.
+/// Returns `None` if the matrix is singular (|det| < `eps`).
+pub fn solve_2x2(a: [[f32; 2]; 2], b: [f32; 2], eps: f32) -> Option<[f32; 2]> {
+    let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+    if det.abs() < eps {
+        return None;
+    }
+    let x0 = (b[0] * a[1][1] - b[1] * a[0][1]) / det;
+    let x1 = (a[0][0] * b[1] - a[1][0] * b[0]) / det;
+    Some([x0, x1])
+}
+
+/// Solve the 3×3 linear system `A * x = b` using Cramer's rule.
+///
+/// `a` is row-major: `a[row][col]`.
+/// Returns `None` if the matrix is singular (|det| < `eps`).
+pub fn solve_3x3(a: [[f32; 3]; 3], b: [f32; 3], eps: f32) -> Option<[f32; 3]> {
+    // 3×3 determinant
+    let det = a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+        - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+        + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
+    if det.abs() < eps {
+        return None;
+    }
+    // Replace column i with b and compute sub-determinant.
+    let det_col = |col: usize| -> f32 {
+        let mut m = a;
+        m[0][col] = b[0];
+        m[1][col] = b[1];
+        m[2][col] = b[2];
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    Some([det_col(0) / det, det_col(1) / det, det_col(2) / det])
+}
+
+/// Orthonormalise three linearly-independent `Vec3` vectors using Gram-Schmidt.
+///
+/// Returns `None` if any vector becomes degenerate (nearly zero after projection).
+pub fn gram_schmidt_3(v0: Vec3, v1: Vec3, v2: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+    let eps = 1e-10_f32;
+    let e0_len = v0.length();
+    if e0_len < eps {
+        return None;
+    }
+    let e0 = Vec3::new(v0.x / e0_len, v0.y / e0_len, v0.z / e0_len);
+
+    let proj1 = e0.dot(v1);
+    let u1 = Vec3::new(
+        v1.x - proj1 * e0.x,
+        v1.y - proj1 * e0.y,
+        v1.z - proj1 * e0.z,
+    );
+    let u1_len = u1.length();
+    if u1_len < eps {
+        return None;
+    }
+    let e1 = Vec3::new(u1.x / u1_len, u1.y / u1_len, u1.z / u1_len);
+
+    let proj2_0 = e0.dot(v2);
+    let proj2_1 = e1.dot(v2);
+    let u2 = Vec3::new(
+        v2.x - proj2_0 * e0.x - proj2_1 * e1.x,
+        v2.y - proj2_0 * e0.y - proj2_1 * e1.y,
+        v2.z - proj2_0 * e0.z - proj2_1 * e1.z,
+    );
+    let u2_len = u2.length();
+    if u2_len < eps {
+        return None;
+    }
+    let e2 = Vec3::new(u2.x / u2_len, u2.y / u2_len, u2.z / u2_len);
+
+    Some((e0, e1, e2))
+}
+
+/// Compute the Givens rotation `(c, s)` that zeroes the lower of two values.
+///
+/// For the pair `(a, b)`, returns `(c, s)` such that
+/// `[c  s; -s  c] * [a; b] = [r; 0]` where `r = hypot(a, b)`.
+/// Used as a building block for QR decomposition and least-squares solvers.
+pub fn givens_rotation(a: f32, b: f32) -> (f32, f32) {
+    if b == 0.0 {
+        return (1.0, 0.0);
+    }
+    let r = a.hypot(b);
+    if r < 1e-30 {
+        return (1.0, 0.0);
+    }
+    (a / r, b / r)
+}
+
+/// Fit a line `y = m*x + b` to a set of 2D points using ordinary least squares.
+///
+/// Returns `(slope, intercept)` or `None` if there are fewer than 2 points or
+/// all x-coordinates are identical (vertical line — undefined slope).
+pub fn linear_regression_2d(points: &[(f32, f32)]) -> Option<(f32, f32)> {
+    let n = points.len() as f32;
+    if points.len() < 2 {
+        return None;
+    }
+    let sum_x: f32 = points.iter().map(|(x, _)| x).sum();
+    let sum_y: f32 = points.iter().map(|(_, y)| y).sum();
+    let sum_xx: f32 = points.iter().map(|(x, _)| x * x).sum();
+    let sum_xy: f32 = points.iter().map(|(x, y)| x * y).sum();
+    let denom = n * sum_xx - sum_x * sum_x;
+    if denom.abs() < 1e-10 {
+        return None; // vertical line
+    }
+    let slope = (n * sum_xy - sum_x * sum_y) / denom;
+    let intercept = (sum_y - slope * sum_x) / n;
+    Some((slope, intercept))
+}
+
+/// Fit a plane to a point cloud using the centroid and dominant-covariance normal.
+///
+/// Returns `(centroid, normal)` where `normal` is the unit normal of the best-fit plane.
+/// Uses a 3×3 scatter matrix and selects the minimum-eigenvalue eigenvector via
+/// a closed-form power-iteration alternative (cross product of two largest eigenvectors).
+/// Returns `None` if fewer than 3 points or points are degenerate.
+pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
+    if points.len() < 3 {
+        return None;
+    }
+    let n = points.len() as f32;
+    // Centroid
+    let cx = points.iter().map(|p| p.x).sum::<f32>() / n;
+    let cy = points.iter().map(|p| p.y).sum::<f32>() / n;
+    let cz = points.iter().map(|p| p.z).sum::<f32>() / n;
+    let centroid = Vec3::new(cx, cy, cz);
+
+    // 3×3 scatter (covariance) matrix — symmetric, only upper triangle needed.
+    let (mut sxx, mut sxy, mut sxz, mut syy, mut syz, mut szz) = (0.0_f32, 0.0, 0.0, 0.0, 0.0, 0.0);
+    for p in points {
+        let dx = p.x - cx;
+        let dy = p.y - cy;
+        let dz = p.z - cz;
+        sxx += dx * dx;
+        sxy += dx * dy;
+        sxz += dx * dz;
+        syy += dy * dy;
+        syz += dy * dz;
+        szz += dz * dz;
+    }
+
+    // The normal to the best-fit plane is the eigenvector of the scatter matrix
+    // corresponding to its *smallest* eigenvalue. We approximate this by taking
+    // the cross product of the two columns with the largest norms (power iteration
+    // alternative that works well for nearly-planar point sets).
+    let col0 = Vec3::new(sxx, sxy, sxz);
+    let col1 = Vec3::new(sxy, syy, syz);
+    let col2 = Vec3::new(sxz, syz, szz);
+
+    let norm0 = col0.length();
+    let norm1 = col1.length();
+    let norm2 = col2.length();
+
+    // Pick the two largest-norm columns; their cross product approximates the min eigenvec.
+    let (a, b) = if norm0 >= norm1 && norm0 >= norm2 {
+        if norm1 >= norm2 {
+            (col0, col1)
+        } else {
+            (col0, col2)
+        }
+    } else if norm1 >= norm0 && norm1 >= norm2 {
+        if norm0 >= norm2 {
+            (col1, col0)
+        } else {
+            (col1, col2)
+        }
+    } else {
+        if norm0 >= norm1 {
+            (col2, col0)
+        } else {
+            (col2, col1)
+        }
+    };
+
+    let normal_raw = a.cross(b);
+    let len = normal_raw.length();
+    if len < 1e-10 {
+        return None;
+    }
+    let normal = Vec3::new(normal_raw.x / len, normal_raw.y / len, normal_raw.z / len);
+    Some((centroid, normal))
+}
+
+#[cfg(test)]
+mod tests_pass_43 {
+    use super::*;
+
+    // ── solve_2x2 ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn solve_2x2_identity() {
+        let a = [[1.0, 0.0], [0.0, 1.0]];
+        let b = [3.0, 7.0];
+        let x = solve_2x2(a, b, 1e-10).unwrap();
+        assert!((x[0] - 3.0).abs() < 1e-5);
+        assert!((x[1] - 7.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn solve_2x2_general() {
+        // 2x + y = 5, x + 3y = 10 → x=1, y=3
+        let a = [[2.0, 1.0], [1.0, 3.0]];
+        let b = [5.0, 10.0];
+        let x = solve_2x2(a, b, 1e-10).unwrap();
+        assert!((x[0] - 1.0).abs() < 1e-5, "x0={}", x[0]);
+        assert!((x[1] - 3.0).abs() < 1e-5, "x1={}", x[1]);
+    }
+
+    #[test]
+    fn solve_2x2_singular_returns_none() {
+        let a = [[1.0, 2.0], [2.0, 4.0]]; // det = 0
+        assert!(solve_2x2(a, [1.0, 2.0], 1e-10).is_none());
+    }
+
+    // ── solve_3x3 ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn solve_3x3_identity() {
+        let a = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let b = [2.0, 5.0, 8.0];
+        let x = solve_3x3(a, b, 1e-10).unwrap();
+        assert!((x[0] - 2.0).abs() < 1e-4);
+        assert!((x[1] - 5.0).abs() < 1e-4);
+        assert!((x[2] - 8.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn solve_3x3_known() {
+        // x+y+z=6, 2x+y=5, y+3z=10 → x=1,y=3,z=2  (verified by substitution)
+        // Actually: x=1,y=3,z=2: 1+3+2=6✓, 2+3=5✓, 3+6=9✗ — let's use a simpler known system
+        // 2x=4, 3y=9, 4z=8 → x=2,y=3,z=2
+        let a = [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]];
+        let b = [4.0, 9.0, 8.0];
+        let x = solve_3x3(a, b, 1e-10).unwrap();
+        assert!((x[0] - 2.0).abs() < 1e-4, "x0={}", x[0]);
+        assert!((x[1] - 3.0).abs() < 1e-4, "x1={}", x[1]);
+        assert!((x[2] - 2.0).abs() < 1e-4, "x2={}", x[2]);
+    }
+
+    // ── gram_schmidt_3 ────────────────────────────────────────────────────
+
+    #[test]
+    fn gram_schmidt_produces_orthonormal_basis() {
+        let v0 = Vec3::new(1.0, 1.0, 0.0);
+        let v1 = Vec3::new(0.0, 1.0, 1.0);
+        let v2 = Vec3::new(1.0, 0.0, 1.0);
+        let (e0, e1, e2) = gram_schmidt_3(v0, v1, v2).unwrap();
+        // Unit length
+        assert!((e0.length() - 1.0).abs() < 1e-5);
+        assert!((e1.length() - 1.0).abs() < 1e-5);
+        assert!((e2.length() - 1.0).abs() < 1e-5);
+        // Mutual orthogonality
+        assert!(e0.dot(e1).abs() < 1e-5);
+        assert!(e0.dot(e2).abs() < 1e-5);
+        assert!(e1.dot(e2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn gram_schmidt_degenerate_returns_none() {
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        // All three are the same → degenerate
+        assert!(gram_schmidt_3(v, v, v).is_none());
+    }
+
+    // ── givens_rotation ───────────────────────────────────────────────────
+
+    #[test]
+    fn givens_zeroes_lower_component() {
+        let a = 3.0_f32;
+        let b = 4.0_f32;
+        let (c, s) = givens_rotation(a, b);
+        // G * [a; b] should give [r; 0]
+        let r_new = c * a + s * b;
+        let zero = -s * a + c * b;
+        let r_expected = a.hypot(b);
+        assert!((r_new - r_expected).abs() < 1e-5, "r={r_new}");
+        assert!(zero.abs() < 1e-5, "zero={zero}");
+    }
+
+    #[test]
+    fn givens_b_zero_is_identity() {
+        let (c, s) = givens_rotation(5.0, 0.0);
+        assert!((c - 1.0).abs() < 1e-6);
+        assert!(s.abs() < 1e-6);
+    }
+
+    // ── linear_regression_2d ──────────────────────────────────────────────
+
+    #[test]
+    fn linear_regression_perfect_line() {
+        // y = 2x + 1
+        let pts: Vec<(f32, f32)> = (0..5).map(|i| (i as f32, 2.0 * i as f32 + 1.0)).collect();
+        let (m, b) = linear_regression_2d(&pts).unwrap();
+        assert!((m - 2.0).abs() < 1e-4, "m={m}");
+        assert!((b - 1.0).abs() < 1e-4, "b={b}");
+    }
+
+    #[test]
+    fn linear_regression_too_few_points() {
+        assert!(linear_regression_2d(&[(1.0, 2.0)]).is_none());
+    }
+
+    // ── fit_plane_to_points ───────────────────────────────────────────────
+
+    #[test]
+    fn fit_plane_xy_plane() {
+        // All points at z=0 → normal should be close to (0,0,±1)
+        let pts = vec![
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+        ];
+        let (_, normal) = fit_plane_to_points(&pts).unwrap();
+        assert!(normal.z.abs() > 0.99, "normal.z={}", normal.z);
+    }
+
+    #[test]
+    fn fit_plane_too_few_points() {
+        let pts = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)];
+        assert!(fit_plane_to_points(&pts).is_none());
+    }
+
+    #[test]
+    fn fit_plane_normal_is_unit() {
+        let pts = vec![
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(1.0, 0.0, 1.0),
+            Vec3::new(0.0, 1.0, 1.0),
+        ];
+        let (_, normal) = fit_plane_to_points(&pts).unwrap();
+        assert!((normal.length() - 1.0).abs() < 1e-5);
+    }
+}
