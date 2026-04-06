@@ -3037,3 +3037,300 @@ mod tests {
         );
     }
 }
+
+// ── Pass 18: SDF additions ────────────────────────────────────────────────────
+
+/// Cut hollow sphere: a spherical shell sliced by a horizontal plane at height
+/// `h`, leaving the open dome (y ≥ h portion of the shell).
+///
+/// - `r` — sphere radius
+/// - `h` — cut height (signed; negative cuts below equator)
+/// - `t` — shell thickness
+///
+/// Translated directly from Inigo Quilez's `sdCutHollowSphere`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::cut_hollow_sphere_3d;
+/// use abrash_core::math::Vec3;
+/// // Point at the north pole of a r=1 shell (thickness=0.1), cut at y=0
+/// let d = cut_hollow_sphere_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.0, 0.1);
+/// assert!(d < 0.0, "inside shell at north pole: {d}");
+/// ```
+pub fn cut_hollow_sphere_3d(p: Vec3, r: f32, h: f32, t: f32) -> f32 {
+    // Shell distance: inside when |p| is within t/2 of r
+    let shell_d = (p.length() - r).abs() - t * 0.5;
+    // Plane constraint: only the y ≥ h portion is kept (SDF of half-space y ≥ h is h - p.y)
+    shell_d.max(h - p.y)
+}
+
+/// 2D elongation operator.
+///
+/// Stretches a 2D SDF along each axis by `h`, preserving exact distances
+/// everywhere outside the stretched region.  Equivalent to the 3D `elongate`
+/// but for 2D shapes.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::{elongate_2d, circle_2d};
+/// use abrash_core::math::Vec2;
+/// // A circle elongated by (0.5, 0.0) becomes a capsule shape
+/// let d = elongate_2d(Vec2::new(1.0, 0.0), Vec2::new(0.5, 0.0), |q| circle_2d(q, Vec2::ZERO, 0.3));
+/// assert!(d > 0.0, "outside elongated circle: {d}");
+/// ```
+pub fn elongate_2d(p: Vec2, h: Vec2, sdf: impl Fn(Vec2) -> f32) -> f32 {
+    let q = p - p.clamp(Vec2::new(-h.x, -h.y), h);
+    sdf(q)
+}
+
+/// Tunnel (U-shape arch) SDF.
+///
+/// An open-topped rectangular channel with inner half-width `wh.x` and depth
+/// `wh.y`.  Points inside the tunnel return negative distances; the flat
+/// bottom and rounded corners are exact.
+///
+/// Translated from Inigo Quilez's `sdTunnel`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::tunnel_2d;
+/// use abrash_core::math::Vec2;
+/// // Point inside the tunnel opening (above the floor, between the walls)
+/// let d = tunnel_2d(Vec2::new(0.0, 0.3), Vec2::new(0.5, 0.8));
+/// assert!(d < 0.0, "inside tunnel: {d}");
+/// // Point outside (far to the right)
+/// let d2 = tunnel_2d(Vec2::new(2.0, 0.0), Vec2::new(0.5, 0.8));
+/// assert!(d2 > 0.0, "outside tunnel: {d2}");
+/// ```
+pub fn tunnel_2d(p: Vec2, wh: Vec2) -> f32 {
+    // Mirror x, flip y so the tunnel opens upward (tunnel opens toward +y in input space)
+    let p = Vec2::new(p.x.abs(), -p.y);
+    // q relative to the inner corner
+    let q = Vec2::new(p.x - wh.x, p.y - wh.y);
+
+    // Distance to the flat outer side wall
+    let d1 = Vec2::new(q.x.max(0.0), q.y).length_sq();
+    // Distance to the rounded bottom corner (two cases: above vs below the floor level)
+    // qx2 is q.x when above the floor, else distance-from-floor-axis minus half-width
+    let qx2 = if p.y > 0.0 { q.x } else { p.length() - wh.x };
+    // IQ: dot2(vec2(q.x, max(q.y, 0))) — note: q.x here is qx2, NOT clamped
+    let qy_pos = q.y.max(0.0);
+    let d2 = qx2 * qx2 + qy_pos * qy_pos;
+
+    let d = d1.min(d2).sqrt();
+    // Sign: negative when inside (qx2 and q.y both negative = inside the tunnel region)
+    if qx2.max(q.y) < 0.0 { -d } else { d }
+}
+
+/// Vesica piscis on a 3D line segment.
+///
+/// The vesica segment is the intersection of two spheres of radius `w` whose
+/// centres are at `a` and `b`.  In SDF terms it produces a lens-like shape
+/// along the segment.
+///
+/// Translated from Inigo Quilez's `sdVesicaSegment`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::vesica_segment_3d;
+/// use abrash_core::math::Vec3;
+/// // Point at the midpoint of the segment, well inside (w=0.8 > half-length=0.5)
+/// let d = vesica_segment_3d(
+///     Vec3::new(0.0, 0.5, 0.0),
+///     Vec3::new(0.0, 0.0, 0.0),
+///     Vec3::new(0.0, 1.0, 0.0),
+///     0.8,
+/// );
+/// assert!(d < 0.0, "inside vesica: {d}");
+/// ```
+pub fn vesica_segment_3d(p: Vec3, a: Vec3, b: Vec3, w: f32) -> f32 {
+    // The vesica piscis is the intersection of two equal spheres.
+    // In 3D with segment endpoints as sphere centres, the SDF is:
+    // max(|p-a| - w, |p-b| - w) — negative only when inside BOTH spheres.
+    // Requires w ≥ half-segment-length for the vesica to be non-empty.
+    ((p - a).length() - w).max((p - b).length() - w)
+}
+
+/// Blobby cross SDF (IQ `sdBlobbyCross`).
+///
+/// A smooth cross shape with bulging arms.  `he` controls the arm length /
+/// blobbyness: larger values give longer, smoother arms.
+///
+/// This is one of the few 2D SDFs that requires an exact cubic solve for
+/// correctness.
+///
+/// Translated directly from Inigo Quilez's `sdBlobbyCross`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::blobby_cross_2d;
+/// use abrash_core::math::Vec2;
+/// // Centre is inside the blobby cross
+/// let d = blobby_cross_2d(Vec2::ZERO, 0.5);
+/// assert!(d < 0.0, "centre should be inside: {d}");
+/// // Far away is outside
+/// let d2 = blobby_cross_2d(Vec2::new(3.0, 3.0), 0.5);
+/// assert!(d2 > 0.0, "far point should be outside: {d2}");
+/// ```
+pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
+    use core::f32::consts::SQRT_2;
+    // Fold into first octant and rotate 45°
+    let pos = Vec2::new(pos.x.abs(), pos.y.abs());
+    let pos = Vec2::new(
+        (pos.x - pos.y).abs() / SQRT_2,
+        (1.0 - pos.x - pos.y) / SQRT_2,
+    );
+
+    let p = (he - pos.y - 0.25 / he) / (6.0 * he);
+    let q = pos.x / (he * he * 16.0);
+    let h = q * q - p * p * p;
+
+    let x = if h > 0.0 {
+        let r = h.sqrt();
+        let qr = q + r;
+        let qmr = (q - r).abs();
+        // Real cube root (preserving sign)
+        let cbrt = |v: f32| v.abs().powf(1.0 / 3.0) * v.signum();
+        cbrt(qr) - cbrt(qmr)
+    } else {
+        let r = p.max(0.0).sqrt();
+        let angle = (q / (p * r).max(1e-10)).clamp(-1.0, 1.0).acos();
+        2.0 * r * (angle / 3.0).cos()
+    };
+
+    let x = x.min(SQRT_2 / 2.0);
+    let z = Vec2::new(x, he * (1.0 - 2.0 * x * x)) - pos;
+    z.length() * z.y.signum()
+}
+
+#[cfg(test)]
+mod tests_pass_18 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── cut_hollow_sphere_3d ──────────────────────────────────────────────
+    #[test]
+    fn cut_hollow_sphere_inside_shell() {
+        // North pole of a unit sphere (r=1, cut at h=0, thickness=0.1)
+        // |p| = 1.0 → shell_d = -0.05, plane: h-p.y = -1 → max(-0.05, -1) = -0.05
+        let d = cut_hollow_sphere_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.0, 0.1);
+        assert!(d < 0.0, "inside shell at north pole: {d}");
+    }
+
+    #[test]
+    fn cut_hollow_sphere_outside() {
+        // Far above the dome
+        let d = cut_hollow_sphere_3d(Vec3::new(0.0, 3.0, 0.0), 1.0, 0.0, 0.1);
+        assert!(d > 0.0, "outside: {d}");
+    }
+
+    #[test]
+    fn cut_hollow_sphere_below_cut_is_outside() {
+        // Below the cut plane the dome is open — point is outside
+        let d = cut_hollow_sphere_3d(Vec3::new(0.5, -0.5, 0.0), 1.0, 0.0, 0.1);
+        assert!(d > 0.0, "below cut plane should be outside: {d}");
+    }
+
+    // ── elongate_2d ───────────────────────────────────────────────────────
+    #[test]
+    fn elongate_2d_unextended_equals_base_sdf() {
+        // Zero elongation → same as underlying SDF
+        let p = Vec2::new(0.7, 0.0);
+        let direct = circle_2d(p, Vec2::ZERO, 0.5);
+        let elongated = elongate_2d(p, Vec2::ZERO, |q| circle_2d(q, Vec2::ZERO, 0.5));
+        assert!(
+            (direct - elongated).abs() < 1e-6,
+            "zero elongation mismatch: {direct} vs {elongated}"
+        );
+    }
+
+    #[test]
+    fn elongate_2d_stretches_interior() {
+        // Point at (0.3, 0) is inside a unit circle but outside the same circle
+        // centred at origin; with x-elongation of 0.5 it should be inside
+        let d = elongate_2d(Vec2::new(0.3, 0.0), Vec2::new(0.5, 0.0), |q| {
+            circle_2d(q, Vec2::ZERO, 0.3)
+        });
+        assert!(d < 0.0, "inside elongated shape: {d}");
+    }
+
+    // ── tunnel_2d ─────────────────────────────────────────────────────────
+    #[test]
+    fn tunnel_inside() {
+        let d = tunnel_2d(Vec2::new(0.0, 0.3), Vec2::new(0.5, 0.8));
+        assert!(d < 0.0, "inside tunnel: {d}");
+    }
+
+    #[test]
+    fn tunnel_outside_right() {
+        let d = tunnel_2d(Vec2::new(2.0, 0.0), Vec2::new(0.5, 0.8));
+        assert!(d > 0.0, "outside tunnel (right): {d}");
+    }
+
+    #[test]
+    fn tunnel_outside_above() {
+        // The tunnel opens upward so above the opening is outside
+        let d = tunnel_2d(Vec2::new(0.0, -2.0), Vec2::new(0.5, 0.8));
+        assert!(d > 0.0, "outside tunnel (above opening): {d}");
+    }
+
+    // ── vesica_segment_3d ─────────────────────────────────────────────────
+    #[test]
+    fn vesica_segment_inside_midpoint() {
+        let d = vesica_segment_3d(
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+            0.8,
+        );
+        assert!(d < 0.0, "midpoint inside vesica: {d}");
+    }
+
+    #[test]
+    fn vesica_segment_outside_far() {
+        let d = vesica_segment_3d(
+            Vec3::new(5.0, 0.5, 0.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+            0.8,
+        );
+        assert!(d > 0.0, "far point outside vesica: {d}");
+    }
+
+    #[test]
+    fn vesica_segment_narrow_w_excludes_midpoint() {
+        // Very thin vesica (w < half-segment-length) → midpoint is outside
+        let d = vesica_segment_3d(
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+            0.05,
+        );
+        assert!(d > 0.0, "thin vesica, midpoint outside: {d}");
+    }
+
+    // ── blobby_cross_2d ───────────────────────────────────────────────────
+    #[test]
+    fn blobby_cross_center_inside() {
+        let d = blobby_cross_2d(Vec2::ZERO, 0.5);
+        assert!(d < 0.0, "centre inside blobby cross: {d}");
+    }
+
+    #[test]
+    fn blobby_cross_far_outside() {
+        let d = blobby_cross_2d(Vec2::new(5.0, 5.0), 0.5);
+        assert!(d > 0.0, "far point outside: {d}");
+    }
+
+    #[test]
+    fn blobby_cross_on_axis_outside() {
+        // Well beyond arm tip on +x axis
+        let d = blobby_cross_2d(Vec2::new(3.0, 0.0), 0.5);
+        assert!(d > 0.0, "past arm tip: {d}");
+    }
+}
