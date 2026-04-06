@@ -16150,3 +16150,243 @@ mod tests_pass_46 {
         assert_eq!(unique.len(), vals.len());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 47 — numerical integration, atmosphere, terrain utilities
+//   euler_step, runge_kutta_4, verlet_step,
+//   rayleigh_phase, height_blend, curl_noise_2d, slope_from_heightmap
+// ---------------------------------------------------------------------------
+
+/// Single Euler integration step for a scalar ODE `y' = f(t, y)`.
+///
+/// Returns `y(t + dt) ≈ y + dt * f(t, y)`. First-order accurate.
+/// Use [`runge_kutta_4`] for higher accuracy at the same evaluation cost.
+pub fn euler_step(t: f32, y: f32, dt: f32, f: impl Fn(f32, f32) -> f32) -> f32 {
+    y + dt * f(t, y)
+}
+
+/// Classic 4th-order Runge-Kutta step for a scalar ODE `y' = f(t, y)`.
+///
+/// Four function evaluations, fourth-order accurate (error ∝ dt⁴).
+/// Drop-in replacement for [`euler_step`] when precision matters.
+pub fn runge_kutta_4(t: f32, y: f32, dt: f32, f: impl Fn(f32, f32) -> f32) -> f32 {
+    let k1 = f(t, y);
+    let k2 = f(t + 0.5 * dt, y + 0.5 * dt * k1);
+    let k3 = f(t + 0.5 * dt, y + 0.5 * dt * k2);
+    let k4 = f(t + dt, y + dt * k3);
+    y + dt * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+}
+
+/// Position Verlet integration step.
+///
+/// Time-reversible and symplectic (conserves energy better than Euler).
+/// Used in particle systems, cloth, and rigid-body physics.
+///
+/// * `pos`      — current position
+/// * `prev_pos` — position one step ago
+/// * `accel`    — current acceleration `a(t)`
+/// * `dt`       — time step
+///
+/// Returns `(new_pos, old_pos_for_next_step)` = `(pos_next, pos)`.
+pub fn verlet_step(pos: f32, prev_pos: f32, accel: f32, dt: f32) -> (f32, f32) {
+    let new_pos = 2.0 * pos - prev_pos + accel * dt * dt;
+    (new_pos, pos)
+}
+
+/// Rayleigh scattering phase function.
+///
+/// Models atmospheric scattering of sunlight by small molecules.
+/// `cos_theta` is the cosine of the angle between the view and light directions.
+/// Returns the phase function value (already normalised to integrate to 1 over 4π).
+pub fn rayleigh_phase(cos_theta: f32) -> f32 {
+    // p(θ) = 3/(16π) * (1 + cos²θ)
+    3.0 / (16.0 * std::f32::consts::PI) * (1.0 + cos_theta * cos_theta)
+}
+
+/// Height-based terrain texture blending.
+///
+/// Blends between two layers using a smooth step around a `threshold` height,
+/// optionally biased by `blend_width`. Useful for snow-line, water-shore,
+/// sand-grass transitions.
+///
+/// Returns blend factor in `[0, 1]`: 0 → layer A, 1 → layer B.
+pub fn height_blend(height: f32, threshold: f32, blend_width: f32) -> f32 {
+    let hw = blend_width.max(1e-6) * 0.5;
+    smoothstep(threshold - hw, threshold + hw, height)
+}
+
+/// 2D curl noise — a divergence-free vector field derived from a scalar potential.
+///
+/// Returns a 2D velocity vector perpendicular to the potential gradient.
+/// Curl of a 2D scalar field `φ(x,y)` is `(∂φ/∂y, -∂φ/∂x)`.
+/// Uses finite differences of Perlin noise as the potential.
+pub fn curl_noise_2d(p: Vec2, epsilon: f32) -> Vec2 {
+    use crate::math::perlin_noise_3d;
+    // Sample the potential at offset positions to estimate gradient.
+    let py = perlin_noise_3d(Vec3::new(p.x, p.y + epsilon, 0.0));
+    let my = perlin_noise_3d(Vec3::new(p.x, p.y - epsilon, 0.0));
+    let px = perlin_noise_3d(Vec3::new(p.x + epsilon, p.y, 0.0));
+    let mx = perlin_noise_3d(Vec3::new(p.x - epsilon, p.y, 0.0));
+    let dphi_dy = (py - my) / (2.0 * epsilon);
+    let dphi_dx = (px - mx) / (2.0 * epsilon);
+    Vec2::new(dphi_dy, -dphi_dx)
+}
+
+/// Compute terrain slope from a 3×3 heightmap neighbourhood (Sobel-based).
+///
+/// Returns the gradient magnitude in world units per texel. Zero = flat, large = steep.
+/// `texel_size` is the world-space size of one heightmap texel.
+pub fn slope_from_heightmap(pixels: &[f32; 9], texel_size: f32) -> f32 {
+    let (gx, gy) = sobel_filter_3x3(pixels);
+    // Scale by the Sobel kernel normalisation factor (8 * texel_size for the standard kernel).
+    let scale = 8.0 * texel_size;
+    let gx_s = gx / scale;
+    let gy_s = gy / scale;
+    (gx_s * gx_s + gy_s * gy_s).sqrt()
+}
+
+#[cfg(test)]
+mod tests_pass_47 {
+    use super::*;
+    use std::f32::consts::PI;
+
+    // ── euler_step ────────────────────────────────────────────────────────
+
+    #[test]
+    fn euler_exponential_decay() {
+        // y' = -y, y(0) = 1  →  y(1) ≈ e^-1 ≈ 0.368 (Euler with dt=0.01)
+        let mut y = 1.0_f32;
+        let dt = 0.01;
+        for i in 0..100 {
+            y = euler_step(i as f32 * dt, y, dt, |_t, y| -y);
+        }
+        assert!((y - (-1.0_f32).exp()).abs() < 0.01, "y={y}");
+    }
+
+    #[test]
+    fn euler_linear_ode_exact() {
+        // y' = 2t, y(0) = 0  →  y(t) = t². dt small enough to be exact.
+        let mut y = 0.0_f32;
+        let dt = 0.001;
+        for i in 0..1000 {
+            y = euler_step(i as f32 * dt, y, dt, |t, _y| 2.0 * t);
+        }
+        assert!((y - 1.0).abs() < 0.01, "y={y}"); // y(1) = 1² = 1
+    }
+
+    // ── runge_kutta_4 ─────────────────────────────────────────────────────
+
+    #[test]
+    fn rk4_more_accurate_than_euler() {
+        // y' = -y, y(0) = 1. RK4 should be closer to e^-1 than Euler at same dt.
+        let exact = (-1.0_f32).exp();
+        let dt = 0.1;
+        let mut y_euler = 1.0_f32;
+        let mut y_rk4 = 1.0_f32;
+        for i in 0..10 {
+            let t = i as f32 * dt;
+            y_euler = euler_step(t, y_euler, dt, |_t, y| -y);
+            y_rk4 = runge_kutta_4(t, y_rk4, dt, |_t, y| -y);
+        }
+        assert!(
+            (y_rk4 - exact).abs() < (y_euler - exact).abs(),
+            "rk4_err={} euler_err={}",
+            (y_rk4 - exact).abs(),
+            (y_euler - exact).abs()
+        );
+    }
+
+    #[test]
+    fn rk4_known_solution() {
+        // y' = y, y(0) = 1  →  y(1) = e. Steps of dt=0.1.
+        let mut y = 1.0_f32;
+        let dt = 0.1;
+        for i in 0..10 {
+            y = runge_kutta_4(i as f32 * dt, y, dt, |_t, y| y);
+        }
+        assert!((y - std::f32::consts::E).abs() < 1e-4, "y={y}");
+    }
+
+    // ── verlet_step ───────────────────────────────────────────────────────
+
+    #[test]
+    fn verlet_free_fall() {
+        // x'' = -9.8, x(0) = 0, x'(0) = 0  →  x(t) = -4.9t²
+        // Initialise prev_pos for Verlet: prev = pos - v*dt + 0.5*a*dt²
+        let g = -9.8_f32;
+        let dt = 0.01;
+        let mut pos = 0.0_f32;
+        let mut prev = pos - 0.0 * dt + 0.5 * g * dt * dt; // v0=0
+        for _ in 0..100 {
+            (pos, prev) = verlet_step(pos, prev, g, dt);
+        }
+        let t = 100.0 * dt;
+        let expected = 0.5 * g * t * t;
+        assert!(
+            (pos - expected).abs() < 0.01,
+            "pos={pos} expected={expected}"
+        );
+    }
+
+    // ── rayleigh_phase ────────────────────────────────────────────────────
+
+    #[test]
+    fn rayleigh_phase_symmetric() {
+        let f = rayleigh_phase(0.5);
+        let b = rayleigh_phase(-0.5);
+        assert!((f - b).abs() < 1e-6, "f={f} b={b}");
+    }
+
+    #[test]
+    fn rayleigh_phase_forward_peaks() {
+        let forward = rayleigh_phase(1.0);
+        let side = rayleigh_phase(0.0);
+        assert!(forward > side, "forward={forward} side={side}");
+    }
+
+    // ── height_blend ──────────────────────────────────────────────────────
+
+    #[test]
+    fn height_blend_below_threshold() {
+        let b = height_blend(0.0, 1.0, 0.5);
+        assert!(b < 0.01, "b={b}");
+    }
+
+    #[test]
+    fn height_blend_above_threshold() {
+        let b = height_blend(2.0, 1.0, 0.5);
+        assert!(b > 0.99, "b={b}");
+    }
+
+    #[test]
+    fn height_blend_at_threshold_is_half() {
+        let b = height_blend(1.0, 1.0, 0.5);
+        assert!((b - 0.5).abs() < 1e-5, "b={b}");
+    }
+
+    // ── curl_noise_2d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn curl_noise_nonzero() {
+        let v = curl_noise_2d(Vec2::new(1.3, 2.7), 0.01);
+        // Curl noise of a non-trivial point should be nonzero.
+        assert!(v.x.abs() + v.y.abs() > 0.0);
+    }
+
+    // ── slope_from_heightmap ──────────────────────────────────────────────
+
+    #[test]
+    fn slope_flat_is_zero() {
+        let pixels = [1.0_f32; 9];
+        let s = slope_from_heightmap(&pixels, 1.0);
+        assert!(s.abs() < 1e-5, "s={s}");
+    }
+
+    #[test]
+    fn slope_ramp_nonzero() {
+        // Linearly increasing height across x.
+        let pixels = [0.0, 0.5, 1.0, 0.0, 0.5, 1.0, 0.0, 0.5, 1.0];
+        let s = slope_from_heightmap(&pixels, 1.0);
+        assert!(s > 0.0, "s={s}");
+    }
+}
