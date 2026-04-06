@@ -8561,3 +8561,267 @@ mod tests_pass_20 {
         assert!((bounce(2.0_f32, 0.0, 1.0) - 0.0).abs() < 1e-5);
     }
 }
+
+// ── Pass 21: Geometric math, scalar helpers ───────────────────────────────────
+
+/// Minimum of three scalars.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::min3;
+/// assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
+/// ```
+#[inline]
+pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+    a.min(b).min(c)
+}
+
+/// Maximum of three scalars.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::max3;
+/// assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
+/// ```
+#[inline]
+pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+    a.max(b).max(c)
+}
+
+/// Compute the area of a 3D triangle with vertices `a`, `b`, `c`.
+///
+/// Uses the cross-product formula: area = ||(b-a) × (c-a)|| / 2.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, triangle_area_3d};
+/// // Unit right triangle in the XY plane has area 0.5
+/// let area = triangle_area_3d(Vec3::ZERO, Vec3::X, Vec3::Y);
+/// assert!((area - 0.5).abs() < 1e-6);
+/// ```
+pub fn triangle_area_3d(a: Vec3, b: Vec3, c: Vec3) -> f32 {
+    (b - a).cross(c - a).length() * 0.5
+}
+
+/// Signed volume of the tetrahedron formed by four vertices `a`, `b`, `c`, `d`.
+///
+/// The sign encodes the winding order of face (a,b,c) relative to `d`:
+/// positive if the face is CCW when viewed from outside (standard winding).
+///
+/// Useful for computing mesh volumes via the divergence theorem: sum the
+/// signed volumes of all faces' tetrahedra from a common origin point.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, signed_volume_tet};
+/// // Regular tetrahedron with unit edge length has volume 1/(6√2) ≈ 0.1178
+/// let a = Vec3::ZERO;
+/// let b = Vec3::X;
+/// let c = Vec3::new(0.5, (3.0_f32).sqrt() / 2.0, 0.0);
+/// let d = Vec3::new(0.5, (3.0_f32).sqrt() / 6.0, (6.0_f32 / 9.0).sqrt());
+/// let v = signed_volume_tet(a, b, c, d).abs();
+/// assert!((v - 0.1178).abs() < 0.01, "tet volume: {v}");
+/// ```
+pub fn signed_volume_tet(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+    // Scalar triple product: det([b-a, c-a, d-a]) / 6
+    // Positive when face (a,b,c) is CCW viewed from d (standard winding)
+    (b - a).cross(c - a).dot(d - a) / 6.0
+}
+
+/// Perspective-correct interpolation of a scalar attribute.
+///
+/// Affine barycentric interpolation introduces "swimming" artefacts because
+/// screen-space `t` is not linearly related to world-space depth.  This
+/// function corrects for the perspective divide using the w-coordinates at
+/// each vertex.
+///
+/// `w0`, `w1` are the homogeneous w values (typically `1/z`) at the two
+/// vertices; `v0`, `v1` are the attribute values.  `t` is the affine screen-
+/// space parameter in \[0, 1\].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::perspective_correct_lerp;
+/// // Equal w → same as linear lerp
+/// let v = perspective_correct_lerp(0.5, 0.0, 1.0, 1.0, 1.0);
+/// assert!((v - 0.5).abs() < 1e-6, "equal w: {v}");
+/// ```
+pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1: f32) -> f32 {
+    // Interpolate w in screen space, then recover perspective-correct value
+    let wt = w0 + (w1 - w0) * t;
+    if wt.abs() < 1e-10 {
+        return v0;
+    }
+    (v0 * w0 * (1.0 - t) + v1 * w1 * t) / wt
+}
+
+/// Sine-based smooth step.  Equivalent to the classic CSS `ease-in-out` but
+/// uses a half-cosine, giving a slightly more gradual curve than the
+/// cubic `smoothstep`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::smoothstep_sine;
+/// assert_eq!(smoothstep_sine(0.0), 0.0);
+/// assert_eq!(smoothstep_sine(1.0), 1.0);
+/// assert!((smoothstep_sine(0.5) - 0.5).abs() < 1e-6);
+/// ```
+pub fn smoothstep_sine(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    0.5 - (core::f32::consts::PI * t).cos() * 0.5
+}
+
+/// Exponential ease-in: slow start, fast end.
+///
+/// `k` controls the steepness (2.0 is gentle, 8.0 is sharp).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_exp_in;
+/// assert!((ease_exp_in(0.0, 4.0) - 0.0).abs() < 1e-5);
+/// assert!((ease_exp_in(1.0, 4.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_exp_in(0.5, 4.0) < 0.5, "ease-in should be below diagonal at 0.5");
+/// ```
+pub fn ease_exp_in(t: f32, k: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    if t == 0.0 {
+        return 0.0;
+    }
+    let scale = (k * t - k).exp();
+    let norm = (1.0 - (-k).exp()).recip();
+    (scale - (-k).exp()) * norm
+}
+
+/// Exponential ease-out: fast start, slow end (mirror of `ease_exp_in`).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ease_exp_out;
+/// assert!((ease_exp_out(0.0, 4.0) - 0.0).abs() < 1e-5);
+/// assert!((ease_exp_out(1.0, 4.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_exp_out(0.5, 4.0) > 0.5, "ease-out should be above diagonal at 0.5");
+/// ```
+pub fn ease_exp_out(t: f32, k: f32) -> f32 {
+    1.0 - ease_exp_in(1.0 - t, k)
+}
+
+#[cfg(test)]
+mod tests_pass_21 {
+    use super::*;
+
+    // ── min3 / max3 ───────────────────────────────────────────────────────
+    #[test]
+    fn min3_all_orderings() {
+        assert_eq!(min3(1.0_f32, 2.0, 3.0), 1.0);
+        assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
+        assert_eq!(min3(2.0_f32, 3.0, 1.0), 1.0);
+    }
+
+    #[test]
+    fn max3_all_orderings() {
+        assert_eq!(max3(1.0_f32, 2.0, 3.0), 3.0);
+        assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
+        assert_eq!(max3(2.0_f32, 3.0, 1.0), 3.0);
+    }
+
+    // ── triangle_area_3d ──────────────────────────────────────────────────
+    #[test]
+    fn unit_right_triangle_area() {
+        let area = triangle_area_3d(Vec3::ZERO, Vec3::X, Vec3::Y);
+        assert!((area - 0.5).abs() < 1e-6, "unit right tri area: {area}");
+    }
+
+    #[test]
+    fn unit_equilateral_triangle_area() {
+        // Equilateral triangle with side 1: area = sqrt(3)/4 ≈ 0.433
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.5, 3.0_f32.sqrt() / 2.0, 0.0);
+        let area = triangle_area_3d(Vec3::ZERO, b, c);
+        assert!(
+            (area - 3.0_f32.sqrt() / 4.0).abs() < 1e-5,
+            "equilateral area: {area}"
+        );
+    }
+
+    // ── signed_volume_tet ─────────────────────────────────────────────────
+    #[test]
+    fn unit_tet_volume() {
+        // Tetrahedron with vertices at (0,0,0),(1,0,0),(0,1,0),(0,0,1)
+        // Volume = 1/6
+        let v = signed_volume_tet(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z).abs();
+        assert!((v - 1.0 / 6.0).abs() < 1e-6, "unit tet volume: {v}");
+    }
+
+    #[test]
+    fn tet_volume_sign_encodes_winding() {
+        let a = Vec3::ZERO;
+        let b = Vec3::X;
+        let c = Vec3::Y;
+        let d = Vec3::Z;
+        let v_fwd = signed_volume_tet(a, b, c, d);
+        let v_rev = signed_volume_tet(a, c, b, d); // swap b and c → reverse winding
+        assert!(v_fwd > 0.0, "CCW: positive");
+        assert!(v_rev < 0.0, "CW: negative");
+    }
+
+    // ── perspective_correct_lerp ──────────────────────────────────────────
+    #[test]
+    fn pcl_equal_w_is_linear() {
+        let v = perspective_correct_lerp(0.5, 0.0, 1.0, 1.0, 1.0);
+        assert!((v - 0.5).abs() < 1e-6, "equal w → linear: {v}");
+    }
+
+    #[test]
+    fn pcl_endpoints_exact() {
+        assert!((perspective_correct_lerp(0.0, 3.0, 7.0, 0.5, 2.0) - 3.0).abs() < 1e-5);
+        assert!((perspective_correct_lerp(1.0, 3.0, 7.0, 0.5, 2.0) - 7.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn pcl_biases_toward_closer_vertex() {
+        // Vertex 1 has larger w (closer to camera) → midpoint biased toward vertex 1's value
+        let v_pcl = perspective_correct_lerp(0.5, 0.0, 1.0, 0.1, 2.0);
+        let v_lin = 0.5_f32;
+        assert!(
+            v_pcl > v_lin,
+            "PCL biased toward larger-w vertex: pcl={v_pcl}, lin={v_lin}"
+        );
+    }
+
+    // ── smoothstep_sine ───────────────────────────────────────────────────
+    #[test]
+    fn smoothstep_sine_endpoints() {
+        assert_eq!(smoothstep_sine(0.0), 0.0);
+        assert_eq!(smoothstep_sine(1.0), 1.0);
+        assert!((smoothstep_sine(0.5) - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn smoothstep_sine_clamps() {
+        assert_eq!(smoothstep_sine(-1.0), 0.0);
+        assert_eq!(smoothstep_sine(2.0), 1.0);
+    }
+
+    // ── ease_exp_in / ease_exp_out ────────────────────────────────────────
+    #[test]
+    fn ease_exp_in_endpoints() {
+        assert!((ease_exp_in(0.0, 4.0) - 0.0).abs() < 1e-5);
+        assert!((ease_exp_in(1.0, 4.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ease_exp_out_is_mirror_of_in() {
+        let t = 0.3_f32;
+        let out_val = ease_exp_out(t, 4.0);
+        let in_val = ease_exp_in(1.0 - t, 4.0);
+        assert!((out_val - (1.0 - in_val)).abs() < 1e-5, "out ≈ 1-in(1-t)");
+    }
+}
