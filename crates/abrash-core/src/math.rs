@@ -9542,3 +9542,383 @@ mod tests_pass_23 {
         assert!((n0 - n1).abs() < 0.05, "noise not smooth: {n0} vs {n1}");
     }
 }
+
+// ── Pass 24: OKLab, Perlin noise, fBm, Worley, Porter-Duff, colour temp, GCD ─
+
+/// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+///
+/// OKLab is perceptually uniform: equal distances correspond to equal perceived
+/// colour differences. Ideal for perceptual blending and palette operations.
+///
+/// Input is **linear** RGB, not gamma-encoded sRGB.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::linear_rgb_to_oklab;
+/// let (l, a, b) = linear_rgb_to_oklab(1.0, 0.0, 0.0); // linear red
+/// assert!(l > 0.0 && l < 1.0, "L in range: {l}");
+/// assert!(a > 0.0, "red has positive a: {a}");
+/// ```
+pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let l = 0.412_221_47 * r + 0.536_332_54 * g + 0.051_445_99 * b;
+    let m = 0.211_903_50 * r + 0.680_699_54 * g + 0.107_396_96 * b;
+    let s = 0.088_302_46 * r + 0.281_718_84 * g + 0.629_978_70 * b;
+    let l_ = l.cbrt();
+    let m_ = m.cbrt();
+    let s_ = s.cbrt();
+    (
+        0.210_454_26 * l_ + 0.793_617_78 * m_ - 0.004_072_05 * s_,
+        1.977_998_50 * l_ - 2.428_592_21 * m_ + 0.450_593_71 * s_,
+        0.025_904_04 * l_ + 0.782_771_77 * m_ - 0.808_675_77 * s_,
+    )
+}
+
+/// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{linear_rgb_to_oklab, oklab_to_linear_rgb};
+/// let (r0, g0, b0) = (0.8_f32, 0.3_f32, 0.1_f32);
+/// let (l, a, b) = linear_rgb_to_oklab(r0, g0, b0);
+/// let (r1, g1, b1) = oklab_to_linear_rgb(l, a, b);
+/// assert!((r0 - r1).abs() < 1e-5 && (g0 - g1).abs() < 1e-5);
+/// ```
+pub fn oklab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
+    let l_ = l + 0.396_337_78 * a + 0.215_803_76 * b;
+    let m_ = l - 0.105_561_35 * a - 0.063_854_17 * b;
+    let s_ = l - 0.089_484_18 * a - 1.291_485_54 * b;
+    let lc = l_ * l_ * l_;
+    let mc = m_ * m_ * m_;
+    let sc = s_ * s_ * s_;
+    (
+        4.076_741_66 * lc - 3.307_711_59 * mc + 0.230_969_94 * sc,
+        -1.268_438_0 * lc + 2.609_757_40 * mc - 0.341_319_38 * sc,
+        -0.004_196_09 * lc - 0.703_418_61 * mc + 1.707_614_70 * sc,
+    )
+}
+
+/// **Perlin gradient noise** (2D, improved version with quintic interpolant).
+///
+/// Returns a value approximately in `[-1, 1]`.  Hash-based implementation —
+/// no permutation table required.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, perlin_noise_2d};
+/// // At integer grid points the noise is exactly 0
+/// assert!((perlin_noise_2d(Vec2::new(0.0, 0.0))).abs() < 1e-5);
+/// ```
+pub fn perlin_noise_2d(p: Vec2) -> f32 {
+    #[inline]
+    fn grad2(hash: u32, dx: f32, dy: f32) -> f32 {
+        // 8 unit gradients on the unit circle (octants)
+        match hash & 7 {
+            0 => dx + dy,
+            1 => dx - dy,
+            2 => -dx + dy,
+            3 => -dx - dy,
+            4 => dx,
+            5 => -dx,
+            6 => dy,
+            _ => -dy,
+        }
+    }
+    #[inline]
+    fn fade(t: f32) -> f32 {
+        t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+    }
+
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let fx = p.x - p.x.floor();
+    let fy = p.y - p.y.floor();
+    let ux = fade(fx);
+    let uy = fade(fy);
+
+    let h = |x: i32, y: i32| wang_hash(x as u32 ^ wang_hash(y as u32));
+    let g00 = grad2(h(ix, iy), fx, fy);
+    let g10 = grad2(h(ix + 1, iy), fx - 1.0, fy);
+    let g01 = grad2(h(ix, iy + 1), fx, fy - 1.0);
+    let g11 = grad2(h(ix + 1, iy + 1), fx - 1.0, fy - 1.0);
+
+    lerp(lerp(g00, g10, ux), lerp(g01, g11, ux), uy)
+}
+
+/// **Fractal Brownian Motion** (fBm) built on [`value_noise_2d`].
+///
+/// Sums `octaves` octaves of value noise, each at double frequency and half
+/// amplitude (configurable via `lacunarity` and `gain`).  Output is in `[0, 1]`.
+///
+/// * `lacunarity` — frequency multiplier per octave (typically `2.0`)
+/// * `gain`       — amplitude multiplier per octave (typically `0.5`)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, fbm_2d};
+/// let n = fbm_2d(Vec2::new(1.5, 2.3), 5, 2.0, 0.5);
+/// assert!(n >= 0.0 && n <= 1.0, "fBm in range: {n}");
+/// ```
+pub fn fbm_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut sum = 0.0_f32;
+    let mut amp = 0.5_f32;
+    let mut max_amp = 0.0_f32;
+    for _ in 0..octaves {
+        sum += amp * value_noise_2d(p);
+        max_amp += amp;
+        amp *= gain;
+        p = Vec2::new(p.x * lacunarity, p.y * lacunarity);
+    }
+    if max_amp < 1e-9 { 0.5 } else { sum / max_amp }
+}
+
+/// **Worley / cellular noise** (2D).
+///
+/// Returns the Euclidean distance to the nearest feature point, which lies at
+/// a random offset within each unit-grid cell.  Output range is approximately
+/// `[0, 0.7]` before clamping.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, worley_noise_2d};
+/// let n = worley_noise_2d(Vec2::new(0.5, 0.5));
+/// assert!(n >= 0.0 && n < 1.5);
+/// ```
+pub fn worley_noise_2d(p: Vec2) -> f32 {
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let mut min_dist = f32::INFINITY;
+    for dy in -1..=1_i32 {
+        for dx in -1..=1_i32 {
+            let cx = (ix + dx) as f32;
+            let cy = (iy + dy) as f32;
+            // Two independent hashes for x and y offsets within cell
+            let ox = hash2_to_f32((ix + dx) as u32, (iy + dy) as u32);
+            let oy = hash2_to_f32((iy + dy) as u32 ^ 0xDEAD_BEEF, (ix + dx) as u32);
+            let px = cx + ox;
+            let py = cy + oy;
+            let ddx = p.x - px;
+            let ddy = p.y - py;
+            let dist = (ddx * ddx + ddy * ddy).sqrt();
+            if dist < min_dist {
+                min_dist = dist;
+            }
+        }
+    }
+    min_dist
+}
+
+/// **Porter-Duff "A over B"** compositing — premultiplied RGBA.
+///
+/// Composites source `(sr, sg, sb, sa)` over destination `(dr, dg, db, da)`.
+/// Returns the resulting premultiplied `(r, g, b, a)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::rgba_over;
+/// // Fully opaque red over anything → red
+/// let (r, g, b, a) = rgba_over(1.0, 0.0, 0.0, 1.0,  0.0, 0.0, 1.0, 1.0);
+/// assert!((r - 1.0).abs() < 1e-5 && b.abs() < 1e-5 && (a - 1.0).abs() < 1e-5);
+/// ```
+#[inline]
+pub fn rgba_over(
+    sr: f32,
+    sg: f32,
+    sb: f32,
+    sa: f32,
+    dr: f32,
+    dg: f32,
+    db: f32,
+    da: f32,
+) -> (f32, f32, f32, f32) {
+    let isa = 1.0 - sa;
+    (sr + dr * isa, sg + dg * isa, sb + db * isa, sa + da * isa)
+}
+
+/// Approximate **colour temperature** (Kelvin) → linear RGB.
+///
+/// Uses Tanner Helland's empirical fit, valid for `1000 K … 40 000 K`.
+/// Returns approximate linear RGB in `[0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::color_temperature_rgb;
+/// // 6500 K (daylight) → neutral-white: all channels near 1
+/// let (r, g, b) = color_temperature_rgb(6500.0);
+/// assert!(r > 0.9 && g > 0.9 && b > 0.9, "daylight near white: {r} {g} {b}");
+/// // 2700 K (incandescent) → warm: red dominates
+/// let (r2, _, b2) = color_temperature_rgb(2700.0);
+/// assert!(r2 > b2, "warm: red > blue: {r2} vs {b2}");
+/// ```
+pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
+    let t = kelvin.clamp(1000.0, 40_000.0) / 100.0;
+    let r = if t <= 66.0 {
+        1.0
+    } else {
+        (329.698_727_45 * (t - 60.0).powf(-0.133_204_759_2) / 255.0).clamp(0.0, 1.0)
+    };
+    let g = if t <= 66.0 {
+        (99.470_802_53 * t.ln() - 161.119_568_34).clamp(0.0, 255.0) / 255.0
+    } else {
+        (288.122_169_52 * (t - 60.0).powf(-0.075_514_849_2) / 255.0).clamp(0.0, 1.0)
+    };
+    let b = if t >= 66.0 {
+        1.0
+    } else if t <= 19.0 {
+        0.0
+    } else {
+        ((138.517_731_21 * (t - 10.0).ln() - 305.044_792_7) / 255.0).clamp(0.0, 1.0)
+    };
+    (r, g, b)
+}
+
+/// Greatest common divisor (Euclidean algorithm).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::gcd_u32;
+/// assert_eq!(gcd_u32(12, 8), 4);
+/// assert_eq!(gcd_u32(7, 13), 1);
+/// ```
+#[inline]
+pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
+    while b > 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a
+}
+
+/// Least common multiple.
+///
+/// Returns `0` if either argument is `0`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::lcm_u32;
+/// assert_eq!(lcm_u32(4, 6), 12);
+/// assert_eq!(lcm_u32(0, 5), 0);
+/// ```
+#[inline]
+pub fn lcm_u32(a: u32, b: u32) -> u32 {
+    if a == 0 || b == 0 {
+        0
+    } else {
+        a / gcd_u32(a, b) * b
+    }
+}
+
+// ── Pass 24 tests ──────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_24 {
+    use super::*;
+
+    // ── oklab ─────────────────────────────────────────────────────────────
+    #[test]
+    fn oklab_round_trip() {
+        for (r, g, b) in [(1.0_f32, 0.0, 0.0), (0.0, 1.0, 0.0), (0.5, 0.3, 0.8)] {
+            let (l, a, bb) = linear_rgb_to_oklab(r, g, b);
+            let (r2, g2, b2) = oklab_to_linear_rgb(l, a, bb);
+            assert!((r - r2).abs() < 1e-4, "r: {r} vs {r2}");
+            assert!((g - g2).abs() < 1e-4, "g: {g} vs {g2}");
+            assert!((b - b2).abs() < 1e-4, "b: {b} vs {b2}");
+        }
+    }
+
+    #[test]
+    fn oklab_white_is_l1() {
+        let (l, a, b) = linear_rgb_to_oklab(1.0, 1.0, 1.0);
+        assert!((l - 1.0).abs() < 1e-4, "white L≈1: {l}");
+        assert!(a.abs() < 1e-4 && b.abs() < 1e-4, "white a,b≈0: {a} {b}");
+    }
+
+    // ── perlin_noise_2d ────────────────────────────────────────────────────
+    #[test]
+    fn perlin_zero_at_integer_points() {
+        for i in 0..5_i32 {
+            for j in 0..5_i32 {
+                let n = perlin_noise_2d(Vec2::new(i as f32, j as f32));
+                assert!(n.abs() < 1e-5, "perlin zero at integer: ({i},{j}) = {n}");
+            }
+        }
+    }
+
+    #[test]
+    fn perlin_range() {
+        for i in 0..100u32 {
+            let n = perlin_noise_2d(Vec2::new(i as f32 * 0.37, i as f32 * 0.61));
+            assert!(n > -2.0 && n < 2.0, "perlin in rough range: {n}");
+        }
+    }
+
+    // ── fbm_2d ────────────────────────────────────────────────────────────
+    #[test]
+    fn fbm_in_range() {
+        for i in 0..50u32 {
+            let n = fbm_2d(Vec2::new(i as f32 * 0.31, i as f32 * 0.71), 5, 2.0, 0.5);
+            assert!(n >= 0.0 && n <= 1.0, "fBm out of range: {n}");
+        }
+    }
+
+    // ── worley_noise_2d ───────────────────────────────────────────────────
+    #[test]
+    fn worley_non_negative() {
+        for i in 0..64u32 {
+            let n = worley_noise_2d(Vec2::new(i as f32 * 0.23, i as f32 * 0.47));
+            assert!(n >= 0.0, "worley non-negative: {n}");
+        }
+    }
+
+    // ── rgba_over ─────────────────────────────────────────────────────────
+    #[test]
+    fn porter_duff_opaque_src() {
+        // Fully opaque src completely covers dst
+        let (r, g, b, a) = rgba_over(0.8, 0.2, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0);
+        assert!((r - 0.8).abs() < 1e-5 && (b).abs() < 1e-5 && (a - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn porter_duff_transparent_src() {
+        // Fully transparent src → dst unchanged
+        let (r, g, b, a) = rgba_over(0.0, 0.0, 0.0, 0.0, 0.5, 0.3, 0.1, 0.7);
+        assert!((r - 0.5).abs() < 1e-5 && (a - 0.7).abs() < 1e-5);
+        let _ = (g, b);
+    }
+
+    // ── color_temperature_rgb ─────────────────────────────────────────────
+    #[test]
+    fn warm_vs_cool_temperature() {
+        let (r_warm, _, b_warm) = color_temperature_rgb(2700.0);
+        let (r_cool, _, b_cool) = color_temperature_rgb(6500.0);
+        assert!(r_warm > b_warm, "warm: red > blue: {r_warm} vs {b_warm}");
+        assert!(
+            b_cool > b_warm,
+            "cool: more blue than warm: {b_cool} vs {b_warm}"
+        );
+    }
+
+    // ── gcd_u32 / lcm_u32 ─────────────────────────────────────────────────
+    #[test]
+    fn gcd_basic() {
+        assert_eq!(gcd_u32(12, 8), 4);
+        assert_eq!(gcd_u32(7, 13), 1);
+        assert_eq!(gcd_u32(0, 5), 5);
+        assert_eq!(gcd_u32(100, 25), 25);
+    }
+
+    #[test]
+    fn lcm_basic() {
+        assert_eq!(lcm_u32(4, 6), 12);
+        assert_eq!(lcm_u32(0, 5), 0);
+        assert_eq!(lcm_u32(7, 3), 21);
+    }
+}

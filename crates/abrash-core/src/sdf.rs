@@ -4545,3 +4545,263 @@ mod tests_pass_23 {
         assert!(d.abs() < 0.02, "near shaft surface: {d}");
     }
 }
+
+// ── Pass 24: Polygon SDF, spring coil, fBm warp, Mandelbrot estimator ────────
+
+/// Signed distance to an arbitrary **closed 2D polygon** (Inigo Quilez).
+///
+/// Uses the winding number sign test plus nearest-edge distance.  Works for
+/// both convex and concave (simple) polygons.  Vertices should be in order
+/// (CW or CCW — the sign is consistent either way).
+///
+/// Returns a negative value inside the polygon.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::polygon_sdf_2d;
+/// let square = [
+///     Vec2::new(-1.0, -1.0), Vec2::new(1.0, -1.0),
+///     Vec2::new(1.0,  1.0), Vec2::new(-1.0, 1.0),
+/// ];
+/// assert!(polygon_sdf_2d(Vec2::ZERO, &square) < 0.0, "origin inside square");
+/// assert!(polygon_sdf_2d(Vec2::new(3.0, 0.0), &square) > 0.0, "far outside");
+/// ```
+pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
+    let n = vertices.len();
+    if n == 0 {
+        return 0.0;
+    }
+    let v = vertices;
+    let dx = p.x - v[0].x;
+    let dy = p.y - v[0].y;
+    let mut d2 = dx * dx + dy * dy;
+    let mut s = 1.0_f32;
+    let mut j = n - 1;
+    for i in 0..n {
+        let ex = v[j].x - v[i].x;
+        let ey = v[j].y - v[i].y;
+        let wx = p.x - v[i].x;
+        let wy = p.y - v[i].y;
+        let e2 = ex * ex + ey * ey;
+        let t = if e2 < 1e-12 {
+            0.0
+        } else {
+            ((wx * ex + wy * ey) / e2).clamp(0.0, 1.0)
+        };
+        let bx = wx - ex * t;
+        let by = wy - ey * t;
+        d2 = d2.min(bx * bx + by * by);
+        // Winding number test
+        let c1 = p.y >= v[i].y;
+        let c2 = p.y < v[j].y;
+        let c3 = ex * wy > ey * wx;
+        if (c1 && c2 && c3) || (!c1 && !c2 && !c3) {
+            s = -s;
+        }
+        j = i;
+    }
+    s * d2.sqrt()
+}
+
+/// **Helical spring coil** SDF.
+///
+/// The coil axis is the Y axis with base at `y = 0`.  A query point is mapped
+/// to its nearest point on the infinite helix (checking the two nearest wraps)
+/// and the tube radius `r_tube` is subtracted.
+///
+/// * `r_coil`  — radius of the coil centreline
+/// * `r_tube`  — radius of the tube
+/// * `pitch`   — vertical advance per full revolution (gap between loops)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::spring_coil_3d;
+/// // A point at coil radius on the XZ plane, midway along a loop ≈ on surface
+/// let d = spring_coil_3d(Vec3::new(0.5, 0.0, 0.0), 0.5, 0.05, 0.3);
+/// assert!(d.abs() < 0.06, "near coil surface: {d}");
+/// ```
+pub fn spring_coil_3d(p: Vec3, r_coil: f32, r_tube: f32, pitch: f32) -> f32 {
+    // For a helix r(t) = (r_coil*cos t, pitch*t/TAU, r_coil*sin t),
+    // the nearest helix angle is approximated by projecting p onto the coil.
+    let angle_xz = p.z.atan2(p.x); // angle of p in XZ plane
+    let angle_helix = core::f32::consts::TAU * p.y / pitch; // helix angle at p.y
+    let delta = angle_xz - angle_helix;
+    // Find nearest wrap (check k-1, k, k+1)
+    let k = (delta / core::f32::consts::TAU).round() as i32;
+    let mut best = f32::INFINITY;
+    for dk in [0_i32, -1, 1] {
+        let t = angle_helix + (k + dk) as f32 * core::f32::consts::TAU;
+        let hx = r_coil * t.cos();
+        let hy = pitch * t / core::f32::consts::TAU;
+        let hz = r_coil * t.sin();
+        let dx = p.x - hx;
+        let dy = p.y - hy;
+        let dz = p.z - hz;
+        let d = (dx * dx + dy * dy + dz * dz).sqrt() - r_tube;
+        if d < best {
+            best = d;
+        }
+    }
+    best
+}
+
+/// **fBm domain-warp** SDF operator.
+///
+/// Displaces the query point using fractional Brownian motion noise before
+/// evaluating the underlying SDF, producing organic, turbulent distortion.
+///
+/// * `strength`  — maximum displacement magnitude
+/// * `octaves`   — fBm octave count (4–6 is typical)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::{fbm_displace_2d, circle_2d};
+/// // Zero strength → no displacement
+/// let d0 = circle_2d(Vec2::new(0.5, 0.0), Vec2::ZERO, 0.3);
+/// let d1 = fbm_displace_2d(Vec2::new(0.5, 0.0), 0.0, 4, |q| circle_2d(q, Vec2::ZERO, 0.3));
+/// assert!((d0 - d1).abs() < 1e-5);
+/// ```
+pub fn fbm_displace_2d(p: Vec2, strength: f32, octaves: u32, sdf: impl Fn(Vec2) -> f32) -> f32 {
+    use super::math::{Vec2 as V2, fbm_2d};
+    let nx = fbm_2d(p, octaves, 2.0, 0.5) * 2.0 - 1.0;
+    // Offset seed to get an independent noise channel for y
+    let ny = fbm_2d(V2::new(p.x + 17.31, p.y + 31.17), octaves, 2.0, 0.5) * 2.0 - 1.0;
+    sdf(V2::new(p.x + nx * strength, p.y + ny * strength))
+}
+
+/// **Mandelbrot set distance estimator** (Hubbard–Douady formula).
+///
+/// Returns an approximate lower bound on the Euclidean distance to the
+/// Mandelbrot set boundary.  Useful for smooth colouring and anti-aliasing
+/// when rendering the Mandelbrot set.
+///
+/// * `c`         — complex number in the parameter plane
+/// * `max_iter`  — escape iteration cap (higher = more accurate near the boundary)
+///
+/// Returns `0.0` for points that do not escape (inside the set).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::mandelbrot_dist;
+/// // Origin is deep inside the set → distance ≈ 0
+/// let d = mandelbrot_dist(Vec2::ZERO, 128);
+/// assert!(d < 1e-3, "origin inside set: {d}");
+/// // A point far outside escapes immediately → large distance
+/// let d2 = mandelbrot_dist(Vec2::new(3.0, 0.0), 128);
+/// assert!(d2 > 0.1, "outside set: {d2}");
+/// ```
+pub fn mandelbrot_dist(c: Vec2, max_iter: u32) -> f32 {
+    let mut zx = 0.0_f32;
+    let mut zy = 0.0_f32;
+    let mut dzx = 1.0_f32;
+    let mut dzy = 0.0_f32;
+    for _ in 0..max_iter {
+        // dz = 2 * z * dz + 1  (complex multiply)
+        let new_dzx = 2.0 * (zx * dzx - zy * dzy) + 1.0;
+        let new_dzy = 2.0 * (zx * dzy + zy * dzx);
+        dzx = new_dzx;
+        dzy = new_dzy;
+        // z = z^2 + c
+        let new_zx = zx * zx - zy * zy + c.x;
+        let new_zy = 2.0 * zx * zy + c.y;
+        zx = new_zx;
+        zy = new_zy;
+        if zx * zx + zy * zy > 1_000_000.0 {
+            let m = (zx * zx + zy * zy).sqrt();
+            let dm = (dzx * dzx + dzy * dzy).sqrt();
+            return 0.5 * m * m.ln() / dm.max(1e-30);
+        }
+    }
+    0.0 // did not escape — inside the set
+}
+
+// ── Pass 24 SDF tests ──────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_24 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── polygon_sdf_2d ─────────────────────────────────────────────────────
+    #[test]
+    fn polygon_square_inside_outside() {
+        let sq = [
+            Vec2::new(-1.0, -1.0),
+            Vec2::new(1.0, -1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 1.0),
+        ];
+        assert!(polygon_sdf_2d(Vec2::ZERO, &sq) < 0.0, "origin inside");
+        assert!(polygon_sdf_2d(Vec2::new(3.0, 0.0), &sq) > 0.0, "outside");
+    }
+
+    #[test]
+    fn polygon_distance_to_edge() {
+        let sq = [
+            Vec2::new(-1.0, -1.0),
+            Vec2::new(1.0, -1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 1.0),
+        ];
+        // Point at (2, 0) → distance to right edge = 1
+        let d = polygon_sdf_2d(Vec2::new(2.0, 0.0), &sq);
+        assert!((d - 1.0).abs() < 1e-5, "dist to edge: {d}");
+    }
+
+    // ── spring_coil_3d ─────────────────────────────────────────────────────
+    #[test]
+    fn spring_coil_on_surface() {
+        // Point at exactly r_coil on X axis, y=0 → should be near -r_tube (inside)
+        let d = spring_coil_3d(Vec3::new(0.5, 0.0, 0.0), 0.5, 0.05, 1.0);
+        assert!(d.abs() < 0.06, "near coil centreline: {d}");
+    }
+
+    #[test]
+    fn spring_coil_far_away() {
+        let d = spring_coil_3d(Vec3::new(10.0, 0.0, 0.0), 0.5, 0.05, 1.0);
+        assert!(d > 0.0, "far outside spring: {d}");
+    }
+
+    // ── fbm_displace_2d ────────────────────────────────────────────────────
+    #[test]
+    fn fbm_displace_zero_strength() {
+        let d0 = circle_2d(Vec2::new(0.5, 0.0), Vec2::ZERO, 0.3);
+        let d1 = fbm_displace_2d(Vec2::new(0.5, 0.0), 0.0, 4, |q| {
+            circle_2d(q, Vec2::ZERO, 0.3)
+        });
+        assert!(
+            (d0 - d1).abs() < 1e-5,
+            "zero strength identity: {d0} vs {d1}"
+        );
+    }
+
+    #[test]
+    fn fbm_displace_finite() {
+        let d = fbm_displace_2d(Vec2::new(1.0, 1.0), 0.5, 4, |q| {
+            circle_2d(q, Vec2::ZERO, 0.5)
+        });
+        assert!(d.is_finite(), "displacement is finite: {d}");
+    }
+
+    // ── mandelbrot_dist ────────────────────────────────────────────────────
+    #[test]
+    fn mandelbrot_inside_returns_zero() {
+        // Origin is deep inside the Mandelbrot set
+        let d = mandelbrot_dist(Vec2::ZERO, 128);
+        assert!(d < 1e-3, "inside: {d}");
+    }
+
+    #[test]
+    fn mandelbrot_outside_positive() {
+        // c = (3, 0) escapes immediately
+        let d = mandelbrot_dist(Vec2::new(3.0, 0.0), 128);
+        assert!(d > 0.0, "outside: {d}");
+    }
+}
