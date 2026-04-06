@@ -8276,3 +8276,288 @@ mod tests_pass_19 {
         assert!(approx_eq(-1.0_f32, -1.0, 0.0));
     }
 }
+
+// ── Pass 20: Hashing, Bayer dithering, audio utils, misc ─────────────────────
+
+/// PCG (Permuted Congruential Generator) hash — high-quality stateless integer
+/// hash in ~3 instructions.
+///
+/// Ideal for procedural generation, noise seeding, and GPU-style per-pixel
+/// random number generation.  Passes PractRand and BigCrush statistical tests.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::pcg_hash;
+/// assert_eq!(pcg_hash(42), pcg_hash(42));
+/// assert_ne!(pcg_hash(1), pcg_hash(2));
+/// ```
+pub const fn pcg_hash(input: u32) -> u32 {
+    let state = input.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
+    let word = ((state >> ((state >> 28).wrapping_add(4))) ^ state).wrapping_mul(277_803_737);
+    (word >> 22) ^ word
+}
+
+/// Wang hash — a classic fast integer hash for procedural texturing.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::wang_hash;
+/// assert_ne!(wang_hash(0), wang_hash(1));
+/// assert_eq!(wang_hash(42), wang_hash(42));
+/// ```
+pub const fn wang_hash(mut key: u32) -> u32 {
+    key = key.wrapping_add(!(key << 15));
+    key ^= key >> 10;
+    key = key.wrapping_add(key << 3);
+    key ^= key >> 6;
+    key = key.wrapping_add(!(key << 11));
+    key ^= key >> 16;
+    key
+}
+
+/// Hash a `u32` to a `f32` in \[0, 1).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::hash_to_f32;
+/// let v = hash_to_f32(12345);
+/// assert!(v >= 0.0 && v < 1.0);
+/// assert_ne!(hash_to_f32(0), hash_to_f32(1));
+/// ```
+pub fn hash_to_f32(seed: u32) -> f32 {
+    let h = pcg_hash(seed);
+    f32::from_bits((h >> 9) | 0x3F80_0000) - 1.0
+}
+
+/// Hash two `u32` coordinates to a `f32`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::hash2_to_f32;
+/// let v = hash2_to_f32(3, 7);
+/// assert!(v >= 0.0 && v < 1.0);
+/// ```
+pub fn hash2_to_f32(x: u32, y: u32) -> f32 {
+    hash_to_f32(pcg_hash(x).wrapping_add(y.wrapping_mul(2_654_435_761)))
+}
+
+/// Look up a value in the 8×8 **Bayer ordered-dither matrix**, normalised to
+/// \[0, 1).
+///
+/// Compare this threshold against a pixel's intensity to decide whether to
+/// round up or down.
+///
+/// `x` and `y` are pixel coordinates (only low 3 bits used).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::bayer8x8;
+/// for y in 0..8u32 { for x in 0..8u32 {
+///     let v = bayer8x8(x, y);
+///     assert!(v >= 0.0 && v < 1.0);
+/// }}
+/// ```
+pub fn bayer8x8(x: u32, y: u32) -> f32 {
+    const BAYER: [[u8; 8]; 8] = [
+        [0, 32, 8, 40, 2, 34, 10, 42],
+        [48, 16, 56, 24, 50, 18, 58, 26],
+        [12, 44, 4, 36, 14, 46, 6, 38],
+        [60, 28, 52, 20, 62, 30, 54, 22],
+        [3, 35, 11, 43, 1, 33, 9, 41],
+        [51, 19, 59, 27, 49, 17, 57, 25],
+        [15, 47, 7, 39, 13, 45, 5, 37],
+        [63, 31, 55, 23, 61, 29, 53, 21],
+    ];
+    BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+}
+
+/// Convert a linear amplitude ratio to decibels: `20 * log10(|amplitude|)`.
+///
+/// Returns `-∞` for `amplitude = 0`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::linear_to_db;
+/// assert!((linear_to_db(1.0) - 0.0).abs() < 1e-5);
+/// assert!((linear_to_db(2.0) - 6.0206).abs() < 0.01);
+/// ```
+pub fn linear_to_db(amplitude: f32) -> f32 {
+    20.0 * amplitude.abs().log10()
+}
+
+/// Convert decibels to a linear amplitude ratio: `10^(db/20)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::db_to_linear;
+/// assert!((db_to_linear(0.0) - 1.0).abs() < 1e-5);
+/// assert!((db_to_linear(-20.0) - 0.1).abs() < 1e-5);
+/// ```
+pub fn db_to_linear(db: f32) -> f32 {
+    10.0_f32.powf(db / 20.0)
+}
+
+/// Snap `value` to the nearest multiple of `step`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::snap;
+/// assert!((snap(1.7_f32, 0.5) - 1.5).abs() < 1e-6);
+/// assert!((snap(1.3_f32, 0.5) - 1.5).abs() < 1e-6);
+/// ```
+pub fn snap(value: f32, step: f32) -> f32 {
+    (value / step).round() * step
+}
+
+/// Bounce `t` back and forth between `lo` and `hi`.
+///
+/// Unlike `ping_pong`, this version maps an unbounded `t` into `[lo, hi]`
+/// with triangle-wave folding, so it's suitable for position oscillation.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::bounce;
+/// assert!((bounce(1.5_f32, 0.0, 1.0) - 0.5).abs() < 1e-5);
+/// assert!((bounce(2.0_f32, 0.0, 1.0) - 0.0).abs() < 1e-5);
+/// ```
+pub fn bounce(t: f32, lo: f32, hi: f32) -> f32 {
+    let range = hi - lo;
+    if range <= 0.0 {
+        return lo;
+    }
+    let t2 = ((t - lo) % (2.0 * range)).abs();
+    let folded = if t2 > range { 2.0 * range - t2 } else { t2 };
+    lo + folded
+}
+
+#[cfg(test)]
+mod tests_pass_20 {
+    use super::*;
+
+    // ── pcg_hash ──────────────────────────────────────────────────────────
+    #[test]
+    fn pcg_hash_deterministic() {
+        assert_eq!(pcg_hash(0), pcg_hash(0));
+        assert_eq!(pcg_hash(u32::MAX), pcg_hash(u32::MAX));
+    }
+
+    #[test]
+    fn pcg_hash_avalanche() {
+        let a = pcg_hash(0x0000_0001);
+        let b = pcg_hash(0x0000_0002);
+        let diff = (a ^ b).count_ones();
+        assert!(diff >= 8, "poor avalanche: only {diff} bits differ");
+    }
+
+    // ── wang_hash ─────────────────────────────────────────────────────────
+    #[test]
+    fn wang_hash_deterministic() {
+        assert_eq!(wang_hash(42), wang_hash(42));
+    }
+
+    #[test]
+    fn wang_hash_distinct_inputs() {
+        for i in 0u32..8 {
+            for j in (i + 1)..8 {
+                assert_ne!(wang_hash(i), wang_hash(j), "collision at {i},{j}");
+            }
+        }
+    }
+
+    // ── hash_to_f32 / hash2_to_f32 ───────────────────────────────────────
+    #[test]
+    fn hash_to_f32_in_range() {
+        for i in 0u32..256 {
+            let v = hash_to_f32(i);
+            assert!(v >= 0.0 && v < 1.0, "hash_to_f32({i}) = {v}");
+        }
+    }
+
+    #[test]
+    fn hash2_to_f32_in_range() {
+        for x in 0u32..16 {
+            for y in 0u32..16 {
+                let v = hash2_to_f32(x, y);
+                assert!(v >= 0.0 && v < 1.0, "hash2({x},{y}) = {v}");
+            }
+        }
+    }
+
+    // ── bayer8x8 ──────────────────────────────────────────────────────────
+    #[test]
+    fn bayer8x8_all_in_range() {
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                let v = bayer8x8(x, y);
+                assert!(v >= 0.0 && v < 1.0, "bayer({x},{y}) = {v}");
+            }
+        }
+    }
+
+    #[test]
+    fn bayer8x8_all_unique() {
+        let mut seen = std::collections::HashSet::new();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                let v = (bayer8x8(x, y) * 64.0).round() as u32;
+                assert!(seen.insert(v), "duplicate Bayer value {v} at ({x},{y})");
+            }
+        }
+    }
+
+    #[test]
+    fn bayer8x8_wraps_periodically() {
+        assert_eq!(bayer8x8(0, 0), bayer8x8(8, 0));
+        assert_eq!(bayer8x8(3, 5), bayer8x8(11, 13));
+    }
+
+    // ── linear_to_db / db_to_linear ──────────────────────────────────────
+    #[test]
+    fn db_round_trip() {
+        for amp in [0.01_f32, 0.1, 0.5, 1.0, 2.0, 10.0] {
+            let db = linear_to_db(amp);
+            let back = db_to_linear(db);
+            assert!((back - amp).abs() / amp < 1e-5, "round-trip {amp}: {back}");
+        }
+    }
+
+    #[test]
+    fn db_zero_is_minus_infinity() {
+        assert!(linear_to_db(0.0).is_infinite() && linear_to_db(0.0) < 0.0);
+    }
+
+    // ── snap ──────────────────────────────────────────────────────────────
+    #[test]
+    fn snap_rounds_to_grid() {
+        assert!((snap(0.7_f32, 0.25) - 0.75).abs() < 1e-6);
+        assert!((snap(0.3_f32, 0.25) - 0.25).abs() < 1e-6);
+        assert!((snap(-0.3_f32, 0.25) - -0.25).abs() < 1e-6);
+    }
+
+    // ── bounce ────────────────────────────────────────────────────────────
+    #[test]
+    fn bounce_stays_in_range() {
+        for i in 0..200 {
+            let t = i as f32 * 0.13;
+            let v = bounce(t, 0.0, 1.0);
+            assert!(v >= -1e-5 && v <= 1.0 + 1e-5, "bounce({t}) = {v}");
+        }
+    }
+
+    #[test]
+    fn bounce_reflects_at_bounds() {
+        assert!((bounce(0.0_f32, 0.0, 1.0) - 0.0).abs() < 1e-5);
+        assert!((bounce(1.0_f32, 0.0, 1.0) - 1.0).abs() < 1e-5);
+        assert!((bounce(1.5_f32, 0.0, 1.0) - 0.5).abs() < 1e-5);
+        assert!((bounce(2.0_f32, 0.0, 1.0) - 0.0).abs() < 1e-5);
+    }
+}

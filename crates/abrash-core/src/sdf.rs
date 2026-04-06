@@ -3533,3 +3533,233 @@ mod tests_pass_19 {
         );
     }
 }
+
+// ── Pass 20: SDF additions ────────────────────────────────────────────────────
+
+/// Infinite cone SDF — a double-ended cone extending to infinity along the Y
+/// axis.
+///
+/// `c` is `(sin(θ), cos(θ))` where `θ` is the half-angle of the cone.  The
+/// cone tip is at the origin; the cone extends in both the +y and −y directions.
+///
+/// Translated from Inigo Quilez's `sdCone` (the infinite variant).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::infinite_cone_3d;
+/// use abrash_core::math::Vec3;
+/// // On the axis above the tip: inside the cone
+/// let sin_cos = (0.5_f32.sin(), 0.5_f32.cos()); // half-angle 0.5 rad
+/// let d = infinite_cone_3d(Vec3::new(0.0, 1.0, 0.0), sin_cos);
+/// assert!(d < 0.0, "on axis inside cone: {d}");
+/// // Far off-axis: outside
+/// let d2 = infinite_cone_3d(Vec3::new(5.0, 1.0, 0.0), sin_cos);
+/// assert!(d2 > 0.0, "off-axis outside: {d2}");
+/// ```
+pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
+    // 2D profile: (radial distance from y-axis, y coordinate)
+    let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y);
+    // Signed distance to the cone surface line through origin with normal (cos, -sin)
+    q.x * c.1 - q.y.abs() * c.0
+}
+
+/// Planar quad SDF (3D).
+///
+/// Signed distance to the convex planar quad defined by four vertices
+/// `a`, `b`, `c`, `d` (in order).  Returns negative for points on the
+/// interior side (i.e., behind the quad's normal).
+///
+/// Translated from Inigo Quilez's `sdQuad`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::quad_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre of a unit square in the XZ plane
+/// let a = Vec3::new(-0.5, 0.0, -0.5);
+/// let b = Vec3::new( 0.5, 0.0, -0.5);
+/// let c = Vec3::new( 0.5, 0.0,  0.5);
+/// let d = Vec3::new(-0.5, 0.0,  0.5);
+/// // Point 0.1 above the centre of the quad — distance should be ~0.1
+/// let dist = quad_3d(Vec3::new(0.0, 0.1, 0.0), a, b, c, d);
+/// assert!((dist - 0.1).abs() < 0.01, "above centre: {dist}");
+/// // Far above
+/// let far = quad_3d(Vec3::new(0.0, 10.0, 0.0), a, b, c, d);
+/// assert!(far > 9.0, "far above: {far}");
+/// ```
+pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+    // Translated from Inigo Quilez's sdQuad (exact signed distance)
+    let ba = b - a;
+    let cb = c - b;
+    let dc = d - c;
+    let ad = a - d;
+    let pa = p - a;
+    let pb = p - b;
+    let pc = p - c;
+    let pd = p - d;
+
+    // Normal direction from ba × ad
+    let nor = ba.cross(ad);
+
+    // Helper: length squared of a vector
+    let dot2 = |v: Vec3| v.dot(v);
+
+    // Clamp-and-distance for each edge
+    let edge_dist2 = |pe: Vec3, edge: Vec3| -> f32 {
+        let t = (pe.dot(edge) / dot2(edge)).clamp(0.0, 1.0);
+        dot2(edge * t - pe)
+    };
+
+    // Check whether the projection of p lies inside the quad
+    // (all 4 cross-product signs positive = inside)
+    let inside = (ba.cross(nor).dot(pa).signum()
+        + cb.cross(nor).dot(pb).signum()
+        + dc.cross(nor).dot(pc).signum()
+        + ad.cross(nor).dot(pd).signum())
+        >= 4.0 - 0.5; // =4 means inside all half-planes
+
+    let dist2 = if inside {
+        // Point projects inside quad: distance is purely perpendicular (to plane)
+        nor.dot(pa) * nor.dot(pa) / dot2(nor)
+    } else {
+        // Point projects outside: nearest edge distance
+        edge_dist2(pa, ba)
+            .min(edge_dist2(pb, cb))
+            .min(edge_dist2(pc, dc))
+            .min(edge_dist2(pd, ad))
+    };
+
+    // Sign: positive if on the +normal side (consistent with plane SDF)
+    let sign = nor.dot(pa).signum();
+    dist2.sqrt() * sign
+}
+
+/// Infinite horizontal slab SDF — the space between two parallel planes at
+/// y = −`h` and y = +`h`.
+///
+/// Returns negative for points inside the slab, positive outside.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::slab_y_3d;
+/// use abrash_core::math::Vec3;
+/// assert!(slab_y_3d(Vec3::new(0.0, 0.3, 0.0), 0.5) < 0.0, "inside slab");
+/// assert!(slab_y_3d(Vec3::new(0.0, 1.0, 0.0), 0.5) > 0.0, "outside slab");
+/// ```
+pub fn slab_y_3d(p: Vec3, h: f32) -> f32 {
+    p.y.abs() - h
+}
+
+/// Boolean XOR of two SDFs: the region inside exactly one of them.
+///
+/// `xor(a, b) = max(min(a, b), -max(a, b))` — equivalent to `union - intersection`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::sdf_xor;
+/// // Inside both shapes: XOR should be outside
+/// let d = sdf_xor(-0.3_f32, -0.4);
+/// assert!(d > 0.0, "inside both → XOR outside: {d}");
+/// // Inside one only: XOR is inside
+/// let d2 = sdf_xor(-0.3_f32, 0.5);
+/// assert!(d2 < 0.0, "inside one → XOR inside: {d2}");
+/// ```
+pub fn sdf_xor(a: f32, b: f32) -> f32 {
+    // XOR = (union) ∩ NOT(intersection)
+    // union = min(a,b); NOT(intersection) = -max(a,b)
+    // Combined: max(min(a,b), -max(a,b))
+    (a.min(b)).max(-(a.max(b)))
+}
+
+#[cfg(test)]
+mod tests_pass_20 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── infinite_cone_3d ──────────────────────────────────────────────────
+    #[test]
+    fn infinite_cone_on_axis_inside() {
+        let angle = 0.5_f32; // half-angle in radians
+        let c = (angle.sin(), angle.cos());
+        let d = infinite_cone_3d(Vec3::new(0.0, 1.0, 0.0), c);
+        assert!(d < 0.0, "on +y axis inside cone: {d}");
+    }
+
+    #[test]
+    fn infinite_cone_off_axis_outside() {
+        let angle = 0.3_f32;
+        let c = (angle.sin(), angle.cos());
+        let d = infinite_cone_3d(Vec3::new(5.0, 0.1, 0.0), c);
+        assert!(d > 0.0, "off-axis outside: {d}");
+    }
+
+    #[test]
+    fn infinite_cone_tip_zero() {
+        // At the very tip (origin), distance depends on cone angle
+        let angle = 0.5_f32;
+        let c = (angle.sin(), angle.cos());
+        let d = infinite_cone_3d(Vec3::ZERO, c);
+        // At origin: q=(0,0), dist = 0*cos - 0*sin = 0
+        assert!(d.abs() < 1e-5, "at tip: {d}");
+    }
+
+    // ── quad_3d ───────────────────────────────────────────────────────────
+    #[test]
+    fn quad_3d_above_surface_positive() {
+        let a = Vec3::new(-0.5, 0.0, -0.5);
+        let b = Vec3::new(0.5, 0.0, -0.5);
+        let c = Vec3::new(0.5, 0.0, 0.5);
+        let d = Vec3::new(-0.5, 0.0, 0.5);
+        let dist = quad_3d(Vec3::new(0.0, 1.0, 0.0), a, b, c, d);
+        assert!(dist > 0.0, "above quad is positive: {dist}");
+    }
+
+    #[test]
+    fn quad_3d_below_surface_negative() {
+        let a = Vec3::new(-0.5, 0.0, -0.5);
+        let b = Vec3::new(0.5, 0.0, -0.5);
+        let c = Vec3::new(0.5, 0.0, 0.5);
+        let d = Vec3::new(-0.5, 0.0, 0.5);
+        let dist = quad_3d(Vec3::new(0.0, -0.5, 0.0), a, b, c, d);
+        assert!(dist < 0.0, "below quad is negative: {dist}");
+    }
+
+    // ── slab_y_3d ─────────────────────────────────────────────────────────
+    #[test]
+    fn slab_inside() {
+        let d = slab_y_3d(Vec3::new(0.0, 0.2, 0.0), 0.5);
+        assert!(d < 0.0, "inside slab: {d}");
+    }
+
+    #[test]
+    fn slab_outside() {
+        let d = slab_y_3d(Vec3::new(0.0, 1.0, 0.0), 0.5);
+        assert!(d > 0.0, "outside slab: {d}");
+    }
+
+    // ── sdf_xor ───────────────────────────────────────────────────────────
+    #[test]
+    fn sdf_xor_inside_both_is_outside() {
+        // Both negative (inside both shapes): XOR should be outside (positive)
+        let d = sdf_xor(-0.3, -0.4);
+        assert!(d > 0.0, "inside both → XOR outside: {d}");
+    }
+
+    #[test]
+    fn sdf_xor_inside_one_is_inside() {
+        // One inside, one outside: XOR is inside the one
+        let d = sdf_xor(-0.3, 0.5);
+        assert!(d < 0.0, "inside one → XOR inside: {d}");
+    }
+
+    #[test]
+    fn sdf_xor_outside_both_is_outside() {
+        // Both positive (outside both): XOR is outside
+        let d = sdf_xor(0.5, 0.3);
+        assert!(d > 0.0, "outside both → XOR outside: {d}");
+    }
+}
