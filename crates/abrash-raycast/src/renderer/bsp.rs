@@ -797,8 +797,8 @@ mod tests {
     // render_bsp_view integration tests
     // -----------------------------------------------------------------------
 
-    use abrash_core::bam::{ANG90, ANG180, ANG270};
     use crate::bsp::{BspMap, BspSector, BspSeg};
+    use abrash_core::bam::{ANG90, ANG180, ANG270};
 
     /// Integration BSP map: a single 512x512 room with 4 solid walls.
     struct IntegrationBspMap {

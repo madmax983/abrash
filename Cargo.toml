@@ -578,6 +578,11 @@ name = "wobble_demo"
 path = "examples/wobble_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "frosted_glass_demo"
+path = "examples/frosted_glass_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "tilt_shift_bench"
 harness = false

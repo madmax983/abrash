@@ -137,13 +137,13 @@ pub use abrash_skeletal as skeletal;
 pub mod platform;
 
 // Re-export rendering modules from abrash-render.
+pub use abrash_raycast::renderer as raycaster;
 pub use abrash_render::ascii;
 pub use abrash_render::heat_vision;
 pub use abrash_render::particles;
 pub use abrash_render::post_process;
 pub use abrash_render::procedural;
 pub use abrash_render::rasterizer;
-pub use abrash_raycast::renderer as raycaster;
 pub use abrash_render::render_api;
 pub use abrash_render::scene;
 pub use abrash_render::skybox;
