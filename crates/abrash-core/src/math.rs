@@ -11812,3 +11812,330 @@ mod tests_pass_29 {
         assert!((erf_approx(5.0) - 1.0).abs() < 1e-5);
     }
 }
+
+// ── Pass 30 additions ─────────────────────────────────────────────────────────
+
+/// 3D Perlin noise in `[−1, 1]` using Ken Perlin's improved 2002 gradients.
+///
+/// The hash uses [`wang_hash`] for a table-free implementation. Output range
+/// is approximately `[−0.87, 0.87]` (√(2/3) for the 3D gradient projection).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{perlin_noise_3d, Vec3};
+/// let n = perlin_noise_3d(Vec3::new(1.5, 2.3, 0.7));
+/// assert!(n >= -1.0 && n <= 1.0);
+/// ```
+#[must_use]
+pub fn perlin_noise_3d(p: Vec3) -> f32 {
+    #[inline]
+    fn grad3(hash: u32, dx: f32, dy: f32, dz: f32) -> f32 {
+        // Perlin 2002 improved gradients — 12 midpoints of unit cube edges.
+        match hash & 15 {
+            0 => dx + dy,
+            1 => -dx + dy,
+            2 => dx - dy,
+            3 => -dx - dy,
+            4 => dx + dz,
+            5 => -dx + dz,
+            6 => dx - dz,
+            7 => -dx - dz,
+            8 => dy + dz,
+            9 => -dy + dz,
+            10 => dy - dz,
+            11 => -dy - dz,
+            12 => dx + dy,
+            13 => -dx + dy,
+            14 => -dy + dz,
+            _ => -dy - dz,
+        }
+    }
+    #[inline]
+    fn fade(t: f32) -> f32 {
+        t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+    }
+
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let iz = p.z.floor() as i32;
+    let fx = p.x - p.x.floor();
+    let fy = p.y - p.y.floor();
+    let fz = p.z - p.z.floor();
+    let ux = fade(fx);
+    let uy = fade(fy);
+    let uz = fade(fz);
+
+    let h =
+        |x: i32, y: i32, z: i32| wang_hash(x as u32 ^ wang_hash(y as u32 ^ wang_hash(z as u32)));
+
+    // Trilinear interpolation of 8 gradient contributions.
+    let g000 = grad3(h(ix, iy, iz), fx, fy, fz);
+    let g100 = grad3(h(ix + 1, iy, iz), fx - 1.0, fy, fz);
+    let g010 = grad3(h(ix, iy + 1, iz), fx, fy - 1.0, fz);
+    let g110 = grad3(h(ix + 1, iy + 1, iz), fx - 1.0, fy - 1.0, fz);
+    let g001 = grad3(h(ix, iy, iz + 1), fx, fy, fz - 1.0);
+    let g101 = grad3(h(ix + 1, iy, iz + 1), fx - 1.0, fy, fz - 1.0);
+    let g011 = grad3(h(ix, iy + 1, iz + 1), fx, fy - 1.0, fz - 1.0);
+    let g111 = grad3(h(ix + 1, iy + 1, iz + 1), fx - 1.0, fy - 1.0, fz - 1.0);
+
+    lerp(
+        lerp(lerp(g000, g100, ux), lerp(g010, g110, ux), uy),
+        lerp(lerp(g001, g101, ux), lerp(g011, g111, ux), uy),
+        uz,
+    )
+}
+
+/// 3D fractal Brownian motion built on [`perlin_noise_3d`].
+///
+/// Output is in approximately `[−1, 1]` before rescaling; the exact range
+/// depends on `octaves`, `lacunarity`, and `gain`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{fbm_3d, Vec3};
+/// let n = fbm_3d(Vec3::new(1.0, 2.0, 0.5), 4, 2.0, 0.5);
+/// assert!(n >= -2.0 && n <= 2.0);
+/// ```
+#[must_use]
+pub fn fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut sum = 0.0_f32;
+    let mut amp = 1.0_f32;
+    for _ in 0..octaves {
+        sum += amp * perlin_noise_3d(p);
+        p = Vec3::new(p.x * lacunarity, p.y * lacunarity, p.z * lacunarity);
+        amp *= gain;
+    }
+    sum
+}
+
+/// Linear interpolation of two [`Vec2`] values.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{lerp_vec2, Vec2};
+/// let v = lerp_vec2(Vec2::ZERO, Vec2::new(2.0, 4.0), 0.5);
+/// assert!((v.x - 1.0).abs() < 1e-6 && (v.y - 2.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn lerp_vec2(a: Vec2, b: Vec2, t: f32) -> Vec2 {
+    Vec2::new(lerp(a.x, b.x, t), lerp(a.y, b.y, t))
+}
+
+/// Linear interpolation of two [`Vec3`] values.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{lerp_vec3, Vec3};
+/// let v = lerp_vec3(Vec3::ZERO, Vec3::new(2.0, 4.0, 6.0), 0.5);
+/// assert!((v.x - 1.0).abs() < 1e-6);
+/// assert!((v.z - 3.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn lerp_vec3(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+    Vec3::new(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t))
+}
+
+/// Check if two 2D line segments `(a1, a2)` and `(b1, b2)` intersect.
+///
+/// Returns `true` if the open segments cross (not just their infinite
+/// extensions). Collinear overlapping segments return `false`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{segment_intersect_2d, Vec2};
+/// // X-crossing: should intersect.
+/// assert!(segment_intersect_2d(
+///     Vec2::new(-1.0, 0.0), Vec2::new(1.0, 0.0),
+///     Vec2::new(0.0, -1.0), Vec2::new(0.0, 1.0),
+/// ));
+/// // Parallel: should not.
+/// assert!(!segment_intersect_2d(
+///     Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0),
+///     Vec2::new(0.0, 1.0), Vec2::new(1.0, 1.0),
+/// ));
+/// ```
+#[must_use]
+#[inline]
+pub fn segment_intersect_2d(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
+    // Classic cross-product winding number test.
+    #[inline]
+    fn cross2(v: Vec2, w: Vec2) -> f32 {
+        v.x * w.y - v.y * w.x
+    }
+    let r = Vec2::new(a2.x - a1.x, a2.y - a1.y);
+    let s = Vec2::new(b2.x - b1.x, b2.y - b1.y);
+    let denom = cross2(r, s);
+    if denom.abs() < 1e-12 {
+        return false; // parallel or collinear
+    }
+    let diff = Vec2::new(b1.x - a1.x, b1.y - a1.y);
+    let t = cross2(diff, s) / denom;
+    let u = cross2(diff, r) / denom;
+    (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
+}
+
+/// Exponential ease-in: `2^(10(t−1))` curve (very slow start, fast end).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_expo_in;
+/// assert!(ease_expo_in(0.0).abs() < 1e-5);
+/// assert!((ease_expo_in(1.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_expo_in(0.5) < 0.1); // extremely slow at midpoint
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_expo_in(t: f32) -> f32 {
+    if t <= 0.0 {
+        0.0
+    } else {
+        (2.0_f32).powf(10.0 * t - 10.0)
+    }
+}
+
+/// Exponential ease-out: mirror of [`ease_expo_in`].
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_expo_out;
+/// assert!(ease_expo_out(0.0).abs() < 1e-5);
+/// assert!((ease_expo_out(1.0) - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_expo_out(t: f32) -> f32 {
+    if t >= 1.0 {
+        1.0
+    } else {
+        1.0 - (2.0_f32).powf(-10.0 * t)
+    }
+}
+
+/// Exponential ease-in-out.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_expo_in_out;
+/// assert!(ease_expo_in_out(0.0).abs() < 1e-5);
+/// assert!((ease_expo_in_out(1.0) - 1.0).abs() < 1e-5);
+/// assert!((ease_expo_in_out(0.5) - 0.5).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_expo_in_out(t: f32) -> f32 {
+    if t <= 0.0 {
+        0.0
+    } else if t >= 1.0 {
+        1.0
+    } else if t < 0.5 {
+        (2.0_f32).powf(20.0 * t - 10.0) * 0.5
+    } else {
+        (2.0 - (2.0_f32).powf(-20.0 * t + 10.0)) * 0.5
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_30 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── perlin_noise_3d ───────────────────────────────────────────────────────
+    #[test]
+    fn perlin_3d_in_range() {
+        let n = perlin_noise_3d(Vec3::new(1.5, 2.3, 0.7));
+        assert!(n >= -1.0 && n <= 1.0, "out of range: {n}");
+    }
+
+    #[test]
+    fn perlin_3d_grid_point_near_zero() {
+        // At integer lattice points, all gradients cancel → near 0.
+        let n = perlin_noise_3d(Vec3::new(1.0, 2.0, 3.0));
+        assert!(n.abs() < 1e-5, "lattice: {n}");
+    }
+
+    #[test]
+    fn perlin_3d_varies() {
+        let n1 = perlin_noise_3d(Vec3::new(0.3, 0.7, 0.5));
+        let n2 = perlin_noise_3d(Vec3::new(1.3, 0.7, 0.5));
+        assert!((n1 - n2).abs() > 1e-3, "no variation: {n1} {n2}");
+    }
+
+    // ── fbm_3d ────────────────────────────────────────────────────────────────
+    #[test]
+    fn fbm_3d_range() {
+        let n = fbm_3d(Vec3::new(1.0, 2.0, 0.5), 4, 2.0, 0.5);
+        assert!(n >= -3.0 && n <= 3.0, "fbm out of range: {n}");
+    }
+
+    // ── lerp_vec ──────────────────────────────────────────────────────────────
+    #[test]
+    fn lerp_vec2_midpoint() {
+        let v = lerp_vec2(Vec2::ZERO, Vec2::new(2.0, 4.0), 0.5);
+        assert!((v.x - 1.0).abs() < 1e-6);
+        assert!((v.y - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn lerp_vec3_endpoints() {
+        let a = Vec3::new(1.0, 2.0, 3.0);
+        let b = Vec3::new(5.0, 6.0, 7.0);
+        let v0 = lerp_vec3(a, b, 0.0);
+        let v1 = lerp_vec3(a, b, 1.0);
+        assert!((v0.x - 1.0).abs() < 1e-6);
+        assert!((v1.z - 7.0).abs() < 1e-6);
+    }
+
+    // ── segment_intersect_2d ─────────────────────────────────────────────────
+    #[test]
+    fn segments_x_cross() {
+        assert!(segment_intersect_2d(
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(0.0, 1.0),
+        ));
+    }
+
+    #[test]
+    fn segments_parallel_no_cross() {
+        assert!(!segment_intersect_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 1.0),
+        ));
+    }
+
+    #[test]
+    fn segments_t_no_extend() {
+        // Segments that would cross if extended but don't overlap.
+        assert!(!segment_intersect_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(2.0, -1.0),
+            Vec2::new(2.0, 1.0),
+        ));
+    }
+
+    // ── ease_expo ─────────────────────────────────────────────────────────────
+    #[test]
+    fn expo_easing_endpoints() {
+        assert!(ease_expo_in(0.0).abs() < 1e-5);
+        assert!((ease_expo_in(1.0) - 1.0).abs() < 1e-5);
+        assert!(ease_expo_out(0.0).abs() < 1e-5);
+        assert!((ease_expo_out(1.0) - 1.0).abs() < 1e-5);
+        assert!((ease_expo_in_out(0.5) - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn expo_in_very_slow_at_midpoint() {
+        assert!(ease_expo_in(0.5) < 0.05);
+    }
+
+    #[test]
+    fn expo_out_fast_at_start() {
+        assert!(ease_expo_out(0.5) > 0.95);
+    }
+}
