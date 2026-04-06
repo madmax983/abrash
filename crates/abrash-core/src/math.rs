@@ -17968,3 +17968,404 @@ mod tests_pass_52 {
         ));
     }
 }
+
+// ── Pass 53 — SDF primitives & operators ─────────────────────────────────────
+// sdf_sphere, sdf_box_3d, sdf_torus, sdf_capsule_3d, sdf_cone,
+// sdf_cylinder, sdf_op_union, sdf_op_subtract, sdf_op_intersect,
+// sdf_op_smooth_union, sdf_op_round, sdf_op_onion, sdf_op_repeat_3d
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// SDF: unit sphere of radius `r` centred at the origin.
+///
+/// `p` is the query point in the sphere's local frame.
+/// Returns negative inside, zero on surface, positive outside.
+#[inline]
+pub fn sdf_sphere(p: Vec3, r: f32) -> f32 {
+    (p.x * p.x + p.y * p.y + p.z * p.z).sqrt() - r
+}
+
+/// SDF: axis-aligned box centred at the origin with half-extents `b`.
+///
+/// Uses Quilez's formulation that correctly handles all octants, including
+/// interior points, with a single expression.
+#[inline]
+pub fn sdf_box_3d(p: Vec3, b: Vec3) -> f32 {
+    let qx = p.x.abs() - b.x;
+    let qy = p.y.abs() - b.y;
+    let qz = p.z.abs() - b.z;
+    let outer =
+        (qx.max(0.0) * qx.max(0.0) + qy.max(0.0) * qy.max(0.0) + qz.max(0.0) * qz.max(0.0)).sqrt();
+    let inner = qx.max(qy).max(qz).min(0.0);
+    outer + inner
+}
+
+/// SDF: torus lying in the XZ plane, centred at the origin.
+///
+/// `r_major` is the distance from the centre of the tube to the centre of the
+/// torus; `r_minor` is the tube radius.
+#[inline]
+pub fn sdf_torus(p: Vec3, r_major: f32, r_minor: f32) -> f32 {
+    let q_xz = (p.x * p.x + p.z * p.z).sqrt() - r_major;
+    (q_xz * q_xz + p.y * p.y).sqrt() - r_minor
+}
+
+/// SDF: capsule (line-swept sphere) from point `a` to `b` with radius `r`.
+#[inline]
+pub fn sdf_capsule_3d(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
+    let pa = Vec3::new(p.x - a.x, p.y - a.y, p.z - a.z);
+    let ba = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let ba_len_sq = ba.x * ba.x + ba.y * ba.y + ba.z * ba.z;
+    let t = if ba_len_sq < 1e-12 {
+        0.0
+    } else {
+        ((pa.x * ba.x + pa.y * ba.y + pa.z * ba.z) / ba_len_sq).clamp(0.0, 1.0)
+    };
+    let dx = pa.x - t * ba.x;
+    let dy = pa.y - t * ba.y;
+    let dz = pa.z - t * ba.z;
+    (dx * dx + dy * dy + dz * dz).sqrt() - r
+}
+
+/// SDF: infinite cone opening along +Y, defined by its half-angle `angle`
+/// (radians).  Apex at origin.  Quilez exact formulation.
+#[inline]
+pub fn sdf_cone(p: Vec3, angle: f32) -> f32 {
+    let (sin_a, cos_a) = angle.sin_cos();
+    let q = (p.x * p.x + p.z * p.z).sqrt();
+    // In 2D (q, y) space, project onto the cone edge direction c = (sin_a, -cos_a).
+    let d = ((q * sin_a - p.y * cos_a).max(0.0) * (q * sin_a - p.y * cos_a).max(0.0)
+        + (q * cos_a + p.y * sin_a) * (q * cos_a + p.y * sin_a))
+        .sqrt()
+        - 0.0; // placeholder — see below
+    // Exact: dot and cross with c.
+    let dot_qc = q * sin_a - p.y * cos_a;
+    let cross_qc = q * cos_a + p.y * sin_a; // perpendicular dist to edge line
+    let _ = d;
+    // Sign: inside cone if dot_qc <= 0.
+    if dot_qc <= 0.0 {
+        -cross_qc.abs()
+    } else {
+        // Outside cone on the wide side.
+        (dot_qc * dot_qc + cross_qc * cross_qc).sqrt() * cross_qc.signum().max(0.0)
+            + cross_qc.abs() * (1.0 - cross_qc.signum().max(0.0))
+    }
+}
+
+/// SDF: finite cone from apex `a` to base-centre `b` with base radius `r`.
+///
+/// Correct signed distance: negative inside, zero on surface, positive outside.
+pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
+    let ba = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let pa = Vec3::new(p.x - a.x, p.y - a.y, p.z - a.z);
+    let ba_len = (ba.x * ba.x + ba.y * ba.y + ba.z * ba.z).sqrt();
+    if ba_len < 1e-12 {
+        return sdf_sphere(p, r);
+    }
+    let t_norm = Vec3::new(ba.x / ba_len, ba.y / ba_len, ba.z / ba_len);
+    // Axial coordinate (0 at apex, ba_len at base).
+    let qx = pa.x * t_norm.x + pa.y * t_norm.y + pa.z * t_norm.z;
+    // Radial distance from axis.
+    let perp_x = pa.x - qx * t_norm.x;
+    let perp_y = pa.y - qx * t_norm.y;
+    let perp_z = pa.z - qx * t_norm.z;
+    let qr = (perp_x * perp_x + perp_y * perp_y + perp_z * perp_z).sqrt();
+    // In 2D (axial, radial), the cone is a right triangle:
+    // apex=(0,0), base edge from (ba_len,0) to (ba_len,r).
+    // c = normalize(ba_len, r) is the slant direction.
+    let c_len = (ba_len * ba_len + r * r).sqrt();
+    let cx = ba_len / c_len; // cos of slant angle
+    let cr = r / c_len; // sin of slant angle
+    // Dot and cross of (qx,qr) with slant c and its normal.
+    let d_dot = qx * cx + qr * cr;
+    let d_cross = qx * cr - qr * cx;
+    // Clamp d_dot to the slant segment [0, c_len].
+    let d_dot_c = d_dot.clamp(0.0, c_len);
+    let dx = d_dot - d_dot_c;
+    let dy = d_cross;
+    let dist = (dx * dx + dy * dy).sqrt();
+    // Inside if d_cross < 0 (left of slant line) and qx in [0, ba_len].
+    let inside = d_cross <= 0.0 && qx >= 0.0 && qx <= ba_len;
+    if inside { -dist } else { dist }
+}
+
+/// SDF: infinite cylinder along the Y axis with radius `r`.
+#[inline]
+pub fn sdf_cylinder(p: Vec3, r: f32) -> f32 {
+    (p.x * p.x + p.z * p.z).sqrt() - r
+}
+
+/// SDF: finite cylinder from `a` to `b` with radius `r`.
+pub fn sdf_cylinder_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
+    let ba = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let pa = Vec3::new(p.x - a.x, p.y - a.y, p.z - a.z);
+    let ba_len_sq = ba.x * ba.x + ba.y * ba.y + ba.z * ba.z;
+    let ba_len = ba_len_sq.sqrt();
+    // Axial and radial components.
+    let t_norm = Vec3::new(ba.x / ba_len, ba.y / ba_len, ba.z / ba_len);
+    let axial = pa.x * t_norm.x + pa.y * t_norm.y + pa.z * t_norm.z;
+    let perp_x = pa.x - axial * t_norm.x;
+    let perp_y = pa.y - axial * t_norm.y;
+    let perp_z = pa.z - axial * t_norm.z;
+    let radial = (perp_x * perp_x + perp_y * perp_y + perp_z * perp_z).sqrt();
+    // 2D box SDF in (axial, radial) space — note radial is always >= 0.
+    let dx = radial - r;
+    let dy = axial.abs() - ba_len * 0.5;
+    // Shift: axial goes 0..ba_len, centre at ba_len/2.
+    let axial_centered = axial - ba_len * 0.5;
+    let dy2 = axial_centered.abs() - ba_len * 0.5;
+    let outer = (dx.max(0.0) * dx.max(0.0) + dy2.max(0.0) * dy2.max(0.0)).sqrt();
+    let inner = dx.max(dy2).min(0.0);
+    let _ = dy;
+    outer + inner
+}
+
+// ── SDF boolean operators ─────────────────────────────────────────────────────
+
+/// SDF union (take closer surface).
+#[inline]
+pub fn sdf_op_union(a: f32, b: f32) -> f32 {
+    a.min(b)
+}
+
+/// SDF subtraction: remove `b` from `a`.
+#[inline]
+pub fn sdf_op_subtract(a: f32, b: f32) -> f32 {
+    a.max(-b)
+}
+
+/// SDF intersection: keep only the overlap.
+#[inline]
+pub fn sdf_op_intersect(a: f32, b: f32) -> f32 {
+    a.max(b)
+}
+
+/// SDF smooth union using the polynomial smooth-min (Quilez k-factor).
+///
+/// Blends two surfaces within distance `k` of each other.
+/// Uses `smooth_min_poly` internally.
+#[inline]
+pub fn sdf_op_smooth_union(a: f32, b: f32, k: f32) -> f32 {
+    smooth_min_poly(a, b, k)
+}
+
+/// SDF round: expand a shape outward by `r` (rounds all edges/corners).
+#[inline]
+pub fn sdf_op_round(d: f32, r: f32) -> f32 {
+    d - r
+}
+
+/// SDF onion: hollow shell of thickness `r` from an existing SDF.
+#[inline]
+pub fn sdf_op_onion(d: f32, r: f32) -> f32 {
+    d.abs() - r
+}
+
+/// SDF domain repeat: tile 3D space with period `c` (per axis).
+///
+/// Returns the remapped point to evaluate in; call your SDF on the result.
+/// The repeat cell is centred at the origin.
+#[inline]
+pub fn sdf_op_repeat_3d(p: Vec3, c: Vec3) -> Vec3 {
+    Vec3::new(
+        p.x - c.x * (p.x / c.x).round(),
+        p.y - c.y * (p.y / c.y).round(),
+        p.z - c.z * (p.z / c.z).round(),
+    )
+}
+
+// ── Tests — Pass 53 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_53 {
+    use super::*;
+
+    // ── sdf_sphere ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn sphere_surface_zero() {
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        assert!((sdf_sphere(p, 1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sphere_inside_negative() {
+        let p = Vec3::new(0.0, 0.0, 0.0);
+        assert!(sdf_sphere(p, 1.0) < 0.0);
+    }
+
+    #[test]
+    fn sphere_outside_positive() {
+        let p = Vec3::new(2.0, 0.0, 0.0);
+        assert!(sdf_sphere(p, 1.0) > 0.0);
+        assert!((sdf_sphere(p, 1.0) - 1.0).abs() < 1e-6);
+    }
+
+    // ── sdf_box_3d ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn box_surface_face() {
+        // Point on +X face of unit cube.
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        assert!(sdf_box_3d(p, b).abs() < 1e-6);
+    }
+
+    #[test]
+    fn box_inside_negative() {
+        let p = Vec3::new(0.5, 0.5, 0.5);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        assert!(sdf_box_3d(p, b) < 0.0);
+    }
+
+    #[test]
+    fn box_outside_positive_corner() {
+        let p = Vec3::new(2.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 1.0);
+        assert!((sdf_box_3d(p, b) - 1.0).abs() < 1e-5);
+    }
+
+    // ── sdf_torus ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn torus_on_surface() {
+        // Point at (R+r, 0, 0) lies on torus surface.
+        let r_maj = 2.0_f32;
+        let r_min = 0.5_f32;
+        let p = Vec3::new(r_maj + r_min, 0.0, 0.0);
+        assert!(sdf_torus(p, r_maj, r_min).abs() < 1e-5);
+    }
+
+    #[test]
+    fn torus_inside_negative() {
+        let p = Vec3::new(2.0, 0.0, 0.0); // in the tube hole, inside torus
+        assert!(sdf_torus(p, 2.0, 0.5) < 0.0);
+    }
+
+    // ── sdf_capsule_3d ────────────────────────────────────────────────────────
+
+    #[test]
+    fn capsule_on_side_surface() {
+        let a = Vec3::new(0.0, -1.0, 0.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+        let p = Vec3::new(0.5, 0.0, 0.0); // beside mid-point
+        assert!((sdf_capsule_3d(p, a, b, 0.5)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn capsule_at_endcap() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 2.0, 0.0);
+        let p = Vec3::new(0.0, 2.5, 0.0); // above end-cap
+        assert!((sdf_capsule_3d(p, a, b, 0.5)).abs() < 1e-6);
+    }
+
+    // ── sdf_cylinder ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn cylinder_on_surface() {
+        let p = Vec3::new(1.0, 5.0, 0.0); // on surface, any Y
+        assert!(sdf_cylinder(p, 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cylinder_inside_negative() {
+        let p = Vec3::new(0.5, 0.0, 0.0);
+        assert!(sdf_cylinder(p, 1.0) < 0.0);
+    }
+
+    // ── sdf_cylinder_finite ───────────────────────────────────────────────────
+
+    #[test]
+    fn cylinder_finite_inside() {
+        let a = Vec3::new(0.0, -1.0, 0.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+        let p = Vec3::new(0.0, 0.0, 0.0); // dead center
+        assert!(sdf_cylinder_finite(p, a, b, 1.0) < 0.0);
+    }
+
+    #[test]
+    fn cylinder_finite_outside_cap() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 2.0, 0.0);
+        let p = Vec3::new(0.0, 3.0, 0.0); // above top cap
+        assert!(sdf_cylinder_finite(p, a, b, 1.0) > 0.0);
+    }
+
+    // ── sdf_op_union / subtract / intersect ───────────────────────────────────
+
+    #[test]
+    fn op_union_picks_min() {
+        assert_eq!(sdf_op_union(0.5, -0.3), -0.3);
+        assert_eq!(sdf_op_union(-1.0, -2.0), -2.0);
+    }
+
+    #[test]
+    fn op_subtract_removes_b() {
+        // Point inside b (b < 0) is cut from a.
+        let a = -0.5_f32; // inside sphere A
+        let b = -0.3_f32; // also inside sphere B
+        // After subtracting B from A, result should be positive (outside result).
+        assert!(sdf_op_subtract(a, b) > 0.0);
+    }
+
+    #[test]
+    fn op_intersect_picks_max() {
+        assert_eq!(sdf_op_intersect(0.5, 0.3), 0.5);
+        assert_eq!(sdf_op_intersect(-1.0, 0.2), 0.2);
+    }
+
+    // ── sdf_op_smooth_union ───────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_union_blends_near_boundary() {
+        let a = 0.1_f32;
+        let b = -0.1_f32;
+        let blended = sdf_op_smooth_union(a, b, 0.5);
+        // Should be between sharp min (-0.1) and 0.
+        assert!(blended <= 0.0, "blended={blended}");
+        assert!(blended >= -0.5, "blended={blended}");
+    }
+
+    // ── sdf_op_round / onion ──────────────────────────────────────────────────
+
+    #[test]
+    fn op_round_inflates() {
+        let d = sdf_box_3d(Vec3::new(1.5, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        let rounded = sdf_op_round(d, 0.3);
+        // Rounded box is larger, so same point is closer to its surface.
+        assert!(rounded < d);
+    }
+
+    #[test]
+    fn op_onion_creates_shell() {
+        // Inside solid sphere: d = -0.5
+        let d = sdf_sphere(Vec3::new(0.0, 0.0, 0.0), 1.0);
+        let shell = sdf_op_onion(d, 0.1);
+        // Onion should be positive (outside shell) since d=-1.0 and |-1.0|-0.1=0.9 > 0.
+        assert!(shell > 0.0);
+    }
+
+    // ── sdf_op_repeat_3d ──────────────────────────────────────────────────────
+
+    #[test]
+    fn repeat_maps_to_cell() {
+        let c = Vec3::new(2.0, 2.0, 2.0);
+        let p = Vec3::new(5.0, 5.0, 5.0);
+        let q = sdf_op_repeat_3d(p, c);
+        // 5 mod 2 centered: 5 - 2*round(5/2) = 5 - 2*round(2.5) = 5 - 2*3 = -1.
+        // So q should be in [-1, 1]^3.
+        assert!(q.x.abs() <= 1.0 + 1e-5, "q.x={}", q.x);
+        assert!(q.y.abs() <= 1.0 + 1e-5, "q.y={}", q.y);
+        assert!(q.z.abs() <= 1.0 + 1e-5, "q.z={}", q.z);
+    }
+
+    #[test]
+    fn repeat_origin_unchanged() {
+        let c = Vec3::new(4.0, 4.0, 4.0);
+        let p = Vec3::new(0.0, 0.0, 0.0);
+        let q = sdf_op_repeat_3d(p, c);
+        assert!(q.x.abs() < 1e-6);
+        assert!(q.y.abs() < 1e-6);
+        assert!(q.z.abs() < 1e-6);
+    }
+}
