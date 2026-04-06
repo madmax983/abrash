@@ -19208,3 +19208,409 @@ mod tests_pass_56 {
         assert!(n.z >= 0.0, "z negative: {}", n.z);
     }
 }
+
+// ── Pass 57 — camera exposure, splines, quat utilities, oscillator ────────────
+// ev100, ev100_to_exposure, log_average_luminance,
+// cardinal_spline, quat_look_at, quat_nlerp_weighted, damped_oscillator_state
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Photographic Exposure Value at ISO 100 (EV100).
+///
+/// `aperture` is the f-number (e.g. 2.8), `shutter` is exposure time in
+/// seconds (e.g. 1/125 = 0.008), `iso` is the film/sensor speed.
+/// Result is measured in EV steps.
+#[inline]
+pub fn ev100(aperture: f32, shutter: f32, iso: f32) -> f32 {
+    (aperture * aperture / shutter).log2() - (iso / 100.0).log2()
+}
+
+/// Convert an EV100 value to a linear exposure multiplier.
+///
+/// Applies the calibration constant K=12.5 (reflected-light meter standard):
+/// `exposure = 1 / (1.2 * 2^EV100)`.
+#[inline]
+pub fn ev100_to_exposure(ev100_val: f32) -> f32 {
+    1.0 / (1.2 * (2.0_f32).powf(ev100_val))
+}
+
+/// Log-average luminance of a luminance slice — the geometric mean.
+///
+/// Used as the scene key value in auto-exposure algorithms.
+/// Returns 0 for an empty slice; tiny epsilon avoids log(0) on black pixels.
+pub fn log_average_luminance(luminances: &[f32]) -> f32 {
+    if luminances.is_empty() {
+        return 0.0;
+    }
+    const EPSILON: f32 = 1e-5;
+    let sum: f32 = luminances.iter().map(|&l| (l + EPSILON).ln()).sum();
+    (sum / luminances.len() as f32).exp()
+}
+
+/// Cardinal spline through four control points with a `tension` parameter.
+///
+/// At `tension = 0.0` this is identical to Catmull-Rom.
+/// At `tension = 1.0` the tangents are zero and the curve is piecewise linear.
+/// The curve passes through `p1` at `t=0` and `p2` at `t=1`.
+pub fn cardinal_spline(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f32, tension: f32) -> Vec3 {
+    let s = (1.0 - tension) * 0.5;
+    // Tangents at p1 and p2.
+    let m1 = Vec3::new(s * (p2.x - p0.x), s * (p2.y - p0.y), s * (p2.z - p0.z));
+    let m2 = Vec3::new(s * (p3.x - p1.x), s * (p3.y - p1.y), s * (p3.z - p1.z));
+    // Cubic Hermite blend.
+    let t2 = t * t;
+    let t3 = t2 * t;
+    let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+    let h10 = t3 - 2.0 * t2 + t;
+    let h01 = -2.0 * t3 + 3.0 * t2;
+    let h11 = t3 - t2;
+    Vec3::new(
+        h00 * p1.x + h10 * m1.x + h01 * p2.x + h11 * m2.x,
+        h00 * p1.y + h10 * m1.y + h01 * p2.y + h11 * m2.y,
+        h00 * p1.z + h10 * m1.z + h01 * p2.z + h11 * m2.z,
+    )
+}
+
+/// Quaternion that rotates the +Z axis to align with `forward`.
+///
+/// `up` is the world-up hint used to determine the roll.  If `forward`
+/// is nearly parallel to `up`, an arbitrary perpendicular is used.
+pub fn quat_look_at(forward: Vec3, up: Vec3) -> Quat {
+    // Normalise forward.
+    let flen = (forward.x * forward.x + forward.y * forward.y + forward.z * forward.z).sqrt();
+    if flen < 1e-10 {
+        return Quat::identity();
+    }
+    let f = Vec3::new(forward.x / flen, forward.y / flen, forward.z / flen);
+
+    // Right = up x forward (or fallback if parallel).
+    let up_len = (up.x * up.x + up.y * up.y + up.z * up.z).sqrt().max(1e-10);
+    let u = Vec3::new(up.x / up_len, up.y / up_len, up.z / up_len);
+    let right_raw = Vec3::new(
+        u.y * f.z - u.z * f.y,
+        u.z * f.x - u.x * f.z,
+        u.x * f.y - u.y * f.x,
+    );
+    let rlen =
+        (right_raw.x * right_raw.x + right_raw.y * right_raw.y + right_raw.z * right_raw.z).sqrt();
+    let r = if rlen < 1e-6 {
+        // forward || up: pick arbitrary right.
+        let alt = if f.x.abs() < 0.9 {
+            Vec3::new(1.0, 0.0, 0.0)
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+        let c = Vec3::new(
+            alt.y * f.z - alt.z * f.y,
+            alt.z * f.x - alt.x * f.z,
+            alt.x * f.y - alt.y * f.x,
+        );
+        let cl = (c.x * c.x + c.y * c.y + c.z * c.z).sqrt().max(1e-10);
+        Vec3::new(c.x / cl, c.y / cl, c.z / cl)
+    } else {
+        Vec3::new(right_raw.x / rlen, right_raw.y / rlen, right_raw.z / rlen)
+    };
+    // Recompute up from forward and right.
+    let new_up = Vec3::new(
+        f.y * r.z - f.z * r.y,
+        f.z * r.x - f.x * r.z,
+        f.x * r.y - f.y * r.x,
+    );
+    // Build rotation matrix (column-major: right=X, up=Y, forward=Z).
+    // Convert 3x3 to quaternion (Shepperd method).
+    let m00 = r.x;
+    let m10 = r.y;
+    let m20 = r.z;
+    let m01 = new_up.x;
+    let m11 = new_up.y;
+    let m21 = new_up.z;
+    let m02 = f.x;
+    let m12 = f.y;
+    let m22 = f.z;
+    let trace = m00 + m11 + m22;
+    if trace > 0.0 {
+        let s = 0.5 / (trace + 1.0).sqrt();
+        Quat {
+            w: 0.25 / s,
+            x: (m21 - m12) * s,
+            y: (m02 - m20) * s,
+            z: (m10 - m01) * s,
+        }
+    } else if m00 > m11 && m00 > m22 {
+        let s = 2.0 * (1.0 + m00 - m11 - m22).sqrt();
+        Quat {
+            w: (m21 - m12) / s,
+            x: 0.25 * s,
+            y: (m01 + m10) / s,
+            z: (m02 + m20) / s,
+        }
+    } else if m11 > m22 {
+        let s = 2.0 * (1.0 + m11 - m00 - m22).sqrt();
+        Quat {
+            w: (m02 - m20) / s,
+            x: (m01 + m10) / s,
+            y: 0.25 * s,
+            z: (m12 + m21) / s,
+        }
+    } else {
+        let s = 2.0 * (1.0 + m22 - m00 - m11).sqrt();
+        Quat {
+            w: (m10 - m01) / s,
+            x: (m02 + m20) / s,
+            y: (m12 + m21) / s,
+            z: 0.25 * s,
+        }
+    }
+}
+
+/// Normalised linear blend of multiple quaternions (nlerp).
+///
+/// `quats` and `weights` must have the same length.  Weights need not sum to
+/// 1 — they are normalised internally.  All quaternions are driven to the same
+/// hemisphere as `quats[0]` before blending to avoid flipping artefacts.
+/// Returns the identity quaternion if the input is empty or weights sum to 0.
+pub fn quat_nlerp_weighted(quats: &[Quat], weights: &[f32]) -> Quat {
+    assert_eq!(quats.len(), weights.len());
+    if quats.is_empty() {
+        return Quat::identity();
+    }
+    let ref_q = quats[0];
+    let mut ax = 0.0_f32;
+    let mut ay = 0.0_f32;
+    let mut az = 0.0_f32;
+    let mut aw = 0.0_f32;
+    let mut total_w = 0.0_f32;
+    for (q, &w) in quats.iter().zip(weights.iter()) {
+        if w <= 0.0 {
+            continue;
+        }
+        // Ensure same hemisphere as ref.
+        let dot = q.x * ref_q.x + q.y * ref_q.y + q.z * ref_q.z + q.w * ref_q.w;
+        let sign = if dot < 0.0 { -1.0 } else { 1.0 };
+        ax += sign * q.x * w;
+        ay += sign * q.y * w;
+        az += sign * q.z * w;
+        aw += sign * q.w * w;
+        total_w += w;
+    }
+    if total_w < 1e-10 {
+        return Quat::identity();
+    }
+    let len = (ax * ax + ay * ay + az * az + aw * aw).sqrt();
+    if len < 1e-10 {
+        return Quat::identity();
+    }
+    Quat {
+        w: aw / len,
+        x: ax / len,
+        y: ay / len,
+        z: az / len,
+    }
+}
+
+/// Generalised damped oscillator: returns `(position, velocity)` at time `t`.
+///
+/// - `omega` — natural frequency (rad/s); higher = stiffer spring
+/// - `zeta` — damping ratio: `< 1` underdamped (oscillates), `= 1` critically
+///   damped, `> 1` overdamped
+/// - `x0`, `v0` — initial position and velocity
+///
+/// Uses the exact closed-form solution for each damping regime.
+pub fn damped_oscillator_state(omega: f32, zeta: f32, x0: f32, v0: f32, t: f32) -> (f32, f32) {
+    if zeta < 1.0 {
+        // Underdamped.
+        let wd = omega * (1.0 - zeta * zeta).sqrt(); // damped natural frequency
+        let a = x0;
+        let b = (v0 + zeta * omega * x0) / wd;
+        let env = (-zeta * omega * t).exp();
+        let x = env * (a * (wd * t).cos() + b * (wd * t).sin());
+        let v = -zeta * omega * x + env * (-a * wd * (wd * t).sin() + b * wd * (wd * t).cos());
+        (x, v)
+    } else if (zeta - 1.0).abs() < 1e-6 {
+        // Critically damped (reuse closed form from critically_damped_spring_step).
+        let e = (-omega * t).exp();
+        let b = v0 + omega * x0;
+        let x = (x0 + b * t) * e;
+        let v = (b * (1.0 - omega * t) - omega * x0) * e;
+        (x, v)
+    } else {
+        // Overdamped.
+        let wd = omega * (zeta * zeta - 1.0).sqrt();
+        let r1 = -zeta * omega + wd;
+        let r2 = -zeta * omega - wd;
+        let c2 = (v0 - r1 * x0) / (r2 - r1);
+        let c1 = x0 - c2;
+        let x = c1 * (r1 * t).exp() + c2 * (r2 * t).exp();
+        let v = c1 * r1 * (r1 * t).exp() + c2 * r2 * (r2 * t).exp();
+        (x, v)
+    }
+}
+
+// ── Tests — Pass 57 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_57 {
+    use super::*;
+
+    // ── ev100 / ev100_to_exposure ─────────────────────────────────────────────
+
+    #[test]
+    fn ev100_standard_daylight() {
+        // Sunny 16 rule: f/16, 1/100s, ISO 100 => EV100 ~ 15.
+        let ev = ev100(16.0, 1.0 / 100.0, 100.0);
+        assert!((ev - 14.0).abs() < 1.5, "ev={ev}");
+    }
+
+    #[test]
+    fn ev100_higher_iso_lowers_ev() {
+        let ev_100 = ev100(2.8, 1.0 / 60.0, 100.0);
+        let ev_800 = ev100(2.8, 1.0 / 60.0, 800.0);
+        assert!(ev_800 < ev_100, "ev_100={ev_100} ev_800={ev_800}");
+    }
+
+    #[test]
+    fn ev100_to_exposure_positive() {
+        let exp = ev100_to_exposure(12.0);
+        assert!(exp > 0.0 && exp < 1.0, "exp={exp}");
+    }
+
+    // ── log_average_luminance ─────────────────────────────────────────────────
+
+    #[test]
+    fn log_average_constant_field() {
+        let lums = vec![1.0_f32; 100];
+        let avg = log_average_luminance(&lums);
+        assert!((avg - 1.0).abs() < 0.01, "avg={avg}");
+    }
+
+    #[test]
+    fn log_average_empty_is_zero() {
+        assert_eq!(log_average_luminance(&[]), 0.0);
+    }
+
+    // ── cardinal_spline ───────────────────────────────────────────────────────
+
+    #[test]
+    fn cardinal_tension_zero_matches_catmull_rom() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(1.0, 0.0, 0.0);
+        let p2 = Vec3::new(2.0, 1.0, 0.0);
+        let p3 = Vec3::new(3.0, 0.0, 0.0);
+        let card = cardinal_spline(p0, p1, p2, p3, 0.5, 0.0);
+        let cr = catmull_rom(p0, p1, p2, p3, 0.5);
+        assert!(
+            (card.x - cr.x).abs() < 1e-5,
+            "x: card={} cr={}",
+            card.x,
+            cr.x
+        );
+        assert!(
+            (card.y - cr.y).abs() < 1e-5,
+            "y: card={} cr={}",
+            card.y,
+            cr.y
+        );
+    }
+
+    #[test]
+    fn cardinal_endpoints_pass_through_p1_p2() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(1.0, 2.0, 0.0);
+        let p2 = Vec3::new(3.0, 1.0, 0.0);
+        let p3 = Vec3::new(4.0, 0.0, 0.0);
+        let at_0 = cardinal_spline(p0, p1, p2, p3, 0.0, 0.5);
+        let at_1 = cardinal_spline(p0, p1, p2, p3, 1.0, 0.5);
+        assert!((at_0.x - p1.x).abs() < 1e-5);
+        assert!((at_1.x - p2.x).abs() < 1e-5);
+    }
+
+    // ── quat_look_at ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn look_at_forward_z_is_identity() {
+        let q = quat_look_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 1.0, 0.0));
+        // Rotating +Z by identity should still give +Z.
+        let z = Vec3::new(0.0, 0.0, 1.0);
+        let rotated = q.rotate(z);
+        assert!((rotated.x).abs() < 0.01, "x={}", rotated.x);
+        assert!((rotated.y).abs() < 0.01, "y={}", rotated.y);
+        assert!((rotated.z - 1.0).abs() < 0.01, "z={}", rotated.z);
+    }
+
+    #[test]
+    fn look_at_returns_unit_quat() {
+        let q = quat_look_at(Vec3::new(1.0, 0.5, 0.3), Vec3::new(0.0, 1.0, 0.0));
+        let len = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
+        assert!((len - 1.0).abs() < 1e-5, "len={len}");
+    }
+
+    // ── quat_nlerp_weighted ───────────────────────────────────────────────────
+
+    #[test]
+    fn nlerp_single_quat_returns_self() {
+        let q = Quat::identity();
+        let result = quat_nlerp_weighted(&[q], &[1.0]);
+        assert!((result.w - q.w).abs() < 1e-5);
+    }
+
+    #[test]
+    fn nlerp_equal_weights_midpoint() {
+        let q0 = Quat::identity();
+        // 90-degree rotation around Y.
+        let half = (std::f32::consts::FRAC_PI_4).sin();
+        let q1 = Quat {
+            w: half,
+            x: 0.0,
+            y: half,
+            z: 0.0,
+        };
+        let blended = quat_nlerp_weighted(&[q0, q1], &[1.0, 1.0]);
+        let len = (blended.x * blended.x
+            + blended.y * blended.y
+            + blended.z * blended.z
+            + blended.w * blended.w)
+            .sqrt();
+        assert!((len - 1.0).abs() < 1e-5, "len={len}");
+    }
+
+    // ── damped_oscillator_state ───────────────────────────────────────────────
+
+    #[test]
+    fn underdamped_oscillates() {
+        // Underdamped: position should cross zero at some point.
+        let mut crossed = false;
+        let mut prev_x = 1.0_f32;
+        for i in 1..100 {
+            let t = i as f32 * 0.05;
+            let (x, _) = damped_oscillator_state(5.0, 0.1, 1.0, 0.0, t);
+            if prev_x * x < 0.0 {
+                crossed = true;
+                break;
+            }
+            prev_x = x;
+        }
+        assert!(crossed, "underdamped should oscillate through zero");
+    }
+
+    #[test]
+    fn critically_damped_no_overshoot() {
+        // Critically damped from x0=1, v0=0: should decay monotonically.
+        let mut max_x = 1.0_f32;
+        let mut prev_x = 1.0_f32;
+        for i in 1..200 {
+            let t = i as f32 * 0.01;
+            let (x, _) = damped_oscillator_state(5.0, 1.0, 1.0, 0.0, t);
+            if x > max_x {
+                max_x = x;
+            }
+            prev_x = x;
+        }
+        let _ = prev_x;
+        assert!(max_x <= 1.0 + 1e-4, "overdamped overshoot: max_x={max_x}");
+    }
+
+    #[test]
+    fn overdamped_decays_to_zero() {
+        let (x, _) = damped_oscillator_state(5.0, 2.0, 1.0, 0.0, 5.0);
+        assert!(x.abs() < 0.01, "overdamped should decay: x={x}");
+    }
+}
