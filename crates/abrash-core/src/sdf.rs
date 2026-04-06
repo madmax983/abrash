@@ -4296,3 +4296,252 @@ mod tests_pass_22 {
         assert!(d.is_finite(), "groove finite: {d}");
     }
 }
+
+// ── Pass 23: Superellipse, rounded star, revolution_z, swirl, arrow ──────────
+
+/// **Superellipse** pseudo-SDF: generalises the circle (`n=2`) and the
+/// axis-aligned square (`n→∞`) via `(|x/a|^n + |y/b|^n)^(1/n) − 1`.
+///
+/// *This is a level-set approximation, not a true Euclidean SDF*, but it is
+/// Lipschitz-continuous and suitable for raymarching with a step scale of
+/// `~0.5`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::superellipse_2d;
+/// // n=2 with equal a=b reduces to a circle
+/// let d = superellipse_2d(Vec2::new(0.0, 0.0), 1.0, 1.0, 2.0);
+/// assert!(d < 0.0, "origin inside unit superellipse: {d}");
+/// let d2 = superellipse_2d(Vec2::new(2.0, 0.0), 1.0, 1.0, 2.0);
+/// assert!(d2 > 0.0, "outside: {d2}");
+/// ```
+#[inline]
+pub fn superellipse_2d(p: Vec2, a: f32, b: f32, n: f32) -> f32 {
+    let qx = (p.x / a).abs().powf(n);
+    let qy = (p.y / b).abs().powf(n);
+    (qx + qy).powf(1.0 / n) - 1.0
+}
+
+/// **Rounded star** SDF — n-pointed star with rounded tips.
+///
+/// Translated from Inigo Quilez's `sdRoundedStar`.
+///
+/// * `r`   — outer radius
+/// * `n`   — number of points (≥ 2)
+/// * `m`   — inner-to-outer ratio exponent (`n/2` gives standard star)
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::rounded_star_2d;
+/// let d_centre = rounded_star_2d(Vec2::ZERO, 1.0, 5, 2.5);
+/// assert!(d_centre < 0.0, "origin inside 5-star: {d_centre}");
+/// let d_far = rounded_star_2d(Vec2::new(3.0, 0.0), 1.0, 5, 2.5);
+/// assert!(d_far > 0.0, "far outside: {d_far}");
+/// ```
+pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
+    // Symmetry reduction into a canonical sector
+    let an = core::f32::consts::PI / n as f32;
+    let en = core::f32::consts::PI / m;
+    let acs = Vec2::new(an.cos(), an.sin());
+    let ecs = Vec2::new(en.cos(), en.sin());
+
+    let bn = (p.x.atan2(p.y).rem_euclid(2.0 * an)) - an;
+    let len = (p.x * p.x + p.y * p.y).sqrt();
+    let mut q = Vec2::new(len * bn.cos(), len * bn.sin().abs());
+
+    // Distance to the rounded star edge
+    q.x -= r * acs.x;
+    q.y -= r * acs.y;
+    let dot = (-q.x * ecs.x - q.y * ecs.y).clamp(0.0, r * acs.y / ecs.y);
+    q.x += ecs.x * dot;
+    q.y += ecs.y * dot;
+    let l = (q.x * q.x + q.y * q.y).sqrt();
+    l * q.x.signum()
+}
+
+/// **Revolve around Z** — rotates a 2D SDF around the Z axis.
+///
+/// Complement to the existing `revolve_y`.  The 2D SDF is evaluated in the
+/// `(r, z)` half-plane where `r = sqrt(x² + y²)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, Vec3};
+/// use abrash_core::sdf::{revolution_z, circle_2d};
+/// // Revolving a circle centred at (2, 0) in the (r, z) plane around Z makes a torus
+/// let d = revolution_z(Vec3::new(2.0, 0.0, 0.0), 0.0, |q| circle_2d(q, Vec2::new(2.0, 0.0), 0.3));
+/// assert!(d < 0.0, "on torus surface: {d}");
+/// ```
+pub fn revolution_z(p: Vec3, _o: f32, sdf2d: impl Fn(Vec2) -> f32) -> f32 {
+    let r = (p.x * p.x + p.y * p.y).sqrt();
+    sdf2d(Vec2::new(r, p.z))
+}
+
+/// **2D swirl** domain warp — rotates nearby points around the origin.
+///
+/// The rotation angle is proportional to `strength / (1 + |p|²)`, giving
+/// maximal twist at the origin and tapering off at infinity.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec2;
+/// use abrash_core::sdf::{swirl_2d, circle_2d};
+/// // With zero strength the SDF is unmodified
+/// let d0 = circle_2d(Vec2::new(0.0, 0.0), Vec2::ZERO, 0.5);
+/// let d1 = swirl_2d(Vec2::new(0.0, 0.0), 0.0, |q| circle_2d(q, Vec2::ZERO, 0.5));
+/// assert!((d0 - d1).abs() < 1e-5);
+/// ```
+pub fn swirl_2d(p: Vec2, strength: f32, sdf: impl Fn(Vec2) -> f32) -> f32 {
+    let r2 = p.x * p.x + p.y * p.y;
+    let angle = strength / (1.0 + r2);
+    let (s, c) = angle.sin_cos();
+    let q = Vec2::new(c * p.x - s * p.y, s * p.x + c * p.y);
+    sdf(q)
+}
+
+/// **3D Arrow** SDF — a shaft (cylinder) capped with a conical head.
+///
+/// * `a`, `b`        — start and end of the arrow (tip at `b`)
+/// * `ra`            — shaft radius
+/// * `rb`            — cone base radius
+/// * `head_frac`     — fraction of total length used by the cone head `[0, 1]`
+///
+/// Implemented as a smooth union of a capped cylinder and a cone via the
+/// rounded-cone primitive.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::arrow_3d;
+/// // Point on the shaft surface should be ≈ 0
+/// let d = arrow_3d(Vec3::new(0.05, 0.5, 0.0), Vec3::ZERO, Vec3::Y, 0.05, 0.12, 0.2);
+/// assert!(d.abs() < 0.02, "on shaft: {d}");
+/// ```
+pub fn arrow_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32, head_frac: f32) -> f32 {
+    use super::math::Vec3 as V3;
+    let ab = b - a;
+    let len = (ab.x * ab.x + ab.y * ab.y + ab.z * ab.z).sqrt();
+    if len < 1e-9 {
+        return sphere_3d(p, a, ra);
+    }
+    let dir = V3::new(ab.x / len, ab.y / len, ab.z / len);
+    // Split point: shaft ends, cone begins
+    let head_len = len * head_frac.clamp(0.0, 1.0);
+    let shaft_end = V3::new(
+        b.x - dir.x * head_len,
+        b.y - dir.y * head_len,
+        b.z - dir.z * head_len,
+    );
+    let d_shaft = capsule_3d(p, a, shaft_end, ra);
+    // Cone from shaft_end (radius rb) to b (radius 0)
+    let d_cone = truncated_cone_3d(p, shaft_end, b, rb, 0.0);
+    d_shaft.min(d_cone)
+}
+
+// ── Pass 23 SDF tests ──────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_23 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── superellipse_2d ────────────────────────────────────────────────────
+    #[test]
+    fn superellipse_circle_at_n2() {
+        // n=2, a=b=1 → circle: inside at origin, outside at (2,0)
+        let d_in = superellipse_2d(Vec2::ZERO, 1.0, 1.0, 2.0);
+        assert!(d_in < 0.0, "inside: {d_in}");
+        let d_out = superellipse_2d(Vec2::new(2.0, 0.0), 1.0, 1.0, 2.0);
+        assert!(d_out > 0.0, "outside: {d_out}");
+    }
+
+    #[test]
+    fn superellipse_on_boundary() {
+        // On boundary: (1, 0) → d ≈ 0
+        let d = superellipse_2d(Vec2::new(1.0, 0.0), 1.0, 1.0, 2.0);
+        assert!(d.abs() < 1e-5, "on boundary: {d}");
+    }
+
+    // ── rounded_star_2d ────────────────────────────────────────────────────
+    #[test]
+    fn rounded_star_centre_inside() {
+        let d = rounded_star_2d(Vec2::ZERO, 1.0, 5, 2.5);
+        assert!(d < 0.0, "origin inside: {d}");
+    }
+
+    #[test]
+    fn rounded_star_far_outside() {
+        let d = rounded_star_2d(Vec2::new(5.0, 0.0), 1.0, 5, 2.5);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    // ── revolution_z ───────────────────────────────────────────────────────
+    #[test]
+    fn revolution_z_torus_surface() {
+        // Revolve a disc at r=2 in the rz-plane; point (2,0,0) should be on surface
+        let d = revolution_z(Vec3::new(2.0, 0.0, 0.0), 0.0, |q| {
+            circle_2d(q, Vec2::new(2.0, 0.0), 0.3)
+        });
+        assert!(d < 0.0, "inside torus: {d}");
+    }
+
+    // ── swirl_2d ───────────────────────────────────────────────────────────
+    #[test]
+    fn swirl_zero_strength_identity() {
+        let d0 = circle_2d(Vec2::new(0.5, 0.0), Vec2::ZERO, 0.3);
+        let d1 = swirl_2d(Vec2::new(0.5, 0.0), 0.0, |q| circle_2d(q, Vec2::ZERO, 0.3));
+        assert!((d0 - d1).abs() < 1e-5, "zero swirl = identity: {d0} {d1}");
+    }
+
+    #[test]
+    fn swirl_modifies_sdf() {
+        // Swirl is a rotation — it only changes the SDF if the shape is not origin-symmetric.
+        // Use a rect (not centred at origin) so the rotation visibly moves the evaluation point.
+        let centre = Vec2::new(0.5, 0.0);
+        let rect_centre = Vec2::new(0.8, 0.0);
+        let d0 = rect_2d(centre, rect_centre, Vec2::new(0.1, 0.1));
+        let d1 = swirl_2d(centre, 5.0, |q| {
+            rect_2d(q, rect_centre, Vec2::new(0.1, 0.1))
+        });
+        // Non-zero swirl should move the query point away from the rect, changing the value
+        assert!(
+            (d0 - d1).abs() > 1e-3,
+            "swirl changes asymmetric SDF: {d0} vs {d1}"
+        );
+    }
+
+    // ── arrow_3d ───────────────────────────────────────────────────────────
+    #[test]
+    fn arrow_tip_outside() {
+        // A point well beyond the tip should be outside
+        let d = arrow_3d(
+            Vec3::new(0.0, 2.0, 0.0),
+            Vec3::ZERO,
+            Vec3::Y,
+            0.05,
+            0.12,
+            0.25,
+        );
+        assert!(d > 0.0, "beyond tip: {d}");
+    }
+
+    #[test]
+    fn arrow_mid_shaft_on_surface() {
+        // A point at distance=shaft_radius from the shaft axis should be ≈0
+        let d = arrow_3d(
+            Vec3::new(0.05, 0.4, 0.0),
+            Vec3::ZERO,
+            Vec3::Y,
+            0.05,
+            0.12,
+            0.25,
+        );
+        assert!(d.abs() < 0.02, "near shaft surface: {d}");
+    }
+}

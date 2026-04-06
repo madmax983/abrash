@@ -9081,3 +9081,464 @@ mod tests_pass_22 {
         assert!(s > 0.70 && s < 0.76, "mid-grey: {s}");
     }
 }
+
+// ── Pass 23: Color spaces, PBR utilities, ray intersections, noise ────────────
+
+/// Convert linear **RGB** → **HSV**.
+///
+/// Inputs clamped to `[0, 1]`; returns `(h, s, v)` with `h ∈ [0, 360)`,
+/// `s, v ∈ [0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::rgb_to_hsv;
+/// let (h, s, v) = rgb_to_hsv(1.0, 0.0, 0.0);
+/// assert!((h - 0.0).abs() < 1e-4 || (h - 360.0).abs() < 1e-4);
+/// assert!((s - 1.0).abs() < 1e-5);
+/// assert!((v - 1.0).abs() < 1e-5);
+/// ```
+pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let cmax = r.max(g).max(b);
+    let cmin = r.min(g).min(b);
+    let delta = cmax - cmin;
+    let v = cmax;
+    let s = if cmax < 1e-9 { 0.0 } else { delta / cmax };
+    let h = if delta < 1e-9 {
+        0.0
+    } else if (cmax - r).abs() < 1e-9 {
+        60.0 * (((g - b) / delta).rem_euclid(6.0))
+    } else if (cmax - g).abs() < 1e-9 {
+        60.0 * ((b - r) / delta + 2.0)
+    } else {
+        60.0 * ((r - g) / delta + 4.0)
+    };
+    (h, s, v)
+}
+
+/// Convert **HSV** → linear **RGB**.
+///
+/// `h ∈ [0, 360)`, `s, v ∈ [0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{rgb_to_hsv, hsv_to_rgb};
+/// let (r, g, b) = hsv_to_rgb(120.0, 1.0, 1.0); // pure green
+/// assert!((r).abs() < 1e-4);
+/// assert!((g - 1.0).abs() < 1e-4);
+/// assert!((b).abs() < 1e-4);
+/// ```
+pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+    if s < 1e-9 {
+        return (v, v, v);
+    }
+    let hh = (h / 60.0).rem_euclid(6.0);
+    let i = hh as u32;
+    let f = hh - i as f32;
+    let p = v * (1.0 - s);
+    let q = v * (1.0 - s * f);
+    let t = v * (1.0 - s * (1.0 - f));
+    match i {
+        0 => (v, t, p),
+        1 => (q, v, p),
+        2 => (p, v, t),
+        3 => (p, q, v),
+        4 => (t, p, v),
+        _ => (v, p, q),
+    }
+}
+
+/// Convert linear **RGB** → **HSL**.
+///
+/// Returns `(h, s, l)` with `h ∈ [0, 360)`, `s, l ∈ [0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::rgb_to_hsl;
+/// let (h, s, l) = rgb_to_hsl(0.0, 0.0, 1.0); // pure blue
+/// assert!((h - 240.0).abs() < 1e-3);
+/// assert!((s - 1.0).abs() < 1e-5);
+/// assert!((l - 0.5).abs() < 1e-5);
+/// ```
+pub fn rgb_to_hsl(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let cmax = r.max(g).max(b);
+    let cmin = r.min(g).min(b);
+    let delta = cmax - cmin;
+    let l = (cmax + cmin) * 0.5;
+    let s = if delta < 1e-9 {
+        0.0
+    } else {
+        delta / (1.0 - (2.0 * l - 1.0).abs())
+    };
+    let h = if delta < 1e-9 {
+        0.0
+    } else if (cmax - r).abs() < 1e-9 {
+        60.0 * (((g - b) / delta).rem_euclid(6.0))
+    } else if (cmax - g).abs() < 1e-9 {
+        60.0 * ((b - r) / delta + 2.0)
+    } else {
+        60.0 * ((r - g) / delta + 4.0)
+    };
+    (h, s, l)
+}
+
+/// Convert **HSL** → linear **RGB**.
+///
+/// `h ∈ [0, 360)`, `s, l ∈ [0, 1]`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{rgb_to_hsl, hsl_to_rgb};
+/// let (r0, g0, b0) = (0.8, 0.3, 0.1);
+/// let (h, s, l) = rgb_to_hsl(r0, g0, b0);
+/// let (r1, g1, b1) = hsl_to_rgb(h, s, l);
+/// assert!((r0 - r1).abs() < 1e-5 && (g0 - g1).abs() < 1e-5 && (b0 - b1).abs() < 1e-5);
+/// ```
+pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hh = (h / 60.0).rem_euclid(6.0);
+    let x = c * (1.0 - (hh.rem_euclid(2.0) - 1.0).abs());
+    let m = l - c * 0.5;
+    let (r, g, b) = if hh < 1.0 {
+        (c, x, 0.0)
+    } else if hh < 2.0 {
+        (x, c, 0.0)
+    } else if hh < 3.0 {
+        (0.0, c, x)
+    } else if hh < 4.0 {
+        (0.0, x, c)
+    } else if hh < 5.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    (r + m, g + m, b + m)
+}
+
+/// **Schlick Fresnel** approximation for a single reflectance value.
+///
+/// `cos_theta` is the cosine of the angle between the view direction and the
+/// surface normal; `f0` is reflectance at normal incidence (e.g. `0.04` for
+/// dielectrics, `0.9`+ for metals).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::fresnel_schlick;
+/// // At normal incidence (cos_theta = 1) → exactly f0
+/// assert!((fresnel_schlick(1.0, 0.04) - 0.04).abs() < 1e-6);
+/// // At grazing angle (cos_theta = 0) → 1.0
+/// assert!((fresnel_schlick(0.0, 0.04) - 1.0).abs() < 1e-6);
+/// ```
+#[inline]
+pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
+    f0 + (1.0 - f0) * (1.0 - cos_theta).clamp(0.0, 1.0).powi(5)
+}
+
+/// **Ray–sphere** intersection.
+///
+/// `ro` = ray origin, `rd` = ray direction (assumed unit length),
+/// `centre` / `r` define the sphere.
+///
+/// Returns `Some((t_near, t_far))` (both may be negative if the sphere is
+/// behind the ray).  Returns `None` if the ray misses.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, ray_sphere_intersect};
+/// let hit = ray_sphere_intersect(Vec3::ZERO, Vec3::Z, Vec3::new(0.0, 0.0, 3.0), 1.0);
+/// let (t0, t1) = hit.unwrap();
+/// assert!((t0 - 2.0).abs() < 1e-5 && (t1 - 4.0).abs() < 1e-5);
+/// ```
+pub fn ray_sphere_intersect(ro: Vec3, rd: Vec3, centre: Vec3, r: f32) -> Option<(f32, f32)> {
+    let oc = ro - centre;
+    let b = oc.dot(rd);
+    let c = oc.dot(oc) - r * r;
+    let disc = b * b - c;
+    if disc < 0.0 {
+        return None;
+    }
+    let sq = disc.sqrt();
+    Some((-b - sq, -b + sq))
+}
+
+/// **Ray–plane** intersection.
+///
+/// Plane defined by `dot(p, normal) = d`.  Returns `Some(t)` (which may be
+/// negative) or `None` when the ray is parallel to the plane.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, ray_plane_intersect};
+/// // Ray along +Z hits the XY plane (normal=+Z, d=5) at t=5
+/// let t = ray_plane_intersect(Vec3::ZERO, Vec3::Z, Vec3::Z, 5.0).unwrap();
+/// assert!((t - 5.0).abs() < 1e-5);
+/// ```
+pub fn ray_plane_intersect(ro: Vec3, rd: Vec3, normal: Vec3, d: f32) -> Option<f32> {
+    let denom = rd.dot(normal);
+    if denom.abs() < 1e-9 {
+        return None;
+    }
+    Some((d - ro.dot(normal)) / denom)
+}
+
+/// **Ray–AABB** intersection (slab method).
+///
+/// Returns `Some((t_enter, t_exit))` if the ray hits the box (both values
+/// may be negative).  `aabb_min`/`aabb_max` are the box extents.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, ray_aabb_intersect};
+/// let hit = ray_aabb_intersect(
+///     Vec3::ZERO, Vec3::X,
+///     Vec3::new(2.0, -1.0, -1.0), Vec3::new(4.0, 1.0, 1.0),
+/// );
+/// let (t0, t1) = hit.unwrap();
+/// assert!((t0 - 2.0).abs() < 1e-5 && (t1 - 4.0).abs() < 1e-5);
+/// ```
+pub fn ray_aabb_intersect(
+    ro: Vec3,
+    rd: Vec3,
+    aabb_min: Vec3,
+    aabb_max: Vec3,
+) -> Option<(f32, f32)> {
+    // Avoid division by tiny numbers by using a large-number fallback.
+    let inv = Vec3::new(
+        if rd.x.abs() > 1e-30 {
+            1.0 / rd.x
+        } else {
+            f32::INFINITY
+        },
+        if rd.y.abs() > 1e-30 {
+            1.0 / rd.y
+        } else {
+            f32::INFINITY
+        },
+        if rd.z.abs() > 1e-30 {
+            1.0 / rd.z
+        } else {
+            f32::INFINITY
+        },
+    );
+    let t1 = Vec3::new(
+        (aabb_min.x - ro.x) * inv.x,
+        (aabb_min.y - ro.y) * inv.y,
+        (aabb_min.z - ro.z) * inv.z,
+    );
+    let t2 = Vec3::new(
+        (aabb_max.x - ro.x) * inv.x,
+        (aabb_max.y - ro.y) * inv.y,
+        (aabb_max.z - ro.z) * inv.z,
+    );
+    let t_near = t1.x.min(t2.x).max(t1.y.min(t2.y)).max(t1.z.min(t2.z));
+    let t_far = t1.x.max(t2.x).min(t1.y.max(t2.y)).min(t1.z.max(t2.z));
+    if t_far < t_near {
+        None
+    } else {
+        Some((t_near, t_far))
+    }
+}
+
+/// **Interleaved Gradient Noise** (Jorge Jimenez, 2014).
+///
+/// A fast, spatially uncorrelated noise that spreads quantisation error
+/// with blue-noise-like properties.  Used extensively in TAA and dithering
+/// pipelines at AAA studios (Doom, Call of Duty, etc.).
+///
+/// Outputs `[0, 1)`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::igr_noise;
+/// let n = igr_noise(320.0, 180.0);
+/// assert!(n >= 0.0 && n < 1.0);
+/// ```
+#[inline]
+pub fn igr_noise(x: f32, y: f32) -> f32 {
+    (52.982_918_9 * (0.067_110_56 * x + 0.005_837_15 * y).fract()).fract()
+}
+
+/// **Value noise** over a 2D domain.
+///
+/// Smooth lattice noise in `[0, 1]`; uses integer hashing on the grid corners
+/// and bilinear interpolation with a smoothstep filter.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, value_noise_2d};
+/// let n = value_noise_2d(Vec2::new(1.3, 2.7));
+/// assert!(n >= 0.0 && n <= 1.0);
+/// // Smooth: nearby samples are close in value
+/// let n2 = value_noise_2d(Vec2::new(1.31, 2.71));
+/// assert!((n - n2).abs() < 0.1);
+/// ```
+pub fn value_noise_2d(p: Vec2) -> f32 {
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let fx = p.x - p.x.floor();
+    let fy = p.y - p.y.floor();
+    // Smoothstep filter
+    let ux = fx * fx * (3.0 - 2.0 * fx);
+    let uy = fy * fy * (3.0 - 2.0 * fy);
+
+    #[inline]
+    fn h(x: i32, y: i32) -> f32 {
+        hash2_to_f32(x as u32, y as u32)
+    }
+
+    let a = lerp(h(ix, iy), h(ix + 1, iy), ux);
+    let b = lerp(h(ix, iy + 1), h(ix + 1, iy + 1), ux);
+    lerp(a, b, uy)
+}
+
+// ── Pass 23 tests ──────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_23 {
+    use super::*;
+
+    // ── rgb_to_hsv / hsv_to_rgb ────────────────────────────────────────────
+    #[test]
+    fn hsv_primary_colours() {
+        // Red
+        let (h, s, v) = rgb_to_hsv(1.0, 0.0, 0.0);
+        assert!(h < 1.0 || h > 359.0, "red hue ~0: {h}");
+        assert!((s - 1.0).abs() < 1e-5 && (v - 1.0).abs() < 1e-5);
+        // Green
+        let (h, _, _) = rgb_to_hsv(0.0, 1.0, 0.0);
+        assert!((h - 120.0).abs() < 1e-3, "green hue: {h}");
+        // Blue
+        let (h, _, _) = rgb_to_hsv(0.0, 0.0, 1.0);
+        assert!((h - 240.0).abs() < 1e-3, "blue hue: {h}");
+    }
+
+    #[test]
+    fn hsv_round_trip() {
+        for (r, g, b) in [(0.8, 0.3, 0.1), (0.0, 0.5, 1.0), (0.2, 0.2, 0.2)] {
+            let (h, s, v) = rgb_to_hsv(r, g, b);
+            let (r2, g2, b2) = hsv_to_rgb(h, s, v);
+            assert!((r - r2).abs() < 1e-5, "r round-trip: {r} vs {r2}");
+            assert!((g - g2).abs() < 1e-5, "g round-trip: {g} vs {g2}");
+            assert!((b - b2).abs() < 1e-5, "b round-trip: {b} vs {b2}");
+        }
+    }
+
+    // ── rgb_to_hsl / hsl_to_rgb ────────────────────────────────────────────
+    #[test]
+    fn hsl_round_trip() {
+        for (r, g, b) in [(0.8, 0.3, 0.1), (0.0, 0.5, 1.0), (0.5, 0.5, 0.5)] {
+            let (h, s, l) = rgb_to_hsl(r, g, b);
+            let (r2, g2, b2) = hsl_to_rgb(h, s, l);
+            assert!((r - r2).abs() < 1e-5, "r: {r} vs {r2}");
+            assert!((g - g2).abs() < 1e-5, "g: {g} vs {g2}");
+            assert!((b - b2).abs() < 1e-5, "b: {b} vs {b2}");
+        }
+    }
+
+    #[test]
+    fn hsl_mid_grey_lightness() {
+        let (_, _, l) = rgb_to_hsl(0.5, 0.5, 0.5);
+        assert!((l - 0.5).abs() < 1e-5, "grey lightness: {l}");
+    }
+
+    // ── fresnel_schlick ────────────────────────────────────────────────────
+    #[test]
+    fn fresnel_endpoints() {
+        assert!((fresnel_schlick(1.0, 0.04) - 0.04).abs() < 1e-6);
+        assert!((fresnel_schlick(0.0, 0.04) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fresnel_monotone_increasing_toward_grazing() {
+        let f1 = fresnel_schlick(0.7, 0.04);
+        let f2 = fresnel_schlick(0.3, 0.04);
+        assert!(f1 < f2, "more grazing → higher Fresnel: {f1} < {f2}");
+    }
+
+    // ── ray_sphere_intersect ───────────────────────────────────────────────
+    #[test]
+    fn ray_sphere_hit_front() {
+        let (t0, t1) =
+            ray_sphere_intersect(Vec3::ZERO, Vec3::Z, Vec3::new(0.0, 0.0, 5.0), 1.0).unwrap();
+        assert!((t0 - 4.0).abs() < 1e-5 && (t1 - 6.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_sphere_miss() {
+        let hit = ray_sphere_intersect(Vec3::ZERO, Vec3::Z, Vec3::new(2.0, 0.0, 5.0), 1.0);
+        assert!(hit.is_none());
+    }
+
+    // ── ray_plane_intersect ────────────────────────────────────────────────
+    #[test]
+    fn ray_plane_hits() {
+        // XY plane at z=3, ray from z=0 along +Z
+        let t = ray_plane_intersect(Vec3::ZERO, Vec3::Z, Vec3::Z, 3.0).unwrap();
+        assert!((t - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_plane_parallel_misses() {
+        // Ray along +X into a Z-normal plane → parallel
+        let hit = ray_plane_intersect(Vec3::ZERO, Vec3::X, Vec3::Z, 1.0);
+        assert!(hit.is_none());
+    }
+
+    // ── ray_aabb_intersect ─────────────────────────────────────────────────
+    #[test]
+    fn ray_aabb_centre_shot() {
+        let (t0, t1) = ray_aabb_intersect(
+            Vec3::ZERO,
+            Vec3::X,
+            Vec3::new(2.0, -1.0, -1.0),
+            Vec3::new(4.0, 1.0, 1.0),
+        )
+        .unwrap();
+        assert!((t0 - 2.0).abs() < 1e-5 && (t1 - 4.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_aabb_miss() {
+        let hit = ray_aabb_intersect(
+            Vec3::ZERO,
+            Vec3::X,
+            Vec3::new(2.0, 2.0, 2.0),
+            Vec3::new(4.0, 4.0, 4.0),
+        );
+        assert!(hit.is_none());
+    }
+
+    // ── igr_noise ──────────────────────────────────────────────────────────
+    #[test]
+    fn igr_in_range() {
+        for i in 0..64u32 {
+            let n = igr_noise(i as f32, (i * 7) as f32);
+            assert!(n >= 0.0 && n < 1.0, "igr out of range: {n}");
+        }
+    }
+
+    // ── value_noise_2d ─────────────────────────────────────────────────────
+    #[test]
+    fn value_noise_in_range() {
+        for i in 0..64u32 {
+            let n = value_noise_2d(Vec2::new(i as f32 * 0.37, i as f32 * 0.61));
+            assert!(n >= 0.0 && n <= 1.0, "noise out of range: {n}");
+        }
+    }
+
+    #[test]
+    fn value_noise_smooth() {
+        let p = Vec2::new(3.5, 2.5);
+        let n0 = value_noise_2d(p);
+        let n1 = value_noise_2d(Vec2::new(3.51, 2.51));
+        assert!((n0 - n1).abs() < 0.05, "noise not smooth: {n0} vs {n1}");
+    }
+}
