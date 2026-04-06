@@ -200,3 +200,7 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+## [Pop Art Filter]
+**Concept:** A retro post-processing effect that scales the image down into a 2x2 grid (4 quadrants) and applies a different color tint to each quadrant, simulating classic Pop Art (like Andy Warhol's Marilyn Diptych).
+**Fate:** Implemented
+**Lesson:** Spatial distortion effects that scale and relocate pixels require cloning the original framebuffer into a source buffer. This prevents mutable aliasing and read/write tearing, allowing for safe and highly efficient parallel execution via Rayon's `par_chunks_exact_mut`. Additionally, performing a fast luminance calculation and multiplying it by the quadrant's tint color is an effective way to apply the stylistic tint.
