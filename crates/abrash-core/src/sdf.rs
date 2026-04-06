@@ -5487,3 +5487,132 @@ mod tests_pass_27_sdf {
         assert!(d > 0.0, "diagonal outside: {d}");
     }
 }
+
+// ── Pass 29 SDF shapes ────────────────────────────────────────────────────────
+
+/// 2D lemniscate of Bernoulli (∞ / infinity symbol), centred at origin.
+///
+/// * `a` — semi-axis length (the lobes extend to `(±a, 0)`)
+///
+/// Uses the implicit algebraic form `(x²+y²)² = a²(x²-y²)`, converted to
+/// an approximate SDF via gradient normalisation.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::lemniscate_2d;
+/// use abrash_core::math::Vec2;
+/// // Point near the origin (pinch point) is outside.
+/// assert!(lemniscate_2d(Vec2::ZERO, 1.0) > 0.0);
+/// // Point on the right lobe midway is inside.
+/// assert!(lemniscate_2d(Vec2::new(0.7, 0.0), 1.0) < 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn lemniscate_2d(p: Vec2, a: f32) -> f32 {
+    // Implicit value: f = (x²+y²)² - a²(x²-y²)
+    let (x, y) = (p.x, p.y);
+    let r2 = x * x + y * y;
+    let f = r2 * r2 - a * a * (x * x - y * y);
+    // Approximate SDF by dividing by |∇f|.
+    // ∂f/∂x = 4x(x²+y²) - 2a²x  →  2x(2r²-a²)
+    // ∂f/∂y = 4y(x²+y²) + 2a²y  →  2y(2r²+a²)
+    let gx = 2.0 * x * (2.0 * r2 - a * a);
+    let gy = 2.0 * y * (2.0 * r2 + a * a);
+    let grad_len = (gx * gx + gy * gy).sqrt().max(1e-8);
+    f / grad_len
+}
+
+/// 2D teardrop / water-drop shape, tip pointing downward (−Y).
+///
+/// * `r` — radius of the round head at the top
+/// * `len` — length from head centre to tip
+///
+/// Constructed as the smooth union of a circle (head) and a triangle (tip).
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::teardrop_2d;
+/// use abrash_core::math::Vec2;
+/// // Inside the round head.
+/// assert!(teardrop_2d(Vec2::new(0.0, 0.0), 0.5, 1.5) < 0.0);
+/// // Far outside.
+/// assert!(teardrop_2d(Vec2::new(3.0, 0.0), 0.5, 1.5) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn teardrop_2d(p: Vec2, r: f32, len: f32) -> f32 {
+    // Head: circle of radius r centred at origin.
+    let head = p.length() - r;
+    // Tip: a triangle pointing down at (0, -len).
+    // Model the triangular body as a widening cone from (0, -len) to the head circumference.
+    // We use the distance to the segment from (0, -len) to the edge of the head.
+    // Simplified: rounded uneven capsule from (0, 0) to (0, -len) with radii r→0.
+    let q = Vec2::new(p.x.abs(), p.y);
+    let ba = Vec2::new(0.0, -len - r); // from top of head (y=r) to tip, simplified
+    let pa = Vec2::new(q.x, q.y - r);
+    let h = (pa.dot(ba) / ba.dot(ba)).clamp(0.0, 1.0);
+    let cone_r = r * (1.0 - h); // taper radius
+    let body = Vec2::new(pa.x - ba.x * h, pa.y - ba.y * h).length() - cone_r;
+    head.min(body)
+}
+
+#[cfg(test)]
+mod tests_pass_29_sdf {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── lemniscate_2d ─────────────────────────────────────────────────────────
+    #[test]
+    fn lemniscate_right_lobe_inside() {
+        let d = lemniscate_2d(Vec2::new(0.7, 0.0), 1.0);
+        assert!(d < 0.0, "right lobe: {d}");
+    }
+
+    #[test]
+    fn lemniscate_pinch_on_boundary() {
+        // Origin is the self-intersection (singular point) of the lemniscate → d = 0.
+        let d = lemniscate_2d(Vec2::ZERO, 1.0);
+        assert!(d.abs() < 1e-5, "pinch on boundary: {d}");
+    }
+
+    #[test]
+    fn lemniscate_above_pinch_outside() {
+        // A point above the origin, between the lobes, is outside.
+        let d = lemniscate_2d(Vec2::new(0.0, 0.5), 1.0);
+        assert!(d > 0.0, "above pinch: {d}");
+    }
+
+    #[test]
+    fn lemniscate_far_outside() {
+        let d = lemniscate_2d(Vec2::new(3.0, 0.0), 1.0);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    #[test]
+    fn lemniscate_symmetric_x() {
+        // Left lobe (−x) should mirror right lobe.
+        let a = lemniscate_2d(Vec2::new(0.7, 0.0), 1.0);
+        let b = lemniscate_2d(Vec2::new(-0.7, 0.0), 1.0);
+        assert!((a - b).abs() < 1e-5, "left-right symmetry: {a} vs {b}");
+    }
+
+    // ── teardrop_2d ───────────────────────────────────────────────────────────
+    #[test]
+    fn teardrop_head_inside() {
+        let d = teardrop_2d(Vec2::new(0.0, 0.0), 0.5, 1.5);
+        assert!(d < 0.0, "head inside: {d}");
+    }
+
+    #[test]
+    fn teardrop_far_outside() {
+        let d = teardrop_2d(Vec2::new(3.0, 0.0), 0.5, 1.5);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    #[test]
+    fn teardrop_below_tip_outside() {
+        // Well below the tip (−len−r) should be outside.
+        let d = teardrop_2d(Vec2::new(0.0, -3.0), 0.5, 1.5);
+        assert!(d > 0.0, "below tip: {d}");
+    }
+}

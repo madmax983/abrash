@@ -11393,3 +11393,422 @@ mod tests_pass_28 {
         assert!((q_euler.w - q_aa.w).abs() < 1e-5);
     }
 }
+
+// ── Pass 29 additions ─────────────────────────────────────────────────────────
+
+/// Reflect an incident direction about a surface `normal` (Snell's law mirror term).
+///
+/// Both `incident` and `normal` should be normalised. The result is the
+/// mirror direction: `i - 2 * dot(i, n) * n`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{reflect, Vec3};
+/// // Vertical drop → vertical bounce.
+/// let r = reflect(Vec3::new(0.0, -1.0, 0.0), Vec3::Y);
+/// assert!((r.y - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
+    let d = incident.dot(normal);
+    Vec3::new(
+        incident.x - 2.0 * d * normal.x,
+        incident.y - 2.0 * d * normal.y,
+        incident.z - 2.0 * d * normal.z,
+    )
+}
+
+/// Refract an incident direction through a surface using Snell's law.
+///
+/// Returns `None` for total internal reflection (when `eta * sin_θ > 1`).
+///
+/// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{refract, Vec3};
+/// // Normal incidence: ray passes straight through.
+/// let r = refract(Vec3::new(0.0, -1.0, 0.0), Vec3::Y, 1.0);
+/// assert!(r.is_some());
+/// ```
+#[must_use]
+#[inline]
+pub fn refract(incident: Vec3, normal: Vec3, eta: f32) -> Option<Vec3> {
+    let cos_i = -incident.dot(normal);
+    let sin2_t = eta * eta * (1.0 - cos_i * cos_i);
+    if sin2_t > 1.0 {
+        return None; // total internal reflection
+    }
+    let cos_t = (1.0 - sin2_t).sqrt();
+    Some(Vec3::new(
+        eta * incident.x + (eta * cos_i - cos_t) * normal.x,
+        eta * incident.y + (eta * cos_i - cos_t) * normal.y,
+        eta * incident.z + (eta * cos_i - cos_t) * normal.z,
+    ))
+}
+
+/// Closest point on segment `(a, b)` to point `p` in 3D.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{closest_point_on_segment_3d, Vec3};
+/// let c = closest_point_on_segment_3d(Vec3::new(0.0, 1.0, 0.0),
+///     Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0));
+/// assert!(c.y.abs() < 1e-5); // projected onto X axis
+/// ```
+#[must_use]
+#[inline]
+pub fn closest_point_on_segment_3d(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+    let ab = b - a;
+    let t = (p - a).dot(ab) / ab.dot(ab);
+    let t = t.clamp(0.0, 1.0);
+    Vec3::new(a.x + t * ab.x, a.y + t * ab.y, a.z + t * ab.z)
+}
+
+/// Project a 3D point onto a plane defined by `normal` (unit) and offset `d`.
+///
+/// The plane equation is `dot(p, normal) = d`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{project_point_to_plane, Vec3};
+/// let p = Vec3::new(0.0, 3.0, 0.0);
+/// let proj = project_point_to_plane(p, Vec3::Y, 1.0); // plane y=1
+/// assert!((proj.y - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn project_point_to_plane(p: Vec3, normal: Vec3, d: f32) -> Vec3 {
+    let dist = p.dot(normal) - d;
+    Vec3::new(
+        p.x - dist * normal.x,
+        p.y - dist * normal.y,
+        p.z - dist * normal.z,
+    )
+}
+
+/// Quadratic (t²) ease-in — starts slow, ends fast.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_quad_in;
+/// assert!(ease_quad_in(0.5) < 0.5);
+/// assert!(ease_quad_in(0.0).abs() < 1e-6);
+/// assert!((ease_quad_in(1.0) - 1.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_quad_in(t: f32) -> f32 {
+    t * t
+}
+
+/// Quadratic ease-out — starts fast, ends slow.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_quad_out;
+/// assert!(ease_quad_out(0.5) > 0.5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_quad_out(t: f32) -> f32 {
+    t * (2.0 - t)
+}
+
+/// Quadratic ease-in-out — slow at both ends, fast in middle.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_quad_in_out;
+/// assert!(ease_quad_in_out(0.0).abs() < 1e-6);
+/// assert!((ease_quad_in_out(1.0) - 1.0).abs() < 1e-6);
+/// assert!((ease_quad_in_out(0.5) - 0.5).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_quad_in_out(t: f32) -> f32 {
+    if t < 0.5 {
+        2.0 * t * t
+    } else {
+        let t1 = t - 1.0;
+        1.0 - 2.0 * t1 * t1
+    }
+}
+
+/// Cubic (t³) ease-in.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_cubic_in;
+/// assert!(ease_cubic_in(0.5) < ease_cubic_in(1.0));
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_cubic_in(t: f32) -> f32 {
+    t * t * t
+}
+
+/// Cubic ease-out.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_cubic_out;
+/// assert!((ease_cubic_out(1.0) - 1.0).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_cubic_out(t: f32) -> f32 {
+    let t1 = t - 1.0;
+    t1 * t1 * t1 + 1.0
+}
+
+/// Cubic ease-in-out.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_cubic_in_out;
+/// assert!((ease_cubic_in_out(0.5) - 0.5).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_cubic_in_out(t: f32) -> f32 {
+    if t < 0.5 {
+        4.0 * t * t * t
+    } else {
+        let t1 = 2.0 * t - 2.0;
+        0.5 * t1 * t1 * t1 + 1.0
+    }
+}
+
+/// Sine ease-in — starts slow using a cosine curve.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_sine_in;
+/// assert!(ease_sine_in(0.0).abs() < 1e-6);
+/// assert!((ease_sine_in(1.0) - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_sine_in(t: f32) -> f32 {
+    1.0 - (t * core::f32::consts::FRAC_PI_2).cos()
+}
+
+/// Sine ease-out — ends slow using a sine curve.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_sine_out;
+/// assert!((ease_sine_out(1.0) - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_sine_out(t: f32) -> f32 {
+    (t * core::f32::consts::FRAC_PI_2).sin()
+}
+
+/// Sine ease-in-out.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_sine_in_out;
+/// assert!((ease_sine_in_out(0.5) - 0.5).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_sine_in_out(t: f32) -> f32 {
+    0.5 * (1.0 - (core::f32::consts::PI * t).cos())
+}
+
+/// Gaussian probability density function: `exp(-0.5 * ((x-μ)/σ)²) / (σ√(2π))`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::gaussian;
+/// // Peak at mean.
+/// let peak = gaussian(0.0, 0.0, 1.0);
+/// let off  = gaussian(1.0, 0.0, 1.0);
+/// assert!(peak > off);
+/// // Standard normal PDF at x=0 ≈ 0.3989.
+/// assert!((peak - 0.398_942_28).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn gaussian(x: f32, mean: f32, stddev: f32) -> f32 {
+    let z = (x - mean) / stddev;
+    let inv_sqrt2pi = 0.398_942_28_f32; // 1 / sqrt(2π)
+    (inv_sqrt2pi / stddev) * (-0.5 * z * z).exp()
+}
+
+/// Abramowitz & Stegun approximation of the error function `erf(x)`.
+///
+/// Maximum error ≤ 1.5 × 10⁻⁷ across the entire real line.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::erf_approx;
+/// assert!(erf_approx(0.0).abs() < 1e-6);
+/// assert!((erf_approx(f32::INFINITY) - 1.0).abs() < 1e-5);
+/// assert!((erf_approx(-1.0) + erf_approx(1.0)).abs() < 1e-5); // odd function
+/// ```
+#[must_use]
+#[inline]
+pub fn erf_approx(x: f32) -> f32 {
+    // A&S formula 7.1.26 (rational approximation)
+    const P: f32 = 0.327_591_1;
+    const A: [f32; 5] = [
+        0.254_829_592,
+        -0.284_496_736,
+        1.421_413_741,
+        -1.453_152_027,
+        1.061_405_429,
+    ];
+    let sign = if x < 0.0 { -1.0_f32 } else { 1.0_f32 };
+    let x = x.abs();
+    let t = 1.0 / (1.0 + P * x);
+    let poly = ((((A[4] * t + A[3]) * t + A[2]) * t + A[1]) * t + A[0]) * t;
+    sign * (1.0 - poly * (-x * x).exp())
+}
+
+#[cfg(test)]
+mod tests_pass_29 {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── reflect ───────────────────────────────────────────────────────────────
+    #[test]
+    fn reflect_vertical_normal() {
+        let r = reflect(Vec3::new(0.0, -1.0, 0.0), Vec3::Y);
+        assert!((r.y - 1.0).abs() < 1e-5, "ry: {}", r.y);
+    }
+
+    #[test]
+    fn reflect_45_degree() {
+        // incident at 45° from normal → reflects at 45° on other side
+        let i = Vec3::new(1.0, -1.0, 0.0).normalize();
+        let r = reflect(i, Vec3::Y);
+        assert!((r.x - i.x).abs() < 1e-5);
+        assert!((r.y + i.y).abs() < 1e-5); // y flips
+    }
+
+    // ── refract ───────────────────────────────────────────────────────────────
+    #[test]
+    fn refract_normal_incidence_eta1() {
+        // eta=1 (same medium): refracted = incident
+        let i = Vec3::new(0.0, -1.0, 0.0);
+        let r = refract(i, Vec3::Y, 1.0).expect("should transmit");
+        assert!((r.y + 1.0).abs() < 1e-5, "ry: {}", r.y);
+    }
+
+    #[test]
+    fn refract_total_internal_reflection() {
+        // Large eta, glancing angle → TIR
+        let i = Vec3::new(0.999, -0.045, 0.0).normalize();
+        let result = refract(i, Vec3::Y, 1.5);
+        assert!(result.is_none(), "should TIR");
+    }
+
+    // ── closest_point_on_segment_3d ───────────────────────────────────────────
+    #[test]
+    fn closest_point_projects_onto_segment() {
+        let c = closest_point_on_segment_3d(
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+        );
+        assert!(c.y.abs() < 1e-5, "y: {}", c.y);
+        assert!(c.x.abs() < 1e-5, "x: {}", c.x);
+    }
+
+    #[test]
+    fn closest_point_clamps_to_endpoint() {
+        // Beyond end of segment → returns endpoint
+        let c = closest_point_on_segment_3d(
+            Vec3::new(5.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+        );
+        assert!((c.x - 1.0).abs() < 1e-5, "x: {}", c.x);
+    }
+
+    // ── project_point_to_plane ────────────────────────────────────────────────
+    #[test]
+    fn project_point_above_plane() {
+        let p = project_point_to_plane(Vec3::new(0.0, 3.0, 0.0), Vec3::Y, 1.0);
+        assert!((p.y - 1.0).abs() < 1e-5, "y: {}", p.y);
+    }
+
+    #[test]
+    fn project_point_on_plane_unchanged() {
+        let p = Vec3::new(3.0, 1.0, 2.0);
+        let proj = project_point_to_plane(p, Vec3::Y, 1.0);
+        assert!((proj.x - 3.0).abs() < 1e-5);
+        assert!((proj.y - 1.0).abs() < 1e-5);
+    }
+
+    // ── easing: quad ─────────────────────────────────────────────────────────
+    #[test]
+    fn quad_easing_endpoints() {
+        for &v in &[ease_quad_in(0.0), ease_quad_out(0.0), ease_quad_in_out(0.0)] {
+            assert!(v.abs() < 1e-6, "start: {v}");
+        }
+        for &v in &[ease_quad_in(1.0), ease_quad_out(1.0), ease_quad_in_out(1.0)] {
+            assert!((v - 1.0).abs() < 1e-5, "end: {v}");
+        }
+    }
+
+    #[test]
+    fn quad_in_slower_than_out_at_midpoint() {
+        assert!(ease_quad_in(0.5) < ease_quad_out(0.5));
+    }
+
+    // ── easing: cubic ────────────────────────────────────────────────────────
+    #[test]
+    fn cubic_easing_endpoints() {
+        assert!(ease_cubic_in(0.0).abs() < 1e-6);
+        assert!((ease_cubic_in(1.0) - 1.0).abs() < 1e-5);
+        assert!((ease_cubic_out(1.0) - 1.0).abs() < 1e-5);
+        assert!((ease_cubic_in_out(0.5) - 0.5).abs() < 1e-5);
+    }
+
+    // ── easing: sine ─────────────────────────────────────────────────────────
+    #[test]
+    fn sine_easing_endpoints() {
+        assert!(ease_sine_in(0.0).abs() < 1e-6);
+        assert!((ease_sine_in(1.0) - 1.0).abs() < 1e-5);
+        assert!((ease_sine_out(1.0) - 1.0).abs() < 1e-5);
+        assert!((ease_sine_in_out(0.5) - 0.5).abs() < 1e-5);
+    }
+
+    // ── gaussian ─────────────────────────────────────────────────────────────
+    #[test]
+    fn gaussian_peak_at_mean() {
+        let peak = gaussian(1.0, 1.0, 0.5);
+        let off = gaussian(1.5, 1.0, 0.5);
+        assert!(peak > off, "peak {peak} vs off {off}");
+    }
+
+    #[test]
+    fn gaussian_standard_normal() {
+        let v = gaussian(0.0, 0.0, 1.0);
+        assert!((v - 0.398_942_28_f32).abs() < 1e-5, "N(0,1) pdf: {v}");
+    }
+
+    // ── erf_approx ───────────────────────────────────────────────────────────
+    #[test]
+    fn erf_at_zero() {
+        assert!(erf_approx(0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn erf_odd_function() {
+        let x = 0.7_f32;
+        assert!((erf_approx(x) + erf_approx(-x)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn erf_converges_to_one() {
+        assert!((erf_approx(5.0) - 1.0).abs() < 1e-5);
+    }
+}
