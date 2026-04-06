@@ -249,17 +249,38 @@ impl HiZBuffer {
     pub fn build_pyramid(&mut self, zbuffer: &ZBuffer) {
         assert_eq!(zbuffer.width(), self.width);
         assert_eq!(zbuffer.height(), self.height);
+        self.build_pyramid_from_level0(zbuffer.as_slice());
+    }
 
-        // Only build pyramid if there are levels beyond level 0
+    /// Build the entire pyramid directly from a caller-owned depth slice.
+    ///
+    /// This avoids wrapping the depths in a temporary [`ZBuffer`] when the caller
+    /// already owns the backing storage.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided dimensions do not match this Hi-Z buffer or if the
+    /// depth slice is smaller than `width * height`.
+    pub fn build_pyramid_from_depths(&mut self, width: u32, height: u32, depths: &[f32]) {
+        assert_eq!(width, self.width);
+        assert_eq!(height, self.height);
+        let expected_len = (width as usize)
+            .checked_mul(height as usize)
+            .expect("Hi-Z dimensions overflow");
+        assert!(
+            depths.len() >= expected_len,
+            "Depth slice too small for Hi-Z pyramid build"
+        );
+        self.build_pyramid_from_level0(&depths[..expected_len]);
+    }
+
+    fn build_pyramid_from_level0(&mut self, level0: &[f32]) {
         if self.level_count > 1 {
-            // Build level 1 directly from zbuffer
-            let level0 = zbuffer.as_slice();
             let dest_width = self.levels[1].width;
             let dest_height = self.levels[1].height;
             let dest = &mut self.levels[1].depths;
             Self::min_reduce_2x2(dest, dest_width, dest_height, level0, self.width);
 
-            // Build subsequent levels from previous levels
             for level_idx in 2..self.level_count as usize {
                 let (lower_levels, higher_levels) = self.levels.split_at_mut(level_idx);
                 let prev_level = &lower_levels[level_idx - 1];
@@ -617,6 +638,28 @@ mod tests {
 
         hiz.build_pyramid(&zb);
         assert!(hiz.is_valid());
+    }
+
+    #[test]
+    fn test_build_pyramid_from_depths_matches_zbuffer_build() {
+        let mut zb = ZBuffer::new(8, 8).unwrap();
+        for (idx, depth) in zb.as_mut_slice().iter_mut().enumerate() {
+            *depth = (idx as f32) * 0.25;
+        }
+
+        let mut from_zbuffer = HiZBuffer::new(8, 8);
+        from_zbuffer.build_pyramid(&zb);
+
+        let mut from_depths = HiZBuffer::new(8, 8);
+        from_depths.build_pyramid_from_depths(8, 8, zb.as_slice());
+
+        assert_eq!(from_depths.level_count(), from_zbuffer.level_count());
+        for level_idx in 1..from_zbuffer.level_count() as usize {
+            assert_eq!(
+                from_depths.levels[level_idx].depths,
+                from_zbuffer.levels[level_idx].depths
+            );
+        }
     }
 
     #[test]

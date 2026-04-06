@@ -16,6 +16,7 @@ name = "abrash"
 version = "0.1.0"
 edition = "2024"
 autobenches = false
+description = "Host/demo facade crate for the Abrash headless software rasterizer workspace."
 
 [features]
 default = ["backend-winit"]

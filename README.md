@@ -1,8 +1,13 @@
-# Abrash Graphics Engine 🎻
+# Abrash Graphics Engine
 
-**Abrash** is a software rasterization engine written in Rust, designed for educational purposes and retro-graphics enthusiasts. It pays homage to the software rendering techniques popularized by legends like Michael Abrash in his "Graphics Programming Black Book".
+**Abrash** is a software rasterization workspace written in Rust.
+The actual engine surfaces are split by responsibility:
 
-The goal is to demystify the GPU pipeline by implementing every stage—from vertex transformation to pixel shading—in pure, readable Rust.
+- `abrash-render`: headless/offscreen render API surface for embedding
+- `abrash-core`: foundational math, buffers, geometry, and utility types
+- root `abrash`: host/demo/meta crate that re-exports the workspace and optional platform backends
+
+The goal is still the same: demystify the graphics pipeline by implementing every stage, from vertex transformation to pixel shading, in readable Rust.
 
 ## Philosophy 📜
 
@@ -24,16 +29,32 @@ Modern graphics APIs (Vulkan, DirectX 12) are powerful but complex black boxes. 
     *   **Native Windows:** High-performance windowing using Win32.
     *   **TUI Backend:** Runs in your terminal for true cross-platform compatibility (Linux/macOS).
 
-## Quick Start 🚀
+## Quick Start
 
-Ensure you have Rust installed. Clone the repository and run the examples!
+Ensure you have Rust installed. Then pick the surface that matches the job.
 
-### Running the Demo
+### Headless / Embed Path
 
-The main binary runs a lit 3D cube demo. Use `--release` for smooth performance!
+If you want to embed Abrash into another project, start with the engine crates:
 
 ```bash
-cargo run --release
+cargo test -p abrash-render --lib
+cargo run -p embed-demo
+```
+
+`embed-demo` is the reference for caller-owned pixel/depth buffers with no platform dependency.
+
+Integration notes:
+
+- [Bevy buffer bridge](docs/integration/bevy-buffer-bridge.md)
+- [doom-rs buffer bridge](docs/integration/doom-rs-buffer-bridge.md)
+
+### Host / Demo Path
+
+The root `abrash` crate is the host/demo layer. The shipped terminal binary requires the TUI backend:
+
+```bash
+cargo run -p abrash --release --no-default-features --features backend-tui
 ```
 
 ### Examples
@@ -70,13 +91,13 @@ Engine comparison benchmarks (headless update loops for Bevy/Fyrox plus wgpu off
 cargo bench --bench gpu_engine_compare --features gpu-engine-compare
 ```
 
-**Note for Linux/macOS users:**
-The default backend uses Win32. To run on non-Windows systems, use the TUI backend:
+If you want the root library surface without any backend glue, it now checks cleanly with:
+
 ```bash
-cargo run --release --no-default-features --features backend-tui
+cargo check -p abrash --no-default-features --lib
 ```
 
-## Architecture 🏛️
+## Architecture
 
 The engine follows a standard graphics pipeline architecture:
 
@@ -104,7 +125,7 @@ The engine follows a standard graphics pipeline architecture:
     *   Vectors are rows: `[x, y, z, w]`
     *   Multiplication order: `v_prime = v * Scale * Rotation * Translation`
 
-## Documentation 📖
+## Documentation
 
 We believe that code is only as good as its explanation. All public APIs are fully documented with examples.
 
