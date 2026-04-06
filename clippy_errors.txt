@@ -1,35 +1,204 @@
-    Checking abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
-    Checking fyrox v1.0.0-rc.2
-    Checking criterion-plot v0.5.0
-    Checking plotters v0.3.7
-    Checking rand_chacha v0.9.0
-    Checking rand v0.9.2
-    Checking rand_xorshift v0.4.0
-    Checking bit-set v0.8.0
-    Checking tinytemplate v1.2.1
-    Checking is-terminal v0.4.17
-    Checking unarray v0.1.4
-    Checking anes v0.1.6
-    Checking oorandom v11.1.5
-    Checking proptest v1.10.0
-    Checking criterion v0.5.1
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-   --> crates/abrash-gpu-render/src/composition.rs:118:5
-    |
-118 |     pub _pad: [u32; 3],
-    |     ^^^^^^^^
-    |
-    = help: consider removing the underscore, or making the field private
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
-    = note: `-D clippy::pub-underscore-fields` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::pub_underscore_fields)]`
+    Checking abrash-core v0.1.0 (/app/crates/abrash-core)
+    Checking erased-serde v0.4.10
+    Checking aligned-vec v0.6.4
+    Checking ratatui-macros v0.7.0
+    Checking ratatui-crossterm v0.1.0
+    Checking tinystr v0.8.2
+    Checking rectutils v0.5.0
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/geometry.rs:1089:33
+     |
+1089 |         let denom = d00 * d11 - d01 * d01;
+     |                                 ^^^^^^^^^ help: did you mean: `d00 * d01`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+     = note: `-D clippy::suspicious-operation-groupings` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::suspicious_operation_groupings)]`
 
-error: this could be a `const fn`
-   --> crates/abrash-gpu-render/src/composition.rs:248:5
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/geometry.rs:1614:27
+     |
+1614 |         let a = vv * dd - dv * dv;
+     |                           ^^^^^^^ help: did you mean: `vv * dv`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/geometry.rs:1616:27
+     |
+1616 |         let c = vv * ww - wv * wv - self.radius * self.radius * vv;
+     |                           ^^^^^^^ help: did you mean: `vv * wv`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/geometry.rs:1621:24
+     |
+1621 |             let disc = half_b * half_b - a * c;
+     |                        ^^^^^^^^^^^^^^^ help: did you mean: `a * half_b`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/geometry.rs:1688:33
+     |
+1688 |             let denom = a * e - b_dot * b_dot;
+     |                                 ^^^^^^^^^^^^^ help: did you mean: `a * b_dot`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:11061:34
+      |
+11061 |     let inv = 1.0 / (d00 * d11 - d01 * d01);
+      |                                  ^^^^^^^^^ help: did you mean: `d00 * d01`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:12416:29
+      |
+12416 |     let c_c = baba * oaoa - baoa * baoa - r * r * baba;
+      |                             ^^^^^^^^^^^ help: did you mean: `baba * baoa`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:12422:17
+      |
+12422 |         let h = b_c * b_c - a_c * c_c;
+      |                 ^^^^^^^^^ help: did you mean: `a_c * b_c`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:15268:27
+      |
+15268 |     let denom = n * sxx - sx * sx;
+      |                           ^^^^^^^ help: did you mean: `n * sx`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:15459:33
+      |
+15459 |             let denom = a * e - b * b;
+      |                                 ^^^^^ help: did you mean: `a * b`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15985:31
+      |
+15985 |         v = (v | (v << 16)) & 0x030000ff;
+      |                               ^^^^^^^^^^ help: consider: `0x0300_00ff`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+      = note: `-D clippy::unreadable-literal` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::unreadable_literal)]`
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15986:30
+      |
+15986 |         v = (v | (v << 8)) & 0x0300f00f;
+      |                              ^^^^^^^^^^ help: consider: `0x0300_f00f`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15987:30
+      |
+15987 |         v = (v | (v << 4)) & 0x030c30c3;
+      |                              ^^^^^^^^^^ help: consider: `0x030c_30c3`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15988:30
+      |
+15988 |         v = (v | (v << 2)) & 0x09249249;
+      |                              ^^^^^^^^^^ help: consider: `0x0924_9249`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15997:14
+      |
+15997 |         v &= 0x09249249;
+      |              ^^^^^^^^^^ help: consider: `0x0924_9249`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15998:30
+      |
+15998 |         v = (v | (v >> 2)) & 0x030c30c3;
+      |                              ^^^^^^^^^^ help: consider: `0x030c_30c3`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:15999:30
+      |
+15999 |         v = (v | (v >> 4)) & 0x0300f00f;
+      |                              ^^^^^^^^^^ help: consider: `0x0300_f00f`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+     --> crates/abrash-core/src/math.rs:16000:30
+      |
+16000 |         v = (v | (v >> 8)) & 0x030000ff;
+      |                              ^^^^^^^^^^ help: consider: `0x0300_00ff`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unreadable_literal
+
+    Checking wayland-protocols v0.32.11
+error: this sequence of operators looks suspiciously like a bug
+     --> crates/abrash-core/src/math.rs:17635:22
+      |
+17635 |         + (ax * ax + ay * ay) * (bx * cy - by * cx);
+      |                      ^^^^^^^ help: did you mean: `ax * ay`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+error: unnecessary parentheses around block return value
+   --> crates/abrash-core/src/color.rs:699:13
     |
-248 | /     pub fn set_debug_mode(&mut self, mode: DebugMode) {
-249 | |         self.debug_mode = mode;
-250 | |     }
+699 |             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+    |             ^                                                 ^
+    |
+    = note: `-D unused-parens` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_parens)]`
+help: remove these parentheses
+    |
+699 -             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+699 +             288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0
+    |
+
+    Checking gethostname v1.1.0
+error: this sequence of operators looks suspiciously like a bug
+    --> crates/abrash-core/src/sdf.rs:1216:59
+     |
+1216 |     let c1 = (ey.x * ap.x + ey.y * ap.y) + (ab.x * ab.x + ab.y * ab.y);
+     |                                                           ^^^^^^^^^^^ help: did you mean: `ey.y * ab.y`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#suspicious_operation_groupings
+
+   Compiling crc32fast v1.5.0
+    Checking litemap v0.8.1
+    Checking writeable v0.6.2
+   Compiling serde_core v1.0.228
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+    Checking atomic-waker v1.1.2
+    Checking x11rb v0.13.2
+   Compiling toml_edit v0.23.10+spec-1.0.0
+error: this could be a `const fn`
+   --> crates/abrash-core/src/geometry.rs:904:5
+    |
+904 | /     pub fn merge(a: &Self, b: &Self) -> Self {
+905 | |         Self::new(a.min.min(b.min), a.max.max(b.max))
+906 | |     }
     | |_____^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
@@ -37,318 +206,4306 @@ error: this could be a `const fn`
     = help: to override `-D warnings` add `#[allow(clippy::missing_const_for_fn)]`
 help: make the function `const`
     |
-248 |     pub const fn set_debug_mode(&mut self, mode: DebugMode) {
+904 |     pub const fn merge(a: &Self, b: &Self) -> Self {
     |         +++++
 
-error: item in documentation is missing backticks
-   --> crates/abrash-gpu-render/src/deferred.rs:173:49
+error: this could be a `const fn`
+   --> crates/abrash-core/src/geometry.rs:949:5
     |
-173 |     /// Output format should be the HDR format (Rgba16Float) since tone...
-    |                                                 ^^^^^^^^^^^
+949 | /     pub fn corners(&self) -> [Vec3; 8] {
+950 | |         let mn = self.min;
+951 | |         let mx = self.max;
+...   |
+962 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+949 |     pub const fn corners(&self) -> [Vec3; 8] {
+    |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/geometry.rs:1192:5
+     |
+1192 | /     pub fn to_aabb(self) -> AABB {
+1193 | |         AABB::new(
+1194 | |             self.a.min(self.b).min(self.c),
+1195 | |             self.a.max(self.b).max(self.c),
+1196 | |         )
+1197 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1192 |     pub const fn to_aabb(self) -> AABB {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/geometry.rs:1299:5
+     |
+1299 | /     pub fn from_center_extents(center: Vec3, half_extents: Vec3) -> ...
+1300 | |         Self {
+1301 | |             center,
+1302 | |             half_extents,
+...    |
+1305 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1299 |     pub const fn from_center_extents(center: Vec3, half_extents: Vec3) -> Self {
+     |         +++++
+
+error: unnecessary structure name repetition
+    --> crates/abrash-core/src/geometry.rs:1449:26
+     |
+1449 |     fn sat_separated(a: &OBB, b: &OBB, axis: Vec3) -> bool {
+     |                          ^^^ help: use the applicable keyword: `Self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+     = note: `-D clippy::use-self` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::use_self)]`
+
+error: unnecessary structure name repetition
+    --> crates/abrash-core/src/geometry.rs:1449:35
+     |
+1449 |     fn sat_separated(a: &OBB, b: &OBB, axis: Vec3) -> bool {
+     |                                   ^^^ help: use the applicable keyword: `Self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+
+error: unnecessary structure name repetition
+    --> crates/abrash-core/src/geometry.rs:1461:42
+     |
+1461 |     pub fn intersects_obb(&self, other: &OBB) -> bool {
+     |                                          ^^^ help: use the applicable keyword: `Self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+
+error: unnecessary structure name repetition
+    --> crates/abrash-core/src/geometry.rs:1489:30
+     |
+1489 |         self.intersects_obb(&OBB::from_aabb(aabb))
+     |                              ^^^ help: use the applicable keyword: `Self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+
+error: unnecessary structure name repetition
+    --> crates/abrash-core/src/geometry.rs:1591:46
+     |
+1591 |     pub fn intersects_capsule(&self, other: &Capsule) -> bool {
+     |                                              ^^^^^^^ help: use the applicable keyword: `Self`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/geometry.rs:1845:5
+     |
+1845 | /     pub fn to_aabb(&self) -> AABB {
+1846 | |         AABB::new(self.a.min(self.b), self.a.max(self.b))
+1847 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1845 |     pub const fn to_aabb(&self) -> AABB {
+     |         +++++
+
+error: hypotenuse can be computed more accurately
+   --> crates/abrash-core/src/math.rs:845:13
+    |
+845 |     let r = (v.x * v.x + v.z * v.z).sqrt();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `v.x.hypot(v.z)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+    = note: `-D clippy::imprecise-flops` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::imprecise_flops)]`
+
+error: item in documentation is missing backticks
+   --> crates/abrash-core/src/math.rs:966:37
+    |
+966 | /// Hammersley 2D point set — (i/N, van_der_corput(i)).
+    |                                     ^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
     = note: `-D clippy::doc-markdown` implied by `-D warnings`
     = help: to override `-D warnings` add `#[allow(clippy::doc_markdown)]`
 help: try
     |
-173 -     /// Output format should be the HDR format (Rgba16Float) since tone mapping
-173 +     /// Output format should be the HDR format (`Rgba16Float`) since tone mapping
+966 - /// Hammersley 2D point set — (i/N, van_der_corput(i)).
+966 + /// Hammersley 2D point set — (i/N, `van_der_corput(i)`).
     |
 
-error: this function has too many lines (162/100)
-   --> crates/abrash-gpu-render/src/deferred.rs:176:5
-    |
-176 | /     pub fn new(
-177 | |         device: &wgpu::Device,
-178 | |         output_format: wgpu::TextureFormat,
-179 | |         shadow_sample_layout: &wgpu::BindGroupLayout,
-180 | |     ) -> Self {
-    | |_____________^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
-    = note: `-D clippy::too-many-lines` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::too_many_lines)]`
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1412:5
+     |
+1412 | /     pub fn abs(self) -> Self {
+1413 | |         Self {
+1414 | |             x: self.x.abs(),
+1415 | |             y: self.y.abs(),
+1416 | |         }
+1417 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1412 |     pub const fn abs(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1422:5
+     |
+1422 | /     pub fn sign(self) -> Self {
+1423 | |         Self {
+1424 | |             x: self.x.signum(),
+1425 | |             y: self.y.signum(),
+1426 | |         }
+1427 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1422 |     pub const fn sign(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1432:5
+     |
+1432 | /     pub fn floor(self) -> Self {
+1433 | |         Self {
+1434 | |             x: self.x.floor(),
+1435 | |             y: self.y.floor(),
+1436 | |         }
+1437 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1432 |     pub const fn floor(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1442:5
+     |
+1442 | /     pub fn ceil(self) -> Self {
+1443 | |         Self {
+1444 | |             x: self.x.ceil(),
+1445 | |             y: self.y.ceil(),
+1446 | |         }
+1447 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1442 |     pub const fn ceil(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1452:5
+     |
+1452 | /     pub fn round(self) -> Self {
+1453 | |         Self {
+1454 | |             x: self.x.round(),
+1455 | |             y: self.y.round(),
+1456 | |         }
+1457 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1452 |     pub const fn round(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1505:5
+     |
+1505 | /     pub fn min_component(self) -> f32 {
+1506 | |         self.x.min(self.y)
+1507 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1505 |     pub const fn min_component(self) -> f32 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:1512:5
+     |
+1512 | /     pub fn max_component(self) -> f32 {
+1513 | |         self.x.max(self.y)
+1514 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1512 |     pub const fn max_component(self) -> f32 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2304:5
+     |
+2304 | /     pub fn min_component(self) -> f32 {
+2305 | |         self.x.min(self.y).min(self.z)
+2306 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2304 |     pub const fn min_component(self) -> f32 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2317:5
+     |
+2317 | /     pub fn max_component(self) -> f32 {
+2318 | |         self.x.max(self.y).max(self.z)
+2319 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2317 |     pub const fn max_component(self) -> f32 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2503:5
+     |
+2503 | /     pub fn sign(self) -> Self {
+2504 | |         Self {
+2505 | |             x: self.x.signum(),
+2506 | |             y: self.y.signum(),
+...    |
+2509 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2503 |     pub const fn sign(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2514:5
+     |
+2514 | /     pub fn floor(self) -> Self {
+2515 | |         Self {
+2516 | |             x: self.x.floor(),
+2517 | |             y: self.y.floor(),
+...    |
+2520 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2514 |     pub const fn floor(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2525:5
+     |
+2525 | /     pub fn ceil(self) -> Self {
+2526 | |         Self {
+2527 | |             x: self.x.ceil(),
+2528 | |             y: self.y.ceil(),
+...    |
+2531 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2525 |     pub const fn ceil(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:2536:5
+     |
+2536 | /     pub fn round(self) -> Self {
+2537 | |         Self {
+2538 | |             x: self.x.round(),
+2539 | |             y: self.y.round(),
+...    |
+2542 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2536 |     pub const fn round(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:3104:5
+     |
+3104 | /     pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f3...
+...    |
+3119 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+3104 |     pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:3935:5
+     |
+3935 | /     pub fn row(&self, index: usize) -> Vec4 {
+3936 | |         Vec4::new(
+3937 | |             self.m[index][0],
+3938 | |             self.m[index][1],
+...    |
+3942 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+3935 |     pub const fn row(&self, index: usize) -> Vec4 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:5983:5
+     |
+5983 | /     pub fn abs(self) -> Self {
+5984 | |         Self {
+5985 | |             x: self.x.abs(),
+5986 | |             y: self.y.abs(),
+...    |
+5990 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+5983 |     pub const fn abs(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:5995:5
+     |
+5995 | /     pub fn sign(self) -> Self {
+5996 | |         Self {
+5997 | |             x: self.x.signum(),
+5998 | |             y: self.y.signum(),
+...    |
+6002 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+5995 |     pub const fn sign(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:6007:5
+     |
+6007 | /     pub fn floor(self) -> Self {
+6008 | |         Self {
+6009 | |             x: self.x.floor(),
+6010 | |             y: self.y.floor(),
+...    |
+6014 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+6007 |     pub const fn floor(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:6019:5
+     |
+6019 | /     pub fn ceil(self) -> Self {
+6020 | |         Self {
+6021 | |             x: self.x.ceil(),
+6022 | |             y: self.y.ceil(),
+...    |
+6026 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+6019 |     pub const fn ceil(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:6031:5
+     |
+6031 | /     pub fn round(self) -> Self {
+6032 | |         Self {
+6033 | |             x: self.x.round(),
+6034 | |             y: self.y.round(),
+...    |
+6038 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+6031 |     pub const fn round(self) -> Self {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:6055:5
+     |
+6055 | /     pub fn min_component(self) -> f32 {
+6056 | |         self.x.min(self.y).min(self.z).min(self.w)
+6057 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+6055 |     pub const fn min_component(self) -> f32 {
+     |         +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:6062:5
+     |
+6062 | /     pub fn max_component(self) -> f32 {
+6063 | |         self.x.max(self.y).max(self.z).max(self.w)
+6064 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+6062 |     pub const fn max_component(self) -> f32 {
+     |         +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7799:8
+     |
+7799 | pub fn octahedral_encode(n: Vec3) -> Vec2 {
+     |        ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+     = note: `-D clippy::must-use-candidate` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::must_use_candidate)]`
+help: add the attribute
+     |
+7799 + #[must_use]
+7800 | pub fn octahedral_encode(n: Vec3) -> Vec2 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7822:8
+     |
+7822 | pub fn octahedral_decode(v: Vec2) -> Vec3 {
+     |        ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+7822 + #[must_use]
+7823 | pub fn octahedral_decode(v: Vec2) -> Vec3 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7848:8
+     |
+7848 | pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+7848 + #[must_use]
+7849 | pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+     |
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:7851:5
+     |
+7851 | /     fn part1by1(mut n: u32) -> u32 {
+7852 | |         n &= 0x0000_FFFF;
+7853 | |         n = (n | (n << 8)) & 0x00FF_00FF;
+7854 | |         n = (n | (n << 4)) & 0x0F0F_0F0F;
+...    |
+7857 | |         n
+7858 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+7851 |     const fn part1by1(mut n: u32) -> u32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7872:8
+     |
+7872 | pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+7872 + #[must_use]
+7873 | pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+     |
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:7875:5
+     |
+7875 | /     fn compact1by1(mut n: u32) -> u32 {
+7876 | |         n &= 0x5555_5555;
+7877 | |         n = (n | (n >> 1)) & 0x3333_3333;
+7878 | |         n = (n | (n >> 2)) & 0x0F0F_0F0F;
+...    |
+7881 | |         n
+7882 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+7875 |     const fn compact1by1(mut n: u32) -> u32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7901:8
+     |
+7901 | pub fn spherical_fibonacci(i: u32, n: u32) -> Vec3 {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+7901 + #[must_use]
+7902 | pub fn spherical_fibonacci(i: u32, n: u32) -> Vec3 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:7927:8
+     |
+7927 | pub fn golden_ratio_sequence(n: u32) -> f32 {
+     |        ^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+7927 + #[must_use]
+7928 | pub fn golden_ratio_sequence(n: u32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8252:8
+     |
+8252 | pub fn fast_log2(x: f32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8252 + #[must_use]
+8253 | pub fn fast_log2(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8277:8
+     |
+8277 | pub fn fast_exp2(x: f32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8277 + #[must_use]
+8278 | pub fn fast_exp2(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8298:14
+     |
+8298 | pub const fn next_power_of_two(x: u32) -> u32 {
+     |              ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8298 + #[must_use]
+8299 | pub const fn next_power_of_two(x: u32) -> u32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8324:14
+     |
+8324 | pub const fn prev_power_of_two(x: u32) -> u32 {
+     |              ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8324 + #[must_use]
+8325 | pub const fn prev_power_of_two(x: u32) -> u32 {
+     |
+
+error: manually reimplementing `ilog2`
+    --> crates/abrash-core/src/math.rs:8328:10
+     |
+8328 |     1 << (31 - x.leading_zeros())
+     |          ^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `x.ilog2()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_ilog2
+     = note: `-D clippy::manual-ilog2` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::manual_ilog2)]`
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8347:8
+     |
+8347 | pub fn smootherstep5(t: f32) -> f32 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8347 + #[must_use]
+8348 | pub fn smootherstep5(t: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8367:8
+     |
+8367 | pub fn smootherstep7(t: f32) -> f32 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8367 + #[must_use]
+8368 | pub fn smootherstep7(t: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8387:8
+     |
+8387 | pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8387 + #[must_use]
+8388 | pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+     |
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:8387:1
+     |
+8387 | / pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+8388 | |     a.max(b).min(c).max(a.min(b))
+8389 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+8387 | pub const fn median3(a: f32, b: f32, c: f32) -> f32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8402:8
+     |
+8402 | pub fn in_range(v: f32, lo: f32, hi: f32) -> bool {
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8402 + #[must_use]
+8403 | pub fn in_range(v: f32, lo: f32, hi: f32) -> bool {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8416:8
+     |
+8416 | pub fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8416 + #[must_use]
+8417 | pub fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
+     |
 
 error: item in documentation is missing backticks
- --> crates/abrash-gpu-render/src/ibl.rs:6:53
-  |
-6 | //! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → s...
-  |                                                     ^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+    --> crates/abrash-core/src/math.rs:8587:39
+     |
+8587 | /// random number generation.  Passes PractRand and BigCrush statistic...
+     |                                       ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
 help: try
-  |
-6 - //! 3. **BRDF integration LUT** — split-sum lookup (NdotV × roughness → scale + bias)
-6 + //! 3. **BRDF integration LUT** — split-sum lookup (`NdotV` × roughness → scale + bias)
-  |
+     |
+8587 - /// random number generation.  Passes PractRand and BigCrush statistical tests.
+8587 + /// random number generation.  Passes `PractRand` and BigCrush statistical tests.
+     |
 
 error: item in documentation is missing backticks
-   --> crates/abrash-gpu-render/src/ibl.rs:261:31
-    |
-261 |     /// BRDF integration LUT (NdotV × roughness → scale + bias).
-    |                               ^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+    --> crates/abrash-core/src/math.rs:8587:53
+     |
+8587 | /// random number generation.  Passes PractRand and BigCrush statistic...
+     |                                                     ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
 help: try
-    |
-261 -     /// BRDF integration LUT (NdotV × roughness → scale + bias).
-261 +     /// BRDF integration LUT (`NdotV` × roughness → scale + bias).
-    |
+     |
+8587 - /// random number generation.  Passes PractRand and BigCrush statistical tests.
+8587 + /// random number generation.  Passes PractRand and `BigCrush` statistical tests.
+     |
 
-error: this method could have a `#[must_use]` attribute
-   --> crates/abrash-gpu-render/src/ibl.rs:274:12
-    |
-274 |     pub fn precompute(
-    |            ^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
-    = note: `-D clippy::must-use-candidate` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::must_use_candidate)]`
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8596:14
+     |
+8596 | pub const fn pcg_hash(input: u32) -> u32 {
+     |              ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
 help: add the attribute
-    |
-274 ~     #[must_use]
-275 ~     pub fn precompute(
-    |
+     |
+8596 + #[must_use]
+8597 | pub const fn pcg_hash(input: u32) -> u32 {
+     |
 
-error: this method could have a `#[must_use]` attribute
-   --> crates/abrash-gpu-render/src/ibl.rs:365:12
-    |
-365 |     pub fn default_black(device: &wgpu::Device) -> Self {
-    |            ^^^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8611:14
+     |
+8611 | pub const fn wang_hash(mut key: u32) -> u32 {
+     |              ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
 help: add the attribute
-    |
-365 ~     #[must_use]
-366 ~     pub fn default_black(device: &wgpu::Device) -> Self {
-    |
+     |
+8611 + #[must_use]
+8612 | pub const fn wang_hash(mut key: u32) -> u32 {
+     |
 
-error: this function has too many lines (125/100)
-   --> crates/abrash-gpu-render/src/ibl.rs:512:5
-    |
-512 | /     fn dispatch_prefilter(
-513 | |         device: &wgpu::Device,
-514 | |         queue: &wgpu::Queue,
-515 | |         env_view: &wgpu::TextureView,
-516 | |         sampler: &wgpu::Sampler,
-517 | |         output_tex: &wgpu::Texture,
-518 | |     ) {
-    | |_____^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8631:8
+     |
+8631 | pub fn hash_to_f32(seed: u32) -> f32 {
+     |        ^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8631 + #[must_use]
+8632 | pub fn hash_to_f32(seed: u32) -> f32 {
+     |
 
-error: this function has too many lines (115/100)
-   --> crates/abrash-gpu-render/src/renderer.rs:132:5
-    |
-132 |     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8645:8
+     |
+8645 | pub fn hash2_to_f32(x: u32, y: u32) -> f32 {
+     |        ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8645 + #[must_use]
+8646 | pub fn hash2_to_f32(x: u32, y: u32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8666:8
+     |
+8666 | pub fn bayer8x8(x: u32, y: u32) -> f32 {
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8666 + #[must_use]
+8667 | pub fn bayer8x8(x: u32, y: u32) -> f32 {
+     |
+
+error: casts from `u8` to `f32` can be expressed infallibly using `From`
+    --> crates/abrash-core/src/math.rs:8677:5
+     |
+8677 |     BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: an `as` cast can become silently lossy if the types change in the future
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_lossless
+     = note: `-D clippy::cast-lossless` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::cast_lossless)]`
+help: use `f32::from` instead
+     |
+8677 -     BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+8677 +     f32::from(BAYER[(y & 7) as usize][(x & 7) as usize]) / 64.0
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8691:8
+     |
+8691 | pub fn linear_to_db(amplitude: f32) -> f32 {
+     |        ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8691 + #[must_use]
+8692 | pub fn linear_to_db(amplitude: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8704:8
+     |
+8704 | pub fn db_to_linear(db: f32) -> f32 {
+     |        ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8704 + #[must_use]
+8705 | pub fn db_to_linear(db: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8717:8
+     |
+8717 | pub fn snap(value: f32, step: f32) -> f32 {
+     |        ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8717 + #[must_use]
+8718 | pub fn snap(value: f32, step: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8733:8
+     |
+8733 | pub fn bounce(t: f32, lo: f32, hi: f32) -> f32 {
+     |        ^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8733 + #[must_use]
+8734 | pub fn bounce(t: f32, lo: f32, hi: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8877:8
+     |
+8877 | pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+     |        ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8877 + #[must_use]
+8878 | pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+     |
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:8877:1
+     |
+8877 | / pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+8878 | |     a.min(b).min(c)
+8879 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+8877 | pub const fn min3(a: f32, b: f32, c: f32) -> f32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8890:8
+     |
+8890 | pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+     |        ^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8890 + #[must_use]
+8891 | pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+     |
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/math.rs:8890:1
+     |
+8890 | / pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+8891 | |     a.max(b).max(c)
+8892 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+8890 | pub const fn max3(a: f32, b: f32, c: f32) -> f32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8906:8
+     |
+8906 | pub fn triangle_area_3d(a: Vec3, b: Vec3, c: Vec3) -> f32 {
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8906 + #[must_use]
+8907 | pub fn triangle_area_3d(a: Vec3, b: Vec3, c: Vec3) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8930:8
+     |
+8930 | pub fn signed_volume_tet(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+     |        ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8930 + #[must_use]
+8931 | pub fn signed_volume_tet(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8955:8
+     |
+8955 | pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1:...
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8955 + #[must_use]
+8956 | pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8976:8
+     |
+8976 | pub fn smoothstep_sine(t: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8976 + #[must_use]
+8977 | pub fn smoothstep_sine(t: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:8993:8
+     |
+8993 | pub fn ease_exp_in(t: f32, k: f32) -> f32 {
+     |        ^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+8993 + #[must_use]
+8994 | pub fn ease_exp_in(t: f32, k: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9013:8
+     |
+9013 | pub fn ease_exp_out(t: f32, k: f32) -> f32 {
+     |        ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9013 + #[must_use]
+9014 | pub fn ease_exp_out(t: f32, k: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9144:8
+     |
+9144 | pub fn reinhard(x: f32) -> f32 {
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9144 + #[must_use]
+9145 | pub fn reinhard(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9158:8
+     |
+9158 | pub fn reinhard_white(x: f32, white: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9158 + #[must_use]
+9159 | pub fn reinhard_white(x: f32, white: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9174:8
+     |
+9174 | pub fn aces_filmic(x: f32) -> f32 {
+     |        ^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9174 + #[must_use]
+9175 | pub fn aces_filmic(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9190:8
+     |
+9190 | pub fn exposure(x: f32, ev: f32) -> f32 {
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9190 + #[must_use]
+9191 | pub fn exposure(x: f32, ev: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9207:8
+     |
+9207 | pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9207 + #[must_use]
+9208 | pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9226:8
+     |
+9226 | pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9226 + #[must_use]
+9227 | pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9246:8
+     |
+9246 | pub fn linear_to_srgb(x: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9246 + #[must_use]
+9247 | pub fn linear_to_srgb(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9264:8
+     |
+9264 | pub fn srgb_to_linear(x: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9264 + #[must_use]
+9265 | pub fn srgb_to_linear(x: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9402:8
+     |
+9402 | pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9402 + #[must_use]
+9403 | pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9433:8
+     |
+9433 | pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9433 + #[must_use]
+9434 | pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9466:8
+     |
+9466 | pub fn rgb_to_hsl(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9466 + #[must_use]
+9467 | pub fn rgb_to_hsl(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9501:8
+     |
+9501 | pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9501 + #[must_use]
+9502 | pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9538:8
+     |
+9538 | pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9538 + #[must_use]
+9539 | pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9558:8
+     |
+9558 | pub fn ray_sphere_intersect(ro: Vec3, rd: Vec3, centre: Vec3, r: f32) ...
+     |        ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9558 + #[must_use]
+9559 | pub fn ray_sphere_intersect(ro: Vec3, rd: Vec3, centre: Vec3, r: f32) -> Option<(f32, f32)> {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9583:8
+     |
+9583 | pub fn ray_plane_intersect(ro: Vec3, rd: Vec3, normal: Vec3, d: f32) -...
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9583 + #[must_use]
+9584 | pub fn ray_plane_intersect(ro: Vec3, rd: Vec3, normal: Vec3, d: f32) -> Option<f32> {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9607:8
+     |
+9607 | pub fn ray_aabb_intersect(
+     |        ^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9607 + #[must_use]
+9608 | pub fn ray_aabb_intersect(
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9666:8
+     |
+9666 | pub fn igr_noise(x: f32, y: f32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9666 + #[must_use]
+9667 | pub fn igr_noise(x: f32, y: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9685:8
+     |
+9685 | pub fn value_noise_2d(p: Vec2) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9685 + #[must_use]
+9686 | pub fn value_noise_2d(p: Vec2) -> f32 {
+     |
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> crates/abrash-core/src/math.rs:9695:5
+     |
+9695 | /     fn h(x: i32, y: i32) -> f32 {
+9696 | |         hash2_to_f32(x as u32, y as u32)
+9697 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+     = note: `-D clippy::items-after-statements` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::items_after_statements)]`
+
+error: item in documentation is missing backticks
+    --> crates/abrash-core/src/math.rs:9849:7
+     |
+9849 | /// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a...
+     |       ^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+     |
+9849 - /// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+9849 + /// **`OKLab`** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+     |
+
+error: item in documentation is missing backticks
+    --> crates/abrash-core/src/math.rs:9851:5
+     |
+9851 | /// OKLab is perceptually uniform: equal distances correspond to equal...
+     |     ^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+     |
+9851 - /// OKLab is perceptually uniform: equal distances correspond to equal perceived
+9851 + /// `OKLab` is perceptually uniform: equal distances correspond to equal perceived
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9864:8
+     |
+9864 | pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9864 + #[must_use]
+9865 | pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+     |
+
+error: item in documentation is missing backticks
+    --> crates/abrash-core/src/math.rs:9878:42
+     |
+9878 | /// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+     |                                          ^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+     |
+9878 - /// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+9878 + /// Inverse of [`linear_rgb_to_oklab`] — `OKLab` (L, a, b) → linear RGB.
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9889:8
+     |
+9889 | pub fn oklab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9889 + #[must_use]
+9890 | pub fn oklab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9915:8
+     |
+9915 | pub fn perlin_noise_2d(p: Vec2) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9915 + #[must_use]
+9916 | pub fn perlin_noise_2d(p: Vec2) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9966:8
+     |
+9966 | pub fn fbm_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -...
+     |        ^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9966 + #[must_use]
+9967 | pub fn fbm_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/math.rs:9992:8
+     |
+9992 | pub fn worley_noise_2d(p: Vec2) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+9992 + #[must_use]
+9993 | pub fn worley_noise_2d(p: Vec2) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:10007:24
+      |
+10007 |             let dist = (ddx * ddx + ddy * ddy).sqrt();
+      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `ddx.hypot(ddy)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10030:8
+      |
+10030 | pub fn rgba_over(
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10030 + #[must_use]
+10031 | pub fn rgba_over(
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10060:8
+      |
+10060 | pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
+      |        ^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10060 + #[must_use]
+10061 | pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10092:14
+      |
+10092 | pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
+      |              ^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10092 + #[must_use]
+10093 | pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10113:8
+      |
+10113 | pub fn lcm_u32(a: u32, b: u32) -> u32 {
+      |        ^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10113 + #[must_use]
+10114 | pub fn lcm_u32(a: u32, b: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:10113:1
+      |
+10113 | / pub fn lcm_u32(a: u32, b: u32) -> u32 {
+10114 | |     if a == 0 || b == 0 {
+10115 | |         0
+10116 | |     } else {
+...     |
+10119 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+10113 | pub const fn lcm_u32(a: u32, b: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10244:8
+      |
+10244 | pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10244 + #[must_use]
+10245 | pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10248:7
+      |
+10248 | /// **OKLab interpolation** — perceptually uniform colour blend.
+      |       ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10248 - /// **OKLab interpolation** — perceptually uniform colour blend.
+10248 + /// **`OKLab` interpolation** — perceptually uniform colour blend.
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10250:30
+      |
+10250 | /// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a...
+      |                              ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10250 - /// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+10250 + /// Interpolates between two `OKLab` colours `(L0, a0, b0)` and `(L1, a1, b1)`
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10266:8
+      |
+10266 | pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32...
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10266 + #[must_use]
+10267 | pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -> (f32, f32, f32) {
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10270:7
+      |
+10270 | /// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+      |       ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10270 - /// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+10270 + /// **`OKLab` hue rotation** — rotate the hue angle in the `(a, b)` plane.
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10284:8
+      |
+10284 | pub fn oklab_rotate_hue(l: f32, a: f32, b: f32, angle_deg: f32) -> (f...
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10284 + #[must_use]
+10285 | pub fn oklab_rotate_hue(l: f32, a: f32, b: f32, angle_deg: f32) -> (f32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10306:8
+      |
+10306 | pub fn sample_cosine_hemisphere(u1: f32, u2: f32) -> Vec3 {
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10306 + #[must_use]
+10307 | pub fn sample_cosine_hemisphere(u1: f32, u2: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10328:8
+      |
+10328 | pub fn sample_uniform_sphere(u1: f32, u2: f32) -> Vec3 {
+      |        ^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10328 + #[must_use]
+10329 | pub fn sample_uniform_sphere(u1: f32, u2: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10350:8
+      |
+10350 | pub fn ease_back_in(t: f32, overshoot: f32) -> f32 {
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10350 + #[must_use]
+10351 | pub fn ease_back_in(t: f32, overshoot: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10369:8
+      |
+10369 | pub fn ease_back_out(t: f32, overshoot: f32) -> f32 {
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10369 + #[must_use]
+10370 | pub fn ease_back_out(t: f32, overshoot: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10387:8
+      |
+10387 | pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10387 + #[must_use]
+10388 | pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
+      |
+
+    Checking icu_locale_core v2.1.1
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10512:8
+      |
+10512 | pub fn ray_triangle_intersect(
+      |        ^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10512 + #[must_use]
+10513 | pub fn ray_triangle_intersect(
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10562:8
+      |
+10562 | pub fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
+      |        ^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10562 + #[must_use]
+10563 | pub fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10585:8
+      |
+10585 | pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32)...
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10585 + #[must_use]
+10586 | pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10606:8
+      |
+10606 | pub fn uncharted2_tonemap(x: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10606 + #[must_use]
+10607 | pub fn uncharted2_tonemap(x: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10633:8
+      |
+10633 | pub fn sh_y00() -> f32 {
+      |        ^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10633 + #[must_use]
+10634 | pub fn sh_y00() -> f32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:10633:1
+      |
+10633 | / pub fn sh_y00() -> f32 {
+10634 | |     0.282_094_79 // 1 / (2 * sqrt(π))
+10635 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+10633 | pub const fn sh_y00() -> f32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10652:8
+      |
+10652 | pub fn sh_y1(v: Vec3) -> [f32; 3] {
+      |        ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10652 + #[must_use]
+10653 | pub fn sh_y1(v: Vec3) -> [f32; 3] {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:10671:8
+      |
+10671 | pub fn sh_y2(v: Vec3) -> [f32; 5] {
+      |        ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+10671 + #[must_use]
+10672 | pub fn sh_y2(v: Vec3) -> [f32; 5] {
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10957:13
+      |
+10957 | /// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+      |             ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10957 - /// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+10957 + /// Convert `OKLab` `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10957:34
+      |
+10957 | /// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+      |                                  ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10957 - /// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+10957 + /// Convert OKLab `(L, a, b)` to `OKLCh` `(L, C, h)` — polar form.
+      |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:10971:13
+      |
+10971 |     let c = (a * a + b * b).sqrt();
+      |             ^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `a.hypot(b)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10976:13
+      |
+10976 | /// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+      |             ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10976 - /// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+10976 + /// Convert `OKLCh` `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:10976:34
+      |
+10976 | /// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+      |                                  ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+10976 - /// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+10976 + /// Convert OKLCh `(L, C, h)` to `OKLab` `(L, a, b)` — Cartesian form.
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:11426:15
+      |
+11426 | /// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+      |               ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+11426 - /// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+11426 + /// * `eta` = `n_incident` / n_transmitted (e.g. 1.0/1.5 air→glass).
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:11426:28
+      |
+11426 | /// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+      |                            ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+11426 - /// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+11426 + /// * `eta` = n_incident / `n_transmitted` (e.g. 1.0/1.5 air→glass).
+      |
 
 error: these match arms have identical bodies
-   --> crates/abrash-gpu-render/src/renderer.rs:444:13
-    |
-444 | /             ShadingMode::Textured { texture } => {
-445 | |                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-446 | |             }
-    | |_____________^
-447 | /             ShadingMode::TexturedGouraud { texture } => {
-448 | |                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-449 | |             }
-    | |_____________^
-    |
-    = help: if this is unintentional make the arms return different values
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_same_arms
-    = note: `-D clippy::match-same-arms` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::match_same_arms)]`
+     --> crates/abrash-core/src/math.rs:11835:13
+      |
+11835 |             0 => dx + dy,
+      |             ^^^^^^^^^^^^
+...
+11847 |             12 => dx + dy,
+      |             ^^^^^^^^^^^^^
+      |
+      = help: if this is unintentional make the arms return different values
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_same_arms
+      = note: `-D clippy::match-same-arms` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::match_same_arms)]`
 help: otherwise merge the patterns into a single arm
-    |
-444 ~             ShadingMode::Textured { texture } | ShadingMode::TexturedGouraud { texture } => {
-445 |                 (color, 32.0, 0.3, 0.0, 0.5, Some(texture.index()))
-446 |             }
-447 ~             ShadingMode::Pbr {
-    |
+      |
+11835 ~             1 => -dx + dy,
+11836 |             2 => dx - dy,
+  ...
+11845 |             11 => -dy - dz,
+11846 ~             0 | 12 => dx + dy,
+      |
+
+error: these match arms have identical bodies
+     --> crates/abrash-core/src/math.rs:11836:13
+      |
+11836 |             1 => -dx + dy,
+      |             ^^^^^^^^^^^^^
+...
+11848 |             13 => -dx + dy,
+      |             ^^^^^^^^^^^^^^
+      |
+      = help: if this is unintentional make the arms return different values
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_same_arms
+help: otherwise merge the patterns into a single arm
+      |
+11836 ~             1 | 13 => -dx + dy,
+11837 |             2 => dx - dy,
+  ...
+11847 |             12 => dx + dy,
+11848 ~             14 => -dy + dz,
+      |
+
+error: these match arms have identical bodies
+     --> crates/abrash-core/src/math.rs:11844:13
+      |
+11844 |             9 => -dy + dz,
+      |             ^^^^^^^^^^^^^
+...
+11849 |             14 => -dy + dz,
+      |             ^^^^^^^^^^^^^^
+      |
+      = help: if this is unintentional make the arms return different values
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_same_arms
+help: otherwise merge the patterns into a single arm
+      |
+11844 ~             9 | 14 => -dy + dz,
+11845 |             10 => dy - dz,
+  ...
+11848 |             13 => -dx + dy,
+11849 ~             _ => -dy - dz,
+      |
+
+error: these match arms have identical bodies
+     --> crates/abrash-core/src/math.rs:11846:13
+      |
+11846 |             11 => -dy - dz,
+      |             ^^^^^^^^^^^^^^
+...
+11850 |             _ => -dy - dz,
+      |             ^^^^^^^^^^^^^ the wildcard arm
+      |
+      = help: if this is unintentional make the arms return different values
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_same_arms
+help: otherwise remove the non-wildcard arm
+      |
+11846 -             11 => -dy - dz,
+      |
 
 error: this could be a `const fn`
-   --> crates/abrash-gpu-render/src/renderer.rs:527:5
+     --> crates/abrash-core/src/math.rs:13092:1
+      |
+13092 | / pub fn next_power_of_2(n: u32) -> u32 {
+13093 | |     if n == 0 { 1 } else { n.next_power_of_two() }
+13094 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+13092 | pub const fn next_power_of_2(n: u32) -> u32 {
+      |     +++++
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:13106:1
+      |
+13106 | / pub fn is_power_of_2(n: u32) -> bool {
+13107 | |     n > 0 && (n & (n - 1)) == 0
+13108 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+13106 | pub const fn is_power_of_2(n: u32) -> bool {
+      |     +++++
+
+error: manually reimplementing `is_power_of_two`
+     --> crates/abrash-core/src/math.rs:13107:14
+      |
+13107 |     n > 0 && (n & (n - 1)) == 0
+      |              ^^^^^^^^^^^^^^^^^^ help: consider using `.is_power_of_two()`: `n.is_power_of_two()`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_power_of_two
+      = note: `-D clippy::manual-is-power-of-two` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::manual_is_power_of_two)]`
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:13123:1
+      |
+13123 | / pub fn log2_ceil(n: u32) -> u32 {
+13124 | |     if n <= 1 {
+13125 | |         return 0;
+...     |
+13128 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+13123 | pub const fn log2_ceil(n: u32) -> u32 {
+      |     +++++
+
+error: casts from `u16` to `u32` can be expressed infallibly using `From`
+     --> crates/abrash-core/src/math.rs:13504:14
+      |
+13504 | ... = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: an `as` cast can become silently lossy if the types change in the future
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_lossless
+help: use `u32::from` instead
+      |
+13504 -     let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+13504 +     let xi = u32::from((x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+      |
+
+error: casts from `u16` to `u32` can be expressed infallibly using `From`
+     --> crates/abrash-core/src/math.rs:13505:14
+      |
+13505 | ... = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: an `as` cast can become silently lossy if the types change in the future
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_lossless
+help: use `u32::from` instead
+      |
+13505 -     let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+13505 +     let yi = u32::from((y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+      |
+
+error: casts from `i16` to `f32` can be expressed infallibly using `From`
+     --> crates/abrash-core/src/math.rs:13513:14
+      |
+13513 |     let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, ...
+      |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: an `as` cast can become silently lossy if the types change in the future
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_lossless
+help: use `f32::from` instead
+      |
+13513 -     let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+13513 +     let x = (f32::from((packed & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+      |
+
+error: casts from `i16` to `f32` can be expressed infallibly using `From`
+     --> crates/abrash-core/src/math.rs:13514:14
+      |
+13514 |     let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clam...
+      |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: an `as` cast can become silently lossy if the types change in the future
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_lossless
+help: use `f32::from` instead
+      |
+13514 -     let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+13514 +     let y = (f32::from(((packed >> 16) & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+      |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:13699:24
+      |
+13699 |             let dist = (fx * fx + fy * fy).sqrt();
+      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `fx.hypot(fy)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+     --> crates/abrash-core/src/math.rs:13808:5
+      |
+13808 |     const XN: f32 = 0.950_456;
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+     --> crates/abrash-core/src/math.rs:13809:5
+      |
+13809 |     const YN: f32 = 1.0;
+      |     ^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+     --> crates/abrash-core/src/math.rs:13810:5
+      |
+13810 |     const ZN: f32 = 1.088_97;
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+     --> crates/abrash-core/src/math.rs:13813:5
+      |
+13813 | /     fn f(t: f32) -> f32 {
+13814 | |         const DELTA: f32 = 6.0 / 29.0;
+13815 | |         const DELTA3: f32 = DELTA * DELTA * DELTA; // ≈ 0.008856
+13816 | |         if t > DELTA3 {
+...     |
+13821 | |     }
+      | |_____^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:13999:8
+      |
+13999 | pub fn extract_frustum_planes(m: &Mat4) -> [[f32; 4]; 6] {
+      |        ^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+13999 + #[must_use]
+14000 | pub fn extract_frustum_planes(m: &Mat4) -> [[f32; 4]; 6] {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14029:8
+      |
+14029 | pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4...
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14029 + #[must_use]
+14030 | pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> bool {
+      |
+
+error: first doc comment paragraph is too long
+     --> crates/abrash-core/src/math.rs:14040:1
+      |
+14040 | / /// Test whether an AABB (`min`, `max`) intersects the frustum. Use...
+14041 | | /// p-vertex (positive-vertex) test: for each plane the "most posit...
+14042 | | /// is tested; if that corner is outside the plane the AABB is full...
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+      = note: `-D clippy::too-long-first-doc-paragraph` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::too_long_first_doc_paragraph)]`
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14043:8
+      |
+14043 | pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) ...
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14043 + #[must_use]
+14044 | pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14060:8
+      |
+14060 | pub fn signed_angle_3d(from: Vec3, to: Vec3, axis: Vec3) -> f32 {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14060 + #[must_use]
+14061 | pub fn signed_angle_3d(from: Vec3, to: Vec3, axis: Vec3) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14074:8
+      |
+14074 | pub fn vec3_slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+      |        ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14074 + #[must_use]
+14075 | pub fn vec3_slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14247:8
+      |
+14247 | pub fn smooth_min_exp(a: f32, b: f32, k: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14247 + #[must_use]
+14248 | pub fn smooth_min_exp(a: f32, b: f32, k: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14255:8
+      |
+14255 | pub fn smooth_min_poly(a: f32, b: f32, k: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14255 + #[must_use]
+14256 | pub fn smooth_min_poly(a: f32, b: f32, k: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14263:8
+      |
+14263 | pub fn smooth_max_poly(a: f32, b: f32, k: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14263 + #[must_use]
+14264 | pub fn smooth_max_poly(a: f32, b: f32, k: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14271:8
+      |
+14271 | pub fn pingpong(t: f32, length: f32) -> f32 {
+      |        ^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14271 + #[must_use]
+14272 | pub fn pingpong(t: f32, length: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14277:8
+      |
+14277 | pub fn wrap_angle(angle: f32) -> f32 {
+      |        ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14277 + #[must_use]
+14278 | pub fn wrap_angle(angle: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14294:8
+      |
+14294 | pub fn pcg32_output(state: u32) -> u32 {
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14294 + #[must_use]
+14295 | pub fn pcg32_output(state: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:14294:1
+      |
+14294 | / pub fn pcg32_output(state: u32) -> u32 {
+14295 | |     let s = state.wrapping_mul(747_796_405).wrapping_add(2_891_336_...
+14296 | |     let w = ((s >> ((s >> 28).wrapping_add(4))) ^ s).wrapping_mul(2...
+14297 | |     (w >> 22) ^ w
+14298 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+14294 | pub const fn pcg32_output(state: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14301:8
+      |
+14301 | pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14301 + #[must_use]
+14302 | pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14310:8
+      |
+14310 | pub fn interleaved_gradient_noise(pixel_x: f32, pixel_y: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14310 + #[must_use]
+14311 | pub fn interleaved_gradient_noise(pixel_x: f32, pixel_y: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14319:8
+      |
+14319 | pub fn interleaved_gradient_noise_temporal(pixel_x: f32, pixel_y: f32...
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14319 + #[must_use]
+14320 | pub fn interleaved_gradient_noise_temporal(pixel_x: f32, pixel_y: f32, frame_index: u32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14329:8
+      |
+14329 | pub fn gold_noise(x: f32, y: f32, seed: f32) -> f32 {
+      |        ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14329 + #[must_use]
+14330 | pub fn gold_noise(x: f32, y: f32, seed: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14498:8
+      |
+14498 | pub fn rodrigues_rotation(v: Vec3, k: Vec3, angle: f32) -> Vec3 {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14498 + #[must_use]
+14499 | pub fn rodrigues_rotation(v: Vec3, k: Vec3, angle: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14514:8
+      |
+14514 | pub fn swing_twist_decompose(q: Quat, twist_axis: Vec3) -> (Quat, Qua...
+      |        ^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14514 + #[must_use]
+14515 | pub fn swing_twist_decompose(q: Quat, twist_axis: Vec3) -> (Quat, Quat) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14559:8
+      |
+14559 | pub fn refract_vec3(incident: Vec3, normal: Vec3, eta: f32) -> Option...
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14559 + #[must_use]
+14560 | pub fn refract_vec3(incident: Vec3, normal: Vec3, eta: f32) -> Option<Vec3> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14578:8
+      |
+14578 | pub fn beer_lambert(extinction: f32, distance: f32) -> f32 {
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14578 + #[must_use]
+14579 | pub fn beer_lambert(extinction: f32, distance: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14588:8
+      |
+14588 | pub fn henyey_greenstein(cos_theta: f32, g: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14588 + #[must_use]
+14589 | pub fn henyey_greenstein(cos_theta: f32, g: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14598:8
+      |
+14598 | pub fn gaussian_kernel_1d(radius: u32, sigma: f32) -> Vec<f32> {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14598 + #[must_use]
+14599 | pub fn gaussian_kernel_1d(radius: u32, sigma: f32) -> Vec<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14759:8
+      |
+14759 | pub fn sobel_filter_3x3(pixels: &[f32; 9]) -> (f32, f32) {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14759 + #[must_use]
+14760 | pub fn sobel_filter_3x3(pixels: &[f32; 9]) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14772:8
+      |
+14772 | pub fn height_to_normal(pixels: &[f32; 9], texel_size: f32, height_sc...
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14772 + #[must_use]
+14773 | pub fn height_to_normal(pixels: &[f32; 9], texel_size: f32, height_scale: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14791:8
+      |
+14791 | pub fn trilinear_interp(
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14791 + #[must_use]
+14792 | pub fn trilinear_interp(
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14818:8
+      |
+14818 | pub fn mip_level(dudx: f32, dvdx: f32, dudy: f32, dvdy: f32, max_leve...
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14818 + #[must_use]
+14819 | pub fn mip_level(dudx: f32, dvdx: f32, dudy: f32, dvdy: f32, max_level: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14829:8
+      |
+14829 | pub fn contrast_adjust(x: f32, contrast: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14829 + #[must_use]
+14830 | pub fn contrast_adjust(x: f32, contrast: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14837:8
+      |
+14837 | pub fn saturation_adjust(r: f32, g: f32, b: f32, factor: f32) -> (f32...
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14837 + #[must_use]
+14838 | pub fn saturation_adjust(r: f32, g: f32, b: f32, factor: f32) -> (f32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:14975:8
+      |
+14975 | pub fn horner_eval(coeffs: &[f32], x: f32) -> f32 {
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+14975 + #[must_use]
+14976 | pub fn horner_eval(coeffs: &[f32], x: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15043:8
+      |
+15043 | pub fn rgb_to_yuv_bt601(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15043 + #[must_use]
+15044 | pub fn rgb_to_yuv_bt601(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15051:8
+      |
+15051 | pub fn yuv_bt601_to_rgb(y: f32, u: f32, v: f32) -> (f32, f32, f32) {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15051 + #[must_use]
+15052 | pub fn yuv_bt601_to_rgb(y: f32, u: f32, v: f32) -> (f32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15061:8
+      |
+15061 | pub fn delta_e_cie76(l1: f32, a1: f32, b1: f32, l2: f32, a2: f32, b2:...
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15061 + #[must_use]
+15062 | pub fn delta_e_cie76(l1: f32, a1: f32, b1: f32, l2: f32, a2: f32, b2: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15188:8
+      |
+15188 | pub fn solve_2x2(a: [[f32; 2]; 2], b: [f32; 2], eps: f32) -> Option<[...
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15188 + #[must_use]
+15189 | pub fn solve_2x2(a: [[f32; 2]; 2], b: [f32; 2], eps: f32) -> Option<[f32; 2]> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15201:8
+      |
+15201 | pub fn solve_3x3(a: [[f32; 3]; 3], b: [f32; 3], eps: f32) -> Option<[...
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15201 + #[must_use]
+15202 | pub fn solve_3x3(a: [[f32; 3]; 3], b: [f32; 3], eps: f32) -> Option<[f32; 3]> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15223:8
+      |
+15223 | pub fn gram_schmidt_3(v0: Vec3, v1: Vec3, v2: Vec3) -> Option<(Vec3, ...
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15223 + #[must_use]
+15224 | pub fn gram_schmidt_3(v0: Vec3, v1: Vec3, v2: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15249:8
+      |
+15249 | pub fn givens_rotation(a: f32, b: f32) -> (f32, f32) {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15249 + #[must_use]
+15250 | pub fn givens_rotation(a: f32, b: f32) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15259:8
+      |
+15259 | pub fn linear_regression_2d(points: &[(f32, f32)]) -> Option<(f32, f3...
+      |        ^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15259 + #[must_use]
+15260 | pub fn linear_regression_2d(points: &[(f32, f32)]) -> Option<(f32, f32)> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15278:8
+      |
+15278 | pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
+      |        ^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15278 + #[must_use]
+15279 | pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
+      |
+
+error: boolean to int conversion using if
+     --> crates/abrash-core/src/math.rs:15309:13
+      |
+15309 |         (2, if norms[0] >= norms[1] { 0 } else { 1 })
+      |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with from: `usize::from(norms[0] < norms[1])`
+      |
+      = note: `(norms[0] < norms[1]) as usize` or `(norms[0] < norms[1]).into()` can also be valid options
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#bool_to_int_with_if
+      = note: `-D clippy::bool-to-int-with-if` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::bool_to_int_with_if)]`
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15321:8
+      |
+15321 | pub fn winding_number_2d(p: Vec2, polygon: &[Vec2]) -> bool {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15321 + #[must_use]
+15322 | pub fn winding_number_2d(p: Vec2, polygon: &[Vec2]) -> bool {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15350:8
+      |
+15350 | pub fn polygon_area_2d(polygon: &[Vec2]) -> f32 {
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15350 + #[must_use]
+15351 | pub fn polygon_area_2d(polygon: &[Vec2]) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15366:8
+      |
+15366 | pub fn ray_cylinder_intersect(ro: Vec3, rd: Vec3, ca: Vec3, cb: Vec3,...
+      |        ^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15366 + #[must_use]
+15367 | pub fn ray_cylinder_intersect(ro: Vec3, rd: Vec3, ca: Vec3, cb: Vec3, r: f32) -> Option<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15407:8
+      |
+15407 | pub fn ray_cone_intersect(ro: Vec3, rd: Vec3, apex: Vec3, axis: Vec3,...
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15407 + #[must_use]
+15408 | pub fn ray_cone_intersect(ro: Vec3, rd: Vec3, apex: Vec3, axis: Vec3, theta: f32) -> Option<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15444:8
+      |
+15444 | pub fn closest_segment_to_segment(p1: Vec3, p2: Vec3, p3: Vec3, p4: V...
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15444 + #[must_use]
+15445 | pub fn closest_segment_to_segment(p1: Vec3, p2: Vec3, p3: Vec3, p4: Vec3) -> (Vec3, Vec3) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15482:8
+      |
+15482 | pub fn sphere_sphere_overlap(c1: Vec3, r1: f32, c2: Vec3, r2: f32) ->...
+      |        ^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15482 + #[must_use]
+15483 | pub fn sphere_sphere_overlap(c1: Vec3, r1: f32, c2: Vec3, r2: f32) -> Option<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15691:8
+      |
+15691 | pub fn exponential_smooth(current: f32, target: f32, alpha: f32) -> f...
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15691 + #[must_use]
+15692 | pub fn exponential_smooth(current: f32, target: f32, alpha: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15710:8
+      |
+15710 | pub fn one_euro_filter_step(
+      |        ^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15710 + #[must_use]
+15711 | pub fn one_euro_filter_step(
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15739:8
+      |
+15739 | pub fn half_life_to_decay(half_life: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15739 + #[must_use]
+15740 | pub fn half_life_to_decay(half_life: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15745:8
+      |
+15745 | pub fn decay_to_half_life(lambda: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15745 + #[must_use]
+15746 | pub fn decay_to_half_life(lambda: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15756:8
+      |
+15756 | pub fn smooth_damp(current: f32, target: f32, velocity: f32, omega: f...
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15756 + #[must_use]
+15757 | pub fn smooth_damp(current: f32, target: f32, velocity: f32, omega: f32, dt: f32) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15770:8
+      |
+15770 | pub fn delta_angle(a: f32, b: f32) -> f32 {
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15770 + #[must_use]
+15771 | pub fn delta_angle(a: f32, b: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15777:8
+      |
+15777 | pub fn angular_lerp(a: f32, b: f32, t: f32) -> f32 {
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15777 + #[must_use]
+15778 | pub fn angular_lerp(a: f32, b: f32, t: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15787:8
+      |
+15787 | pub fn welford_update(count: u32, mean: f32, m2: f32, new_value: f32)...
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15787 + #[must_use]
+15788 | pub fn welford_update(count: u32, mean: f32, m2: f32, new_value: f32) -> (u32, f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15948:8
+      |
+15948 | pub fn oct_encode_normal(n: Vec3) -> (f32, f32) {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15948 + #[must_use]
+15949 | pub fn oct_encode_normal(n: Vec3) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15966:8
+      |
+15966 | pub fn oct_decode_normal(u: f32, v: f32) -> Vec3 {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15966 + #[must_use]
+15967 | pub fn oct_decode_normal(u: f32, v: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15981:8
+      |
+15981 | pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15981 + #[must_use]
+15982 | pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:15995:8
+      |
+15995 | pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+15995 + #[must_use]
+15996 | pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16011:8
+      |
+16011 | pub fn gray_code_encode(n: u32) -> u32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16011 + #[must_use]
+16012 | pub fn gray_code_encode(n: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:16011:1
+      |
+16011 | / pub fn gray_code_encode(n: u32) -> u32 {
+16012 | |     n ^ (n >> 1)
+16013 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+16011 | pub const fn gray_code_encode(n: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16016:8
+      |
+16016 | pub fn gray_code_decode(mut g: u32) -> u32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16016 + #[must_use]
+16017 | pub fn gray_code_decode(mut g: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:16016:1
+      |
+16016 | / pub fn gray_code_decode(mut g: u32) -> u32 {
+16017 | |     // Each bit depends on all higher bits via XOR cascade.
+16018 | |     g ^= g >> 16;
+16019 | |     g ^= g >> 8;
+...     |
+16023 | |     g
+16024 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+16016 | pub const fn gray_code_decode(mut g: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16031:8
+      |
+16031 | pub fn fibonacci_hash_u32(n: u32) -> u32 {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16031 + #[must_use]
+16032 | pub fn fibonacci_hash_u32(n: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:16031:1
+      |
+16031 | / pub fn fibonacci_hash_u32(n: u32) -> u32 {
+16032 | |     // 2^32 / φ ≈ 2654435769 (Knuth multiplicative hash)
+16033 | |     n.wrapping_mul(2_654_435_769)
+16034 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+16031 | pub const fn fibonacci_hash_u32(n: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16040:8
+      |
+16040 | pub fn reverse_bits_u32(mut n: u32) -> u32 {
+      |        ^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16040 + #[must_use]
+16041 | pub fn reverse_bits_u32(mut n: u32) -> u32 {
+      |
+
+error: this could be a `const fn`
+     --> crates/abrash-core/src/math.rs:16040:1
+      |
+16040 | / pub fn reverse_bits_u32(mut n: u32) -> u32 {
+16041 | |     n = ((n & 0xffff_0000) >> 16) | ((n & 0x0000_ffff) << 16);
+16042 | |     n = ((n & 0xff00_ff00) >> 8) | ((n & 0x00ff_00ff) << 8);
+16043 | |     n = ((n & 0xf0f0_f0f0) >> 4) | ((n & 0x0f0f_0f0f) << 4);
+...     |
+16046 | |     n
+16047 | | }
+      | |_^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+      |
+16040 | pub const fn reverse_bits_u32(mut n: u32) -> u32 {
+      |     +++++
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16191:8
+      |
+16191 | pub fn verlet_step(pos: f32, prev_pos: f32, accel: f32, dt: f32) -> (...
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16191 + #[must_use]
+16192 | pub fn verlet_step(pos: f32, prev_pos: f32, accel: f32, dt: f32) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16201:8
+      |
+16201 | pub fn rayleigh_phase(cos_theta: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16201 + #[must_use]
+16202 | pub fn rayleigh_phase(cos_theta: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16213:8
+      |
+16213 | pub fn height_blend(height: f32, threshold: f32, blend_width: f32) ->...
+      |        ^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16213 + #[must_use]
+16214 | pub fn height_blend(height: f32, threshold: f32, blend_width: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16223:8
+      |
+16223 | pub fn curl_noise_2d(p: Vec2, epsilon: f32) -> Vec2 {
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16223 + #[must_use]
+16224 | pub fn curl_noise_2d(p: Vec2, epsilon: f32) -> Vec2 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16239:8
+      |
+16239 | pub fn slope_from_heightmap(pixels: &[f32; 9], texel_size: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16239 + #[must_use]
+16240 | pub fn slope_from_heightmap(pixels: &[f32; 9], texel_size: f32) -> f32 {
+      |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:16245:5
+      |
+16245 |     (gx_s * gx_s + gy_s * gy_s).sqrt()
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `gx_s.hypot(gy_s)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16404:8
+      |
+16404 | pub fn box_muller(u1: f32, u2: f32) -> (f32, f32) {
+      |        ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16404 + #[must_use]
+16405 | pub fn box_muller(u1: f32, u2: f32) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16415:8
+      |
+16415 | pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
+      |        ^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16415 + #[must_use]
+16416 | pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:16426:54
+      |
+16426 | /// Use with stratified samples for soft shadows and DoF.
+      |                                                      ^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+16426 - /// Use with stratified samples for soft shadows and DoF.
+16426 + /// Use with stratified samples for soft shadows and `DoF`.
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16428:8
+      |
+16428 | pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
+      |        ^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16428 + #[must_use]
+16429 | pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16447:8
+      |
+16447 | pub fn power_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) ->...
+      |        ^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16447 + #[must_use]
+16448 | pub fn power_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16456:8
+      |
+16456 | pub fn balance_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) ...
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16456 + #[must_use]
+16457 | pub fn balance_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16466:8
+      |
+16466 | pub fn tent_sample(u: f32) -> f32 {
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16466 + #[must_use]
+16467 | pub fn tent_sample(u: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16481:8
+      |
+16481 | pub fn stratified_jitter_2d(n: u32, jitter: &[(f32, f32)]) -> Vec<(f3...
+      |        ^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16481 + #[must_use]
+16482 | pub fn stratified_jitter_2d(n: u32, jitter: &[(f32, f32)]) -> Vec<(f32, f32)> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16631:8
+      |
+16631 | pub fn perlin_2d(p: Vec2) -> f32 {
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16631 + #[must_use]
+16632 | pub fn perlin_2d(p: Vec2) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16640:8
+      |
+16640 | pub fn ridged_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain...
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16640 + #[must_use]
+16641 | pub fn ridged_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16658:8
+      |
+16658 | pub fn billow_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain...
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16658 + #[must_use]
+16659 | pub fn billow_fbm_3d(mut p: Vec3, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16673:8
+      |
+16673 | pub fn curl_noise_3d(p: Vec3, epsilon: f32) -> Vec3 {
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16673 + #[must_use]
+16674 | pub fn curl_noise_3d(p: Vec3, epsilon: f32) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16702:8
+      |
+16702 | pub fn domain_warp_2d(p: Vec2, strength: f32, octaves: u32) -> f32 {
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16702 + #[must_use]
+16703 | pub fn domain_warp_2d(p: Vec2, strength: f32, octaves: u32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16716:8
+      |
+16716 | pub fn fbm_ridged_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain...
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16716 + #[must_use]
+16717 | pub fn fbm_ridged_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16736:8
+      |
+16736 | pub fn voronoi_smooth_2d(p: Vec2, k: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16736 + #[must_use]
+16737 | pub fn voronoi_smooth_2d(p: Vec2, k: f32) -> f32 {
+      |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:16751:21
+      |
+16751 |             let d = (r.x * r.x + r.y * r.y).sqrt();
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `r.x.hypot(r.y)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16895:8
+      |
+16895 | pub fn integrate_trapezoid(values: &[f32], dx: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16895 + #[must_use]
+16896 | pub fn integrate_trapezoid(values: &[f32], dx: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16909:8
+      |
+16909 | pub fn integrate_simpson(values: &[f32], dx: f32) -> f32 {
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16909 + #[must_use]
+16910 | pub fn integrate_simpson(values: &[f32], dx: f32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16937:8
+      |
+16937 | pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16937 + #[must_use]
+16938 | pub fn convolve_1d(signal: &[f32], kernel: &[f32]) -> Vec<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16954:8
+      |
+16954 | pub fn covariance(x: &[f32], y: &[f32]) -> Option<f32> {
+      |        ^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16954 + #[must_use]
+16955 | pub fn covariance(x: &[f32], y: &[f32]) -> Option<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16973:8
+      |
+16973 | pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Option<f32> {
+      |        ^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16973 + #[must_use]
+16974 | pub fn pearson_correlation(x: &[f32], y: &[f32]) -> Option<f32> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:16987:8
+      |
+16987 | pub fn zero_crossings(signal: &[f32]) -> usize {
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+16987 + #[must_use]
+16988 | pub fn zero_crossings(signal: &[f32]) -> usize {
+      |
+
+error: docs for function which may panic missing `# Panics` section
+     --> crates/abrash-core/src/math.rs:17144:1
+      |
+17144 | pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+note: first possible panic found here
+     --> crates/abrash-core/src/math.rs:17150:21
+      |
+17150 |       let pivot_idx = pts
+      |  _____________________^
+17151 | |         .iter()
+17152 | |         .enumerate()
+17153 | |         .min_by(|(_, a), (_, b)| {
+...     |
+17158 | |         .map(|(i, _)| i)
+17159 | |         .unwrap();
+      | |_________________^
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_panics_doc
+      = note: `-D clippy::missing-panics-doc` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::missing_panics_doc)]`
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17144:8
+      |
+17144 | pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
+      |        ^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17144 + #[must_use]
+17145 | pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17200:8
+      |
+17200 | pub fn point_in_convex_polygon_2d(point: Vec2, hull: &[Vec2]) -> bool {
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17200 + #[must_use]
+17201 | pub fn point_in_convex_polygon_2d(point: Vec2, hull: &[Vec2]) -> bool {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17224:8
+      |
+17224 | pub fn two_bone_ik(root: Vec3, l1: f32, l2: f32, target: Vec3, hint: ...
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17224 + #[must_use]
+17225 | pub fn two_bone_ik(root: Vec3, l1: f32, l2: f32, target: Vec3, hint: Vec3) -> Vec3 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17290:8
+      |
+17290 | pub fn r2_sequence(n: u32) -> Vec2 {
+      |        ^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17290 + #[must_use]
+17291 | pub fn r2_sequence(n: u32) -> Vec2 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17305:8
+      |
+17305 | pub fn sobol_2d(index: u32) -> Vec2 {
+      |        ^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17305 + #[must_use]
+17306 | pub fn sobol_2d(index: u32) -> Vec2 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17355:8
+      |
+17355 | pub fn bezier_arc_length_param(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3...
+      |        ^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17355 + #[must_use]
+17356 | pub fn bezier_arc_length_param(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, s: f32, steps: u32) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17596:8
+      |
+17596 | pub fn orient_2d(a: Vec2, b: Vec2, c: Vec2) -> f32 {
+      |        ^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17596 + #[must_use]
+17597 | pub fn orient_2d(a: Vec2, b: Vec2, c: Vec2) -> f32 {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17603:8
+      |
+17603 | pub fn triangle_circumcenter_2d(a: Vec2, b: Vec2, c: Vec2) -> Option<...
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17603 + #[must_use]
+17604 | pub fn triangle_circumcenter_2d(a: Vec2, b: Vec2, c: Vec2) -> Option<Vec2> {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17626:8
+      |
+17626 | pub fn in_circumcircle_2d(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> bool {
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17626 + #[must_use]
+17627 | pub fn in_circumcircle_2d(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> bool {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17642:8
+      |
+17642 | pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: ...
+      |        ^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17642 + #[must_use]
+17643 | pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: Vec3, rb: f32) -> bool {
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:17654:40
+      |
+17654 | /// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+      |                                        ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+17654 - /// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+17654 + /// The capsule is defined by segment (`cap_a`, cap_b) and radius `cr`.
+      |
+
+error: item in documentation is missing backticks
+     --> crates/abrash-core/src/math.rs:17654:47
+      |
+17654 | /// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+      |                                               ^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+      |
+17654 - /// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+17654 + /// The capsule is defined by segment (cap_a, `cap_b`) and radius `cr`.
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17655:8
+      |
+17655 | pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: V...
+      |        ^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17655 + #[must_use]
+17656 | pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f32) -> bool {
+      |
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17680:8
+      |
+17680 | pub fn sat_overlap_polygons_2d(poly_a: &[Vec2], poly_b: &[Vec2]) -> b...
+      |        ^^^^^^^^^^^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17680 + #[must_use]
+17681 | pub fn sat_overlap_polygons_2d(poly_a: &[Vec2], poly_b: &[Vec2]) -> bool {
+      |
+
+error: hypotenuse can be computed more accurately
+     --> crates/abrash-core/src/math.rs:17697:23
+      |
+17697 |             let len = (nx * nx + ny * ny).sqrt();
+      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `nx.hypot(ny)`
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+     --> crates/abrash-core/src/math.rs:17717:8
+      |
+17717 | pub fn obb_vs_obb_2d(
+      |        ^^^^^^^^^^^^^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+      |
+17717 + #[must_use]
+17718 | pub fn obb_vs_obb_2d(
+      |
+
+    Checking ratatui v0.30.0
+error: hypotenuse can be computed more accurately
+   --> crates/abrash-core/src/color.rs:963:17
     |
-527 | /     pub fn set_taa_enabled(&mut self, enabled: bool) {
-528 | |         self.taa_enabled = enabled;
-529 | |     }
+963 |         let c = (a * a + b * b).sqrt();
+    |                 ^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `a.hypot(b)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> crates/abrash-core/src/noise.rs:844:5
+    |
+844 |     const S1: f32 = 3.171_31;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> crates/abrash-core/src/noise.rs:845:5
+    |
+845 |     const S2: f32 = 7.342_17;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: this function could have a `#[must_use]` attribute
+   --> crates/abrash-core/src/noise.rs:994:8
+    |
+994 | pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
+    |        ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+    |
+994 + #[must_use]
+995 | pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
+    |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/noise.rs:1012:21
+     |
+1012 |             let d = (dx * dx + dy * dy).sqrt();
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `dx.hypot(dy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/noise.rs:1075:8
+     |
+1075 | pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth...
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+1075 + #[must_use]
+1076 | pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cells: i32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/noise.rs:1117:8
+     |
+1117 | pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, ...
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+1117 + #[must_use]
+1118 | pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/noise.rs:1176:8
+     |
+1176 | pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity...
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+1176 + #[must_use]
+1177 | pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+     |
+
+    Checking v_frame v0.3.9
+error: unnecessary structure name repetition
+   --> crates/abrash-core/src/quat.rs:550:19
+    |
+550 |         let rot = Mat4 {
+    |                   ^^^^ help: use the applicable keyword: `Self`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#use_self
+
+error: this could be a `const fn`
+   --> crates/abrash-core/src/quat.rs:647:5
+    |
+647 | /     pub fn from_rotation(q: Quat) -> Self {
+648 | |         Self {
+649 | |             real: q,
+650 | |             dual: Quat {
+...   |
+657 | |     }
     | |_____^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
 help: make the function `const`
     |
-527 |     pub const fn set_taa_enabled(&mut self, enabled: bool) {
+647 |     pub const fn from_rotation(q: Quat) -> Self {
     |         +++++
 
-error: this `map_or` can be simplified
-   --> crates/abrash-gpu-render/src/renderer.rs:801:21
+error: hypotenuse can be computed more accurately
+   --> crates/abrash-core/src/sdf.rs:448:5
     |
-801 |           let needs = self
-    |  _____________________^
-802 | |             .gbuffer
-803 | |             .as_ref()
-804 | |             .map_or(true, |g| g.width != width || g.height != height);
-    | |_____________________________________________________________________^
+448 |     (dx * dx + dz * dz).sqrt() - r
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `dx.hypot(dz)`
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
-    = note: `-D clippy::unnecessary-map-or` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_map_or)]`
-help: use is_none_or instead
-    |
-804 -             .map_or(true, |g| g.width != width || g.height != height);
-804 +             .is_none_or(|g| g.width != width || g.height != height);
-    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
 
-error: this `map_or` can be simplified
-   --> crates/abrash-gpu-render/src/renderer.rs:811:21
+error: hypotenuse can be computed more accurately
+   --> crates/abrash-core/src/sdf.rs:476:16
     |
-811 |           let needs = self
-    |  _____________________^
-812 | |             .hdr_target
-813 | |             .as_ref()
-814 | |             .map_or(true, |t| t.width != width || t.height != height);
-    | |_____________________________________________________________________^
+476 |     let d_xz = (p.x * p.x + p.z * p.z).sqrt() - ra + rb;
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_map_or
-help: use is_none_or instead
-    |
-814 -             .map_or(true, |t| t.width != width || t.height != height);
-814 +             .is_none_or(|t| t.width != width || t.height != height);
-    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
 
-error: wildcard matches only a single variant and will also match any future added variants
-   --> crates/abrash-gpu-render/src/renderer.rs:955:13
+error: hypotenuse can be computed more accurately
+   --> crates/abrash-core/src/sdf.rs:507:14
     |
-955 |             _ => None,
-    |             ^ help: try: `Light::Point(_)`
+507 |     let qx = (p.x * p.x + p.z * p.z).sqrt() - r1;
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#match_wildcard_for_single_variants
-    = note: `-D clippy::match-wildcard-for-single-variants` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::match_wildcard_for_single_variants)]`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
 
-error: useless conversion to the same type: `[f32; 2]`
-    --> crates/abrash-gpu-render/src/renderer.rs:1276:21
-     |
-1276 |             jitter: [jx, jy].into(),
-     |                     ^^^^^^^^^^^^^^^ help: consider removing `.into()`: `[jx, jy]`
-     |
-     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_conversion
-     = note: `-D clippy::useless-conversion` implied by `-D warnings`
-     = help: to override `-D warnings` add `#[allow(clippy::useless_conversion)]`
-
-error: it looks like you're trying to convert a tuple to an array
-    --> crates/abrash-gpu-render/src/renderer.rs:1276:21
-     |
-1276 |             jitter: [jx, jy].into(),
-     |                     ^^^^^^^^
-     |
-     = help: use `.into()` instead, or `<[T; N]>::from` if type annotations are needed
-     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#tuple_array_conversions
-     = note: `-D clippy::tuple-array-conversions` implied by `-D warnings`
-     = help: to override `-D warnings` add `#[allow(clippy::tuple_array_conversions)]`
-
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-  --> crates/abrash-gpu-render/src/shader.rs:69:5
-   |
-69 |     pub _pad: [u32; 3],
-   |     ^^^^^^^^
-   |
-   = help: consider removing the underscore, or making the field private
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
-
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-  --> crates/abrash-gpu-render/src/shader.rs:81:5
-   |
-81 |     pub _pad: [f32; 3],
-   |     ^^^^^^^^
-   |
-   = help: consider removing the underscore, or making the field private
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
-
-error: this function has too many lines (155/100)
-  --> crates/abrash-gpu-render/src/shadow.rs:62:5
-   |
-62 |     pub fn new(device: &wgpu::Device) -> Self {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
-
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-   --> crates/abrash-gpu-render/src/svgf.rs:120:5
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> crates/abrash-core/src/sdf.rs:654:5
     |
-120 |     pub _pad: [i32; 3],
-    |     ^^^^^^^^
+654 |     const KX: f32 = -0.866_025_4;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
-    = help: consider removing the underscore, or making the field private
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
 
-error: this function has too many lines (103/100)
-   --> crates/abrash-gpu-render/src/svgf.rs:141:5
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> crates/abrash-core/src/sdf.rs:655:5
     |
-141 |     pub fn new(device: &wgpu::Device) -> Self {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+655 |     const KY: f32 = 0.5;
+    |     ^^^^^^^^^^^^^^^^^^^^
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
 
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-   --> crates/abrash-gpu-render/src/taa.rs:123:5
+error: adding items after statements is confusing, since items exist from the start of the scope
+   --> crates/abrash-core/src/sdf.rs:656:5
     |
-123 |     pub _pad: f32,
-    |     ^^^^^^^^
+656 |     const KZ: f32 = 0.577_350_3;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
-    = help: consider removing the underscore, or making the field private
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
 
 error: this could be a `const fn`
-   --> crates/abrash-gpu-render/src/taa.rs:295:5
-    |
-295 | /     pub fn advance_frame(&mut self) {
-296 | |         std::mem::swap(&mut self.history_texture, &mut self.output_te...
-297 | |         std::mem::swap(&mut self.history_view, &mut self.output_view);
-298 | |         self.frame_index = self.frame_index.wrapping_add(1);
-299 | |     }
-    | |_____^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+    --> crates/abrash-core/src/sdf.rs:1048:1
+     |
+1048 | / pub fn mirror_x(p: Vec3) -> Vec3 {
+1049 | |     Vec3::new(p.x.abs(), p.y, p.z)
+1050 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
 help: make the function `const`
-    |
-295 |     pub const fn advance_frame(&mut self) {
-    |         +++++
-
-error: field marked as public but also inferred as unused because it's prefixed with `_`
-   --> crates/abrash-gpu-render/src/temporal.rs:109:5
-    |
-109 |     pub _pad: [f32; 3],
-    |     ^^^^^^^^
-    |
-    = help: consider removing the underscore, or making the field private
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#pub_underscore_fields
-
-error: this function has too many lines (103/100)
-   --> crates/abrash-gpu-render/src/temporal.rs:134:5
-    |
-134 |     pub fn new(device: &wgpu::Device) -> Self {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_lines
+     |
+1048 | pub const fn mirror_x(p: Vec3) -> Vec3 {
+     |     +++++
 
 error: this could be a `const fn`
-   --> crates/abrash-gpu-render/src/temporal.rs:291:5
-    |
-291 | /     pub fn swap_history(&mut self) {
-292 | |         std::mem::swap(&mut self.history_texture, &mut self.output_te...
-293 | |         std::mem::swap(&mut self.history_view, &mut self.output_view);
-294 | |     }
-    | |_____^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+    --> crates/abrash-core/src/sdf.rs:1055:1
+     |
+1055 | / pub fn mirror_y(p: Vec3) -> Vec3 {
+1056 | |     Vec3::new(p.x, p.y.abs(), p.z)
+1057 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
 help: make the function `const`
-    |
-291 |     pub const fn swap_history(&mut self) {
-    |         +++++
+     |
+1055 | pub const fn mirror_y(p: Vec3) -> Vec3 {
+     |     +++++
 
-error: could not compile `abrash-gpu-render` (lib) due to 27 previous errors
+error: this could be a `const fn`
+    --> crates/abrash-core/src/sdf.rs:1062:1
+     |
+1062 | / pub fn mirror_z(p: Vec3) -> Vec3 {
+1063 | |     Vec3::new(p.x, p.y, p.z.abs())
+1064 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+1062 | pub const fn mirror_z(p: Vec3) -> Vec3 {
+     |     +++++
+
+error: cube-root of a number can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:1150:17
+     |
+1150 |     let mut t = (p.x * 0.5 / k).powf(1.0_f32 / 3.0).max(1e-6);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `(p.x * 0.5 / k).cbrt()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: item in documentation is missing backticks
+    --> crates/abrash-core/src/sdf.rs:1826:12
+     |
+1826 | /// Like a capsule_2d but with different radii `ra` and `rb` at each e...
+     |            ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+     |
+1826 - /// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+1826 + /// Like a `capsule_2d` but with different radii `ra` and `rb` at each end cap.
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:1985:9
+     |
+1985 |         (px * px + py * py).sqrt()
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `px.hypot(py)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:2040:13
+     |
+2040 |     let q = (p.x * p.x + p.z * p.z).sqrt();
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/sdf.rs:2158:1
+     |
+2158 | / pub fn sdf_union(a: f32, b: f32) -> f32 {
+2159 | |     a.min(b)
+2160 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2158 | pub const fn sdf_union(a: f32, b: f32) -> f32 {
+     |     +++++
+
+error: this could be a `const fn`
+    --> crates/abrash-core/src/sdf.rs:2175:1
+     |
+2175 | / pub fn sdf_intersect(a: f32, b: f32) -> f32 {
+2176 | |     a.max(b)
+2177 | | }
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+     |
+2175 | pub const fn sdf_intersect(a: f32, b: f32) -> f32 {
+     |     +++++
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3061:8
+     |
+3061 | pub fn cut_hollow_sphere_3d(p: Vec3, r: f32, h: f32, t: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3061 + #[must_use]
+3062 | pub fn cut_hollow_sphere_3d(p: Vec3, r: f32, h: f32, t: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3108:8
+     |
+3108 | pub fn tunnel_2d(p: Vec2, wh: Vec2) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3108 + #[must_use]
+3109 | pub fn tunnel_2d(p: Vec2, wh: Vec2) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3150:8
+     |
+3150 | pub fn vesica_segment_3d(p: Vec3, a: Vec3, b: Vec3, w: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3150 + #[must_use]
+3151 | pub fn vesica_segment_3d(p: Vec3, a: Vec3, b: Vec3, w: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3180:8
+     |
+3180 | pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3180 + #[must_use]
+3181 | pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
+     |
+
+error: cube-root of a number can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:3198:29
+     |
+3198 |         let cbrt = |v: f32| v.abs().powf(1.0 / 3.0) * v.signum();
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `v.abs().cbrt()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3360:8
+     |
+3360 | pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3360 + #[must_use]
+3361 | pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3414:8
+     |
+3414 | pub fn death_star_3d(p: Vec3, ra: f32, rb: f32, d: f32) -> f32 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3414 + #[must_use]
+3415 | pub fn death_star_3d(p: Vec3, ra: f32, rb: f32, d: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3443:8
+     |
+3443 | pub fn cross_3d(p: Vec3, b: f32, r: f32) -> f32 {
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3443 + #[must_use]
+3444 | pub fn cross_3d(p: Vec3, b: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3560:8
+     |
+3560 | pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3560 + #[must_use]
+3561 | pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:3562:23
+     |
+3562 |     let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y);
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3592:8
+     |
+3592 | pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3592 + #[must_use]
+3593 | pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3652:8
+     |
+3652 | pub fn slab_y_3d(p: Vec3, h: f32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3652 + #[must_use]
+3653 | pub fn slab_y_3d(p: Vec3, h: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3671:8
+     |
+3671 | pub fn sdf_xor(a: f32, b: f32) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3671 + #[must_use]
+3672 | pub fn sdf_xor(a: f32, b: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3792:8
+     |
+3792 | pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
+     |        ^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3792 + #[must_use]
+3793 | pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3842:8
+     |
+3842 | pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3842 + #[must_use]
+3843 | pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3876:8
+     |
+3876 | pub fn oreo_2d(p: Vec2, r: f32, h: f32, cr: f32) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3876 + #[must_use]
+3877 | pub fn oreo_2d(p: Vec2, r: f32, h: f32, cr: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3979:8
+     |
+3979 | pub fn chamfer_union(a: f32, b: f32, r: f32) -> f32 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3979 + #[must_use]
+3980 | pub fn chamfer_union(a: f32, b: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:3993:8
+     |
+3993 | pub fn chamfer_intersection(a: f32, b: f32, r: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+3993 + #[must_use]
+3994 | pub fn chamfer_intersection(a: f32, b: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4007:8
+     |
+4007 | pub fn chamfer_subtract(a: f32, b: f32, r: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4007 + #[must_use]
+4008 | pub fn chamfer_subtract(a: f32, b: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4066:8
+     |
+4066 | pub fn groove_2d(p: Vec2, d: f32, a: Vec2, b: Vec2, ra: f32, rb: f32) ...
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4066 + #[must_use]
+4067 | pub fn groove_2d(p: Vec2, d: f32, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4119:8
+     |
+4119 | pub fn blobby_sphere(p: Vec3, r: f32) -> f32 {
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4119 + #[must_use]
+4120 | pub fn blobby_sphere(p: Vec3, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4139:8
+     |
+4139 | pub fn sdf_complement(d: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4139 + #[must_use]
+4140 | pub fn sdf_complement(d: f32) -> f32 {
+     |
+
+   Compiling darling_macro v0.14.4
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4156:8
+     |
+4156 | pub fn round_union(a: f32, b: f32, r: f32) -> f32 {
+     |        ^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4156 + #[must_use]
+4157 | pub fn round_union(a: f32, b: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4321:8
+     |
+4321 | pub fn superellipse_2d(p: Vec2, a: f32, b: f32, n: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4321 + #[must_use]
+4322 | pub fn superellipse_2d(p: Vec2, a: f32, b: f32, n: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4345:8
+     |
+4345 | pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4345 + #[must_use]
+4346 | pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4353:15
+     |
+4353 |     let len = (p.x * p.x + p.y * p.y).sqrt();
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.y)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4362:13
+     |
+4362 |     let l = (q.x * q.x + q.y * q.y).sqrt();
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `q.x.hypot(q.y)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4381:13
+     |
+4381 |     let r = (p.x * p.x + p.y * p.y).sqrt();
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.y)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4427:8
+     |
+4427 | pub fn arrow_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32, head_frac...
+     |        ^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4427 + #[must_use]
+4428 | pub fn arrow_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32, head_frac: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4571:8
+     |
+4571 | pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4571 + #[must_use]
+4572 | pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4627:8
+     |
+4627 | pub fn spring_coil_3d(p: Vec3, r_coil: f32, r_tube: f32, pitch: f32) -...
+     |        ^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4627 + #[must_use]
+4628 | pub fn spring_coil_3d(p: Vec3, r_coil: f32, r_tube: f32, pitch: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4701:8
+     |
+4701 | pub fn mandelbrot_dist(c: Vec2, max_iter: u32) -> f32 {
+     |        ^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4701 + #[must_use]
+4702 | pub fn mandelbrot_dist(c: Vec2, max_iter: u32) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4718:21
+     |
+4718 |             let m = (zx * zx + zy * zy).sqrt();
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `zx.hypot(zy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4719:22
+     |
+4719 |             let dm = (dzx * dzx + dzy * dzy).sqrt();
+     |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `dzx.hypot(dzy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4829:8
+     |
+4829 | pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4829 + #[must_use]
+4830 | pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4855:8
+     |
+4855 | pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
+     |        ^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4855 + #[must_use]
+4856 | pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4856:15
+     |
+4856 |     let len = (p.x * p.x + p.y * p.y).sqrt();
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.y)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4877:17
+     |
+4877 |         let d = (dx * dx + dy * dy).sqrt() - r_tube;
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `dx.hypot(dy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:4909:13
+     |
+4909 |             (dx * dx + dy * dy).sqrt()
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `dx.hypot(dy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:4939:8
+     |
+4939 | pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32,...
+     |        ^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+4939 + #[must_use]
+4940 | pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: u32) -> f32 {
+     |
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+    --> crates/abrash-core/src/sdf.rs:4962:5
+     |
+4962 |     const N_INIT: u32 = 32;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#items_after_statements
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:5015:8
+     |
+5015 | pub fn metaballs_2d(p: Vec2, circles: &[(Vec2, f32)], k: f32) -> f32 {
+     |        ^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+5015 + #[must_use]
+5016 | pub fn metaballs_2d(p: Vec2, circles: &[(Vec2, f32)], k: f32) -> f32 {
+     |
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:5137:8
+     |
+5137 | pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
+     |        ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+5137 + #[must_use]
+5138 | pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:5138:18
+     |
+5138 |     let radial = (p.x * p.x + p.z * p.z).sqrt();
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: this function could have a `#[must_use]` attribute
+    --> crates/abrash-core/src/sdf.rs:5161:8
+     |
+5161 | pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
+     |        ^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#must_use_candidate
+help: add the attribute
+     |
+5161 + #[must_use]
+5162 | pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
+     |
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:5163:23
+     |
+5163 |     let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y.abs());
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `p.x.hypot(p.z)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: hypotenuse can be computed more accurately
+    --> crates/abrash-core/src/sdf.rs:5521:20
+     |
+5521 |     let grad_len = (gx * gx + gy * gy).sqrt().max(1e-8);
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `gx.hypot(gy)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#imprecise_flops
+
+error: first doc comment paragraph is too long
+    --> crates/abrash-core/src/sdf.rs:5559:1
+     |
+5559 | / /// Polar-repeat operator: fold `p` into the fundamental domain of *...
+5560 | | /// rotational symmetry.  Feed the returned point into any inner 2-D...
+5561 | | /// replicate the shape around the origin without computing N separa...
+5562 | | ///
+5563 | | /// # Arguments
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_long_first_doc_paragraph
+
+    Checking anyhow v1.0.102
+error: could not compile `abrash-core` (lib) due to 356 previous errors
 warning: build failed, waiting for other jobs to finish...
