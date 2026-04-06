@@ -15934,3 +15934,219 @@ mod tests_pass_45 {
         let _ = mean;
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 46 — GPU data packing & bit manipulation
+//   oct_encode/decode normal, morton_encode/decode_3d,
+//   gray_code_encode/decode, fibonacci_hash_u32, reverse_bits_u32
+// ---------------------------------------------------------------------------
+
+/// Encode a unit normal into octahedral representation `(u, v) ∈ [-1, 1]²`.
+///
+/// Used in G-buffers: store two snorm values instead of three floats.
+/// Decode with [`oct_decode_normal`].
+pub fn oct_encode_normal(n: Vec3) -> (f32, f32) {
+    // Project onto L1 sphere
+    let inv_l1 = 1.0 / (n.x.abs() + n.y.abs() + n.z.abs()).max(1e-10);
+    let px = n.x * inv_l1;
+    let py = n.y * inv_l1;
+    if n.z >= 0.0 {
+        (px, py)
+    } else {
+        // Fold negative hemisphere
+        let ux = (1.0 - py.abs()) * px.signum();
+        let uy = (1.0 - px.abs()) * py.signum();
+        (ux, uy)
+    }
+}
+
+/// Decode an octahedral-encoded normal back to a unit `Vec3`.
+///
+/// `u, v` should be in `[-1, 1]` (snorm range).
+pub fn oct_decode_normal(u: f32, v: f32) -> Vec3 {
+    let z = 1.0 - u.abs() - v.abs();
+    let (x, y) = if z >= 0.0 {
+        (u, v)
+    } else {
+        ((1.0 - v.abs()) * u.signum(), (1.0 - u.abs()) * v.signum())
+    };
+    let len = (x * x + y * y + z * z).sqrt().max(1e-10);
+    Vec3::new(x / len, y / len, z / len)
+}
+
+/// Encode `(x, y, z)` into a 30-bit 3D Morton code (Z-order curve).
+///
+/// Each axis contributes 10 bits (max value 1023). Useful for cache-coherent
+/// 3D array access and spatial hashing.
+pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
+    // Spread 10 bits of each coordinate into every third bit position.
+    let spread = |mut v: u32| -> u32 {
+        v &= 0x0000_03ff;
+        v = (v | (v << 16)) & 0x030000ff;
+        v = (v | (v << 8)) & 0x0300f00f;
+        v = (v | (v << 4)) & 0x030c30c3;
+        v = (v | (v << 2)) & 0x09249249;
+        v
+    };
+    spread(x) | (spread(y) << 1) | (spread(z) << 2)
+}
+
+/// Decode a 30-bit 3D Morton code back into `(x, y, z)`.
+pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
+    let compact = |mut v: u32| -> u32 {
+        v &= 0x09249249;
+        v = (v | (v >> 2)) & 0x030c30c3;
+        v = (v | (v >> 4)) & 0x0300f00f;
+        v = (v | (v >> 8)) & 0x030000ff;
+        v = (v | (v >> 16)) & 0x0000_03ff;
+        v
+    };
+    (compact(code), compact(code >> 1), compact(code >> 2))
+}
+
+/// Encode a binary value to Gray code.
+///
+/// Adjacent Gray codes differ by exactly one bit — useful for rotary encoders,
+/// error-resilient counters, and Karnaugh maps.
+pub fn gray_code_encode(n: u32) -> u32 {
+    n ^ (n >> 1)
+}
+
+/// Decode a Gray code back to binary.
+pub fn gray_code_decode(mut g: u32) -> u32 {
+    // Each bit depends on all higher bits via XOR cascade.
+    g ^= g >> 16;
+    g ^= g >> 8;
+    g ^= g >> 4;
+    g ^= g >> 2;
+    g ^= g >> 1;
+    g
+}
+
+/// Fibonacci / golden-ratio integer hash: u32 → u32.
+///
+/// Multiplying by the closest integer to `2^32 / φ` spreads sequential
+/// integers uniformly across the u32 range. Ideal for hash-table probing
+/// and low-discrepancy index-to-bin mapping.
+pub fn fibonacci_hash_u32(n: u32) -> u32 {
+    // 2^32 / φ ≈ 2654435769 (Knuth multiplicative hash)
+    n.wrapping_mul(2_654_435_769)
+}
+
+/// Reverse all 32 bits of a `u32` (bit-reversal permutation).
+///
+/// Used to build the van der Corput low-discrepancy sequence:
+/// `corput(i) = reverse_bits_u32(i) as f32 / 2^32`.
+pub fn reverse_bits_u32(mut n: u32) -> u32 {
+    n = ((n & 0xffff_0000) >> 16) | ((n & 0x0000_ffff) << 16);
+    n = ((n & 0xff00_ff00) >> 8) | ((n & 0x00ff_00ff) << 8);
+    n = ((n & 0xf0f0_f0f0) >> 4) | ((n & 0x0f0f_0f0f) << 4);
+    n = ((n & 0xcccc_cccc) >> 2) | ((n & 0x3333_3333) << 2);
+    n = ((n & 0xaaaa_aaaa) >> 1) | ((n & 0x5555_5555) << 1);
+    n
+}
+
+#[cfg(test)]
+mod tests_pass_46 {
+    use super::*;
+
+    // ── oct_encode/decode normal ───────────────────────────────────────────
+
+    #[test]
+    fn oct_round_trip_poles() {
+        for n in [
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        ] {
+            let (u, v) = oct_encode_normal(n);
+            let d = oct_decode_normal(u, v);
+            let dot = n.x * d.x + n.y * d.y + n.z * d.z;
+            assert!(dot > 0.999, "n={n:?} d={d:?} dot={dot}");
+        }
+    }
+
+    #[test]
+    fn oct_decoded_is_unit() {
+        let normals = [
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 0.5, 0.3),
+            Vec3::new(0.0, -1.0, 0.1),
+        ];
+        for n_raw in normals {
+            let len = n_raw.length();
+            let n = Vec3::new(n_raw.x / len, n_raw.y / len, n_raw.z / len);
+            let (u, v) = oct_encode_normal(n);
+            let d = oct_decode_normal(u, v);
+            assert!((d.length() - 1.0).abs() < 1e-5, "len={}", d.length());
+        }
+    }
+
+    // ── morton_encode/decode_3d ───────────────────────────────────────────
+
+    #[test]
+    fn morton_3d_origin() {
+        assert_eq!(morton_encode_3d(0, 0, 0), 0);
+        let (x, y, z) = morton_decode_3d(0);
+        assert_eq!((x, y, z), (0, 0, 0));
+    }
+
+    #[test]
+    fn morton_3d_round_trip() {
+        for (x, y, z) in [(1, 2, 3), (7, 15, 31), (100, 200, 300)] {
+            let code = morton_encode_3d(x, y, z);
+            let (dx, dy, dz) = morton_decode_3d(code);
+            assert_eq!((dx, dy, dz), (x, y, z), "at ({x},{y},{z})");
+        }
+    }
+
+    // ── gray_code ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn gray_code_round_trip() {
+        for n in 0u32..=255 {
+            assert_eq!(gray_code_decode(gray_code_encode(n)), n, "n={n}");
+        }
+    }
+
+    #[test]
+    fn gray_code_adjacent_one_bit_diff() {
+        for n in 0u32..=254 {
+            let diff = gray_code_encode(n) ^ gray_code_encode(n + 1);
+            assert!(diff.count_ones() == 1, "n={n} diff={diff:b}");
+        }
+    }
+
+    // ── fibonacci_hash_u32 ────────────────────────────────────────────────
+
+    #[test]
+    fn fibonacci_hash_distributes() {
+        // Sequential inputs should produce well-spread outputs.
+        let h0 = fibonacci_hash_u32(0);
+        let h1 = fibonacci_hash_u32(1);
+        let h2 = fibonacci_hash_u32(2);
+        // They should all differ.
+        assert_ne!(h0, h1);
+        assert_ne!(h1, h2);
+        assert_ne!(h0, h2);
+    }
+
+    // ── reverse_bits_u32 / van_der_corput ────────────────────────────────
+
+    #[test]
+    fn reverse_bits_involution() {
+        // Applying twice gives back the original.
+        for n in [0u32, 1, 0xdead_beef, 0x8000_0001, u32::MAX] {
+            assert_eq!(reverse_bits_u32(reverse_bits_u32(n)), n);
+        }
+    }
+
+    #[test]
+    fn reverse_bits_produces_distinct_outputs() {
+        // reverse_bits_u32 on 0..8 should give 8 distinct values.
+        let vals: Vec<u32> = (0..8).map(reverse_bits_u32).collect();
+        let unique: std::collections::HashSet<u32> = vals.iter().copied().collect();
+        assert_eq!(unique.len(), vals.len());
+    }
+}
