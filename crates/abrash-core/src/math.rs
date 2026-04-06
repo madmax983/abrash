@@ -18925,3 +18925,286 @@ mod tests_pass_55 {
         assert!((n.y - 1.0).abs() < 0.01, "n.y={}", n.y);
     }
 }
+
+// ── Pass 56 — rendering utilities ────────────────────────────────────────────
+// perspective_reverse_z, taa_halton_jitter, f32_to_f16, f16_to_f32,
+// cascade_shadow_splits, reconstruct_normal_z, perspective_oblique
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Reverse-Z infinite perspective matrix (right-handed, NDC z in [0, 1]).
+///
+/// Maps near plane to z=1 and the infinite far plane to z=0.  This
+/// dramatically improves floating-point depth precision in the distance
+/// because IEEE 754 f32 has more representable values near 0.
+///
+/// `fov_y` is the vertical field-of-view in radians; `aspect = width/height`.
+pub fn perspective_reverse_z(fov_y: f32, aspect: f32, near: f32) -> Mat4 {
+    let f = 1.0 / (fov_y * 0.5).tan();
+    // Column-major layout matching the existing Mat4 convention.
+    let mut m = Mat4::identity();
+    m.m[0][0] = f / aspect;
+    m.m[1][1] = f;
+    m.m[2][2] = 0.0; // z maps to 0 at infinity
+    m.m[2][3] = -1.0; // perspective divide
+    m.m[3][2] = near; // near plane maps to z=1
+    m.m[3][3] = 0.0;
+    m
+}
+
+/// Sub-pixel jitter offset for Temporal Anti-Aliasing using Halton(2,3).
+///
+/// Returns a `Vec2` offset in **pixel** units centred at 0 (range ±0.5).
+/// Feed it to your projection matrix before rendering each frame.
+pub fn taa_halton_jitter(frame: u32, width: u32, height: u32) -> Vec2 {
+    // Use frame+1 to avoid index 0 (Halton(2,0) = 0).
+    let idx = (frame % 16) + 1;
+    let x = halton(idx, 2) - 0.5;
+    let y = halton(idx, 3) - 0.5;
+    Vec2::new(x / width as f32, y / height as f32)
+}
+
+/// Convert an IEEE 754 `f32` to a 16-bit half-float (`f16`) bit pattern.
+///
+/// Handles normals, zeros, infinities, and NaN.  Subnormals are flushed to
+/// zero for simplicity (matches the most common GPU behaviour).
+pub fn f32_to_f16(x: f32) -> u16 {
+    let bits = x.to_bits();
+    let sign = ((bits >> 31) & 1) as u16;
+    let exp32 = ((bits >> 23) & 0xff) as i32;
+    let mantissa32 = bits & 0x007f_ffff;
+
+    if exp32 == 255 {
+        // Inf or NaN.
+        let mant16 = if mantissa32 != 0 { 0x0200u16 } else { 0 }; // preserve NaN flag
+        return (sign << 15) | 0x7c00 | mant16;
+    }
+    let exp16 = exp32 - 127 + 15;
+    if exp16 >= 31 {
+        // Overflow -> Inf.
+        return (sign << 15) | 0x7c00;
+    }
+    if exp16 <= 0 {
+        // Subnormal or underflow -> flush to zero.
+        return sign << 15;
+    }
+    let mant16 = (mantissa32 >> 13) as u16;
+    (sign << 15) | ((exp16 as u16) << 10) | mant16
+}
+
+/// Convert a 16-bit half-float (`f16`) bit pattern to `f32`.
+pub fn f16_to_f32(h: u16) -> f32 {
+    let sign = ((h >> 15) & 1) as u32;
+    let exp16 = ((h >> 10) & 0x1f) as i32;
+    let mant16 = (h & 0x03ff) as u32;
+
+    let (exp32, mant32) = if exp16 == 0 {
+        if mant16 == 0 {
+            (0, 0) // zero
+        } else {
+            // Subnormal: normalise.
+            let mut m = mant16;
+            let mut e = -14i32;
+            while m & 0x0400 == 0 {
+                m <<= 1;
+                e -= 1;
+            }
+            ((e + 127) as u32, (m & 0x03ff) << 13)
+        }
+    } else if exp16 == 31 {
+        (255, mant16 << 13) // Inf / NaN
+    } else {
+        ((exp16 + 127 - 15) as u32, mant16 << 13)
+    };
+
+    f32::from_bits((sign << 31) | (exp32 << 23) | mant32)
+}
+
+/// Parallel-Split Shadow Map (PSSM) cascade split distances.
+///
+/// Returns `n + 1` values `[near, s1, s2, ..., far]` dividing the view
+/// frustum depth range into `n` cascades.  `lambda` blends between a
+/// logarithmic split (`lambda = 1.0`) and a uniform split (`lambda = 0.0`).
+pub fn cascade_shadow_splits(near: f32, far: f32, n: u32, lambda: f32) -> Vec<f32> {
+    let n = n.max(1) as usize;
+    let mut splits = Vec::with_capacity(n + 1);
+    splits.push(near);
+    for i in 1..n {
+        let p = i as f32 / n as f32;
+        let log = near * (far / near).powf(p);
+        let uni = near + (far - near) * p;
+        splits.push(lambda * log + (1.0 - lambda) * uni);
+    }
+    splits.push(far);
+    splits
+}
+
+/// Reconstruct the Z component of a unit normal from its XY components.
+///
+/// Assumes the normal was stored in a normal map with only X and Y channels
+/// (common for tangent-space normal maps where Z is always >= 0).
+/// Returns a normalised `Vec3`.
+#[inline]
+pub fn reconstruct_normal_z(xy: Vec2) -> Vec3 {
+    let z = (1.0 - xy.x * xy.x - xy.y * xy.y).max(0.0).sqrt();
+    let len = (xy.x * xy.x + xy.y * xy.y + z * z).sqrt().max(1e-10);
+    Vec3::new(xy.x / len, xy.y / len, z / len)
+}
+
+/// Oblique near-plane perspective matrix.
+///
+/// Modifies a standard perspective matrix so the near clip plane is the plane
+/// defined by `clip_plane` (in eye/view space, as a `Vec4` `(a, b, c, d)` where
+/// `ax + by + cz + d = 0`).  Used for portal rendering and planar reflections.
+///
+/// Algorithm: Eric Lengyel, "Modifying the Projection Matrix to Perform
+/// Oblique Near-Plane Clipping" (Game Programming Gems 5).
+pub fn perspective_oblique(proj: Mat4, clip_plane: [f32; 4]) -> Mat4 {
+    // q = inverse-transpose of proj * clip_plane sign-adjusted to point inward.
+    // Compute the clip-space plane.
+    let [a, b, c, d] = clip_plane;
+    // The corner of the frustum on the same side as the plane normal.
+    let qx = (a.signum() + proj.m[2][0]) / proj.m[0][0];
+    let qy = (b.signum() + proj.m[2][1]) / proj.m[1][1];
+    let qz = -1.0_f32; // always -1 in a right-handed projection
+    let qw = (1.0 + proj.m[2][2]) / proj.m[3][2];
+
+    // Scale so that dot(plane, q) = 2.
+    let dot = a * qx + b * qy + c * qz + d * qw;
+    let scale = if dot.abs() < 1e-10 { 1.0 } else { 2.0 / dot };
+
+    // Replace the third row of the projection matrix.
+    let mut out = proj;
+    out.m[2][0] = a * scale - proj.m[3][0];
+    out.m[2][1] = b * scale - proj.m[3][1];
+    out.m[2][2] = c * scale - proj.m[3][2];
+    out.m[2][3] = d * scale - proj.m[3][3];
+    out
+}
+
+// ── Tests — Pass 56 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_56 {
+    use super::*;
+
+    // ── perspective_reverse_z ─────────────────────────────────────────────────
+
+    #[test]
+    fn reverse_z_near_maps_to_one() {
+        use std::f32::consts::FRAC_PI_2;
+        let proj = perspective_reverse_z(FRAC_PI_2, 1.0, 0.1);
+        // A point at z = -near (in view space) should produce NDC z = 1.
+        let near = 0.1_f32;
+        let p = [0.0_f32, 0.0, -near, 1.0];
+        let mut clip = [0.0f32; 4];
+        for row in 0..4 {
+            clip[row] = (0..4).map(|col| proj.m[col][row] * p[col]).sum();
+        }
+        let ndc_z = clip[2] / clip[3];
+        assert!((ndc_z - 1.0).abs() < 1e-5, "ndc_z={ndc_z}");
+    }
+
+    #[test]
+    fn reverse_z_far_approaches_zero() {
+        use std::f32::consts::FRAC_PI_2;
+        let proj = perspective_reverse_z(FRAC_PI_2, 1.0, 0.1);
+        // Very far point should approach z = 0.
+        let p = [0.0_f32, 0.0, -1_000_000.0, 1.0];
+        let mut clip = [0.0f32; 4];
+        for row in 0..4 {
+            clip[row] = (0..4).map(|col| proj.m[col][row] * p[col]).sum();
+        }
+        let ndc_z = clip[2] / clip[3];
+        assert!(ndc_z.abs() < 0.01, "ndc_z={ndc_z}");
+    }
+
+    // ── taa_halton_jitter ─────────────────────────────────────────────────────
+
+    #[test]
+    fn taa_jitter_in_half_pixel_range() {
+        for frame in 0..16 {
+            let j = taa_halton_jitter(frame, 1920, 1080);
+            assert!(j.x.abs() <= 0.5 / 1920.0 + 1e-6, "frame={frame} jx={}", j.x);
+            assert!(j.y.abs() <= 0.5 / 1080.0 + 1e-6, "frame={frame} jy={}", j.y);
+        }
+    }
+
+    #[test]
+    fn taa_jitter_varies_per_frame() {
+        let j0 = taa_halton_jitter(0, 1920, 1080);
+        let j1 = taa_halton_jitter(1, 1920, 1080);
+        assert!(j0.x != j1.x || j0.y != j1.y);
+    }
+
+    // ── f32_to_f16 / f16_to_f32 ───────────────────────────────────────────────
+
+    #[test]
+    fn half_float_round_trip_common_values() {
+        for &v in &[0.0_f32, 1.0, -1.0, 0.5, 2.0, 100.0, -0.25] {
+            let h = f32_to_f16(v);
+            let back = f16_to_f32(h);
+            // Half-float has ~3 decimal digits of precision.
+            let rel_err = if v == 0.0 {
+                back.abs()
+            } else {
+                ((back - v) / v).abs()
+            };
+            assert!(rel_err < 1e-3, "v={v} h={h:#06x} back={back}");
+        }
+    }
+
+    #[test]
+    fn half_float_zero_roundtrip() {
+        assert_eq!(f32_to_f16(0.0), 0x0000);
+        assert_eq!(f16_to_f32(0x0000), 0.0);
+    }
+
+    #[test]
+    fn half_float_inf_preserved() {
+        let h = f32_to_f16(f32::INFINITY);
+        assert_eq!(f16_to_f32(h), f32::INFINITY);
+        let hn = f32_to_f16(f32::NEG_INFINITY);
+        assert_eq!(f16_to_f32(hn), f32::NEG_INFINITY);
+    }
+
+    // ── cascade_shadow_splits ─────────────────────────────────────────────────
+
+    #[test]
+    fn cascade_splits_endpoints() {
+        let splits = cascade_shadow_splits(0.1, 100.0, 4, 0.5);
+        assert_eq!(splits.len(), 5);
+        assert!((splits[0] - 0.1).abs() < 1e-6);
+        assert!((splits[4] - 100.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cascade_splits_monotone() {
+        let splits = cascade_shadow_splits(0.1, 200.0, 4, 0.7);
+        for w in splits.windows(2) {
+            assert!(w[1] > w[0], "non-monotone: {:.4} >= {:.4}", w[0], w[1]);
+        }
+    }
+
+    // ── reconstruct_normal_z ──────────────────────────────────────────────────
+
+    #[test]
+    fn reconstruct_upward_normal() {
+        // Normal pointing straight up: xy = (0, 0), z = 1.
+        let n = reconstruct_normal_z(Vec2::new(0.0, 0.0));
+        assert!((n.z - 1.0).abs() < 1e-6, "n.z={}", n.z);
+    }
+
+    #[test]
+    fn reconstruct_normal_is_unit() {
+        let n = reconstruct_normal_z(Vec2::new(0.5, 0.3));
+        let len = (n.x * n.x + n.y * n.y + n.z * n.z).sqrt();
+        assert!((len - 1.0).abs() < 1e-5, "len={len}");
+    }
+
+    #[test]
+    fn reconstruct_normal_clamps_oob() {
+        // XY magnitude > 1 is out of range — z should be clamped to 0.
+        let n = reconstruct_normal_z(Vec2::new(0.9, 0.9));
+        assert!(n.z >= 0.0, "z negative: {}", n.z);
+    }
+}
