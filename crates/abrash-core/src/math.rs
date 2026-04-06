@@ -13605,3 +13605,185 @@ mod tests_pass_35 {
         assert!((y + 1.0).abs() < 1e-4, "min: {y}");
     }
 }
+
+// ── Pass 36 ────────────────────────────────────────────────────────────────────
+
+/// Bilinear interpolation of four corner values on a unit \[0,1]² grid.
+///
+/// `v00` = (0,0), `v10` = (1,0), `v01` = (0,1), `v11` = (1,1).
+/// `u` varies along the x-axis, `v` along the y-axis.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::bilinear_interp;
+/// // All corners equal → result is constant.
+/// assert!((bilinear_interp(1.0, 1.0, 1.0, 1.0, 0.3, 0.7) - 1.0).abs() < 1e-6);
+/// // Midpoint of a unit ramp.
+/// let v = bilinear_interp(0.0, 1.0, 0.0, 1.0, 0.5, 0.5);
+/// assert!((v - 0.5).abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn bilinear_interp(v00: f32, v10: f32, v01: f32, v11: f32, u: f32, v: f32) -> f32 {
+    let a = v00 + (v10 - v00) * u;
+    let b = v01 + (v11 - v01) * u;
+    a + (b - a) * v
+}
+
+/// Compute the **tangent vector** for a triangle given its positions and UV
+/// coordinates.
+///
+/// The tangent points in the direction of increasing U (S).  You typically
+/// also need the bitangent: `bitangent = cross(normal, tangent)`.
+///
+/// # Arguments
+/// * `p0, p1, p2` – world-space vertex positions
+/// * `uv0, uv1, uv2` – corresponding texture coordinates
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{compute_tangent, Vec2, Vec3};
+/// let t = compute_tangent(
+///     Vec3::ZERO, Vec3::X, Vec3::Y,
+///     Vec2::ZERO, Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0),
+/// );
+/// // Tangent should point along +X.
+/// assert!((t.x - 1.0).abs() < 1e-4 && t.y.abs() < 1e-4);
+/// ```
+#[must_use]
+pub fn compute_tangent(p0: Vec3, p1: Vec3, p2: Vec3, uv0: Vec2, uv1: Vec2, uv2: Vec2) -> Vec3 {
+    let edge1 = Vec3::new(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z);
+    let edge2 = Vec3::new(p2.x - p0.x, p2.y - p0.y, p2.z - p0.z);
+    let delta_uv1 = Vec2::new(uv1.x - uv0.x, uv1.y - uv0.y);
+    let delta_uv2 = Vec2::new(uv2.x - uv0.x, uv2.y - uv0.y);
+
+    let denom = delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y;
+    if denom.abs() < 1e-10 {
+        // Degenerate UV mapping — return a default tangent.
+        return Vec3::X;
+    }
+    let f = 1.0 / denom;
+    Vec3::new(
+        f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x),
+        f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y),
+        f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z),
+    )
+    .normalize()
+}
+
+/// Worley (cellular) noise returning **both** F1 and F2 distances.
+///
+/// F1 is the distance to the nearest feature point; F2 to the second-nearest.
+/// `F2 − F1` gives a smooth cell-boundary ring useful for tile patterns.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{worley_f1_f2_2d, Vec2};
+/// let (f1, f2) = worley_f1_f2_2d(Vec2::new(1.5, 2.3));
+/// assert!(f1 >= 0.0 && f2 >= f1);
+/// ```
+#[must_use]
+pub fn worley_f1_f2_2d(p: Vec2) -> (f32, f32) {
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let mut f1 = f32::INFINITY;
+    let mut f2 = f32::INFINITY;
+    for dy in -1..=1_i32 {
+        for dx in -1..=1_i32 {
+            let cx = (ix + dx) as f32;
+            let cy = (iy + dy) as f32;
+            let ox = hash2_to_f32((ix + dx) as u32, (iy + dy) as u32);
+            let oy = hash2_to_f32((iy + dy) as u32 ^ 0xDEAD_BEEF, (ix + dx) as u32);
+            let fx = p.x - (cx + ox);
+            let fy = p.y - (cy + oy);
+            let dist = (fx * fx + fy * fy).sqrt();
+            if dist < f1 {
+                f2 = f1;
+                f1 = dist;
+            } else if dist < f2 {
+                f2 = dist;
+            }
+        }
+    }
+    (f1, f2)
+}
+
+#[cfg(test)]
+mod tests_pass_36 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── bilinear_interp ───────────────────────────────────────────────────────
+
+    #[test]
+    fn bilinear_constant() {
+        assert!((bilinear_interp(2.0, 2.0, 2.0, 2.0, 0.3, 0.7) - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn bilinear_corners() {
+        assert!((bilinear_interp(0.0, 1.0, 2.0, 3.0, 0.0, 0.0)).abs() < 1e-6); // v00
+        assert!((bilinear_interp(0.0, 1.0, 2.0, 3.0, 1.0, 0.0) - 1.0).abs() < 1e-6); // v10
+        assert!((bilinear_interp(0.0, 1.0, 2.0, 3.0, 0.0, 1.0) - 2.0).abs() < 1e-6); // v01
+        assert!((bilinear_interp(0.0, 1.0, 2.0, 3.0, 1.0, 1.0) - 3.0).abs() < 1e-6); // v11
+    }
+
+    #[test]
+    fn bilinear_midpoint() {
+        let v = bilinear_interp(0.0, 1.0, 0.0, 1.0, 0.5, 0.5);
+        assert!((v - 0.5).abs() < 1e-6, "midpoint: {v}");
+    }
+
+    // ── compute_tangent ───────────────────────────────────────────────────────
+
+    #[test]
+    fn tangent_xy_aligned_is_x() {
+        let t = compute_tangent(
+            Vec3::ZERO,
+            Vec3::X,
+            Vec3::Y,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+        );
+        assert!((t.x - 1.0).abs() < 1e-4 && t.y.abs() < 1e-4 && t.z.abs() < 1e-4);
+    }
+
+    #[test]
+    fn tangent_is_unit_length() {
+        let t = compute_tangent(
+            Vec3::ZERO,
+            Vec3::new(2.0, 0.0, 0.0),
+            Vec3::new(0.0, 2.0, 0.0),
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+        );
+        assert!((t.length() - 1.0).abs() < 1e-5, "unit: {}", t.length());
+    }
+
+    // ── worley_f1_f2_2d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn worley_f1_f2_ordering() {
+        let (f1, f2) = worley_f1_f2_2d(Vec2::new(1.5, 2.3));
+        assert!(f1 >= 0.0, "f1 negative: {f1}");
+        assert!(f2 >= f1, "f2 < f1: {f1} {f2}");
+    }
+
+    #[test]
+    fn worley_f2_minus_f1_non_negative() {
+        for (x, y) in [(0.1, 0.2), (2.5, 1.7), (0.0, 0.0)] {
+            let (f1, f2) = worley_f1_f2_2d(Vec2::new(x, y));
+            assert!(f2 - f1 >= 0.0, "cell gap negative at ({x},{y})");
+        }
+    }
+
+    #[test]
+    fn worley_f1_matches_worley_noise_2d() {
+        let p = Vec2::new(1.5, 2.3);
+        let (f1, _) = worley_f1_f2_2d(p);
+        let w = worley_noise_2d(p);
+        assert!((f1 - w).abs() < 1e-5, "f1 {f1} vs worley_noise {w}");
+    }
+}

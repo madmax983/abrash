@@ -5663,6 +5663,58 @@ pub fn wave_sdf_2d(p: Vec2, amplitude: f32, frequency: f32, phase: f32) -> f32 {
     p.y - wave_y
 }
 
+/// Morph between two SDF values by linear interpolation.
+///
+/// `t = 0.0` returns `a`, `t = 1.0` returns `b`.  This produces correct
+/// results when `a` and `b` have the **same topology** (e.g. morphing
+/// between a sphere and a box of similar size).
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::sdf_morph;
+/// // Halfway between two shapes.
+/// let d = sdf_morph(-1.0, 1.0, 0.5);
+/// assert!(d.abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn sdf_morph(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t.clamp(0.0, 1.0)
+}
+
+/// **3-D domain warping** using Perlin noise offsets.
+///
+/// Displaces the query point `p` by `strength * perlin_noise_3d(p + offset)`
+/// in each axis before evaluating the inner SDF.  Creates organic,
+/// fluid-like distortions.
+///
+/// # Arguments
+/// * `p`        – query point
+/// * `strength` – maximum warp displacement per axis
+/// * `sdf`      – inner SDF closure
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::{domain_warp_3d, sphere_3d};
+/// use abrash_core::math::Vec3;
+/// let d = domain_warp_3d(Vec3::new(0.3, 0.1, 0.0), 0.5, |p| {
+///     sphere_3d(p, Vec3::ZERO, 1.0)
+/// });
+/// // The warped sphere boundary is no longer perfectly spherical.
+/// let _ = d; // value varies
+/// ```
+#[must_use]
+pub fn domain_warp_3d(p: Vec3, strength: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
+    use crate::math::perlin_noise_3d;
+    let offset = 7.3_f32;
+    let wp = Vec3::new(
+        p.x + strength * perlin_noise_3d(p),
+        p.y + strength * perlin_noise_3d(Vec3::new(p.x + offset, p.y, p.z)),
+        p.z + strength * perlin_noise_3d(Vec3::new(p.x, p.y + offset, p.z + offset)),
+    );
+    sdf(wp)
+}
+
 #[cfg(test)]
 mod tests_pass_29_sdf {
     use super::*;
@@ -5880,5 +5932,48 @@ mod tests_pass_34_sdf {
         let d = wave_sdf_2d(Vec2::new(x, 1.5), 1.0, 1.0, 0.0);
         // d = 1.5 - 1.0 = 0.5
         assert!((d - 0.5).abs() < 1e-5, "above surface: {d}");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_36_sdf {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── sdf_morph ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn morph_at_zero_returns_a() {
+        assert!((sdf_morph(-2.0, 3.0, 0.0) - (-2.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn morph_at_one_returns_b() {
+        assert!((sdf_morph(-2.0, 3.0, 1.0) - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn morph_midpoint() {
+        // t=0.5 should give the midpoint.
+        let d = sdf_morph(-1.0, 1.0, 0.5);
+        assert!(d.abs() < 1e-6, "midpoint: {d}");
+    }
+
+    // ── domain_warp_3d ────────────────────────────────────────────────────────
+
+    #[test]
+    fn domain_warp_far_outside_stays_positive() {
+        // A point far outside a unit sphere should remain outside after small warp.
+        let d = domain_warp_3d(Vec3::new(5.0, 0.0, 0.0), 0.1, |p| {
+            sphere_3d(p, Vec3::ZERO, 1.0)
+        });
+        assert!(d > 0.0, "still outside: {d}");
+    }
+
+    #[test]
+    fn domain_warp_centre_stays_negative() {
+        // Origin is well inside a unit sphere — warp of strength 0.1 cannot push it outside.
+        let d = domain_warp_3d(Vec3::ZERO, 0.1, |p| sphere_3d(p, Vec3::ZERO, 1.0));
+        assert!(d < 0.0, "still inside: {d}");
     }
 }
