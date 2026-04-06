@@ -19614,3 +19614,293 @@ mod tests_pass_57 {
         assert!(x.abs() < 0.01, "overdamped should decay: x={x}");
     }
 }
+
+// ── Pass 58: SDF shapes, SDF space operators, lens distortion ────────────────
+
+/// Approximate signed distance to an ellipsoid centred at the origin.
+///
+/// `r` is the per-axis radii `(rx, ry, rz)`.  The result is an *exact* SDF
+/// on the surface and a tight bound elsewhere (Inigo Quilez 2D→3D lift).
+pub fn sdf_ellipsoid(p: Vec3, r: Vec3) -> f32 {
+    // Component-wise p/r and p/(r*r) — Vec3 has no Vec3/Vec3 operator.
+    let pr = Vec3::new(p.x / r.x, p.y / r.y, p.z / r.z);
+    let pr2 = Vec3::new(p.x / (r.x * r.x), p.y / (r.y * r.y), p.z / (r.z * r.z));
+    let k0 = pr.length();
+    let k1 = pr2.length();
+    // Guard: p = 0 → k1 = 0; return the negative of the smallest radius.
+    if k1 < 1e-10 {
+        return -(r.x.min(r.y).min(r.z));
+    }
+    k0 * (k0 - 1.0) / k1
+}
+
+/// Signed distance to a hexagonal prism.
+///
+/// The prism extends `±h.y` along Y and has a hexagonal cross-section of
+/// inscribed radius `h.x` in the XZ plane (flat-top orientation).
+pub fn sdf_hex_prism(p: Vec3, h: Vec2) -> f32 {
+    // Quilez hex prism — hex cross-section in XZ, height axis Y.
+    const KX: f32 = -0.866_025_4; // -√3/2
+    const KY: f32 = 0.5;
+    const KZ: f32 = 0.577_350_3; // 1/√3
+    let ap = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs());
+    // Project into hex fundamental domain using XZ as the hex plane.
+    let dot = 2.0 * (KX * ap.x + KY * ap.z).min(0.0);
+    let qx = ap.x - dot * KX;
+    let qz = ap.z - dot * KY;
+    // Distance to hex edge in XZ, height in Y.
+    let dx_raw = ((qx - (qz / KZ).clamp(0.0, h.x * KZ)).powi(2) + (qz - h.x).powi(2)).sqrt();
+    let dx_sign = if qx - h.x * KZ > 0.0 || qz - h.x > 0.0 {
+        1.0_f32
+    } else {
+        -1.0_f32
+    };
+    let d = Vec2::new(dx_sign * dx_raw, ap.y - h.y);
+    d.x.max(d.y).min(0.0) + Vec2::new(d.x.max(0.0), d.y.max(0.0)).length()
+}
+
+/// Signed distance to a square pyramid centred at the origin.
+///
+/// `h` is the half-height (tip at `+h`, base at `y = -h`).  The base is a
+/// square of side `2·h` (45° slope walls).  Quilez formulation.
+pub fn sdf_pyramid(p: Vec3, h: f32) -> f32 {
+    // Quilez square pyramid — tip at (0, +h, 0), base square of side 1 at y=0.
+    let m2 = h * h + 0.25_f32;
+    let mut qx = p.x.abs();
+    let qy = p.y;
+    let mut qz = p.z.abs();
+    // Fold into the canonical octant (qx ≥ qz).
+    if qz > qx {
+        core::mem::swap(&mut qx, &mut qz);
+    }
+    qx -= 0.5;
+    qz -= 0.5;
+    // Project onto the slant edge.
+    let q = Vec3::new(qz, h * qy - 0.5 * qx, h * qx + 0.5 * qy);
+    let s = (-q.x).max(0.0);
+    let t = ((q.y - 0.5 * qz) / (m2 + 0.25)).clamp(0.0, 1.0);
+    let a = m2 * (q.x + s).powi(2) + q.y * q.y;
+    let b = m2 * (q.x + 0.5 * t).powi(2) + (q.y - m2 * t).powi(2);
+    let d = if q.y.min(-q.x * m2 - q.y * 0.5) > 0.0 {
+        0.0
+    } else {
+        a.min(b)
+    };
+    ((d + q.z * q.z) / m2).sqrt() * (-qy).max(q.z).signum()
+}
+
+/// Smooth CSG subtraction: `a` minus `b`, with a soft blend of radius `k`.
+///
+/// Analogous to [`sdf_op_smooth_union`] but for subtraction.  Returns a
+/// negative value (inside) only where `a` is solid and `b` is not.
+pub fn sdf_op_smooth_subtract(a: f32, b: f32, k: f32) -> f32 {
+    let h = (k - (a + b).abs()).max(0.0) / k;
+    a.max(-b) + h * h * k * 0.25
+}
+
+/// Smooth CSG intersection: the overlap of `a` and `b`, with a blend of radius `k`.
+pub fn sdf_op_smooth_intersect(a: f32, b: f32, k: f32) -> f32 {
+    let h = (k - (a - b).abs()).max(0.0) / k;
+    a.max(b) - h * h * k * 0.25
+}
+
+/// Elongate an SDF along a local axis by half-extents `h`.
+///
+/// Stretches the point `p` by clamping each axis independently before passing
+/// it to the inner SDF.  Call as `sdf_op_elongate(p, h)` and use the result
+/// as the point argument to any SDF primitive.
+///
+/// ```text
+/// let p_elong = sdf_op_elongate(p, Vec3::new(0.5, 0.0, 0.0));
+/// let d = sdf_sphere(p_elong, 0.3);
+/// ```
+pub fn sdf_op_elongate(p: Vec3, h: Vec3) -> Vec3 {
+    // Vec3 has no Neg — negate component-wise.
+    let neg_h = Vec3::new(-h.x, -h.y, -h.z);
+    p - p.clamp(neg_h, h)
+}
+
+/// Twist space around the Y axis before evaluating an SDF.
+///
+/// Rotates the XZ plane by `k * p.y` radians, leaving Y unchanged.  Pass the
+/// returned point as the argument to any SDF primitive.
+///
+/// ```text
+/// let p_tw = sdf_op_twist(p, 2.0);
+/// let d = sdf_box_3d(p_tw, Vec3::splat(0.3));
+/// ```
+pub fn sdf_op_twist(p: Vec3, k: f32) -> Vec3 {
+    let (s, c) = (k * p.y).sin_cos();
+    Vec3::new(c * p.x - s * p.z, p.y, s * p.x + c * p.z)
+}
+
+/// Barrel / pincushion lens distortion of a UV coordinate.
+///
+/// `uv` should be in `[-1, 1]` (centred).  Positive `k` gives barrel
+/// distortion (edges bow outward); negative `k` gives pincushion (edges bow
+/// inward).  Typical `|k|` values: 0.05–0.3.
+///
+/// Returns the distorted UV, also in `[-1, 1]` space.
+pub fn barrel_distortion(uv: Vec2, k: f32) -> Vec2 {
+    let r2 = uv.dot(uv);
+    uv * (1.0 + k * r2)
+}
+
+// ── Pass 58 tests ─────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_58 {
+    use super::*;
+
+    // ── sdf_ellipsoid ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn ellipsoid_origin_is_negative() {
+        let d = sdf_ellipsoid(Vec3::ZERO, Vec3::new(1.0, 0.5, 2.0));
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn ellipsoid_far_point_is_positive() {
+        let d = sdf_ellipsoid(Vec3::new(10.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        assert!(d > 0.0, "d={d}");
+    }
+
+    #[test]
+    fn ellipsoid_on_surface_near_zero() {
+        // Unit-sphere special case — point on surface should be ~0.
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        let r = Vec3::new(1.0, 1.0, 1.0);
+        let d = sdf_ellipsoid(p, r);
+        assert!(d.abs() < 1e-4, "d={d}");
+    }
+
+    // ── sdf_hex_prism ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn hex_prism_centre_inside() {
+        let d = sdf_hex_prism(Vec3::ZERO, Vec2::new(1.0, 1.0));
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn hex_prism_far_above_outside() {
+        let d = sdf_hex_prism(Vec3::new(0.0, 5.0, 0.0), Vec2::new(1.0, 1.0));
+        assert!(d > 0.0, "d={d}");
+    }
+
+    // ── sdf_pyramid ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn pyramid_centre_inside() {
+        // Pyramid tip at y=+h=1.0, base at y=0.  Mid-height centre is inside.
+        let d = sdf_pyramid(Vec3::new(0.0, 0.5, 0.0), 1.0);
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn pyramid_far_outside() {
+        let d = sdf_pyramid(Vec3::new(0.0, 10.0, 0.0), 1.0);
+        assert!(d > 0.0, "d={d}");
+    }
+
+    // ── sdf_op_smooth_subtract ────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_subtract_recovers_hard_subtract_at_k0() {
+        let a = 0.3_f32;
+        let b = -0.5_f32;
+        let soft = sdf_op_smooth_subtract(a, b, 1e-6);
+        let hard = a.max(-b);
+        assert!((soft - hard).abs() < 1e-3, "soft={soft} hard={hard}");
+    }
+
+    #[test]
+    fn smooth_subtract_blends_near_boundary() {
+        // Near the boundary the smooth version adds a blend offset (>= hard).
+        // Far from the blend zone (|a+b| >> k) it converges to hard subtract.
+        let a = 0.5_f32;
+        let b = 0.8_f32; // deep inside B — well outside blend radius k=0.1
+        let soft = sdf_op_smooth_subtract(a, b, 0.1);
+        let hard = a.max(-b);
+        assert!((soft - hard).abs() < 1e-4, "soft={soft} hard={hard}");
+    }
+
+    // ── sdf_op_smooth_intersect ───────────────────────────────────────────────
+
+    #[test]
+    fn smooth_intersect_recovers_hard_intersect_at_k0() {
+        let a = 0.3_f32;
+        let b = 0.5_f32;
+        let soft = sdf_op_smooth_intersect(a, b, 1e-6);
+        let hard = a.max(b);
+        assert!((soft - hard).abs() < 1e-3, "soft={soft} hard={hard}");
+    }
+
+    #[test]
+    fn smooth_intersect_smaller_than_hard_near_boundary() {
+        let a = 0.05_f32;
+        let b = 0.05_f32;
+        let soft = sdf_op_smooth_intersect(a, b, 0.5);
+        let hard = a.max(b);
+        assert!(soft <= hard + 1e-5, "soft={soft} hard={hard}");
+    }
+
+    // ── sdf_op_elongate ───────────────────────────────────────────────────────
+
+    #[test]
+    fn elongate_identity_when_h_zero() {
+        let p = Vec3::new(1.0, 2.0, 3.0);
+        let pe = sdf_op_elongate(p, Vec3::ZERO);
+        assert!((pe - p).length() < 1e-6);
+    }
+
+    #[test]
+    fn elongate_clamps_inside_h() {
+        // p.x=0.3 inside h.x=0.5 → result x=0, sphere sees origin on that axis.
+        let p = Vec3::new(0.3, 0.0, 0.0);
+        let pe = sdf_op_elongate(p, Vec3::new(0.5, 0.0, 0.0));
+        assert!(pe.x.abs() < 1e-6, "pe.x={}", pe.x);
+    }
+
+    // ── sdf_op_twist ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn twist_zero_k_is_identity() {
+        let p = Vec3::new(1.0, 2.0, 0.5);
+        let pt = sdf_op_twist(p, 0.0);
+        assert!((pt - p).length() < 1e-6);
+    }
+
+    #[test]
+    fn twist_preserves_y_and_radius() {
+        let p = Vec3::new(1.0, 1.0, 0.0);
+        let pt = sdf_op_twist(p, std::f32::consts::FRAC_PI_2);
+        assert!((pt.y - p.y).abs() < 1e-5);
+        let r_in = (p.x * p.x + p.z * p.z).sqrt();
+        let r_out = (pt.x * pt.x + pt.z * pt.z).sqrt();
+        assert!((r_in - r_out).abs() < 1e-5);
+    }
+
+    // ── barrel_distortion ─────────────────────────────────────────────────────
+
+    #[test]
+    fn barrel_no_distortion_at_origin() {
+        let uv = Vec2::ZERO;
+        let out = barrel_distortion(uv, 0.3);
+        assert!((out - uv).length() < 1e-6);
+    }
+
+    #[test]
+    fn barrel_positive_k_expands() {
+        let uv = Vec2::new(0.5, 0.5);
+        let out = barrel_distortion(uv, 0.3);
+        assert!(out.length() > uv.length(), "out={out:?}");
+    }
+
+    #[test]
+    fn barrel_negative_k_contracts() {
+        let uv = Vec2::new(0.5, 0.5);
+        let out = barrel_distortion(uv, -0.3);
+        assert!(out.length() < uv.length(), "out={out:?}");
+    }
+}
