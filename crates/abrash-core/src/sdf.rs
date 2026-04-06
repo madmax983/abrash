@@ -5715,6 +5715,94 @@ pub fn domain_warp_3d(p: Vec3, strength: f32, sdf: impl Fn(Vec3) -> f32) -> f32 
     sdf(wp)
 }
 
+/// 5-tap **ambient-occlusion** estimate for SDF scenes (Inigo Quilez technique).
+///
+/// Marches 5 samples along the surface normal at increasing distances, comparing
+/// each distance to the SDF value.  Returns a value in \[0, 1] where 1.0 is
+/// fully unoccluded.
+///
+/// # Arguments
+/// * `p`    – surface point (should be slightly offset along `n` to avoid self-intersection)
+/// * `n`    – outward surface normal (unit vector)
+/// * `step` – spacing between samples (0.01–0.2 works well)
+/// * `sdf`  – the scene SDF closure
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::{ambient_occlusion_estimate, sphere_3d};
+/// use abrash_core::math::Vec3;
+/// // An isolated sphere has full AO at its top.
+/// let ao = ambient_occlusion_estimate(
+///     Vec3::new(0.0, 1.001, 0.0), Vec3::Y, 0.05,
+///     |p| sphere_3d(p, Vec3::ZERO, 1.0),
+/// );
+/// assert!(ao > 0.8, "isolated sphere top: {ao}");
+/// ```
+#[must_use]
+pub fn ambient_occlusion_estimate(p: Vec3, n: Vec3, step: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
+    let mut occ = 0.0_f32;
+    let mut scale = 1.0_f32;
+    for i in 0..5_u32 {
+        let h = 0.001 + step * i as f32;
+        let sample_p = Vec3::new(p.x + n.x * h, p.y + n.y * h, p.z + n.z * h);
+        let d = sdf(sample_p);
+        occ += (h - d) * scale;
+        scale *= 0.95;
+    }
+    (1.0 - 3.0 * occ).clamp(0.0, 1.0)
+}
+
+/// **Soft shadow** ray marcher for SDF scenes (Inigo Quilez technique).
+///
+/// Marches a shadow ray from `ro` in direction `rd`, accumulating a
+/// penumbra factor based on how close the ray comes to geometry.
+/// Returns 0.0 for full shadow, 1.0 for full light.
+///
+/// # Arguments
+/// * `ro`     – shadow ray origin (offset from surface to avoid self-shadow)
+/// * `rd`     – direction toward light (unit vector)
+/// * `t_min`  – near clipping distance (0.001–0.01)
+/// * `t_max`  – far clipping distance (light distance)
+/// * `k`      – penumbra sharpness (lower = softer; 2–64 typical)
+/// * `sdf`    – the scene SDF closure
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::{soft_shadow_estimate, sphere_3d};
+/// use abrash_core::math::Vec3;
+/// // A point far from the sphere in the direction away from it should be unoccluded.
+/// let s = soft_shadow_estimate(
+///     Vec3::new(0.0, 5.0, 0.0), Vec3::Y, 0.01, 10.0, 8.0,
+///     |p| sphere_3d(p, Vec3::ZERO, 1.0),
+/// );
+/// assert!(s > 0.9, "open sky: {s}");
+/// ```
+#[must_use]
+pub fn soft_shadow_estimate(
+    ro: Vec3,
+    rd: Vec3,
+    t_min: f32,
+    t_max: f32,
+    k: f32,
+    sdf: impl Fn(Vec3) -> f32,
+) -> f32 {
+    let mut res = 1.0_f32;
+    let mut t = t_min;
+    for _ in 0..64_u32 {
+        if t >= t_max {
+            break;
+        }
+        let p = Vec3::new(ro.x + rd.x * t, ro.y + rd.y * t, ro.z + rd.z * t);
+        let h = sdf(p);
+        if h < 0.001 {
+            return 0.0;
+        }
+        res = res.min(k * h / t);
+        t += h.clamp(0.01, 0.2);
+    }
+    res.clamp(0.0, 1.0)
+}
+
 #[cfg(test)]
 mod tests_pass_29_sdf {
     use super::*;
@@ -5975,5 +6063,56 @@ mod tests_pass_36_sdf {
         // Origin is well inside a unit sphere — warp of strength 0.1 cannot push it outside.
         let d = domain_warp_3d(Vec3::ZERO, 0.1, |p| sphere_3d(p, Vec3::ZERO, 1.0));
         assert!(d < 0.0, "still inside: {d}");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_37_sdf {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── ambient_occlusion_estimate ────────────────────────────────────────────
+
+    #[test]
+    fn ao_in_range() {
+        let ao = ambient_occlusion_estimate(Vec3::new(0.0, 1.001, 0.0), Vec3::Y, 0.05, |p| {
+            sphere_3d(p, Vec3::ZERO, 1.0)
+        });
+        assert!(ao >= 0.0 && ao <= 1.0, "AO out of [0,1]: {ao}");
+    }
+
+    #[test]
+    fn ao_isolated_top_is_high() {
+        // Top of an isolated sphere → barely any occlusion.
+        let ao = ambient_occlusion_estimate(Vec3::new(0.0, 1.001, 0.0), Vec3::Y, 0.05, |p| {
+            sphere_3d(p, Vec3::ZERO, 1.0)
+        });
+        assert!(ao > 0.8, "isolated top AO: {ao}");
+    }
+
+    // ── soft_shadow_estimate ──────────────────────────────────────────────────
+
+    #[test]
+    fn soft_shadow_open_sky_is_one() {
+        // Ray pointing straight up from above the sphere — open sky.
+        let s = soft_shadow_estimate(Vec3::new(0.0, 5.0, 0.0), Vec3::Y, 0.01, 10.0, 8.0, |p| {
+            sphere_3d(p, Vec3::ZERO, 1.0)
+        });
+        assert!(s > 0.95, "open sky: {s}");
+    }
+
+    #[test]
+    fn soft_shadow_blocked_is_zero() {
+        // Ray from just above origin pointing in −Y hits the sphere behind.
+        // Actually: shoot from above the sphere toward the sphere centre.
+        let s = soft_shadow_estimate(
+            Vec3::new(0.0, 5.0, 0.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            0.01,
+            10.0,
+            8.0,
+            |p| sphere_3d(p, Vec3::ZERO, 1.0),
+        );
+        assert!(s < 0.05, "ray blocked by sphere: {s}");
     }
 }
