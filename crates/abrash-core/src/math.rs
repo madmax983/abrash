@@ -6324,6 +6324,307 @@ impl Default for Mat3 {
     }
 }
 
+impl std::ops::Mul<Vec3> for Mat3 {
+    type Output = Vec3;
+    /// Transform a column vector by this row-major 3×3 matrix.
+    #[inline]
+    fn mul(self, v: Vec3) -> Vec3 {
+        Vec3::new(
+            self.m[0][0] * v.x + self.m[0][1] * v.y + self.m[0][2] * v.z,
+            self.m[1][0] * v.x + self.m[1][1] * v.y + self.m[1][2] * v.z,
+            self.m[2][0] * v.x + self.m[2][1] * v.y + self.m[2][2] * v.z,
+        )
+    }
+}
+
+// ── Quaternion ────────────────────────────────────────────────────────────────
+
+/// Unit quaternion representing a 3-D rotation.
+///
+/// Stored as `(x, y, z, w)` where `w` is the scalar part.
+/// Operations assume the quaternion is normalised; call [`Quat::normalize`]
+/// after accumulating many multiplications.
+///
+/// # Conventions
+/// - Hamilton product: `q1 * q2` applies `q1` THEN `q2` (same as matrix order).
+/// - Rotation direction: right-hand rule (CCW when axis points toward viewer).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Quat {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
+
+impl Quat {
+    /// The identity quaternion (no rotation).
+    #[must_use]
+    #[inline]
+    pub const fn identity() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        }
+    }
+
+    /// Construct from a normalised `axis` and a rotation `angle` in radians.
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::{Quat, Vec3};
+    /// let q = Quat::from_axis_angle(Vec3::Y, core::f32::consts::FRAC_PI_2);
+    /// let v = q.rotate(Vec3::X);
+    /// assert!((v.x - 0.0).abs() < 1e-5, "x: {}", v.x);
+    /// assert!((v.z + 1.0).abs() < 1e-5, "z: {}", v.z); // +X rotated 90° about Y → -Z
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn from_axis_angle(axis: Vec3, angle: f32) -> Self {
+        let (s, c) = (angle * 0.5).sin_cos();
+        Self {
+            x: axis.x * s,
+            y: axis.y * s,
+            z: axis.z * s,
+            w: c,
+        }
+    }
+
+    /// Construct from Euler angles (yaw, pitch, roll) in radians, ZYX order.
+    ///
+    /// Applies: roll (Z) first, then pitch (X), then yaw (Y).
+    #[must_use]
+    #[inline]
+    pub fn from_euler_zyx(yaw: f32, pitch: f32, roll: f32) -> Self {
+        let (sy, cy) = (yaw * 0.5).sin_cos();
+        let (sp, cp) = (pitch * 0.5).sin_cos();
+        let (sr, cr) = (roll * 0.5).sin_cos();
+        Self {
+            x: cy * sp * cr + sy * cp * sr,
+            y: sy * cp * cr - cy * sp * sr,
+            z: cy * cp * sr - sy * sp * cr,
+            w: cy * cp * cr + sy * sp * sr,
+        }
+    }
+
+    /// Dot product of two quaternions (measures alignment; 1 = identical).
+    #[must_use]
+    #[inline]
+    pub fn dot(self, rhs: Self) -> f32 {
+        self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
+    }
+
+    /// Squared magnitude.
+    #[must_use]
+    #[inline]
+    pub fn length_sq(self) -> f32 {
+        self.dot(self)
+    }
+
+    /// Magnitude (should be ≈ 1.0 for unit quaternions).
+    #[must_use]
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.length_sq().sqrt()
+    }
+
+    /// Return the normalised form.
+    #[must_use]
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let inv = 1.0 / self.length();
+        Self {
+            x: self.x * inv,
+            y: self.y * inv,
+            z: self.z * inv,
+            w: self.w * inv,
+        }
+    }
+
+    /// Conjugate `(−x, −y, −z, w)` — the inverse for unit quaternions.
+    #[must_use]
+    #[inline]
+    pub const fn conjugate(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            w: self.w,
+        }
+    }
+
+    /// Inverse (conjugate / |q|²). Use [`Quat::conjugate`] for unit quats.
+    #[must_use]
+    #[inline]
+    pub fn inverse(self) -> Self {
+        let inv_sq = 1.0 / self.length_sq();
+        Self {
+            x: -self.x * inv_sq,
+            y: -self.y * inv_sq,
+            z: -self.z * inv_sq,
+            w: self.w * inv_sq,
+        }
+    }
+
+    /// Rotate a `Vec3` by this quaternion using the sandwich product
+    /// `q * v * q⁻¹` (expanded without full quaternion multiplication).
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::{Quat, Vec3};
+    /// // 180° rotation about Y maps +X → -X.
+    /// let q = Quat::from_axis_angle(Vec3::Y, core::f32::consts::PI);
+    /// let v = q.rotate(Vec3::X);
+    /// assert!((v.x + 1.0).abs() < 1e-5, "x: {}", v.x);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn rotate(self, v: Vec3) -> Vec3 {
+        // Efficient Fabian Giessen formula: 2 * cross products.
+        let t = Vec3::new(
+            2.0 * (self.y * v.z - self.z * v.y),
+            2.0 * (self.z * v.x - self.x * v.z),
+            2.0 * (self.x * v.y - self.y * v.x),
+        );
+        Vec3::new(
+            v.x + self.w * t.x + self.y * t.z - self.z * t.y,
+            v.y + self.w * t.y + self.z * t.x - self.x * t.z,
+            v.z + self.w * t.z + self.x * t.y - self.y * t.x,
+        )
+    }
+
+    /// Spherical linear interpolation between `self` and `end` by factor `t ∈ [0,1]`.
+    ///
+    /// Automatically flips `end` if the dot product is negative (takes the short arc).
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::{Quat, Vec3};
+    /// let q0 = Quat::identity();
+    /// let q1 = Quat::from_axis_angle(Vec3::Y, core::f32::consts::FRAC_PI_2);
+    /// let mid = q0.slerp(q1, 0.5);
+    /// // Midpoint should rotate +X by ~45°.
+    /// let v = mid.rotate(Vec3::X);
+    /// assert!(v.x > 0.0 && v.z < 0.0);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn slerp(self, end: Self, t: f32) -> Self {
+        let mut dot = self.dot(end);
+        // Take the short arc.
+        let end = if dot < 0.0 {
+            dot = -dot;
+            Self {
+                x: -end.x,
+                y: -end.y,
+                z: -end.z,
+                w: -end.w,
+            }
+        } else {
+            end
+        };
+
+        if dot > 0.999_9 {
+            // Nearly identical: lerp + normalise.
+            return Self {
+                x: self.x + t * (end.x - self.x),
+                y: self.y + t * (end.y - self.y),
+                z: self.z + t * (end.z - self.z),
+                w: self.w + t * (end.w - self.w),
+            }
+            .normalize();
+        }
+
+        let theta = dot.acos();
+        let sin_theta = theta.sin();
+        let s0 = ((1.0 - t) * theta).sin() / sin_theta;
+        let s1 = (t * theta).sin() / sin_theta;
+        Self {
+            x: s0 * self.x + s1 * end.x,
+            y: s0 * self.y + s1 * end.y,
+            z: s0 * self.z + s1 * end.z,
+            w: s0 * self.w + s1 * end.w,
+        }
+    }
+
+    /// Convert to a row-major 3×3 rotation matrix (matching `Mat3` storage).
+    ///
+    /// # Examples
+    /// ```
+    /// use abrash_core::math::{Quat, Vec3};
+    /// let m = Quat::identity().to_mat3();
+    /// // Identity quat → identity matrix diagonal.
+    /// assert!((m.m[0][0] - 1.0).abs() < 1e-6);
+    /// assert!((m.m[1][1] - 1.0).abs() < 1e-6);
+    /// assert!((m.m[2][2] - 1.0).abs() < 1e-6);
+    /// ```
+    #[must_use]
+    pub fn to_mat3(self) -> Mat3 {
+        let (x, y, z, w) = (self.x, self.y, self.z, self.w);
+        let x2 = x + x;
+        let y2 = y + y;
+        let z2 = z + z;
+        let xx = x * x2;
+        let xy = x * y2;
+        let xz = x * z2;
+        let yy = y * y2;
+        let yz = y * z2;
+        let zz = z * z2;
+        let wx = w * x2;
+        let wy = w * y2;
+        let wz = w * z2;
+        // Row-major: m[row][col]
+        Mat3 {
+            m: [
+                [1.0 - (yy + zz), xy - wz, xz + wy], // row 0
+                [xy + wz, 1.0 - (xx + zz), yz - wx], // row 1
+                [xz - wy, yz + wx, 1.0 - (xx + yy)], // row 2
+            ],
+        }
+    }
+
+    /// Angle (in radians) of the rotation represented by this quaternion.
+    #[must_use]
+    #[inline]
+    pub fn angle(self) -> f32 {
+        2.0 * self.w.clamp(-1.0, 1.0).acos()
+    }
+
+    /// Axis of the rotation (normalised). Returns `Vec3::Y` for the identity.
+    #[must_use]
+    #[inline]
+    pub fn axis(self) -> Vec3 {
+        let sin_half = (1.0 - self.w * self.w).sqrt();
+        if sin_half < 1e-6 {
+            Vec3::Y
+        } else {
+            let inv = 1.0 / sin_half;
+            Vec3::new(self.x * inv, self.y * inv, self.z * inv)
+        }
+    }
+}
+
+impl std::ops::Mul for Quat {
+    type Output = Self;
+    /// Hamilton product: applies `self` first, then `rhs`.
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            x: self.w * rhs.x + self.x * rhs.w + self.y * rhs.z - self.z * rhs.y,
+            y: self.w * rhs.y - self.x * rhs.z + self.y * rhs.w + self.z * rhs.x,
+            z: self.w * rhs.z + self.x * rhs.y - self.y * rhs.x + self.z * rhs.w,
+            w: self.w * rhs.w - self.x * rhs.x - self.y * rhs.y - self.z * rhs.z,
+        }
+    }
+}
+
+impl Default for Quat {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
 impl std::ops::Div<f32> for Vec4 {
     type Output = Self;
     #[inline]
@@ -10936,5 +11237,159 @@ mod tests_pass_27 {
         let p = Vec3::new(0.8, 0.4, 0.0);
         let (u, v, w) = barycentric_3d(p, a, b, c);
         assert!((u + v + w - 1.0).abs() < 1e-5, "sum: {}", u + v + w);
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_28 {
+    use super::*;
+    use core::f32::consts::{FRAC_PI_2, PI};
+
+    // ── Quat::identity ────────────────────────────────────────────────────────
+    #[test]
+    fn identity_is_unit() {
+        let q = Quat::identity();
+        assert!((q.length() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn identity_rotates_nothing() {
+        let v = Quat::identity().rotate(Vec3::new(1.0, 2.0, 3.0));
+        assert!((v.x - 1.0).abs() < 1e-5);
+        assert!((v.y - 2.0).abs() < 1e-5);
+        assert!((v.z - 3.0).abs() < 1e-5);
+    }
+
+    // ── Quat::from_axis_angle ─────────────────────────────────────────────────
+    #[test]
+    fn rotate_90_about_y() {
+        // +X rotated 90° about +Y → -Z
+        let q = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
+        let v = q.rotate(Vec3::X);
+        assert!(v.x.abs() < 1e-5, "x: {}", v.x);
+        assert!(v.y.abs() < 1e-5, "y: {}", v.y);
+        assert!((v.z + 1.0).abs() < 1e-5, "z: {}", v.z);
+    }
+
+    #[test]
+    fn rotate_180_about_y() {
+        let q = Quat::from_axis_angle(Vec3::Y, PI);
+        let v = q.rotate(Vec3::X);
+        assert!((v.x + 1.0).abs() < 1e-5, "x: {}", v.x);
+    }
+
+    #[test]
+    fn axis_angle_roundtrip() {
+        let axis = Vec3::new(1.0, 0.0, 0.0);
+        let angle = 1.2_f32;
+        let q = Quat::from_axis_angle(axis, angle);
+        assert!((q.angle() - angle).abs() < 1e-5, "angle: {}", q.angle());
+        let a = q.axis();
+        assert!((a.x - 1.0).abs() < 1e-5, "axis.x: {}", a.x);
+    }
+
+    // ── Quat multiplication ───────────────────────────────────────────────────
+    #[test]
+    fn mul_identity_is_noop() {
+        let q = Quat::from_axis_angle(Vec3::Y, 0.7);
+        let r = q * Quat::identity();
+        assert!((r.x - q.x).abs() < 1e-6);
+        assert!((r.w - q.w).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mul_composed_rotation() {
+        // 90° about Y twice = 180° about Y: +X → -X
+        let q90 = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
+        let q180 = q90 * q90;
+        let v = q180.rotate(Vec3::X);
+        assert!((v.x + 1.0).abs() < 1e-5, "x: {}", v.x);
+    }
+
+    // ── Quat::conjugate / inverse ─────────────────────────────────────────────
+    #[test]
+    fn conjugate_undoes_rotation() {
+        let q = Quat::from_axis_angle(Vec3::Z, FRAC_PI_2);
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let rotated = q.rotate(v);
+        let back = q.conjugate().rotate(rotated);
+        assert!((back.x - v.x).abs() < 1e-5, "back.x: {}", back.x);
+        assert!((back.y - v.y).abs() < 1e-5, "back.y: {}", back.y);
+    }
+
+    // ── Quat::slerp ───────────────────────────────────────────────────────────
+    #[test]
+    fn slerp_t0_is_start() {
+        let q0 = Quat::identity();
+        let q1 = Quat::from_axis_angle(Vec3::Y, PI);
+        let s = q0.slerp(q1, 0.0);
+        assert!((s.w - q0.w).abs() < 1e-5, "w: {}", s.w);
+    }
+
+    #[test]
+    fn slerp_t1_is_end() {
+        let q0 = Quat::identity();
+        let q1 = Quat::from_axis_angle(Vec3::Y, PI);
+        let s = q0.slerp(q1, 1.0);
+        // q and -q represent the same rotation; verify via rotate rather than components.
+        let v = s.rotate(Vec3::X);
+        let v1 = q1.rotate(Vec3::X);
+        assert!((v.x - v1.x).abs() < 1e-4, "x: {} vs {}", v.x, v1.x);
+        assert!((v.z - v1.z).abs() < 1e-4, "z: {} vs {}", v.z, v1.z);
+    }
+
+    #[test]
+    fn slerp_midpoint_is_half_angle() {
+        let q0 = Quat::identity();
+        let q1 = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
+        let mid = q0.slerp(q1, 0.5);
+        assert!(
+            (mid.angle() - FRAC_PI_2 / 2.0).abs() < 1e-4,
+            "angle: {}",
+            mid.angle()
+        );
+    }
+
+    // ── Quat::to_mat3 ─────────────────────────────────────────────────────────
+    #[test]
+    fn to_mat3_identity() {
+        let m = Quat::identity().to_mat3();
+        // diagonal = 1
+        assert!((m.m[0][0] - 1.0).abs() < 1e-6);
+        assert!((m.m[1][1] - 1.0).abs() < 1e-6);
+        assert!((m.m[2][2] - 1.0).abs() < 1e-6);
+        // off-diagonal = 0
+        assert!(m.m[0][1].abs() < 1e-6);
+        assert!(m.m[0][2].abs() < 1e-6);
+        assert!(m.m[1][0].abs() < 1e-6);
+    }
+
+    #[test]
+    fn to_mat3_consistent_with_rotate() {
+        let q = Quat::from_axis_angle(Vec3::new(1.0, 1.0, 0.0).normalize(), 1.1);
+        let v = Vec3::new(0.5, -0.3, 0.8);
+        let via_quat = q.rotate(v);
+        let via_mat = q.to_mat3() * v;
+        assert!((via_quat.x - via_mat.x).abs() < 1e-5, "x diff");
+        assert!((via_quat.y - via_mat.y).abs() < 1e-5, "y diff");
+        assert!((via_quat.z - via_mat.z).abs() < 1e-5, "z diff");
+    }
+
+    // ── Quat::from_euler_zyx ──────────────────────────────────────────────────
+    #[test]
+    fn euler_identity_is_identity() {
+        let q = Quat::from_euler_zyx(0.0, 0.0, 0.0);
+        assert!((q.w - 1.0).abs() < 1e-6);
+        assert!(q.x.abs() < 1e-6 && q.y.abs() < 1e-6 && q.z.abs() < 1e-6);
+    }
+
+    #[test]
+    fn euler_yaw_90_matches_axis_angle() {
+        let q_euler = Quat::from_euler_zyx(FRAC_PI_2, 0.0, 0.0);
+        let q_aa = Quat::from_axis_angle(Vec3::Y, FRAC_PI_2);
+        assert!((q_euler.x - q_aa.x).abs() < 1e-5);
+        assert!((q_euler.y - q_aa.y).abs() < 1e-5);
+        assert!((q_euler.z - q_aa.z).abs() < 1e-5);
+        assert!((q_euler.w - q_aa.w).abs() < 1e-5);
     }
 }
