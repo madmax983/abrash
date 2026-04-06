@@ -696,7 +696,7 @@ impl Color {
             (99.470_802_59 * t.ln() - 161.119_568_26) / 255.0
         } else {
             let x = t - 60.0;
-            (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+            288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0
         }
         .clamp(0.0, 1.0);
 
@@ -960,7 +960,7 @@ impl Color {
     #[must_use]
     pub fn to_oklch(self) -> (f32, f32, f32) {
         let (l, a, b) = self.to_oklab();
-        let c = (a * a + b * b).sqrt();
+        let c = a.hypot(b);
         let h = b.atan2(a).rem_euclid(std::f32::consts::TAU);
         (l, c, h)
     }

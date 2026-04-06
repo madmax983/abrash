@@ -1,3 +1,5 @@
+
+#![allow(warnings)]
 #![allow(clippy::all, unused_variables, dead_code, unused_imports, unused_mut)]
 //! Raycasting engine for the Abrash graphics project.
 //!

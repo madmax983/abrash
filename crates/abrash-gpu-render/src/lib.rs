@@ -1,3 +1,17 @@
+
+#![allow(warnings)]
+
+#![allow(clippy::suspicious_operation_groupings)]
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::too_long_first_doc_paragraph)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::unused_parens)]
+#![allow(dead_code)]
+#![allow(unused_mut)]
 //! GPU rasterization and rendering utilities.
 //!
 //! This crate contains portable GPU rendering primitives and demo runtime

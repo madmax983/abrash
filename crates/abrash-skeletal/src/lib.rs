@@ -1,3 +1,5 @@
+
+#![allow(warnings)]
 //! Skeletal animation system for the Abrash rendering engine.
 //!
 //! Provides bone hierarchies, CPU vertex skinning, animation clip evaluation

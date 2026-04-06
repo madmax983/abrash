@@ -1043,8 +1043,7 @@ mod tests {
 
     #[test]
     fn sort_commands_by_atlas_then_blend() {
-        let mut commands = vec![
-            SpriteCommand {
+        let mut commands = [SpriteCommand {
                 atlas: AtlasHandle(1),
                 instance: SpriteInstance {
                     blend_mode: 2,
@@ -1071,8 +1070,7 @@ mod tests {
                     blend_mode: 0,
                     ..SpriteInstance::zeroed()
                 },
-            },
-        ];
+            }];
 
         commands.sort_by(|a, b| {
             a.atlas
@@ -1320,7 +1318,7 @@ mod gpu_tests {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
 
-        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let tex = abrash_core::texture::Texture::new(4, 4).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,

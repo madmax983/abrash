@@ -991,6 +991,7 @@ pub fn domain_warp_fbm_2d(
 /// let (b1, _, _) = voronoi_noise_2d(0.7, -1.2, 0.8);
 /// assert_eq!(a1, b1);
 /// ```
+#[must_use]
 pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1009,7 +1010,7 @@ pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
             let pt_y = cy as f32 + hy * jitter;
             let dx = fx - pt_x;
             let dy = fy - pt_y;
-            let d = (dx * dx + dy * dy).sqrt();
+            let d = dx.hypot(dy);
             if d < f1 {
                 f2 = f1;
                 f1 = d;
@@ -1072,6 +1073,7 @@ fn gabor_kernel(dx: f32, dy: f32, freq: f32, theta: f32, bandwidth: f32) -> f32 
 /// let b = gabor_noise_2d(0.7, -1.2, 5.0, 0.78, 0.2, 3);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cells: i32) -> f32 {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1114,6 +1116,7 @@ pub fn gabor_noise_2d(x: f32, y: f32, freq: f32, theta: f32, bandwidth: f32, cel
 /// let (b, _, _) = voronoi_noise_3d(0.7, -1.2, 0.5, 0.8);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) {
     let ix = x.floor() as i32;
     let iy = y.floor() as i32;
@@ -1173,6 +1176,7 @@ pub fn voronoi_noise_3d(x: f32, y: f32, z: f32, jitter: f32) -> (f32, f32, u32) 
 /// let b = ridge_noise_3d(0.7, -1.2, 0.4, 3, 2.0, 0.5);
 /// assert_eq!(a, b);
 /// ```
+#[must_use]
 pub fn ridge_noise_3d(x: f32, y: f32, z: f32, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
     let mut value = 0.0_f32;
     let mut amplitude = 0.5_f32;

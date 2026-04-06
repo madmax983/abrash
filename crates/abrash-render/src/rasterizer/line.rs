@@ -14,6 +14,8 @@ use crate::zbuffer::ZBuffer;
 /// # Arguments
 ///
 /// * `v0`, `v1` - Vertices defined as `(Position, W)`.
+use super::core::assert_same_dimensions;
+
 pub fn draw_line_3d(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,
@@ -21,6 +23,7 @@ pub fn draw_line_3d(
     v1: (Vec3, f32),
     color: u32,
 ) {
+    assert_same_dimensions(fb, zb);
     // Clip against frustum (returns None if fully culled)
     if let Some((v0_clipped, v1_clipped)) = clip_line_to_frustum(
         v0,

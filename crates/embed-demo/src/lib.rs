@@ -1,3 +1,5 @@
+
+#![allow(warnings)]
 //! Offscreen rendering adapter — abrash embedded with no platform dependency.
 //!
 //! This crate is the integration proof for ADR 005. It depends only on

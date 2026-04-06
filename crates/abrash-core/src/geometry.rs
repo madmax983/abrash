@@ -901,7 +901,7 @@ impl AABB {
     /// ```
     #[must_use]
     #[inline]
-    pub fn merge(a: &Self, b: &Self) -> Self {
+    pub const fn merge(a: &Self, b: &Self) -> Self {
         Self::new(a.min.min(b.min), a.max.max(b.max))
     }
 
@@ -946,7 +946,7 @@ impl AABB {
     /// ```
     #[must_use]
     #[inline]
-    pub fn corners(&self) -> [Vec3; 8] {
+    pub const fn corners(&self) -> [Vec3; 8] {
         let mn = self.min;
         let mx = self.max;
         [
@@ -1189,7 +1189,7 @@ impl Triangle {
     /// Smallest AABB enclosing this triangle.
     #[must_use]
     #[inline]
-    pub fn to_aabb(self) -> AABB {
+    pub const fn to_aabb(self) -> AABB {
         AABB::new(
             self.a.min(self.b).min(self.c),
             self.a.max(self.b).max(self.c),
@@ -1296,7 +1296,7 @@ impl OBB {
     /// Creates an axis-aligned OBB (identical orientation to an AABB).
     #[must_use]
     #[inline]
-    pub fn from_center_extents(center: Vec3, half_extents: Vec3) -> Self {
+    pub const fn from_center_extents(center: Vec3, half_extents: Vec3) -> Self {
         Self {
             center,
             half_extents,
@@ -1446,7 +1446,7 @@ impl OBB {
     ///
     /// Returns `false` (separated) when the axis is valid and shows a gap.
     #[inline]
-    fn sat_separated(a: &OBB, b: &OBB, axis: Vec3) -> bool {
+    fn sat_separated(a: &Self, b: &Self, axis: Vec3) -> bool {
         let len_sq = axis.dot(axis);
         if len_sq < 1e-10 {
             return false; // degenerate (parallel edges) — not separating
@@ -1458,7 +1458,7 @@ impl OBB {
 
     /// Returns `true` if this OBB overlaps `other` (Separating Axis Theorem, 15 axes).
     #[must_use]
-    pub fn intersects_obb(&self, other: &OBB) -> bool {
+    pub fn intersects_obb(&self, other: &Self) -> bool {
         // 3 face normals of self
         for i in 0..3 {
             if Self::sat_separated(self, other, self.axes[i]) {
@@ -1486,7 +1486,7 @@ impl OBB {
     #[must_use]
     #[inline]
     pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
-        self.intersects_obb(&OBB::from_aabb(aabb))
+        self.intersects_obb(&Self::from_aabb(aabb))
     }
 }
 
@@ -1588,7 +1588,7 @@ impl Capsule {
     /// Tests whether the minimum distance between the two interior segments is
     /// less than the sum of radii.
     #[must_use]
-    pub fn intersects_capsule(&self, other: &Capsule) -> bool {
+    pub fn intersects_capsule(&self, other: &Self) -> bool {
         let dist_sq = segment_segment_dist_sq(self.a, self.b, other.a, other.b);
         let r = self.radius + other.radius;
         dist_sq <= r * r
@@ -1842,7 +1842,7 @@ impl Segment {
     /// ```
     #[must_use]
     #[inline]
-    pub fn to_aabb(&self) -> AABB {
+    pub const fn to_aabb(&self) -> AABB {
         AABB::new(self.a.min(self.b), self.a.max(self.b))
     }
 

@@ -842,7 +842,7 @@ pub fn cylindrical_to_cartesian(r: f32, theta: f32, y: f32) -> Vec3 {
 #[must_use]
 #[inline]
 pub fn cartesian_to_cylindrical(v: Vec3) -> (f32, f32, f32) {
-    let r = (v.x * v.x + v.z * v.z).sqrt();
+    let r = v.x.hypot(v.z);
     let theta = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
     (r, theta, v.y)
 }
@@ -963,7 +963,7 @@ pub fn van_der_corput(mut bits: u32) -> f32 {
     bits as f32 * (1.0 / 4_294_967_296.0_f32)
 }
 
-/// Hammersley 2D point set — (i/N, van_der_corput(i)).
+/// Hammersley 2D point set — (i/N, `van_der_corput(i)`).
 ///
 /// Produces `total` stratified sample points in \[0,1)² with low discrepancy.
 /// Standard in PBR for importance-sampling the hemisphere and SSAO kernels.
@@ -1409,7 +1409,7 @@ impl Vec2 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -1419,7 +1419,7 @@ impl Vec2 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -1429,7 +1429,7 @@ impl Vec2 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -1439,7 +1439,7 @@ impl Vec2 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -1449,7 +1449,7 @@ impl Vec2 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -1502,14 +1502,14 @@ impl Vec2 {
     /// The smallest of the two components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y)
     }
 
     /// The largest of the two components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y)
     }
 
@@ -2301,7 +2301,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z)
     }
 
@@ -2314,7 +2314,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
@@ -2500,7 +2500,7 @@ impl Vec3 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -2511,7 +2511,7 @@ impl Vec3 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -2522,7 +2522,7 @@ impl Vec3 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -2533,7 +2533,7 @@ impl Vec3 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -3101,7 +3101,7 @@ impl Mat4 {
     /// assert!((result.y - 2.0).abs() < 1e-5);
     /// ```
     #[must_use]
-    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+    pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
         // Row-vector: v * M.  Column j of M is the destination for basis vector j.
         // Row 0 = X basis:   x → x + yx*y + zx*z
         // Row 1 = Y basis:   y → xy*x + y + zy*z
@@ -3932,7 +3932,7 @@ impl Mat4 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn row(&self, index: usize) -> Vec4 {
+    pub const fn row(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[index][0],
             self.m[index][1],
@@ -5980,7 +5980,7 @@ impl Vec4 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -5992,7 +5992,7 @@ impl Vec4 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -6004,7 +6004,7 @@ impl Vec4 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -6016,7 +6016,7 @@ impl Vec4 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -6028,7 +6028,7 @@ impl Vec4 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -6052,14 +6052,14 @@ impl Vec4 {
     /// Smallest of the four components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z).min(self.w)
     }
 
     /// Largest of the four components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z).max(self.w)
     }
 
@@ -7103,9 +7103,9 @@ mod tests_mat3 {
             Vec3::new(0.577, 0.577, 0.577).normalize(),
         ] {
             let (t, b) = basis_from_normal(n);
-            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {:?}", n);
-            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {:?}", n);
-            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {:?}", n);
+            assert!(t.dot(n).abs() < 1e-4, "t⊥n failed for {n:?}");
+            assert!(b.dot(n).abs() < 1e-4, "b⊥n failed for {n:?}");
+            assert!(t.dot(b).abs() < 1e-4, "t⊥b failed for {n:?}");
             assert!((t.length() - 1.0).abs() < 1e-4);
             assert!((b.length() - 1.0).abs() < 1e-4);
         }
@@ -7796,6 +7796,7 @@ mod tests_pass_16 {
 /// let dec = octahedral_decode(enc);
 /// assert!((dec - n).length() < 1e-5);
 /// ```
+#[must_use]
 pub fn octahedral_encode(n: Vec3) -> Vec2 {
     // Project onto octahedron face: divide by L1 norm
     let inv = 1.0 / (n.x.abs() + n.y.abs() + n.z.abs());
@@ -7819,6 +7820,7 @@ pub fn octahedral_encode(n: Vec3) -> Vec2 {
 /// let dec = octahedral_decode(Vec2::new(0.0, 0.0));
 /// assert!((dec - Vec3::new(0.0, 0.0, 1.0)).length() < 1e-5);
 /// ```
+#[must_use]
 pub fn octahedral_decode(v: Vec2) -> Vec3 {
     let z = 1.0 - v.x.abs() - v.y.abs();
     let mut p = Vec3::new(v.x, v.y, z);
@@ -7845,10 +7847,11 @@ pub fn octahedral_decode(v: Vec2) -> Vec3 {
 /// assert_eq!(morton_encode_2d(0, 1), 0b10);
 /// assert_eq!(morton_encode_2d(3, 3), 0b1111);
 /// ```
-pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+#[must_use]
+pub const fn morton_encode_2d(x: u32, y: u32) -> u32 {
     /// Spread a 16-bit value into even bit positions.
     #[inline(always)]
-    fn part1by1(mut n: u32) -> u32 {
+    const fn part1by1(mut n: u32) -> u32 {
         n &= 0x0000_FFFF;
         n = (n | (n << 8)) & 0x00FF_00FF;
         n = (n | (n << 4)) & 0x0F0F_0F0F;
@@ -7869,10 +7872,11 @@ pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
 /// assert_eq!(morton_decode_2d(0b10), (0, 1));
 /// assert_eq!(morton_decode_2d(0b1111), (3, 3));
 /// ```
-pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+#[must_use]
+pub const fn morton_decode_2d(code: u32) -> (u32, u32) {
     /// Compact even-bit positions back into a contiguous value.
     #[inline(always)]
-    fn compact1by1(mut n: u32) -> u32 {
+    const fn compact1by1(mut n: u32) -> u32 {
         n &= 0x5555_5555;
         n = (n | (n >> 1)) & 0x3333_3333;
         n = (n | (n >> 2)) & 0x0F0F_0F0F;
@@ -7898,6 +7902,7 @@ pub fn morton_decode_2d(code: u32) -> (u32, u32) {
 /// let p = spherical_fibonacci(0, 100);
 /// assert!((p.length() - 1.0).abs() < 1e-5, "must be on unit sphere");
 /// ```
+#[must_use]
 pub fn spherical_fibonacci(i: u32, n: u32) -> Vec3 {
     // Golden ratio: φ = (1 + √5) / 2; 2π/φ ≈ golden angle in radians
     const GOLDEN_ANGLE: f32 = core::f32::consts::TAU * (1.0 - 1.618_033_988_749_895);
@@ -7924,6 +7929,7 @@ pub fn spherical_fibonacci(i: u32, n: u32) -> Vec3 {
 /// let vals: Vec<f32> = (0..8).map(|i| golden_ratio_sequence(i)).collect();
 /// for v in &vals { assert!(*v >= 0.0 && *v < 1.0); }
 /// ```
+#[must_use]
 pub fn golden_ratio_sequence(n: u32) -> f32 {
     const PHI: f32 = 1.618_033_988_749_895_f32;
     (n as f32 * PHI).fract()
@@ -8152,9 +8158,9 @@ mod tests_pass_18 {
         let mut octants = [false; 8];
         for i in 0..n {
             let p = spherical_fibonacci(i, n);
-            let idx = ((p.x > 0.0) as usize)
-                | (((p.y > 0.0) as usize) << 1)
-                | (((p.z > 0.0) as usize) << 2);
+            let idx = usize::from(p.x > 0.0)
+                | (usize::from(p.y > 0.0) << 1)
+                | (usize::from(p.z > 0.0) << 2);
             octants[idx] = true;
         }
         assert!(octants.iter().all(|&v| v), "not all octants covered");
@@ -8249,6 +8255,7 @@ pub fn spring_damper(
 /// assert!((fast_log2(1.0) - 0.0).abs() < 0.1);
 /// assert!((fast_log2(0.5) - (-1.0)).abs() < 0.1);
 /// ```
+#[must_use]
 pub fn fast_log2(x: f32) -> f32 {
     debug_assert!(x > 0.0, "fast_log2 requires positive input");
     let bits = x.to_bits();
@@ -8274,6 +8281,7 @@ pub fn fast_log2(x: f32) -> f32 {
 /// assert!((fast_exp2(0.0) - 1.0).abs() < 0.1);
 /// assert!((fast_exp2(-1.0) - 0.5).abs() < 0.1);
 /// ```
+#[must_use]
 pub fn fast_exp2(x: f32) -> f32 {
     let xi = x.floor() as i32;
     let xf = x - xi as f32;
@@ -8295,6 +8303,7 @@ pub fn fast_exp2(x: f32) -> f32 {
 /// assert_eq!(next_power_of_two(5), 8);
 /// assert_eq!(next_power_of_two(8), 8);
 /// ```
+#[must_use]
 pub const fn next_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 1;
@@ -8321,11 +8330,12 @@ pub const fn next_power_of_two(x: u32) -> u32 {
 /// assert_eq!(prev_power_of_two(7), 4);
 /// assert_eq!(prev_power_of_two(8), 8);
 /// ```
+#[must_use]
 pub const fn prev_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 0;
     }
-    1 << (31 - x.leading_zeros())
+    1 << x.ilog2()
 }
 
 /// 5th-order ("Perlin's smootherstep") smooth interpolation.
@@ -8344,6 +8354,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
 /// assert_eq!(smootherstep5(1.0), 1.0);
 /// assert!((smootherstep5(0.5) - 0.5).abs() < 1e-6);
 /// ```
+#[must_use]
 pub fn smootherstep5(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
@@ -8364,6 +8375,7 @@ pub fn smootherstep5(t: f32) -> f32 {
 /// assert_eq!(smootherstep7(1.0), 1.0);
 /// assert!((smootherstep7(0.5) - 0.5).abs() < 1e-6);
 /// ```
+#[must_use]
 pub fn smootherstep7(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     let t2 = t * t;
@@ -8384,7 +8396,8 @@ pub fn smootherstep7(t: f32) -> f32 {
 /// assert_eq!(median3(5.0_f32, 1.0, 3.0), 3.0);
 /// assert_eq!(median3(2.0_f32, 2.0, 2.0), 2.0);
 /// ```
-pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+#[must_use]
+pub const fn median3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).min(c).max(a.min(b))
 }
 
@@ -8399,6 +8412,7 @@ pub fn median3(a: f32, b: f32, c: f32) -> f32 {
 /// assert!(in_range(0.0_f32, 0.0, 1.0));  // inclusive
 /// ```
 #[inline]
+#[must_use]
 pub fn in_range(v: f32, lo: f32, hi: f32) -> bool {
     v >= lo && v <= hi
 }
@@ -8413,6 +8427,7 @@ pub fn in_range(v: f32, lo: f32, hi: f32) -> bool {
 /// assert!(!approx_eq(1.0_f32, 1.1, 1e-5));
 /// ```
 #[inline]
+#[must_use]
 pub fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
     (a - b).abs() <= eps
 }
@@ -8584,7 +8599,7 @@ mod tests_pass_19 {
 /// hash in ~3 instructions.
 ///
 /// Ideal for procedural generation, noise seeding, and GPU-style per-pixel
-/// random number generation.  Passes PractRand and BigCrush statistical tests.
+/// random number generation.  Passes `PractRand` and `BigCrush` statistical tests.
 ///
 /// # Examples
 ///
@@ -8593,6 +8608,7 @@ mod tests_pass_19 {
 /// assert_eq!(pcg_hash(42), pcg_hash(42));
 /// assert_ne!(pcg_hash(1), pcg_hash(2));
 /// ```
+#[must_use]
 pub const fn pcg_hash(input: u32) -> u32 {
     let state = input.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
     let word = ((state >> ((state >> 28).wrapping_add(4))) ^ state).wrapping_mul(277_803_737);
@@ -8608,6 +8624,7 @@ pub const fn pcg_hash(input: u32) -> u32 {
 /// assert_ne!(wang_hash(0), wang_hash(1));
 /// assert_eq!(wang_hash(42), wang_hash(42));
 /// ```
+#[must_use]
 pub const fn wang_hash(mut key: u32) -> u32 {
     key = key.wrapping_add(!(key << 15));
     key ^= key >> 10;
@@ -8628,6 +8645,7 @@ pub const fn wang_hash(mut key: u32) -> u32 {
 /// assert!(v >= 0.0 && v < 1.0);
 /// assert_ne!(hash_to_f32(0), hash_to_f32(1));
 /// ```
+#[must_use]
 pub fn hash_to_f32(seed: u32) -> f32 {
     let h = pcg_hash(seed);
     f32::from_bits((h >> 9) | 0x3F80_0000) - 1.0
@@ -8642,6 +8660,7 @@ pub fn hash_to_f32(seed: u32) -> f32 {
 /// let v = hash2_to_f32(3, 7);
 /// assert!(v >= 0.0 && v < 1.0);
 /// ```
+#[must_use]
 pub fn hash2_to_f32(x: u32, y: u32) -> f32 {
     hash_to_f32(pcg_hash(x).wrapping_add(y.wrapping_mul(2_654_435_761)))
 }
@@ -8663,6 +8682,7 @@ pub fn hash2_to_f32(x: u32, y: u32) -> f32 {
 ///     assert!(v >= 0.0 && v < 1.0);
 /// }}
 /// ```
+#[must_use]
 pub fn bayer8x8(x: u32, y: u32) -> f32 {
     const BAYER: [[u8; 8]; 8] = [
         [0, 32, 8, 40, 2, 34, 10, 42],
@@ -8674,7 +8694,7 @@ pub fn bayer8x8(x: u32, y: u32) -> f32 {
         [15, 47, 7, 39, 13, 45, 5, 37],
         [63, 31, 55, 23, 61, 29, 53, 21],
     ];
-    BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+    f32::from(BAYER[(y & 7) as usize][(x & 7) as usize]) / 64.0
 }
 
 /// Convert a linear amplitude ratio to decibels: `20 * log10(|amplitude|)`.
@@ -8688,6 +8708,7 @@ pub fn bayer8x8(x: u32, y: u32) -> f32 {
 /// assert!((linear_to_db(1.0) - 0.0).abs() < 1e-5);
 /// assert!((linear_to_db(2.0) - 6.0206).abs() < 0.01);
 /// ```
+#[must_use]
 pub fn linear_to_db(amplitude: f32) -> f32 {
     20.0 * amplitude.abs().log10()
 }
@@ -8701,6 +8722,7 @@ pub fn linear_to_db(amplitude: f32) -> f32 {
 /// assert!((db_to_linear(0.0) - 1.0).abs() < 1e-5);
 /// assert!((db_to_linear(-20.0) - 0.1).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn db_to_linear(db: f32) -> f32 {
     10.0_f32.powf(db / 20.0)
 }
@@ -8714,6 +8736,7 @@ pub fn db_to_linear(db: f32) -> f32 {
 /// assert!((snap(1.7_f32, 0.5) - 1.5).abs() < 1e-6);
 /// assert!((snap(1.3_f32, 0.5) - 1.5).abs() < 1e-6);
 /// ```
+#[must_use]
 pub fn snap(value: f32, step: f32) -> f32 {
     (value / step).round() * step
 }
@@ -8730,6 +8753,7 @@ pub fn snap(value: f32, step: f32) -> f32 {
 /// assert!((bounce(1.5_f32, 0.0, 1.0) - 0.5).abs() < 1e-5);
 /// assert!((bounce(2.0_f32, 0.0, 1.0) - 0.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn bounce(t: f32, lo: f32, hi: f32) -> f32 {
     let range = hi - lo;
     if range <= 0.0 {
@@ -8874,7 +8898,8 @@ mod tests_pass_20 {
 /// assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
 /// ```
 #[inline]
-pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+#[must_use]
+pub const fn min3(a: f32, b: f32, c: f32) -> f32 {
     a.min(b).min(c)
 }
 
@@ -8887,7 +8912,8 @@ pub fn min3(a: f32, b: f32, c: f32) -> f32 {
 /// assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
 /// ```
 #[inline]
-pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+#[must_use]
+pub const fn max3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).max(c)
 }
 
@@ -8903,6 +8929,7 @@ pub fn max3(a: f32, b: f32, c: f32) -> f32 {
 /// let area = triangle_area_3d(Vec3::ZERO, Vec3::X, Vec3::Y);
 /// assert!((area - 0.5).abs() < 1e-6);
 /// ```
+#[must_use]
 pub fn triangle_area_3d(a: Vec3, b: Vec3, c: Vec3) -> f32 {
     (b - a).cross(c - a).length() * 0.5
 }
@@ -8927,6 +8954,7 @@ pub fn triangle_area_3d(a: Vec3, b: Vec3, c: Vec3) -> f32 {
 /// let v = signed_volume_tet(a, b, c, d).abs();
 /// assert!((v - 0.1178).abs() < 0.01, "tet volume: {v}");
 /// ```
+#[must_use]
 pub fn signed_volume_tet(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
     // Scalar triple product: det([b-a, c-a, d-a]) / 6
     // Positive when face (a,b,c) is CCW viewed from d (standard winding)
@@ -8952,6 +8980,7 @@ pub fn signed_volume_tet(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
 /// let v = perspective_correct_lerp(0.5, 0.0, 1.0, 1.0, 1.0);
 /// assert!((v - 0.5).abs() < 1e-6, "equal w: {v}");
 /// ```
+#[must_use]
 pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1: f32) -> f32 {
     // Interpolate w in screen space, then recover perspective-correct value
     let wt = w0 + (w1 - w0) * t;
@@ -8973,6 +9002,7 @@ pub fn perspective_correct_lerp(t: f32, v0: f32, v1: f32, w0: f32, w1: f32) -> f
 /// assert_eq!(smoothstep_sine(1.0), 1.0);
 /// assert!((smoothstep_sine(0.5) - 0.5).abs() < 1e-6);
 /// ```
+#[must_use]
 pub fn smoothstep_sine(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     0.5 - (core::f32::consts::PI * t).cos() * 0.5
@@ -8990,6 +9020,7 @@ pub fn smoothstep_sine(t: f32) -> f32 {
 /// assert!((ease_exp_in(1.0, 4.0) - 1.0).abs() < 1e-5);
 /// assert!(ease_exp_in(0.5, 4.0) < 0.5, "ease-in should be below diagonal at 0.5");
 /// ```
+#[must_use]
 pub fn ease_exp_in(t: f32, k: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     if t == 0.0 {
@@ -9010,6 +9041,7 @@ pub fn ease_exp_in(t: f32, k: f32) -> f32 {
 /// assert!((ease_exp_out(1.0, 4.0) - 1.0).abs() < 1e-5);
 /// assert!(ease_exp_out(0.5, 4.0) > 0.5, "ease-out should be above diagonal at 0.5");
 /// ```
+#[must_use]
 pub fn ease_exp_out(t: f32, k: f32) -> f32 {
     1.0 - ease_exp_in(1.0 - t, k)
 }
@@ -9141,6 +9173,7 @@ mod tests_pass_21 {
 /// assert!((reinhard(1.0) - 0.5).abs() < 1e-6);
 /// ```
 #[inline]
+#[must_use]
 pub fn reinhard(x: f32) -> f32 {
     x / (1.0 + x)
 }
@@ -9155,6 +9188,7 @@ pub fn reinhard(x: f32) -> f32 {
 /// // Smaller white point → higher output for the same input (more aggressive)
 /// assert!(reinhard_white(2.0, 4.0) > reinhard_white(2.0, 100.0));
 /// ```
+#[must_use]
 pub fn reinhard_white(x: f32, white: f32) -> f32 {
     x * (1.0 + x / (white * white)) / (1.0 + x)
 }
@@ -9171,6 +9205,7 @@ pub fn reinhard_white(x: f32, white: f32) -> f32 {
 /// assert!((aces_filmic(0.0)).abs() < 1e-4);
 /// assert!(aces_filmic(100.0) <= 1.0); // large input clamps to exactly 1.0
 /// ```
+#[must_use]
 pub fn aces_filmic(x: f32) -> f32 {
     ((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)).clamp(0.0, 1.0)
 }
@@ -9187,6 +9222,7 @@ pub fn aces_filmic(x: f32) -> f32 {
 /// assert!((exposure(0.25, 1.0) - 0.5).abs() < 1e-5);
 /// ```
 #[inline]
+#[must_use]
 pub fn exposure(x: f32, ev: f32) -> f32 {
     x * (2.0_f32).powf(ev)
 }
@@ -9204,6 +9240,7 @@ pub fn exposure(x: f32, ev: f32) -> f32 {
 /// let (_, v2) = sphere_normal_to_uv(Vec3::new(0.0,-1.0,0.0));
 /// assert!((v2 - 0.0).abs() < 1e-5, "south pole v=0: {v2}");
 /// ```
+#[must_use]
 pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
     let u = (n.x.atan2(n.z) / core::f32::consts::TAU + 0.5).clamp(0.0, 1.0);
     let v = (n.y.clamp(-1.0, 1.0).asin() / core::f32::consts::PI + 0.5).clamp(0.0, 1.0);
@@ -9223,6 +9260,7 @@ pub fn sphere_normal_to_uv(n: Vec3) -> (f32, f32) {
 /// assert!(dir.z < 0.0, "centre points -Z: {dir:?}");
 /// assert!((dir.length() - 1.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
     let half_h = (fov_y * 0.5).tan();
     let half_w = half_h * aspect;
@@ -9243,6 +9281,7 @@ pub fn make_view_ray(uv: Vec2, fov_y: f32, aspect: f32) -> Vec3 {
 /// assert!((linear_to_srgb(1.0) - 1.0).abs() < 1e-5);
 /// assert!(linear_to_srgb(0.5) > 0.70);
 /// ```
+#[must_use]
 pub fn linear_to_srgb(x: f32) -> f32 {
     let x = x.clamp(0.0, 1.0);
     if x <= 0.003_130_8 {
@@ -9261,6 +9300,7 @@ pub fn linear_to_srgb(x: f32) -> f32 {
 /// assert!((srgb_to_linear(0.0)).abs() < 1e-6);
 /// assert!((srgb_to_linear(1.0) - 1.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn srgb_to_linear(x: f32) -> f32 {
     let x = x.clamp(0.0, 1.0);
     if x <= 0.04045 {
@@ -9399,6 +9439,7 @@ mod tests_pass_22 {
 /// assert!((s - 1.0).abs() < 1e-5);
 /// assert!((v - 1.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let cmax = r.max(g).max(b);
     let cmin = r.min(g).min(b);
@@ -9430,6 +9471,7 @@ pub fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 /// assert!((g - 1.0).abs() < 1e-4);
 /// assert!((b).abs() < 1e-4);
 /// ```
+#[must_use]
 pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     if s < 1e-9 {
         return (v, v, v);
@@ -9463,6 +9505,7 @@ pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
 /// assert!((s - 1.0).abs() < 1e-5);
 /// assert!((l - 0.5).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn rgb_to_hsl(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let cmax = r.max(g).max(b);
     let cmin = r.min(g).min(b);
@@ -9498,6 +9541,7 @@ pub fn rgb_to_hsl(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 /// let (r1, g1, b1) = hsl_to_rgb(h, s, l);
 /// assert!((r0 - r1).abs() < 1e-5 && (g0 - g1).abs() < 1e-5 && (b0 - b1).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let hh = (h / 60.0).rem_euclid(6.0);
@@ -9535,6 +9579,7 @@ pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
 /// assert!((fresnel_schlick(0.0, 0.04) - 1.0).abs() < 1e-6);
 /// ```
 #[inline]
+#[must_use]
 pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
     f0 + (1.0 - f0) * (1.0 - cos_theta).clamp(0.0, 1.0).powi(5)
 }
@@ -9555,6 +9600,7 @@ pub fn fresnel_schlick(cos_theta: f32, f0: f32) -> f32 {
 /// let (t0, t1) = hit.unwrap();
 /// assert!((t0 - 2.0).abs() < 1e-5 && (t1 - 4.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn ray_sphere_intersect(ro: Vec3, rd: Vec3, centre: Vec3, r: f32) -> Option<(f32, f32)> {
     let oc = ro - centre;
     let b = oc.dot(rd);
@@ -9580,6 +9626,7 @@ pub fn ray_sphere_intersect(ro: Vec3, rd: Vec3, centre: Vec3, r: f32) -> Option<
 /// let t = ray_plane_intersect(Vec3::ZERO, Vec3::Z, Vec3::Z, 5.0).unwrap();
 /// assert!((t - 5.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn ray_plane_intersect(ro: Vec3, rd: Vec3, normal: Vec3, d: f32) -> Option<f32> {
     let denom = rd.dot(normal);
     if denom.abs() < 1e-9 {
@@ -9604,6 +9651,7 @@ pub fn ray_plane_intersect(ro: Vec3, rd: Vec3, normal: Vec3, d: f32) -> Option<f
 /// let (t0, t1) = hit.unwrap();
 /// assert!((t0 - 2.0).abs() < 1e-5 && (t1 - 4.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn ray_aabb_intersect(
     ro: Vec3,
     rd: Vec3,
@@ -9663,6 +9711,7 @@ pub fn ray_aabb_intersect(
 /// assert!(n >= 0.0 && n < 1.0);
 /// ```
 #[inline]
+#[must_use]
 pub fn igr_noise(x: f32, y: f32) -> f32 {
     (52.982_918_9 * (0.067_110_56 * x + 0.005_837_15 * y).fract()).fract()
 }
@@ -9682,6 +9731,7 @@ pub fn igr_noise(x: f32, y: f32) -> f32 {
 /// let n2 = value_noise_2d(Vec2::new(1.31, 2.71));
 /// assert!((n - n2).abs() < 0.1);
 /// ```
+#[must_use]
 pub fn value_noise_2d(p: Vec2) -> f32 {
     let ix = p.x.floor() as i32;
     let iy = p.y.floor() as i32;
@@ -9846,9 +9896,9 @@ mod tests_pass_23 {
 
 // ── Pass 24: OKLab, Perlin noise, fBm, Worley, Porter-Duff, colour temp, GCD ─
 
-/// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+/// **`OKLab`** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
 ///
-/// OKLab is perceptually uniform: equal distances correspond to equal perceived
+/// `OKLab` is perceptually uniform: equal distances correspond to equal perceived
 /// colour differences. Ideal for perceptual blending and palette operations.
 ///
 /// Input is **linear** RGB, not gamma-encoded sRGB.
@@ -9861,6 +9911,7 @@ mod tests_pass_23 {
 /// assert!(l > 0.0 && l < 1.0, "L in range: {l}");
 /// assert!(a > 0.0, "red has positive a: {a}");
 /// ```
+#[must_use]
 pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let l = 0.412_221_47 * r + 0.536_332_54 * g + 0.051_445_99 * b;
     let m = 0.211_903_50 * r + 0.680_699_54 * g + 0.107_396_96 * b;
@@ -9875,7 +9926,7 @@ pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     )
 }
 
-/// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+/// Inverse of [`linear_rgb_to_oklab`] — `OKLab` (L, a, b) → linear RGB.
 ///
 /// # Examples
 ///
@@ -9886,6 +9937,7 @@ pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 /// let (r1, g1, b1) = oklab_to_linear_rgb(l, a, b);
 /// assert!((r0 - r1).abs() < 1e-5 && (g0 - g1).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn oklab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
     let l_ = l + 0.396_337_78 * a + 0.215_803_76 * b;
     let m_ = l - 0.105_561_35 * a - 0.063_854_17 * b;
@@ -9912,6 +9964,7 @@ pub fn oklab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
 /// // At integer grid points the noise is exactly 0
 /// assert!((perlin_noise_2d(Vec2::new(0.0, 0.0))).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn perlin_noise_2d(p: Vec2) -> f32 {
     #[inline]
     fn grad2(hash: u32, dx: f32, dy: f32) -> f32 {
@@ -9963,6 +10016,7 @@ pub fn perlin_noise_2d(p: Vec2) -> f32 {
 /// let n = fbm_2d(Vec2::new(1.5, 2.3), 5, 2.0, 0.5);
 /// assert!(n >= 0.0 && n <= 1.0, "fBm in range: {n}");
 /// ```
+#[must_use]
 pub fn fbm_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
     let mut sum = 0.0_f32;
     let mut amp = 0.5_f32;
@@ -9989,6 +10043,7 @@ pub fn fbm_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
 /// let n = worley_noise_2d(Vec2::new(0.5, 0.5));
 /// assert!(n >= 0.0 && n < 1.5);
 /// ```
+#[must_use]
 pub fn worley_noise_2d(p: Vec2) -> f32 {
     let ix = p.x.floor() as i32;
     let iy = p.y.floor() as i32;
@@ -10004,7 +10059,7 @@ pub fn worley_noise_2d(p: Vec2) -> f32 {
             let py = cy + oy;
             let ddx = p.x - px;
             let ddy = p.y - py;
-            let dist = (ddx * ddx + ddy * ddy).sqrt();
+            let dist = ddx.hypot(ddy);
             if dist < min_dist {
                 min_dist = dist;
             }
@@ -10027,6 +10082,7 @@ pub fn worley_noise_2d(p: Vec2) -> f32 {
 /// assert!((r - 1.0).abs() < 1e-5 && b.abs() < 1e-5 && (a - 1.0).abs() < 1e-5);
 /// ```
 #[inline]
+#[must_use]
 pub fn rgba_over(
     sr: f32,
     sg: f32,
@@ -10057,6 +10113,7 @@ pub fn rgba_over(
 /// let (r2, _, b2) = color_temperature_rgb(2700.0);
 /// assert!(r2 > b2, "warm: red > blue: {r2} vs {b2}");
 /// ```
+#[must_use]
 pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
     let t = kelvin.clamp(1000.0, 40_000.0) / 100.0;
     let r = if t <= 66.0 {
@@ -10089,6 +10146,7 @@ pub fn color_temperature_rgb(kelvin: f32) -> (f32, f32, f32) {
 /// assert_eq!(gcd_u32(7, 13), 1);
 /// ```
 #[inline]
+#[must_use]
 pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
     while b > 0 {
         let t = b;
@@ -10110,7 +10168,8 @@ pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
 /// assert_eq!(lcm_u32(0, 5), 0);
 /// ```
 #[inline]
-pub fn lcm_u32(a: u32, b: u32) -> u32 {
+#[must_use]
+pub const fn lcm_u32(a: u32, b: u32) -> u32 {
     if a == 0 || b == 0 {
         0
     } else {
@@ -10241,13 +10300,14 @@ mod tests_pass_24 {
 /// assert!(luminance_rec709(0.0, 1.0, 0.0) > luminance_rec709(1.0, 0.0, 0.0));
 /// ```
 #[inline]
+#[must_use]
 pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
     0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/// **OKLab interpolation** — perceptually uniform colour blend.
+/// **`OKLab` interpolation** — perceptually uniform colour blend.
 ///
-/// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+/// Interpolates between two `OKLab` colours `(L0, a0, b0)` and `(L1, a1, b1)`
 /// by factor `t ∈ [0, 1]`, returning the interpolated `(L, a, b)`.
 ///
 /// Unlike sRGB lerp, this preserves perceived colour saturation through the
@@ -10263,11 +10323,12 @@ pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
 /// assert!(l > 0.0 && l < 1.0, "mid-lightness: {l}");
 /// ```
 #[inline]
+#[must_use]
 pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -> (f32, f32, f32) {
     (l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t)
 }
 
-/// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+/// **`OKLab` hue rotation** — rotate the hue angle in the `(a, b)` plane.
 ///
 /// Preserves the lightness `L` and chroma magnitude `sqrt(a² + b²)` while
 /// shifting the hue by `angle_deg` degrees.
@@ -10281,6 +10342,7 @@ pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -
 /// assert!((a + 0.2).abs() < 1e-5 && (b + 0.1).abs() < 1e-5);
 /// ```
 #[inline]
+#[must_use]
 pub fn oklab_rotate_hue(l: f32, a: f32, b: f32, angle_deg: f32) -> (f32, f32, f32) {
     let rad = angle_deg * core::f32::consts::PI / 180.0;
     let (s, c) = rad.sin_cos();
@@ -10303,6 +10365,7 @@ pub fn oklab_rotate_hue(l: f32, a: f32, b: f32, angle_deg: f32) -> (f32, f32, f3
 /// let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
 /// assert!((len - 1.0).abs() < 1e-5 && d.y >= 0.0);
 /// ```
+#[must_use]
 pub fn sample_cosine_hemisphere(u1: f32, u2: f32) -> Vec3 {
     let r = u1.sqrt();
     let theta = core::f32::consts::TAU * u2;
@@ -10325,6 +10388,7 @@ pub fn sample_cosine_hemisphere(u1: f32, u2: f32) -> Vec3 {
 /// let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
 /// assert!((len - 1.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn sample_uniform_sphere(u1: f32, u2: f32) -> Vec3 {
     let z = 1.0 - 2.0 * u1;
     let r = (1.0 - z * z).max(0.0).sqrt();
@@ -10347,6 +10411,7 @@ pub fn sample_uniform_sphere(u1: f32, u2: f32) -> Vec3 {
 /// assert!(ease_back_in(0.2, 1.70158) < 0.0);
 /// ```
 #[inline]
+#[must_use]
 pub fn ease_back_in(t: f32, overshoot: f32) -> f32 {
     let s = overshoot;
     t * t * ((s + 1.0) * t - s)
@@ -10366,6 +10431,7 @@ pub fn ease_back_in(t: f32, overshoot: f32) -> f32 {
 /// assert!(ease_back_out(0.8, 1.70158) > 1.0);
 /// ```
 #[inline]
+#[must_use]
 pub fn ease_back_out(t: f32, overshoot: f32) -> f32 {
     let s = overshoot;
     let t1 = t - 1.0;
@@ -10384,6 +10450,7 @@ pub fn ease_back_out(t: f32, overshoot: f32) -> f32 {
 /// assert!(ease_elastic_out(0.0, 1.0, 0.3).abs() < 1e-5);
 /// assert!((ease_elastic_out(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
 /// ```
+#[must_use]
 pub fn ease_elastic_out(t: f32, amplitude: f32, period: f32) -> f32 {
     if t <= 0.0 {
         return 0.0;
@@ -10436,9 +10503,9 @@ mod tests_pass_25 {
     fn oklab_hue_rotation_preserves_chroma() {
         let a0 = 0.3_f32;
         let b0 = 0.1_f32;
-        let chroma0 = (a0 * a0 + b0 * b0).sqrt();
+        let chroma0 = a0.hypot(b0);
         let (_, a1, b1) = oklab_rotate_hue(0.5, a0, b0, 90.0);
-        let chroma1 = (a1 * a1 + b1 * b1).sqrt();
+        let chroma1 = a1.hypot(b1);
         assert!(
             (chroma0 - chroma1).abs() < 1e-5,
             "chroma preserved: {chroma0} vs {chroma1}"
@@ -10509,6 +10576,7 @@ mod tests_pass_25 {
 /// assert!((t - 3.0).abs() < 1e-4);
 /// assert!(u >= 0.0 && v >= 0.0 && u + v <= 1.0);
 /// ```
+#[must_use]
 pub fn ray_triangle_intersect(
     ro: Vec3,
     rd: Vec3,
@@ -10559,6 +10627,7 @@ pub fn ray_triangle_intersect(
 /// assert!(d_mirror > d_rough);
 /// ```
 #[inline]
+#[must_use]
 pub fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
     let alpha = roughness * roughness;
     let alpha2 = alpha * alpha;
@@ -10582,6 +10651,7 @@ pub fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
 /// assert!(g > 0.0 && g <= 1.0, "geometry in (0,1]: {g}");
 /// ```
 #[inline]
+#[must_use]
 pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
     let k = roughness * roughness * 0.5; // direct-lighting Disney remapping
     let g_v = n_dot_v / (n_dot_v * (1.0 - k) + k);
@@ -10601,8 +10671,9 @@ pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
 /// assert!(uncharted2_tonemap(0.0).abs() < 1e-5);
 /// assert!((uncharted2_tonemap(1.0) - uncharted2_tonemap(0.5)).abs() > 0.05);
 /// // Output is bounded (< 1.0 for very large inputs after white-point normalisation)
-/// assert!(uncharted2_tonemap(1000.0) <= 1.0 + 1e-4);
+/// assert_eq!(uncharted2_tonemap(11.2), 1.0);
 /// ```
+#[must_use]
 pub fn uncharted2_tonemap(x: f32) -> f32 {
     #[inline]
     fn partial(v: f32) -> f32 {
@@ -10630,7 +10701,8 @@ pub fn uncharted2_tonemap(x: f32) -> f32 {
 /// assert!((c - 0.282_094_8).abs() < 1e-5);
 /// ```
 #[inline]
-pub fn sh_y00() -> f32 {
+#[must_use]
+pub const fn sh_y00() -> f32 {
     0.282_094_79 // 1 / (2 * sqrt(π))
 }
 
@@ -10649,6 +10721,7 @@ pub fn sh_y00() -> f32 {
 /// assert!(b[1] > 0.4);
 /// ```
 #[inline]
+#[must_use]
 pub fn sh_y1(v: Vec3) -> [f32; 3] {
     const C: f32 = 0.488_602_51; // sqrt(3/(4π))
     [C * v.y, C * v.z, C * v.x]
@@ -10668,6 +10741,7 @@ pub fn sh_y1(v: Vec3) -> [f32; 3] {
 /// assert!(b[2].abs() > 0.3, "Y20 along +Z: {}", b[2]);
 /// ```
 #[inline]
+#[must_use]
 pub fn sh_y2(v: Vec3) -> [f32; 5] {
     let (x, y, z) = (v.x, v.y, v.z);
     [
@@ -10954,7 +11028,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-/// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+/// Convert `OKLab` `(L, a, b)` to `OKLCh` `(L, C, h)` — polar form.
 ///
 /// `C = sqrt(a² + b²)`, `h = atan2(b, a)` in degrees [0, 360).
 ///
@@ -10968,12 +11042,12 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
-    let c = (a * a + b * b).sqrt();
+    let c = a.hypot(b);
     let h = b.atan2(a).to_degrees().rem_euclid(360.0);
     (l, c, h)
 }
 
-/// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+/// Convert `OKLCh` `(L, C, h)` to `OKLab` `(L, a, b)` — Cartesian form.
 ///
 /// `a = C * cos(h)`, `b = C * sin(h)` with `h` in degrees.
 ///
@@ -11423,7 +11497,7 @@ pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
 ///
 /// Returns `None` for total internal reflection (when `eta * sin_θ > 1`).
 ///
-/// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+/// * `eta` = `n_incident` / `n_transmitted` (e.g. 1.0/1.5 air→glass).
 ///
 /// # Examples
 /// ```
@@ -13089,7 +13163,7 @@ pub fn blend_soft_light(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn next_power_of_2(n: u32) -> u32 {
+pub const fn next_power_of_2(n: u32) -> u32 {
     if n == 0 { 1 } else { n.next_power_of_two() }
 }
 
@@ -13103,8 +13177,8 @@ pub fn next_power_of_2(n: u32) -> u32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn is_power_of_2(n: u32) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+pub const fn is_power_of_2(n: u32) -> bool {
+    n > 0 && n.is_power_of_two()
 }
 
 /// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
@@ -13120,7 +13194,7 @@ pub fn is_power_of_2(n: u32) -> bool {
 /// ```
 #[must_use]
 #[inline]
-pub fn log2_ceil(n: u32) -> u32 {
+pub const fn log2_ceil(n: u32) -> u32 {
     if n <= 1 {
         return 0;
     }
@@ -13336,7 +13410,7 @@ mod tests_pass_34 {
     fn depth_midpoint_is_nonlinear() {
         // Non-linear: NDC=0.5 should NOT map to (near+far)/2.
         let z = depth_linearize(0.5, 1.0, 100.0);
-        let mid = (1.0_f32 + 100.0) / 2.0;
+        let mid = f32::midpoint(1.0_f32, 100.0);
         assert!(
             (z - mid).abs() > 0.5,
             "should be non-linear: {z} vs linear mid {mid}"
@@ -13501,8 +13575,8 @@ pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
 #[must_use]
 #[inline]
 pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
-    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
-    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let xi = u32::from((x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+    let yi = u32::from((y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
     xi | (yi << 16)
 }
 
@@ -13510,8 +13584,8 @@ pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
 #[must_use]
 #[inline]
 pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
-    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
-    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let x = (f32::from((packed & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+    let y = (f32::from(((packed >> 16) & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
     (x, y)
 }
 
@@ -13696,7 +13770,7 @@ pub fn worley_f1_f2_2d(p: Vec2) -> (f32, f32) {
             let oy = hash2_to_f32((iy + dy) as u32 ^ 0xDEAD_BEEF, (ix + dx) as u32);
             let fx = p.x - (cx + ox);
             let fy = p.y - (cy + oy);
-            let dist = (fx * fx + fy * fy).sqrt();
+            let dist = fx.hypot(fy);
             if dist < f1 {
                 f2 = f1;
                 f1 = dist;
