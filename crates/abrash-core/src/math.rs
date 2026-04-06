@@ -7476,6 +7476,158 @@ mod tests_pass_16 {
     }
 }
 
+// ── Pass 18: Octahedral encoding, Morton Z-order, Spherical Fibonacci ─────────
+
+/// Encode a unit-length normal vector as a point in \[-1,1\]² using octahedral
+/// projection.
+///
+/// The octahedral encoding maps every direction on the unit sphere to a 2D
+/// point that can be stored as two `f32` (or quantised to `i16` for G-buffers).
+/// Decoding with [`octahedral_decode`] recovers the original direction to
+/// floating-point precision.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, octahedral_encode, octahedral_decode};
+/// let n = Vec3::new(0.0, 1.0, 0.0);
+/// let enc = octahedral_encode(n);
+/// let dec = octahedral_decode(enc);
+/// assert!((dec - n).length() < 1e-5);
+/// ```
+pub fn octahedral_encode(n: Vec3) -> Vec2 {
+    // Project onto octahedron face: divide by L1 norm
+    let inv = 1.0 / (n.x.abs() + n.y.abs() + n.z.abs());
+    let mut p = Vec2::new(n.x * inv, n.y * inv);
+    // Fold the lower hemisphere (z < 0) so the full sphere fits in [-1,1]²
+    if n.z < 0.0 {
+        let px = p.x;
+        let py = p.y;
+        p.x = (1.0 - py.abs()) * px.signum();
+        p.y = (1.0 - px.abs()) * py.signum();
+    }
+    p
+}
+
+/// Decode a 2D octahedral-encoded normal back to a unit `Vec3`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec2, Vec3, octahedral_decode};
+/// let dec = octahedral_decode(Vec2::new(0.0, 0.0));
+/// assert!((dec - Vec3::new(0.0, 0.0, 1.0)).length() < 1e-5);
+/// ```
+pub fn octahedral_decode(v: Vec2) -> Vec3 {
+    let z = 1.0 - v.x.abs() - v.y.abs();
+    let mut p = Vec3::new(v.x, v.y, z);
+    if z < 0.0 {
+        let px = p.x;
+        let py = p.y;
+        p.x = (1.0 - py.abs()) * px.signum();
+        p.y = (1.0 - px.abs()) * py.signum();
+    }
+    p.normalize_or_zero()
+}
+
+/// Interleave the low 16 bits of `x` and `y` into a 32-bit Morton (Z-order)
+/// code.
+///
+/// Morton codes give 2D data spatial locality in 1D memory layout — adjacent
+/// tiles/texels cluster together in cache even during diagonal traversal.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::morton_encode_2d;
+/// assert_eq!(morton_encode_2d(1, 0), 0b01);
+/// assert_eq!(morton_encode_2d(0, 1), 0b10);
+/// assert_eq!(morton_encode_2d(3, 3), 0b1111);
+/// ```
+pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+    /// Spread a 16-bit value into even bit positions.
+    #[inline(always)]
+    fn part1by1(mut n: u32) -> u32 {
+        n &= 0x0000_FFFF;
+        n = (n | (n << 8)) & 0x00FF_00FF;
+        n = (n | (n << 4)) & 0x0F0F_0F0F;
+        n = (n | (n << 2)) & 0x3333_3333;
+        n = (n | (n << 1)) & 0x5555_5555;
+        n
+    }
+    part1by1(x) | (part1by1(y) << 1)
+}
+
+/// Decode a Morton code back into `(x, y)` component pairs.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::morton_decode_2d;
+/// assert_eq!(morton_decode_2d(0b01), (1, 0));
+/// assert_eq!(morton_decode_2d(0b10), (0, 1));
+/// assert_eq!(morton_decode_2d(0b1111), (3, 3));
+/// ```
+pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+    /// Compact even-bit positions back into a contiguous value.
+    #[inline(always)]
+    fn compact1by1(mut n: u32) -> u32 {
+        n &= 0x5555_5555;
+        n = (n | (n >> 1)) & 0x3333_3333;
+        n = (n | (n >> 2)) & 0x0F0F_0F0F;
+        n = (n | (n >> 4)) & 0x00FF_00FF;
+        n = (n | (n >> 8)) & 0x0000_FFFF;
+        n
+    }
+    (compact1by1(code), compact1by1(code >> 1))
+}
+
+/// Generate the `i`-th point from a **spherical Fibonacci** lattice.
+///
+/// Distributes `n` points uniformly on the unit sphere using golden-ratio
+/// angular spacing — far better than uniform grids or random sampling for
+/// hemisphere importance sampling in PBR renderers.
+///
+/// `i` must be in `0..n`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::spherical_fibonacci;
+/// let p = spherical_fibonacci(0, 100);
+/// assert!((p.length() - 1.0).abs() < 1e-5, "must be on unit sphere");
+/// ```
+pub fn spherical_fibonacci(i: u32, n: u32) -> Vec3 {
+    // Golden ratio: φ = (1 + √5) / 2; 2π/φ ≈ golden angle in radians
+    const GOLDEN_ANGLE: f32 = core::f32::consts::TAU * (1.0 - 1.618_033_988_749_895);
+    let theta = GOLDEN_ANGLE * i as f32;
+    // Cosine of polar angle evenly spaced in [-1, 1]
+    let cos_phi = -1.0 + (2.0 * i as f32 + 1.0) / n as f32;
+    let sin_phi = (1.0 - cos_phi * cos_phi).max(0.0).sqrt();
+    let (sin_t, cos_t) = theta.sin_cos();
+    Vec3::new(sin_phi * cos_t, sin_phi * sin_t, cos_phi)
+}
+
+/// Generate the `n`-th term of the **golden-ratio low-discrepancy** sequence
+/// on \[0,1\).
+///
+/// Uses the additive recurrence `frac(n * φ)` where `φ = (1+√5)/2`.  This
+/// 1D sequence has the lowest possible *discrepancy* among additive
+/// sequences, making it ideal for stratified 1D importance sampling.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::golden_ratio_sequence;
+/// // First 8 values should be distinct and in [0,1)
+/// let vals: Vec<f32> = (0..8).map(|i| golden_ratio_sequence(i)).collect();
+/// for v in &vals { assert!(*v >= 0.0 && *v < 1.0); }
+/// ```
+pub fn golden_ratio_sequence(n: u32) -> f32 {
+    const PHI: f32 = 1.618_033_988_749_895_f32;
+    (n as f32 * PHI).fract()
+}
+
 #[cfg(test)]
 mod tests_pass_17 {
     use super::*;
@@ -7572,5 +7724,166 @@ mod tests_pass_17 {
     fn frenet_frame_x_axis_with_y_up() {
         let (t, _n, _b) = frenet_frame(Vec3::X, Vec3::Y);
         assert!((t - Vec3::X).length() < 1e-5, "T should be +X");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_18 {
+    use super::*;
+
+    // ── octahedral_encode / octahedral_decode ─────────────────────────────
+    #[test]
+    fn octahedral_round_trip_axes() {
+        let axes = [
+            Vec3::X,
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::Y,
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::Z,
+            Vec3::new(0.0, 0.0, -1.0),
+        ];
+        for a in axes {
+            let enc = octahedral_encode(a);
+            let dec = octahedral_decode(enc);
+            assert!(
+                (dec - a).length() < 1e-5,
+                "round-trip failed for {a:?}: got {dec:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn octahedral_decoded_is_unit_length() {
+        // Arbitrary encoded values should always decode to unit vectors
+        for &v in &[
+            Vec2::new(0.5, 0.3),
+            Vec2::new(-0.7, 0.2),
+            Vec2::new(0.1, -0.9),
+        ] {
+            let d = octahedral_decode(v);
+            assert!(
+                (d.length() - 1.0).abs() < 1e-5,
+                "not unit: {d:?}, len {}",
+                d.length()
+            );
+        }
+    }
+
+    #[test]
+    fn octahedral_encode_range() {
+        // Encoded values should lie in [-1,1]²
+        let normals = [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.577, 0.577, 0.577).normalize_or_zero(),
+            Vec3::new(-0.5, 0.5, -0.707).normalize_or_zero(),
+        ];
+        for n in normals {
+            let e = octahedral_encode(n);
+            assert!(
+                e.x.abs() <= 1.001 && e.y.abs() <= 1.001,
+                "encoded out of [-1,1]²: {e:?}"
+            );
+        }
+    }
+
+    // ── morton_encode_2d / morton_decode_2d ──────────────────────────────
+    #[test]
+    fn morton_encode_known() {
+        assert_eq!(morton_encode_2d(0, 0), 0);
+        assert_eq!(morton_encode_2d(1, 0), 0b01);
+        assert_eq!(morton_encode_2d(0, 1), 0b10);
+        assert_eq!(morton_encode_2d(1, 1), 0b11);
+        assert_eq!(morton_encode_2d(2, 0), 0b0100);
+        assert_eq!(morton_encode_2d(0, 2), 0b1000);
+        assert_eq!(morton_encode_2d(3, 3), 0b1111);
+    }
+
+    #[test]
+    fn morton_round_trip() {
+        for x in 0u32..16 {
+            for y in 0u32..16 {
+                let code = morton_encode_2d(x, y);
+                let (dx, dy) = morton_decode_2d(code);
+                assert_eq!((dx, dy), (x, y), "round-trip failed for ({x},{y})");
+            }
+        }
+    }
+
+    #[test]
+    fn morton_spatial_locality() {
+        // Neighbours (0,0)-(1,0)-(0,1)-(1,1) should have codes 0-3
+        let c00 = morton_encode_2d(0, 0);
+        let c10 = morton_encode_2d(1, 0);
+        let c01 = morton_encode_2d(0, 1);
+        let c11 = morton_encode_2d(1, 1);
+        assert_eq!([c00, c10, c01, c11], [0, 1, 2, 3]);
+    }
+
+    // ── spherical_fibonacci ───────────────────────────────────────────────
+    #[test]
+    fn spherical_fibonacci_on_unit_sphere() {
+        for i in 0..64u32 {
+            let p = spherical_fibonacci(i, 64);
+            assert!(
+                (p.length() - 1.0).abs() < 1e-5,
+                "point {i} not on unit sphere: len {}",
+                p.length()
+            );
+        }
+    }
+
+    #[test]
+    fn spherical_fibonacci_poles() {
+        let n = 100u32;
+        // First point near south pole (cos_phi ≈ -1)
+        let south = spherical_fibonacci(0, n);
+        assert!(south.z < -0.95, "first point should be near south pole");
+        // Last point near north pole (cos_phi ≈ 1)
+        let north = spherical_fibonacci(n - 1, n);
+        assert!(north.z > 0.95, "last point should be near north pole");
+    }
+
+    #[test]
+    fn spherical_fibonacci_coverage() {
+        // 64 points should cover all octants
+        let n = 64u32;
+        let mut octants = [false; 8];
+        for i in 0..n {
+            let p = spherical_fibonacci(i, n);
+            let idx = ((p.x > 0.0) as usize)
+                | (((p.y > 0.0) as usize) << 1)
+                | (((p.z > 0.0) as usize) << 2);
+            octants[idx] = true;
+        }
+        assert!(octants.iter().all(|&v| v), "not all octants covered");
+    }
+
+    // ── golden_ratio_sequence ─────────────────────────────────────────────
+    #[test]
+    fn golden_ratio_in_unit_interval() {
+        for i in 0..256u32 {
+            let v = golden_ratio_sequence(i);
+            assert!(
+                v >= 0.0 && v < 1.0,
+                "golden_ratio_sequence({i}) = {v} out of [0,1)"
+            );
+        }
+    }
+
+    #[test]
+    fn golden_ratio_low_discrepancy() {
+        // All 8 first values should be distinct (no clustering)
+        let vals: Vec<f32> = (0..8).map(golden_ratio_sequence).collect();
+        for i in 0..vals.len() {
+            for j in (i + 1)..vals.len() {
+                assert!(
+                    (vals[i] - vals[j]).abs() > 0.05,
+                    "golden_ratio values {i} and {j} are too close: {} vs {}",
+                    vals[i],
+                    vals[j]
+                );
+            }
+        }
     }
 }
