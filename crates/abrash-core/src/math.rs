@@ -15176,3 +15176,501 @@ mod tests_pass_42 {
         assert!((d1 - d2).abs() < 1e-5);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 44 — linear solvers, Gram-Schmidt, Givens, regression, plane fit,
+//           winding number, polygon area, ray-cylinder, ray-cone,
+//           closest point on segment, segment-segment closest, sphere overlap
+// ---------------------------------------------------------------------------
+
+/// Solve the 2×2 system `A * x = b` via Cramer's rule.
+/// `a` is row-major `[[a00,a01],[a10,a11]]`. Returns `None` if singular.
+pub fn solve_2x2(a: [[f32; 2]; 2], b: [f32; 2], eps: f32) -> Option<[f32; 2]> {
+    let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+    if det.abs() < eps {
+        return None;
+    }
+    Some([
+        (b[0] * a[1][1] - b[1] * a[0][1]) / det,
+        (a[0][0] * b[1] - a[1][0] * b[0]) / det,
+    ])
+}
+
+/// Solve the 3×3 system `A * x = b` via Cramer's rule.
+/// `a` is row-major `a[row][col]`. Returns `None` if singular.
+pub fn solve_3x3(a: [[f32; 3]; 3], b: [f32; 3], eps: f32) -> Option<[f32; 3]> {
+    let det3 = |m: [[f32; 3]; 3]| -> f32 {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    let det = det3(a);
+    if det.abs() < eps {
+        return None;
+    }
+    let sub = |col: usize| -> f32 {
+        let mut m = a;
+        m[0][col] = b[0];
+        m[1][col] = b[1];
+        m[2][col] = b[2];
+        det3(m)
+    };
+    Some([sub(0) / det, sub(1) / det, sub(2) / det])
+}
+
+/// Orthonormalise three linearly-independent `Vec3` vectors via Gram-Schmidt.
+/// Returns `None` if any step degenerates.
+pub fn gram_schmidt_3(v0: Vec3, v1: Vec3, v2: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+    let eps = 1e-10_f32;
+    let norm = |v: Vec3| -> Option<Vec3> {
+        let l = v.length();
+        if l < eps {
+            None
+        } else {
+            Some(Vec3::new(v.x / l, v.y / l, v.z / l))
+        }
+    };
+    let e0 = norm(v0)?;
+    let d1 = e0.dot(v1);
+    let u1 = Vec3::new(v1.x - d1 * e0.x, v1.y - d1 * e0.y, v1.z - d1 * e0.z);
+    let e1 = norm(u1)?;
+    let d20 = e0.dot(v2);
+    let d21 = e1.dot(v2);
+    let u2 = Vec3::new(
+        v2.x - d20 * e0.x - d21 * e1.x,
+        v2.y - d20 * e0.y - d21 * e1.y,
+        v2.z - d20 * e0.z - d21 * e1.z,
+    );
+    let e2 = norm(u2)?;
+    Some((e0, e1, e2))
+}
+
+/// Compute Givens `(c, s)` s.t. `[c s; -s c] * [a; b]^T = [r; 0]`.
+pub fn givens_rotation(a: f32, b: f32) -> (f32, f32) {
+    if b == 0.0 {
+        return (1.0, 0.0);
+    }
+    let r = a.hypot(b).max(1e-30);
+    (a / r, b / r)
+}
+
+/// Ordinary least-squares line fit `y = m*x + b` over 2-D points.
+/// Returns `(slope, intercept)` or `None` if fewer than 2 points or vertical.
+pub fn linear_regression_2d(points: &[(f32, f32)]) -> Option<(f32, f32)> {
+    let n = points.len() as f32;
+    if points.len() < 2 {
+        return None;
+    }
+    let sx: f32 = points.iter().map(|p| p.0).sum();
+    let sy: f32 = points.iter().map(|p| p.1).sum();
+    let sxx: f32 = points.iter().map(|p| p.0 * p.0).sum();
+    let sxy: f32 = points.iter().map(|p| p.0 * p.1).sum();
+    let denom = n * sxx - sx * sx;
+    if denom.abs() < 1e-10 {
+        return None;
+    }
+    let m = (n * sxy - sx * sy) / denom;
+    Some((m, (sy - m * sx) / n))
+}
+
+/// Fit a plane to a point cloud. Returns `(centroid, unit_normal)` or `None`.
+/// Uses the scatter-matrix dominant cross-product approximation.
+pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
+    if points.len() < 3 {
+        return None;
+    }
+    let n = points.len() as f32;
+    let cx = points.iter().map(|p| p.x).sum::<f32>() / n;
+    let cy = points.iter().map(|p| p.y).sum::<f32>() / n;
+    let cz = points.iter().map(|p| p.z).sum::<f32>() / n;
+    let c = Vec3::new(cx, cy, cz);
+    let (mut sxx, mut sxy, mut sxz, mut syy, mut syz, mut szz) = (0.0_f32, 0.0, 0.0, 0.0, 0.0, 0.0);
+    for p in points {
+        let (dx, dy, dz) = (p.x - cx, p.y - cy, p.z - cz);
+        sxx += dx * dx;
+        sxy += dx * dy;
+        sxz += dx * dz;
+        syy += dy * dy;
+        syz += dy * dz;
+        szz += dz * dz;
+    }
+    let col = [
+        Vec3::new(sxx, sxy, sxz),
+        Vec3::new(sxy, syy, syz),
+        Vec3::new(sxz, syz, szz),
+    ];
+    let norms = [col[0].length(), col[1].length(), col[2].length()];
+    // Two largest-norm columns — their cross product ≈ min-eigenvalue eigenvec (plane normal).
+    let (i0, i1) = if norms[0] >= norms[1] && norms[0] >= norms[2] {
+        (0, if norms[1] >= norms[2] { 1 } else { 2 })
+    } else if norms[1] >= norms[2] {
+        (1, if norms[0] >= norms[2] { 0 } else { 2 })
+    } else {
+        (2, if norms[0] >= norms[1] { 0 } else { 1 })
+    };
+    let raw = col[i0].cross(col[i1]);
+    let len = raw.length();
+    if len < 1e-10 {
+        return None;
+    }
+    Some((c, Vec3::new(raw.x / len, raw.y / len, raw.z / len)))
+}
+
+/// Winding-number point-in-polygon test (handles complex / self-intersecting polygons).
+/// Returns `true` if `p` is inside. More robust than ray-casting for vertices-on-edge cases.
+pub fn winding_number_2d(p: Vec2, polygon: &[Vec2]) -> bool {
+    let n = polygon.len();
+    if n < 3 {
+        return false;
+    }
+    let mut wn = 0i32;
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        if a.y <= p.y {
+            if b.y > p.y {
+                // upward crossing
+                let cross = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+                if cross > 0.0 {
+                    wn += 1;
+                }
+            }
+        } else if b.y <= p.y {
+            // downward crossing
+            let cross = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+            if cross < 0.0 {
+                wn -= 1;
+            }
+        }
+    }
+    wn != 0
+}
+
+/// Signed area of a 2-D polygon (shoelace formula). Positive = CCW, negative = CW.
+pub fn polygon_area_2d(polygon: &[Vec2]) -> f32 {
+    let n = polygon.len();
+    if n < 3 {
+        return 0.0;
+    }
+    let mut sum = 0.0_f32;
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        sum += a.x * b.y - b.x * a.y;
+    }
+    sum * 0.5
+}
+
+/// Ray vs. infinite cylinder (axis through `ca`→`cb`, radius `r`).
+/// Returns the nearest positive `t` along `rd` or `None`.
+pub fn ray_cylinder_intersect(ro: Vec3, rd: Vec3, ca: Vec3, cb: Vec3, r: f32) -> Option<f32> {
+    let ax = Vec3::new(cb.x - ca.x, cb.y - ca.y, cb.z - ca.z);
+    let ax_len = ax.length();
+    if ax_len < 1e-10 {
+        return None;
+    }
+    let axis = Vec3::new(ax.x / ax_len, ax.y / ax_len, ax.z / ax_len);
+    let oc = Vec3::new(ro.x - ca.x, ro.y - ca.y, ro.z - ca.z);
+    let d_par = rd.dot(axis);
+    let oc_par = oc.dot(axis);
+    let d_perp = Vec3::new(
+        rd.x - d_par * axis.x,
+        rd.y - d_par * axis.y,
+        rd.z - d_par * axis.z,
+    );
+    let oc_perp = Vec3::new(
+        oc.x - oc_par * axis.x,
+        oc.y - oc_par * axis.y,
+        oc.z - oc_par * axis.z,
+    );
+    let a = d_perp.x * d_perp.x + d_perp.y * d_perp.y + d_perp.z * d_perp.z;
+    if a < 1e-10 {
+        return None;
+    }
+    let b = 2.0 * (oc_perp.x * d_perp.x + oc_perp.y * d_perp.y + oc_perp.z * d_perp.z);
+    let c = oc_perp.x * oc_perp.x + oc_perp.y * oc_perp.y + oc_perp.z * oc_perp.z - r * r;
+    let disc = b * b - 4.0 * a * c;
+    if disc < 0.0 {
+        return None;
+    }
+    let t = (-b - disc.sqrt()) / (2.0 * a);
+    if t > 0.0 {
+        Some(t)
+    } else {
+        let t2 = (-b + disc.sqrt()) / (2.0 * a);
+        if t2 > 0.0 { Some(t2) } else { None }
+    }
+}
+
+/// Ray vs. infinite cone (apex `apex`, axis direction `axis` unit, half-angle `theta` radians).
+/// Returns the nearest positive `t` or `None`.
+pub fn ray_cone_intersect(ro: Vec3, rd: Vec3, apex: Vec3, axis: Vec3, theta: f32) -> Option<f32> {
+    let cos2 = theta.cos() * theta.cos();
+    let oc = Vec3::new(ro.x - apex.x, ro.y - apex.y, ro.z - apex.z);
+    let d_dot_a = rd.dot(axis);
+    let oc_dot_a = oc.dot(axis);
+    let a = d_dot_a * d_dot_a - cos2;
+    let b = 2.0 * (d_dot_a * oc_dot_a - (rd.x * oc.x + rd.y * oc.y + rd.z * oc.z) * cos2);
+    let c = oc_dot_a * oc_dot_a - (oc.x * oc.x + oc.y * oc.y + oc.z * oc.z) * cos2;
+    let disc = b * b - 4.0 * a * c;
+    if disc < 0.0 {
+        return None;
+    }
+    let sq = disc.sqrt();
+    let pick = |t: f32| -> bool {
+        if t <= 0.0 {
+            return false;
+        }
+        let hit = Vec3::new(
+            ro.x + t * rd.x - apex.x,
+            ro.y + t * rd.y - apex.y,
+            ro.z + t * rd.z - apex.z,
+        );
+        hit.dot(axis) >= 0.0 // only the forward cone half
+    };
+    let t1 = (-b - sq) / (2.0 * a);
+    let t2 = (-b + sq) / (2.0 * a);
+    if pick(t1) {
+        Some(t1)
+    } else if pick(t2) {
+        Some(t2)
+    } else {
+        None
+    }
+}
+
+/// Nearest point pair between segments `[p1,p2]` and `[p3,p4]`.
+/// Returns `(point_on_seg1, point_on_seg2)` (Shamos-Hoey / Ericson approach).
+pub fn closest_segment_to_segment(p1: Vec3, p2: Vec3, p3: Vec3, p4: Vec3) -> (Vec3, Vec3) {
+    let d1 = Vec3::new(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+    let d2 = Vec3::new(p4.x - p3.x, p4.y - p3.y, p4.z - p3.z);
+    let r = Vec3::new(p1.x - p3.x, p1.y - p3.y, p1.z - p3.z);
+    let a = d1.x * d1.x + d1.y * d1.y + d1.z * d1.z;
+    let e = d2.x * d2.x + d2.y * d2.y + d2.z * d2.z;
+    let f = d2.x * r.x + d2.y * r.y + d2.z * r.z;
+    let (s, t) = if a < 1e-10 {
+        (0.0, (f / e.max(1e-10)).clamp(0.0, 1.0))
+    } else {
+        let c = d1.x * r.x + d1.y * r.y + d1.z * r.z;
+        if e < 1e-10 {
+            ((-c / a).clamp(0.0, 1.0), 0.0)
+        } else {
+            let b = d1.x * d2.x + d1.y * d2.y + d1.z * d2.z;
+            let denom = a * e - b * b;
+            let s0 = if denom.abs() > 1e-10 {
+                ((b * f - c * e) / denom).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let t0 = (b * s0 + f) / e.max(1e-10);
+            if t0 < 0.0 {
+                ((-c / a).clamp(0.0, 1.0), 0.0)
+            } else if t0 > 1.0 {
+                (((b - c) / a).clamp(0.0, 1.0), 1.0)
+            } else {
+                (s0, t0)
+            }
+        }
+    };
+    let q1 = Vec3::new(p1.x + s * d1.x, p1.y + s * d1.y, p1.z + s * d1.z);
+    let q2 = Vec3::new(p3.x + t * d2.x, p3.y + t * d2.y, p3.z + t * d2.z);
+    (q1, q2)
+}
+
+/// Sphere-sphere overlap test. Returns `Some(penetration_depth)` if overlapping, `None` if not.
+/// Penetration depth is how far the spheres interpenetrate (positive = overlap).
+pub fn sphere_sphere_overlap(c1: Vec3, r1: f32, c2: Vec3, r2: f32) -> Option<f32> {
+    let dx = c2.x - c1.x;
+    let dy = c2.y - c1.y;
+    let dz = c2.z - c1.z;
+    let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+    let penetration = r1 + r2 - dist;
+    if penetration > 0.0 {
+        Some(penetration)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_44 {
+    use super::*;
+    use std::f32::consts::FRAC_PI_4;
+
+    // ── solve_2x2 ─────────────────────────────────────────────────────────
+    #[test]
+    fn solve_2x2_known() {
+        // 2x + y = 5, x + 3y = 10 → x=1, y=3
+        let x = solve_2x2([[2.0, 1.0], [1.0, 3.0]], [5.0, 10.0], 1e-10).unwrap();
+        assert!((x[0] - 1.0).abs() < 1e-5, "x0={}", x[0]);
+        assert!((x[1] - 3.0).abs() < 1e-5, "x1={}", x[1]);
+    }
+    #[test]
+    fn solve_2x2_singular() {
+        assert!(solve_2x2([[1.0, 2.0], [2.0, 4.0]], [1.0, 2.0], 1e-10).is_none());
+    }
+
+    // ── solve_3x3 ─────────────────────────────────────────────────────────
+    #[test]
+    fn solve_3x3_diagonal() {
+        let a = [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]];
+        let x = solve_3x3(a, [4.0, 9.0, 8.0], 1e-10).unwrap();
+        assert!((x[0] - 2.0).abs() < 1e-4);
+        assert!((x[1] - 3.0).abs() < 1e-4);
+        assert!((x[2] - 2.0).abs() < 1e-4);
+    }
+
+    // ── gram_schmidt_3 ────────────────────────────────────────────────────
+    #[test]
+    fn gram_schmidt_orthonormal() {
+        let (e0, e1, e2) = gram_schmidt_3(
+            Vec3::new(1.0, 1.0, 0.0),
+            Vec3::new(0.0, 1.0, 1.0),
+            Vec3::new(1.0, 0.0, 1.0),
+        )
+        .unwrap();
+        assert!((e0.length() - 1.0).abs() < 1e-5);
+        assert!((e1.length() - 1.0).abs() < 1e-5);
+        assert!((e2.length() - 1.0).abs() < 1e-5);
+        assert!(e0.dot(e1).abs() < 1e-5);
+        assert!(e0.dot(e2).abs() < 1e-5);
+        assert!(e1.dot(e2).abs() < 1e-5);
+    }
+
+    // ── givens_rotation ───────────────────────────────────────────────────
+    #[test]
+    fn givens_zeroes_lower() {
+        let (c, s) = givens_rotation(3.0, 4.0);
+        let zero = -s * 3.0 + c * 4.0;
+        assert!(zero.abs() < 1e-5, "zero={zero}");
+    }
+
+    // ── linear_regression_2d ─────────────────────────────────────────────
+    #[test]
+    fn regression_perfect_line() {
+        let pts: Vec<(f32, f32)> = (0..5).map(|i| (i as f32, 2.0 * i as f32 + 1.0)).collect();
+        let (m, b) = linear_regression_2d(&pts).unwrap();
+        assert!((m - 2.0).abs() < 1e-4 && (b - 1.0).abs() < 1e-4);
+    }
+
+    // ── fit_plane_to_points ───────────────────────────────────────────────
+    #[test]
+    fn fit_plane_xy_plane() {
+        let pts = vec![
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+        ];
+        let (_, n) = fit_plane_to_points(&pts).unwrap();
+        assert!(n.z.abs() > 0.99, "n.z={}", n.z);
+    }
+
+    // ── winding_number_2d ─────────────────────────────────────────────────
+    #[test]
+    fn winding_number_inside_square() {
+        let sq = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        assert!(winding_number_2d(Vec2::new(0.5, 0.5), &sq));
+        assert!(!winding_number_2d(Vec2::new(2.0, 0.5), &sq));
+    }
+
+    // ── polygon_area_2d ───────────────────────────────────────────────────
+    #[test]
+    fn polygon_area_unit_square() {
+        let sq = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        let area = polygon_area_2d(&sq).abs();
+        assert!((area - 1.0).abs() < 1e-5, "area={area}");
+    }
+
+    // ── ray_cylinder_intersect ────────────────────────────────────────────
+    #[test]
+    fn ray_hits_cylinder_along_x() {
+        // Cylinder axis along Y through origin, radius 1. Ray from (0,0,5) toward -Z.
+        let t = ray_cylinder_intersect(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.0, -10.0, 0.0),
+            Vec3::new(0.0, 10.0, 0.0),
+            1.0,
+        );
+        assert!(t.is_some(), "expected hit");
+        assert!((t.unwrap() - 4.0).abs() < 1e-4, "t={}", t.unwrap());
+    }
+
+    // ── ray_cone_intersect ────────────────────────────────────────────────
+    #[test]
+    fn ray_hits_cone() {
+        // Cone apex at origin, axis +Z, 45° half-angle. Ray from (0,0,5) going -Z.
+        let t = ray_cone_intersect(
+            Vec3::new(0.0, 0.0, 5.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            FRAC_PI_4,
+        );
+        // Ray hits the cone where z = radius → at z=something on the 45° surface
+        assert!(t.is_some(), "expected cone hit");
+    }
+
+    // ── closest_point_on_segment_3d ───────────────────────────────────────
+    #[test]
+    fn closest_point_midpoint() {
+        let p = Vec3::new(0.0, 1.0, 0.0);
+        let a = Vec3::new(-1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let q = closest_point_on_segment_3d(p, a, b);
+        assert!(q.x.abs() < 1e-5 && q.y.abs() < 1e-5 && q.z.abs() < 1e-5);
+    }
+    #[test]
+    fn closest_point_clamps_to_endpoint() {
+        let p = Vec3::new(5.0, 0.0, 0.0);
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let q = closest_point_on_segment_3d(p, a, b);
+        assert!((q.x - 1.0).abs() < 1e-5);
+    }
+
+    // ── closest_segment_to_segment ────────────────────────────────────────
+    #[test]
+    fn closest_segments_parallel() {
+        let (q1, q2) = closest_segment_to_segment(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+        );
+        let dist = {
+            let dx = q2.x - q1.x;
+            let dy = q2.y - q1.y;
+            let dz = q2.z - q1.z;
+            (dx * dx + dy * dy + dz * dz).sqrt()
+        };
+        assert!((dist - 1.0).abs() < 1e-4, "dist={dist}");
+    }
+
+    // ── sphere_sphere_overlap ─────────────────────────────────────────────
+    #[test]
+    fn spheres_overlapping() {
+        let depth =
+            sphere_sphere_overlap(Vec3::new(0.0, 0.0, 0.0), 1.0, Vec3::new(1.5, 0.0, 0.0), 1.0);
+        assert!(depth.is_some());
+        assert!((depth.unwrap() - 0.5).abs() < 1e-5);
+    }
+    #[test]
+    fn spheres_not_overlapping() {
+        assert!(
+            sphere_sphere_overlap(Vec3::new(0.0, 0.0, 0.0), 1.0, Vec3::new(3.0, 0.0, 0.0), 1.0,)
+                .is_none()
+        );
+    }
+}
