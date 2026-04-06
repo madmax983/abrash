@@ -2,6 +2,7 @@ use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec3;
 use abrash::rasterizer::{ClipTriangle, TileRenderer};
 use abrash::zbuffer::ZBuffer;
+use std::io::{self, Write};
 use std::time::Instant;
 
 use comfy_table::{Cell, Color, Table, presets};
@@ -78,18 +79,24 @@ fn main() {
 
     println!("\n{}", "🔥 Warming up (10 frames)...".yellow());
     // Warmup
-    for _ in 0..10 {
+    for i in 0..10 {
+        print!("\r  Frame {}/10...", i + 1);
+        let _ = io::stdout().flush();
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+    println!("\r  ✅ Warmup complete!      ");
 
     let iterations = 20;
-    println!("⏱️  Running benchmark ({iterations} frames)...");
+    println!("\n⏱️  Running benchmark ({iterations} frames)...");
     let start = Instant::now();
-    for _ in 0..iterations {
+    for i in 0..iterations {
+        print!("\r  Frame {}/{}...", i + 1, iterations);
+        let _ = io::stdout().flush();
         zb.clear();
         tr.render_batch(&mut fb, &mut zb, &triangles);
     }
+    println!("\r  ✅ Benchmark complete!         ");
     let duration = start.elapsed();
     let avg_time = duration.as_secs_f64() * 1000.0 / f64::from(iterations);
 
