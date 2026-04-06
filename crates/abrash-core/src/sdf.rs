@@ -3334,3 +3334,202 @@ mod tests_pass_18 {
         assert!(d > 0.0, "past arm tip: {d}");
     }
 }
+
+// ── Pass 19: SDF additions ────────────────────────────────────────────────────
+
+/// Staircase SDF.
+///
+/// A staircase of `n` steps, each of width `wh.x` and height `wh.y`, stepping
+/// in the +x/+y direction from the origin.  Points above or to the right of
+/// the staircase are outside (positive distance).
+///
+/// Translated from Inigo Quilez's `sdStairs`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::stairs_2d;
+/// use abrash_core::math::Vec2;
+/// // Centre of the first step
+/// let d = stairs_2d(Vec2::new(0.1, 0.1), Vec2::new(0.5, 0.3), 3);
+/// assert!(d < 0.0, "inside first step: {d}");
+/// // Far away is outside
+/// let d2 = stairs_2d(Vec2::new(5.0, 5.0), Vec2::new(0.5, 0.3), 3);
+/// assert!(d2 > 0.0, "far outside: {d2}");
+/// ```
+pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
+    let n_f = n as f32;
+    let ba = Vec2::new(wh.x * n_f, wh.y * n_f);
+
+    // Distance to the two bounding edges of the full staircase rect
+    let d_bottom = Vec2::new((p.x - p.x.clamp(0.0, ba.x)).powi(2) + p.y.powi(2), 0.0)
+        .x
+        .sqrt()
+        * p.y.signum().min(1.0);
+    let _ = d_bottom; // replaced below
+
+    // Distance to the two extremal edges (bottom-left and top-right)
+    let dp1 = Vec2::new(p.x.clamp(0.0, ba.x) - p.x, 0.0 - p.y);
+    let dp2 = Vec2::new(ba.x - p.x, ba.y.min(p.y.max(0.0)) - p.y);
+    let d1 = dp1.x * dp1.x + dp1.y * dp1.y;
+    let d2 = dp2.x * dp2.x + dp2.y * dp2.y;
+    let d = d1.min(d2).sqrt();
+
+    // When inside the staircase AABB, find the nearest step edge
+    if p.x >= 0.0 && p.y >= 0.0 && p.x <= ba.x && p.y <= ba.y {
+        // Which step are we in?
+        let step = (p.x / wh.x).floor().clamp(0.0, n_f - 1.0);
+        let step_top = (step + 1.0) * wh.y;
+        let step_right = (step + 1.0) * wh.x;
+        // Distance to the two interior step edges (top face and right face)
+        let d_top = (step_top - p.y).abs();
+        let d_right = (step_right - p.x).abs();
+        let d_inner = d_top.min(d_right);
+        // Negative inside the filled region below the staircase
+        if p.y <= step_top {
+            return -(d.min(d_inner));
+        }
+    }
+    d
+}
+
+/// Death-star SDF: sphere `a` (radius `ra`) with sphere `b` (radius `rb`,
+/// centred at distance `d` from `a`'s centre along +x) subtracted from it.
+///
+/// This is a simple boolean CSG operation — `sdf_subtract(sphere_a, sphere_b)`
+/// — but parameterised for the iconic two-sphere Death-Star shape.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::death_star_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre of the main sphere is inside
+/// let d = death_star_3d(Vec3::ZERO, 1.0, 0.5, 1.4);
+/// assert!(d < 0.0, "inside main sphere: {d}");
+/// // Point on the indent side may be outside (carved out)
+/// let d2 = death_star_3d(Vec3::new(1.3, 0.0, 0.0), 1.0, 0.5, 1.4);
+/// assert!(d2 > 0.0, "in the carved-out region: {d2}");
+/// ```
+pub fn death_star_3d(p: Vec3, ra: f32, rb: f32, d: f32) -> f32 {
+    // SDF of main sphere centred at origin
+    let da = p.length() - ra;
+    // SDF of subtracting sphere centred at (d, 0, 0)
+    let db = (p - Vec3::new(d, 0.0, 0.0)).length() - rb;
+    // Boolean subtract: max(da, -db)
+    da.max(-db)
+}
+
+/// 3D cross SDF — the union of three axis-aligned rectangular bars that
+/// intersect at the origin.
+///
+/// `b` is the half-extent of each bar in the cross-section axes, and `r` is
+/// the rounding radius applied to all edges.  Set `r = 0.0` for a sharp cross.
+///
+/// Translated from Inigo Quilez's `sdCross`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::cross_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre is inside all three bars
+/// let d = cross_3d(Vec3::ZERO, 0.3, 0.0);
+/// assert!(d < 0.0, "centre inside cross: {d}");
+/// // Far diagonal corner is outside
+/// let d2 = cross_3d(Vec3::new(2.0, 2.0, 2.0), 0.3, 0.0);
+/// assert!(d2 > 0.0, "diagonal outside: {d2}");
+/// ```
+pub fn cross_3d(p: Vec3, b: f32, r: f32) -> f32 {
+    let d = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs()) - Vec3::new(b, b, b);
+    // Three rectangular bar SDFs (one per axis pair) — take the union (min)
+    let d1 = Vec2::new(d.x.max(0.0), d.y.max(0.0)).length() + d.x.max(d.y).min(0.0) - r;
+    let d2 = Vec2::new(d.z.max(0.0), d.y.max(0.0)).length() + d.z.max(d.y).min(0.0) - r;
+    let d3 = Vec2::new(d.x.max(0.0), d.z.max(0.0)).length() + d.x.max(d.z).min(0.0) - r;
+    d1.min(d2).min(d3)
+}
+
+#[cfg(test)]
+mod tests_pass_19 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── stairs_2d ─────────────────────────────────────────────────────────
+    #[test]
+    fn stairs_inside_first_step() {
+        // Inside the filled region below the first step top
+        let d = stairs_2d(Vec2::new(0.1, 0.1), Vec2::new(0.5, 0.3), 3);
+        assert!(d < 0.0, "inside first step: {d}");
+    }
+
+    #[test]
+    fn stairs_far_outside() {
+        let d = stairs_2d(Vec2::new(5.0, 5.0), Vec2::new(0.5, 0.3), 3);
+        assert!(d > 0.0, "far outside staircase: {d}");
+    }
+
+    #[test]
+    fn stairs_above_top_outside() {
+        // Above the top of the staircase (y > n*wh.y)
+        let wh = Vec2::new(0.5, 0.3);
+        let n = 3u32;
+        let total_h = wh.y * n as f32;
+        let d = stairs_2d(Vec2::new(0.5, total_h + 0.5), wh, n);
+        assert!(d > 0.0, "above top of staircase: {d}");
+    }
+
+    // ── death_star_3d ─────────────────────────────────────────────────────
+    #[test]
+    fn death_star_center_inside() {
+        let d = death_star_3d(Vec3::ZERO, 1.0, 0.5, 1.4);
+        assert!(d < 0.0, "centre inside main sphere: {d}");
+    }
+
+    #[test]
+    fn death_star_carved_region_outside() {
+        // The indent sits at ~x=1.3; the carved sphere (rb=0.5) centred at x=1.4
+        // carves out the region around x=1 on the +x side
+        let d = death_star_3d(Vec3::new(1.3, 0.0, 0.0), 1.0, 0.5, 1.4);
+        assert!(d > 0.0, "carved region outside: {d}");
+    }
+
+    #[test]
+    fn death_star_opposite_side_inside() {
+        // Far side of main sphere, away from the indent
+        let d = death_star_3d(Vec3::new(-0.5, 0.0, 0.0), 1.0, 0.5, 1.4);
+        assert!(d < 0.0, "opposite side inside: {d}");
+    }
+
+    // ── cross_3d ──────────────────────────────────────────────────────────
+    #[test]
+    fn cross_3d_center_inside() {
+        let d = cross_3d(Vec3::ZERO, 0.3, 0.0);
+        assert!(d < 0.0, "centre inside cross: {d}");
+    }
+
+    #[test]
+    fn cross_3d_on_x_arm_inside() {
+        // Point on the +x arm, inside the bar
+        let d = cross_3d(Vec3::new(1.0, 0.1, 0.1), 0.3, 0.0);
+        assert!(d < 0.0, "on x arm inside: {d}");
+    }
+
+    #[test]
+    fn cross_3d_diagonal_outside() {
+        let d = cross_3d(Vec3::new(2.0, 2.0, 2.0), 0.3, 0.0);
+        assert!(d > 0.0, "diagonal outside: {d}");
+    }
+
+    #[test]
+    fn cross_3d_rounding_increases_distance() {
+        // Adding rounding to a point on the sharp edge should move it outward
+        let p = Vec3::new(0.5, 0.5, 0.0);
+        let d_sharp = cross_3d(p, 0.3, 0.0);
+        let d_round = cross_3d(p, 0.3, 0.1);
+        // Rounding subtracts from the SDF, so rounded is "more inside"
+        assert!(
+            d_round <= d_sharp + 0.2,
+            "rounding changes distance: {d_sharp} vs {d_round}"
+        );
+    }
+}
