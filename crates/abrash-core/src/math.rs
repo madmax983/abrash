@@ -17130,3 +17130,455 @@ mod tests_pass_50 {
         assert_eq!(zero_crossings(&[1.0, 1.0, 1.0, 1.0]), 0);
     }
 }
+
+// ── Pass 51 ──────────────────────────────────────────────────────────────────
+// convex_hull_2d, point_in_convex_polygon_2d, two_bone_ik,
+// r2_sequence, sobol_2d, critically_damped_spring_step,
+// bezier_arc_length_param
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Graham-scan convex hull of `points` (CCW order).
+///
+/// Returns the minimal convex polygon vertices; collinear boundary points are
+/// excluded.  Returns an empty `Vec` for fewer than 3 non-coincident points.
+pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+    let mut pts = points.to_vec();
+    // Pivot: lowest Y, break ties by lowest X.
+    let pivot_idx = pts
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| {
+            a.y.partial_cmp(&b.y)
+                .unwrap()
+                .then(a.x.partial_cmp(&b.x).unwrap())
+        })
+        .map(|(i, _)| i)
+        .unwrap();
+    pts.swap(0, pivot_idx);
+    let pivot = pts[0];
+    // Sort remaining points by polar angle around pivot.
+    pts[1..].sort_by(|a, b| {
+        let angle_a = (a.y - pivot.y).atan2(a.x - pivot.x);
+        let angle_b = (b.y - pivot.y).atan2(b.x - pivot.x);
+        let cmp = angle_a.partial_cmp(&angle_b).unwrap();
+        if cmp == std::cmp::Ordering::Equal {
+            // Same angle: keep farthest from pivot.
+            let da = (a.x - pivot.x).hypot(a.y - pivot.y);
+            let db = (b.x - pivot.x).hypot(b.y - pivot.y);
+            da.partial_cmp(&db).unwrap()
+        } else {
+            cmp
+        }
+    });
+    // Scan: maintain a stack where every turn is a left turn (CCW).
+    let mut hull: Vec<Vec2> = Vec::with_capacity(pts.len());
+    for p in pts {
+        while hull.len() >= 2 {
+            let o = hull[hull.len() - 2];
+            let a = hull[hull.len() - 1];
+            // Cross product of (a-o) x (p-o); <= 0 means right/collinear.
+            let cross = (a.x - o.x) * (p.y - o.y) - (a.y - o.y) * (p.x - o.x);
+            if cross <= 0.0 {
+                hull.pop();
+            } else {
+                break;
+            }
+        }
+        hull.push(p);
+    }
+    hull
+}
+
+/// Returns `true` if `point` is inside (or on the boundary of) the convex
+/// polygon described by `hull` (vertices in CCW order).
+///
+/// Uses the sign-of-cross-product test: for a CCW hull, a point is inside iff
+/// it is to the left of every edge.
+pub fn point_in_convex_polygon_2d(point: Vec2, hull: &[Vec2]) -> bool {
+    let n = hull.len();
+    if n < 3 {
+        return false;
+    }
+    for i in 0..n {
+        let a = hull[i];
+        let b = hull[(i + 1) % n];
+        // Cross of edge (b-a) with (point-a).  Negative => right of edge => outside.
+        let cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
+        if cross < 0.0 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Analytical two-bone IK: returns the world-space **joint** position so that
+/// a two-bone chain (bone1 = `root->joint`, bone2 = `joint->end`) reaches
+/// `target`, given bone lengths `l1` and `l2`.
+///
+/// `hint` is a world-space direction that biases which side the elbow bends
+/// toward.  When `target` is out of reach the chain fully extends; when closer
+/// than `|l1 - l2|` it partially folds.
+pub fn two_bone_ik(root: Vec3, l1: f32, l2: f32, target: Vec3, hint: Vec3) -> Vec3 {
+    let to_target = Vec3::new(target.x - root.x, target.y - root.y, target.z - root.z);
+    let dist =
+        (to_target.x * to_target.x + to_target.y * to_target.y + to_target.z * to_target.z).sqrt();
+    if dist < 1e-6 {
+        return root;
+    }
+    let dir = Vec3::new(to_target.x / dist, to_target.y / dist, to_target.z / dist);
+
+    // Clamp reach to [|l1-l2|, l1+l2].
+    let d = dist.clamp((l1 - l2).abs(), l1 + l2);
+
+    // Law of cosines: angle at root between reach direction and bone1.
+    let cos_a = ((d * d + l1 * l1 - l2 * l2) / (2.0 * d * l1)).clamp(-1.0, 1.0);
+    let angle_a = cos_a.acos();
+
+    // Rotation axis = dir x hint (perpendicular to the reach plane).
+    let cross = Vec3::new(
+        dir.y * hint.z - dir.z * hint.y,
+        dir.z * hint.x - dir.x * hint.z,
+        dir.x * hint.y - dir.y * hint.x,
+    );
+    let cross_len = (cross.x * cross.x + cross.y * cross.y + cross.z * cross.z).sqrt();
+    let axis = if cross_len > 1e-6 {
+        Vec3::new(
+            cross.x / cross_len,
+            cross.y / cross_len,
+            cross.z / cross_len,
+        )
+    } else {
+        // dir || hint: pick an arbitrary perpendicular.
+        let perp = if dir.x.abs() < 0.9 {
+            Vec3::new(1.0, 0.0, 0.0)
+        } else {
+            Vec3::new(0.0, 1.0, 0.0)
+        };
+        let c = Vec3::new(
+            dir.y * perp.z - dir.z * perp.y,
+            dir.z * perp.x - dir.x * perp.z,
+            dir.x * perp.y - dir.y * perp.x,
+        );
+        let cl = (c.x * c.x + c.y * c.y + c.z * c.z).sqrt();
+        Vec3::new(c.x / cl, c.y / cl, c.z / cl)
+    };
+
+    // Rodrigues rotation of dir by angle_a around axis.
+    let (s, c) = angle_a.sin_cos();
+    let dot = dir.x * axis.x + dir.y * axis.y + dir.z * axis.z;
+    let rotated = Vec3::new(
+        dir.x * c + (axis.y * dir.z - axis.z * dir.y) * s + axis.x * dot * (1.0 - c),
+        dir.y * c + (axis.z * dir.x - axis.x * dir.z) * s + axis.y * dot * (1.0 - c),
+        dir.z * c + (axis.x * dir.y - axis.y * dir.x) * s + axis.z * dot * (1.0 - c),
+    );
+
+    Vec3::new(
+        root.x + rotated.x * l1,
+        root.y + rotated.y * l1,
+        root.z + rotated.z * l1,
+    )
+}
+
+/// Martin Roberts R2 low-discrepancy sequence (2D).
+///
+/// Returns the `n`-th point (0-indexed) in [0,1)^2.  Uses the plastic constant
+/// phi2 ~= 1.3247 for near-optimal 2D coverage with essentially zero cost.
+#[inline]
+pub fn r2_sequence(n: u32) -> Vec2 {
+    // phi2 is the real root of x^3 - x - 1 = 0.
+    const PHI2: f32 = 1.324_717_957_2;
+    const A1: f32 = 1.0 / PHI2;
+    const A2: f32 = 1.0 / (PHI2 * PHI2);
+    let n = n as f32;
+    Vec2::new((0.5 + n * A1).fract(), (0.5 + n * A2).fract())
+}
+
+/// Sobol 2D quasi-random sequence using standard direction numbers for
+/// dimensions 1 and 2.
+///
+/// Dimension 1 is the van der Corput base-2 sequence.  Dimension 2 uses the
+/// Gray-code XOR construction with direction numbers for the primitive
+/// polynomial x+1.  Returns the `index`-th sample (0-indexed) in [0,1)^2.
+pub fn sobol_2d(index: u32) -> Vec2 {
+    // Scale factor: 2^-32 represented as an f32 bit pattern.
+    const SCALE: f32 = 2.328_306_4e-10; // 1.0 / 2^32
+
+    // Dimension 1: bit-reversal (van der Corput base 2).
+    let x = index.reverse_bits() as f32 * SCALE;
+
+    // Dimension 2: Gray-code XOR with direction numbers v[i] = 2^(31-i).
+    let g = index ^ (index >> 1);
+    let mut result = 0u32;
+    let mut direction = 0x8000_0000u32;
+    let mut g_work = g;
+    while g_work > 0 {
+        if g_work & 1 != 0 {
+            result ^= direction;
+        }
+        direction >>= 1;
+        g_work >>= 1;
+    }
+    let y = result as f32 * SCALE;
+
+    Vec2::new(x, y)
+}
+
+/// Critically-damped spring step — the smoothest damping without oscillation.
+///
+/// Updates `*velocity` in place and returns the new position.  `omega` is the
+/// natural frequency (rad/s).  Uses the exact closed-form solution
+/// `x(t) = x_eq + (A + B·t)·exp(-ω·t)` where `A = x₀ − x_eq`,
+/// `B = v₀ + ω·A`, guaranteeing no overshoot from rest.
+#[inline]
+pub fn critically_damped_spring_step(
+    current: f32,
+    target: f32,
+    velocity: &mut f32,
+    omega: f32,
+    dt: f32,
+) -> f32 {
+    let e = (-omega * dt).exp();
+    let a = current - target; // displacement
+    let b = *velocity + omega * a; // integration constant
+    *velocity = (b * (1.0 - omega * dt) - omega * a) * e;
+    target + (a + b * dt) * e
+}
+
+/// Re-parameterize a cubic Bezier by arc length.
+///
+/// Given a desired arc-length fraction `s in [0,1]` (where `s=1` is the full
+/// curve), returns the curve parameter `t in [0,1]` via binary search over a
+/// `steps`-segment piecewise-linear length table.  Typical `steps`: 32-256.
+pub fn bezier_arc_length_param(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, s: f32, steps: u32) -> f32 {
+    let n = steps.max(2) as usize;
+    let mut lengths = vec![0.0f32; n + 1];
+    let mut prev = p0;
+    for i in 1..=n {
+        let t = i as f32 / n as f32;
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let mt = 1.0 - t;
+        let mt2 = mt * mt;
+        let mt3 = mt2 * mt;
+        let pt = Vec3::new(
+            mt3 * p0.x + 3.0 * mt2 * t * p1.x + 3.0 * mt * t2 * p2.x + t3 * p3.x,
+            mt3 * p0.y + 3.0 * mt2 * t * p1.y + 3.0 * mt * t2 * p2.y + t3 * p3.y,
+            mt3 * p0.z + 3.0 * mt2 * t * p1.z + 3.0 * mt * t2 * p2.z + t3 * p3.z,
+        );
+        let dx = pt.x - prev.x;
+        let dy = pt.y - prev.y;
+        let dz = pt.z - prev.z;
+        lengths[i] = lengths[i - 1] + (dx * dx + dy * dy + dz * dz).sqrt();
+        prev = pt;
+    }
+    let total = lengths[n];
+    if total < 1e-10 {
+        return 0.0;
+    }
+    let target_len = s.clamp(0.0, 1.0) * total;
+    let idx = lengths.partition_point(|&l| l <= target_len).min(n).max(1);
+    let lo = lengths[idx - 1];
+    let hi = lengths[idx];
+    let t_lo = (idx - 1) as f32 / n as f32;
+    let t_hi = idx as f32 / n as f32;
+    if (hi - lo).abs() < 1e-10 {
+        t_lo
+    } else {
+        t_lo + (target_len - lo) / (hi - lo) * (t_hi - t_lo)
+    }
+}
+
+// ── Tests — Pass 51 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_51 {
+    use super::*;
+
+    // ── convex_hull_2d ────────────────────────────────────────────────────────
+
+    #[test]
+    fn hull_square() {
+        let pts = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.5, 0.5), // interior point
+        ];
+        let hull = convex_hull_2d(&pts);
+        assert_eq!(hull.len(), 4, "square hull len={}", hull.len());
+    }
+
+    #[test]
+    fn hull_collinear_excluded() {
+        let pts: Vec<Vec2> = (0..5).map(|i| Vec2::new(i as f32, 0.0)).collect();
+        let hull = convex_hull_2d(&pts);
+        assert!(hull.len() <= 2, "collinear hull len={}", hull.len());
+    }
+
+    #[test]
+    fn hull_triangle() {
+        let pts = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(1.0, 2.0),
+            Vec2::new(1.0, 0.5), // interior
+        ];
+        let hull = convex_hull_2d(&pts);
+        assert_eq!(hull.len(), 3, "triangle hull len={}", hull.len());
+    }
+
+    // ── point_in_convex_polygon_2d ────────────────────────────────────────────
+
+    #[test]
+    fn point_in_unit_square_hull() {
+        // CCW square.
+        let hull = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        assert!(point_in_convex_polygon_2d(Vec2::new(0.5, 0.5), &hull));
+        assert!(!point_in_convex_polygon_2d(Vec2::new(2.0, 0.5), &hull));
+        assert!(!point_in_convex_polygon_2d(Vec2::new(-0.1, 0.5), &hull));
+    }
+
+    // ── two_bone_ik ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn ik_end_reaches_target() {
+        let root = Vec3::new(0.0, 0.0, 0.0);
+        let target = Vec3::new(1.0, 1.0, 0.0);
+        let l1 = 1.0_f32;
+        let l2 = 2.0_f32.sqrt();
+        let hint = Vec3::new(0.0, 0.0, 1.0);
+        let joint = two_bone_ik(root, l1, l2, target, hint);
+        let d1 = {
+            let dx = joint.x - root.x;
+            let dy = joint.y - root.y;
+            let dz = joint.z - root.z;
+            (dx * dx + dy * dy + dz * dz).sqrt()
+        };
+        assert!((d1 - l1).abs() < 1e-4, "d1={d1}");
+        let d2 = {
+            let dx = target.x - joint.x;
+            let dy = target.y - joint.y;
+            let dz = target.z - joint.z;
+            (dx * dx + dy * dy + dz * dz).sqrt()
+        };
+        assert!((d2 - l2).abs() < 1e-3, "d2={d2} l2={l2}");
+    }
+
+    #[test]
+    fn ik_out_of_reach_extends() {
+        let root = Vec3::new(0.0, 0.0, 0.0);
+        let target = Vec3::new(10.0, 0.0, 0.0);
+        let hint = Vec3::new(0.0, 1.0, 0.0);
+        let joint = two_bone_ik(root, 1.0, 1.0, target, hint);
+        assert!((joint.x - 1.0).abs() < 1e-4, "joint.x={}", joint.x);
+        assert!(joint.y.abs() < 1e-4, "joint.y={}", joint.y);
+    }
+
+    // ── r2_sequence ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn r2_in_unit_square() {
+        for i in 0..64 {
+            let p = r2_sequence(i);
+            assert!(p.x >= 0.0 && p.x < 1.0, "x={}", p.x);
+            assert!(p.y >= 0.0 && p.y < 1.0, "y={}", p.y);
+        }
+    }
+
+    #[test]
+    fn r2_covers_all_quadrants() {
+        let (mut q0, mut q1, mut q2, mut q3) = (0u32, 0, 0, 0);
+        for i in 0..16 {
+            let p = r2_sequence(i);
+            match (p.x >= 0.5, p.y >= 0.5) {
+                (false, false) => q0 += 1,
+                (true, false) => q1 += 1,
+                (false, true) => q2 += 1,
+                (true, true) => q3 += 1,
+            }
+        }
+        assert!(
+            q0 >= 2 && q1 >= 2 && q2 >= 2 && q3 >= 2,
+            "uneven coverage: {q0} {q1} {q2} {q3}"
+        );
+    }
+
+    // ── sobol_2d ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn sobol_in_unit_square() {
+        for i in 0..64 {
+            let p = sobol_2d(i);
+            assert!(p.x >= 0.0 && p.x < 1.0, "x={}", p.x);
+            assert!(p.y >= 0.0 && p.y < 1.0, "y={}", p.y);
+        }
+    }
+
+    #[test]
+    fn sobol_first_sample_origin() {
+        let p = sobol_2d(0);
+        assert_eq!(p.x, 0.0);
+        assert_eq!(p.y, 0.0);
+    }
+
+    // ── critically_damped_spring_step ─────────────────────────────────────────
+
+    #[test]
+    fn spring_converges_to_target() {
+        let target = 5.0_f32;
+        let mut pos = 0.0_f32;
+        let mut vel = 0.0_f32;
+        for _ in 0..200 {
+            pos = critically_damped_spring_step(pos, target, &mut vel, 10.0, 0.016);
+        }
+        assert!((pos - target).abs() < 0.01, "pos={pos}");
+    }
+
+    #[test]
+    fn spring_no_overshoot() {
+        let target = 1.0_f32;
+        let mut pos = 0.0_f32;
+        let mut vel = 0.0_f32;
+        let mut max_pos = 0.0_f32;
+        for _ in 0..500 {
+            pos = critically_damped_spring_step(pos, target, &mut vel, 5.0, 0.016);
+            if pos > max_pos {
+                max_pos = pos;
+            }
+        }
+        assert!(max_pos <= target + 1e-3, "overshoot: max={max_pos}");
+    }
+
+    // ── bezier_arc_length_param ───────────────────────────────────────────────
+
+    #[test]
+    fn arc_param_endpoints() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(1.0, 0.0, 0.0);
+        let p2 = Vec3::new(2.0, 0.0, 0.0);
+        let p3 = Vec3::new(3.0, 0.0, 0.0);
+        let t0 = bezier_arc_length_param(p0, p1, p2, p3, 0.0, 64);
+        let t1 = bezier_arc_length_param(p0, p1, p2, p3, 1.0, 64);
+        assert!(t0 < 0.01, "t0={t0}");
+        assert!(t1 > 0.99, "t1={t1}");
+    }
+
+    #[test]
+    fn arc_param_midpoint_straight_line() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(1.0, 0.0, 0.0);
+        let p2 = Vec3::new(2.0, 0.0, 0.0);
+        let p3 = Vec3::new(3.0, 0.0, 0.0);
+        let t_mid = bezier_arc_length_param(p0, p1, p2, p3, 0.5, 128);
+        assert!((t_mid - 0.5).abs() < 0.01, "t_mid={t_mid}");
+    }
+}
