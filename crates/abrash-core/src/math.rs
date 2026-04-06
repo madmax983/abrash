@@ -10484,3 +10484,457 @@ mod tests_pass_26 {
         assert!(b[0].abs() < 1e-5 && b[1].abs() < 1e-5);
     }
 }
+
+// ── Pass 27 additions ─────────────────────────────────────────────────────────
+
+/// Robert Penner's bounce-out easing — decelerating with rebounds.
+///
+/// The bounce uses three parabolic arcs that tile [0, 1] with
+/// matching boundary conditions (no discontinuity between arcs).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_bounce_out;
+/// assert!(ease_bounce_out(0.0).abs() < 1e-6);
+/// assert!((ease_bounce_out(1.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_bounce_out(0.5) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_bounce_out(t: f32) -> f32 {
+    const N: f32 = 7.562_5;
+    const D: f32 = 2.75;
+    if t < 1.0 / D {
+        N * t * t
+    } else if t < 2.0 / D {
+        let t = t - 1.5 / D;
+        N * t * t + 0.75
+    } else if t < 2.5 / D {
+        let t = t - 2.25 / D;
+        N * t * t + 0.9375
+    } else {
+        let t = t - 2.625 / D;
+        N * t * t + 0.984_375
+    }
+}
+
+/// Robert Penner's bounce-in easing — accelerating with initial bounces.
+///
+/// Time-reversal of [`ease_bounce_out`].
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_bounce_in;
+/// assert!(ease_bounce_in(0.0).abs() < 1e-5);
+/// assert!((ease_bounce_in(1.0) - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_bounce_in(t: f32) -> f32 {
+    1.0 - ease_bounce_out(1.0 - t)
+}
+
+/// Circular ease-in — acceleration following a quarter-circle arc.
+///
+/// `f(t) = 1 - sqrt(1 - t²)`, gives smooth acceleration from rest.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_circ_in;
+/// assert!(ease_circ_in(0.0).abs() < 1e-6);
+/// assert!((ease_circ_in(1.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_circ_in(0.5) < 0.5); // slower than linear
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_circ_in(t: f32) -> f32 {
+    1.0 - (1.0 - t * t).sqrt()
+}
+
+/// Circular ease-out — deceleration following a quarter-circle arc.
+///
+/// Time-reversal of [`ease_circ_in`].
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::ease_circ_out;
+/// assert!(ease_circ_out(0.0).abs() < 1e-6);
+/// assert!((ease_circ_out(1.0) - 1.0).abs() < 1e-5);
+/// assert!(ease_circ_out(0.5) > 0.5); // faster than linear
+/// ```
+#[must_use]
+#[inline]
+pub fn ease_circ_out(t: f32) -> f32 {
+    let t1 = t - 1.0;
+    (1.0 - t1 * t1).sqrt()
+}
+
+/// Normalised sinc function: `sin(πx) / (πx)` with `sinc(0) = 1`.
+///
+/// Used as a reconstruction kernel in image processing and signal theory.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::sinc;
+/// assert!((sinc(0.0) - 1.0).abs() < 1e-6);
+/// assert!(sinc(1.0).abs() < 1e-6); // zero crossing at x=1
+/// ```
+#[must_use]
+#[inline]
+pub fn sinc(x: f32) -> f32 {
+    if x.abs() < 1e-9 {
+        1.0
+    } else {
+        let px = core::f32::consts::PI * x;
+        px.sin() / px
+    }
+}
+
+/// Lanczos filter kernel of order `a` (typically 2 or 3).
+///
+/// `L(x) = sinc(x) * sinc(x/a)` for `|x| < a`, else 0.
+///
+/// Used for high-quality image resampling (sharper than bilinear, less
+/// ringing than ideal sinc).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::lanczos_kernel;
+/// assert!((lanczos_kernel(0.0, 3.0) - 1.0).abs() < 1e-5);
+/// assert!(lanczos_kernel(3.0, 3.0).abs() < 1e-5); // exactly at edge
+/// assert_eq!(lanczos_kernel(4.0, 3.0), 0.0); // outside support
+/// ```
+#[must_use]
+#[inline]
+pub fn lanczos_kernel(x: f32, a: f32) -> f32 {
+    if x.abs() >= a {
+        0.0
+    } else {
+        sinc(x) * sinc(x / a)
+    }
+}
+
+/// Mitchell–Netravali filter kernel, parameterised by `b` and `c`.
+///
+/// The recommended `b = 1/3, c = 1/3` balances sharpness and ringing.
+/// Special cases: `b=1, c=0` → cubic B-spline; `b=0, c=0.5` → Catmull-Rom.
+///
+/// Note: Mitchell-Netravali is an *approximating* (not interpolating) filter.
+/// `f(0) = (6 - 2b) / 6 = 1 - b/3`, so only Catmull-Rom (`b=0`) gives `f(0) = 1`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::mitchell_netravali;
+/// // Catmull-Rom (b=0, c=0.5) is interpolating: f(0) = 1.
+/// let catmull = mitchell_netravali(0.0, 0.0, 0.5);
+/// assert!((catmull - 1.0).abs() < 1e-5, "Catmull-Rom at 0: {catmull}");
+/// // Recommended params (b=1/3, c=1/3): f(0) = 8/9 (approximating).
+/// let v = mitchell_netravali(0.0, 1.0 / 3.0, 1.0 / 3.0);
+/// assert!((v - 8.0/9.0).abs() < 1e-5, "MN(0) approx: {v}");
+/// assert_eq!(mitchell_netravali(2.0, 1.0/3.0, 1.0/3.0), 0.0); // outside support
+/// ```
+#[must_use]
+#[inline]
+pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
+    let x = x.abs();
+    if x < 1.0 {
+        ((12.0 - 9.0 * b - 6.0 * c) * x * x * x
+            + (-18.0 + 12.0 * b + 6.0 * c) * x * x
+            + (6.0 - 2.0 * b))
+            / 6.0
+    } else if x < 2.0 {
+        ((-b - 6.0 * c) * x * x * x
+            + (6.0 * b + 30.0 * c) * x * x
+            + (-12.0 * b - 48.0 * c) * x
+            + (8.0 * b + 24.0 * c))
+            / 6.0
+    } else {
+        0.0
+    }
+}
+
+/// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+///
+/// `C = sqrt(a² + b²)`, `h = atan2(b, a)` in degrees [0, 360).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::oklab_to_oklch;
+/// let (l, c, h) = oklab_to_oklch(0.5, 0.1, 0.0);
+/// assert!((c - 0.1).abs() < 1e-6); // chroma from a-axis
+/// assert!(h.abs() < 1e-4); // hue ≈ 0° on +a axis
+/// ```
+#[must_use]
+#[inline]
+pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
+    let c = (a * a + b * b).sqrt();
+    let h = b.atan2(a).to_degrees().rem_euclid(360.0);
+    (l, c, h)
+}
+
+/// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+///
+/// `a = C * cos(h)`, `b = C * sin(h)` with `h` in degrees.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::oklch_to_oklab;
+/// let (l, a, b) = oklch_to_oklab(0.5, 0.1, 0.0);
+/// assert!((a - 0.1).abs() < 1e-6);
+/// assert!(b.abs() < 1e-6);
+/// ```
+#[must_use]
+#[inline]
+pub fn oklch_to_oklab(l: f32, c: f32, h_deg: f32) -> (f32, f32, f32) {
+    let h = h_deg.to_radians();
+    (l, c * h.cos(), c * h.sin())
+}
+
+/// Ray vs. oriented disk intersection.
+///
+/// Returns `Some(t)` if the ray `ro + t*rd` hits the disk, `None` otherwise.
+/// The disk is centred at `centre`, faces `normal`, and has radius `r`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{ray_disk_intersect, Vec3};
+/// // Ray pointing -Z hits a Z-facing disk at origin.
+/// let t = ray_disk_intersect(
+///     Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 0.0, -1.0),
+///     Vec3::ZERO, Vec3::Z, 1.0,
+/// );
+/// assert!(t.is_some());
+/// ```
+#[must_use]
+#[inline]
+pub fn ray_disk_intersect(ro: Vec3, rd: Vec3, centre: Vec3, normal: Vec3, r: f32) -> Option<f32> {
+    // First find the t for the infinite plane.
+    let denom = rd.dot(normal);
+    if denom.abs() < 1e-9 {
+        return None; // parallel
+    }
+    let t = (centre - ro).dot(normal) / denom;
+    if t < 0.0 {
+        return None; // behind ray
+    }
+    // Check if hit point is within radius.
+    let hit = Vec3::new(
+        ro.x + rd.x * t - centre.x,
+        ro.y + rd.y * t - centre.y,
+        ro.z + rd.z * t - centre.z,
+    );
+    if hit.dot(hit) <= r * r { Some(t) } else { None }
+}
+
+/// Barycentric coordinates of point `p` projected onto triangle `(a, b, c)`.
+///
+/// Returns `(u, v, w)` such that `u*a + v*b + w*c = p_projected` and
+/// `u + v + w = 1`. A point is inside the triangle when all components
+/// are non-negative.
+///
+/// Based on Cramer's rule via dot products (Ericson, RTCD §3.4).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{barycentric_3d, Vec3};
+/// let a = Vec3::new(0.0, 0.0, 0.0);
+/// let b = Vec3::new(1.0, 0.0, 0.0);
+/// let c = Vec3::new(0.0, 1.0, 0.0);
+/// // Centroid should be (1/3, 1/3, 1/3)
+/// let (u, v, w) = barycentric_3d(Vec3::new(1.0/3.0, 1.0/3.0, 0.0), a, b, c);
+/// assert!((u - 1.0/3.0).abs() < 1e-5);
+/// assert!((v - 1.0/3.0).abs() < 1e-5);
+/// assert!((w - 1.0/3.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn barycentric_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> (f32, f32, f32) {
+    let v0 = b - a;
+    let v1 = c - a;
+    let v2 = p - a;
+    let d00 = v0.dot(v0);
+    let d01 = v0.dot(v1);
+    let d11 = v1.dot(v1);
+    let d20 = v2.dot(v0);
+    let d21 = v2.dot(v1);
+    let inv = 1.0 / (d00 * d11 - d01 * d01);
+    let v = (d11 * d20 - d01 * d21) * inv;
+    let w = (d00 * d21 - d01 * d20) * inv;
+    let u = 1.0 - v - w;
+    (u, v, w)
+}
+
+#[cfg(test)]
+mod tests_pass_27 {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── ease_bounce_out ───────────────────────────────────────────────────────
+    #[test]
+    fn bounce_out_endpoints() {
+        assert!(ease_bounce_out(0.0).abs() < 1e-5);
+        assert!((ease_bounce_out(1.0) - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn bounce_out_monotone_overall() {
+        // Output at t=1 > output at t=0
+        assert!(ease_bounce_out(1.0) > ease_bounce_out(0.0));
+    }
+
+    // ── ease_bounce_in ────────────────────────────────────────────────────────
+    #[test]
+    fn bounce_in_endpoints() {
+        assert!(ease_bounce_in(0.0).abs() < 1e-5);
+        assert!((ease_bounce_in(1.0) - 1.0).abs() < 1e-4);
+    }
+
+    // ── ease_circ ─────────────────────────────────────────────────────────────
+    #[test]
+    fn circ_in_slower_than_linear() {
+        assert!(ease_circ_in(0.5) < 0.5);
+    }
+
+    #[test]
+    fn circ_out_faster_than_linear() {
+        assert!(ease_circ_out(0.5) > 0.5);
+    }
+
+    #[test]
+    fn circ_in_out_endpoints() {
+        assert!(ease_circ_in(0.0).abs() < 1e-6);
+        assert!((ease_circ_in(1.0) - 1.0).abs() < 1e-5);
+        assert!(ease_circ_out(0.0).abs() < 1e-6);
+        assert!((ease_circ_out(1.0) - 1.0).abs() < 1e-5);
+    }
+
+    // ── sinc ──────────────────────────────────────────────────────────────────
+    #[test]
+    fn sinc_at_zero_is_one() {
+        assert!((sinc(0.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sinc_zero_crossings() {
+        // Zeros at all non-zero integers
+        assert!(sinc(1.0).abs() < 1e-6);
+        assert!(sinc(2.0).abs() < 1e-6);
+        assert!(sinc(-1.0).abs() < 1e-6);
+    }
+
+    // ── lanczos_kernel ────────────────────────────────────────────────────────
+    #[test]
+    fn lanczos_center_is_one() {
+        assert!((lanczos_kernel(0.0, 3.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn lanczos_outside_support_is_zero() {
+        assert_eq!(lanczos_kernel(3.5, 3.0), 0.0);
+        assert_eq!(lanczos_kernel(-4.0, 3.0), 0.0);
+    }
+
+    // ── mitchell_netravali ────────────────────────────────────────────────────
+    #[test]
+    fn mitchell_catmull_rom_interpolates() {
+        // Catmull-Rom (b=0, c=0.5) is the interpolating special case: f(0)=1
+        let v = mitchell_netravali(0.0, 0.0, 0.5);
+        assert!((v - 1.0).abs() < 1e-5, "Catmull-Rom at 0: {v}");
+    }
+
+    #[test]
+    fn mitchell_recommended_approximates() {
+        // b=1/3, c=1/3: f(0) = (6 - 2/3) / 6 = 8/9
+        let v = mitchell_netravali(0.0, 1.0 / 3.0, 1.0 / 3.0);
+        assert!((v - 8.0 / 9.0).abs() < 1e-5, "MN(0) approx: {v}");
+    }
+
+    #[test]
+    fn mitchell_outside_support_is_zero() {
+        assert_eq!(mitchell_netravali(2.0, 1.0 / 3.0, 1.0 / 3.0), 0.0);
+        assert_eq!(mitchell_netravali(-2.5, 0.0, 0.5), 0.0);
+    }
+
+    // ── oklab_to_oklch / oklch_to_oklab ──────────────────────────────────────
+    #[test]
+    fn oklch_roundtrip() {
+        let (l0, a0, b0) = (0.6_f32, 0.08, 0.12);
+        let (l1, c, h) = oklab_to_oklch(l0, a0, b0);
+        let (l2, a2, b2) = oklch_to_oklab(l1, c, h);
+        assert!((l0 - l2).abs() < 1e-5);
+        assert!((a0 - a2).abs() < 1e-5, "a roundtrip: {a0} vs {a2}");
+        assert!((b0 - b2).abs() < 1e-5, "b roundtrip: {b0} vs {b2}");
+    }
+
+    #[test]
+    fn oklch_chroma_nonnegative() {
+        let (_, c, _) = oklab_to_oklch(0.5, -0.1, -0.1);
+        assert!(c >= 0.0);
+    }
+
+    // ── ray_disk_intersect ────────────────────────────────────────────────────
+    #[test]
+    fn ray_disk_hit() {
+        let t = ray_disk_intersect(
+            Vec3::new(0.0, 0.0, 2.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::ZERO,
+            Vec3::Z,
+            1.0,
+        );
+        assert!(t.is_some());
+        assert!((t.unwrap() - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn ray_disk_miss_outside_radius() {
+        let t = ray_disk_intersect(
+            Vec3::new(2.0, 0.0, 1.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::ZERO,
+            Vec3::Z,
+            1.0,
+        );
+        assert!(t.is_none(), "should miss: {t:?}");
+    }
+
+    #[test]
+    fn ray_disk_parallel_miss() {
+        let t = ray_disk_intersect(Vec3::new(0.0, 0.0, 1.0), Vec3::X, Vec3::ZERO, Vec3::Z, 1.0);
+        assert!(t.is_none());
+    }
+
+    // ── barycentric_3d ────────────────────────────────────────────────────────
+    #[test]
+    fn barycentric_centroid() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(3.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 3.0, 0.0);
+        let centroid = Vec3::new(1.0, 1.0, 0.0);
+        let (u, v, w) = barycentric_3d(centroid, a, b, c);
+        assert!((u - 1.0 / 3.0).abs() < 1e-5, "u: {u}");
+        assert!((v - 1.0 / 3.0).abs() < 1e-5, "v: {v}");
+        assert!((w - 1.0 / 3.0).abs() < 1e-5, "w: {w}");
+    }
+
+    #[test]
+    fn barycentric_vertex_a() {
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        let (u, v, w) = barycentric_3d(a, a, b, c);
+        assert!((u - 1.0).abs() < 1e-5, "u at A: {u}");
+        assert!(v.abs() < 1e-5, "v at A: {v}");
+        assert!(w.abs() < 1e-5, "w at A: {w}");
+    }
+
+    #[test]
+    fn barycentric_sums_to_one() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let c = Vec3::new(1.0, 2.0, 0.0);
+        let p = Vec3::new(0.8, 0.4, 0.0);
+        let (u, v, w) = barycentric_3d(p, a, b, c);
+        assert!((u + v + w - 1.0).abs() < 1e-5, "sum: {}", u + v + w);
+    }
+}

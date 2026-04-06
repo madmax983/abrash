@@ -5324,3 +5324,166 @@ mod tests_pass_26_sdf {
         assert!(rounded < 0.0, "rounded should pull in: {rounded}");
     }
 }
+
+// ── Pass 27 SDF shapes ────────────────────────────────────────────────────────
+
+/// 2D rectangular frame (hollow rectangle) with half-extents `half_size` and
+/// border thickness `t`.
+///
+/// The signed distance is negative only inside the border band; both the
+/// interior void and the exterior are positive.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::frame_2d;
+/// use abrash_core::math::Vec2;
+/// // Inside the frame band (near the edge):
+/// assert!(frame_2d(Vec2::new(0.95, 0.0), Vec2::new(1.0, 1.0), 0.1) < 0.0);
+/// // Centre of the hollow interior:
+/// assert!(frame_2d(Vec2::ZERO, Vec2::new(1.0, 1.0), 0.1) > 0.0);
+/// // Far outside:
+/// assert!(frame_2d(Vec2::new(3.0, 0.0), Vec2::new(1.0, 1.0), 0.1) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn frame_2d(p: Vec2, half_size: Vec2, t: f32) -> f32 {
+    // Outer box SDF
+    let outer = rect_2d(p, Vec2::ZERO, half_size);
+    // Inner box SDF (shrunk by thickness t)
+    let inner_half = Vec2::new((half_size.x - t).max(0.0), (half_size.y - t).max(0.0));
+    let inner = rect_2d(p, Vec2::ZERO, inner_half);
+    // Frame = inside outer AND outside inner = max(outer, -inner)
+    outer.max(-inner)
+}
+
+/// 2D annular sector — the intersection of a ring (annulus) and a pie slice.
+///
+/// * `inner_r` / `outer_r` — inner and outer radii
+/// * `half_angle` — half opening angle in radians (e.g. `π/4` for 45° half-angle)
+///
+/// The sector opens along the **+Y axis** (matching [`pie_2d`] convention).
+/// A point at `(0, r)` for `inner_r < r < outer_r` is inside.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::annular_sector_2d;
+/// use abrash_core::math::Vec2;
+/// // Point inside ring + inside slice (along +Y):
+/// let d = annular_sector_2d(Vec2::new(0.0, 1.5), 1.0, 2.0, 0.5);
+/// assert!(d < 0.0, "inside: {d}");
+/// // Far outside:
+/// assert!(annular_sector_2d(Vec2::new(5.0, 0.0), 1.0, 2.0, 0.5) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn annular_sector_2d(p: Vec2, inner_r: f32, outer_r: f32, half_angle: f32) -> f32 {
+    // Ring SDF: max(r - outer_r, inner_r - r)
+    // ring_2d already computes the ring SDF.
+    let ring = ring_2d(p, Vec2::ZERO, inner_r, outer_r);
+    // pie_2d opens along +Y; use outer_r as the pie's radial bound.
+    // Intersection removes everything outside the angular wedge.
+    let (sa, ca) = half_angle.sin_cos();
+    let pie = pie_2d(p, (sa, ca), outer_r);
+    ring.max(pie)
+}
+
+/// 2D rounded cross — cross shape with equal arm width `w`, extent `e`, and
+/// corner rounding `r`.
+///
+/// Equivalent to the union of a horizontal and vertical rounded rectangle.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::rounded_cross_2d;
+/// use abrash_core::math::Vec2;
+/// // Centre is inside.
+/// assert!(rounded_cross_2d(Vec2::ZERO, 0.5, 1.0, 0.1) < 0.0);
+/// // Far diagonal is outside.
+/// assert!(rounded_cross_2d(Vec2::new(2.0, 2.0), 0.5, 1.0, 0.1) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn rounded_cross_2d(p: Vec2, w: f32, e: f32, r: f32) -> f32 {
+    let horiz = rounded_rect_2d(p, Vec2::ZERO, Vec2::new(e, w), r);
+    let vert = rounded_rect_2d(p, Vec2::ZERO, Vec2::new(w, e), r);
+    horiz.min(vert)
+}
+
+#[cfg(test)]
+mod tests_pass_27_sdf {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── frame_2d ─────────────────────────────────────────────────────────────
+    #[test]
+    fn frame_band_inside() {
+        // Just inside the outer edge should be in the frame band.
+        let d = frame_2d(Vec2::new(0.95, 0.0), Vec2::new(1.0, 1.0), 0.1);
+        assert!(d < 0.0, "frame band: {d}");
+    }
+
+    #[test]
+    fn frame_hollow_interior_outside() {
+        // Dead centre of a frame is void (positive distance).
+        let d = frame_2d(Vec2::ZERO, Vec2::new(1.0, 1.0), 0.1);
+        assert!(d > 0.0, "hollow interior: {d}");
+    }
+
+    #[test]
+    fn frame_exterior_outside() {
+        let d = frame_2d(Vec2::new(3.0, 0.0), Vec2::new(1.0, 1.0), 0.1);
+        assert!(d > 0.0, "exterior: {d}");
+    }
+
+    #[test]
+    fn frame_thick_fills_hollow() {
+        // When thickness >= half_size, the frame fills the entire rectangle.
+        let d = frame_2d(Vec2::ZERO, Vec2::new(0.5, 0.5), 1.0);
+        // inner_half is clamped to 0, so inner = rect of half_size (0,0) = |p| - 0
+        // Actually inner_half = max(0.5-1.0, 0) = 0 → rect_2d(p, 0, 0) = |p|
+        // For p=ZERO: inner = 0, outer = -0.5 (inside), frame = max(-0.5, 0) = 0
+        // Centre is on the boundary (d=0) or inside.
+        assert!(d <= 0.0, "filled frame centre: {d}");
+    }
+
+    // ── annular_sector_2d ───────────────────────────���─────────────────────────
+    #[test]
+    fn annular_sector_inside() {
+        // Sector opens along +Y; (0, 1.5) is inside ring and within angle.
+        let d = annular_sector_2d(Vec2::new(0.0, 1.5), 1.0, 2.0, 0.5);
+        assert!(d < 0.0, "inside sector: {d}");
+    }
+
+    #[test]
+    fn annular_sector_outside_radius() {
+        // Beyond outer radius along +Y.
+        let d = annular_sector_2d(Vec2::new(0.0, 3.0), 1.0, 2.0, 0.5);
+        assert!(d > 0.0, "beyond outer: {d}");
+    }
+
+    #[test]
+    fn annular_sector_outside_angle() {
+        // In the ring but on the +X axis, far from the +Y-opening sector.
+        let d = annular_sector_2d(Vec2::new(1.5, 0.0), 1.0, 2.0, 0.1);
+        assert!(d > 0.0, "outside wedge: {d}");
+    }
+
+    // ── rounded_cross_2d ─────────────────────────────────────────────────────
+    #[test]
+    fn rounded_cross_centre_inside() {
+        assert!(rounded_cross_2d(Vec2::ZERO, 0.5, 1.0, 0.1) < 0.0);
+    }
+
+    #[test]
+    fn rounded_cross_arm_tip_inside() {
+        // End of the horizontal arm should be inside
+        let d = rounded_cross_2d(Vec2::new(0.9, 0.0), 0.5, 1.0, 0.1);
+        assert!(d < 0.0, "arm tip: {d}");
+    }
+
+    #[test]
+    fn rounded_cross_diagonal_outside() {
+        let d = rounded_cross_2d(Vec2::new(2.0, 2.0), 0.5, 1.0, 0.1);
+        assert!(d > 0.0, "diagonal outside: {d}");
+    }
+}
