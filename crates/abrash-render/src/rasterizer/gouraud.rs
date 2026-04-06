@@ -477,6 +477,7 @@ pub fn draw_scanline_gouraud_i32(
 }
 
 #[derive(Clone, Copy)]
+#[doc(hidden)]
 pub struct GouraudGradients {
     pub(crate) dz_dx: f32,
     pub(crate) dc_dx: (i32, i32, i32),

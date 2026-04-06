@@ -80,6 +80,7 @@ use super::texture::{draw_span_bilinear, draw_span_nearest, draw_span_trilinear}
 use super::texture::{draw_span_bilinear_simd, draw_span_nearest_simd, draw_span_trilinear_simd};
 
 /// Groups screen space parameters to reduce function arguments and improve clarity.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct ScreenSpaceContext {
     pub width: u32,
@@ -89,6 +90,7 @@ pub struct ScreenSpaceContext {
 }
 
 /// Defines the bounds and target position for merging a tile into the framebuffer.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct TileMergeBounds {
     pub tx: u32,
@@ -239,6 +241,7 @@ pub type TexturedClipTriangle = ((Vec3, f32), Vec2, (Vec3, f32), Vec2, (Vec3, f3
 ///
 /// Reduces memory usage by using i16 for coordinates (sufficient for up to 32k resolution)
 /// and omitting unused `inv_w` for flat shading.
+#[doc(hidden)]
 #[derive(Clone, Copy, Debug)]
 pub struct CompactScreenPoint {
     pub x: i32,
@@ -258,6 +261,7 @@ impl CompactScreenPoint {
 }
 
 /// A triangle that has been clipped, projected, culled, Y-sorted, and had gradients computed.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedTriangle {
     pub p0: CompactScreenPoint,
@@ -275,6 +279,7 @@ pub struct PreparedTriangle {
 }
 
 /// A Gouraud-shaded triangle prepared for rasterization.
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedGouraudTriangle {
     pub p0: CompactScreenPoint,
@@ -296,6 +301,7 @@ pub struct PreparedGouraudTriangle {
 /// A textured triangle prepared for rasterization.
 ///
 /// Optimized to fit in exactly 128 bytes (2 cache lines).
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct PreparedTexturedTriangle {
     /// Top vertex (lowest Y).
@@ -403,6 +409,7 @@ impl IntoIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesIter {
     list: PreparedGouraudTrianglesList,
     index: usize,
@@ -422,6 +429,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesList {
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
     pub count: usize,
@@ -498,6 +506,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesIter {
     list: PreparedTrianglesList,
     index: usize,
@@ -517,6 +526,7 @@ impl Iterator for PreparedTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesList {
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
     pub count: usize,
@@ -551,6 +561,7 @@ impl IntoIterator for PreparedTexturedTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesIter {
     list: PreparedTexturedTrianglesList,
     index: usize,
@@ -573,6 +584,7 @@ impl Iterator for PreparedTexturedTrianglesIter {
 /// Flattened linked-list structure for tile binning.
 ///
 /// Replaces `Vec<Vec<usize>>` to reduce heap allocations and improve cache locality.
+#[doc(hidden)]
 pub struct TileBins {
     pub heads: Vec<u32>, // Index into nexts/tris. u32::MAX = None
     pub tails: Vec<u32>, // Index into nexts/tris. u32::MAX = None
@@ -623,6 +635,7 @@ impl TileBins {
     }
 }
 
+#[doc(hidden)]
 pub struct TileBinIter<'a> {
     bins: &'a TileBins,
     curr: u32,

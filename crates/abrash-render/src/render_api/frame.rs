@@ -30,7 +30,9 @@ pub struct PointLight {
 /// Light source in the scene.
 #[derive(Debug, Clone, Copy)]
 pub enum Light {
+    /// A directional light source (infinite distance, parallel rays).
     Directional(DirectionalLight),
+    /// A point light source with attenuation radius.
     Point(PointLight),
 }
 

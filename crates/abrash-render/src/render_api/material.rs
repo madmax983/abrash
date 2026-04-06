@@ -11,33 +11,52 @@ use crate::render_api::handles::TextureHandle;
 #[derive(Debug, Clone)]
 pub enum ShadingMode {
     /// Single color per triangle. Fastest mode.
-    Flat { color: u32 },
+    Flat {
+        /// Base color as `0xRRGGBB`.
+        color: u32,
+    },
     /// Per-vertex color interpolation.
     Gouraud,
     /// Per-pixel lighting with specular highlights.
     Phong {
+        /// The specular exponent.
         shininess: f32,
+        /// Strength of the specular highlight (0.0 to 1.0).
         specular_strength: f32,
     },
     /// Perspective-correct texture mapping.
-    Textured { texture: TextureHandle },
+    Textured {
+        /// Handle to the diffuse texture.
+        texture: TextureHandle,
+    },
     /// Texture mapping with per-vertex color modulation.
-    TexturedGouraud { texture: TextureHandle },
+    TexturedGouraud {
+        /// Handle to the diffuse texture.
+        texture: TextureHandle,
+    },
     /// Physically-based rendering.
     Pbr {
+        /// Handle to the albedo (diffuse) texture.
         albedo: TextureHandle,
+        /// Material roughness (0.0 = smooth, 1.0 = rough).
         roughness: f32,
+        /// Material metallic factor (0.0 = dielectric, 1.0 = metallic).
         metallic: f32,
     },
     /// Environment/cubemap reflection.
     Reflection {
+        /// Handle to the reflection environment texture.
         texture: TextureHandle,
+        /// Reflectivity factor (0.0 = matte, 1.0 = perfect mirror).
         reflectivity: f32,
     },
     /// Normal-mapped with per-pixel lighting.
     NormalMapped {
+        /// Handle to the diffuse texture.
         diffuse: TextureHandle,
+        /// Handle to the normal map texture.
         normal_map: TextureHandle,
+        /// The specular exponent.
         shininess: f32,
     },
 }

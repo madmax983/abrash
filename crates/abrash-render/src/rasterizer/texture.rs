@@ -74,6 +74,7 @@ pub struct PerspectiveTextureGradients {
 impl PerspectiveTextureGradients {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    #[doc(hidden)]
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -93,6 +94,7 @@ impl PerspectiveTextureGradients {
 
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    #[doc(hidden)]
     pub fn new_with_winding(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -229,6 +231,7 @@ impl PerspectiveTextureEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
+#[doc(hidden)]
 pub struct PerspectiveSpanStart {
     pub z: f32,
     pub q: f32,
@@ -3432,6 +3435,7 @@ pub fn fill_triangle_normal_mapped(
 }
 
 #[derive(Clone, Copy)]
+#[doc(hidden)]
 pub struct TexturedGouraudGradients {
     pub dz_dx: f32,
     pub dq_dx: f32,
@@ -3452,6 +3456,7 @@ pub struct TexturedGouraudGradients {
 impl TexturedGouraudGradients {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
+    #[doc(hidden)]
     pub fn new(
         p0: ScreenPoint,
         p1: ScreenPoint,
@@ -3644,6 +3649,7 @@ impl TexturedGouraudEdgeWalker {
 }
 
 #[derive(Clone, Copy)]
+#[doc(hidden)]
 pub struct TexturedGouraudSpanStart {
     pub z: f32,
     pub q: f32,
