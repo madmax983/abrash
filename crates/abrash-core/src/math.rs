@@ -16390,3 +16390,231 @@ mod tests_pass_47 {
         assert!(s > 0.0, "s={s}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 48 — Monte Carlo / importance sampling
+//   box_muller, sample_triangle_uniform, concentric_disk_sample,
+//   power_heuristic, balance_heuristic, tent_sample, stratified_jitter_2d
+// ---------------------------------------------------------------------------
+
+/// Box-Muller transform: two uniform samples → two independent standard-normal samples.
+///
+/// `u1, u2 ∈ (0, 1)` (strictly positive to avoid log(0)).
+/// Returns `(z0, z1)` where both are N(0,1).
+pub fn box_muller(u1: f32, u2: f32) -> (f32, f32) {
+    use std::f32::consts::TAU;
+    let r = (-2.0 * u1.max(1e-30).ln()).sqrt();
+    let theta = TAU * u2;
+    (r * theta.cos(), r * theta.sin())
+}
+
+/// Uniformly sample a point on a triangle `(a, b, c)` from two uniform samples `u1, u2 ∈ [0,1]`.
+///
+/// Uses the square-root warp to avoid the fold-over discontinuity.
+/// Returns barycentric coordinates `(w0, w1, w2)` summing to 1.
+pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
+    let su1 = u1.sqrt();
+    let w0 = 1.0 - su1;
+    let w1 = su1 * (1.0 - u2);
+    let w2 = su1 * u2;
+    (w0, w1, w2)
+}
+
+/// Shirley-Chiu concentric disk mapping: maps `(u, v) ∈ [-1,1]²` to unit disk.
+///
+/// Low-distortion (preserves area relationships better than polar mapping).
+/// Use with stratified samples for soft shadows and DoF.
+/// Returns `(x, y)` on the unit disk.
+pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
+    if u == 0.0 && v == 0.0 {
+        return (0.0, 0.0);
+    }
+    let (r, theta) = if u.abs() > v.abs() {
+        (u, FRAC_PI_4 * v / u)
+    } else {
+        (v, FRAC_PI_2 - FRAC_PI_4 * u / v)
+    };
+    (r * theta.cos(), r * theta.sin())
+}
+
+/// MIS power heuristic weight for sample from distribution `a` when `n_a` samples are taken.
+///
+/// `pdf_a` — PDF of the chosen sample under distribution a.
+/// `pdf_b` — PDF of the chosen sample under distribution b.
+/// `n_a`, `n_b` — number of samples taken from each distribution.
+/// Returns the weight in `[0, 1]`. Use `beta = 2` (quadratic) per Veach's thesis.
+pub fn power_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) -> f32 {
+    let a = (n_a as f32 * pdf_a).powi(2);
+    let b = (n_b as f32 * pdf_b).powi(2);
+    a / (a + b).max(1e-30)
+}
+
+/// MIS balance heuristic weight (Veach 1997, linear weighting).
+///
+/// Simpler than [`power_heuristic`] but slightly higher variance.
+pub fn balance_heuristic(n_a: u32, pdf_a: f32, n_b: u32, pdf_b: f32) -> f32 {
+    let a = n_a as f32 * pdf_a;
+    let b = n_b as f32 * pdf_b;
+    a / (a + b).max(1e-30)
+}
+
+/// Tent (triangle) filter sample: map `u ∈ [0, 1]` to `[-1, 1]` with tent distribution.
+///
+/// Used to jitter pixel samples for anti-aliasing. The tent PDF peaks at 0
+/// and falls linearly to 0 at ±1 — matches a 2-pixel-wide triangle filter.
+pub fn tent_sample(u: f32) -> f32 {
+    if u < 0.5 {
+        (2.0 * u).sqrt() - 1.0
+    } else {
+        1.0 - (2.0 * (1.0 - u)).sqrt()
+    }
+}
+
+/// Generate an `n × n` stratified jittered 2D sample grid.
+///
+/// Returns `n*n` samples in `[0, 1)²`. Each cell `(i, j)` contributes one
+/// sample with a random jitter `(jx[i*n+j], jy[i*n+j]) ∈ [0, 1)`.
+///
+/// `jitter` — per-sample random offsets, length must be `n*n`.
+/// The `k`-th jitter is used for the `k`-th stratum (row-major order).
+pub fn stratified_jitter_2d(n: u32, jitter: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    let n = n as usize;
+    let inv_n = 1.0 / n as f32;
+    (0..n * n)
+        .map(|k| {
+            let i = k / n;
+            let j = k % n;
+            let (jx, jy) = if k < jitter.len() {
+                jitter[k]
+            } else {
+                (0.5, 0.5)
+            };
+            (
+                (j as f32 + jx.clamp(0.0, 1.0)) * inv_n,
+                (i as f32 + jy.clamp(0.0, 1.0)) * inv_n,
+            )
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests_pass_48 {
+    use super::*;
+
+    // ── box_muller ────────────────────────────────────────────────────────
+
+    #[test]
+    fn box_muller_known_values() {
+        // u1=exp(-0.5), u2=0 → r=1, z0=cos(0)=1, z1=sin(0)=0
+        let (z0, z1) = box_muller((-0.5_f32).exp(), 0.0);
+        assert!((z0 - 1.0).abs() < 1e-4, "z0={z0}");
+        assert!(z1.abs() < 1e-4, "z1={z1}");
+    }
+
+    #[test]
+    fn box_muller_outputs_finite() {
+        for (u1, u2) in [(0.1, 0.3), (0.5, 0.5), (0.9, 0.7), (1e-6, 0.99)] {
+            let (z0, z1) = box_muller(u1, u2);
+            assert!(z0.is_finite() && z1.is_finite(), "u1={u1} u2={u2}");
+        }
+    }
+
+    // ── sample_triangle_uniform ───────────────────────────────────────────
+
+    #[test]
+    fn sample_triangle_sums_to_one() {
+        for (u1, u2) in [(0.0, 0.0), (0.5, 0.5), (1.0, 1.0), (0.3, 0.7)] {
+            let (w0, w1, w2) = sample_triangle_uniform(u1, u2);
+            assert!((w0 + w1 + w2 - 1.0).abs() < 1e-5, "sum={}", w0 + w1 + w2);
+        }
+    }
+
+    #[test]
+    fn sample_triangle_weights_nonneg() {
+        for (u1, u2) in [(0.1, 0.9), (0.9, 0.1), (0.5, 0.5)] {
+            let (w0, w1, w2) = sample_triangle_uniform(u1, u2);
+            assert!(w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0);
+        }
+    }
+
+    // ── concentric_disk_sample ────────────────────────────────────────────
+
+    #[test]
+    fn concentric_disk_inside_unit_disk() {
+        for (u, v) in [(-0.8, 0.3), (0.5, -0.6), (0.9, 0.9), (0.0, 0.0)] {
+            let (x, y) = concentric_disk_sample(u, v);
+            let r2 = x * x + y * y;
+            assert!(r2 <= 1.0 + 1e-5, "u={u} v={v} r²={r2}");
+        }
+    }
+
+    #[test]
+    fn concentric_disk_origin_maps_to_origin() {
+        let (x, y) = concentric_disk_sample(0.0, 0.0);
+        assert!(x.abs() < 1e-6 && y.abs() < 1e-6);
+    }
+
+    // ── power_heuristic / balance_heuristic ───────────────────────────────
+
+    #[test]
+    fn power_heuristic_equal_pdfs_half() {
+        let w = power_heuristic(1, 1.0, 1, 1.0);
+        assert!((w - 0.5).abs() < 1e-5, "w={w}");
+    }
+
+    #[test]
+    fn power_heuristic_dominant_pdf_near_one() {
+        // pdf_a >> pdf_b → weight → 1
+        let w = power_heuristic(1, 100.0, 1, 0.001);
+        assert!(w > 0.99, "w={w}");
+    }
+
+    #[test]
+    fn balance_heuristic_sums_to_one() {
+        let wa = balance_heuristic(1, 2.0, 1, 3.0);
+        let wb = balance_heuristic(1, 3.0, 1, 2.0);
+        assert!((wa + wb - 1.0).abs() < 1e-5, "wa+wb={}", wa + wb);
+    }
+
+    // ── tent_sample ───────────────────────────────────────────────────────
+
+    #[test]
+    fn tent_sample_midpoint_is_zero() {
+        assert!(tent_sample(0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn tent_sample_endpoints() {
+        assert!((tent_sample(0.0) + 1.0).abs() < 1e-5);
+        assert!((tent_sample(1.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn tent_sample_in_range() {
+        for i in 0..=10 {
+            let t = tent_sample(i as f32 / 10.0);
+            assert!(t >= -1.0 && t <= 1.0, "t={t}");
+        }
+    }
+
+    // ── stratified_jitter_2d ──────────────────────────────────────────────
+
+    #[test]
+    fn stratified_jitter_correct_count() {
+        let jitter: Vec<(f32, f32)> = (0..4).map(|_| (0.5, 0.5)).collect();
+        let samples = stratified_jitter_2d(2, &jitter);
+        assert_eq!(samples.len(), 4);
+    }
+
+    #[test]
+    fn stratified_jitter_in_unit_square() {
+        let jitter: Vec<(f32, f32)> = (0..9).map(|i| (i as f32 / 9.0, 0.5)).collect();
+        for (x, y) in stratified_jitter_2d(3, &jitter) {
+            assert!(
+                (0.0..=1.0).contains(&x) && (0.0..=1.0).contains(&y),
+                "x={x} y={y}"
+            );
+        }
+    }
+}
