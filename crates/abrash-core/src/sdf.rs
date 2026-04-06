@@ -2140,6 +2140,138 @@ pub fn arrow_2d(p: Vec2, a: Vec2, b: Vec2, head_w: f32, head_h: f32, shaft_r: f3
     d_shaft.min(d_head).min(d_tail)
 }
 
+// ── Sharp CSG operators ──────────────────────────────────────────────────────
+
+/// Sharp (non-smooth) CSG union: the closer of two shapes.
+///
+/// Equivalent to `min(a, b)`. Complement to [`smooth_union`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::sdf_union;
+/// assert_eq!(sdf_union(-1.0, 2.0), -1.0); // inside a, outside b → inside union
+/// assert_eq!(sdf_union(3.0, 1.0),   1.0); // closer surface wins
+/// ```
+#[must_use]
+#[inline]
+pub fn sdf_union(a: f32, b: f32) -> f32 {
+    a.min(b)
+}
+
+/// Sharp CSG intersection: keep only the overlap of two shapes.
+///
+/// Equivalent to `max(a, b)`. Complement to [`smooth_intersection`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::sdf_intersect;
+/// assert_eq!(sdf_intersect(-1.0, -0.5), -0.5); // inside both → closer boundary
+/// assert!(sdf_intersect(-1.0,  2.0) > 0.0);     // inside a but outside b → outside
+/// ```
+#[must_use]
+#[inline]
+pub fn sdf_intersect(a: f32, b: f32) -> f32 {
+    a.max(b)
+}
+
+/// Sharp CSG subtraction: cut shape `b` out of shape `a`.
+///
+/// Equivalent to `max(a, -b)`. Complement to [`smooth_subtraction`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::sdf::sdf_subtract;
+/// // Point inside a (-1) but also inside b (-0.5) → cut out → outside (+0.5)
+/// assert!( sdf_subtract(-1.0, -0.5) > 0.0);
+/// // Point inside a (-1) but outside b (+2) → survives → inside (-1)
+/// assert!( sdf_subtract(-1.0,  2.0) < 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn sdf_subtract(a: f32, b: f32) -> f32 {
+    a.max(-b)
+}
+
+/// Distance from point `p` to the closest point on 3D line segment `a`–`b`.
+///
+/// Returns the unsigned distance — no radius, unlike [`capsule_3d`].
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::segment_3d;
+///
+/// let a = Vec3::new(0.0, 0.0, 0.0);
+/// let b = Vec3::new(2.0, 0.0, 0.0);
+///
+/// // Midpoint: distance = 0
+/// assert!( segment_3d(Vec3::new(1.0, 0.0, 0.0), a, b) < 1e-5);
+/// // Perpendicular above midpoint
+/// assert!((segment_3d(Vec3::new(1.0, 1.0, 0.0), a, b) - 1.0).abs() < 1e-5);
+/// // Past end — distance to endpoint
+/// assert!((segment_3d(Vec3::new(4.0, 0.0, 0.0), a, b) - 2.0).abs() < 1e-5);
+/// ```
+#[must_use]
+pub fn segment_3d(p: Vec3, a: Vec3, b: Vec3) -> f32 {
+    let ab = b - a;
+    let ap = p - a;
+    let t = (ap.dot(ab) / ab.length_sq()).clamp(0.0, 1.0);
+    (ap - ab * t).length()
+}
+
+/// SDF of a 3D rounded cone: a cone-like shape with spherical caps of different radii.
+///
+/// `a` and `b` are the centres of the two end-caps; `r1` and `r2` are their radii.
+/// The surface smoothly interpolates between the two spheres along the axis.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::Vec3;
+/// use abrash_core::sdf::rounded_cone_3d;
+///
+/// let a = Vec3::new(0.0, 0.0, 0.0);
+/// let b = Vec3::new(0.0, 2.0, 0.0);
+///
+/// // Centre of the larger cap is inside
+/// let inside = rounded_cone_3d(Vec3::new(0.0, 0.0, 0.0), a, b, 0.5, 0.2);
+/// assert!(inside < 0.0, "inside large cap: {inside}");
+///
+/// // Far away is outside
+/// let outside = rounded_cone_3d(Vec3::new(0.0, 5.0, 0.0), a, b, 0.5, 0.2);
+/// assert!(outside > 0.0, "outside: {outside}");
+/// ```
+#[must_use]
+pub fn rounded_cone_3d(p: Vec3, a: Vec3, b: Vec3, r1: f32, r2: f32) -> f32 {
+    // IQ's sdRoundCone — analytically exact SDF between two offset spheres
+    let ba = b - a;
+    let l2 = ba.length_sq();
+    let rr = r1 - r2;
+    let a2 = l2 - rr * rr;
+    let il2 = 1.0 / l2;
+
+    let pa = p - a;
+    let y = pa.dot(ba);
+    let z = y - l2;
+    let pba = pa * l2 - ba * y;
+    let x2 = pba.length_sq();
+    let y2 = y * y * l2;
+    let z2 = z * z * l2;
+
+    let k = rr.signum() * rr * rr * x2;
+    if rr.signum() * z * a2 > k {
+        return (x2 + z2).sqrt() * il2 - r2;
+    }
+    if rr.signum() * y * a2 < k {
+        return (x2 + y2).sqrt() * il2 - r1;
+    }
+    ((x2 * a2 * il2).sqrt() + y * rr) * il2 - r1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2816,5 +2948,92 @@ mod tests {
         let b = Vec2::new(2.0, 0.0);
         let d = arrow_2d(Vec2::new(1.0, 2.0), a, b, 0.3, 0.5, 0.1);
         assert!(d > 0.0, "far above arrow: {d}");
+    }
+
+    // ── sharp CSG operators ───────────────────────────────────────────────
+    #[test]
+    fn sdf_union_picks_closer() {
+        assert_eq!(sdf_union(-1.0, 2.0), -1.0);
+        assert_eq!(sdf_union(3.0, 1.0), 1.0);
+        assert_eq!(sdf_union(-2.0, -0.5), -2.0);
+    }
+
+    #[test]
+    fn sdf_intersect_picks_further() {
+        assert_eq!(sdf_intersect(-1.0, -0.5), -0.5);
+        assert!(sdf_intersect(-1.0, 2.0) > 0.0); // inside a but outside b
+    }
+
+    #[test]
+    fn sdf_subtract_cuts_b_from_a() {
+        // Inside a (-1) and inside b (-0.5) → cut out → 0.5 (outside)
+        assert!(sdf_subtract(-1.0, -0.5) > 0.0);
+        // Inside a (-1) but outside b (2) → survives → -1 (inside)
+        assert!(sdf_subtract(-1.0, 2.0) < 0.0);
+    }
+
+    #[test]
+    fn sharp_csg_consistency_with_smooth() {
+        // At k→0, smooth operators approach sharp ones
+        let a = 0.3_f32;
+        let b = 0.7_f32;
+        assert!((sdf_union(a, b) - smooth_union(a, b, 0.001)).abs() < 0.01);
+    }
+
+    // ── segment_3d ────────────────────────────────────────────────────────
+    #[test]
+    fn segment_3d_on_segment_zero() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let d = segment_3d(Vec3::new(1.0, 0.0, 0.0), a, b);
+        assert!(d < 1e-5, "on segment: {d}");
+    }
+
+    #[test]
+    fn segment_3d_perpendicular_distance() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let d = segment_3d(Vec3::new(1.0, 1.0, 0.0), a, b);
+        assert!((d - 1.0).abs() < 1e-5, "perpendicular distance: {d}");
+    }
+
+    #[test]
+    fn segment_3d_past_end() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(2.0, 0.0, 0.0);
+        let d = segment_3d(Vec3::new(4.0, 0.0, 0.0), a, b);
+        assert!((d - 2.0).abs() < 1e-5, "past endpoint: {d}");
+    }
+
+    // ── rounded_cone_3d ───────────────────────────────────────────────────
+    #[test]
+    fn rounded_cone_inside_large_cap() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 2.0, 0.0);
+        let d = rounded_cone_3d(Vec3::new(0.0, 0.0, 0.0), a, b, 0.5, 0.2);
+        assert!(d < 0.0, "inside large cap: {d}");
+    }
+
+    #[test]
+    fn rounded_cone_outside() {
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 2.0, 0.0);
+        let d = rounded_cone_3d(Vec3::new(0.0, 5.0, 0.0), a, b, 0.5, 0.2);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    #[test]
+    fn rounded_cone_equal_radii_is_capsule() {
+        // Equal radii → same as capsule_3d with that radius
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(0.0, 2.0, 0.0);
+        let r = 0.3_f32;
+        let p = Vec3::new(0.15, 1.0, 0.0);
+        let d_cone = rounded_cone_3d(p, a, b, r, r);
+        let d_cap = capsule_3d(p, a, b, r);
+        assert!(
+            (d_cone - d_cap).abs() < 1e-4,
+            "equal-radii cone = capsule: {d_cone} vs {d_cap}"
+        );
     }
 }
