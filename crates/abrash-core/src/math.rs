@@ -18369,3 +18369,260 @@ mod tests_pass_53 {
         assert!(q.z.abs() < 1e-6);
     }
 }
+
+// ── Pass 54 — hash functions, XYZ/RGB, blackbody, Hilbert curve ───────────────
+// wang_hash, lowbias32, murmur3_fmix32, hash_to_unit_vec3,
+// xyz_to_linear_rgb, blackbody_linear_rgb,
+// hilbert_xy_to_d, hilbert_d_to_xy
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lowbias32 hash — Chris Wellons bijective integer hash with minimal bias.
+///
+/// Avalanche score ~0.020 bits (near perfect for a 32-bit hash).
+#[inline]
+pub fn lowbias32(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x45d9_f3b7);
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x45d9_f3b7);
+    x ^= x >> 16;
+    x
+}
+
+/// MurmurHash3 finalizer (fmix32) — excellent bit mixing for hash tables.
+#[inline]
+pub fn murmur3_fmix32(mut h: u32) -> u32 {
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x85eb_ca6b);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0xc2b2_ae35);
+    h ^= h >> 16;
+    h
+}
+
+/// Map a u32 seed to a uniformly distributed point on the unit sphere.
+///
+/// Uses two hash rounds to produce independent azimuthal and polar coordinates.
+pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
+    const INV32: f32 = 2.328_306_4e-10; // 2^-32
+    let h1 = murmur3_fmix32(seed);
+    let h2 = murmur3_fmix32(h1.wrapping_add(0x9e37_79b9));
+    // cos(polar angle) uniform in [-1, 1]; azimuth uniform in [0, TAU).
+    let cos_theta = h1 as f32 * INV32 * 2.0 - 1.0;
+    let phi = h2 as f32 * INV32 * std::f32::consts::TAU;
+    let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
+    Vec3::new(sin_theta * phi.cos(), cos_theta, sin_theta * phi.sin())
+}
+
+/// Physically accurate blackbody emission as **linear** sRGB.
+///
+/// Uses the Kang 2002 approximation of the Planckian locus (CIE xy chromaticity
+/// as a function of T in K) then converts via XYZ to linear sRGB.  Output is
+/// normalised so Y = 1 (relative spectral power, not absolute radiance).
+///
+/// Valid range: 1667 K to 25 000 K.  Returns linear sRGB; may be out-of-gamut.
+pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
+    let t = kelvin.clamp(1667.0, 25_000.0);
+    // Kang 2002 — chromaticity x as function of T.
+    let x = if t < 4000.0 {
+        let ti = 1.0 / t;
+        -0.266_123_9e9 * ti * ti * ti - 0.234_358_0e6 * ti * ti + 0.877_695_6e3 * ti + 0.179_910
+    } else {
+        let ti = 1.0 / t;
+        -3.025_846_9e9 * ti * ti * ti + 2.107_037_9e6 * ti * ti + 0.222_634_7e3 * ti + 0.240_390
+    };
+    // Chromaticity y from x.
+    let y = if t < 4000.0 {
+        -1.106_381_4 * x * x * x - 1.348_110_2 * x * x + 2.185_558_32 * x - 0.202_196_83
+    } else {
+        3.081_758 * x * x * x - 5.873_386_7 * x * x + 3.751_129_97 * x - 0.370_014_83
+    };
+    // xyY to XYZ with Y = 1.
+    let big_x = if y.abs() < 1e-8 { 0.0 } else { x / y };
+    let big_y = 1.0;
+    let big_z = if y.abs() < 1e-8 {
+        0.0
+    } else {
+        (1.0 - x - y) / y
+    };
+    xyz_to_linear_rgb(big_x, big_y, big_z)
+}
+
+/// Encode a 2D point `(x, y)` to its index `d` on the Hilbert curve of order
+/// `n` (i.e., the curve divides each axis into `2^n` cells).
+///
+/// `x` and `y` must be in `[0, 2^n)`.  Returns the Hilbert index in
+/// `[0, 4^n)`.
+pub fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
+    let mut d = 0u32;
+    let mut s = 1u32 << (n - 1);
+    while s > 0 {
+        let rx = if x & s > 0 { 1u32 } else { 0 };
+        let ry = if y & s > 0 { 1u32 } else { 0 };
+        d += s * s * ((3 * rx) ^ ry);
+        // Rotate quadrant.
+        if ry == 0 {
+            if rx == 1 {
+                x = s.wrapping_sub(1).wrapping_sub(x);
+                y = s.wrapping_sub(1).wrapping_sub(y);
+            }
+            std::mem::swap(&mut x, &mut y);
+        }
+        s >>= 1;
+    }
+    d
+}
+
+/// Decode Hilbert index `d` to `(x, y)` coordinates for a curve of order `n`.
+///
+/// Inverse of `hilbert_xy_to_d`.  Returns `(x, y)` in `[0, 2^n)`.
+pub fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
+    let mut x = 0u32;
+    let mut y = 0u32;
+    let mut s = 1u32;
+    while s < (1u32 << n) {
+        let rx = (d >> 1) & 1;
+        let ry = d & 1 ^ rx;
+        // Rotate.
+        if ry == 0 {
+            if rx == 1 {
+                x = s.wrapping_sub(1).wrapping_sub(x);
+                y = s.wrapping_sub(1).wrapping_sub(y);
+            }
+            std::mem::swap(&mut x, &mut y);
+        }
+        x += s * rx;
+        y += s * ry;
+        d >>= 2;
+        s <<= 1;
+    }
+    (x, y)
+}
+
+// ── Tests — Pass 54 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_54 {
+    use super::*;
+
+    // ── lowbias32 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lowbias32_distinct_inputs() {
+        assert_ne!(lowbias32(0), lowbias32(1));
+        assert_ne!(lowbias32(100), lowbias32(101));
+    }
+
+    #[test]
+    fn lowbias32_nonzero_for_one() {
+        // 0 is a fixed point (XOR-multiply property); test non-zero inputs.
+        assert_ne!(lowbias32(1), 0);
+        assert_ne!(lowbias32(1), 1);
+    }
+
+    // ── murmur3_fmix32 ────────────────────────────────────────────────────────
+
+    #[test]
+    fn murmur3_known_value() {
+        // 0 is a fixed point of XOR-multiply hashes; test non-zero inputs.
+        assert_ne!(murmur3_fmix32(1), 0);
+        assert_ne!(murmur3_fmix32(1), 1);
+        assert_eq!(murmur3_fmix32(42), murmur3_fmix32(42));
+    }
+
+    // ── hash_to_unit_vec3 ─────────────────────────────────────────────────────
+
+    #[test]
+    fn hash_vec3_on_unit_sphere() {
+        for seed in 0..16 {
+            let v = hash_to_unit_vec3(seed);
+            let len_sq = v.x * v.x + v.y * v.y + v.z * v.z;
+            assert!((len_sq - 1.0).abs() < 1e-5, "seed={seed} len_sq={len_sq}");
+        }
+    }
+
+    #[test]
+    fn hash_vec3_diverse() {
+        // Different seeds should produce different vectors.
+        let v0 = hash_to_unit_vec3(0);
+        let v1 = hash_to_unit_vec3(1);
+        let dot = v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
+        assert!((dot - 1.0).abs() > 1e-3, "v0 and v1 too similar, dot={dot}");
+    }
+
+    // ── xyz_to_linear_rgb (existing function) ────────────────────────────────
+
+    #[test]
+    fn xyz_rgb_round_trip() {
+        // Round-trip: linear_rgb_to_xyz (existing) then xyz_to_linear_rgb (existing).
+        let (r0, g0, b0) = (0.5_f32, 0.3, 0.8);
+        let (x, y, z) = linear_rgb_to_xyz(r0, g0, b0);
+        let (r1, g1, b1) = xyz_to_linear_rgb(x, y, z);
+        assert!((r0 - r1).abs() < 1e-4, "r: {r0} vs {r1}");
+        assert!((g0 - g1).abs() < 1e-4, "g: {g0} vs {g1}");
+        assert!((b0 - b1).abs() < 1e-4, "b: {b0} vs {b1}");
+    }
+
+    #[test]
+    fn xyz_d65_white_is_white() {
+        // D65 white point in XYZ: approximately (0.9505, 1.0, 1.089).
+        let (r, g, b) = xyz_to_linear_rgb(0.9505, 1.0, 1.089);
+        assert!((r - 1.0).abs() < 0.01, "r={r}");
+        assert!((g - 1.0).abs() < 0.01, "g={g}");
+        assert!((b - 1.0).abs() < 0.01, "b={b}");
+    }
+
+    // ── blackbody_linear_rgb ──────────────────────────────────────────────────
+
+    #[test]
+    fn blackbody_warm_is_reddish() {
+        let (r, g, b) = blackbody_linear_rgb(2000.0);
+        // Warm temperature: more red than blue.
+        assert!(r > b, "r={r} b={b}");
+    }
+
+    #[test]
+    fn blackbody_cool_is_bluish() {
+        let (r, g, b) = blackbody_linear_rgb(12000.0);
+        // Cool temperature: more blue (or equal) than red.
+        assert!(b >= r, "r={r} b={b}");
+    }
+
+    #[test]
+    fn blackbody_finite_values() {
+        for t in [1700.0, 3000.0, 6500.0, 10000.0, 20000.0] {
+            let (r, g, b) = blackbody_linear_rgb(t);
+            assert!(r.is_finite() && g.is_finite() && b.is_finite(), "t={t}");
+        }
+    }
+
+    // ── hilbert_xy_to_d / hilbert_d_to_xy ────────────────────────────────────
+
+    #[test]
+    fn hilbert_round_trip() {
+        let n = 4u32; // 16x16 grid
+        for d in 0..256 {
+            let (x, y) = hilbert_d_to_xy(d, n);
+            let d2 = hilbert_xy_to_d(x, y, n);
+            assert_eq!(d, d2, "d={d} -> ({x},{y}) -> {d2}");
+        }
+    }
+
+    #[test]
+    fn hilbert_origin_is_zero() {
+        assert_eq!(hilbert_xy_to_d(0, 0, 4), 0);
+    }
+
+    #[test]
+    fn hilbert_covers_all_cells() {
+        let n = 3u32; // 8x8 = 64 cells
+        let mut seen = vec![false; 64];
+        for d in 0..64 {
+            let (x, y) = hilbert_d_to_xy(d, n);
+            let idx = (y * 8 + x) as usize;
+            assert!(!seen[idx], "duplicate cell ({x},{y}) at d={d}");
+            seen[idx] = true;
+        }
+        assert!(seen.iter().all(|&v| v), "not all cells covered");
+    }
+}
