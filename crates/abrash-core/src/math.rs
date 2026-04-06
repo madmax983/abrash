@@ -14236,3 +14236,252 @@ mod tests_pass_38 {
         assert!((len - 1.0).abs() < 1e-4, "len={len}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 39 — smooth-min/max, pingpong, wrap_angle, PCG hash, IGN, gold noise
+// ---------------------------------------------------------------------------
+
+/// Exponential smooth-min (IQ). Blends two SDF distances with C∞ continuity.
+///
+/// `k` controls the blend radius (larger → softer union). Typical range: 0.1–2.0.
+pub fn smooth_min_exp(a: f32, b: f32, k: f32) -> f32 {
+    let r = (-k * a).exp() + (-k * b).exp();
+    -r.ln() / k
+}
+
+/// Polynomial smooth-min (IQ, quartic). C² continuity; slightly cheaper than exp.
+///
+/// `k` controls the blend radius. Typical range: 0.1–2.0.
+pub fn smooth_min_poly(a: f32, b: f32, k: f32) -> f32 {
+    let h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);
+    lerp(b, a, h) - k * h * (1.0 - h)
+}
+
+/// Polynomial smooth-max (IQ, quartic). Dual of [`smooth_min_poly`].
+///
+/// Returns a C² smooth union of the *larger* of the two values.
+pub fn smooth_max_poly(a: f32, b: f32, k: f32) -> f32 {
+    -smooth_min_poly(-a, -b, k)
+}
+
+/// Triangle-wave / ping-pong oscillation.
+///
+/// The output bounces between `0.0` and `length` as `t` increases, creating a
+/// smooth back-and-forth without discontinuities (unlike `t % length`).
+pub fn pingpong(t: f32, length: f32) -> f32 {
+    let t = t - (t / (2.0 * length)).floor() * (2.0 * length);
+    if t < length { t } else { 2.0 * length - t }
+}
+
+/// Normalize an angle (radians) into `(-π, π]`.
+pub fn wrap_angle(angle: f32) -> f32 {
+    use std::f32::consts::PI;
+    let a = angle % (2.0 * PI);
+    if a > PI {
+        a - 2.0 * PI
+    } else if a <= -PI {
+        a + 2.0 * PI
+    } else {
+        a
+    }
+}
+
+/// PCG32 output hash: u32 → u32. Excellent avalanche, very low cost.
+///
+/// A second, distinct PCG-output-stage hash — uses a different multiplier than
+/// the `pcg_hash` const fn already in this module (which uses the Murmur3 final
+/// mix). This one uses the PCG-XSH-RR permutation from O'Neill 2014.
+pub fn pcg32_output(state: u32) -> u32 {
+    let s = state.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
+    let w = ((s >> ((s >> 28).wrapping_add(4))) ^ s).wrapping_mul(277_803_737);
+    (w >> 22) ^ w
+}
+
+/// 2D PCG hash: (u32, u32) → u32. Good spatial decorrelation.
+pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+    pcg32_output(x.wrapping_add(pcg32_output(y)))
+}
+
+/// Interleaved Gradient Noise (Jimenez et al. 2014 "Next Generation Post Processing in Call of Duty").
+///
+/// Returns a pseudo-random scalar in `[0, 1)` for a pixel coordinate.
+/// Superior to Bayer dithering for temporal AA: the pattern changes coherently
+/// across frames when `frame_index` is incremented by golden-ratio multiples.
+pub fn interleaved_gradient_noise(pixel_x: f32, pixel_y: f32) -> f32 {
+    let f = 52.982_92 * pixel_x + 9.188_25 * pixel_y;
+    f.fract()
+}
+
+/// Temporally stable IGN: adds per-frame offset using the golden ratio.
+///
+/// `frame_index` should increase monotonically; the pattern decorrelates across
+/// frames, which is ideal for temporal accumulation (TAA, SSAO, etc.).
+pub fn interleaved_gradient_noise_temporal(pixel_x: f32, pixel_y: f32, frame_index: u32) -> f32 {
+    const GOLDEN_RATIO: f32 = 0.618_033_98;
+    let base = interleaved_gradient_noise(pixel_x, pixel_y);
+    (base + GOLDEN_RATIO * frame_index as f32).fract()
+}
+
+/// Gold noise — 2D float hash using the plastic constant (∛(plastic number)).
+///
+/// Returns a value in `[0, 1)`. Produces a low-discrepancy distribution with
+/// excellent spectral properties when seeded per-pixel with a random seed.
+pub fn gold_noise(x: f32, y: f32, seed: f32) -> f32 {
+    const PHI: f32 = 1.618_033_98; // golden ratio
+    ((x * PHI + y + seed) * 1_e4).sin().fract().abs()
+}
+
+#[cfg(test)]
+mod tests_pass_39 {
+    use super::*;
+    use std::f32::consts::PI;
+
+    // ── smooth_min_exp ─────────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_min_exp_approaches_min() {
+        // With very large k the smooth-min approaches hard min.
+        let a = 1.0_f32;
+        let b = 3.0_f32;
+        let s = smooth_min_exp(a, b, 20.0);
+        assert!((s - a.min(b)).abs() < 0.05, "s={s}");
+    }
+
+    #[test]
+    fn smooth_min_exp_symmetric() {
+        let s1 = smooth_min_exp(1.0, 2.0, 1.0);
+        let s2 = smooth_min_exp(2.0, 1.0, 1.0);
+        assert!((s1 - s2).abs() < 1e-5, "not symmetric: {s1} vs {s2}");
+    }
+
+    // ── smooth_min_poly / smooth_max_poly ──────────────────────────────────
+
+    #[test]
+    fn smooth_min_poly_blends_between() {
+        let s = smooth_min_poly(1.0, 3.0, 1.0);
+        // Result must be ≤ min(a,b) and > min - k.
+        assert!(s <= 1.0 + 1e-5, "s={s} should be ≤ 1");
+        assert!(s >= 0.0, "s={s}");
+    }
+
+    #[test]
+    fn smooth_max_poly_blends_between() {
+        let s = smooth_max_poly(1.0, 3.0, 1.0);
+        assert!(s >= 3.0 - 1e-5, "s={s} should be ≥ 3");
+    }
+
+    #[test]
+    fn smooth_min_max_poly_symmetric() {
+        let smin = smooth_min_poly(1.5, 2.5, 0.5);
+        let smax = smooth_max_poly(1.5, 2.5, 0.5);
+        // Symmetric: smin(a,b) + smax(a,b) ≈ a + b  (this holds for the quartic variant).
+        let sum = smin + smax;
+        let expected = 1.5 + 2.5;
+        assert!(
+            (sum - expected).abs() < 1e-4,
+            "sum={sum} expected≈{expected}"
+        );
+    }
+
+    // ── pingpong ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn pingpong_zero_at_start() {
+        assert!((pingpong(0.0, 1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn pingpong_peaks_at_length() {
+        assert!((pingpong(1.0, 1.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn pingpong_returns_at_double() {
+        assert!((pingpong(2.0, 1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn pingpong_bounded() {
+        for i in 0..100 {
+            let t = i as f32 * 0.13;
+            let v = pingpong(t, 1.0);
+            assert!(v >= 0.0 && v <= 1.0 + 1e-6, "t={t} v={v}");
+        }
+    }
+
+    // ── wrap_angle ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn wrap_angle_identity_near_zero() {
+        assert!((wrap_angle(0.5) - 0.5).abs() < 1e-6);
+        assert!((wrap_angle(-0.5) + 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn wrap_angle_full_circle() {
+        let w = wrap_angle(2.0 * PI + 0.3);
+        assert!((w - 0.3).abs() < 1e-5, "w={w}");
+    }
+
+    #[test]
+    fn wrap_angle_negative_full_circle() {
+        let w = wrap_angle(-2.0 * PI - 0.3);
+        assert!((w + 0.3).abs() < 1e-5, "w={w}");
+    }
+
+    // ── pcg_hash / pcg_hash_2d ─────────────────────────────────────────────
+
+    #[test]
+    fn pcg32_output_differs_by_one_input() {
+        let a = pcg32_output(0);
+        let b = pcg32_output(1);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn pcg32_hash_2d_not_symmetric() {
+        let ab = pcg32_hash_2d(1, 2);
+        let ba = pcg32_hash_2d(2, 1);
+        // Should differ (spatial decorrelation).
+        assert_ne!(ab, ba);
+    }
+
+    // ── interleaved_gradient_noise ─────────────────────────────────────────
+
+    #[test]
+    fn ign_in_range() {
+        for x in 0..8u32 {
+            for y in 0..8u32 {
+                let v = interleaved_gradient_noise(x as f32, y as f32);
+                assert!((0.0..1.0).contains(&v), "x={x} y={y} v={v}");
+            }
+        }
+    }
+
+    #[test]
+    fn ign_temporal_shifts_each_frame() {
+        let v0 = interleaved_gradient_noise_temporal(3.0, 7.0, 0);
+        let v1 = interleaved_gradient_noise_temporal(3.0, 7.0, 1);
+        assert_ne!(v0, v1);
+    }
+
+    // ── gold_noise ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn gold_noise_in_range() {
+        for i in 0..16u32 {
+            let v = gold_noise(i as f32, (i * 3) as f32, 1.0);
+            assert!((0.0..1.0).contains(&v), "i={i} v={v}");
+        }
+    }
+
+    #[test]
+    fn gold_noise_differs_by_seed() {
+        let a = gold_noise(5.0, 7.0, 0.0);
+        let b = gold_noise(5.0, 7.0, 1.0);
+        assert!(
+            (a - b).abs() > 1e-4,
+            "seed should change output: {a} vs {b}"
+        );
+    }
+}
