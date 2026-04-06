@@ -904,6 +904,121 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     }
 }
 
+/// Halton low-discrepancy sequence.
+///
+/// Returns the `index`-th element of the Halton sequence in the given `base`.
+/// Common bases: 2 and 3 give a well-distributed 2D sequence.
+/// The sequence is deterministic and fills \[0, 1) evenly without clustering.
+///
+/// Useful for quasi-Monte Carlo integration, SSAO sample kernels, TAA jitter.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::halton;
+///
+/// // Base-2 sequence: 1/2, 1/4, 3/4, 1/8, ...
+/// assert!((halton(1, 2) - 0.5).abs()  < 1e-6);
+/// assert!((halton(2, 2) - 0.25).abs() < 1e-6);
+/// assert!((halton(3, 2) - 0.75).abs() < 1e-6);
+/// // Values are in [0, 1)
+/// for i in 0..16u32 { assert!((0.0..1.0).contains(&halton(i, 2))); }
+/// ```
+#[must_use]
+pub fn halton(mut index: u32, base: u32) -> f32 {
+    let mut result = 0.0_f32;
+    let mut f = 1.0_f32;
+    let b = base as f32;
+    while index > 0 {
+        f /= b;
+        result += f * (index % base) as f32;
+        index /= base;
+    }
+    result
+}
+
+/// Van der Corput radical inverse (base 2) via bit-reversal.
+///
+/// Equivalent to `halton(bits, 2)` but computed in O(1) using integer
+/// bit-reversal — the standard fast path used in PBR importance sampling.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::van_der_corput;
+///
+/// assert!((van_der_corput(0) - 0.0).abs()  < 1e-9);
+/// assert!((van_der_corput(1) - 0.5).abs()  < 1e-9);
+/// assert!((van_der_corput(2) - 0.25).abs() < 1e-9);
+/// assert!((van_der_corput(3) - 0.75).abs() < 1e-9);
+/// ```
+#[must_use]
+#[inline]
+pub fn van_der_corput(mut bits: u32) -> f32 {
+    bits = (bits << 16) | (bits >> 16);
+    bits = ((bits & 0x5555_5555) << 1) | ((bits & 0xAAAA_AAAA) >> 1);
+    bits = ((bits & 0x3333_3333) << 2) | ((bits & 0xCCCC_CCCC) >> 2);
+    bits = ((bits & 0x0F0F_0F0F) << 4) | ((bits & 0xF0F0_F0F0) >> 4);
+    bits = ((bits & 0x00FF_00FF) << 8) | ((bits & 0xFF00_FF00) >> 8);
+    bits as f32 * (1.0 / 4_294_967_296.0_f32)
+}
+
+/// Hammersley 2D point set — (i/N, van_der_corput(i)).
+///
+/// Produces `total` stratified sample points in \[0,1)² with low discrepancy.
+/// Standard in PBR for importance-sampling the hemisphere and SSAO kernels.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::hammersley_2d;
+///
+/// let p = hammersley_2d(0, 4);
+/// assert!((p.x - 0.0).abs() < 1e-6);
+///
+/// let p = hammersley_2d(2, 4);
+/// assert!((p.x - 0.5).abs() < 1e-6);
+/// assert!((p.y - 0.25).abs() < 1e-9); // van der Corput(2) = 0.25
+/// ```
+#[must_use]
+#[inline]
+pub fn hammersley_2d(index: u32, total: u32) -> Vec2 {
+    Vec2::new(index as f32 / total as f32, van_der_corput(index))
+}
+
+/// Frenet-Serret tangent–normal–binormal frame from a curve tangent and an up hint.
+///
+/// Constructs an orthonormal TNB basis:
+/// - **T** (tangent): normalised `tangent`
+/// - **B** (binormal): `T × up_hint`, normalised
+/// - **N** (normal): `B × T` (always perpendicular to both)
+///
+/// Use `up_hint = Vec3::Y` unless the curve is nearly vertical, in which case
+/// try `Vec3::X` or `Vec3::Z` to avoid degenerate cross products.
+///
+/// Useful for ribbon/tube geometry along splines, camera alignment, and physics.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, frenet_frame};
+///
+/// let (t, n, b) = frenet_frame(Vec3::X, Vec3::Y);
+/// // T = +X, B = X×Y = -Z, N = (-Z)×X = -Y  (right-hand rule)
+/// assert!((t - Vec3::X).length() < 1e-5);
+/// assert!((t.dot(n)).abs() < 1e-5, "T⊥N");
+/// assert!((t.dot(b)).abs() < 1e-5, "T⊥B");
+/// assert!((n.dot(b)).abs() < 1e-5, "N⊥B");
+/// ```
+#[must_use]
+#[inline]
+pub fn frenet_frame(tangent: Vec3, up_hint: Vec3) -> (Vec3, Vec3, Vec3) {
+    let t = tangent.normalize_or_zero();
+    let b = t.cross(up_hint).normalize_or_zero();
+    let n = b.cross(t);
+    (t, n, b)
+}
+
 /// Signed area of a 2D polygon (shoelace / surveyor's formula).
 ///
 /// Positive for counter-clockwise winding, negative for clockwise.
@@ -7358,5 +7473,104 @@ mod tests_pass_16 {
         let v = Vec2::new(2.0, 0.0);
         let c = v.clamp_length(2.0);
         assert!((c.length() - 2.0).abs() < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_17 {
+    use super::*;
+
+    // ── halton ────────────────────────────────────────────────────────────
+    #[test]
+    fn halton_base2_known_values() {
+        assert!((halton(1, 2) - 0.5).abs() < 1e-7);
+        assert!((halton(2, 2) - 0.25).abs() < 1e-7);
+        assert!((halton(3, 2) - 0.75).abs() < 1e-7);
+        assert!((halton(4, 2) - 0.125).abs() < 1e-7);
+    }
+
+    #[test]
+    fn halton_zero_is_zero() {
+        assert_eq!(halton(0, 2), 0.0);
+        assert_eq!(halton(0, 3), 0.0);
+    }
+
+    #[test]
+    fn halton_in_unit_interval() {
+        for i in 0..64u32 {
+            let v = halton(i, 2);
+            assert!((0.0..1.0).contains(&v), "halton({i},2) = {v} not in [0,1)");
+        }
+    }
+
+    #[test]
+    fn halton_base3_known_values() {
+        // base-3: 1→1/3, 2→2/3, 3→1/9, 4→4/9
+        assert!((halton(1, 3) - 1.0 / 3.0).abs() < 1e-7);
+        assert!((halton(2, 3) - 2.0 / 3.0).abs() < 1e-7);
+        assert!((halton(3, 3) - 1.0 / 9.0).abs() < 1e-7);
+    }
+
+    // ── van_der_corput ────────────────────────────────────────────────────
+    #[test]
+    fn van_der_corput_matches_halton_base2() {
+        for i in 0..32u32 {
+            let a = van_der_corput(i);
+            let b = halton(i, 2);
+            assert!((a - b).abs() < 1e-7, "vdc({i}) = {a}, halton = {b}");
+        }
+    }
+
+    #[test]
+    fn van_der_corput_in_unit_interval() {
+        for i in 0..64u32 {
+            let v = van_der_corput(i);
+            assert!((0.0..=1.0).contains(&v));
+        }
+    }
+
+    // ── hammersley_2d ─────────────────────────────────────────────────────
+    #[test]
+    fn hammersley_x_is_i_over_n() {
+        let p = hammersley_2d(3, 8);
+        assert!((p.x - 3.0 / 8.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn hammersley_y_is_vdc() {
+        for i in 0..16u32 {
+            let p = hammersley_2d(i, 16);
+            assert!((p.y - van_der_corput(i)).abs() < 1e-9);
+        }
+    }
+
+    // ── frenet_frame ──────────────────────────────────────────────────────
+    #[test]
+    fn frenet_frame_orthonormal() {
+        let (t, n, b) = frenet_frame(Vec3::new(1.0, 0.5, 0.2), Vec3::Y);
+        assert!(
+            (t.length() - 1.0).abs() < 1e-5,
+            "T not unit: {}",
+            t.length()
+        );
+        assert!(
+            (n.length() - 1.0).abs() < 1e-5,
+            "N not unit: {}",
+            n.length()
+        );
+        assert!(
+            (b.length() - 1.0).abs() < 1e-5,
+            "B not unit: {}",
+            b.length()
+        );
+        assert!(t.dot(n).abs() < 1e-5, "T·N not zero: {}", t.dot(n));
+        assert!(t.dot(b).abs() < 1e-5, "T·B not zero: {}", t.dot(b));
+        assert!(n.dot(b).abs() < 1e-5, "N·B not zero: {}", n.dot(b));
+    }
+
+    #[test]
+    fn frenet_frame_x_axis_with_y_up() {
+        let (t, _n, _b) = frenet_frame(Vec3::X, Vec3::Y);
+        assert!((t - Vec3::X).length() < 1e-5, "T should be +X");
     }
 }
