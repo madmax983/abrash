@@ -5556,6 +5556,58 @@ pub fn teardrop_2d(p: Vec2, r: f32, len: f32) -> f32 {
     head.min(body)
 }
 
+/// Polar-repeat operator: fold `p` into the fundamental domain of **N-fold**
+/// rotational symmetry.  Feed the returned point into any inner 2-D SDF to
+/// replicate the shape around the origin without computing N separate SDFs.
+///
+/// # Arguments
+/// * `p` – query point in 2-D
+/// * `n` – number of copies (clamped to ≥ 1)
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::{polar_repeat_2d, circle_2d};
+/// use abrash_core::math::Vec2;
+/// // Five evenly-spaced circles of radius 0.15 arranged at distance 1.0.
+/// let q = polar_repeat_2d(Vec2::new(0.8, 0.3), 5);
+/// let _d = circle_2d(q, Vec2::new(1.0, 0.0), 0.15);
+/// ```
+#[must_use]
+#[inline]
+pub fn polar_repeat_2d(p: Vec2, n: u32) -> Vec2 {
+    use std::f32::consts::TAU;
+    let n = n.max(1) as f32;
+    let sector = TAU / n;
+    // Rotate p so the sector window is centred on the +X axis.
+    let mut a = p.y.atan2(p.x);
+    a -= sector * (a / sector + 0.5).floor();
+    let r = p.length();
+    Vec2::new(a.cos() * r, a.sin() * r)
+}
+
+/// Infinite 2-D grid-repeat operator: map `p` into the nearest periodic cell
+/// of size `cell`.  Feed the result into any inner 2-D SDF to tile the plane.
+///
+/// # Arguments
+/// * `p`    – query point
+/// * `cell` – period in each axis (components must be > 0)
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::{repeat_2d, circle_2d};
+/// use abrash_core::math::Vec2;
+/// let q = repeat_2d(Vec2::new(2.3, -1.7), Vec2::new(2.0, 2.0));
+/// let _d = circle_2d(q, Vec2::ZERO, 0.4);
+/// ```
+#[must_use]
+#[inline]
+pub fn repeat_2d(p: Vec2, cell: Vec2) -> Vec2 {
+    Vec2::new(
+        p.x - cell.x * (p.x / cell.x).round(),
+        p.y - cell.y * (p.y / cell.y).round(),
+    )
+}
+
 #[cfg(test)]
 mod tests_pass_29_sdf {
     use super::*;
@@ -5614,5 +5666,106 @@ mod tests_pass_29_sdf {
         // Well below the tip (−len−r) should be outside.
         let d = teardrop_2d(Vec2::new(0.0, -3.0), 0.5, 1.5);
         assert!(d > 0.0, "below tip: {d}");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_30_sdf {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── polar_repeat_2d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn polar_repeat_on_positive_x_stays_put() {
+        // A point exactly on the +X axis maps back to (r, 0).
+        let p = Vec2::new(1.0, 0.0);
+        let q = polar_repeat_2d(p, 4);
+        assert!(
+            (q.x - 1.0).abs() < 1e-5 && q.y.abs() < 1e-5,
+            "+X axis: {q:?}"
+        );
+    }
+
+    #[test]
+    fn polar_repeat_preserves_radius() {
+        // The radial distance must be unchanged.
+        let p = Vec2::new(0.6, 0.8);
+        let q = polar_repeat_2d(p, 6);
+        assert!(
+            (q.length() - p.length()).abs() < 1e-5,
+            "radius: {} vs {}",
+            q.length(),
+            p.length()
+        );
+    }
+
+    #[test]
+    fn polar_repeat_n1_identity() {
+        // n = 1 → the whole plane is a single sector → p is returned unchanged.
+        let p = Vec2::new(0.3, 0.7);
+        let q = polar_repeat_2d(p, 1);
+        assert!(
+            (q.x - p.x).abs() < 1e-4 && (q.y - p.y).abs() < 1e-4,
+            "n=1 identity: {q:?} vs {p:?}"
+        );
+    }
+
+    #[test]
+    fn polar_repeat_sector_symmetry() {
+        // Two points separated by exactly one sector width map to the same location.
+        use std::f32::consts::TAU;
+        let r = 1.2_f32;
+        let n = 5_u32;
+        let sector = TAU / n as f32;
+        let a0 = 0.1_f32;
+        let p1 = Vec2::new(a0.cos() * r, a0.sin() * r);
+        let p2 = Vec2::new((a0 + sector).cos() * r, (a0 + sector).sin() * r);
+        let q1 = polar_repeat_2d(p1, n);
+        let q2 = polar_repeat_2d(p2, n);
+        assert!(
+            (q1.x - q2.x).abs() < 1e-4 && (q1.y - q2.y).abs() < 1e-4,
+            "sector symmetry: {q1:?} vs {q2:?}"
+        );
+    }
+
+    // ── repeat_2d ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn repeat_2d_at_cell_origin_gives_zero() {
+        // A point on a cell lattice point maps to (0, 0).
+        let q = repeat_2d(Vec2::new(4.0, 6.0), Vec2::new(2.0, 3.0));
+        assert!(q.x.abs() < 1e-5 && q.y.abs() < 1e-5, "cell origin: {q:?}");
+    }
+
+    #[test]
+    fn repeat_2d_point_within_half_cell_unchanged() {
+        // A point with |p| < cell/2 is already in the nearest cell → returned as-is.
+        let p = Vec2::new(0.4, 0.7);
+        let q = repeat_2d(p, Vec2::new(2.0, 2.0));
+        assert!(
+            (q.x - p.x).abs() < 1e-5 && (q.y - p.y).abs() < 1e-5,
+            "inside cell: {q:?} vs {p:?}"
+        );
+    }
+
+    #[test]
+    fn repeat_2d_symmetric_about_boundary() {
+        // Points equidistant on either side of a cell boundary give equal |remapped| x.
+        let cell = Vec2::new(2.0, 2.0);
+        let q_pos = repeat_2d(Vec2::new(0.3, 0.0), cell);
+        let q_neg = repeat_2d(Vec2::new(-0.3, 0.0), cell);
+        assert!(
+            (q_pos.x.abs() - q_neg.x.abs()).abs() < 1e-5,
+            "boundary symmetry: {q_pos:?} vs {q_neg:?}"
+        );
+    }
+
+    #[test]
+    fn repeat_2d_clamps_at_half_cell() {
+        // A point at exactly cell/2 should remap to +cell/2 or −cell/2 (magnitude = cell/2).
+        let cell = Vec2::new(2.0, 2.0);
+        let q = repeat_2d(Vec2::new(1.0, 0.0), cell);
+        assert!(q.x.abs() <= 1.0 + 1e-5, "clamp: {q:?}");
     }
 }
