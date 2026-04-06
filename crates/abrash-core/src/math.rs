@@ -12973,3 +12973,255 @@ mod tests_pass_32 {
         assert!(x.abs() < 1e-10 && y.abs() < 1e-10 && z.abs() < 1e-10);
     }
 }
+
+// ── Pass 33 ────────────────────────────────────────────────────────────────────
+
+/// Compute the shortest-arc [`Quat`] that rotates unit vector `from` to unit
+/// vector `to`.
+///
+/// Uses the half-vector construction: no trigonometric functions required,
+/// just one normalisation and a cross product.
+///
+/// Returns the **identity** quaternion when the vectors are already parallel
+/// and a 180-degree rotation around an arbitrary perpendicular axis when they
+/// are anti-parallel.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{quat_rotation_between, Vec3};
+/// let q = quat_rotation_between(Vec3::X, Vec3::Y);
+/// let rotated = q.rotate(Vec3::X);
+/// assert!((rotated.x).abs() < 1e-5 && (rotated.y - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+pub fn quat_rotation_between(from: Vec3, to: Vec3) -> Quat {
+    let f = from.normalize();
+    let t = to.normalize();
+    let d = f.dot(t);
+    if d > 1.0 - 1e-6 {
+        return Quat::identity();
+    }
+    if d < -1.0 + 1e-6 {
+        // 180-degree rotation — choose any perpendicular axis.
+        let perp = if f.x.abs() < 0.9 {
+            Vec3::X.cross(f).normalize()
+        } else {
+            Vec3::Y.cross(f).normalize()
+        };
+        return Quat {
+            x: perp.x,
+            y: perp.y,
+            z: perp.z,
+            w: 0.0,
+        };
+    }
+    let half = Vec3::new(f.x + t.x, f.y + t.y, f.z + t.z).normalize();
+    let c = f.cross(half);
+    let q = Quat {
+        x: c.x,
+        y: c.y,
+        z: c.z,
+        w: f.dot(half),
+    };
+    // Normalise to counteract any floating-point drift.
+    let len = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
+    Quat {
+        x: q.x / len,
+        y: q.y / len,
+        z: q.z / len,
+        w: q.w / len,
+    }
+}
+
+/// **Multiply** blend mode: `a * b`.  Always darker than either input.
+#[must_use]
+#[inline]
+pub fn blend_multiply(a: f32, b: f32) -> f32 {
+    a * b
+}
+
+/// **Screen** blend mode: `1 − (1−a)(1−b)`.  Always lighter than either input.
+#[must_use]
+#[inline]
+pub fn blend_screen(a: f32, b: f32) -> f32 {
+    1.0 - (1.0 - a) * (1.0 - b)
+}
+
+/// **Overlay** blend mode: multiply in the dark half, screen in the light half
+/// (conditioned on `a`).
+///
+/// Overlay = `hard_light` with `a` and `b` swapped.
+#[must_use]
+#[inline]
+pub fn blend_overlay(a: f32, b: f32) -> f32 {
+    if a < 0.5 {
+        2.0 * a * b
+    } else {
+        1.0 - 2.0 * (1.0 - a) * (1.0 - b)
+    }
+}
+
+/// **Hard-light** blend mode: multiply/screen conditioned on `b` (the light source).
+#[must_use]
+#[inline]
+pub fn blend_hard_light(a: f32, b: f32) -> f32 {
+    blend_overlay(b, a)
+}
+
+/// **Soft-light** blend mode (Pegtop formula): a gentler contrast enhancement.
+///
+/// When `b = 0.5` the output equals `a` unchanged.
+#[must_use]
+#[inline]
+pub fn blend_soft_light(a: f32, b: f32) -> f32 {
+    (1.0 - 2.0 * b) * a * a + 2.0 * b * a
+}
+
+/// Round `n` up to the next power of two.  Returns `1` for `n = 0`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::next_power_of_2;
+/// assert_eq!(next_power_of_2(0), 1);
+/// assert_eq!(next_power_of_2(1), 1);
+/// assert_eq!(next_power_of_2(5), 8);
+/// assert_eq!(next_power_of_2(8), 8);
+/// ```
+#[must_use]
+#[inline]
+pub fn next_power_of_2(n: u32) -> u32 {
+    if n == 0 { 1 } else { n.next_power_of_two() }
+}
+
+/// Returns `true` if `n` is a power of two (including 1).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::is_power_of_2;
+/// assert!(is_power_of_2(1) && is_power_of_2(4) && is_power_of_2(1024));
+/// assert!(!is_power_of_2(0) && !is_power_of_2(3) && !is_power_of_2(6));
+/// ```
+#[must_use]
+#[inline]
+pub fn is_power_of_2(n: u32) -> bool {
+    n > 0 && (n & (n - 1)) == 0
+}
+
+/// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
+///
+/// Returns `0` for `n = 0`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::log2_ceil;
+/// assert_eq!(log2_ceil(1), 0);
+/// assert_eq!(log2_ceil(4), 2);
+/// assert_eq!(log2_ceil(5), 3);
+/// ```
+#[must_use]
+#[inline]
+pub fn log2_ceil(n: u32) -> u32 {
+    if n <= 1 {
+        return 0;
+    }
+    u32::BITS - (n - 1).leading_zeros()
+}
+
+#[cfg(test)]
+mod tests_pass_33 {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── quat_rotation_between ─────────────────────────────────────────────────
+
+    #[test]
+    fn rotation_between_x_to_y() {
+        let q = quat_rotation_between(Vec3::X, Vec3::Y);
+        let r = q.rotate(Vec3::X);
+        assert!((r.x).abs() < 1e-5, "x: {}", r.x);
+        assert!((r.y - 1.0).abs() < 1e-5, "y: {}", r.y);
+        assert!((r.z).abs() < 1e-5, "z: {}", r.z);
+    }
+
+    #[test]
+    fn rotation_between_identity_when_parallel() {
+        let q = quat_rotation_between(Vec3::Z, Vec3::Z);
+        let r = q.rotate(Vec3::X);
+        assert!((r.x - 1.0).abs() < 1e-5 && r.y.abs() < 1e-5 && r.z.abs() < 1e-5);
+    }
+
+    #[test]
+    fn rotation_between_antiparallel_is_180() {
+        // Rotation from +X to −X must produce a vector at −X.
+        let q = quat_rotation_between(Vec3::X, Vec3::new(-1.0, 0.0, 0.0));
+        let r = q.rotate(Vec3::X);
+        assert!((r.x + 1.0).abs() < 1e-4, "antiparallel x: {}", r.x);
+    }
+
+    // ── blend modes ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn blend_multiply_black_kills() {
+        assert!(blend_multiply(0.8, 0.0).abs() < 1e-7);
+        assert!(blend_multiply(0.0, 0.8).abs() < 1e-7);
+    }
+
+    #[test]
+    fn blend_screen_white_saturates() {
+        assert!((blend_screen(1.0, 0.5) - 1.0).abs() < 1e-7);
+        assert!((blend_screen(0.5, 1.0) - 1.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn blend_overlay_mid_grey_identity() {
+        // overlay(0.5, b) == b (conditioning on a=0.5 gives b in both branches).
+        let b = 0.3_f32;
+        let o = blend_overlay(0.5, b);
+        assert!((o - b).abs() < 1e-6, "overlay(0.5,{b}) = {o}");
+    }
+
+    #[test]
+    fn blend_soft_light_neutral_at_half() {
+        // soft_light(a, 0.5) == a.
+        let a = 0.7_f32;
+        assert!((blend_soft_light(a, 0.5) - a).abs() < 1e-6);
+    }
+
+    #[test]
+    fn blend_hard_light_is_overlay_swapped() {
+        let a = 0.4_f32;
+        let b = 0.7_f32;
+        assert!((blend_hard_light(a, b) - blend_overlay(b, a)).abs() < 1e-7);
+    }
+
+    // ── bit-width utilities ───────────────────────────────────────────────────
+
+    #[test]
+    fn next_power_of_2_cases() {
+        assert_eq!(next_power_of_2(0), 1);
+        assert_eq!(next_power_of_2(1), 1);
+        assert_eq!(next_power_of_2(5), 8);
+        assert_eq!(next_power_of_2(8), 8);
+        assert_eq!(next_power_of_2(9), 16);
+    }
+
+    #[test]
+    fn is_power_of_2_cases() {
+        assert!(is_power_of_2(1));
+        assert!(is_power_of_2(2));
+        assert!(is_power_of_2(1024));
+        assert!(!is_power_of_2(0));
+        assert!(!is_power_of_2(3));
+        assert!(!is_power_of_2(6));
+    }
+
+    #[test]
+    fn log2_ceil_cases() {
+        assert_eq!(log2_ceil(1), 0);
+        assert_eq!(log2_ceil(2), 1);
+        assert_eq!(log2_ceil(4), 2);
+        assert_eq!(log2_ceil(5), 3);
+        assert_eq!(log2_ceil(8), 3);
+        assert_eq!(log2_ceil(9), 4);
+    }
+}
