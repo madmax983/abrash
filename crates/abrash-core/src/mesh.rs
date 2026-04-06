@@ -160,10 +160,13 @@ impl Mesh {
     pub fn sphere(radius: f32, stacks: u32, sectors: u32) -> Self {
         use std::f32::consts::PI;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((stacks + 1) * (sectors + 1)) as usize;
+        let num_indices = (stacks * sectors * 6) as usize;
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for i in 0..=stacks {
             let stack_angle = PI / 2.0 - (i as f32 / stacks as f32) * PI; // π/2 to -π/2
@@ -228,10 +231,13 @@ impl Mesh {
         let divs = subdivisions.max(1);
         let step = size / divs as f32;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((divs + 1) * (divs + 1)) as usize;
+        let num_indices = (divs * divs * 6) as usize;
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for z in 0..=divs {
             for x in 0..=divs {
@@ -281,16 +287,23 @@ impl Mesh {
     pub fn cylinder(radius: f32, height: f32, sectors: u32, stacks: u32) -> Self {
         use std::f32::consts::PI;
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
-
         let half_h = height / 2.0;
         let sectors = sectors.max(3);
         let stacks = stacks.max(1);
 
-        // Side vertices
+        let body_vertices = (stacks + 1) * (sectors + 1);
+        let cap_vertices = (sectors + 1) * 2;
+        let num_vertices = (body_vertices + cap_vertices) as usize;
+
+        let body_indices = stacks * sectors * 6;
+        let cap_indices = sectors * 6;
+        let num_indices = (body_indices + cap_indices) as usize;
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
+
         for i in 0..=stacks {
             let y = -half_h + (i as f32 / stacks as f32) * height;
             let v = i as f32 / stacks as f32;
@@ -395,10 +408,13 @@ impl Mesh {
         let maj = major_segments.max(3);
         let min = minor_segments.max(3);
 
-        let mut vertices = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+        let num_vertices = ((maj + 1) * (min + 1)) as usize;
+        let num_indices = (maj * min * 6) as usize;
+
+        let mut vertices = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         for i in 0..=maj {
             let theta = (i as f32 / maj as f32) * 2.0 * PI;
