@@ -19904,3 +19904,221 @@ mod tests_pass_58 {
         assert!(out.length() < uv.length(), "out={out:?}");
     }
 }
+
+// ── Pass 59: fog, projectile, normal-map blend, PBR microfacet ───────────────
+
+/// Linear fog factor: 1 (fully fogged) at `end`, 0 (clear) at `start`.
+///
+/// Returns a value in `[0, 1]`.
+pub fn fog_factor_linear(dist: f32, start: f32, end: f32) -> f32 {
+    if end <= start {
+        return 1.0;
+    }
+    ((end - dist) / (end - start)).clamp(0.0, 1.0)
+}
+
+/// Exponential fog factor: `exp(-density * dist)`.
+///
+/// Returns a value in `(0, 1]`; approaches 0 (fully fogged) as `dist` grows.
+pub fn fog_factor_exp(dist: f32, density: f32) -> f32 {
+    (-density * dist).exp()
+}
+
+/// Squared-exponential fog factor: `exp(-(density * dist)²)`.
+///
+/// Thinner at short ranges, heavier at long ranges than [`fog_factor_exp`].
+pub fn fog_factor_exp2(dist: f32, density: f32) -> f32 {
+    (-(density * dist).powi(2)).exp()
+}
+
+/// Solid angle (steradians) subtended by a sphere of radius `r` at distance `d`
+/// from its centre (observer outside the sphere, so `d > r`).
+///
+/// Returns `2π · (1 − cos θ)` where `sin θ = r / d`.
+pub fn solid_angle_sphere(r: f32, d: f32) -> f32 {
+    if d <= r {
+        // Observer inside or on the sphere — full hemisphere or 4π.
+        return 2.0 * std::f32::consts::PI;
+    }
+    let cos_theta = (1.0 - (r / d).powi(2)).sqrt();
+    2.0 * std::f32::consts::PI * (1.0 - cos_theta)
+}
+
+/// Kinematic projectile position at time `t`.
+///
+/// `gravity` is in world units/s² downward (typically `Vec3::new(0,-9.81,0)`).
+///
+/// Returns `pos0 + vel0·t + ½·gravity·t²`.
+pub fn projectile_position(pos0: Vec3, vel0: Vec3, t: f32, gravity: Vec3) -> Vec3 {
+    pos0 + vel0 * t + gravity * (0.5 * t * t)
+}
+
+/// Reoriented Normal Map (RNM) blending of two tangent-space normals.
+///
+/// Both `n1` and `n2` must be in tangent space and normalised.  The result is
+/// a normalised tangent-space normal that represents applying `n2` on top of
+/// `n1`.  Superior to simple additive / partial-derivative blending for large
+/// angles.  (Pettineo / Karis)
+pub fn normal_map_blend_rnm(n1: Vec3, n2: Vec3) -> Vec3 {
+    // Reorient n2 into the frame defined by n1.
+    let t = Vec3::new(n1.x, n1.y, n1.z + 1.0);
+    let u = Vec3::new(-n2.x, -n2.y, n2.z);
+    let r = t * t.dot(u) - u * t.z;
+    let len = r.length();
+    if len < 1e-10 {
+        return n1;
+    }
+    r / len
+}
+
+/// GGX (Trowbridge-Reitz) Normal Distribution Function.
+///
+/// - `n_dot_h` — dot product of the surface normal and the halfway vector `∈ [0,1]`
+/// - `roughness` — linear roughness `∈ (0, 1]` (alpha = roughness²)
+///
+/// Returns the NDF weight `D(h)`.
+pub fn ggx_d(n_dot_h: f32, roughness: f32) -> f32 {
+    let a = roughness * roughness;
+    let a2 = a * a;
+    let d = n_dot_h * n_dot_h * (a2 - 1.0) + 1.0;
+    a2 / (std::f32::consts::PI * d * d)
+}
+
+/// Smith-Schlick-GGX single-term geometry function.
+///
+/// Used for either the view or light direction; combine with the other term
+/// using `smith_g_schlick_ggx(n_dot_v) * smith_g_schlick_ggx(n_dot_l)` for
+/// the full Smith geometry term.
+///
+/// - `n_dot_v` — `max(0, N·V)` or `max(0, N·L)` ∈ [0, 1]
+/// - `roughness` — linear roughness
+pub fn smith_g_schlick_ggx(n_dot_v: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
+    n_dot_v / (n_dot_v * (1.0 - k) + k)
+}
+
+// ── Pass 59 tests ─────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_59 {
+    use super::*;
+
+    // ── fog ───────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn fog_linear_clear_at_start() {
+        assert!((fog_factor_linear(0.0, 0.0, 100.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_linear_full_at_end() {
+        assert!(fog_factor_linear(100.0, 0.0, 100.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_linear_clamped_beyond_end() {
+        assert!(fog_factor_linear(200.0, 0.0, 100.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_exp_one_at_zero_dist() {
+        assert!((fog_factor_exp(0.0, 0.05) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_exp_decays_with_distance() {
+        assert!(fog_factor_exp(100.0, 0.05) < fog_factor_exp(50.0, 0.05));
+    }
+
+    #[test]
+    fn fog_exp2_one_at_zero_dist() {
+        assert!((fog_factor_exp2(0.0, 0.05) - 1.0).abs() < 1e-5);
+    }
+
+    // ── solid_angle_sphere ────────────────────────────────────────────────────
+
+    #[test]
+    fn solid_angle_hemisphere_at_surface() {
+        // Observer exactly on sphere surface: solid angle = 2π.
+        let sa = solid_angle_sphere(1.0, 1.0);
+        assert!((sa - 2.0 * std::f32::consts::PI).abs() < 1e-4, "sa={sa}");
+    }
+
+    #[test]
+    fn solid_angle_decreases_with_distance() {
+        let sa_near = solid_angle_sphere(1.0, 2.0);
+        let sa_far = solid_angle_sphere(1.0, 10.0);
+        assert!(sa_near > sa_far, "near={sa_near} far={sa_far}");
+    }
+
+    // ── projectile_position ───────────────────────────────────────────────────
+
+    #[test]
+    fn projectile_at_t0_is_pos0() {
+        let pos = projectile_position(
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(5.0, 0.0, 0.0),
+            0.0,
+            Vec3::new(0.0, -9.81, 0.0),
+        );
+        assert!((pos - Vec3::new(1.0, 2.0, 3.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn projectile_falls_under_gravity() {
+        let pos1 = projectile_position(Vec3::ZERO, Vec3::ZERO, 1.0, Vec3::new(0.0, -9.81, 0.0));
+        let pos2 = projectile_position(Vec3::ZERO, Vec3::ZERO, 2.0, Vec3::new(0.0, -9.81, 0.0));
+        assert!(pos2.y < pos1.y, "pos1.y={} pos2.y={}", pos1.y, pos2.y);
+    }
+
+    // ── normal_map_blend_rnm ──────────────────────────────────────────────────
+
+    #[test]
+    fn rnm_blend_flat_with_flat_is_flat() {
+        let flat = Vec3::new(0.0, 0.0, 1.0);
+        let result = normal_map_blend_rnm(flat, flat);
+        assert!((result - flat).length() < 1e-4, "result={result:?}");
+    }
+
+    #[test]
+    fn rnm_blend_result_is_unit_length() {
+        let n1 = Vec3::new(0.1, 0.2, 0.974).normalize();
+        let n2 = Vec3::new(-0.1, 0.3, 0.948).normalize();
+        let r = normal_map_blend_rnm(n1, n2);
+        assert!((r.length() - 1.0).abs() < 1e-4, "len={}", r.length());
+    }
+
+    // ── ggx_d ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn ggx_d_positive() {
+        // NDF is always positive.
+        assert!(ggx_d(1.0, 0.5) > 0.0);
+        assert!(ggx_d(0.7, 0.3) > 0.0);
+    }
+
+    #[test]
+    fn ggx_d_higher_at_normal_incidence() {
+        // D peaks at n_dot_h = 1.0 (specular lobe centre).
+        let d_peak = ggx_d(1.0, 0.3);
+        let d_off = ggx_d(0.5, 0.3);
+        assert!(d_peak > d_off, "peak={d_peak} off={d_off}");
+    }
+
+    // ── smith_g_schlick_ggx ───────────────────────────────────────────────────
+
+    #[test]
+    fn smith_g_range_zero_to_one() {
+        for &ndotv in &[0.01_f32, 0.1, 0.5, 0.9, 1.0] {
+            let g = smith_g_schlick_ggx(ndotv, 0.5);
+            assert!(g >= 0.0 && g <= 1.0, "g={g} at n_dot_v={ndotv}");
+        }
+    }
+
+    #[test]
+    fn smith_g_one_at_normal_incidence_low_roughness() {
+        // At n_dot_v = 1.0 and roughness → 0, G → 1.
+        let g = smith_g_schlick_ggx(1.0, 0.01);
+        assert!((g - 1.0).abs() < 0.01, "g={g}");
+    }
+}
