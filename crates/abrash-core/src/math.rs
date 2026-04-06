@@ -13225,3 +13225,165 @@ mod tests_pass_33 {
         assert_eq!(log2_ceil(9), 4);
     }
 }
+
+// ── Pass 34 ────────────────────────────────────────────────────────────────────
+
+/// Linearise a depth-buffer value from the NDC \[0, 1] range (DirectX /
+/// Vulkan / Metal convention, where 0 = near and 1 = far) back to
+/// view-space depth in \[near, far].
+///
+/// The standard perspective projection maps view-space depth to a non-linear
+/// NDC value.  This function inverts that mapping.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::depth_linearize;
+/// let z_near = depth_linearize(0.0, 0.1, 100.0);
+/// assert!((z_near - 0.1).abs() < 1e-4);
+/// let z_far = depth_linearize(1.0, 0.1, 100.0);
+/// assert!((z_far - 100.0).abs() < 1e-2);
+/// ```
+#[must_use]
+#[inline]
+pub fn depth_linearize(z_ndc: f32, near: f32, far: f32) -> f32 {
+    // For z_ndc ∈ [0,1]: 0 → near, 1 → far.
+    near * far / (far - z_ndc * (far - near))
+}
+
+/// Encode a **unit** normal vector to a 2-D texture coordinate using the
+/// **spheremap** (Blinn 1977) method.
+///
+/// The encoded value lies in \[0, 1]².  Use [`normal_spheremap_decode`] to
+/// recover the normal.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{normal_spheremap_encode, Vec3};
+/// let enc = normal_spheremap_encode(Vec3::Z);
+/// // Should encode to the centre of the texture (0.5, 0.5)
+/// assert!((enc.x - 0.5).abs() < 1e-5 && (enc.y - 0.5).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn normal_spheremap_encode(n: Vec3) -> Vec2 {
+    let p = (n.z * 8.0 + 8.0).sqrt();
+    Vec2::new(n.x / p + 0.5, n.y / p + 0.5)
+}
+
+/// Decode a spheremap-encoded normal from a 2-D texture coordinate.
+///
+/// Returns a normalised [`Vec3`].
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{normal_spheremap_encode, normal_spheremap_decode, Vec3};
+/// let n = Vec3::new(0.6, 0.0, 0.8).normalize();
+/// let enc = normal_spheremap_encode(n);
+/// let dec = normal_spheremap_decode(enc);
+/// assert!((dec.x - n.x).abs() < 1e-4 && (dec.z - n.z).abs() < 1e-4);
+/// ```
+#[must_use]
+#[inline]
+pub fn normal_spheremap_decode(v: Vec2) -> Vec3 {
+    let fenc = Vec2::new(v.x * 4.0 - 2.0, v.y * 4.0 - 2.0);
+    let f = fenc.x * fenc.x + fenc.y * fenc.y;
+    let g = (1.0 - f * 0.25).sqrt();
+    Vec3::new(fenc.x * g, fenc.y * g, 1.0 - f * 0.5).normalize()
+}
+
+/// Surface normal of a triangle `(a, b, c)` — **not** normalised.
+///
+/// The result is proportional to the triangle area; normalise it when
+/// you need a unit normal.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{triangle_normal, Vec3};
+/// let n = triangle_normal(Vec3::ZERO, Vec3::X, Vec3::Y);
+/// // XY-plane triangle → normal along +Z.
+/// assert!(n.z > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn triangle_normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
+    let ab = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let ac = Vec3::new(c.x - a.x, c.y - a.y, c.z - a.z);
+    ab.cross(ac)
+}
+
+#[cfg(test)]
+mod tests_pass_34 {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── depth_linearize ───────────────────────────────────────────────────────
+
+    #[test]
+    fn depth_at_near_returns_near() {
+        // NDC 0 (z = −1 in GL convention) corresponds to near.
+        // Using the [0,1] convention: z_ndc=0 → z_view = near.
+        let z = depth_linearize(0.0, 0.1, 100.0);
+        assert!((z - 0.1).abs() < 1e-4, "z at near: {z}");
+    }
+
+    #[test]
+    fn depth_at_far_returns_far() {
+        let z = depth_linearize(1.0, 0.1, 100.0);
+        assert!((z - 100.0).abs() < 1e-2, "z at far: {z}");
+    }
+
+    #[test]
+    fn depth_midpoint_is_nonlinear() {
+        // Non-linear: NDC=0.5 should NOT map to (near+far)/2.
+        let z = depth_linearize(0.5, 1.0, 100.0);
+        let mid = (1.0_f32 + 100.0) / 2.0;
+        assert!(
+            (z - mid).abs() > 0.5,
+            "should be non-linear: {z} vs linear mid {mid}"
+        );
+    }
+
+    // ── normal_spheremap_encode / decode ──────────────────────────────────────
+
+    #[test]
+    fn spheremap_forward_z_encodes_to_centre() {
+        let enc = normal_spheremap_encode(Vec3::Z);
+        assert!((enc.x - 0.5).abs() < 1e-5 && (enc.y - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn spheremap_round_trip() {
+        for n in [
+            Vec3::new(0.6, 0.0, 0.8).normalize(),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.577_350_26, 0.577_350_26, 0.577_350_26),
+        ] {
+            let enc = normal_spheremap_encode(n);
+            let dec = normal_spheremap_decode(enc);
+            assert!(
+                (dec.x - n.x).abs() < 1e-4
+                    && (dec.y - n.y).abs() < 1e-4
+                    && (dec.z - n.z).abs() < 1e-4,
+                "round-trip: {n:?} → {dec:?}"
+            );
+        }
+    }
+
+    // ── triangle_normal ───────────────────────────────────────────────────────
+
+    #[test]
+    fn triangle_normal_xy_plane_points_z() {
+        let n = triangle_normal(Vec3::ZERO, Vec3::X, Vec3::Y);
+        assert!(n.z > 0.0 && n.x.abs() < 1e-7 && n.y.abs() < 1e-7);
+    }
+
+    #[test]
+    fn triangle_normal_ccw_vs_cw_opposite() {
+        let a = Vec3::ZERO;
+        let b = Vec3::X;
+        let c = Vec3::Y;
+        let n_ccw = triangle_normal(a, b, c);
+        let n_cw = triangle_normal(a, c, b);
+        assert!(n_ccw.z > 0.0 && n_cw.z < 0.0);
+    }
+}

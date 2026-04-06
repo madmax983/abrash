@@ -5608,6 +5608,61 @@ pub fn repeat_2d(p: Vec2, cell: Vec2) -> Vec2 {
     )
 }
 
+/// Signed distance to the nearest **grid line** of a regular rectangular grid.
+///
+/// The grid is formed by horizontal and vertical lines spaced `cell.x` and
+/// `cell.y` apart.  `line_w` is the **half-width** of each line (so a line
+/// of visual width 2 uses `line_w = 1.0`).
+///
+/// Returns a negative value when `p` is inside a line, positive when outside.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::grid_2d;
+/// use abrash_core::math::Vec2;
+/// // Centre of a cell (far from lines) → positive.
+/// let d = grid_2d(Vec2::new(1.0, 1.0), Vec2::new(2.0, 2.0), 0.05);
+/// assert!(d > 0.0);
+/// // On a line at x=0 → negative.
+/// let d = grid_2d(Vec2::new(0.0, 0.5), Vec2::new(2.0, 2.0), 0.05);
+/// assert!(d < 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn grid_2d(p: Vec2, cell: Vec2, line_w: f32) -> f32 {
+    // Remap p into [0, cell), then reflect around half-cell to get distance
+    // from the nearest line in each axis.
+    let cx = (p.x % cell.x + cell.x) % cell.x;
+    let cy = (p.y % cell.y + cell.y) % cell.y;
+    // Distance from the nearest line edge in x/y (lines are at 0 and cell).
+    let dx = cx.min(cell.x - cx) - line_w;
+    let dy = cy.min(cell.y - cy) - line_w;
+    // Point is inside a line if either dx < 0 or dy < 0.
+    dx.min(dy)
+}
+
+/// Signed distance to a horizontal **sine wave** curve.
+///
+/// The wave height at x is `amplitude * sin(2π * frequency * x + phase)`.
+/// The returned distance is the **signed vertical** distance from `p` to
+/// the wave — positive above, negative below.  This is not an exact Euclidean
+/// SDF but is correct along the vertical axis and useful as a height-field SDF.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::wave_sdf_2d;
+/// use abrash_core::math::Vec2;
+/// // With amplitude = 0 (flat line at y=0): distance = p.y.
+/// let d = wave_sdf_2d(Vec2::new(1.0, 0.3), 0.0, 1.0, 0.0);
+/// assert!((d - 0.3).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn wave_sdf_2d(p: Vec2, amplitude: f32, frequency: f32, phase: f32) -> f32 {
+    let wave_y = amplitude * (core::f32::consts::TAU * frequency * p.x + phase).sin();
+    p.y - wave_y
+}
+
 #[cfg(test)]
 mod tests_pass_29_sdf {
     use super::*;
@@ -5767,5 +5822,63 @@ mod tests_pass_30_sdf {
         let cell = Vec2::new(2.0, 2.0);
         let q = repeat_2d(Vec2::new(1.0, 0.0), cell);
         assert!(q.x.abs() <= 1.0 + 1e-5, "clamp: {q:?}");
+    }
+}
+
+#[cfg(test)]
+mod tests_pass_34_sdf {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── grid_2d ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn grid_cell_centre_is_outside() {
+        // Centre of a 2×2 cell is far from lines → positive distance.
+        let d = grid_2d(Vec2::new(1.0, 1.0), Vec2::new(2.0, 2.0), 0.05);
+        assert!(d > 0.0, "cell centre: {d}");
+    }
+
+    #[test]
+    fn grid_on_line_is_inside() {
+        // On the x=0 grid line.
+        let d = grid_2d(Vec2::new(0.0, 0.5), Vec2::new(2.0, 2.0), 0.05);
+        assert!(d < 0.0, "on line: {d}");
+    }
+
+    #[test]
+    fn grid_symmetric_about_line() {
+        // Equidistant on either side of a line should give equal |d|.
+        let cell = Vec2::new(2.0, 2.0);
+        let d_pos = grid_2d(Vec2::new(0.2, 0.5), cell, 0.0);
+        let d_neg = grid_2d(Vec2::new(-0.2, 0.5), cell, 0.0);
+        assert!((d_pos - d_neg).abs() < 1e-5, "symmetry: {d_pos} {d_neg}");
+    }
+
+    // ── wave_sdf_2d ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn wave_flat_is_signed_y() {
+        // Amplitude = 0 → wave is flat at y=0 → signed distance = p.y.
+        let d = wave_sdf_2d(Vec2::new(1.0, 0.3), 0.0, 1.0, 0.0);
+        assert!((d - 0.3).abs() < 1e-5, "flat wave: {d}");
+    }
+
+    #[test]
+    fn wave_below_surface_is_negative() {
+        // Point on the wave at x where the wave peaks at y=1 → p.y=1 is on the surface.
+        // p.y < 1 should be negative.
+        let x = 0.25_f32; // sin(2π * 1 * 0.25) = sin(π/2) = 1.0
+        let d = wave_sdf_2d(Vec2::new(x, 0.5), 1.0, 1.0, 0.0);
+        // wave_y = 1.0; d = 0.5 - 1.0 = -0.5
+        assert!(d < 0.0, "below surface: {d}");
+    }
+
+    #[test]
+    fn wave_above_surface_is_positive() {
+        let x = 0.25_f32; // wave peaks at y=1
+        let d = wave_sdf_2d(Vec2::new(x, 1.5), 1.0, 1.0, 0.0);
+        // d = 1.5 - 1.0 = 0.5
+        assert!((d - 0.5).abs() < 1e-5, "above surface: {d}");
     }
 }
