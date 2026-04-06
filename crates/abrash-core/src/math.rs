@@ -13787,3 +13787,201 @@ mod tests_pass_36 {
         assert!((f1 - w).abs() < 1e-5, "f1 {f1} vs worley_noise {w}");
     }
 }
+
+// ── Pass 37 ────────────────────────────────────────────────────────────────────
+
+/// Convert **linear RGB** (sRGB primaries) to **CIE L\*a\*b\*** (D65 illuminant).
+///
+/// Goes through CIE XYZ as an intermediate; normalises XYZ by the D65 white point
+/// `(Xn=0.950456, Yn=1.0, Zn=1.08906)`.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::linear_rgb_to_cielab;
+/// let (l, a, b) = linear_rgb_to_cielab(1.0, 1.0, 1.0);
+/// assert!((l - 100.0).abs() < 0.05, "white L*: {l}");
+/// ```
+#[must_use]
+pub fn linear_rgb_to_cielab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let (x, y, z) = linear_rgb_to_xyz(r, g, b);
+    // D65 white point
+    const XN: f32 = 0.950_456;
+    const YN: f32 = 1.0;
+    const ZN: f32 = 1.088_97;
+
+    #[inline]
+    fn f(t: f32) -> f32 {
+        const DELTA: f32 = 6.0 / 29.0;
+        const DELTA3: f32 = DELTA * DELTA * DELTA; // ≈ 0.008856
+        if t > DELTA3 {
+            t.cbrt()
+        } else {
+            t / (3.0 * DELTA * DELTA) + 4.0 / 29.0
+        }
+    }
+
+    let fx = f(x / XN);
+    let fy = f(y / YN);
+    let fz = f(z / ZN);
+    let l = 116.0 * fy - 16.0;
+    let a = 500.0 * (fx - fy);
+    let b = 200.0 * (fy - fz);
+    (l, a, b)
+}
+
+/// Convert **CIE L\*a\*b\*** back to **linear RGB** (sRGB primaries, D65 illuminant).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{linear_rgb_to_cielab, cielab_to_linear_rgb};
+/// let (l, a, b) = linear_rgb_to_cielab(0.8, 0.3, 0.1);
+/// let (r2, g2, b2) = cielab_to_linear_rgb(l, a, b);
+/// assert!((r2 - 0.8).abs() < 5e-4);
+/// ```
+#[must_use]
+pub fn cielab_to_linear_rgb(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
+    const XN: f32 = 0.950_456;
+    const YN: f32 = 1.0;
+    const ZN: f32 = 1.088_97;
+
+    #[inline]
+    fn f_inv(t: f32) -> f32 {
+        const DELTA: f32 = 6.0 / 29.0;
+        if t > DELTA {
+            t * t * t
+        } else {
+            3.0 * DELTA * DELTA * (t - 4.0 / 29.0)
+        }
+    }
+
+    let fy = (l + 16.0) / 116.0;
+    let fx = a / 500.0 + fy;
+    let fz = fy - b / 200.0;
+    let (x, y, z) = (f_inv(fx) * XN, f_inv(fy) * YN, f_inv(fz) * ZN);
+    xyz_to_linear_rgb(x, y, z)
+}
+
+/// Rotate UV texture coordinates by `angle` radians around the centre (0.5, 0.5).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{uv_rotate, Vec2};
+/// use core::f32::consts::FRAC_PI_2;
+/// // Rotating (0.5, 0.0) by 90° should give (0.0, 0.5) (relative to centre).
+/// let uv = uv_rotate(Vec2::new(1.0, 0.5), FRAC_PI_2);
+/// assert!((uv.y - 1.0).abs() < 1e-5);
+/// ```
+#[must_use]
+#[inline]
+pub fn uv_rotate(uv: Vec2, angle: f32) -> Vec2 {
+    let (s, c) = angle.sin_cos();
+    // Translate to centre, rotate, translate back.
+    let u = uv.x - 0.5;
+    let v = uv.y - 0.5;
+    Vec2::new(c * u - s * v + 0.5, s * u + c * v + 0.5)
+}
+
+/// Importance-sample the **GGX** normal distribution function.
+///
+/// Returns a microfacet half-vector `H` in tangent space (z-up) drawn from
+/// the GGX NDF.  `u1` and `u2` are uniform \[0, 1) random variates.
+///
+/// # Arguments
+/// * `roughness` – linear roughness α (typically 0.05–1.0)
+/// * `u1`, `u2`  – independent uniform random samples
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::sample_ggx_hemisphere;
+/// let h = sample_ggx_hemisphere(0.5, 0.3, 0.7);
+/// assert!(h.z >= 0.0, "z component must be non-negative (upper hemisphere)");
+/// let len = (h.x * h.x + h.y * h.y + h.z * h.z).sqrt();
+/// assert!((len - 1.0).abs() < 1e-5, "unit vector: {len}");
+/// ```
+#[must_use]
+pub fn sample_ggx_hemisphere(roughness: f32, u1: f32, u2: f32) -> Vec3 {
+    use core::f32::consts::TAU;
+    let alpha = roughness * roughness;
+    // Invert the GGX NDF CDF to get cosθ.
+    let cos_theta = ((1.0 - u1) / (1.0 + (alpha * alpha - 1.0) * u1))
+        .max(0.0)
+        .sqrt();
+    let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
+    let phi = TAU * u2;
+    Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta).normalize()
+}
+
+#[cfg(test)]
+mod tests_pass_37 {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── linear_rgb_to_cielab / cielab_to_linear_rgb ───────────────────────────
+
+    #[test]
+    fn cielab_white_l_is_100() {
+        let (l, _, _) = linear_rgb_to_cielab(1.0, 1.0, 1.0);
+        assert!((l - 100.0).abs() < 0.1, "white L*: {l}");
+    }
+
+    #[test]
+    fn cielab_black_l_is_0() {
+        let (l, a, b) = linear_rgb_to_cielab(0.0, 0.0, 0.0);
+        assert!(l.abs() < 1e-4 && a.abs() < 1e-4 && b.abs() < 1e-4);
+    }
+
+    #[test]
+    fn cielab_round_trip() {
+        let cases = [(0.8, 0.3, 0.1_f32), (0.0, 0.5, 1.0), (0.2, 0.6, 0.4)];
+        for (r, g, b) in cases {
+            let (l, a, bb) = linear_rgb_to_cielab(r, g, b);
+            let (r2, g2, b2) = cielab_to_linear_rgb(l, a, bb);
+            assert!((r - r2).abs() < 5e-4, "r: {r} vs {r2}");
+            assert!((g - g2).abs() < 5e-4, "g: {g} vs {g2}");
+            assert!((b - b2).abs() < 5e-4, "b: {b} vs {b2}");
+        }
+    }
+
+    // ── uv_rotate ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn uv_rotate_zero_is_identity() {
+        let uv = Vec2::new(0.3, 0.7);
+        let r = uv_rotate(uv, 0.0);
+        assert!((r.x - uv.x).abs() < 1e-5 && (r.y - uv.y).abs() < 1e-5);
+    }
+
+    #[test]
+    fn uv_rotate_90_from_centre_right() {
+        use core::f32::consts::FRAC_PI_2;
+        // (1.0, 0.5) is to the right of centre (0.5, 0.5).
+        // After 90° CCW rotation it should be above centre: (0.5, 1.0).
+        let r = uv_rotate(Vec2::new(1.0, 0.5), FRAC_PI_2);
+        assert!((r.x - 0.5).abs() < 1e-5, "x: {}", r.x);
+        assert!((r.y - 1.0).abs() < 1e-5, "y: {}", r.y);
+    }
+
+    // ── sample_ggx_hemisphere ─────────────────────────────────────────────────
+
+    #[test]
+    fn ggx_sample_unit_vector() {
+        let h = sample_ggx_hemisphere(0.5, 0.3, 0.7);
+        let len = (h.x * h.x + h.y * h.y + h.z * h.z).sqrt();
+        assert!((len - 1.0).abs() < 1e-5, "unit: {len}");
+    }
+
+    #[test]
+    fn ggx_sample_upper_hemisphere() {
+        for (u1, u2) in [(0.0, 0.0), (0.5, 0.5), (0.99, 0.99), (0.1, 0.9)] {
+            let h = sample_ggx_hemisphere(0.4, u1, u2);
+            assert!(h.z >= 0.0, "z negative at ({u1},{u2}): {}", h.z);
+        }
+    }
+
+    #[test]
+    fn ggx_low_roughness_peaks_at_z() {
+        // Near-specular (roughness → 0): samples cluster near z=1.
+        let h = sample_ggx_hemisphere(0.01, 0.5, 0.5);
+        assert!(h.z > 0.999, "near-specular peak: {}", h.z);
+    }
+}
