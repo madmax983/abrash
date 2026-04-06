@@ -14485,3 +14485,264 @@ mod tests_pass_39 {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Pass 40 — Rodrigues rotation, swing/twist decompose, refraction,
+//           Beer-Lambert, Henyey-Greenstein, Gaussian kernel
+// ---------------------------------------------------------------------------
+
+/// Rotate `v` around unit axis `k` by `angle` radians (Rodrigues' formula).
+///
+/// Equivalent to building a quaternion from axis+angle and calling `rotate()`,
+/// but roughly 3× cheaper when you have the angle directly.
+pub fn rodrigues_rotation(v: Vec3, k: Vec3, angle: f32) -> Vec3 {
+    let (sin_a, cos_a) = angle.sin_cos();
+    let cross = k.cross(v);
+    let dot = k.dot(v);
+    Vec3::new(
+        v.x * cos_a + cross.x * sin_a + k.x * dot * (1.0 - cos_a),
+        v.y * cos_a + cross.y * sin_a + k.y * dot * (1.0 - cos_a),
+        v.z * cos_a + cross.z * sin_a + k.z * dot * (1.0 - cos_a),
+    )
+}
+
+/// Decompose quaternion `q` into **swing** and **twist** components relative
+/// to a `twist_axis` (must be unit length).
+///
+/// Returns `(swing, twist)` where `q ≈ swing * twist` and `twist` rotates
+/// around `twist_axis` while `swing` rotates perpendicular to it.
+pub fn swing_twist_decompose(q: Quat, twist_axis: Vec3) -> (Quat, Quat) {
+    let projection = Vec3::new(q.x, q.y, q.z);
+    let dot = projection.dot(twist_axis);
+    let twist_vec = Vec3::new(twist_axis.x * dot, twist_axis.y * dot, twist_axis.z * dot);
+    let mut twist = Quat {
+        x: twist_vec.x,
+        y: twist_vec.y,
+        z: twist_vec.z,
+        w: q.w,
+    };
+    let len =
+        (twist.x * twist.x + twist.y * twist.y + twist.z * twist.z + twist.w * twist.w).sqrt();
+    if len < 1e-10 {
+        twist = Quat::identity();
+    } else {
+        twist = Quat {
+            x: twist.x / len,
+            y: twist.y / len,
+            z: twist.z / len,
+            w: twist.w / len,
+        };
+    }
+    // swing = q * twist_conjugate
+    let ti = Quat {
+        x: -twist.x,
+        y: -twist.y,
+        z: -twist.z,
+        w: twist.w,
+    };
+    let swing = Quat {
+        x: q.w * ti.x + q.x * ti.w + q.y * ti.z - q.z * ti.y,
+        y: q.w * ti.y - q.x * ti.z + q.y * ti.w + q.z * ti.x,
+        z: q.w * ti.z + q.x * ti.y - q.y * ti.x + q.z * ti.w,
+        w: q.w * ti.w - q.x * ti.x - q.y * ti.y - q.z * ti.z,
+    };
+    (swing, twist)
+}
+
+/// Compute the refracted direction using Snell's law.
+///
+/// * `incident` — unit incident direction (pointing **toward** the surface)
+/// * `normal`   — unit surface normal (pointing **away** from the surface)
+/// * `eta`      — ratio of refractive indices `n_i / n_t` (e.g., air→glass ≈ 1/1.5)
+///
+/// Returns `None` on total internal reflection.
+pub fn refract_vec3(incident: Vec3, normal: Vec3, eta: f32) -> Option<Vec3> {
+    let neg_incident = Vec3::new(-incident.x, -incident.y, -incident.z);
+    let cos_i = neg_incident.dot(normal).clamp(-1.0, 1.0);
+    let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
+    if k < 0.0 {
+        return None;
+    }
+    let s = eta * cos_i - k.sqrt();
+    Some(Vec3::new(
+        eta * incident.x + s * normal.x,
+        eta * incident.y + s * normal.y,
+        eta * incident.z + s * normal.z,
+    ))
+}
+
+/// Beer-Lambert exponential attenuation: `exp(-extinction * distance)`.
+///
+/// Returns transmittance in `[0, 1]`. Models light absorption through a
+/// homogeneous participating medium (fog, water, tinted glass).
+pub fn beer_lambert(extinction: f32, distance: f32) -> f32 {
+    (-extinction * distance).exp()
+}
+
+/// Henyey-Greenstein single-scattering phase function.
+///
+/// * `cos_theta` — cosine of angle between incident and scattered directions
+/// * `g`         — asymmetry parameter `(-1, 1)`: positive = forward, negative = back
+///
+/// Returns the phase function value (not normalised to 4π).
+pub fn henyey_greenstein(cos_theta: f32, g: f32) -> f32 {
+    use std::f32::consts::PI;
+    let g2 = g * g;
+    let denom = (1.0 + g2 - 2.0 * g * cos_theta).max(0.0).powf(1.5);
+    (1.0 - g2) / (4.0 * PI * denom.max(1e-10))
+}
+
+/// Generate a normalised 1D Gaussian blur kernel of `2*radius+1` taps.
+///
+/// Coefficients sum to 1.0. `sigma` defaults to `radius / 2.0` when ≤ 0.
+pub fn gaussian_kernel_1d(radius: u32, sigma: f32) -> Vec<f32> {
+    let sigma = if sigma <= 0.0 {
+        radius as f32 / 2.0
+    } else {
+        sigma
+    };
+    let two_sigma2 = 2.0 * sigma * sigma;
+    let r = radius as i32;
+    let mut kernel: Vec<f32> = (-r..=r)
+        .map(|i| (-(i * i) as f32 / two_sigma2).exp())
+        .collect();
+    let sum: f32 = kernel.iter().sum();
+    for v in &mut kernel {
+        *v /= sum;
+    }
+    kernel
+}
+
+#[cfg(test)]
+mod tests_pass_40 {
+    use super::*;
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    // ── rodrigues_rotation ─────────────────────────────────────────────────
+
+    #[test]
+    fn rodrigues_90_degrees_around_z() {
+        let v = Vec3::new(1.0, 0.0, 0.0);
+        let k = Vec3::new(0.0, 0.0, 1.0);
+        let r = rodrigues_rotation(v, k, FRAC_PI_2);
+        assert!((r.x).abs() < 1e-5, "x={}", r.x);
+        assert!((r.y - 1.0).abs() < 1e-5, "y={}", r.y);
+    }
+
+    #[test]
+    fn rodrigues_preserves_length() {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let k = Vec3::new(0.0, 1.0, 0.0);
+        let r = rodrigues_rotation(v, k, 1.23);
+        assert!((r.length() - v.length()).abs() < 1e-5);
+    }
+
+    #[test]
+    fn rodrigues_zero_angle_identity() {
+        let v = Vec3::new(1.0, 2.0, 3.0);
+        let k = Vec3::new(0.0, 0.0, 1.0);
+        let r = rodrigues_rotation(v, k, 0.0);
+        assert!((r.x - v.x).abs() < 1e-5);
+        assert!((r.y - v.y).abs() < 1e-5);
+        assert!((r.z - v.z).abs() < 1e-5);
+    }
+
+    // ── swing_twist_decompose ──────────────────────────────────────────────
+
+    #[test]
+    fn swing_twist_identity_gives_identity_parts() {
+        let (swing, twist) = swing_twist_decompose(Quat::identity(), Vec3::new(0.0, 1.0, 0.0));
+        assert!((swing.w - 1.0).abs() < 1e-5);
+        assert!((twist.w - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn swing_twist_pure_twist_round_trips() {
+        let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), FRAC_PI_2);
+        let (_swing, twist) = swing_twist_decompose(q, Vec3::new(0.0, 1.0, 0.0));
+        let dot = twist.w * q.w + twist.x * q.x + twist.y * q.y + twist.z * q.z;
+        assert!(dot.abs() > 0.999, "dot={dot}");
+    }
+
+    // ── refract_vec3 ──────────────────────────────────────────────────────
+
+    #[test]
+    fn refract_normal_incidence_passes_through() {
+        let incident = Vec3::new(0.0, -1.0, 0.0);
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let r = refract_vec3(incident, normal, 1.0).unwrap();
+        assert!((r.x).abs() < 1e-5);
+        assert!((r.y + 1.0).abs() < 1e-5, "y={}", r.y);
+    }
+
+    #[test]
+    fn refract_total_internal_reflection() {
+        let incident = Vec3::new(0.99, -0.14, 0.0).normalize();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        assert!(refract_vec3(incident, normal, 1.5).is_none());
+    }
+
+    // ── beer_lambert ──────────────────────────────────────────────────────
+
+    #[test]
+    fn beer_lambert_zero_distance_is_one() {
+        assert!((beer_lambert(1.0, 0.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn beer_lambert_known_value() {
+        // exp(-0.5) ≈ 0.60653
+        let t = beer_lambert(0.5, 1.0);
+        assert!((t - (-0.5_f32).exp()).abs() < 1e-5, "t={t}");
+    }
+
+    // ── henyey_greenstein ─────────────────────────────────────────────────
+
+    #[test]
+    fn henyey_greenstein_isotropic() {
+        let expected = 1.0 / (4.0 * PI);
+        for &cos_t in &[-1.0_f32, -0.5, 0.0, 0.5, 1.0] {
+            let v = henyey_greenstein(cos_t, 0.0);
+            assert!((v - expected).abs() < 1e-5, "cos={cos_t} v={v}");
+        }
+    }
+
+    #[test]
+    fn henyey_greenstein_forward_scatter_peaks_forward() {
+        let forward = henyey_greenstein(1.0, 0.8);
+        let back = henyey_greenstein(-1.0, 0.8);
+        assert!(forward > back);
+    }
+
+    // ── gaussian_kernel_1d ────────────────────────────────────────────────
+
+    #[test]
+    fn gaussian_kernel_sums_to_one() {
+        let k = gaussian_kernel_1d(3, 1.0);
+        let sum: f32 = k.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-5, "sum={sum}");
+    }
+
+    #[test]
+    fn gaussian_kernel_correct_size() {
+        assert_eq!(gaussian_kernel_1d(4, 2.0).len(), 9);
+    }
+
+    #[test]
+    fn gaussian_kernel_symmetric() {
+        let k = gaussian_kernel_1d(3, 1.5);
+        let n = k.len();
+        for i in 0..n / 2 {
+            assert!((k[i] - k[n - 1 - i]).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn gaussian_kernel_center_is_max() {
+        let k = gaussian_kernel_1d(4, 1.0);
+        let center = k[k.len() / 2];
+        for &v in &k {
+            assert!(v <= center + 1e-6);
+        }
+    }
+}
