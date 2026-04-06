@@ -13387,3 +13387,221 @@ mod tests_pass_34 {
         assert!(n_ccw.z > 0.0 && n_cw.z < 0.0);
     }
 }
+
+// ── Pass 35 ────────────────────────────────────────────────────────────────────
+
+/// **Turbulence**: absolute-value fBm.
+///
+/// Sums `|noise(p)|` over octaves — the absolute value creates sharp
+/// discontinuities that resemble turbulent fluid or fire.
+///
+/// # Arguments
+/// * `p`          – starting query point (mutated by octave scaling)
+/// * `octaves`    – number of octave layers
+/// * `lacunarity` – frequency multiplier per octave (typically 2.0)
+/// * `gain`       – amplitude multiplier per octave (typically 0.5)
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{turbulence_2d, Vec2};
+/// let t = turbulence_2d(Vec2::new(1.5, 2.3), 4, 2.0, 0.5);
+/// assert!(t >= 0.0);
+/// ```
+#[must_use]
+pub fn turbulence_2d(mut p: Vec2, octaves: u32, lacunarity: f32, gain: f32) -> f32 {
+    let mut sum = 0.0_f32;
+    let mut amplitude = 1.0_f32;
+    for _ in 0..octaves {
+        sum += perlin_noise_2d(p).abs() * amplitude;
+        p = Vec2::new(p.x * lacunarity, p.y * lacunarity);
+        amplitude *= gain;
+    }
+    sum
+}
+
+/// **Marble** procedural texture.
+///
+/// Computes `0.5 + 0.5 * sin(scale * p.x + turbulence_strength * turbulence)`,
+/// giving a value in \[0, 1] that resembles marble veining.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{marble_texture_2d, Vec2};
+/// let m = marble_texture_2d(Vec2::new(1.0, 0.5), 3.0, 2.0);
+/// assert!(m >= 0.0 && m <= 1.0);
+/// ```
+#[must_use]
+pub fn marble_texture_2d(p: Vec2, scale: f32, turbulence_strength: f32) -> f32 {
+    let t = turbulence_2d(p, 5, 2.0, 0.5);
+    0.5 + 0.5 * (scale * p.x + turbulence_strength * t).sin()
+}
+
+/// **Checkerboard** pattern: returns `0.0` or `1.0` based on which cell `p`
+/// falls in.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{checkerboard_2d, Vec2};
+/// // Adjacent cells should have opposite values.
+/// let a = checkerboard_2d(Vec2::new(0.5, 0.5), 1.0);
+/// let b = checkerboard_2d(Vec2::new(1.5, 0.5), 1.0);
+/// assert!((a - b).abs() > 0.5);
+/// ```
+#[must_use]
+#[inline]
+pub fn checkerboard_2d(p: Vec2, scale: f32) -> f32 {
+    let x = (p.x / scale).floor() as i32;
+    let y = (p.y / scale).floor() as i32;
+    if (x + y) & 1 == 0 { 0.0 } else { 1.0 }
+}
+
+/// Pack four \[0, 1] float components into a single `u32` as 8-bit unsigned
+/// normalised integers (R8G8B8A8 layout, R in lowest byte).
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{pack_unorm_4x8, unpack_unorm_4x8};
+/// let packed = pack_unorm_4x8(1.0, 0.0, 0.5, 1.0);
+/// let (r, g, b, a) = unpack_unorm_4x8(packed);
+/// assert!((r - 1.0).abs() < 0.005 && g.abs() < 0.005);
+/// ```
+#[must_use]
+#[inline]
+pub fn pack_unorm_4x8(r: f32, g: f32, b: f32, a: f32) -> u32 {
+    let ri = (r.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+    let gi = (g.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+    let bi = (b.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+    let ai = (a.clamp(0.0, 1.0) * 255.0 + 0.5) as u32;
+    ri | (gi << 8) | (bi << 16) | (ai << 24)
+}
+
+/// Unpack an R8G8B8A8 `u32` back to four \[0, 1] floats.
+#[must_use]
+#[inline]
+pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
+    let r = (packed & 0xFF) as f32 / 255.0;
+    let g = ((packed >> 8) & 0xFF) as f32 / 255.0;
+    let b = ((packed >> 16) & 0xFF) as f32 / 255.0;
+    let a = ((packed >> 24) & 0xFF) as f32 / 255.0;
+    (r, g, b, a)
+}
+
+/// Pack two \[−1, 1] float components into a `u32` as 16-bit signed
+/// normalised integers (X in lower 16 bits, Y in upper).
+///
+/// Useful for compressing unit normals into a 32-bit G-buffer slot.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{pack_snorm_2x16, unpack_snorm_2x16};
+/// let packed = pack_snorm_2x16(0.6, -0.8);
+/// let (x, y) = unpack_snorm_2x16(packed);
+/// assert!((x - 0.6).abs() < 0.0001 && (y + 0.8).abs() < 0.0001);
+/// ```
+#[must_use]
+#[inline]
+pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
+    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    xi | (yi << 16)
+}
+
+/// Unpack a 2×16-bit signed normalised integer `u32` back to two \[−1, 1] floats.
+#[must_use]
+#[inline]
+pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
+    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    (x, y)
+}
+
+#[cfg(test)]
+mod tests_pass_35 {
+    use super::*;
+    use crate::math::Vec2;
+
+    // ── turbulence_2d ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn turbulence_non_negative() {
+        let t = turbulence_2d(Vec2::new(1.5, 2.3), 4, 2.0, 0.5);
+        assert!(t >= 0.0, "negative turbulence: {t}");
+    }
+
+    #[test]
+    fn turbulence_varies() {
+        let t1 = turbulence_2d(Vec2::new(0.1, 0.1), 4, 2.0, 0.5);
+        let t2 = turbulence_2d(Vec2::new(1.3, 0.7), 4, 2.0, 0.5);
+        assert!((t1 - t2).abs() > 1e-3, "no variation: {t1} {t2}");
+    }
+
+    // ── marble_texture_2d ─────────────────────────────────────────────────────
+
+    #[test]
+    fn marble_in_range() {
+        let m = marble_texture_2d(Vec2::new(1.0, 0.5), 3.0, 2.0);
+        assert!(m >= 0.0 && m <= 1.0, "out of [0,1]: {m}");
+    }
+
+    #[test]
+    fn marble_varies() {
+        let m1 = marble_texture_2d(Vec2::new(0.0, 0.0), 3.0, 2.0);
+        let m2 = marble_texture_2d(Vec2::new(1.5, 0.0), 3.0, 2.0);
+        assert!((m1 - m2).abs() > 1e-3, "no variation: {m1} {m2}");
+    }
+
+    // ── checkerboard_2d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn checkerboard_alternates() {
+        let a = checkerboard_2d(Vec2::new(0.5, 0.5), 1.0);
+        let b = checkerboard_2d(Vec2::new(1.5, 0.5), 1.0);
+        assert!((a - b).abs() > 0.5, "should alternate: {a} {b}");
+    }
+
+    #[test]
+    fn checkerboard_diagonal_same() {
+        let a = checkerboard_2d(Vec2::new(0.5, 0.5), 1.0);
+        let b = checkerboard_2d(Vec2::new(1.5, 1.5), 1.0);
+        assert!((a - b).abs() < 1e-5, "diagonal should match: {a} {b}");
+    }
+
+    // ── pack/unpack RGBA8 ─────────────────────────────────────────────────────
+
+    #[test]
+    fn unorm_4x8_round_trip() {
+        let (r, g, b, a) = (0.8, 0.1, 0.5, 1.0_f32);
+        let packed = pack_unorm_4x8(r, g, b, a);
+        let (r2, g2, b2, a2) = unpack_unorm_4x8(packed);
+        assert!((r - r2).abs() < 0.005, "r: {r} vs {r2}");
+        assert!((g - g2).abs() < 0.005, "g: {g} vs {g2}");
+        assert!((b - b2).abs() < 0.005, "b: {b} vs {b2}");
+        assert!((a - a2).abs() < 0.005, "a: {a} vs {a2}");
+    }
+
+    #[test]
+    fn unorm_4x8_clamps() {
+        let packed = pack_unorm_4x8(-0.5, 1.5, 0.5, 0.5);
+        let (r, _, _, _) = unpack_unorm_4x8(packed);
+        assert!(r.abs() < 0.005, "negative clamped to 0: {r}");
+    }
+
+    // ── pack/unpack snorm 2×16 ────────────────────────────────────────────────
+
+    #[test]
+    fn snorm_2x16_round_trip() {
+        let (x, y) = (0.6_f32, -0.8_f32);
+        let packed = pack_snorm_2x16(x, y);
+        let (x2, y2) = unpack_snorm_2x16(packed);
+        assert!((x - x2).abs() < 1e-4, "x: {x} vs {x2}");
+        assert!((y - y2).abs() < 1e-4, "y: {y} vs {y2}");
+    }
+
+    #[test]
+    fn snorm_2x16_extremes() {
+        let packed = pack_snorm_2x16(1.0, -1.0);
+        let (x, y) = unpack_snorm_2x16(packed);
+        assert!((x - 1.0).abs() < 1e-4, "max: {x}");
+        assert!((y + 1.0).abs() < 1e-4, "min: {y}");
+    }
+}
