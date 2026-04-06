@@ -12139,3 +12139,479 @@ mod tests_pass_30 {
         assert!(ease_expo_out(0.5) > 0.95);
     }
 }
+
+// ── Pass 31 ────────────────────────────────────────────────────────────────────
+
+/// Elastic ease-in: starts from rest, overshoots at the beginning, then
+/// accelerates to the target.  Mirror of [`ease_elastic_out`].
+///
+/// # Arguments
+/// * `t`         – normalised time in \[0, 1]
+/// * `amplitude` – oscillation amplitude (clamped to ≥ 1.0)
+/// * `period`    – oscillation period (e.g. `0.3`)
+#[must_use]
+#[inline]
+pub fn ease_elastic_in(t: f32, amplitude: f32, period: f32) -> f32 {
+    1.0 - ease_elastic_out(1.0 - t, amplitude, period)
+}
+
+/// Elastic ease-in-out: elastic overshoot at the start **and** end.
+///
+/// # Arguments
+/// * `t`         – normalised time in \[0, 1]
+/// * `amplitude` – oscillation amplitude (clamped to ≥ 1.0)
+/// * `period`    – oscillation period (e.g. `0.45`)
+#[must_use]
+#[inline]
+pub fn ease_elastic_in_out(t: f32, amplitude: f32, period: f32) -> f32 {
+    if t <= 0.0 {
+        return 0.0;
+    }
+    if t >= 1.0 {
+        return 1.0;
+    }
+    let a = amplitude.max(1.0);
+    let s = a.recip().asin() * period / core::f32::consts::TAU;
+    let t2 = t * 2.0;
+    if t2 < 1.0 {
+        -0.5 * a
+            * (2.0_f32).powf(10.0 * (t2 - 1.0))
+            * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
+    } else {
+        a * (2.0_f32).powf(-10.0 * (t2 - 1.0))
+            * ((t2 - 1.0 - s) * core::f32::consts::TAU / period).sin()
+            * 0.5
+            + 1.0
+    }
+}
+
+/// Back ease-in-out: overshoots on both ends with a smooth symmetric curve.
+///
+/// # Arguments
+/// * `t`         – normalised time in \[0, 1]
+/// * `overshoot` – controls how far the motion overshoots (default ≈ `1.70158`)
+#[must_use]
+#[inline]
+pub fn ease_back_in_out(t: f32, overshoot: f32) -> f32 {
+    if t <= 0.0 {
+        return 0.0;
+    }
+    if t >= 1.0 {
+        return 1.0;
+    }
+    let s = overshoot * 1.525_f32;
+    let t2 = t * 2.0;
+    if t2 < 1.0 {
+        0.5 * t2 * t2 * ((s + 1.0) * t2 - s)
+    } else {
+        let t2 = t2 - 2.0;
+        0.5 * (t2 * t2 * ((s + 1.0) * t2 + s) + 2.0)
+    }
+}
+
+/// 3-D **value noise**: trilinearly-interpolated lattice noise in \[0, 1].
+///
+/// Uses quintic fade for C2 continuity at cell boundaries.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{value_noise_3d, Vec3};
+/// let n = value_noise_3d(Vec3::new(1.5, 2.3, 0.7));
+/// assert!(n >= 0.0 && n <= 1.0);
+/// ```
+#[must_use]
+pub fn value_noise_3d(p: Vec3) -> f32 {
+    #[inline]
+    fn h3(x: i32, y: i32, z: i32) -> f32 {
+        // Combine three coordinates with distinct multipliers, then hash.
+        let v = (x as u32)
+            .wrapping_mul(1_619)
+            .wrapping_add((y as u32).wrapping_mul(31_337))
+            .wrapping_add((z as u32).wrapping_mul(6_971));
+        hash_to_f32(v)
+    }
+
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let iz = p.z.floor() as i32;
+    let fx = p.x - p.x.floor();
+    let fy = p.y - p.y.floor();
+    let fz = p.z - p.z.floor();
+    // Quintic fade for C2 continuity.
+    let ux = fx * fx * fx * (fx * (fx * 6.0 - 15.0) + 10.0);
+    let uy = fy * fy * fy * (fy * (fy * 6.0 - 15.0) + 10.0);
+    let uz = fz * fz * fz * (fz * (fz * 6.0 - 15.0) + 10.0);
+
+    let x0z0 = lerp(h3(ix, iy, iz), h3(ix + 1, iy, iz), ux);
+    let x1z0 = lerp(h3(ix, iy + 1, iz), h3(ix + 1, iy + 1, iz), ux);
+    let x0z1 = lerp(h3(ix, iy, iz + 1), h3(ix + 1, iy, iz + 1), ux);
+    let x1z1 = lerp(h3(ix, iy + 1, iz + 1), h3(ix + 1, iy + 1, iz + 1), ux);
+    let y0 = lerp(x0z0, x1z0, uy);
+    let y1 = lerp(x0z1, x1z1, uy);
+    lerp(y0, y1, uz)
+}
+
+/// 3-D **Worley (cellular) noise**: returns the distance to the nearest
+/// feature point scattered one-per-cell on a unit lattice.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{worley_noise_3d, Vec3};
+/// let d = worley_noise_3d(Vec3::new(1.5, 2.3, 0.7));
+/// assert!(d >= 0.0);
+/// ```
+#[must_use]
+pub fn worley_noise_3d(p: Vec3) -> f32 {
+    let ix = p.x.floor() as i32;
+    let iy = p.y.floor() as i32;
+    let iz = p.z.floor() as i32;
+    let mut min_dist = f32::INFINITY;
+    for dz in -1..=1_i32 {
+        for dy in -1..=1_i32 {
+            for dx in -1..=1_i32 {
+                let cx = (ix + dx) as f32;
+                let cy = (iy + dy) as f32;
+                let cz = (iz + dz) as f32;
+                // Three independent offsets per cell.
+                let ox = hash2_to_f32(
+                    (ix + dx) as u32,
+                    (iy + dy) as u32 ^ ((iz + dz) as u32).wrapping_mul(6_971),
+                );
+                let oy = hash2_to_f32(
+                    ((iy + dy) as u32) ^ 0xDEAD_BEEF,
+                    ((ix + dx) as u32).wrapping_add((iz + dz) as u32),
+                );
+                let oz = hash2_to_f32(
+                    ((iz + dz) as u32) ^ 0xCAFE_BABE,
+                    ((ix + dx) as u32)
+                        .wrapping_mul(31_337)
+                        .wrapping_add((iy + dy) as u32),
+                );
+                let fx = p.x - (cx + ox);
+                let fy = p.y - (cy + oy);
+                let fz = p.z - (cz + oz);
+                let dist = (fx * fx + fy * fy + fz * fz).sqrt();
+                if dist < min_dist {
+                    min_dist = dist;
+                }
+            }
+        }
+    }
+    min_dist
+}
+
+/// Closest point on a triangle surface to point `p` (3-D).
+///
+/// Uses Ericson's Voronoi-region algorithm (*Real-Time Collision Detection*,
+/// §5.1.5) — no square roots until the return value.
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{closest_point_on_triangle_3d, Vec3};
+/// let cp = closest_point_on_triangle_3d(
+///     Vec3::new(0.5, 1.0, 0.0),
+///     Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 1.0),
+/// );
+/// assert!(cp.y.abs() < 1e-5); // projected onto y=0 plane
+/// ```
+#[must_use]
+pub fn closest_point_on_triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
+    let ab = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let ac = Vec3::new(c.x - a.x, c.y - a.y, c.z - a.z);
+    let ap = Vec3::new(p.x - a.x, p.y - a.y, p.z - a.z);
+
+    let d1 = ab.dot(ap);
+    let d2 = ac.dot(ap);
+    // Vertex A region.
+    if d1 <= 0.0 && d2 <= 0.0 {
+        return a;
+    }
+
+    let bp = Vec3::new(p.x - b.x, p.y - b.y, p.z - b.z);
+    let d3 = ab.dot(bp);
+    let d4 = ac.dot(bp);
+    // Vertex B region.
+    if d3 >= 0.0 && d4 <= d3 {
+        return b;
+    }
+
+    // Edge AB region.
+    let vc = d1 * d4 - d3 * d2;
+    if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+        let v = d1 / (d1 - d3);
+        return Vec3::new(a.x + ab.x * v, a.y + ab.y * v, a.z + ab.z * v);
+    }
+
+    let cp_v = Vec3::new(p.x - c.x, p.y - c.y, p.z - c.z);
+    let d5 = ab.dot(cp_v);
+    let d6 = ac.dot(cp_v);
+    // Vertex C region.
+    if d6 >= 0.0 && d5 <= d6 {
+        return c;
+    }
+
+    // Edge AC region.
+    let vb = d5 * d2 - d1 * d6;
+    if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+        let w = d2 / (d2 - d6);
+        return Vec3::new(a.x + ac.x * w, a.y + ac.y * w, a.z + ac.z * w);
+    }
+
+    // Edge BC region.
+    let va = d3 * d6 - d5 * d4;
+    if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+        let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        let bc = Vec3::new(c.x - b.x, c.y - b.y, c.z - b.z);
+        return Vec3::new(b.x + bc.x * w, b.y + bc.y * w, b.z + bc.z * w);
+    }
+
+    // Inside triangle — project onto the triangle plane.
+    let denom = 1.0 / (va + vb + vc);
+    let v = vb * denom;
+    let w = vc * denom;
+    Vec3::new(
+        a.x + ab.x * v + ac.x * w,
+        a.y + ab.y * v + ac.y * w,
+        a.z + ab.z * v + ac.z * w,
+    )
+}
+
+/// Ray-capsule intersection.
+///
+/// Returns the smallest positive `t` along the ray `ro + t * rd` that hits
+/// the capsule defined by segment `[a, b]` with radius `r`, or `None` if
+/// the ray misses.
+///
+/// # Arguments
+/// * `ro` – ray origin
+/// * `rd` – ray direction (need not be normalised)
+/// * `a`  – capsule segment start
+/// * `b`  – capsule segment end
+/// * `r`  – capsule radius
+///
+/// # Examples
+/// ```
+/// use abrash_core::math::{ray_capsule_intersect, Vec3};
+/// let hit = ray_capsule_intersect(
+///     Vec3::new(0.0, 0.0, -5.0), Vec3::Z,
+///     Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.5,
+/// );
+/// assert!(hit.is_some());
+/// ```
+#[must_use]
+pub fn ray_capsule_intersect(ro: Vec3, rd: Vec3, a: Vec3, b: Vec3, r: f32) -> Option<f32> {
+    // Segment and ray expressed relative to capsule start A.
+    let ba = Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+    let oa = Vec3::new(ro.x - a.x, ro.y - a.y, ro.z - a.z);
+
+    let baba = ba.dot(ba);
+    let bard = ba.dot(rd);
+    let baoa = ba.dot(oa);
+    let rdoa = rd.dot(oa);
+    let oaoa = oa.dot(oa);
+
+    // Quadratic coefficients for the infinite cylinder.
+    let a_c = baba - bard * bard;
+    let b_c = baba * rdoa - baoa * bard;
+    let c_c = baba * oaoa - baoa * baoa - r * r * baba;
+
+    let mut t = f32::INFINITY;
+
+    // Cylinder body.
+    if a_c.abs() > 1e-10 {
+        let h = b_c * b_c - a_c * c_c;
+        if h >= 0.0 {
+            let t_cyl = (-b_c - h.sqrt()) / a_c;
+            // Check that hit lies on the finite segment [0, 1].
+            let y = baoa + t_cyl * bard;
+            if (0.0..=baba).contains(&y) && t_cyl > 0.0 {
+                t = t.min(t_cyl);
+            }
+        }
+    }
+
+    // End-cap hemispheres — solved as sphere intersections.
+    for cap in [a, b] {
+        let oc = Vec3::new(ro.x - cap.x, ro.y - cap.y, ro.z - cap.z);
+        let b2 = rd.dot(oc);
+        let c2 = oc.dot(oc) - r * r;
+        let h2 = b2 * b2 - c2;
+        if h2 >= 0.0 {
+            let t_cap = -b2 - h2.sqrt();
+            if t_cap > 0.0 {
+                t = t.min(t_cap);
+            }
+        }
+    }
+
+    if t < f32::INFINITY { Some(t) } else { None }
+}
+
+#[cfg(test)]
+mod tests_pass_31 {
+    use super::*;
+    use crate::math::Vec3;
+
+    // ── ease_elastic_in ───────────────────────────────────────────────────────
+
+    #[test]
+    fn elastic_in_endpoints() {
+        assert!(ease_elastic_in(0.0, 1.0, 0.3).abs() < 1e-5);
+        assert!((ease_elastic_in(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn elastic_in_slow_at_start() {
+        // Elastic-in barely moves in the first quarter.
+        assert!(ease_elastic_in(0.1, 1.0, 0.3).abs() < 0.1);
+    }
+
+    // ── ease_elastic_in_out ───────────────────────────────────────────────────
+
+    #[test]
+    fn elastic_in_out_endpoints() {
+        assert!(ease_elastic_in_out(0.0, 1.0, 0.45).abs() < 1e-5);
+        assert!((ease_elastic_in_out(1.0, 1.0, 0.45) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn elastic_in_out_midpoint() {
+        // Perfect symmetry → f(0.5) = 0.5.
+        let v = ease_elastic_in_out(0.5, 1.0, 0.45);
+        assert!((v - 0.5).abs() < 1e-4, "midpoint: {v}");
+    }
+
+    // ── ease_back_in_out ──────────────────────────────────────────────────────
+
+    #[test]
+    fn back_in_out_endpoints() {
+        assert!(ease_back_in_out(0.0, 1.70158).abs() < 1e-5);
+        assert!((ease_back_in_out(1.0, 1.70158) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn back_in_out_midpoint_is_half() {
+        let v = ease_back_in_out(0.5, 1.70158);
+        assert!((v - 0.5).abs() < 1e-4, "midpoint: {v}");
+    }
+
+    #[test]
+    fn back_in_out_overshoots_at_quarter() {
+        // Back-in-out should go slightly negative near t=0.25.
+        let v = ease_back_in_out(0.2, 1.70158);
+        assert!(v < 0.0, "should undershoot at t=0.2: {v}");
+    }
+
+    // ── value_noise_3d ────────────────────────────────────────────────────────
+
+    #[test]
+    fn value_noise_3d_in_range() {
+        let n = value_noise_3d(Vec3::new(1.5, 2.3, 0.7));
+        assert!(n >= 0.0 && n <= 1.0, "out of range: {n}");
+    }
+
+    #[test]
+    fn value_noise_3d_varies() {
+        let n1 = value_noise_3d(Vec3::new(0.3, 0.7, 0.5));
+        let n2 = value_noise_3d(Vec3::new(1.3, 0.7, 0.5));
+        assert!((n1 - n2).abs() > 1e-3, "no variation: {n1} {n2}");
+    }
+
+    // ── worley_noise_3d ───────────────────────────────────────────────────────
+
+    #[test]
+    fn worley_noise_3d_non_negative() {
+        for (x, y, z) in [(0.5, 0.5, 0.5), (1.2, 3.4, 5.6), (0.0, 0.0, 0.0)] {
+            let d = worley_noise_3d(Vec3::new(x, y, z));
+            assert!(d >= 0.0, "negative: {d} at ({x},{y},{z})");
+        }
+    }
+
+    #[test]
+    fn worley_noise_3d_varies() {
+        let d1 = worley_noise_3d(Vec3::new(0.1, 0.1, 0.1));
+        let d2 = worley_noise_3d(Vec3::new(0.6, 0.6, 0.6));
+        assert!((d1 - d2).abs() > 1e-3, "no variation: {d1} {d2}");
+    }
+
+    // ── closest_point_on_triangle_3d ──────────────────────────────────────────
+
+    #[test]
+    fn closest_point_projects_interior() {
+        // Point directly above the centroid should project to the centroid.
+        let a = Vec3::new(0.0, 0.0, 0.0);
+        let b = Vec3::new(3.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 3.0);
+        let centroid = Vec3::new(1.0, 0.0, 1.0);
+        let p = Vec3::new(1.0, 5.0, 1.0);
+        let cp = closest_point_on_triangle_3d(p, a, b, c);
+        assert!((cp.x - centroid.x).abs() < 1e-4, "x: {}", cp.x);
+        assert!(cp.y.abs() < 1e-4, "y: {}", cp.y);
+        assert!((cp.z - centroid.z).abs() < 1e-4, "z: {}", cp.z);
+    }
+
+    #[test]
+    fn closest_point_snaps_to_vertex() {
+        let a = Vec3::ZERO;
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        // Far in the −x direction → nearest vertex is A.
+        let cp = closest_point_on_triangle_3d(Vec3::new(-2.0, 0.0, 0.0), a, b, c);
+        assert!(cp.x.abs() < 1e-5 && cp.y.abs() < 1e-5 && cp.z.abs() < 1e-5);
+    }
+
+    #[test]
+    fn closest_point_snaps_to_edge() {
+        let a = Vec3::ZERO;
+        let b = Vec3::new(1.0, 0.0, 0.0);
+        let c = Vec3::new(0.0, 0.0, 1.0);
+        // Directly above midpoint of AB on +Y.
+        let mid_ab = Vec3::new(0.5, 5.0, 0.0);
+        let cp = closest_point_on_triangle_3d(mid_ab, a, b, c);
+        assert!((cp.x - 0.5).abs() < 1e-4, "x: {}", cp.x);
+        assert!(cp.y.abs() < 1e-4, "y: {}", cp.y);
+        assert!(cp.z.abs() < 1e-4, "z: {}", cp.z);
+    }
+
+    // ── ray_capsule_intersect ─────────────────────────────────────────────────
+
+    #[test]
+    fn ray_capsule_direct_hit() {
+        // Ray along +Z, capsule along Y-axis at z=5.
+        let hit = ray_capsule_intersect(
+            Vec3::new(0.0, 0.5, -5.0),
+            Vec3::Z,
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            0.5,
+        );
+        assert!(hit.is_some(), "should hit capsule body");
+        assert!(hit.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn ray_capsule_miss() {
+        // Ray passes well to the side.
+        let hit = ray_capsule_intersect(
+            Vec3::new(5.0, 0.5, -5.0),
+            Vec3::Z,
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+            0.5,
+        );
+        assert!(hit.is_none(), "should miss");
+    }
+
+    #[test]
+    fn ray_capsule_end_cap_hit() {
+        // Ray aimed directly at the bottom hemisphere.
+        let hit = ray_capsule_intersect(
+            Vec3::new(0.0, -5.0, 0.0),
+            Vec3::Y,
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+            0.5,
+        );
+        assert!(hit.is_some(), "should hit end cap");
+    }
+}
