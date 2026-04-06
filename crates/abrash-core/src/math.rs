@@ -17582,3 +17582,389 @@ mod tests_pass_51 {
         assert!((t_mid - 0.5).abs() < 0.01, "t_mid={t_mid}");
     }
 }
+
+// ── Pass 52 ──────────────────────────────────────────────────────────────────
+// orient_2d, triangle_circumcenter_2d, in_circumcircle_2d,
+// capsule_vs_capsule, sphere_vs_capsule,
+// sat_overlap_polygons_2d, obb_vs_obb_2d
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Signed area of triangle (a, b, c) x 2.
+///
+/// Returns > 0 if the vertices are in CCW order, < 0 if CW, 0 if collinear.
+#[inline]
+pub fn orient_2d(a: Vec2, b: Vec2, c: Vec2) -> f32 {
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+}
+
+/// Circumcenter of triangle (a, b, c) in 2D.
+///
+/// Returns `None` if the triangle is degenerate (collinear vertices).
+pub fn triangle_circumcenter_2d(a: Vec2, b: Vec2, c: Vec2) -> Option<Vec2> {
+    let d = 2.0 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+    if d.abs() < 1e-10 {
+        return None;
+    }
+    let a2 = a.x * a.x + a.y * a.y;
+    let b2 = b.x * b.x + b.y * b.y;
+    let c2 = c.x * c.x + c.y * c.y;
+    Some(Vec2::new(
+        (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
+        (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d,
+    ))
+}
+
+/// Delaunay in-circle test: returns `true` if point `d` lies strictly inside
+/// the circumcircle of triangle (a, b, c) given in CCW order.
+///
+/// Evaluates the determinant:
+/// ```text
+/// |ax-dx  ay-dy  (ax-dx)^2+(ay-dy)^2|
+/// |bx-dx  by-dy  (bx-dx)^2+(by-dy)^2|  > 0
+/// |cx-dx  cy-dy  (cx-dx)^2+(cy-dy)^2|
+/// ```
+pub fn in_circumcircle_2d(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> bool {
+    let ax = a.x - d.x;
+    let ay = a.y - d.y;
+    let bx = b.x - d.x;
+    let by = b.y - d.y;
+    let cx = c.x - d.x;
+    let cy = c.y - d.y;
+    let det = ax * (by * (cx * cx + cy * cy) - cy * (bx * bx + by * by))
+        - ay * (bx * (cx * cx + cy * cy) - cx * (bx * bx + by * by))
+        + (ax * ax + ay * ay) * (bx * cy - by * cx);
+    det > 0.0
+}
+
+/// Returns `true` if two capsules overlap.
+///
+/// Each capsule is a line segment (p0, p1) swept by a sphere of radius r.
+pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: Vec3, rb: f32) -> bool {
+    let (pa, pb) = closest_segment_to_segment(a0, a1, b0, b1);
+    let dx = pa.x - pb.x;
+    let dy = pa.y - pb.y;
+    let dz = pa.z - pb.z;
+    let dist_sq = dx * dx + dy * dy + dz * dz;
+    let sum_r = ra + rb;
+    dist_sq <= sum_r * sum_r
+}
+
+/// Returns `true` if a sphere overlaps a capsule.
+///
+/// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f32) -> bool {
+    let seg = Vec3::new(cap_b.x - cap_a.x, cap_b.y - cap_a.y, cap_b.z - cap_a.z);
+    let len_sq = seg.x * seg.x + seg.y * seg.y + seg.z * seg.z;
+    let to_c = Vec3::new(center.x - cap_a.x, center.y - cap_a.y, center.z - cap_a.z);
+    let t = if len_sq < 1e-12 {
+        0.0
+    } else {
+        ((to_c.x * seg.x + to_c.y * seg.y + to_c.z * seg.z) / len_sq).clamp(0.0, 1.0)
+    };
+    let closest = Vec3::new(
+        cap_a.x + t * seg.x,
+        cap_a.y + t * seg.y,
+        cap_a.z + t * seg.z,
+    );
+    let dx = center.x - closest.x;
+    let dy = center.y - closest.y;
+    let dz = center.z - closest.z;
+    let sum_r = sr + cr;
+    dx * dx + dy * dy + dz * dz <= sum_r * sum_r
+}
+
+/// SAT overlap test for two **convex** polygons.
+///
+/// Returns `true` if the polygons overlap.  Tests all edge normals of both
+/// polygons as candidate separating axes — O(m + n) projections.
+pub fn sat_overlap_polygons_2d(poly_a: &[Vec2], poly_b: &[Vec2]) -> bool {
+    if poly_a.len() < 2 || poly_b.len() < 2 {
+        return false;
+    }
+    let project = |poly: &[Vec2], ax: f32, ay: f32| -> (f32, f32) {
+        poly.iter().fold((f32::MAX, f32::MIN), |(mn, mx), p| {
+            let d = p.x * ax + p.y * ay;
+            (mn.min(d), mx.max(d))
+        })
+    };
+    let test_poly_axes = |poly: &[Vec2]| -> bool {
+        let n = poly.len();
+        for i in 0..n {
+            let a = poly[i];
+            let b = poly[(i + 1) % n];
+            let nx = b.y - a.y;
+            let ny = -(b.x - a.x);
+            let len = (nx * nx + ny * ny).sqrt();
+            if len < 1e-10 {
+                continue;
+            }
+            let (ax, ay) = (nx / len, ny / len);
+            let (min_a, max_a) = project(poly_a, ax, ay);
+            let (min_b, max_b) = project(poly_b, ax, ay);
+            if max_a < min_b || max_b < min_a {
+                return false;
+            }
+        }
+        true
+    };
+    test_poly_axes(poly_a) && test_poly_axes(poly_b)
+}
+
+/// SAT overlap test for two 2D oriented bounding boxes (OBBs).
+///
+/// Each OBB is defined by center, half-extents, and rotation angle in radians.
+/// Tests 4 axes (2 local axes per box).
+pub fn obb_vs_obb_2d(
+    center_a: Vec2,
+    half_a: Vec2,
+    angle_a: f32,
+    center_b: Vec2,
+    half_b: Vec2,
+    angle_b: f32,
+) -> bool {
+    let (sa, ca) = angle_a.sin_cos();
+    let (sb, cb) = angle_b.sin_cos();
+    let axes = [(ca, sa), (-sa, ca), (cb, sb), (-sb, cb)];
+    let corners = |center: Vec2, half: Vec2, s: f32, c: f32| -> [Vec2; 4] {
+        [
+            Vec2::new(
+                center.x + c * half.x - s * half.y,
+                center.y + s * half.x + c * half.y,
+            ),
+            Vec2::new(
+                center.x - c * half.x - s * half.y,
+                center.y - s * half.x + c * half.y,
+            ),
+            Vec2::new(
+                center.x - c * half.x + s * half.y,
+                center.y - s * half.x - c * half.y,
+            ),
+            Vec2::new(
+                center.x + c * half.x + s * half.y,
+                center.y + s * half.x - c * half.y,
+            ),
+        ]
+    };
+    let ca_pts = corners(center_a, half_a, sa, ca);
+    let cb_pts = corners(center_b, half_b, sb, cb);
+    let project = |pts: &[Vec2; 4], ax: f32, ay: f32| -> (f32, f32) {
+        pts.iter().fold((f32::MAX, f32::MIN), |(mn, mx), p| {
+            let d = p.x * ax + p.y * ay;
+            (mn.min(d), mx.max(d))
+        })
+    };
+    for (ax, ay) in axes {
+        let (min_a, max_a) = project(&ca_pts, ax, ay);
+        let (min_b, max_b) = project(&cb_pts, ax, ay);
+        if max_a < min_b || max_b < min_a {
+            return false;
+        }
+    }
+    true
+}
+
+// ── Tests — Pass 52 ───────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests_pass_52 {
+    use super::*;
+
+    // ── orient_2d ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn orient_ccw_positive() {
+        assert!(
+            orient_2d(
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.5, 1.0)
+            ) > 0.0
+        );
+    }
+
+    #[test]
+    fn orient_cw_negative() {
+        assert!(
+            orient_2d(
+                Vec2::new(0.0, 0.0),
+                Vec2::new(0.5, 1.0),
+                Vec2::new(1.0, 0.0)
+            ) < 0.0
+        );
+    }
+
+    #[test]
+    fn orient_collinear_zero() {
+        assert_eq!(
+            orient_2d(
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(2.0, 0.0)
+            ),
+            0.0
+        );
+    }
+
+    // ── triangle_circumcenter_2d ───────────────────────────────────────────────
+
+    #[test]
+    fn circumcenter_right_triangle() {
+        let cc = triangle_circumcenter_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(0.0, 2.0),
+        )
+        .unwrap();
+        assert!((cc.x - 1.0).abs() < 1e-5, "cc.x={}", cc.x);
+        assert!((cc.y - 1.0).abs() < 1e-5, "cc.y={}", cc.y);
+    }
+
+    #[test]
+    fn circumcenter_equidistant() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(2.0, 0.0);
+        let c = Vec2::new(1.0, 3.0_f32.sqrt());
+        let cc = triangle_circumcenter_2d(a, b, c).unwrap();
+        let ra = ((cc.x - a.x).powi(2) + (cc.y - a.y).powi(2)).sqrt();
+        let rb = ((cc.x - b.x).powi(2) + (cc.y - b.y).powi(2)).sqrt();
+        let rc = ((cc.x - c.x).powi(2) + (cc.y - c.y).powi(2)).sqrt();
+        assert!((ra - rb).abs() < 1e-4, "ra={ra} rb={rb}");
+        assert!((ra - rc).abs() < 1e-4, "ra={ra} rc={rc}");
+    }
+
+    // ── in_circumcircle_2d ────────────────────────────────────────────────────
+
+    #[test]
+    fn in_circumcircle_inside() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(4.0, 0.0);
+        let c = Vec2::new(2.0, 3.0);
+        let d = Vec2::new(2.0, 1.0);
+        assert!(in_circumcircle_2d(a, b, c, d));
+    }
+
+    #[test]
+    fn in_circumcircle_outside() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(4.0, 0.0);
+        let c = Vec2::new(2.0, 3.0);
+        let d = Vec2::new(2.0, 10.0);
+        assert!(!in_circumcircle_2d(a, b, c, d));
+    }
+
+    // ── capsule_vs_capsule ────────────────────────────────────────────────────
+
+    #[test]
+    fn capsule_overlap_parallel() {
+        let a0 = Vec3::new(0.0, 0.0, 0.0);
+        let a1 = Vec3::new(2.0, 0.0, 0.0);
+        let b0 = Vec3::new(0.0, 1.5, 0.0);
+        let b1 = Vec3::new(2.0, 1.5, 0.0);
+        // gap = 1.5, sum_r = 2.0 => overlap
+        assert!(capsule_vs_capsule(a0, a1, 1.0, b0, b1, 1.0));
+    }
+
+    #[test]
+    fn capsule_no_overlap() {
+        let a0 = Vec3::new(0.0, 0.0, 0.0);
+        let a1 = Vec3::new(1.0, 0.0, 0.0);
+        let b0 = Vec3::new(0.0, 5.0, 0.0);
+        let b1 = Vec3::new(1.0, 5.0, 0.0);
+        // gap = 5.0, sum_r = 2.0 => no overlap
+        assert!(!capsule_vs_capsule(a0, a1, 1.0, b0, b1, 1.0));
+    }
+
+    // ── sphere_vs_capsule ─────────────────────────────────────────────────────
+
+    #[test]
+    fn sphere_capsule_overlap() {
+        let center = Vec3::new(0.0, 1.4, 0.0);
+        let cap_a = Vec3::new(-1.0, 0.0, 0.0);
+        let cap_b = Vec3::new(1.0, 0.0, 0.0);
+        // closest point on cap to center = (0,0,0), dist=1.4 < sr+cr=1.5
+        assert!(sphere_vs_capsule(center, 0.5, cap_a, cap_b, 1.0));
+    }
+
+    #[test]
+    fn sphere_capsule_no_overlap() {
+        let center = Vec3::new(0.0, 3.0, 0.0);
+        let cap_a = Vec3::new(-1.0, 0.0, 0.0);
+        let cap_b = Vec3::new(1.0, 0.0, 0.0);
+        assert!(!sphere_vs_capsule(center, 0.5, cap_a, cap_b, 1.0));
+    }
+
+    // ── sat_overlap_polygons_2d ───────────────────────────────────────────────
+
+    #[test]
+    fn sat_overlapping_squares() {
+        let sq_a = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(0.0, 2.0),
+        ];
+        let sq_b = vec![
+            Vec2::new(1.0, 1.0),
+            Vec2::new(3.0, 1.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(1.0, 3.0),
+        ];
+        assert!(sat_overlap_polygons_2d(&sq_a, &sq_b));
+    }
+
+    #[test]
+    fn sat_separated_squares() {
+        let sq_a = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ];
+        let sq_b = vec![
+            Vec2::new(3.0, 0.0),
+            Vec2::new(4.0, 0.0),
+            Vec2::new(4.0, 1.0),
+            Vec2::new(3.0, 1.0),
+        ];
+        assert!(!sat_overlap_polygons_2d(&sq_a, &sq_b));
+    }
+
+    // ── obb_vs_obb_2d ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn obb_axis_aligned_overlap() {
+        assert!(obb_vs_obb_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            0.0,
+            Vec2::new(1.5, 0.0),
+            Vec2::new(1.0, 1.0),
+            0.0,
+        ));
+    }
+
+    #[test]
+    fn obb_axis_aligned_separated() {
+        assert!(!obb_vs_obb_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            0.0,
+            Vec2::new(5.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            0.0,
+        ));
+    }
+
+    #[test]
+    fn obb_rotated_overlap() {
+        use std::f32::consts::FRAC_PI_4;
+        assert!(obb_vs_obb_2d(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            FRAC_PI_4,
+            Vec2::new(1.2, 0.0),
+            Vec2::new(1.0, 1.0),
+            FRAC_PI_4,
+        ));
+    }
+}
