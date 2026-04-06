@@ -5113,3 +5113,214 @@ mod tests_pass_25 {
         assert!(d > 0.0, "far outside: {d}");
     }
 }
+
+// ── Pass 26 SDF shapes ────────────────────────────────────────────────────────
+
+/// Flat 3D disk lying in the XZ plane, centred at the origin.
+///
+/// * `r` — radius of the disk
+/// * `t` — half-thickness (height above / below the XZ plane)
+///
+/// Based on IQ's "capped cylinder with zero height" formulation: map `p`
+/// into `(radial_excess, |y|)` space and measure to the rect corner.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::disk_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre of the disk is inside.
+/// assert!(disk_3d(Vec3::ZERO, 1.0, 0.05) < 0.0);
+/// // Far above the disk surface is outside.
+/// assert!(disk_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.05) > 0.0);
+/// ```
+#[inline]
+pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
+    let radial = (p.x * p.x + p.z * p.z).sqrt();
+    let d = Vec2::new(radial - r, p.y.abs() - t);
+    d.x.max(d.y).min(0.0) + Vec2::new(d.x.max(0.0), d.y.max(0.0)).length()
+}
+
+/// 3D diamond (double-cone / bicone), axis-aligned along Y, centred at origin.
+///
+/// * `h` — half-height along Y
+/// * `r` — equatorial radius at y = 0
+///
+/// Uses IQ's rhombus-of-revolution approach: fold into 2D `(|xz|, y)` and
+/// measure to the two diamond edges.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::diamond_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre is inside.
+/// assert!(diamond_3d(Vec3::ZERO, 1.0, 0.5) < 0.0);
+/// // Far point is outside.
+/// assert!(diamond_3d(Vec3::new(5.0, 0.0, 0.0), 1.0, 0.5) > 0.0);
+/// ```
+#[inline]
+pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
+    // Fold to 2-D (radial, axial); |y| gives top-half symmetry.
+    let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y.abs());
+    // Edge runs from A=(r,0) at the equator to B=(0,h) at the pole.
+    // t = ((q - A) · (B - A)) / |B-A|²
+    //   = (r*(r - q.x) + h*q.y) / (r² + h²)
+    let t = (r * (r - q.x) + h * q.y) / (r * r + h * h);
+    let t = t.clamp(0.0, 1.0);
+    let closest = Vec2::new(r * (1.0 - t), h * t);
+    let diff = Vec2::new(q.x - closest.x, q.y - closest.y);
+    // Outward normal to the edge is (h, r).
+    // Point is outside the diamond if h*q.x + r*q.y > r*h.
+    let sign = if h * q.x + r * q.y - r * h > 0.0 {
+        1.0_f32
+    } else {
+        -1.0_f32
+    };
+    sign * diff.length()
+}
+
+/// 3D biconvex lens — the intersection of two spheres of radius `r` whose
+/// centres are `±d` apart along the Y axis (d < r).
+///
+/// This is the 3D analogue of [`vesica_2d`] and models optical lens elements.
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::biconvex_lens_3d;
+/// use abrash_core::math::Vec3;
+/// // Centre is inside.
+/// assert!(biconvex_lens_3d(Vec3::ZERO, 1.0, 0.5) < 0.0);
+/// // Far point is outside.
+/// assert!(biconvex_lens_3d(Vec3::new(0.0, 2.0, 0.0), 1.0, 0.5) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn biconvex_lens_3d(p: Vec3, r: f32, d: f32) -> f32 {
+    // Two spheres centred at (0, ±d, 0) with radius r.
+    // Intersection = max of the two sphere SDFs.
+    let s1 = Vec3::new(p.x, p.y - d, p.z).length() - r;
+    let s2 = Vec3::new(p.x, p.y + d, p.z).length() - r;
+    s1.max(s2)
+}
+
+/// 2D rounded triangle — triangle `(a, b, c)` with rounded corners of radius `r`.
+///
+/// Implemented as the exact triangle SDF minus the corner radius (Minkowski sum
+/// with a disk of radius `r`).
+///
+/// # Examples
+/// ```
+/// use abrash_core::sdf::rounded_triangle_2d;
+/// use abrash_core::math::Vec2;
+/// let a = Vec2::new(-1.0, -0.5);
+/// let b = Vec2::new( 1.0, -0.5);
+/// let c = Vec2::new( 0.0,  1.0);
+/// // Centroid is inside.
+/// assert!(rounded_triangle_2d(Vec2::new(0.0, 0.0), a, b, c, 0.1) < 0.0);
+/// // Far point is outside.
+/// assert!(rounded_triangle_2d(Vec2::new(5.0, 0.0), a, b, c, 0.1) > 0.0);
+/// ```
+#[must_use]
+#[inline]
+pub fn rounded_triangle_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2, r: f32) -> f32 {
+    triangle_2d(p, a, b, c) - r
+}
+
+#[cfg(test)]
+mod tests_pass_26_sdf {
+    use super::*;
+    use crate::math::{Vec2, Vec3};
+
+    // ── disk_3d ──────────────────────────────────────────────────────────────
+    #[test]
+    fn disk_centre_inside() {
+        assert!(disk_3d(Vec3::ZERO, 1.0, 0.05) < 0.0);
+    }
+
+    #[test]
+    fn disk_above_outside() {
+        let d = disk_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.05);
+        assert!(d > 0.0, "above disk: {d}");
+    }
+
+    #[test]
+    fn disk_rim_outside() {
+        // Just beyond the radius, at y=0 → outside
+        let d = disk_3d(Vec3::new(1.5, 0.0, 0.0), 1.0, 0.05);
+        assert!(d > 0.0, "beyond rim: {d}");
+    }
+
+    // ── diamond_3d ───────────────────────────────────────────────────────────
+    #[test]
+    fn diamond_centre_inside() {
+        assert!(diamond_3d(Vec3::ZERO, 1.0, 0.5) < 0.0);
+    }
+
+    #[test]
+    fn diamond_pole_on_surface() {
+        // The exact pole (0, h, 0) should be ≈ 0.
+        let d = diamond_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.5);
+        assert!(d.abs() < 1e-5, "pole not on surface: {d}");
+    }
+
+    #[test]
+    fn diamond_far_outside() {
+        let d = diamond_3d(Vec3::new(5.0, 0.0, 0.0), 1.0, 0.5);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    // ── biconvex_lens_3d ─────────────────────────────────────────────────────
+    #[test]
+    fn lens_centre_inside() {
+        assert!(biconvex_lens_3d(Vec3::ZERO, 1.0, 0.5) < 0.0);
+    }
+
+    #[test]
+    fn lens_equator_on_surface() {
+        // The equatorial ring (xz-plane, distance r from centre of each sphere)
+        // At y=0, x=sqrt(r²-d²) = sqrt(1-0.25) = sqrt(0.75) ≈ 0.866 for r=1,d=0.5
+        let rim_r = (1.0_f32 - 0.5_f32 * 0.5_f32).sqrt();
+        let d = biconvex_lens_3d(Vec3::new(rim_r, 0.0, 0.0), 1.0, 0.5);
+        // Should be near 0 (on the surface)
+        assert!(d.abs() < 1e-5, "rim distance: {d}");
+    }
+
+    #[test]
+    fn lens_far_outside() {
+        let d = biconvex_lens_3d(Vec3::new(0.0, 2.0, 0.0), 1.0, 0.5);
+        assert!(d > 0.0, "far outside lens: {d}");
+    }
+
+    // ── rounded_triangle_2d ──────────────────────────────────────────────────
+    #[test]
+    fn rounded_tri_centroid_inside() {
+        let a = Vec2::new(-1.0, -0.5);
+        let b = Vec2::new(1.0, -0.5);
+        let c = Vec2::new(0.0, 1.0);
+        // Approximate centroid: (0, 0)
+        let d = rounded_triangle_2d(Vec2::new(0.0, 0.0), a, b, c, 0.1);
+        assert!(d < 0.0, "centroid inside: {d}");
+    }
+
+    #[test]
+    fn rounded_tri_far_outside() {
+        let a = Vec2::new(-1.0, -0.5);
+        let b = Vec2::new(1.0, -0.5);
+        let c = Vec2::new(0.0, 1.0);
+        let d = rounded_triangle_2d(Vec2::new(5.0, 0.0), a, b, c, 0.1);
+        assert!(d > 0.0, "far outside: {d}");
+    }
+
+    #[test]
+    fn rounded_tri_larger_than_sharp() {
+        // Rounded triangle should be strictly larger (more area) than sharp one
+        let a = Vec2::new(-1.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let c = Vec2::new(0.0, 1.0);
+        let p = Vec2::new(0.0, -0.3); // just outside the sharp triangle
+        let sharp = triangle_2d(p, a, b, c);
+        let rounded = rounded_triangle_2d(p, a, b, c, 0.4);
+        // With r=0.4 rounding, this point should be inside the rounded version
+        assert!(sharp > 0.0, "sharp is outside: {sharp}");
+        assert!(rounded < 0.0, "rounded should pull in: {rounded}");
+    }
+}

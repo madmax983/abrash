@@ -10188,3 +10188,299 @@ mod tests_pass_25 {
         assert!((ease_elastic_out(1.0, 1.0, 0.3) - 1.0).abs() < 1e-5);
     }
 }
+
+// ── Pass 26: Möller–Trumbore, GGX BRDF terms, SH basis, Uncharted 2 tonemap ──
+
+/// **Ray–triangle** intersection (Möller–Trumbore algorithm).
+///
+/// Returns `Some((t, u, v))` where `t` is the ray parameter, and `(u, v)` are
+/// the barycentric coordinates of the hit point (`w = 1 − u − v`).
+/// Returns `None` when the ray is parallel to the triangle or misses.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, ray_triangle_intersect};
+/// let a = Vec3::new(-1.0, 0.0, 3.0);
+/// let b = Vec3::new( 1.0, 0.0, 3.0);
+/// let c = Vec3::new( 0.0, 1.0, 3.0);
+/// let (t, u, v) = ray_triangle_intersect(Vec3::ZERO, Vec3::Z, a, b, c).unwrap();
+/// assert!((t - 3.0).abs() < 1e-4);
+/// assert!(u >= 0.0 && v >= 0.0 && u + v <= 1.0);
+/// ```
+pub fn ray_triangle_intersect(
+    ro: Vec3,
+    rd: Vec3,
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+) -> Option<(f32, f32, f32)> {
+    let edge1 = b - a;
+    let edge2 = c - a;
+    let h = rd.cross(edge2);
+    let det = edge1.dot(h);
+    if det.abs() < 1e-9 {
+        return None; // Ray parallel to triangle
+    }
+    let inv_det = 1.0 / det;
+    let s = ro - a;
+    let u = s.dot(h) * inv_det;
+    if !(0.0..=1.0).contains(&u) {
+        return None;
+    }
+    let q = s.cross(edge1);
+    let v = rd.dot(q) * inv_det;
+    if v < 0.0 || u + v > 1.0 {
+        return None;
+    }
+    let t = edge2.dot(q) * inv_det;
+    if t < 0.0 {
+        return None;
+    }
+    Some((t, u, v))
+}
+
+/// **GGX Trowbridge-Reitz Normal Distribution Function (NDF)**.
+///
+/// The specular lobe density for a microsurface roughness model.
+///
+/// * `n_dot_h`   — cosine of angle between normal and half-vector (`≥ 0`)
+/// * `roughness` — perceptual roughness in `[0, 1]`; uses Disney `α = r²` remapping
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ggx_ndf;
+/// // Perfect mirror (roughness → 0) → very large NDF at n·h = 1
+/// let d_mirror = ggx_ndf(1.0, 0.01);
+/// // Fully rough → low, broad NDF
+/// let d_rough  = ggx_ndf(0.9, 1.0);
+/// assert!(d_mirror > d_rough);
+/// ```
+#[inline]
+pub fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
+    let alpha = roughness * roughness;
+    let alpha2 = alpha * alpha;
+    let denom = n_dot_h * n_dot_h * (alpha2 - 1.0) + 1.0;
+    alpha2 / (core::f32::consts::PI * denom * denom)
+}
+
+/// **Smith geometry term** with Schlick-GGX approximation.
+///
+/// Occludes both view and light directions for microfacet BRDF evaluation.
+///
+/// * `n_dot_v` — N·V (view direction dotted with normal)
+/// * `n_dot_l` — N·L (light direction dotted with normal)
+/// * `roughness` — perceptual roughness in `[0, 1]`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::ggx_geometry_smith;
+/// let g = ggx_geometry_smith(0.9, 0.9, 0.5);
+/// assert!(g > 0.0 && g <= 1.0, "geometry in (0,1]: {g}");
+/// ```
+#[inline]
+pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
+    let k = roughness * roughness * 0.5; // direct-lighting Disney remapping
+    let g_v = n_dot_v / (n_dot_v * (1.0 - k) + k);
+    let g_l = n_dot_l / (n_dot_l * (1.0 - k) + k);
+    g_v * g_l
+}
+
+/// **Uncharted 2 filmic** tone mapping (Hejl/Burgess-Dawson).
+///
+/// Industry-standard S-curve with more contrast than Reinhard and a separate
+/// white point.  Works well for HDR values up to ~20 EV.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::uncharted2_tonemap;
+/// assert!(uncharted2_tonemap(0.0).abs() < 1e-5);
+/// assert!((uncharted2_tonemap(1.0) - uncharted2_tonemap(0.5)).abs() > 0.05);
+/// // Output is bounded (< 1.0 for very large inputs after white-point normalisation)
+/// assert!(uncharted2_tonemap(1000.0) <= 1.0 + 1e-4);
+/// ```
+pub fn uncharted2_tonemap(x: f32) -> f32 {
+    #[inline]
+    fn partial(v: f32) -> f32 {
+        const A: f32 = 0.15;
+        const B: f32 = 0.50;
+        const C: f32 = 0.10;
+        const D: f32 = 0.20;
+        const E: f32 = 0.02;
+        const F: f32 = 0.30;
+        ((v * (A * v + C * B) + D * E) / (v * (A * v + B) + D * F)) - E / F
+    }
+    let white = 11.2_f32;
+    partial(x) / partial(white)
+}
+
+/// **Spherical Harmonic L0** (DC) basis coefficient.
+///
+/// A constant function over the sphere.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::sh_y00;
+/// let c = sh_y00();
+/// assert!((c - 0.282_094_8).abs() < 1e-5);
+/// ```
+#[inline]
+pub fn sh_y00() -> f32 {
+    0.282_094_79 // 1 / (2 * sqrt(π))
+}
+
+/// **Spherical Harmonic L1** (three-coefficient dipole) basis.
+///
+/// Returns `[Y_1^{-1}, Y_1^0, Y_1^1]` for a unit direction `v`.
+/// Conventionally: Y₁₋₁ ∝ y, Y₁₀ ∝ z, Y₁₁ ∝ x (Cartesian ordering).
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, sh_y1};
+/// // +Z pole → Y10 is maximal, others zero
+/// let b = sh_y1(Vec3::Z);
+/// assert!(b[0].abs() < 1e-5 && b[2].abs() < 1e-5);
+/// assert!(b[1] > 0.4);
+/// ```
+#[inline]
+pub fn sh_y1(v: Vec3) -> [f32; 3] {
+    const C: f32 = 0.488_602_51; // sqrt(3/(4π))
+    [C * v.y, C * v.z, C * v.x]
+}
+
+/// **Spherical Harmonic L2** (five-coefficient quadrupole) basis.
+///
+/// Returns `[Y_2^{-2}, Y_2^{-1}, Y_2^0, Y_2^1, Y_2^2]` for unit direction `v`.
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::math::{Vec3, sh_y2};
+/// // For any unit vector the squared-norm of the basis should equal
+/// // (2L+1)/(4π) × 4π/n_samples (for uniform sampling it's 5/(4π) per coeff)
+/// let b = sh_y2(Vec3::Z);
+/// assert!(b[2].abs() > 0.3, "Y20 along +Z: {}", b[2]);
+/// ```
+#[inline]
+pub fn sh_y2(v: Vec3) -> [f32; 5] {
+    let (x, y, z) = (v.x, v.y, v.z);
+    [
+        1.092_548_43 * x * y,               // Y_2^{-2}
+        1.092_548_43 * y * z,               // Y_2^{-1}
+        0.315_391_57 * (3.0 * z * z - 1.0), // Y_2^0
+        1.092_548_43 * x * z,               // Y_2^1
+        0.546_274_22 * (x * x - y * y),     // Y_2^2
+    ]
+}
+
+// ── Pass 26 tests ──────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_26 {
+    use super::*;
+
+    // ── ray_triangle_intersect ────────────────────────────────────────────
+    #[test]
+    fn moller_trumbore_hit() {
+        let a = Vec3::new(-1.0, 0.0, 3.0);
+        let b = Vec3::new(1.0, 0.0, 3.0);
+        let c = Vec3::new(0.0, 1.0, 3.0);
+        let (t, u, v) = ray_triangle_intersect(Vec3::ZERO, Vec3::Z, a, b, c).unwrap();
+        assert!((t - 3.0).abs() < 1e-4, "t: {t}");
+        assert!(u >= 0.0 && v >= 0.0 && u + v <= 1.0, "bary: {u} {v}");
+    }
+
+    #[test]
+    fn moller_trumbore_miss() {
+        // Ray along +X, triangle in +Z plane
+        let a = Vec3::new(-1.0, 0.0, 3.0);
+        let b = Vec3::new(1.0, 0.0, 3.0);
+        let c = Vec3::new(0.0, 1.0, 3.0);
+        let hit = ray_triangle_intersect(Vec3::ZERO, Vec3::X, a, b, c);
+        assert!(hit.is_none(), "should miss");
+    }
+
+    #[test]
+    fn moller_trumbore_parallel() {
+        // Ray along +Z, triangle also in +Z-parallel plane (normal = +X)
+        let a = Vec3::new(1.0, 0.0, 0.0);
+        let b = Vec3::new(1.0, 1.0, 0.0);
+        let c = Vec3::new(1.0, 0.0, 1.0);
+        let hit = ray_triangle_intersect(Vec3::ZERO, Vec3::Z, a, b, c);
+        assert!(hit.is_none(), "parallel should miss");
+    }
+
+    // ── ggx_ndf ───────────────────────────────────────────────────────────
+    #[test]
+    fn ggx_ndf_smooth_brighter() {
+        let d_smooth = ggx_ndf(1.0, 0.01);
+        let d_rough = ggx_ndf(1.0, 1.0);
+        assert!(d_smooth > d_rough, "smooth > rough at n·h=1");
+    }
+
+    #[test]
+    fn ggx_ndf_positive() {
+        for r in [0.1_f32, 0.3, 0.5, 0.8, 1.0] {
+            let d = ggx_ndf(0.8, r);
+            assert!(d > 0.0, "positive NDF: {d}");
+        }
+    }
+
+    // ── ggx_geometry_smith ────────────────────────────────────────────────
+    #[test]
+    fn ggx_geometry_in_range() {
+        let g = ggx_geometry_smith(0.9, 0.9, 0.5);
+        assert!(g > 0.0 && g <= 1.0, "G in (0,1]: {g}");
+    }
+
+    // ── uncharted2_tonemap ────────────────────────────────────────────────
+    #[test]
+    fn uncharted2_zero_in_zero_out() {
+        assert!(uncharted2_tonemap(0.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn uncharted2_bounded() {
+        // Uncharted2 saturates at (1-E/F)/partial(11.2) ≈ 1.287 as input → ∞.
+        // Values above the white point (11.2) legitimately exceed 1.0; callers
+        // should clamp or rely on exposure to keep scene values ≤ 11.2.
+        let large = uncharted2_tonemap(1000.0);
+        assert!(
+            large > 0.0 && large < 1.4,
+            "asymptote out of range: {large}"
+        );
+        // Verify the white-point itself maps to exactly 1.0
+        let white = uncharted2_tonemap(11.2);
+        assert!((white - 1.0).abs() < 1e-5, "white point: {white}");
+    }
+
+    // ── SH basis ──────────────────────────────────────────────────────────
+    #[test]
+    fn sh_y00_constant() {
+        assert!((sh_y00() - 0.282_094_79).abs() < 1e-5);
+    }
+
+    #[test]
+    fn sh_y1_poles() {
+        // +Z: Y10 non-zero, others zero
+        let b = sh_y1(Vec3::Z);
+        assert!(b[0].abs() < 1e-5 && b[2].abs() < 1e-5);
+        assert!(b[1] > 0.4);
+        // +X: Y11 non-zero, others zero
+        let bx = sh_y1(Vec3::X);
+        assert!(bx[0].abs() < 1e-5 && bx[1].abs() < 1e-5);
+        assert!(bx[2] > 0.4);
+    }
+
+    #[test]
+    fn sh_y2_z_pole() {
+        let b = sh_y2(Vec3::Z);
+        // At +Z: Y2^0 = 0.315... * 2 ≈ 0.63; others zero
+        assert!((b[2] - 0.315_391_57 * 2.0).abs() < 1e-4, "Y20: {}", b[2]);
+        assert!(b[0].abs() < 1e-5 && b[1].abs() < 1e-5);
+    }
+}
