@@ -199,7 +199,9 @@ impl Turtle {
             segment_length: 1.0,
             segment_radius: 0.1,
             turn_angle: std::f32::consts::PI / 6.0, // 30 degrees
-            stack: Vec::new(),
+            /// ⚡ Bolt: Pre-allocate capacity for the state stack to eliminate multiple
+            /// dynamic heap reallocations during branch-heavy L-System interpretations.
+            stack: Vec::with_capacity(32),
         }
     }
 
