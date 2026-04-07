@@ -693,3 +693,8 @@ required-features = ["nova"]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "sdf_imprecise_flops"
+harness = false
+path = "benches/sdf_imprecise_flops.rs"

@@ -1,43 +1,27 @@
-use abrash::zbuffer::ZBuffer;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use abrash_core::zbuffer::ZBuffer;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_zbuffer_clear(c: &mut Criterion) {
-    let width = 1920;
-    let height = 1080;
-    let mut zb = ZBuffer::new(width, height).unwrap();
-
     let mut group = c.benchmark_group("zbuffer");
+    group.sample_size(100);
+
+    let mut zb_1080 = ZBuffer::new(1920, 1080).unwrap();
+    let mut zb_4k = ZBuffer::new(3840, 2160).unwrap();
 
     group.bench_function("clear_1080p", |b| {
-        b.iter(|| {
-            zb.clear();
-            black_box(&zb);
-        });
+        b.iter(|| zb_1080.clear());
     });
 
-    let width_4k = 3840;
-    let height_4k = 2160;
-    let mut zb_4k = ZBuffer::new(width_4k, height_4k).unwrap();
-
     group.bench_function("clear_4k", |b| {
-        b.iter(|| {
-            zb_4k.clear();
-            black_box(&zb_4k);
-        });
+        b.iter(|| zb_4k.clear());
     });
 
     group.bench_function("clear_rect_1080p", |b| {
-        b.iter(|| {
-            zb.clear_rect(480, 270, 960, 540); // 50% of the screen
-            black_box(&zb);
-        });
+        b.iter(|| zb_1080.clear_rect(100, 100, 1000, 500));
     });
 
     group.bench_function("clear_rect_4k", |b| {
-        b.iter(|| {
-            zb_4k.clear_rect(960, 540, 1920, 1080); // 50% of the screen
-            black_box(&zb_4k);
-        });
+        b.iter(|| zb_4k.clear_rect(200, 200, 2000, 1000));
     });
 
     group.finish();
