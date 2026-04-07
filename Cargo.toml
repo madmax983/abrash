@@ -693,3 +693,8 @@ required-features = ["nova"]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "fractal_demo"
+path = "examples/fractal_demo.rs"
+required-features = ["nova", "backend-winit"]

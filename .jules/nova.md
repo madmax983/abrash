@@ -200,3 +200,8 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Mandelbrot Explorer]
+**Concept:** A mathematical procedural renderer that computes and visualizes the Mandelbrot set fractal. Includes pan, zoom, and dynamic color mapping.
+**Fate:** Implemented
+**Lesson:** Using `rayon::par_chunks_exact_mut` makes the complex pixel-by-pixel mathematical evaluation incredibly fast. The standalone interactive demo shows that the rendering engine can comfortably handle real-time deep mathematical exploration.
