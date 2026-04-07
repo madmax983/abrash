@@ -1,5 +1,5 @@
 use abrash_core::zbuffer::ZBuffer;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_zbuffer_clear(c: &mut Criterion) {
     let mut group = c.benchmark_group("zbuffer");
