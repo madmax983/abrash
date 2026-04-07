@@ -24,3 +24,7 @@
 **Bloat:** Redundant clones and unreadable literals
 **Cut:** Removed redundant clones of data variables in test, marked `Vec3::is_finite` as a const function as it calculates constants on copy-types, spaced large numbers out using '_' delimiters.
 **Saved:** Multiple compiler warnings, enforcing cleanly building codebase.
+## [Reduction]
+**Bloat:** `SequenceBuilder` and `TweenSegmentBuilder` in `timeline.rs` (Factory Factories).
+**Cut:** Removed the builders and replaced them with direct instantiation using `Sequence::new(vec![...])`.
+**Saved:** 70+ lines of builder boilerplate and cognitive load of another fluent interface.
