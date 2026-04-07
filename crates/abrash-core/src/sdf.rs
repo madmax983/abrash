@@ -5501,8 +5501,8 @@ mod tests_pass_27_sdf {
 /// ```
 /// use abrash_core::sdf::lemniscate_2d;
 /// use abrash_core::math::Vec2;
-/// // Point near the origin (pinch point) is outside.
-/// assert!(lemniscate_2d(Vec2::ZERO, 1.0) > 0.0);
+/// // The origin is the pinch point (exactly 0 distance).
+/// assert_eq!(lemniscate_2d(Vec2::ZERO, 1.0), 0.0);
 /// // Point on the right lobe midway is inside.
 /// assert!(lemniscate_2d(Vec2::new(0.7, 0.0), 1.0) < 0.0);
 /// ```

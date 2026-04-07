@@ -10600,8 +10600,8 @@ pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
 /// use abrash_core::math::uncharted2_tonemap;
 /// assert!(uncharted2_tonemap(0.0).abs() < 1e-5);
 /// assert!((uncharted2_tonemap(1.0) - uncharted2_tonemap(0.5)).abs() > 0.05);
-/// // Output is bounded (< 1.0 for very large inputs after white-point normalisation)
-/// assert!(uncharted2_tonemap(1000.0) <= 1.0 + 1e-4);
+/// // White point maps exactly to 1.0
+/// assert!((uncharted2_tonemap(11.2) - 1.0).abs() < 1e-5);
 /// ```
 pub fn uncharted2_tonemap(x: f32) -> f32 {
     #[inline]
