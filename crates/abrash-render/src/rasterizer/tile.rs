@@ -3912,13 +3912,22 @@ fn draw_scanline_gouraud_i32_tile(
     let dg = dc_dx.1;
     let db = dc_dx.2;
 
-    for (pixel, depth_val) in pixels.iter_mut().zip(depths.iter_mut()) {
-        if z < *depth_val {
-            *depth_val = z;
-            let rv = (r >> 16).clamp(0, 255) as u32;
-            let gv = (g >> 16).clamp(0, 255) as u32;
-            let bv = (b >> 16).clamp(0, 255) as u32;
-            *pixel = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
+    let len = pixels.len();
+    assert!(depths.len() >= len, "Depth buffer must be at least as large as the pixels slice");
+    let mut fb_ptr = pixels.as_mut_ptr();
+    let mut zb_ptr = depths.as_mut_ptr();
+
+    for _ in 0..len {
+        unsafe {
+            if z < *zb_ptr {
+                *zb_ptr = z;
+                let rv = (r >> 16).clamp(0, 255) as u32;
+                let gv = (g >> 16).clamp(0, 255) as u32;
+                let bv = (b >> 16).clamp(0, 255) as u32;
+                *fb_ptr = 0xFF00_0000 | (rv << 16) | (gv << 8) | bv;
+            }
+            fb_ptr = fb_ptr.add(1);
+            zb_ptr = zb_ptr.add(1);
         }
         z += dz_dx;
         r = r.wrapping_add(dr);

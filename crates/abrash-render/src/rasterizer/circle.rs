@@ -181,73 +181,53 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
     }
 
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
+        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
+        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
+        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+
         while y >= x {
             x += 1;
+
+            // The rows at yc+x and yc-x are always new scanlines when x increments
+            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
+            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+
             if d > 0 {
+                // If y is changing, the PREVIOUS y has reached its maximum x width.
+                // We draw the scanlines for yc+y and yc-y with the maximum x reached (x-1).
+                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc + y, color);
+                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc - y, color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
-            fill_circle_lines_unchecked(fb, xc, yc, x, y, color);
         }
     } else {
         // Safe path: clip against screen bounds
-        fill_circle_lines(fb, xc, yc, x, y, color);
+        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
+        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
+        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
+        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+
         while y >= x {
             x += 1;
+
+            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
+            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+
             if d > 0 {
+                let max_x_for_y = x - 1;
+                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_add(y), color);
+                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_sub(y), color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
-            fill_circle_lines(fb, xc, yc, x, y, color);
         }
     }
-}
-
-#[inline(always)]
-fn fill_circle_lines_unchecked(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-    draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-    draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
-}
-
-#[inline(always)]
-fn fill_circle_lines(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, color: u32) {
-    // For a filled circle, we draw horizontal lines connecting the left and right points
-    // for each pair of symmetrical y-coordinates.
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(x),
-        xc.saturating_add(x),
-        yc.saturating_add(y),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(x),
-        xc.saturating_add(x),
-        yc.saturating_sub(y),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(y),
-        xc.saturating_add(y),
-        yc.saturating_add(x),
-        color,
-    );
-    draw_horizontal_line(
-        fb,
-        xc.saturating_sub(y),
-        xc.saturating_add(y),
-        yc.saturating_sub(x),
-        color,
-    );
 }
 
 #[inline(always)]

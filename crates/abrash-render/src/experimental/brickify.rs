@@ -36,41 +36,79 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
     // We need to read from the original and write the blocky version,
     // so we'll clone the current framebuffer to read from safely.
     // This allows for parallel chunking without mutable aliasing issues.
-    let src_pixels = fb.as_slice().to_vec();
-    let pixels = fb.as_mut_slice();
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    #[cfg(feature = "parallel")]
-    {
-        use rayon::prelude::*;
+    SOURCE_PIXELS.with(|buf| {
+        let mut original_pixels = buf.borrow_mut();
+        original_pixels.clear();
+        original_pixels.extend_from_slice(fb.as_slice());
 
-        let chunk_size = width * b_size;
+        let src_pixels = original_pixels.as_slice();
+        let pixels = fb.as_mut_slice();
 
-        pixels
-            .par_chunks_exact_mut(chunk_size)
-            .enumerate()
-            .for_each(|(chunk_idx, block_rows)| {
-                let y_start = chunk_idx * b_size;
-                let block_height = block_rows.len() / width;
-                if block_height == 0 {
-                    return;
-                }
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+
+            let chunk_size = width * b_size;
+
+            pixels
+                .par_chunks_exact_mut(chunk_size)
+                .enumerate()
+                .for_each(|(chunk_idx, block_rows)| {
+                    let y_start = chunk_idx * b_size;
+                    let block_height = block_rows.len() / width;
+                    if block_height == 0 {
+                        return;
+                    }
+
+                    for x in (0..width).step_by(b_size) {
+                        let block_width = std::cmp::min(b_size, width - x);
+
+                        // 1. Calculate Average Color
+                        let avg_color = calculate_average_color(
+                            src_pixels,
+                            width,
+                            x,
+                            y_start,
+                            block_width,
+                            block_height,
+                        );
+
+                        // 2. Draw the Brick (Bevel + Stud)
+                        draw_brick(
+                            block_rows,
+                            width,
+                            x,
+                            block_width,
+                            block_height,
+                            b_size,
+                            avg_color,
+                        );
+                    }
+                });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            for y in (0..height).step_by(b_size) {
+                let block_height = std::cmp::min(b_size, height - y);
+                let row_start = y * width;
 
                 for x in (0..width).step_by(b_size) {
                     let block_width = std::cmp::min(b_size, width - x);
 
                     // 1. Calculate Average Color
-                    let avg_color = calculate_average_color(
-                        &src_pixels,
-                        width,
-                        x,
-                        y_start,
-                        block_width,
-                        block_height,
-                    );
+                    let avg_color =
+                        calculate_average_color(src_pixels, width, x, y, block_width, block_height);
 
                     // 2. Draw the Brick (Bevel + Stud)
+                    // We pass the slice starting at `row_start` so local Y is 0 for this block
+                    let block_slice = &mut pixels[row_start..];
                     draw_brick(
-                        block_rows,
+                        block_slice,
                         width,
                         x,
                         block_width,
@@ -79,37 +117,9 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
                         avg_color,
                     );
                 }
-            });
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        for y in (0..height).step_by(b_size) {
-            let block_height = std::cmp::min(b_size, height - y);
-            let row_start = y * width;
-
-            for x in (0..width).step_by(b_size) {
-                let block_width = std::cmp::min(b_size, width - x);
-
-                // 1. Calculate Average Color
-                let avg_color =
-                    calculate_average_color(&src_pixels, width, x, y, block_width, block_height);
-
-                // 2. Draw the Brick (Bevel + Stud)
-                // We pass the slice starting at `row_start` so local Y is 0 for this block
-                let block_slice = &mut pixels[row_start..];
-                draw_brick(
-                    block_slice,
-                    width,
-                    x,
-                    block_width,
-                    block_height,
-                    b_size,
-                    avg_color,
-                );
             }
         }
-    }
+    });
 }
 
 #[inline(always)]
