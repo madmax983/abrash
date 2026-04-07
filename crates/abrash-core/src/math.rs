@@ -10600,8 +10600,8 @@ pub fn ggx_geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
 /// use abrash_core::math::uncharted2_tonemap;
 /// assert!(uncharted2_tonemap(0.0).abs() < 1e-5);
 /// assert!((uncharted2_tonemap(1.0) - uncharted2_tonemap(0.5)).abs() > 0.05);
-/// // Output is bounded (< 1.0 for very large inputs after white-point normalisation)
-/// assert!(uncharted2_tonemap(1000.0) <= 1.0 + 1e-4);
+/// // White point (11.2) normalizes exactly to 1.0
+/// assert!((uncharted2_tonemap(11.2) - 1.0).abs() < 1e-4);
 /// ```
 pub fn uncharted2_tonemap(x: f32) -> f32 {
     #[inline]
@@ -19612,5 +19612,513 @@ mod tests_pass_57 {
     fn overdamped_decays_to_zero() {
         let (x, _) = damped_oscillator_state(5.0, 2.0, 1.0, 0.0, 5.0);
         assert!(x.abs() < 0.01, "overdamped should decay: x={x}");
+    }
+}
+
+// ── Pass 58: SDF shapes, SDF space operators, lens distortion ────────────────
+
+/// Approximate signed distance to an ellipsoid centred at the origin.
+///
+/// `r` is the per-axis radii `(rx, ry, rz)`.  The result is an *exact* SDF
+/// on the surface and a tight bound elsewhere (Inigo Quilez 2D→3D lift).
+pub fn sdf_ellipsoid(p: Vec3, r: Vec3) -> f32 {
+    // Component-wise p/r and p/(r*r) — Vec3 has no Vec3/Vec3 operator.
+    let pr = Vec3::new(p.x / r.x, p.y / r.y, p.z / r.z);
+    let pr2 = Vec3::new(p.x / (r.x * r.x), p.y / (r.y * r.y), p.z / (r.z * r.z));
+    let k0 = pr.length();
+    let k1 = pr2.length();
+    // Guard: p = 0 → k1 = 0; return the negative of the smallest radius.
+    if k1 < 1e-10 {
+        return -(r.x.min(r.y).min(r.z));
+    }
+    k0 * (k0 - 1.0) / k1
+}
+
+/// Signed distance to a hexagonal prism.
+///
+/// The prism extends `±h.y` along Y and has a hexagonal cross-section of
+/// inscribed radius `h.x` in the XZ plane (flat-top orientation).
+pub fn sdf_hex_prism(p: Vec3, h: Vec2) -> f32 {
+    // Quilez hex prism — hex cross-section in XZ, height axis Y.
+    const KX: f32 = -0.866_025_4; // -√3/2
+    const KY: f32 = 0.5;
+    const KZ: f32 = 0.577_350_3; // 1/√3
+    let ap = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs());
+    // Project into hex fundamental domain using XZ as the hex plane.
+    let dot = 2.0 * (KX * ap.x + KY * ap.z).min(0.0);
+    let qx = ap.x - dot * KX;
+    let qz = ap.z - dot * KY;
+    // Distance to hex edge in XZ, height in Y.
+    let dx_raw = ((qx - (qz / KZ).clamp(0.0, h.x * KZ)).powi(2) + (qz - h.x).powi(2)).sqrt();
+    let dx_sign = if qx - h.x * KZ > 0.0 || qz - h.x > 0.0 {
+        1.0_f32
+    } else {
+        -1.0_f32
+    };
+    let d = Vec2::new(dx_sign * dx_raw, ap.y - h.y);
+    d.x.max(d.y).min(0.0) + Vec2::new(d.x.max(0.0), d.y.max(0.0)).length()
+}
+
+/// Signed distance to a square pyramid centred at the origin.
+///
+/// `h` is the half-height (tip at `+h`, base at `y = -h`).  The base is a
+/// square of side `2·h` (45° slope walls).  Quilez formulation.
+pub fn sdf_pyramid(p: Vec3, h: f32) -> f32 {
+    // Quilez square pyramid — tip at (0, +h, 0), base square of side 1 at y=0.
+    let m2 = h * h + 0.25_f32;
+    let mut qx = p.x.abs();
+    let qy = p.y;
+    let mut qz = p.z.abs();
+    // Fold into the canonical octant (qx ≥ qz).
+    if qz > qx {
+        core::mem::swap(&mut qx, &mut qz);
+    }
+    qx -= 0.5;
+    qz -= 0.5;
+    // Project onto the slant edge.
+    let q = Vec3::new(qz, h * qy - 0.5 * qx, h * qx + 0.5 * qy);
+    let s = (-q.x).max(0.0);
+    let t = ((q.y - 0.5 * qz) / (m2 + 0.25)).clamp(0.0, 1.0);
+    let a = m2 * (q.x + s).powi(2) + q.y * q.y;
+    let b = m2 * (q.x + 0.5 * t).powi(2) + (q.y - m2 * t).powi(2);
+    let d = if q.y.min(-q.x * m2 - q.y * 0.5) > 0.0 {
+        0.0
+    } else {
+        a.min(b)
+    };
+    ((d + q.z * q.z) / m2).sqrt() * (-qy).max(q.z).signum()
+}
+
+/// Smooth CSG subtraction: `a` minus `b`, with a soft blend of radius `k`.
+///
+/// Analogous to [`sdf_op_smooth_union`] but for subtraction.  Returns a
+/// negative value (inside) only where `a` is solid and `b` is not.
+pub fn sdf_op_smooth_subtract(a: f32, b: f32, k: f32) -> f32 {
+    let h = (k - (a + b).abs()).max(0.0) / k;
+    a.max(-b) + h * h * k * 0.25
+}
+
+/// Smooth CSG intersection: the overlap of `a` and `b`, with a blend of radius `k`.
+pub fn sdf_op_smooth_intersect(a: f32, b: f32, k: f32) -> f32 {
+    let h = (k - (a - b).abs()).max(0.0) / k;
+    a.max(b) - h * h * k * 0.25
+}
+
+/// Elongate an SDF along a local axis by half-extents `h`.
+///
+/// Stretches the point `p` by clamping each axis independently before passing
+/// it to the inner SDF.  Call as `sdf_op_elongate(p, h)` and use the result
+/// as the point argument to any SDF primitive.
+///
+/// ```text
+/// let p_elong = sdf_op_elongate(p, Vec3::new(0.5, 0.0, 0.0));
+/// let d = sdf_sphere(p_elong, 0.3);
+/// ```
+pub fn sdf_op_elongate(p: Vec3, h: Vec3) -> Vec3 {
+    // Vec3 has no Neg — negate component-wise.
+    let neg_h = Vec3::new(-h.x, -h.y, -h.z);
+    p - p.clamp(neg_h, h)
+}
+
+/// Twist space around the Y axis before evaluating an SDF.
+///
+/// Rotates the XZ plane by `k * p.y` radians, leaving Y unchanged.  Pass the
+/// returned point as the argument to any SDF primitive.
+///
+/// ```text
+/// let p_tw = sdf_op_twist(p, 2.0);
+/// let d = sdf_box_3d(p_tw, Vec3::splat(0.3));
+/// ```
+pub fn sdf_op_twist(p: Vec3, k: f32) -> Vec3 {
+    let (s, c) = (k * p.y).sin_cos();
+    Vec3::new(c * p.x - s * p.z, p.y, s * p.x + c * p.z)
+}
+
+/// Barrel / pincushion lens distortion of a UV coordinate.
+///
+/// `uv` should be in `[-1, 1]` (centred).  Positive `k` gives barrel
+/// distortion (edges bow outward); negative `k` gives pincushion (edges bow
+/// inward).  Typical `|k|` values: 0.05–0.3.
+///
+/// Returns the distorted UV, also in `[-1, 1]` space.
+pub fn barrel_distortion(uv: Vec2, k: f32) -> Vec2 {
+    let r2 = uv.dot(uv);
+    uv * (1.0 + k * r2)
+}
+
+// ── Pass 58 tests ─────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_58 {
+    use super::*;
+
+    // ── sdf_ellipsoid ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn ellipsoid_origin_is_negative() {
+        let d = sdf_ellipsoid(Vec3::ZERO, Vec3::new(1.0, 0.5, 2.0));
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn ellipsoid_far_point_is_positive() {
+        let d = sdf_ellipsoid(Vec3::new(10.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        assert!(d > 0.0, "d={d}");
+    }
+
+    #[test]
+    fn ellipsoid_on_surface_near_zero() {
+        // Unit-sphere special case — point on surface should be ~0.
+        let p = Vec3::new(1.0, 0.0, 0.0);
+        let r = Vec3::new(1.0, 1.0, 1.0);
+        let d = sdf_ellipsoid(p, r);
+        assert!(d.abs() < 1e-4, "d={d}");
+    }
+
+    // ── sdf_hex_prism ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn hex_prism_centre_inside() {
+        let d = sdf_hex_prism(Vec3::ZERO, Vec2::new(1.0, 1.0));
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn hex_prism_far_above_outside() {
+        let d = sdf_hex_prism(Vec3::new(0.0, 5.0, 0.0), Vec2::new(1.0, 1.0));
+        assert!(d > 0.0, "d={d}");
+    }
+
+    // ── sdf_pyramid ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn pyramid_centre_inside() {
+        // Pyramid tip at y=+h=1.0, base at y=0.  Mid-height centre is inside.
+        let d = sdf_pyramid(Vec3::new(0.0, 0.5, 0.0), 1.0);
+        assert!(d < 0.0, "d={d}");
+    }
+
+    #[test]
+    fn pyramid_far_outside() {
+        let d = sdf_pyramid(Vec3::new(0.0, 10.0, 0.0), 1.0);
+        assert!(d > 0.0, "d={d}");
+    }
+
+    // ── sdf_op_smooth_subtract ────────────────────────────────────────────────
+
+    #[test]
+    fn smooth_subtract_recovers_hard_subtract_at_k0() {
+        let a = 0.3_f32;
+        let b = -0.5_f32;
+        let soft = sdf_op_smooth_subtract(a, b, 1e-6);
+        let hard = a.max(-b);
+        assert!((soft - hard).abs() < 1e-3, "soft={soft} hard={hard}");
+    }
+
+    #[test]
+    fn smooth_subtract_blends_near_boundary() {
+        // Near the boundary the smooth version adds a blend offset (>= hard).
+        // Far from the blend zone (|a+b| >> k) it converges to hard subtract.
+        let a = 0.5_f32;
+        let b = 0.8_f32; // deep inside B — well outside blend radius k=0.1
+        let soft = sdf_op_smooth_subtract(a, b, 0.1);
+        let hard = a.max(-b);
+        assert!((soft - hard).abs() < 1e-4, "soft={soft} hard={hard}");
+    }
+
+    // ── sdf_op_smooth_intersect ───────────────────────────────────────────────
+
+    #[test]
+    fn smooth_intersect_recovers_hard_intersect_at_k0() {
+        let a = 0.3_f32;
+        let b = 0.5_f32;
+        let soft = sdf_op_smooth_intersect(a, b, 1e-6);
+        let hard = a.max(b);
+        assert!((soft - hard).abs() < 1e-3, "soft={soft} hard={hard}");
+    }
+
+    #[test]
+    fn smooth_intersect_smaller_than_hard_near_boundary() {
+        let a = 0.05_f32;
+        let b = 0.05_f32;
+        let soft = sdf_op_smooth_intersect(a, b, 0.5);
+        let hard = a.max(b);
+        assert!(soft <= hard + 1e-5, "soft={soft} hard={hard}");
+    }
+
+    // ── sdf_op_elongate ───────────────────────────────────────────────────────
+
+    #[test]
+    fn elongate_identity_when_h_zero() {
+        let p = Vec3::new(1.0, 2.0, 3.0);
+        let pe = sdf_op_elongate(p, Vec3::ZERO);
+        assert!((pe - p).length() < 1e-6);
+    }
+
+    #[test]
+    fn elongate_clamps_inside_h() {
+        // p.x=0.3 inside h.x=0.5 → result x=0, sphere sees origin on that axis.
+        let p = Vec3::new(0.3, 0.0, 0.0);
+        let pe = sdf_op_elongate(p, Vec3::new(0.5, 0.0, 0.0));
+        assert!(pe.x.abs() < 1e-6, "pe.x={}", pe.x);
+    }
+
+    // ── sdf_op_twist ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn twist_zero_k_is_identity() {
+        let p = Vec3::new(1.0, 2.0, 0.5);
+        let pt = sdf_op_twist(p, 0.0);
+        assert!((pt - p).length() < 1e-6);
+    }
+
+    #[test]
+    fn twist_preserves_y_and_radius() {
+        let p = Vec3::new(1.0, 1.0, 0.0);
+        let pt = sdf_op_twist(p, std::f32::consts::FRAC_PI_2);
+        assert!((pt.y - p.y).abs() < 1e-5);
+        let r_in = (p.x * p.x + p.z * p.z).sqrt();
+        let r_out = (pt.x * pt.x + pt.z * pt.z).sqrt();
+        assert!((r_in - r_out).abs() < 1e-5);
+    }
+
+    // ── barrel_distortion ─────────────────────────────────────────────────────
+
+    #[test]
+    fn barrel_no_distortion_at_origin() {
+        let uv = Vec2::ZERO;
+        let out = barrel_distortion(uv, 0.3);
+        assert!((out - uv).length() < 1e-6);
+    }
+
+    #[test]
+    fn barrel_positive_k_expands() {
+        let uv = Vec2::new(0.5, 0.5);
+        let out = barrel_distortion(uv, 0.3);
+        assert!(out.length() > uv.length(), "out={out:?}");
+    }
+
+    #[test]
+    fn barrel_negative_k_contracts() {
+        let uv = Vec2::new(0.5, 0.5);
+        let out = barrel_distortion(uv, -0.3);
+        assert!(out.length() < uv.length(), "out={out:?}");
+    }
+}
+
+// ── Pass 59: fog, projectile, normal-map blend, PBR microfacet ───────────────
+
+/// Linear fog factor: 1 (fully fogged) at `end`, 0 (clear) at `start`.
+///
+/// Returns a value in `[0, 1]`.
+pub fn fog_factor_linear(dist: f32, start: f32, end: f32) -> f32 {
+    if end <= start {
+        return 1.0;
+    }
+    ((end - dist) / (end - start)).clamp(0.0, 1.0)
+}
+
+/// Exponential fog factor: `exp(-density * dist)`.
+///
+/// Returns a value in `(0, 1]`; approaches 0 (fully fogged) as `dist` grows.
+pub fn fog_factor_exp(dist: f32, density: f32) -> f32 {
+    (-density * dist).exp()
+}
+
+/// Squared-exponential fog factor: `exp(-(density * dist)²)`.
+///
+/// Thinner at short ranges, heavier at long ranges than [`fog_factor_exp`].
+pub fn fog_factor_exp2(dist: f32, density: f32) -> f32 {
+    (-(density * dist).powi(2)).exp()
+}
+
+/// Solid angle (steradians) subtended by a sphere of radius `r` at distance `d`
+/// from its centre (observer outside the sphere, so `d > r`).
+///
+/// Returns `2π · (1 − cos θ)` where `sin θ = r / d`.
+pub fn solid_angle_sphere(r: f32, d: f32) -> f32 {
+    if d <= r {
+        // Observer inside or on the sphere — full hemisphere or 4π.
+        return 2.0 * std::f32::consts::PI;
+    }
+    let cos_theta = (1.0 - (r / d).powi(2)).sqrt();
+    2.0 * std::f32::consts::PI * (1.0 - cos_theta)
+}
+
+/// Kinematic projectile position at time `t`.
+///
+/// `gravity` is in world units/s² downward (typically `Vec3::new(0,-9.81,0)`).
+///
+/// Returns `pos0 + vel0·t + ½·gravity·t²`.
+pub fn projectile_position(pos0: Vec3, vel0: Vec3, t: f32, gravity: Vec3) -> Vec3 {
+    pos0 + vel0 * t + gravity * (0.5 * t * t)
+}
+
+/// Reoriented Normal Map (RNM) blending of two tangent-space normals.
+///
+/// Both `n1` and `n2` must be in tangent space and normalised.  The result is
+/// a normalised tangent-space normal that represents applying `n2` on top of
+/// `n1`.  Superior to simple additive / partial-derivative blending for large
+/// angles.  (Pettineo / Karis)
+pub fn normal_map_blend_rnm(n1: Vec3, n2: Vec3) -> Vec3 {
+    // Reorient n2 into the frame defined by n1.
+    let t = Vec3::new(n1.x, n1.y, n1.z + 1.0);
+    let u = Vec3::new(-n2.x, -n2.y, n2.z);
+    let r = t * t.dot(u) - u * t.z;
+    let len = r.length();
+    if len < 1e-10 {
+        return n1;
+    }
+    r / len
+}
+
+/// GGX (Trowbridge-Reitz) Normal Distribution Function.
+///
+/// - `n_dot_h` — dot product of the surface normal and the halfway vector `∈ [0,1]`
+/// - `roughness` — linear roughness `∈ (0, 1]` (alpha = roughness²)
+///
+/// Returns the NDF weight `D(h)`.
+pub fn ggx_d(n_dot_h: f32, roughness: f32) -> f32 {
+    let a = roughness * roughness;
+    let a2 = a * a;
+    let d = n_dot_h * n_dot_h * (a2 - 1.0) + 1.0;
+    a2 / (std::f32::consts::PI * d * d)
+}
+
+/// Smith-Schlick-GGX single-term geometry function.
+///
+/// Used for either the view or light direction; combine with the other term
+/// using `smith_g_schlick_ggx(n_dot_v) * smith_g_schlick_ggx(n_dot_l)` for
+/// the full Smith geometry term.
+///
+/// - `n_dot_v` — `max(0, N·V)` or `max(0, N·L)` ∈ [0, 1]
+/// - `roughness` — linear roughness
+pub fn smith_g_schlick_ggx(n_dot_v: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
+    n_dot_v / (n_dot_v * (1.0 - k) + k)
+}
+
+// ── Pass 59 tests ─────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests_pass_59 {
+    use super::*;
+
+    // ── fog ───────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn fog_linear_clear_at_start() {
+        assert!((fog_factor_linear(0.0, 0.0, 100.0) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_linear_full_at_end() {
+        assert!(fog_factor_linear(100.0, 0.0, 100.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_linear_clamped_beyond_end() {
+        assert!(fog_factor_linear(200.0, 0.0, 100.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_exp_one_at_zero_dist() {
+        assert!((fog_factor_exp(0.0, 0.05) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fog_exp_decays_with_distance() {
+        assert!(fog_factor_exp(100.0, 0.05) < fog_factor_exp(50.0, 0.05));
+    }
+
+    #[test]
+    fn fog_exp2_one_at_zero_dist() {
+        assert!((fog_factor_exp2(0.0, 0.05) - 1.0).abs() < 1e-5);
+    }
+
+    // ── solid_angle_sphere ────────────────────────────────────────────────────
+
+    #[test]
+    fn solid_angle_hemisphere_at_surface() {
+        // Observer exactly on sphere surface: solid angle = 2π.
+        let sa = solid_angle_sphere(1.0, 1.0);
+        assert!((sa - 2.0 * std::f32::consts::PI).abs() < 1e-4, "sa={sa}");
+    }
+
+    #[test]
+    fn solid_angle_decreases_with_distance() {
+        let sa_near = solid_angle_sphere(1.0, 2.0);
+        let sa_far = solid_angle_sphere(1.0, 10.0);
+        assert!(sa_near > sa_far, "near={sa_near} far={sa_far}");
+    }
+
+    // ── projectile_position ───────────────────────────────────────────────────
+
+    #[test]
+    fn projectile_at_t0_is_pos0() {
+        let pos = projectile_position(
+            Vec3::new(1.0, 2.0, 3.0),
+            Vec3::new(5.0, 0.0, 0.0),
+            0.0,
+            Vec3::new(0.0, -9.81, 0.0),
+        );
+        assert!((pos - Vec3::new(1.0, 2.0, 3.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn projectile_falls_under_gravity() {
+        let pos1 = projectile_position(Vec3::ZERO, Vec3::ZERO, 1.0, Vec3::new(0.0, -9.81, 0.0));
+        let pos2 = projectile_position(Vec3::ZERO, Vec3::ZERO, 2.0, Vec3::new(0.0, -9.81, 0.0));
+        assert!(pos2.y < pos1.y, "pos1.y={} pos2.y={}", pos1.y, pos2.y);
+    }
+
+    // ── normal_map_blend_rnm ──────────────────────────────────────────────────
+
+    #[test]
+    fn rnm_blend_flat_with_flat_is_flat() {
+        let flat = Vec3::new(0.0, 0.0, 1.0);
+        let result = normal_map_blend_rnm(flat, flat);
+        assert!((result - flat).length() < 1e-4, "result={result:?}");
+    }
+
+    #[test]
+    fn rnm_blend_result_is_unit_length() {
+        let n1 = Vec3::new(0.1, 0.2, 0.974).normalize();
+        let n2 = Vec3::new(-0.1, 0.3, 0.948).normalize();
+        let r = normal_map_blend_rnm(n1, n2);
+        assert!((r.length() - 1.0).abs() < 1e-4, "len={}", r.length());
+    }
+
+    // ── ggx_d ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn ggx_d_positive() {
+        // NDF is always positive.
+        assert!(ggx_d(1.0, 0.5) > 0.0);
+        assert!(ggx_d(0.7, 0.3) > 0.0);
+    }
+
+    #[test]
+    fn ggx_d_higher_at_normal_incidence() {
+        // D peaks at n_dot_h = 1.0 (specular lobe centre).
+        let d_peak = ggx_d(1.0, 0.3);
+        let d_off = ggx_d(0.5, 0.3);
+        assert!(d_peak > d_off, "peak={d_peak} off={d_off}");
+    }
+
+    // ── smith_g_schlick_ggx ───────────────────────────────────────────────────
+
+    #[test]
+    fn smith_g_range_zero_to_one() {
+        for &ndotv in &[0.01_f32, 0.1, 0.5, 0.9, 1.0] {
+            let g = smith_g_schlick_ggx(ndotv, 0.5);
+            assert!(g >= 0.0 && g <= 1.0, "g={g} at n_dot_v={ndotv}");
+        }
+    }
+
+    #[test]
+    fn smith_g_one_at_normal_incidence_low_roughness() {
+        // At n_dot_v = 1.0 and roughness → 0, G → 1.
+        let g = smith_g_schlick_ggx(1.0, 0.01);
+        assert!((g - 1.0).abs() < 0.01, "g={g}");
     }
 }
