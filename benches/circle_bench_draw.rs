@@ -1,14 +1,12 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::rasterizer::{draw_circle, fill_circle};
+use abrash_render::rasterizer::draw_circle;
 
-fn bench_fill_circle(c: &mut Criterion) {
+fn bench_draw_circle(c: &mut Criterion) {
     let mut fb = Framebuffer::new(800, 600).unwrap();
-
-    c.bench_function("fill_circle_r100", |b| {
+    c.bench_function("draw_circle_r100", |b| {
         b.iter(|| {
-            fill_circle(
+            draw_circle(
                 &mut fb,
                 black_box(400),
                 black_box(300),
@@ -18,5 +16,5 @@ fn bench_fill_circle(c: &mut Criterion) {
         });
     });
 }
-criterion_group!(benches, bench_fill_circle);
+criterion_group!(benches, bench_draw_circle);
 criterion_main!(benches);
