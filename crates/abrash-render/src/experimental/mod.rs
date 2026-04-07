@@ -45,6 +45,7 @@ pub mod duotone;
 pub mod edge_glow;
 pub mod emboss;
 pub mod fisheye;
+pub mod frosted_glass;
 pub mod glitch;
 pub mod halftone;
 pub mod hologram;
