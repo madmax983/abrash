@@ -343,4 +343,33 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_polygonize_tetrahedron_all_cases() {
+        let p = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+        ];
+
+        // Iterate through all 16 sign permutations
+        for case in 0..16 {
+            let mut val = [0.0; 4];
+            for i in 0..4 {
+                if (case & (1 << i)) != 0 {
+                    val[i] = 1.0;
+                } else {
+                    val[i] = -1.0;
+                }
+            }
+
+            let mut out = Vec::new();
+            polygonize_tetrahedron(0.0, &p, &val, &mut out);
+
+            // The function should not panic/unreachable!()
+            // Assert that the number of output vertices is a multiple of 3
+            assert_eq!(out.len() % 3, 0);
+        }
+    }
 }
