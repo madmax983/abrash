@@ -18,12 +18,12 @@ mod app {
         layout::{Alignment, Constraint, Direction, Layout},
         style::{Color, Modifier, Style},
         text::{Line, Span},
-        widgets::{Block, Borders, Paragraph, Wrap},
+        widgets::{Block, BorderType, Borders, Paragraph, Wrap},
     };
     use std::{collections::HashMap, io, time::Duration};
 
     #[derive(Parser, Debug)]
-    #[command(author, version, about, long_about = None)]
+    #[command(author, version, about = "Arboretum CLI - A TUI dashboard for the Arboretum L-System Generator.", long_about = None)]
     pub struct Args {
         /// Axiom (Initial state)
         #[arg(short, long, default_value = "X")]
@@ -144,7 +144,7 @@ mod app {
                             .fg(Color::Green)
                             .add_modifier(Modifier::BOLD),
                     )
-                    .block(Block::default().borders(Borders::ALL))
+                    .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded))
                     .alignment(Alignment::Center);
                 f.render_widget(title, chunks[0]);
 
@@ -173,6 +173,7 @@ mod app {
 
                 let genome_block = Block::default()
                     .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
                     .title(" 🧬 Genome (Config) ")
                     .border_style(Style::default().fg(Color::Blue));
                 let genome = Paragraph::new(genome_text).block(genome_block);
@@ -210,6 +211,7 @@ mod app {
 
                 let analysis_block = Block::default()
                     .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
                     .title(" 📊 Analysis ")
                     .border_style(Style::default().fg(Color::Yellow));
                 let analysis = Paragraph::new(analysis_text).block(analysis_block);
@@ -263,6 +265,7 @@ mod app {
 
                 let dna_block = Block::default()
                     .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
                     .title(" 🧬 DNA Sequence ")
                     .border_style(Style::default().fg(Color::Magenta));
 
@@ -272,8 +275,12 @@ mod app {
                 f.render_widget(dna_paragraph, chunks[2]);
 
                 // Help Bar
+                let help_block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded);
                 let help = Paragraph::new(" Press [Q] to Quit ")
                     .style(Style::default().fg(Color::Black).bg(Color::White))
+                    .block(help_block)
                     .alignment(Alignment::Center);
                 f.render_widget(help, chunks[3]);
             })?;
