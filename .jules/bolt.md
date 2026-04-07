@@ -4,3 +4,7 @@
 **[Bresenham Overdraw]
 **Learning:** In integer-based shape rasterization (like Bresenham's algorithm for filled circles), naive loops often draw scanlines repeatedly on the same axis (e.g., generating `x` span updates while `y` has not yet decremented), leading to severe overdraw and wasted memory bandwidth.
 **Action:** Always track boundary changes (`y` axis decrements) to issue single, maximum-width scanline draw calls instead of accumulating overdrawn fragments per `x` tick.
+
+**Gouraud Scanline Bounds Elision**
+**Learning:** Replaced safe `zip` iterators with unsafe raw pointer iteration + a pre-loop bounds assertion in `draw_scanline_gouraud_i32` and `draw_scanline_gouraud_i32_tile`. This avoids bounds-checking overhead per pixel and avoids the overhead of zipped iterators.
+**Action:** Modified `crates/abrash-render/src/rasterizer/gouraud.rs` and `crates/abrash-render/src/rasterizer/tile.rs` to use raw pointers. A single initial length assertion ensures memory safety. Verified ~4% speedup in `gouraud_scanline_new` benchmarks.
