@@ -3913,7 +3913,10 @@ fn draw_scanline_gouraud_i32_tile(
     let db = dc_dx.2;
 
     let len = pixels.len();
-    assert!(depths.len() >= len, "Depth buffer must be at least as large as the pixels slice");
+    assert!(
+        depths.len() >= len,
+        "Depth buffer must be at least as large as the pixels slice"
+    );
     let mut fb_ptr = pixels.as_mut_ptr();
     let mut zb_ptr = depths.as_mut_ptr();
 
