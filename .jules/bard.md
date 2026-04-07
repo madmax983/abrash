@@ -46,3 +46,11 @@ Vim: Finished.
 ## 2026-03-18 - Handle and Generation Architecture
 **Confusion:** Rust users are often confused by "Handles" and why they are used instead of `Rc`/`Arc` or raw pointers, and how they prevent use-after-free.
 **Clarification:** Added module-level documentation to `crates/abrash-render/src/render_api/mod.rs` to explain the Render API's "Three Pillars" (Resources, Frame, Renderer) and added executable doctests to `ResourcePool` and `Handle` in `crates/abrash-render/src/render_api/handles.rs` that explicitly demonstrate how the generational index increments upon removal, safely returning `None` instead of causing memory corruption or panics.
+
+## 2026-03-18 - Uncharted 2 Tone Mapping Asymptote
+**Confusion:** The documentation and doc-tests for `uncharted2_tonemap` incorrectly asserted that the output would be strictly `<= 1.0 + 1e-4` for large inputs like `1000.0`. However, the function models an analog film curve which continues to rise asymptotically slightly above 1.0 depending on the white point normalization, evaluating to `~1.283`.
+**Clarification:** Updated the documentation and test to reflect the true asymptotic behavior, asserting the output is `< 1.3`.
+
+## 2026-03-18 - Lemniscate of Bernoulli Pinch Point
+**Confusion:** The doc-test for `lemniscate_2d` evaluated the signed distance function at the exact origin (the pinch point where the lobes intersect). It incorrectly expected a strictly positive value (`> 0.0`), but the SDF correctly evaluates to exactly `0.0` at the self-intersection.
+**Clarification:** Modified the doc-test to evaluate at a coordinate near the pinch point but slightly off the origin (`Vec2::new(0.0, 0.5)`), which correctly returns a positive distance (`> 0.0`), demonstrating points outside the shape's pinch.

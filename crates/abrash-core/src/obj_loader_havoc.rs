@@ -1,3 +1,8 @@
+//! Tests for OBJ loader robustness against malformed data.
+//!
+//! Specifically validates the `load_obj` functionality handles out-of-bounds indices,
+//! extreme vertex counts, and other chaos engineering edge cases gracefully.
+
 #[cfg(test)]
 mod tests {
     use crate::obj_loader::load_obj;
