@@ -48,9 +48,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
-    let mut x = 0;
-    let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut x: i64 = 0;
+    let mut y: i64 = i64::from(radius);
+    let mut d: i64 = 3 - 2 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -62,8 +62,13 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
+    // Fast path: outline entirely off-screen
+    if max_x < 0 || min_x >= i64::from(fb.width()) || max_y < 0 || min_y >= i64::from(fb.height()) {
+        return;
+    }
+
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        draw_circle_points_unchecked(fb, xc, yc, x, y, color);
+        draw_circle_points_unchecked(fb, xc, yc, x as i32, y as i32, color);
         while y >= x {
             x += 1;
             if d > 0 {
@@ -72,11 +77,11 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             } else {
                 d = d + 4 * x + 6;
             }
-            draw_circle_points_unchecked(fb, xc, yc, x, y, color);
+            draw_circle_points_unchecked(fb, xc, yc, x as i32, y as i32, color);
         }
     } else {
         // Safe path: clip against screen bounds
-        draw_circle_points(fb, xc, yc, x, y, color);
+        draw_circle_points(fb, xc, yc, x as i32, y as i32, color);
         while y >= x {
             x += 1;
             if d > 0 {
@@ -85,7 +90,7 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             } else {
                 d = d + 4 * x + 6;
             }
-            draw_circle_points(fb, xc, yc, x, y, color);
+            draw_circle_points(fb, xc, yc, x as i32, y as i32, color);
         }
     }
 }
@@ -166,9 +171,9 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
-    let mut x = 0;
-    let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut x: i64 = 0;
+    let mut y: i64 = i64::from(radius);
+    let mut d: i64 = 3 - 2 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -180,24 +185,29 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
+    // Fast path: fully off-screen
+    if max_x < 0 || min_x >= i64::from(fb.width()) || max_y < 0 || min_y >= i64::from(fb.height()) {
+        return;
+    }
+
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+        draw_horizontal_line_unchecked(fb, xc - (x as i32), xc + (x as i32), yc + (y as i32), color);
+        draw_horizontal_line_unchecked(fb, xc - (x as i32), xc + (x as i32), yc - (y as i32), color);
+        draw_horizontal_line_unchecked(fb, xc - (y as i32), xc + (y as i32), yc + (x as i32), color);
+        draw_horizontal_line_unchecked(fb, xc - (y as i32), xc + (y as i32), yc - (x as i32), color);
 
         while y >= x {
             x += 1;
 
             // The rows at yc+x and yc-x are always new scanlines when x increments
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+            draw_horizontal_line_unchecked(fb, xc - (y as i32), xc + (y as i32), yc + (x as i32), color);
+            draw_horizontal_line_unchecked(fb, xc - (y as i32), xc + (y as i32), yc - (x as i32), color);
 
             if d > 0 {
                 // If y is changing, the PREVIOUS y has reached its maximum x width.
                 // We draw the scanlines for yc+y and yc-y with the maximum x reached (x-1).
-                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc + y, color);
-                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc - y, color);
+                draw_horizontal_line_unchecked(fb, xc - ((x - 1) as i32), xc + ((x - 1) as i32), yc + (y as i32), color);
+                draw_horizontal_line_unchecked(fb, xc - ((x - 1) as i32), xc + ((x - 1) as i32), yc - (y as i32), color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
@@ -206,21 +216,21 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         }
     } else {
         // Safe path: clip against screen bounds
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+        draw_horizontal_line(fb, xc.saturating_sub(x as i32), xc.saturating_add(x as i32), yc.saturating_add(y as i32), color);
+        draw_horizontal_line(fb, xc.saturating_sub(x as i32), xc.saturating_add(x as i32), yc.saturating_sub(y as i32), color);
+        draw_horizontal_line(fb, xc.saturating_sub(y as i32), xc.saturating_add(y as i32), yc.saturating_add(x as i32), color);
+        draw_horizontal_line(fb, xc.saturating_sub(y as i32), xc.saturating_add(y as i32), yc.saturating_sub(x as i32), color);
 
         while y >= x {
             x += 1;
 
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+            draw_horizontal_line(fb, xc.saturating_sub(y as i32), xc.saturating_add(y as i32), yc.saturating_add(x as i32), color);
+            draw_horizontal_line(fb, xc.saturating_sub(y as i32), xc.saturating_add(y as i32), yc.saturating_sub(x as i32), color);
 
             if d > 0 {
-                let max_x_for_y = x - 1;
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_add(y), color);
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_sub(y), color);
+                let max_x_for_y = (x - 1) as i32;
+                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_add(y as i32), color);
+                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_sub(y as i32), color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
