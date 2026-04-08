@@ -475,7 +475,9 @@ pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f
     let p = p - centre;
     let d_xz = (p.x * p.x + p.z * p.z).sqrt() - ra + rb;
     let d_y = p.y.abs() - h;
-    let d = (d_xz.max(0.0).hypot(d_y.max(0.0))) + d_xz.min(0.0).min(d_y.min(0.0)) - rb;
+    let max_xz = d_xz.max(0.0);
+    let max_y = d_y.max(0.0);
+    let d = (max_xz * max_xz + max_y * max_y).sqrt() + d_xz.min(0.0).min(d_y.min(0.0)) - rb;
     d
 }
 
@@ -658,7 +660,9 @@ pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
     let px = p.x - 2.0 * dot * KX;
     let py = p.y - 2.0 * dot * KY;
     // Clamp hex boundary
-    let cx = (px - (px).clamp(-KZ * r, KZ * r)).hypot(py - r);
+    let px_clamped = px - (px).clamp(-KZ * r, KZ * r);
+    let py_r = py - r;
+    let cx = (px_clamped * px_clamped + py_r * py_r).sqrt();
     let dx = cx * (py - r).signum();
     let dz = p.z - h;
     dx.max(dz).min(0.0) + Vec2::new(dx.max(0.0), dz.max(0.0)).length()
@@ -3845,8 +3849,12 @@ pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
     // ndot: a.x*b.x - a.y*b.y (like a 2D "anti-dot")
     let ndot = |a: Vec2, bv: Vec2| a.x * bv.x - a.y * bv.y;
     let f = (ndot(b, b - Vec2::new(2.0 * p.x, 2.0 * p.z)) / b.dot(b)).clamp(-1.0, 1.0);
+
+    let sx = b.x * (1.0 - f) * 0.5 - p.x;
+    let sz = b.y * (1.0 + f) * 0.5 - p.z;
+
     let side_pt = Vec2::new(
-        (b.x * (1.0 - f) * 0.5 - p.x).hypot(b.y * (1.0 + f) * 0.5 - p.z),
+        (sx * sx + sz * sz).sqrt(),
         p.y - h,
     );
     let sign = (p.x * b.y + p.z * b.x - b.x * b.y).signum();
