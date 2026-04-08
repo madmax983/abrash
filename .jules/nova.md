@@ -205,3 +205,7 @@
 **Concept:** A retro post-processing effect that scales the original framebuffer down into four quadrants, applying a high-contrast luminance threshold to tint each quadrant with distinct two-color palettes, simulating Andy Warhol's silk-screen pop art.
 **Fate:** Implemented
 **Lesson:** Splitting the image into scaled quadrants and assigning distinct color mapping per quadrant achieves a dramatic stylistic transformation. Leveraging Rayon to process the destination framebuffer concurrently across chunked rows scales efficiently even with down-sampling and luminance calculations required per pixel.
+## [Frosted Glass Filter]
+**Concept:** A post-processing effect that simulates looking through frosted or structured glass by randomly displacing pixel sampling locations within a configurable radius.
+**Fate:** Implemented
+**Lesson:** When implementing randomized scatter post-processing effects with Rayon, cloning the source framebuffer is required to allow safe, parallel non-linear pixel sampling without mutable aliasing. Additionally, using an inline PRNG (seeded per-chunk by the `y` row index and user seed) avoids the severe performance and synchronization overhead of thread-local or global random number generators.
