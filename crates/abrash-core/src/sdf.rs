@@ -1,3 +1,10 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::suspicious_operation_groupings)]
+
 //! Signed distance functions (SDF) for 2D and 3D analytical geometry.
 //!
 //! Each function returns the **signed distance** from point `p` to the boundary

@@ -1,3 +1,7 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::suspicious_operation_groupings)]
+#![allow(clippy::must_use_candidate)]
+
 //! 2D and 3D math types for graphics programming.
 //!
 //! # Coordinate System
