@@ -73,21 +73,31 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
     // rounded_cylinder_3d
     group.bench_function("rounded_cylinder_3d", |b| {
         b.iter(|| {
-            sdf::rounded_cylinder_3d(black_box(p_vec3), black_box(Vec3::ZERO), black_box(1.0), black_box(0.5), black_box(2.0))
+            sdf::rounded_cylinder_3d(
+                black_box(p_vec3),
+                black_box(Vec3::ZERO),
+                black_box(1.0),
+                black_box(0.5),
+                black_box(2.0),
+            )
         })
     });
 
     // hexagonal_prism_3d
     group.bench_function("hexagonal_prism_3d", |b| {
-        b.iter(|| {
-            sdf::hexagonal_prism_3d(black_box(p_vec3), black_box(1.0), black_box(2.0))
-        })
+        b.iter(|| sdf::hexagonal_prism_3d(black_box(p_vec3), black_box(1.0), black_box(2.0)))
     });
 
     // rhombus_3d
     group.bench_function("rhombus_3d", |b| {
         b.iter(|| {
-            sdf::rhombus_3d(black_box(p_vec3), black_box(1.0), black_box(1.0), black_box(2.0), black_box(0.5))
+            sdf::rhombus_3d(
+                black_box(p_vec3),
+                black_box(1.0),
+                black_box(1.0),
+                black_box(2.0),
+                black_box(0.5),
+            )
         })
     });
 

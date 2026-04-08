@@ -68,6 +68,7 @@ pub mod posterize;
 pub mod procedural_mesh;
 pub mod radial_blur;
 pub mod raytracer;
+pub mod reaction_diffusion;
 pub mod sdf;
 pub mod sharpen;
 pub mod slitscan;

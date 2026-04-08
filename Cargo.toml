@@ -713,3 +713,8 @@ path = "benches/sdf_imprecise_flops.rs"
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "reaction_diffusion_demo"
+path = "examples/reaction_diffusion_demo.rs"
+required-features = ["nova"]
