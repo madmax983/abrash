@@ -107,7 +107,7 @@ impl CpuRenderer {
         let view_proj = frame.camera.view * frame.camera.projection;
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
-        let mut total_vertices = 0;
+        let mut total_vertices: usize = 0;
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
@@ -123,7 +123,9 @@ impl CpuRenderer {
                 return Err(RenderError::StaleHandle("material"));
             }
 
-            total_vertices += cpu_mesh.mesh.vertices.len();
+            total_vertices = total_vertices
+                .checked_add(cpu_mesh.mesh.vertices.len())
+                .ok_or_else(|| RenderError::Internal("Too many vertices".to_string()))?;
         }
 
         let mut draw_list =
@@ -470,6 +472,14 @@ mod tests {
             ),
             Mat4::perspective(1.57, 800.0 / 600.0, 0.1, 100.0),
         )
+    }
+
+    #[test]
+    fn test_cpu_renderer_vertex_overflow_error() {
+        // Direct unit test for the overflow error path is omitted due to `usize::MAX` memory constraints.
+        // Verify the error variant behaves as expected.
+        let err = RenderError::Internal("Too many vertices".to_string());
+        assert_eq!(err.to_string(), "renderer error: Too many vertices");
     }
 
     #[test]

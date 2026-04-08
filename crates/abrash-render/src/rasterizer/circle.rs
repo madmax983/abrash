@@ -50,7 +50,7 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3i64 - 2 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -68,9 +68,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
             draw_circle_points_unchecked(fb, xc, yc, x, y, color);
         }
@@ -81,9 +81,9 @@ pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
             x += 1;
             if d > 0 {
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
             draw_circle_points(fb, xc, yc, x, y, color);
         }
@@ -168,7 +168,7 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
 
     let mut x = 0;
     let mut y = radius;
-    let mut d = 3 - 2 * radius;
+    let mut d = 3i64 - 2 * i64::from(radius);
 
     // Fast path: fully on screen
     let min_x = i64::from(xc) - i64::from(radius);
@@ -199,32 +199,80 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
                 draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc + y, color);
                 draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc - y, color);
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
         }
     } else {
         // Safe path: clip against screen bounds
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(x),
+            xc.saturating_add(x),
+            yc.saturating_add(y),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(x),
+            xc.saturating_add(x),
+            yc.saturating_sub(y),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(y),
+            xc.saturating_add(y),
+            yc.saturating_add(x),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(y),
+            xc.saturating_add(y),
+            yc.saturating_sub(x),
+            color,
+        );
 
         while y >= x {
             x += 1;
 
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+            draw_horizontal_line(
+                fb,
+                xc.saturating_sub(y),
+                xc.saturating_add(y),
+                yc.saturating_add(x),
+                color,
+            );
+            draw_horizontal_line(
+                fb,
+                xc.saturating_sub(y),
+                xc.saturating_add(y),
+                yc.saturating_sub(x),
+                color,
+            );
 
             if d > 0 {
                 let max_x_for_y = x - 1;
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_add(y), color);
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_sub(y), color);
+                draw_horizontal_line(
+                    fb,
+                    xc.saturating_sub(max_x_for_y),
+                    xc.saturating_add(max_x_for_y),
+                    yc.saturating_add(y),
+                    color,
+                );
+                draw_horizontal_line(
+                    fb,
+                    xc.saturating_sub(max_x_for_y),
+                    xc.saturating_add(max_x_for_y),
+                    yc.saturating_sub(y),
+                    color,
+                );
                 y -= 1;
-                d = d + 4 * (x - y) + 10;
+                d = d + 4 * i64::from(x - y) + 10;
             } else {
-                d = d + 4 * x + 6;
+                d = d + 4 * i64::from(x) + 6;
             }
         }
     }

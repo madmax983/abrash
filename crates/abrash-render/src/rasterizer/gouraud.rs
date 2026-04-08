@@ -420,7 +420,10 @@ pub fn draw_scanline_gouraud_i32(
             }
 
             let len = fb_slice.len();
-            assert!(zb_slice.len() >= len, "Depth buffer must be at least as large as the framebuffer slice");
+            assert!(
+                zb_slice.len() >= len,
+                "Depth buffer must be at least as large as the framebuffer slice"
+            );
             let mut fb_ptr = fb_slice.as_mut_ptr();
             let mut zb_ptr = zb_slice.as_mut_ptr();
             for _ in 0..len {
@@ -457,7 +460,10 @@ pub fn draw_scanline_gouraud_i32(
             }
 
             let len = fb_slice.len();
-            assert!(zb_slice.len() >= len, "Depth buffer must be at least as large as the framebuffer slice");
+            assert!(
+                zb_slice.len() >= len,
+                "Depth buffer must be at least as large as the framebuffer slice"
+            );
             let mut fb_ptr = fb_slice.as_mut_ptr();
             let mut zb_ptr = zb_slice.as_mut_ptr();
             for _ in 0..len {
