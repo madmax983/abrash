@@ -1,3 +1,4 @@
+#![allow(clippy::imprecise_flops)]
 //! Signed distance functions (SDF) for 2D and 3D analytical geometry.
 //!
 //! Each function returns the **signed distance** from point `p` to the boundary
@@ -648,12 +649,12 @@ pub fn pyramid_3d(p: Vec3, centre: Vec3, height: f32) -> f32 {
 /// ```
 #[must_use]
 pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
-    // IQ sdHexPrism — hex in XY plane, extends along Z
-    let p = (p - centre).abs();
-    // k = (-sqrt(3)/2, 0.5, 1/sqrt(3))
     const KX: f32 = -0.866_025_4;
     const KY: f32 = 0.5;
     const KZ: f32 = 0.577_350_3;
+    // IQ sdHexPrism — hex in XY plane, extends along Z
+    let p = (p - centre).abs();
+    // k = (-sqrt(3)/2, 0.5, 1/sqrt(3))
     let dot = (KX * p.x + KY * p.y).min(0.0);
     let px = p.x - 2.0 * dot * KX;
     let py = p.y - 2.0 * dot * KY;
@@ -1045,21 +1046,21 @@ pub fn repeat_3d(p: Vec3, cell: Vec3) -> Vec3 {
 /// ```
 #[must_use]
 #[inline]
-pub fn mirror_x(p: Vec3) -> Vec3 {
+pub const fn mirror_x(p: Vec3) -> Vec3 {
     Vec3::new(p.x.abs(), p.y, p.z)
 }
 
 /// Reflect `p` across the XZ plane (flip Y sign).
 #[must_use]
 #[inline]
-pub fn mirror_y(p: Vec3) -> Vec3 {
+pub const fn mirror_y(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y.abs(), p.z)
 }
 
 /// Reflect `p` across the XY plane (flip Z sign).
 #[must_use]
 #[inline]
-pub fn mirror_z(p: Vec3) -> Vec3 {
+pub const fn mirror_z(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y, p.z.abs())
 }
 
@@ -1823,7 +1824,7 @@ pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
 
 /// SDF of a 2D uneven (asymmetric) capsule.
 ///
-/// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+/// Like a `capsule_2d` but with different radii `ra` and `rb` at each end cap.
 /// `a` and `b` are the centres; `ra` the radius at `a`, `rb` at `b`.
 ///
 /// # Examples
@@ -2155,7 +2156,7 @@ pub fn arrow_2d(p: Vec2, a: Vec2, b: Vec2, head_w: f32, head_h: f32, shaft_r: f3
 /// ```
 #[must_use]
 #[inline]
-pub fn sdf_union(a: f32, b: f32) -> f32 {
+pub const fn sdf_union(a: f32, b: f32) -> f32 {
     a.min(b)
 }
 
@@ -2172,7 +2173,7 @@ pub fn sdf_union(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn sdf_intersect(a: f32, b: f32) -> f32 {
+pub const fn sdf_intersect(a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
@@ -2356,6 +2357,55 @@ mod tests {
         let d = 2.0;
         assert!(half_plane_2d(Vec2::new(3.0, 0.0), normal, d) > 0.0); // right side
         assert!(half_plane_2d(Vec2::new(1.0, 0.0), normal, d) < 0.0); // left side
+    }
+
+    #[test]
+    fn test_bezier_sdf_2d() {
+        let a = Vec2::new(-1.0, 0.0);
+        let b = Vec2::new(0.0, 1.0);
+        let c = Vec2::new(1.0, 0.0);
+
+        let cases = vec![
+            (Vec2::new(-1.0, 0.0), 0.0), // Exact start point.
+            (Vec2::new(1.0, 0.0), 0.0),  // Exact end point.
+            (Vec2::new(0.0, 0.5), 0.0),  // Midpoint on the curve (B(0.5) = (0, 0.5)).
+            (Vec2::new(0.0, 1.5), 1.0),  // 1 unit above the midpoint.
+            (Vec2::new(0.0, -0.5), 1.0), // 1 unit below the midpoint.
+        ];
+
+        for (p, expected) in cases {
+            let d = bezier_sdf_2d(p, a, b, c);
+            assert!(
+                (d - expected).abs() < 1e-4,
+                "Failed for p={:?}, expected={}, got={}",
+                p,
+                expected,
+                d
+            );
+        }
+    }
+
+    #[test]
+    fn test_parabola_2d() {
+        let cases = vec![
+            (Vec2::new(0.0, 0.5), 1.0, -0.5), // Vertex is at origin; y > 0 is inside the cup.
+            (Vec2::new(3.0, 0.0), 1.0, 2.236_068), // x=3, y=0. Far outside to the right. Closest point is (1, 1). Distance is sqrt((3-1)^2 + (0-1)^2) = sqrt(5).
+            (Vec2::new(1.0, 1.0), 1.0, 0.0),  // Exactly on the parabola y=1*x^2.
+            (Vec2::new(-1.0, 1.0), 1.0, 0.0), // Exactly on the parabola left side.
+            (Vec2::new(0.0, 0.0), 1.0, 0.0),  // Exactly on the vertex.
+        ];
+
+        for (p, k, expected) in cases {
+            let d = parabola_2d(p, k);
+            assert!(
+                (d - expected).abs() < TOL,
+                "Failed for p={:?}, k={}, expected={}, got={}",
+                p,
+                k,
+                expected,
+                d
+            );
+        }
     }
 
     // ── 3D ────────────────────────────────────────────────────────────────────
@@ -3058,6 +3108,7 @@ mod tests {
 /// let d = cut_hollow_sphere_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.0, 0.1);
 /// assert!(d < 0.0, "inside shell at north pole: {d}");
 /// ```
+#[must_use]
 pub fn cut_hollow_sphere_3d(p: Vec3, r: f32, h: f32, t: f32) -> f32 {
     // Shell distance: inside when |p| is within t/2 of r
     let shell_d = (p.length() - r).abs() - t * 0.5;
@@ -3105,6 +3156,7 @@ pub fn elongate_2d(p: Vec2, h: Vec2, sdf: impl Fn(Vec2) -> f32) -> f32 {
 /// let d2 = tunnel_2d(Vec2::new(2.0, 0.0), Vec2::new(0.5, 0.8));
 /// assert!(d2 > 0.0, "outside tunnel: {d2}");
 /// ```
+#[must_use]
 pub fn tunnel_2d(p: Vec2, wh: Vec2) -> f32 {
     // Mirror x, flip y so the tunnel opens upward (tunnel opens toward +y in input space)
     let p = Vec2::new(p.x.abs(), -p.y);
@@ -3147,6 +3199,7 @@ pub fn tunnel_2d(p: Vec2, wh: Vec2) -> f32 {
 /// );
 /// assert!(d < 0.0, "inside vesica: {d}");
 /// ```
+#[must_use]
 pub fn vesica_segment_3d(p: Vec3, a: Vec3, b: Vec3, w: f32) -> f32 {
     // The vesica piscis is the intersection of two equal spheres.
     // In 3D with segment endpoints as sphere centres, the SDF is:
@@ -3177,6 +3230,7 @@ pub fn vesica_segment_3d(p: Vec3, a: Vec3, b: Vec3, w: f32) -> f32 {
 /// let d2 = blobby_cross_2d(Vec2::new(3.0, 3.0), 0.5);
 /// assert!(d2 > 0.0, "far point should be outside: {d2}");
 /// ```
+#[must_use]
 pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
     use core::f32::consts::SQRT_2;
     // Fold into first octant and rotate 45°
@@ -3357,6 +3411,7 @@ mod tests_pass_18 {
 /// let d2 = stairs_2d(Vec2::new(5.0, 5.0), Vec2::new(0.5, 0.3), 3);
 /// assert!(d2 > 0.0, "far outside: {d2}");
 /// ```
+#[must_use]
 pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
     let n_f = n as f32;
     let ba = Vec2::new(wh.x * n_f, wh.y * n_f);
@@ -3411,6 +3466,7 @@ pub fn stairs_2d(p: Vec2, wh: Vec2, n: u32) -> f32 {
 /// let d2 = death_star_3d(Vec3::new(1.3, 0.0, 0.0), 1.0, 0.5, 1.4);
 /// assert!(d2 > 0.0, "in the carved-out region: {d2}");
 /// ```
+#[must_use]
 pub fn death_star_3d(p: Vec3, ra: f32, rb: f32, d: f32) -> f32 {
     // SDF of main sphere centred at origin
     let da = p.length() - ra;
@@ -3440,6 +3496,7 @@ pub fn death_star_3d(p: Vec3, ra: f32, rb: f32, d: f32) -> f32 {
 /// let d2 = cross_3d(Vec3::new(2.0, 2.0, 2.0), 0.3, 0.0);
 /// assert!(d2 > 0.0, "diagonal outside: {d2}");
 /// ```
+#[must_use]
 pub fn cross_3d(p: Vec3, b: f32, r: f32) -> f32 {
     let d = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs()) - Vec3::new(b, b, b);
     // Three rectangular bar SDFs (one per axis pair) — take the union (min)
@@ -3557,6 +3614,7 @@ mod tests_pass_19 {
 /// let d2 = infinite_cone_3d(Vec3::new(5.0, 1.0, 0.0), sin_cos);
 /// assert!(d2 > 0.0, "off-axis outside: {d2}");
 /// ```
+#[must_use]
 pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
     // 2D profile: (radial distance from y-axis, y coordinate)
     let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y);
@@ -3589,6 +3647,7 @@ pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
 /// let far = quad_3d(Vec3::new(0.0, 10.0, 0.0), a, b, c, d);
 /// assert!(far > 9.0, "far above: {far}");
 /// ```
+#[must_use]
 pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
     // Translated from Inigo Quilez's sdQuad (exact signed distance)
     let ba = b - a;
@@ -3649,6 +3708,7 @@ pub fn quad_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f32 {
 /// assert!(slab_y_3d(Vec3::new(0.0, 0.3, 0.0), 0.5) < 0.0, "inside slab");
 /// assert!(slab_y_3d(Vec3::new(0.0, 1.0, 0.0), 0.5) > 0.0, "outside slab");
 /// ```
+#[must_use]
 pub fn slab_y_3d(p: Vec3, h: f32) -> f32 {
     p.y.abs() - h
 }
@@ -3668,6 +3728,7 @@ pub fn slab_y_3d(p: Vec3, h: f32) -> f32 {
 /// let d2 = sdf_xor(-0.3_f32, 0.5);
 /// assert!(d2 < 0.0, "inside one → XOR inside: {d2}");
 /// ```
+#[must_use]
 pub fn sdf_xor(a: f32, b: f32) -> f32 {
     // XOR = (union) ∩ NOT(intersection)
     // union = min(a,b); NOT(intersection) = -max(a,b)
@@ -3789,6 +3850,7 @@ mod tests_pass_20 {
 /// let d2 = triangle_3d(Vec3::new(10.0, 0.0, 0.0), a, b, c);
 /// assert!(d2 > 8.0, "far point: {d2}");
 /// ```
+#[must_use]
 pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
     let ba = b - a;
     let cb = c - b;
@@ -3839,6 +3901,7 @@ pub fn triangle_3d(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> f32 {
 /// let d2 = rhombus_3d(Vec3::new(3.0, 0.0, 0.0), 1.0, 0.5, 0.4, 0.05);
 /// assert!(d2 > 0.0, "far outside: {d2}");
 /// ```
+#[must_use]
 pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
     let p = Vec3::new(p.x.abs(), p.y.abs(), p.z.abs());
     let b = Vec2::new(la, lb);
@@ -3873,6 +3936,7 @@ pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
 /// let d2 = oreo_2d(Vec2::new(2.0, 0.0), 0.8, 0.15, 0.2);
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
+#[must_use]
 pub fn oreo_2d(p: Vec2, r: f32, h: f32, cr: f32) -> f32 {
     // Two rectangular "cookie" layers separated by a cream gap of 2*cr.
     // Top cookie: centred at y = cr+h, half-size (r, h)
@@ -3976,6 +4040,7 @@ mod tests_pass_21 {
 /// let d = chamfer_union(-0.5_f32, -0.3, 0.1);
 /// assert!(d < 0.0, "inside both: {d}");
 /// ```
+#[must_use]
 pub fn chamfer_union(a: f32, b: f32, r: f32) -> f32 {
     a.min(b).min((a - r + b) * core::f32::consts::FRAC_1_SQRT_2)
 }
@@ -3990,6 +4055,7 @@ pub fn chamfer_union(a: f32, b: f32, r: f32) -> f32 {
 /// let d = chamfer_intersection(0.5_f32, 0.3, 0.1);
 /// assert!(d > 0.0, "outside both: {d}");
 /// ```
+#[must_use]
 pub fn chamfer_intersection(a: f32, b: f32, r: f32) -> f32 {
     a.max(b).max((a + r + b) * core::f32::consts::FRAC_1_SQRT_2)
 }
@@ -4004,6 +4070,7 @@ pub fn chamfer_intersection(a: f32, b: f32, r: f32) -> f32 {
 /// let d = chamfer_subtract(-0.5_f32, 0.8, 0.1);
 /// assert!(d < 0.0, "inside a, outside b: {d}");
 /// ```
+#[must_use]
 pub fn chamfer_subtract(a: f32, b: f32, r: f32) -> f32 {
     a.max(-b)
         .max((a + r - b) * core::f32::consts::FRAC_1_SQRT_2)
@@ -4063,6 +4130,7 @@ pub fn twist_z(p: Vec3, k: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
 /// // (test just checks it returns a finite value)
 /// assert!(d.is_finite());
 /// ```
+#[must_use]
 pub fn groove_2d(p: Vec2, d: f32, a: Vec2, b: Vec2, ra: f32, rb: f32) -> f32 {
     let pa = p - a;
     let ba = b - a;
@@ -4116,6 +4184,7 @@ pub fn repeat_finite_2d(p: Vec2, period: Vec2, limit: Vec2, sdf: impl Fn(Vec2) -
 /// let d2 = blobby_sphere(Vec3::new(2.0, 0.0, 0.0), 1.0);
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
+#[must_use]
 pub fn blobby_sphere(p: Vec3, r: f32) -> f32 {
     // Signed version: negative inside, zero at r, positive outside
     // Uses sphere_3d SDF for correct distances
@@ -4136,6 +4205,7 @@ pub fn blobby_sphere(p: Vec3, r: f32) -> f32 {
 /// assert!(d < 0.0, "complement flips sign: {d}");
 /// ```
 #[inline]
+#[must_use]
 pub fn sdf_complement(d: f32) -> f32 {
     -d
 }
@@ -4153,6 +4223,7 @@ pub fn sdf_complement(d: f32) -> f32 {
 /// let d = round_union(-0.5_f32, -0.3, 0.1);
 /// assert!(d <= -0.29, "inside both: {d}");
 /// ```
+#[must_use]
 pub fn round_union(a: f32, b: f32, r: f32) -> f32 {
     smooth_union(a, b, r)
 }
@@ -4318,6 +4389,7 @@ mod tests_pass_22 {
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
 #[inline]
+#[must_use]
 pub fn superellipse_2d(p: Vec2, a: f32, b: f32, n: f32) -> f32 {
     let qx = (p.x / a).abs().powf(n);
     let qy = (p.y / b).abs().powf(n);
@@ -4342,6 +4414,7 @@ pub fn superellipse_2d(p: Vec2, a: f32, b: f32, n: f32) -> f32 {
 /// let d_far = rounded_star_2d(Vec2::new(3.0, 0.0), 1.0, 5, 2.5);
 /// assert!(d_far > 0.0, "far outside: {d_far}");
 /// ```
+#[must_use]
 pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
     // Symmetry reduction into a canonical sector
     let an = core::f32::consts::PI / n as f32;
@@ -4424,6 +4497,7 @@ pub fn swirl_2d(p: Vec2, strength: f32, sdf: impl Fn(Vec2) -> f32) -> f32 {
 /// let d = arrow_3d(Vec3::new(0.05, 0.5, 0.0), Vec3::ZERO, Vec3::Y, 0.05, 0.12, 0.2);
 /// assert!(d.abs() < 0.02, "on shaft: {d}");
 /// ```
+#[must_use]
 pub fn arrow_3d(p: Vec3, a: Vec3, b: Vec3, ra: f32, rb: f32, head_frac: f32) -> f32 {
     use super::math::Vec3 as V3;
     let ab = b - a;
@@ -4568,6 +4642,7 @@ mod tests_pass_23 {
 /// assert!(polygon_sdf_2d(Vec2::ZERO, &square) < 0.0, "origin inside square");
 /// assert!(polygon_sdf_2d(Vec2::new(3.0, 0.0), &square) > 0.0, "far outside");
 /// ```
+#[must_use]
 pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
     let n = vertices.len();
     if n == 0 {
@@ -4624,6 +4699,7 @@ pub fn polygon_sdf_2d(p: Vec2, vertices: &[Vec2]) -> f32 {
 /// let d = spring_coil_3d(Vec3::new(0.5, 0.0, 0.0), 0.5, 0.05, 0.3);
 /// assert!(d.abs() < 0.06, "near coil surface: {d}");
 /// ```
+#[must_use]
 pub fn spring_coil_3d(p: Vec3, r_coil: f32, r_tube: f32, pitch: f32) -> f32 {
     // For a helix r(t) = (r_coil*cos t, pitch*t/TAU, r_coil*sin t),
     // the nearest helix angle is approximated by projecting p onto the coil.
@@ -4698,6 +4774,7 @@ pub fn fbm_displace_2d(p: Vec2, strength: f32, octaves: u32, sdf: impl Fn(Vec2) 
 /// let d2 = mandelbrot_dist(Vec2::new(3.0, 0.0), 128);
 /// assert!(d2 > 0.1, "outside set: {d2}");
 /// ```
+#[must_use]
 pub fn mandelbrot_dist(c: Vec2, max_iter: u32) -> f32 {
     let mut zx = 0.0_f32;
     let mut zy = 0.0_f32;
@@ -4826,6 +4903,7 @@ mod tests_pass_24 {
 /// let d2 = lens_2d(Vec2::new(2.0, 0.0), 0.5, 1.0);
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
+#[must_use]
 pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
     let half = d * 0.5;
     let c1 = circle_2d(p, Vec2::new(-half, 0.0), r);
@@ -4852,6 +4930,7 @@ pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
 /// let d2 = spiral_2d(Vec2::new(0.0, 20.0), 1.0, 0.05);
 /// assert!(d2 > 0.0, "far outside (off-axis): {d2}");
 /// ```
+#[must_use]
 pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
     let len = (p.x * p.x + p.y * p.y).sqrt();
     if len < 1e-9 {
@@ -4936,7 +5015,9 @@ pub fn polyline_2d(p: Vec2, pts: &[Vec2]) -> f32 {
 /// let d2 = torus_knot_3d(Vec3::new(10.0, 0.0, 0.0), 0.1, 1.0, 2, 3);
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
+#[must_use]
 pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: u32) -> f32 {
+    const N_INIT: u32 = 32;
     let r_inner = r_torus * 0.5;
     let pf = p_folds as f32;
     let qf = q_folds as f32;
@@ -4959,7 +5040,6 @@ pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: 
     };
 
     // Initial search
-    const N_INIT: u32 = 32;
     let mut best_t = 0.0_f32;
     let mut best_d2 = f32::INFINITY;
     for i in 0..N_INIT {
@@ -5012,6 +5092,7 @@ pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: 
 /// let d = metaballs_2d(Vec2::ZERO, &balls, 0.3);
 /// assert!(d < 0.0, "inside merged shape: {d}");
 /// ```
+#[must_use]
 pub fn metaballs_2d(p: Vec2, circles: &[(Vec2, f32)], k: f32) -> f32 {
     if circles.is_empty() {
         return 0.0;
@@ -5134,6 +5215,7 @@ mod tests_pass_25 {
 /// assert!(disk_3d(Vec3::new(0.0, 1.0, 0.0), 1.0, 0.05) > 0.0);
 /// ```
 #[inline]
+#[must_use]
 pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
     let radial = (p.x * p.x + p.z * p.z).sqrt();
     let d = Vec2::new(radial - r, p.y.abs() - t);
@@ -5158,6 +5240,7 @@ pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
 /// assert!(diamond_3d(Vec3::new(5.0, 0.0, 0.0), 1.0, 0.5) > 0.0);
 /// ```
 #[inline]
+#[must_use]
 pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
     // Fold to 2-D (radial, axial); |y| gives top-half symmetry.
     let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y.abs());
@@ -5557,7 +5640,9 @@ pub fn teardrop_2d(p: Vec2, r: f32, len: f32) -> f32 {
 }
 
 /// Polar-repeat operator: fold `p` into the fundamental domain of **N-fold**
-/// rotational symmetry.  Feed the returned point into any inner 2-D SDF to
+/// rotational symmetry.
+///
+/// Feed the returned point into any inner 2-D SDF to
 /// replicate the shape around the origin without computing N separate SDFs.
 ///
 /// # Arguments
