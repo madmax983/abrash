@@ -87,3 +87,11 @@
 1.  **Relocate:** Moved the raycaster implementation modules from `crates/abrash-render/src/raycaster` to `crates/abrash-raycast/src/renderer`.
 2.  **Prune Dependency:** Removed `abrash-raycast` dependency from `abrash-render`'s `Cargo.toml`.
 3.  **Facade:** Updated the root workspace facade (`src/lib.rs`) to re-export the relocated module via `pub use abrash_raycast::renderer as raycaster;`, preserving the public API while severing the structural dependency.
+
+## [Filter Parameterization Fix for Halftone and Kuwahara]
+**Tangle:** The `apply_halftone` and `apply_kuwahara` functions suffered from the "Argument Jungle" structural smell, accepting multiple loose primitive parameters (e.g., `dot_size`, `angle_radians`, `radius`). This created a fragmented API alongside the other configured post-processing filters, making future extensions difficult.
+**Blueprint:**
+1.  **Introduce Configs:** Created `HalftoneConfig` and `KuwaharaConfig` structs in `crates/abrash-render/src/experimental/halftone.rs` and `crates/abrash-render/src/experimental/kuwahara.rs`.
+2.  **Refactor Signatures:** Modified `apply_halftone` and `apply_kuwahara` to accept references to these new configuration structs.
+3.  **Update Callers:** Updated doc tests, unit tests, integration tests, and benchmarks to instantiate the required configuration structs.
+**Stability:** Improved high cohesion by standardizing the effect parameterization with the rest of the post-processing module. Lowered coupling between the caller and the specific internal parameters of the post-processing effect, making the public API cleaner and more extensible.

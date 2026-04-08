@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::experimental::halftone::apply_halftone;
+use abrash_render::experimental::halftone::{apply_halftone, HalftoneConfig};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_halftone(c: &mut Criterion) {
@@ -8,11 +8,11 @@ fn bench_halftone(c: &mut Criterion) {
     let angle_radians = std::f32::consts::PI / 4.0;
 
     c.bench_function("halftone_800x600", |b| {
+        let config = HalftoneConfig { dot_size, angle_radians };
         b.iter(|| {
             apply_halftone(
                 black_box(&mut fb),
-                black_box(dot_size),
-                black_box(angle_radians),
+                black_box(&config),
             );
         });
     });

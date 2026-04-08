@@ -19,7 +19,11 @@ fn test_halftone_filter() {
     }
 
     // Apply halftone filter
-    halftone::apply_halftone(&mut fb, 5.0, std::f32::consts::FRAC_PI_4); // 45 degrees in radians
+    let config = halftone::HalftoneConfig {
+        dot_size: 5.0,
+        angle_radians: std::f32::consts::FRAC_PI_4, // 45 degrees in radians
+    };
+    halftone::apply_halftone(&mut fb, &config);
 
     // Verify output consists only of black and white pixels
     for y in 0..height {

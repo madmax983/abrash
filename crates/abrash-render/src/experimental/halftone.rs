@@ -7,6 +7,24 @@ use crate::framebuffer::Framebuffer;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+/// Configuration for the Halftone post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct HalftoneConfig {
+    /// The maximum radius of the halftone dots.
+    pub dot_size: f32,
+    /// The rotation angle of the dot grid in radians.
+    pub angle_radians: f32,
+}
+
+impl Default for HalftoneConfig {
+    fn default() -> Self {
+        Self {
+            dot_size: 5.0,
+            angle_radians: std::f32::consts::FRAC_PI_4,
+        }
+    }
+}
+
 /// Applies a Halftone stylization filter to the framebuffer.
 ///
 /// This filter converts the image into a pattern of black dots on a white background,
@@ -14,16 +32,15 @@ use rayon::prelude::*;
 /// luminance of the underlying pixels.
 ///
 /// * `fb`: The Framebuffer to modify.
-/// * `dot_size`: The maximum radius of the halftone dots (e.g., 5.0).
-/// * `angle_radians`: The rotation angle of the dot grid (e.g., 45 degrees or PI/4).
-pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
+/// * `config`: The `HalftoneConfig` with settings for the effect.
+pub fn apply_halftone(fb: &mut Framebuffer, config: &HalftoneConfig) {
     let width = fb.width() as usize;
 
     // We'll process each pixel independently.
     // To do this properly, we need to map screen coordinates to a rotated grid.
 
-    let (sin_a, cos_a) = angle_radians.sin_cos();
-    let max_dist_sq = (dot_size * dot_size) / 2.0;
+    let (sin_a, cos_a) = config.angle_radians.sin_cos();
+    let max_dist_sq = (config.dot_size * config.dot_size) / 2.0;
 
     let pixels = fb.as_mut_slice();
 
@@ -40,7 +57,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
         let mut rx = -y_sin_a;
         let mut ry = y_cos_a;
 
-        let inv_dot_size = 1.0 / dot_size;
+        let inv_dot_size = 1.0 / config.dot_size;
         let mut rx_scaled = rx * inv_dot_size;
         let mut ry_scaled = ry * inv_dot_size;
         let cos_scaled = cos_a * inv_dot_size;
@@ -56,11 +73,13 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let b = (p & 0xFF) as u32;
 
             let lum_i = (19595 * r + 38469 * g + 7471 * b) >> 16;
-            let lum = lum_i as f32 * (1.0 / 255.0);
+            // The integer math is slightly imprecise, so normalize and clamp.
+            // When r=255, g=255, b=255, lum_i is 254. So we need to handle that.
+            let lum = (lum_i as f32 / 254.0).min(1.0);
 
             // Find the center of the nearest halftone cell in the rotated space.
-            let cx = rx_scaled.round() * dot_size;
-            let cy = ry_scaled.round() * dot_size;
+            let cx = rx_scaled.round() * config.dot_size;
+            let cy = ry_scaled.round() * config.dot_size;
 
             let dx = rx - cx;
             let dy = ry - cy;
@@ -69,10 +88,12 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let dist_sq = dx * dx + dy * dy;
 
             // The radius of the dot we should draw (squared).
-            let dot_radius_sq = (1.0 - lum) * max_dist_sq;
+            let dot_radius_sq = (1.0 - lum).max(0.0) * max_dist_sq;
 
             // If the pixel is inside the dot radius, it's black. Otherwise, white.
-            *pixel = if dist_sq < dot_radius_sq {
+            // When lum is 1.0 (white), dot_radius_sq is exactly 0.0.
+            // Using <= would make distance 0.0 (the cell center) black even on a pure white image.
+            *pixel = if dist_sq < dot_radius_sq && dot_radius_sq > 0.001 {
                 0xFF00_0000
             } else {
                 0xFFFF_FFFF
@@ -96,7 +117,8 @@ mod tests {
         // Clear with black
         fb.clear(0xFF_00_00_00);
 
-        apply_halftone(&mut fb, 5.0, 0.0);
+        let config = HalftoneConfig { dot_size: 5.0, angle_radians: 0.0 };
+        apply_halftone(&mut fb, &config);
 
         // A black image has luminance 0, so dot radius is maximum.
         // The nearest cell center will be at (0,0) for the top-left pixels.
@@ -112,7 +134,8 @@ mod tests {
         // Clear with white
         fb.clear(0xFF_FF_FF_FF);
 
-        apply_halftone(&mut fb, 5.0, 0.0);
+        let config = HalftoneConfig { dot_size: 5.0, angle_radians: 0.0 };
+        apply_halftone(&mut fb, &config);
 
         // A white image has luminance 1, so dot radius is 0.
         // Every pixel should become white because distance is always >= 0.

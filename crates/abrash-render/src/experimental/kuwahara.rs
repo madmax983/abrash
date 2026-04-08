@@ -16,16 +16,29 @@ thread_local! {
     static KUWAHARA_BUFFER: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Configuration for the Kuwahara post-processing filter.
+#[derive(Debug, Clone, Copy)]
+pub struct KuwaharaConfig {
+    /// The radius of the Kuwahara kernel.
+    pub radius: i32,
+}
+
+impl Default for KuwaharaConfig {
+    fn default() -> Self {
+        Self { radius: 2 }
+    }
+}
+
 /// Applies a Kuwahara filter to the framebuffer.
 ///
 /// # Arguments
 ///
 /// * `fb` - The framebuffer to modify in-place.
-/// * `radius` - The radius of the Kuwahara kernel (e.g., 2 means 5x5 total window size).
+/// * `config` - The `KuwaharaConfig` with settings for the effect.
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
 /// Replaced `.chunks_mut(width)` with `.chunks_exact_mut(width)` to eliminate
-pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
-    if radius <= 0 {
+pub fn apply_kuwahara(fb: &mut Framebuffer, config: &KuwaharaConfig) {
+    if config.radius <= 0 {
         return;
     }
 
@@ -70,10 +83,10 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                         // Region definitions (dx_start, dx_end, dy_start, dy_end)
                         let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
+                            (-config.radius, 0, -config.radius, 0), // Top-Left
+                            (0, config.radius, -config.radius, 0),  // Top-Right
+                            (-config.radius, 0, 0, config.radius),  // Bottom-Left
+                            (0, config.radius, 0, config.radius),   // Bottom-Right
                         ];
 
                         for &(dx_start, dx_end, dy_start, dy_end) in &regions {
@@ -87,10 +100,10 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                             // We split the image processing into a fast path for the safe interior
                             // and a slow path with bounds checking for the borders.
-                            if y >= radius
-                                && y < height - radius
-                                && x >= radius
-                                && x < width - radius
+                            if y >= config.radius
+                                && y < height - config.radius
+                                && x >= config.radius
+                                && x < width - config.radius
                             {
                                 // Fast path: No bounds checking needed
                                 let py_start = y + dy_start;
@@ -213,10 +226,10 @@ pub fn apply_kuwahara(fb: &mut Framebuffer, radius: i32) {
 
                         // Region definitions (dx_start, dx_end, dy_start, dy_end)
                         let regions = [
-                            (-radius, 0, -radius, 0), // Top-Left
-                            (0, radius, -radius, 0),  // Top-Right
-                            (-radius, 0, 0, radius),  // Bottom-Left
-                            (0, radius, 0, radius),   // Bottom-Right
+                        (-config.radius, 0, -config.radius, 0), // Top-Left
+                        (0, config.radius, -config.radius, 0),  // Top-Right
+                        (-config.radius, 0, 0, config.radius),  // Bottom-Left
+                        (0, config.radius, 0, config.radius),   // Bottom-Right
                         ];
 
                         for &(dx_start, dx_end, dy_start, dy_end) in &regions {
@@ -346,7 +359,8 @@ mod tests {
 
             // Should not panic with varying radii
             for radius in [1, 2, 5, 10] {
-                apply_kuwahara(&mut fb, radius);
+                let config = KuwaharaConfig { radius };
+                apply_kuwahara(&mut fb, &config);
             }
         }
     }

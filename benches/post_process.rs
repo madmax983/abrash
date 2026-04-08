@@ -332,12 +332,12 @@ fn benchmark_halftone(c: &mut Criterion) {
     }
 
     c.bench_function("apply_halftone 1080p", |b| {
+        let config = abrash::experimental::halftone::HalftoneConfig {
+            dot_size: 5.0,
+            angle_radians: std::f32::consts::FRAC_PI_4,
+        };
         b.iter(|| {
-            abrash::experimental::halftone::apply_halftone(
-                black_box(&mut fb),
-                black_box(5.0),
-                black_box(std::f32::consts::FRAC_PI_4),
-            );
+            abrash::experimental::halftone::apply_halftone(black_box(&mut fb), black_box(&config));
         });
     });
 }
