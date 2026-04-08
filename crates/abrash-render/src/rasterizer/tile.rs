@@ -403,6 +403,7 @@ impl IntoIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedGouraudTrianglesIter {
     list: PreparedGouraudTrianglesList,
     index: usize,
@@ -422,6 +423,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesList {
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
     pub count: usize,
@@ -498,6 +500,7 @@ impl rayon::iter::IntoParallelIterator for PreparedGouraudTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTrianglesIter {
     list: PreparedTrianglesList,
     index: usize,
@@ -517,6 +520,7 @@ impl Iterator for PreparedTrianglesIter {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesList {
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
     pub count: usize,
@@ -551,6 +555,7 @@ impl IntoIterator for PreparedTexturedTrianglesList {
     }
 }
 
+#[doc(hidden)]
 pub struct PreparedTexturedTrianglesIter {
     list: PreparedTexturedTrianglesList,
     index: usize,
@@ -573,6 +578,7 @@ impl Iterator for PreparedTexturedTrianglesIter {
 /// Flattened linked-list structure for tile binning.
 ///
 /// Replaces `Vec<Vec<usize>>` to reduce heap allocations and improve cache locality.
+#[doc(hidden)]
 pub struct TileBins {
     pub heads: Vec<u32>, // Index into nexts/tris. u32::MAX = None
     pub tails: Vec<u32>, // Index into nexts/tris. u32::MAX = None
@@ -623,6 +629,7 @@ impl TileBins {
     }
 }
 
+#[doc(hidden)]
 pub struct TileBinIter<'a> {
     bins: &'a TileBins,
     curr: u32,
@@ -2129,6 +2136,7 @@ impl TileRenderer {
         );
     }
 
+    #[doc(hidden)]
     pub fn render_batch_into_slices(
         &mut self,
         width: u32,
@@ -2192,6 +2200,7 @@ impl TileRenderer {
         );
     }
 
+    #[doc(hidden)]
     pub fn render_batch_textured_into_slices(
         &mut self,
         width: u32,

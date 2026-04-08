@@ -30,7 +30,9 @@ pub struct PointLight {
 /// Light source in the scene.
 #[derive(Debug, Clone, Copy)]
 pub enum Light {
+    /// A directional light (e.g. the sun) affecting all objects equally from a single direction.
     Directional(DirectionalLight),
+    /// A point light radiating uniformly in all directions from a specific point.
     Point(PointLight),
 }
 

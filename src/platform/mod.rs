@@ -4,15 +4,21 @@
 
 use std::fmt;
 
+/// Events that can be received from a window.
 #[derive(Debug, Clone)]
 pub enum Event {
+    /// Window close requested.
     Close,
+    /// Window was resized to a new width and height.
     Resize(u32, u32),
 }
 
+/// Errors that can occur during window creation or registration.
 #[derive(Debug)]
 pub enum WindowError {
+    /// Failed to register the window class (e.g., Win32 `RegisterClass`).
     RegistrationFailed,
+    /// Failed to create the window instance.
     CreationFailed,
 }
 

@@ -11,33 +11,52 @@ use crate::render_api::handles::TextureHandle;
 #[derive(Debug, Clone)]
 pub enum ShadingMode {
     /// Single color per triangle. Fastest mode.
-    Flat { color: u32 },
+    Flat {
+        /// Base color tint (`0xAARRGGBB`).
+        color: u32,
+    },
     /// Per-vertex color interpolation.
     Gouraud,
     /// Per-pixel lighting with specular highlights.
     Phong {
+        /// Specular power (e.g. 32.0). Higher values result in smaller, sharper highlights.
         shininess: f32,
+        /// Multiplier for the specular reflection (e.g. 0.5).
         specular_strength: f32,
     },
     /// Perspective-correct texture mapping.
-    Textured { texture: TextureHandle },
+    Textured {
+        /// Handle to the texture to map onto the surface.
+        texture: TextureHandle,
+    },
     /// Texture mapping with per-vertex color modulation.
-    TexturedGouraud { texture: TextureHandle },
+    TexturedGouraud {
+        /// Handle to the texture to map onto the surface.
+        texture: TextureHandle,
+    },
     /// Physically-based rendering.
     Pbr {
+        /// Base color texture.
         albedo: TextureHandle,
+        /// How rough the surface is (0.0 = smooth, 1.0 = rough).
         roughness: f32,
+        /// How metallic the surface is (0.0 = dielectric, 1.0 = metal).
         metallic: f32,
     },
     /// Environment/cubemap reflection.
     Reflection {
+        /// Handle to the environment texture.
         texture: TextureHandle,
+        /// Amount of reflection (0.0 = no reflection, 1.0 = full reflection).
         reflectivity: f32,
     },
     /// Normal-mapped with per-pixel lighting.
     NormalMapped {
+        /// Base color texture.
         diffuse: TextureHandle,
+        /// Normal map texture for per-pixel surface details.
         normal_map: TextureHandle,
+        /// Specular power (e.g. 32.0). Higher values result in smaller, sharper highlights.
         shininess: f32,
     },
 }

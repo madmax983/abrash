@@ -1,3 +1,7 @@
+//! Provides a render target backed by externally-owned slices.
+//!
+//! Useful for zero-copy rendering into host-managed buffers (e.g., Bevy or miniFB).
+
 /// A render target backed by caller-owned pixel and depth slices.
 pub struct BorrowedRenderTarget<'a> {
     pixels: &'a mut [u32],
