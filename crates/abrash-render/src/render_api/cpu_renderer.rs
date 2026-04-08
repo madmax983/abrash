@@ -127,7 +127,7 @@ impl CpuRenderer {
         }
 
         let mut draw_list =
-            DrawList::with_capacity(frame.camera.clone(), frame.commands.len(), total_vertices);
+            DrawList::with_capacity(frame.camera, frame.commands.len(), total_vertices);
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
@@ -245,7 +245,7 @@ impl CpuRenderer {
         for batch in &draw_list.batches {
             self.tile_renderer.submit_mesh(
                 &batch.indices,
-                &draw_list.vertices[batch.vertex_range.clone()],
+                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                 batch.color,
             );
         }
@@ -274,7 +274,7 @@ impl CpuRenderer {
         for batch in &draw_list.batches {
             self.tile_renderer.submit_mesh(
                 &batch.indices,
-                &draw_list.vertices[batch.vertex_range.clone()],
+                &draw_list.vertices[batch.vertex_range.start..batch.vertex_range.end],
                 batch.color,
             );
         }
