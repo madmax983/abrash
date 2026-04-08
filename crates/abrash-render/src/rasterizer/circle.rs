@@ -206,21 +206,69 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         }
     } else {
         // Safe path: clip against screen bounds
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_add(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(x), xc.saturating_add(x), yc.saturating_sub(y), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-        draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(x),
+            xc.saturating_add(x),
+            yc.saturating_add(y),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(x),
+            xc.saturating_add(x),
+            yc.saturating_sub(y),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(y),
+            xc.saturating_add(y),
+            yc.saturating_add(x),
+            color,
+        );
+        draw_horizontal_line(
+            fb,
+            xc.saturating_sub(y),
+            xc.saturating_add(y),
+            yc.saturating_sub(x),
+            color,
+        );
 
         while y >= x {
             x += 1;
 
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_add(x), color);
-            draw_horizontal_line(fb, xc.saturating_sub(y), xc.saturating_add(y), yc.saturating_sub(x), color);
+            draw_horizontal_line(
+                fb,
+                xc.saturating_sub(y),
+                xc.saturating_add(y),
+                yc.saturating_add(x),
+                color,
+            );
+            draw_horizontal_line(
+                fb,
+                xc.saturating_sub(y),
+                xc.saturating_add(y),
+                yc.saturating_sub(x),
+                color,
+            );
 
             if d > 0 {
                 let max_x_for_y = x - 1;
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_add(y), color);
-                draw_horizontal_line(fb, xc.saturating_sub(max_x_for_y), xc.saturating_add(max_x_for_y), yc.saturating_sub(y), color);
+                draw_horizontal_line(
+                    fb,
+                    xc.saturating_sub(max_x_for_y),
+                    xc.saturating_add(max_x_for_y),
+                    yc.saturating_add(y),
+                    color,
+                );
+                draw_horizontal_line(
+                    fb,
+                    xc.saturating_sub(max_x_for_y),
+                    xc.saturating_add(max_x_for_y),
+                    yc.saturating_sub(y),
+                    color,
+                );
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
