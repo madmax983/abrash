@@ -367,7 +367,8 @@ fn build_demo_command_args(example_name: &str, use_tui_backend: bool) -> Vec<Str
         return args;
     }
 
-    let mut features = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity for up to 2 features to avoid dynamic heap reallocations during push.
+    let mut features = Vec::with_capacity(2);
     if use_tui_backend {
         args.push("--no-default-features".to_string());
         features.push("backend-tui");
