@@ -708,3 +708,8 @@ required-features = ["nova"]
 name = "sdf_imprecise_flops"
 harness = false
 path = "benches/sdf_imprecise_flops.rs"
+
+[[example]]
+name = "frosted_glass_demo"
+path = "examples/frosted_glass_demo.rs"
+required-features = ["nova"]
