@@ -1519,6 +1519,11 @@ fn rasterize_scanline_simd(
 /// cache. This is critical for 4K rendering where the 66 MB framebuffer would cause severe
 /// cache thrashing with traditional scanline rendering.
 ///
+/// ⚡ Bolt Performance Notes:
+/// This structure is specifically optimized to avoid heap allocations on the hot path.
+/// Internal vectors are pre-allocated with enough capacity (128) to handle the recommended maximum
+/// triangle count without dynamic reallocation.
+///
 /// See the [module documentation](self) for detailed benchmark results.
 pub struct TileRenderer {
     #[cfg(not(feature = "parallel"))]
@@ -1587,9 +1592,13 @@ impl TileRenderer {
             width,
             height,
             tile_bins: TileBins::new(tile_count),
-            prepared: Vec::new(),
-            prepared_gouraud: Vec::new(),
-            prepared_textured: Vec::new(),
+            // Bolt Performance Optimization:
+            // Pre-allocate internal vectors for the common case (<= 100 triangles per frame).
+            // This eliminates up to 3 dynamic heap reallocations per vector during the hot
+            // frame submission path. 128 is a safe ceiling for the intended usage limits.
+            prepared: Vec::with_capacity(128),
+            prepared_gouraud: Vec::with_capacity(128),
+            prepared_textured: Vec::with_capacity(128),
             hiz_buffer: None,
             use_two_level_binning: false,
             half_width: width as f32 * 0.5,
