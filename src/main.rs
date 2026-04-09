@@ -638,7 +638,11 @@ fn render_title(f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
                 .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
         )
-        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        )
         .alignment(ratatui::layout::Alignment::Center);
     f.render_widget(title, area);
 }
@@ -655,7 +659,12 @@ fn render_demo_list(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &m
         .collect();
 
     let items_list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded).title(" Demos "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded)
+                .title(" Demos "),
+        )
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
@@ -719,13 +728,22 @@ fn render_details_pane(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app:
             rows,
             [Constraint::Length(15), Constraint::Min(0)], // Columns width
         )
-        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded).title(" Details "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(ratatui::widgets::BorderType::Rounded)
+                .title(" Details "),
+        )
         .column_spacing(1);
 
         f.render_widget(table, area);
     } else {
         let placeholder = Paragraph::new("Select a demo to view details")
-            .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            )
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center);
         f.render_widget(placeholder, area);

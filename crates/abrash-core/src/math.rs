@@ -842,7 +842,7 @@ pub fn cylindrical_to_cartesian(r: f32, theta: f32, y: f32) -> Vec3 {
 #[must_use]
 #[inline]
 pub fn cartesian_to_cylindrical(v: Vec3) -> (f32, f32, f32) {
-    let r = (v.x * v.x + v.z * v.z).sqrt();
+    let r = v.x.mul_add(v.x, v.z * v.z).sqrt();
     let theta = v.z.atan2(v.x).rem_euclid(std::f32::consts::TAU);
     (r, theta, v.y)
 }
@@ -1302,7 +1302,7 @@ impl Vec2 {
     pub fn distance(self, other: Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-        (dx * dx + dy * dy).sqrt()
+        dx.mul_add(dx, dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
@@ -10004,7 +10004,7 @@ pub fn worley_noise_2d(p: Vec2) -> f32 {
             let py = cy + oy;
             let ddx = p.x - px;
             let ddy = p.y - py;
-            let dist = (ddx * ddx + ddy * ddy).sqrt();
+            let dist = ddx.mul_add(ddx, ddy * ddy).sqrt();
             if dist < min_dist {
                 min_dist = dist;
             }
@@ -10968,7 +10968,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
-    let c = (a * a + b * b).sqrt();
+    let c = a.mul_add(a, b * b).sqrt();
     let h = b.atan2(a).to_degrees().rem_euclid(360.0);
     (l, c, h)
 }
@@ -13696,7 +13696,7 @@ pub fn worley_f1_f2_2d(p: Vec2) -> (f32, f32) {
             let oy = hash2_to_f32((iy + dy) as u32 ^ 0xDEAD_BEEF, (ix + dx) as u32);
             let fx = p.x - (cx + ox);
             let fy = p.y - (cy + oy);
-            let dist = (fx * fx + fy * fy).sqrt();
+            let dist = fx.mul_add(fx, fy * fy).sqrt();
             if dist < f1 {
                 f2 = f1;
                 f1 = dist;
@@ -16242,7 +16242,7 @@ pub fn slope_from_heightmap(pixels: &[f32; 9], texel_size: f32) -> f32 {
     let scale = 8.0 * texel_size;
     let gx_s = gx / scale;
     let gy_s = gy / scale;
-    (gx_s * gx_s + gy_s * gy_s).sqrt()
+    gx_s.mul_add(gx_s, gy_s * gy_s).sqrt()
 }
 
 #[cfg(test)]
@@ -16748,7 +16748,7 @@ pub fn voronoi_smooth_2d(p: Vec2, k: f32) -> f32 {
                 b.x + h.x - (p.x - p.x.floor()),
                 b.y + h.y - (p.y - p.y.floor()),
             );
-            let d = (r.x * r.x + r.y * r.y).sqrt();
+            let d = r.x.mul_add(r.x, r.y * r.y).sqrt();
             res += (-k * d).exp();
         }
     }
@@ -17694,7 +17694,7 @@ pub fn sat_overlap_polygons_2d(poly_a: &[Vec2], poly_b: &[Vec2]) -> bool {
             let b = poly[(i + 1) % n];
             let nx = b.y - a.y;
             let ny = -(b.x - a.x);
-            let len = (nx * nx + ny * ny).sqrt();
+            let len = nx.mul_add(nx, ny * ny).sqrt();
             if len < 1e-10 {
                 continue;
             }
@@ -18005,8 +18005,8 @@ pub fn sdf_box_3d(p: Vec3, b: Vec3) -> f32 {
 /// torus; `r_minor` is the tube radius.
 #[inline]
 pub fn sdf_torus(p: Vec3, r_major: f32, r_minor: f32) -> f32 {
-    let q_xz = (p.x * p.x + p.z * p.z).sqrt() - r_major;
-    (q_xz * q_xz + p.y * p.y).sqrt() - r_minor
+    let q_xz = p.x.mul_add(p.x, p.z * p.z).sqrt() - r_major;
+    q_xz.mul_add(q_xz, p.y * p.y).sqrt() - r_minor
 }
 
 /// SDF: capsule (line-swept sphere) from point `a` to `b` with radius `r`.
@@ -18031,7 +18031,7 @@ pub fn sdf_capsule_3d(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 #[inline]
 pub fn sdf_cone(p: Vec3, angle: f32) -> f32 {
     let (sin_a, cos_a) = angle.sin_cos();
-    let q = (p.x * p.x + p.z * p.z).sqrt();
+    let q = p.x.mul_add(p.x, p.z * p.z).sqrt();
     // In 2D (q, y) space, project onto the cone edge direction c = (sin_a, -cos_a).
     let d = ((q * sin_a - p.y * cos_a).max(0.0) * (q * sin_a - p.y * cos_a).max(0.0)
         + (q * cos_a + p.y * sin_a) * (q * cos_a + p.y * sin_a))
@@ -18046,7 +18046,7 @@ pub fn sdf_cone(p: Vec3, angle: f32) -> f32 {
         -cross_qc.abs()
     } else {
         // Outside cone on the wide side.
-        (dot_qc * dot_qc + cross_qc * cross_qc).sqrt() * cross_qc.signum().max(0.0)
+        dot_qc.mul_add(dot_qc, cross_qc * cross_qc).sqrt() * cross_qc.signum().max(0.0)
             + cross_qc.abs() * (1.0 - cross_qc.signum().max(0.0))
     }
 }
@@ -18072,7 +18072,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     // In 2D (axial, radial), the cone is a right triangle:
     // apex=(0,0), base edge from (ba_len,0) to (ba_len,r).
     // c = normalize(ba_len, r) is the slant direction.
-    let c_len = (ba_len * ba_len + r * r).sqrt();
+    let c_len = ba_len.mul_add(ba_len, r * r).sqrt();
     let cx = ba_len / c_len; // cos of slant angle
     let cr = r / c_len; // sin of slant angle
     // Dot and cross of (qx,qr) with slant c and its normal.
@@ -18082,7 +18082,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     let d_dot_c = d_dot.clamp(0.0, c_len);
     let dx = d_dot - d_dot_c;
     let dy = d_cross;
-    let dist = (dx * dx + dy * dy).sqrt();
+    let dist = dx.mul_add(dx, dy * dy).sqrt();
     // Inside if d_cross < 0 (left of slant line) and qx in [0, ba_len].
     let inside = d_cross <= 0.0 && qx >= 0.0 && qx <= ba_len;
     if inside { -dist } else { dist }
@@ -18091,7 +18091,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 /// SDF: infinite cylinder along the Y axis with radius `r`.
 #[inline]
 pub fn sdf_cylinder(p: Vec3, r: f32) -> f32 {
-    (p.x * p.x + p.z * p.z).sqrt() - r
+    p.x.mul_add(p.x, p.z * p.z).sqrt() - r
 }
 
 /// SDF: finite cylinder from `a` to `b` with radius `r`.
@@ -19649,7 +19649,9 @@ pub fn sdf_hex_prism(p: Vec3, h: Vec2) -> f32 {
     let qx = ap.x - dot * KX;
     let qz = ap.z - dot * KY;
     // Distance to hex edge in XZ, height in Y.
-    let dx_raw = ((qx - (qz / KZ).clamp(0.0, h.x * KZ)).powi(2) + (qz - h.x).powi(2)).sqrt();
+    let qz_clamp = (qz / KZ).clamp(0.0, h.x * KZ);
+    let qx_diff = qx - qz_clamp;
+    let dx_raw = qx_diff.mul_add(qx_diff, (qz - h.x).powi(2)).sqrt();
     let dx_sign = if qx - h.x * KZ > 0.0 || qz - h.x > 0.0 {
         1.0_f32
     } else {
@@ -19876,7 +19878,7 @@ mod tests_pass_58 {
         let p = Vec3::new(1.0, 1.0, 0.0);
         let pt = sdf_op_twist(p, std::f32::consts::FRAC_PI_2);
         assert!((pt.y - p.y).abs() < 1e-5);
-        let r_in = (p.x * p.x + p.z * p.z).sqrt();
+        let r_in = p.x.mul_add(p.x, p.z * p.z).sqrt();
         let r_out = (pt.x * pt.x + pt.z * pt.z).sqrt();
         assert!((r_in - r_out).abs() < 1e-5);
     }

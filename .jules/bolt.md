@@ -15,3 +15,10 @@
 **Gouraud Scanline Bounds Elision**
 **Learning:** Replaced safe `zip` iterators with unsafe raw pointer iteration + a pre-loop bounds assertion in `draw_scanline_gouraud_i32` and `draw_scanline_gouraud_i32_tile`. This avoids bounds-checking overhead per pixel and avoids the overhead of zipped iterators.
 **Action:** Modified `crates/abrash-render/src/rasterizer/gouraud.rs` and `crates/abrash-render/src/rasterizer/tile.rs` to use raw pointers. A single initial length assertion ensures memory safety. Verified ~4% speedup in `gouraud_scanline_new` benchmarks.
+**Imprecise flops `.sqrt()` vs FMA `.mul_add()` optimization**
+**Learning:** Do not blindly follow `clippy::imprecise_flops` to replace `(x * x + y * y).sqrt()` with `x.hypot(y)`. While `hypot` is more precise, it is significantly slower. Do not globally silence the lint either. Instead, optimize using Fused Multiply-Add (FMA) via `x.mul_add(x, y * y).sqrt()` which provides both precision and high performance without triggering lints.
+**Action:** Replaced instances of `(x * x + y * y).sqrt()` with `x.mul_add(x, y * y).sqrt()` in `crates/abrash-core/src/sdf.rs`, `crates/abrash-core/src/math.rs`, `crates/abrash-core/src/noise.rs`, and `crates/abrash-core/src/color.rs`.
+
+**Imprecise flops `.powf()` vs `.cbrt()` optimization**
+**Learning:** When resolving `clippy::imprecise_flops` warnings for cube root calculations, replace `.powf(1.0 / 3.0)` with the standard librarys `.cbrt()` method to improve both calculation precision and performance without needing to suppress the lint.
+**Action:** Replaced instances of `.powf(1.0 / 3.0)` with `.cbrt()` in `crates/abrash-core/src/sdf.rs`.
