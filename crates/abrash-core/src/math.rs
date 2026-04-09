@@ -1228,7 +1228,7 @@ impl Vec2 {
     #[inline]
     #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
-        (self.x * self.x + self.y * self.y).sqrt()
+        self.x.mul_add(self.x, self.y * self.y).sqrt()
     }
 
     /// Calculates squared length (magnitude²) of the vector.
@@ -1302,7 +1302,7 @@ impl Vec2 {
     pub fn distance(self, other: Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-        (dx * dx + dy * dy).sqrt()
+        dx.mul_add(dx, dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
@@ -2005,7 +2005,9 @@ impl Vec3 {
     #[inline]
     #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+        self.x
+            .mul_add(self.x, self.y.mul_add(self.y, self.z * self.z))
+            .sqrt()
     }
 
     /// Returns a normalized unit vector (length of 1.0).
@@ -18082,7 +18084,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     let d_dot_c = d_dot.clamp(0.0, c_len);
     let dx = d_dot - d_dot_c;
     let dy = d_cross;
-    let dist = (dx * dx + dy * dy).sqrt();
+    let dist = dx.mul_add(dx, dy * dy).sqrt();
     // Inside if d_cross < 0 (left of slant line) and qx in [0, ba_len].
     let inside = d_cross <= 0.0 && qx >= 0.0 && qx <= ba_len;
     if inside { -dist } else { dist }

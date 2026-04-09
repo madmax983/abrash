@@ -473,7 +473,7 @@ pub fn inf_cylinder_3d(p: Vec3, centre_xz: Vec2, r: f32) -> f32 {
 pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f32 {
     // IQ sdRoundedCylinder: ra = cylinder radius, rb = rounding radius, h = half-height
     let p = p - centre;
-    let d_xz = (p.x * p.x + p.z * p.z).sqrt() - ra + rb;
+    let d_xz = p.x.mul_add(p.x, p.z * p.z).sqrt() - ra + rb;
     let d_y = p.y.abs() - h;
     let max_xz = d_xz.max(0.0);
     let max_y = d_y.max(0.0);
@@ -506,7 +506,7 @@ pub fn rounded_cylinder_3d(p: Vec3, centre: Vec3, ra: f32, rb: f32, h: f32) -> f
 pub fn link_3d(p: Vec3, centre: Vec3, r1: f32, r2: f32, le: f32) -> f32 {
     // IQ sdLink: r1 = major radius, r2 = tube radius, le = elongation half-length
     let p = p - centre;
-    let qx = (p.x * p.x + p.z * p.z).sqrt() - r1;
+    let qx = p.x.mul_add(p.x, p.z * p.z).sqrt() - r1;
     let qy = p.y.abs() - le;
     (qx * qx + qy.max(0.0) * qy.max(0.0)).sqrt() - r2
 }
@@ -2041,7 +2041,7 @@ pub fn triangular_prism_3d(p: Vec3, h: (f32, f32)) -> f32 {
 pub fn cut_sphere_3d(p: Vec3, r: f32, h: f32) -> f32 {
     // Half-width of the cut disk
     let w = (r * r - h * h).max(0.0).sqrt();
-    let q = (p.x * p.x + p.z * p.z).sqrt();
+    let q = p.x.mul_add(p.x, p.z * p.z).sqrt();
     // Two regions: flat cap and spherical surface
     // sign: +1 outside, -1 inside
     let d_sphere = p.length() - r;
@@ -3563,7 +3563,7 @@ mod tests_pass_19 {
 /// ```
 pub fn infinite_cone_3d(p: Vec3, c: (f32, f32)) -> f32 {
     // 2D profile: (radial distance from y-axis, y coordinate)
-    let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y);
+    let q = Vec2::new(p.x.mul_add(p.x, p.z * p.z).sqrt(), p.y);
     // Signed distance to the cone surface line through origin with normal (cos, -sin)
     q.x * c.1 - q.y.abs() * c.0
 }
@@ -3853,10 +3853,7 @@ pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
     let sx = b.x * (1.0 - f) * 0.5 - p.x;
     let sz = b.y * (1.0 + f) * 0.5 - p.z;
 
-    let side_pt = Vec2::new(
-        (sx * sx + sz * sz).sqrt(),
-        p.y - h,
-    );
+    let side_pt = Vec2::new((sx * sx + sz * sz).sqrt(), p.y - h);
     let sign = (p.x * b.y + p.z * b.x - b.x * b.y).signum();
     let qx = side_pt.x * sign - ra;
     let qy = side_pt.y;
@@ -4358,7 +4355,7 @@ pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
     let ecs = Vec2::new(en.cos(), en.sin());
 
     let bn = (p.x.atan2(p.y).rem_euclid(2.0 * an)) - an;
-    let len = (p.x * p.x + p.y * p.y).sqrt();
+    let len = p.x.mul_add(p.x, p.y * p.y).sqrt();
     let mut q = Vec2::new(len * bn.cos(), len * bn.sin().abs());
 
     // Distance to the rounded star edge
@@ -4367,7 +4364,7 @@ pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
     let dot = (-q.x * ecs.x - q.y * ecs.y).clamp(0.0, r * acs.y / ecs.y);
     q.x += ecs.x * dot;
     q.y += ecs.y * dot;
-    let l = (q.x * q.x + q.y * q.y).sqrt();
+    let l = q.x.mul_add(q.x, q.y * q.y).sqrt();
     l * q.x.signum()
 }
 
@@ -4386,7 +4383,7 @@ pub fn rounded_star_2d(p: Vec2, r: f32, n: u32, m: f32) -> f32 {
 /// assert!(d < 0.0, "on torus surface: {d}");
 /// ```
 pub fn revolution_z(p: Vec3, _o: f32, sdf2d: impl Fn(Vec2) -> f32) -> f32 {
-    let r = (p.x * p.x + p.y * p.y).sqrt();
+    let r = p.x.mul_add(p.x, p.y * p.y).sqrt();
     sdf2d(Vec2::new(r, p.z))
 }
 
@@ -4723,8 +4720,8 @@ pub fn mandelbrot_dist(c: Vec2, max_iter: u32) -> f32 {
         zx = new_zx;
         zy = new_zy;
         if zx * zx + zy * zy > 1_000_000.0 {
-            let m = (zx * zx + zy * zy).sqrt();
-            let dm = (dzx * dzx + dzy * dzy).sqrt();
+            let m = zx.mul_add(zx, zy * zy).sqrt();
+            let dm = dzx.mul_add(dzx, dzy * dzy).sqrt();
             return 0.5 * m * m.ln() / dm.max(1e-30);
         }
     }
@@ -4861,7 +4858,7 @@ pub fn lens_2d(p: Vec2, d: f32, r: f32) -> f32 {
 /// assert!(d2 > 0.0, "far outside (off-axis): {d2}");
 /// ```
 pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
-    let len = (p.x * p.x + p.y * p.y).sqrt();
+    let len = p.x.mul_add(p.x, p.y * p.y).sqrt();
     if len < 1e-9 {
         return -r_tube; // at origin, which is on the spiral (t=0)
     }
@@ -4882,7 +4879,7 @@ pub fn spiral_2d(p: Vec2, spacing: f32, r_tube: f32) -> f32 {
         let sy = sr * t.sin();
         let dx = p.x - sx;
         let dy = p.y - sy;
-        let d = (dx * dx + dy * dy).sqrt() - r_tube;
+        let d = dx.mul_add(dx, dy * dy).sqrt() - r_tube;
         if d < best {
             best = d;
         }
@@ -4914,7 +4911,7 @@ pub fn polyline_2d(p: Vec2, pts: &[Vec2]) -> f32 {
         } else {
             let dx = p.x - pts[0].x;
             let dy = p.y - pts[0].y;
-            (dx * dx + dy * dy).sqrt()
+            dx.mul_add(dx, dy * dy).sqrt()
         };
     }
     pts.windows(2)
@@ -5143,7 +5140,7 @@ mod tests_pass_25 {
 /// ```
 #[inline]
 pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
-    let radial = (p.x * p.x + p.z * p.z).sqrt();
+    let radial = p.x.mul_add(p.x, p.z * p.z).sqrt();
     let d = Vec2::new(radial - r, p.y.abs() - t);
     d.x.max(d.y).min(0.0) + Vec2::new(d.x.max(0.0), d.y.max(0.0)).length()
 }
@@ -5168,7 +5165,7 @@ pub fn disk_3d(p: Vec3, r: f32, t: f32) -> f32 {
 #[inline]
 pub fn diamond_3d(p: Vec3, h: f32, r: f32) -> f32 {
     // Fold to 2-D (radial, axial); |y| gives top-half symmetry.
-    let q = Vec2::new((p.x * p.x + p.z * p.z).sqrt(), p.y.abs());
+    let q = Vec2::new(p.x.mul_add(p.x, p.z * p.z).sqrt(), p.y.abs());
     // Edge runs from A=(r,0) at the equator to B=(0,h) at the pole.
     // t = ((q - A) · (B - A)) / |B-A|²
     //   = (r*(r - q.x) + h*q.y) / (r² + h²)
@@ -5526,7 +5523,7 @@ pub fn lemniscate_2d(p: Vec2, a: f32) -> f32 {
     // ∂f/∂y = 4y(x²+y²) + 2a²y  →  2y(2r²+a²)
     let gx = 2.0 * x * (2.0 * r2 - a * a);
     let gy = 2.0 * y * (2.0 * r2 + a * a);
-    let grad_len = (gx * gx + gy * gy).sqrt().max(1e-8);
+    let grad_len = gx.mul_add(gx, gy * gy).sqrt().max(1e-8);
     f / grad_len
 }
 
