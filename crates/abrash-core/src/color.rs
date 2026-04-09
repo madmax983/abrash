@@ -962,7 +962,7 @@ impl Color {
     #[must_use]
     pub fn to_oklch(self) -> (f32, f32, f32) {
         let (l, a, b) = self.to_oklab();
-        let c = (a * a + b * b).sqrt();
+        let c = a.mul_add(a, b * b).sqrt();
         let h = b.atan2(a).rem_euclid(std::f32::consts::TAU);
         (l, c, h)
     }
