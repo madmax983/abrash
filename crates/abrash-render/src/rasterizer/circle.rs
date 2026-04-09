@@ -44,7 +44,7 @@ use crate::framebuffer::Framebuffer;
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 
@@ -162,7 +162,7 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 

@@ -15,3 +15,7 @@
 **Gouraud Scanline Bounds Elision**
 **Learning:** Replaced safe `zip` iterators with unsafe raw pointer iteration + a pre-loop bounds assertion in `draw_scanline_gouraud_i32` and `draw_scanline_gouraud_i32_tile`. This avoids bounds-checking overhead per pixel and avoids the overhead of zipped iterators.
 **Action:** Modified `crates/abrash-render/src/rasterizer/gouraud.rs` and `crates/abrash-render/src/rasterizer/tile.rs` to use raw pointers. A single initial length assertion ensures memory safety. Verified ~4% speedup in `gouraud_scanline_new` benchmarks.
+
+**[Pre-allocate double buffers in string expansion]**
+**Learning:** Using `Vec::new()` for the secondary buffer in double-buffered loops (like L-System expansion) causes unnecessary heap reallocations during the first iteration.
+**Action:** Initialized the secondary buffers using `Vec::with_capacity(current_bytes.len() * 2)` in `lsystem.rs` and `arboretum.rs` to eliminate the initial dynamic heap reallocations.

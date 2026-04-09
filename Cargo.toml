@@ -709,6 +709,11 @@ name = "sdf_imprecise_flops"
 harness = false
 path = "benches/sdf_imprecise_flops.rs"
 
+[[bench]]
+name = "scanline_jitter_bench"
+harness = false
+path = "benches/scanline_jitter_bench.rs"
+
 [[example]]
 name = "frosted_glass_demo"
 path = "examples/frosted_glass_demo.rs"
