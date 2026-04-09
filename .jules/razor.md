@@ -24,3 +24,7 @@
 **Bloat:** Redundant clones and unreadable literals
 **Cut:** Removed redundant clones of data variables in test, marked `Vec3::is_finite` as a const function as it calculates constants on copy-types, spaced large numbers out using '_' delimiters.
 **Saved:** Multiple compiler warnings, enforcing cleanly building codebase.
+## De-Abstract SequenceBuilder/TweenSegmentBuilder
+**Bloat:** The `SequenceBuilder` and `TweenSegmentBuilder` in `crates/abrash-anim/src/timeline.rs` added an unnecessary layer of indirection to create multi-segment timelines.
+**Cut:** Deleted both builders and their associated methods. Updated tests to instantiate `Sequence`, `Keyframe`, and `Hold` objects directly.
+**Saved:** 2 Structs, ~90 lines of code.
