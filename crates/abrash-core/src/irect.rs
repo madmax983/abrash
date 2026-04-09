@@ -29,7 +29,9 @@ use crate::ivec::IVec2;
 /// An empty rect satisfies `min.x >= max.x || min.y >= max.y`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct IRect {
+    /// The inclusive top-left origin coordinate of the rectangle.
     pub min: IVec2,
+    /// The exclusive bottom-right boundary coordinate of the rectangle.
     pub max: IVec2,
 }
 

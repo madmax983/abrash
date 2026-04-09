@@ -6350,9 +6350,13 @@ impl std::ops::Mul<Vec3> for Mat3 {
 /// - Rotation direction: right-hand rule (CCW when axis points toward viewer).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quat {
+    /// The X component of the scaled rotation axis (vector part).
     pub x: f32,
+    /// The Y component of the scaled rotation axis (vector part).
     pub y: f32,
+    /// The Z component of the scaled rotation axis (vector part).
     pub z: f32,
+    /// The scalar real component determining the angle of rotation.
     pub w: f32,
 }
 
