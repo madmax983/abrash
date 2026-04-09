@@ -652,6 +652,10 @@ impl SoftBody {
 
     /// Resolves collisions with an SDF scene.
     pub fn collide_sdf(&mut self, scene: &SdfScene, restitution: f32) {
+        if self.mesh.vertices.len() != self.velocities.len() {
+            return;
+        }
+
         for i in 0..self.mesh.vertices.len() {
             let pos = self.mesh.vertices[i];
             let (dist, _) = scene.map(pos);

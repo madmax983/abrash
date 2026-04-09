@@ -90,7 +90,7 @@ impl LSystem {
             }
 
             let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
 
             for _ in 0..iterations {
                 next_bytes.clear();
