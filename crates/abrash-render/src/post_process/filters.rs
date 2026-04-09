@@ -56,9 +56,13 @@ pub struct ScanlineJitterConfig {
 pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    if width == 0 || height == 0 { return; }
+    if width == 0 || height == 0 {
+        return;
+    }
     let shift = config.intensity as usize % width;
-    if shift == 0 { return; }
+    if shift == 0 {
+        return;
+    }
 
     for y in 0..height {
         if y % 2 == 0 {

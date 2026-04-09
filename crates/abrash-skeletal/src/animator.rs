@@ -104,7 +104,10 @@ impl SkeletonAnimator {
 
         // ⚡ Bolt: Chaining `.zip()` on the iterators instead of indexing via `[i]`
         // allows the compiler to mathematically prove safety and elide all inner-loop bounds checks.
-        let iter = self.bone_animators.iter_mut().zip(self.current_pose.local_transforms.iter_mut());
+        let iter = self
+            .bone_animators
+            .iter_mut()
+            .zip(self.current_pose.local_transforms.iter_mut());
         for (animator, transform) in iter {
             if let Some(ref mut tl) = animator.position {
                 transform.position = tl.tick(dt).value;
