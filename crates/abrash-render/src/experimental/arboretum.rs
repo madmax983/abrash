@@ -149,7 +149,9 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
             let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            // ⚡ Bolt: Pre-allocate secondary buffer using `with_capacity` instead of `new`
+            // to eliminate unnecessary dynamic heap reallocations during the first iteration.
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
             for _ in 0..iterations {
                 /// By moving `next_bytes` outside the loop, we can `clear` and `reserve` its capacity
                 /// and then use `std::mem::swap`. This double-buffering completely eliminates O(N)
