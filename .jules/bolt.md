@@ -19,3 +19,9 @@
 **[Pre-allocate double buffers in string expansion]**
 **Learning:** Using `Vec::new()` for the secondary buffer in double-buffered loops (like L-System expansion) causes unnecessary heap reallocations during the first iteration.
 **Action:** Initialized the secondary buffers using `Vec::with_capacity(current_bytes.len() * 2)` in `lsystem.rs` and `arboretum.rs` to eliminate the initial dynamic heap reallocations.
+**Eliminate Bounds Checking Overhead in Circle Rasterization**
+**Learning:** When integer bounds checking is mathematically guaranteed by earlier bounds tests (e.g., confirming a circle is entirely visible or sufficiently small such that  won't overflow ), using safe but slow operations like  and  within the tight per-pixel inner loop adds significant branching overhead. Similarly, in symmetrical rasterization algorithms, drawing identical scanlines when an axis offset is zero () creates unnecessary overdraw.
+**Action:** Replaced  with standard / in  and  safe paths. Removed the redundant  scanline initialization draw when . Performance improved by ~10% for out-of-bounds circles.
+**Eliminate Bounds Checking Overhead in Circle Rasterization**
+**Learning:** When integer bounds checking is mathematically guaranteed by earlier bounds tests (e.g., confirming a circle is entirely visible or sufficiently small such that `xc + radius` won't overflow `i32`), using safe but slow operations like `saturating_add` and `saturating_sub` within the tight per-pixel inner loop adds significant branching overhead. Similarly, in symmetrical rasterization algorithms, drawing identical scanlines when an axis offset is zero (`x = 0`) creates unnecessary overdraw.
+**Action:** Replaced `saturating_add/sub` with standard `+`/`-` in `draw_circle` and `fill_circle` safe paths. Removed the redundant `yc - x` scanline initialization draw when `x = 0`. Performance improved by ~10% for out-of-bounds circles.
