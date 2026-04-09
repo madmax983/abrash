@@ -157,3 +157,34 @@ cargo test --test havoc_arboretum_oom --features nova -- --ignored
 
 ## 😈 Comment
 You remembered to limit the string expansion, but forgot that strings are executable code. You let the Turtle walk straight off a 9.6-Gigabyte cliff via pre-allocation and infinite stacks. You were wrong.
+
+# 👺 Havoc: draw_circle and fill_circle i32 Math Overflow Panic
+
+## 🧨 The Trigger
+Calling `draw_circle` or `fill_circle` with an extremely large `radius` (e.g., `536894084` or higher). While `radius` is an `i32`, the algorithm calculates `let mut d = 3 - 2 * radius;`. When `radius` is large enough, `2 * radius` overflows the `i32` boundary, causing a fatal panic in debug/test builds or potentially undefined wrapping behavior in release mode.
+
+## 📉 The Stack Trace
+```
+thread 'test_draw_circle_overflow' panicked at crates/abrash-render/src/rasterizer/circle.rs:84:25:
+attempt to multiply with overflow
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:662:5
+   1: core::panicking::panic_fmt
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:74:14
+   2: core::panicking::panic_const::panic_const_mul_overflow
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:252:21
+   3: abrash_render::rasterizer::circle::draw_circle
+             at /app/crates/abrash-render/src/rasterizer/circle.rs:84:25
+   4: havoc_circle_panic::test_draw_circle_overflow
+             at /app/crates/abrash-render/tests/havoc_circle_panic.rs:10:5
+```
+
+## 🧪 Reproduction
+Run the following fuzzing proptest command:
+```bash
+cargo test -p abrash-render --test havoc_circle_proptest
+```
+
+## 😈 Comment
+You thought a radius parameter was just a number. You forgot that Bresenham’s circle algorithm multiplies that radius during the decision parameter `d` initialization (`d = 3 - 2 * r`). An `i32` maxes out at ~2.14 billion. Double `536,894,084` and subtract from 3, and you blow right past the numeric limits. You assumed `i32` was big enough for a screen, but users will pass anything they want. You were wrong.
