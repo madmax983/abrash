@@ -44,13 +44,16 @@ pub fn encode_message(fb: &mut Framebuffer, message: &str) -> Result<(), &'stati
 
             // clear the lsb of the target channel and set it to bit_val
             match channel_idx {
-                0 => { // R
+                0 => {
+                    // R
                     p = (p & !(1 << 16)) | (u32::from(bit_val) << 16);
                 }
-                1 => { // G
+                1 => {
+                    // G
                     p = (p & !(1 << 8)) | (u32::from(bit_val) << 8);
                 }
-                2 => { // B
+                2 => {
+                    // B
                     p = (p & !1) | u32::from(bit_val);
                 }
                 _ => unreachable!(),

@@ -1,6 +1,6 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::post_process::filters::{apply_scanline_jitter, ScanlineJitterConfig};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use abrash_render::post_process::filters::{ScanlineJitterConfig, apply_scanline_jitter};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_scanline_jitter(c: &mut Criterion) {
     let mut fb = Framebuffer::new(1920, 1080).unwrap();

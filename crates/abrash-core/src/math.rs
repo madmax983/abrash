@@ -17834,9 +17834,15 @@ mod tests_pass_52 {
         let b = Vec2::new(2.0, 0.0);
         let c = Vec2::new(1.0, 3.0_f32.sqrt());
         let cc = triangle_circumcenter_2d(a, b, c).unwrap();
-        let ra = (cc.x - a.x).mul_add(cc.x - a.x, (cc.y - a.y).powi(2)).sqrt();
-        let rb = (cc.x - b.x).mul_add(cc.x - b.x, (cc.y - b.y).powi(2)).sqrt();
-        let rc = (cc.x - c.x).mul_add(cc.x - c.x, (cc.y - c.y).powi(2)).sqrt();
+        let ra = (cc.x - a.x)
+            .mul_add(cc.x - a.x, (cc.y - a.y).powi(2))
+            .sqrt();
+        let rb = (cc.x - b.x)
+            .mul_add(cc.x - b.x, (cc.y - b.y).powi(2))
+            .sqrt();
+        let rc = (cc.x - c.x)
+            .mul_add(cc.x - c.x, (cc.y - c.y).powi(2))
+            .sqrt();
         assert!((ra - rb).abs() < 1e-4, "ra={ra} rb={rb}");
         assert!((ra - rc).abs() < 1e-4, "ra={ra} rc={rc}");
     }
