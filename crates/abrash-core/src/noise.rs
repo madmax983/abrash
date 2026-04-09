@@ -1,3 +1,6 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::must_use_candidate)]
+
 //! Procedural noise functions for textures, terrain, and animation.
 //!
 //! Implements three complementary noise types:
