@@ -9683,6 +9683,11 @@ pub fn igr_noise(x: f32, y: f32) -> f32 {
 /// assert!((n - n2).abs() < 0.1);
 /// ```
 pub fn value_noise_2d(p: Vec2) -> f32 {
+    #[inline]
+    fn h(x: i32, y: i32) -> f32 {
+        hash2_to_f32(x as u32, y as u32)
+    }
+
     let ix = p.x.floor() as i32;
     let iy = p.y.floor() as i32;
     let fx = p.x - p.x.floor();
@@ -9690,11 +9695,6 @@ pub fn value_noise_2d(p: Vec2) -> f32 {
     // Smoothstep filter
     let ux = fx * fx * (3.0 - 2.0 * fx);
     let uy = fy * fy * (3.0 - 2.0 * fy);
-
-    #[inline]
-    fn h(x: i32, y: i32) -> f32 {
-        hash2_to_f32(x as u32, y as u32)
-    }
 
     let a = lerp(h(ix, iy), h(ix + 1, iy), ux);
     let b = lerp(h(ix, iy + 1), h(ix + 1, iy + 1), ux);
@@ -13803,7 +13803,6 @@ mod tests_pass_36 {
 /// ```
 #[must_use]
 pub fn linear_rgb_to_cielab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let (x, y, z) = linear_rgb_to_xyz(r, g, b);
     // D65 white point
     const XN: f32 = 0.950_456;
     const YN: f32 = 1.0;
@@ -13819,6 +13818,8 @@ pub fn linear_rgb_to_cielab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
             t / (3.0 * DELTA * DELTA) + 4.0 / 29.0
         }
     }
+
+    let (x, y, z) = linear_rgb_to_xyz(r, g, b);
 
     let fx = f(x / XN);
     let fy = f(y / YN);
@@ -19238,10 +19239,10 @@ pub fn ev100_to_exposure(ev100_val: f32) -> f32 {
 /// Used as the scene key value in auto-exposure algorithms.
 /// Returns 0 for an empty slice; tiny epsilon avoids log(0) on black pixels.
 pub fn log_average_luminance(luminances: &[f32]) -> f32 {
+    const EPSILON: f32 = 1e-5;
     if luminances.is_empty() {
         return 0.0;
     }
-    const EPSILON: f32 = 1e-5;
     let sum: f32 = luminances.iter().map(|&l| (l + EPSILON).ln()).sum();
     (sum / luminances.len() as f32).exp()
 }
