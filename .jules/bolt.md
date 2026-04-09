@@ -19,3 +19,6 @@
 **[Pre-allocate double buffers in string expansion]**
 **Learning:** Using `Vec::new()` for the secondary buffer in double-buffered loops (like L-System expansion) causes unnecessary heap reallocations during the first iteration.
 **Action:** Initialized the secondary buffers using `Vec::with_capacity(current_bytes.len() * 2)` in `lsystem.rs` and `arboretum.rs` to eliminate the initial dynamic heap reallocations.
+**Scanline Jitter Optimization**
+**Learning:** When iterating over a mutable slice to process alternating chunks (e.g., modifying only even rows in a framebuffer), use `chunks_exact_mut(chunk_size * 2)` and slice the target portion (e.g., `chunk[0..chunk_size]`) instead of `chunks_exact_mut(chunk_size).step_by(2)`. This avoids the iterator overhead of `step_by` and significantly improves performance.
+**Action:** Refactored `apply_scanline_jitter` to use double-row chunking.

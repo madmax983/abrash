@@ -53,19 +53,28 @@ pub struct ScanlineJitterConfig {
 }
 
 /// Applies a scanline jitter effect to the framebuffer in-place.
+///
+/// **Bolt Optimization:** We use `chunks_exact_mut` to process two rows at a time,
+/// avoiding the overhead of `step_by` and extracting the subslice directly.
 pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
-    if width == 0 || height == 0 { return; }
+    if width == 0 || height == 0 {
+        return;
+    }
     let shift = config.intensity as usize % width;
-    if shift == 0 { return; }
+    if shift == 0 {
+        return;
+    }
 
-    for y in 0..height {
-        if y % 2 == 0 {
-            let start = y * width;
-            let end = start + width;
-            fb.as_mut_slice()[start..end].rotate_right(shift);
-        }
+    let pixels = fb.as_mut_slice();
+    let mut chunks = pixels.chunks_exact_mut(width * 2);
+    for double_row in &mut chunks {
+        double_row[..width].rotate_right(shift);
+    }
+    let remainder = chunks.into_remainder();
+    if remainder.len() >= width {
+        remainder[..width].rotate_right(shift);
     }
 }
 
