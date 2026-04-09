@@ -835,6 +835,9 @@ pub fn curl_noise_2d(x: f32, y: f32, scale: f32) -> (f32, f32) {
 /// ```
 #[must_use]
 pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
+    const S1: f32 = 3.171_31;
+    const S2: f32 = 7.342_17;
+
     // Curl of (Nx, Ny, Nz): ∇×F = (∂Nz/∂y − ∂Ny/∂z, ∂Nx/∂z − ∂Nz/∂x, ∂Ny/∂x − ∂Nx/∂y)
     // Use three offset potential fields to break symmetry
     let h = 0.001 / scale.max(1e-6);
@@ -844,8 +847,6 @@ pub fn curl_noise_3d(p: crate::math::Vec3, scale: f32) -> crate::math::Vec3 {
     // Nx = simplex at (x, y, z)
     // Ny = simplex at (x+seed1, y+seed1, z+seed1)
     // Nz = simplex at (x+seed2, y+seed2, z+seed2)
-    const S1: f32 = 3.171_31;
-    const S2: f32 = 7.342_17;
 
     let nx = |x: f32, y: f32, z: f32| simplex_3d(x * s, y * s, z * s);
     let ny = |x: f32, y: f32, z: f32| simplex_3d((x + S1) * s, (y + S1) * s, (z + S1) * s);
