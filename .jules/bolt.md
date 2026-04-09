@@ -28,3 +28,6 @@
 **Eliminate Bounds Checking Overhead in Circle Rasterization**
 **Learning:** When integer bounds checking is mathematically guaranteed by earlier bounds tests (e.g., confirming a circle is entirely visible or sufficiently small such that `xc + radius` won't overflow `i32`), using safe but slow operations like `saturating_add` and `saturating_sub` within the tight per-pixel inner loop adds significant branching overhead. Similarly, in symmetrical rasterization algorithms, drawing identical scanlines when an axis offset is zero (`x = 0`) creates unnecessary overdraw.
 **Action:** Replaced `saturating_add/sub` with standard `+`/`-` in `draw_circle` and `fill_circle` safe paths. Removed the redundant `yc - x` scanline initialization draw when `x = 0`. Performance improved by ~10% for out-of-bounds circles.
+**Pre-allocate TileRenderer buffers**
+**Learning:** Initializing recurringly used structures (like `TileRenderer` handling <= 100 triangles per frame) with empty vectors (`Vec::new()`) and repeatedly populating them using iterators/`par_extend` causes unnecessary dynamic heap reallocations during hot frame loops.
+**Action:** Pre-allocate vectors (`prepared`, `prepared_gouraud`, `prepared_textured`) with a reasonable capacity (`Vec::with_capacity(128)`) during `TileRenderer` construction to eliminate these dynamic reallocations.
