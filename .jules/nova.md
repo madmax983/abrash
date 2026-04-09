@@ -210,3 +210,7 @@
 **Concept:** A retro post-processing effect that simulates viewing the scene through frosted or textured privacy glass. It applies a random spatial displacement to the sampling coordinates of each pixel.
 **Fate:** Implemented
 **Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Using an inline PRNG (seeded by `y` row index and user seed) avoids the performance overhead and synchronization issues of using thread-local or global random number generators, while keeping the displacement effect fast and deterministic.
+## [Steganography]
+**Concept:** A mashup feature extending the `Framebuffer` capabilities by allowing hidden strings to be encoded directly into the Least Significant Bits (LSB) of the RGB channels, acting as an invisible data storage layer.
+**Fate:** Implemented
+**Lesson:** Carefully calculating bit lengths and capacity limits before modifying pixels is crucial to avoid out-of-bounds panics. LSB encoding works excellently since the subtle changes are imperceptible to the human eye, even when applied iteratively over animated procedural textures like Plasma.
