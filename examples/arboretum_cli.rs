@@ -176,7 +176,11 @@ mod app {
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
             )
-            .block(Block::default().borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            )
             .alignment(Alignment::Center);
         f.render_widget(title, area);
     }
@@ -205,6 +209,7 @@ mod app {
 
         let genome_block = Block::default()
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .title(" 🧬 Genome (Config) ")
             .border_style(Style::default().fg(Color::Blue));
         let genome = Paragraph::new(genome_text).block(genome_block);
@@ -251,6 +256,7 @@ mod app {
 
         let analysis_block = Block::default()
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .title(" 📊 Analysis ")
             .border_style(Style::default().fg(Color::Yellow));
         let analysis = Paragraph::new(analysis_text).block(analysis_block);
@@ -305,6 +311,7 @@ mod app {
 
         let dna_block = Block::default()
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .title(" 🧬 DNA Sequence ")
             .border_style(Style::default().fg(Color::Magenta));
 
