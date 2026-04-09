@@ -9691,6 +9691,11 @@ pub fn igr_noise(x: f32, y: f32) -> f32 {
 /// assert!((n - n2).abs() < 0.1);
 /// ```
 pub fn value_noise_2d(p: Vec2) -> f32 {
+    #[inline]
+    fn h(x: i32, y: i32) -> f32 {
+        hash2_to_f32(x as u32, y as u32)
+    }
+
     let ix = p.x.floor() as i32;
     let iy = p.y.floor() as i32;
     let fx = p.x - p.x.floor();
@@ -9698,11 +9703,6 @@ pub fn value_noise_2d(p: Vec2) -> f32 {
     // Smoothstep filter
     let ux = fx * fx * (3.0 - 2.0 * fx);
     let uy = fy * fy * (3.0 - 2.0 * fy);
-
-    #[inline]
-    fn h(x: i32, y: i32) -> f32 {
-        hash2_to_f32(x as u32, y as u32)
-    }
 
     let a = lerp(h(ix, iy), h(ix + 1, iy), ux);
     let b = lerp(h(ix, iy + 1), h(ix + 1, iy + 1), ux);
@@ -13811,7 +13811,6 @@ mod tests_pass_36 {
 /// ```
 #[must_use]
 pub fn linear_rgb_to_cielab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let (x, y, z) = linear_rgb_to_xyz(r, g, b);
     // D65 white point
     const XN: f32 = 0.950_456;
     const YN: f32 = 1.0;
@@ -13827,6 +13826,8 @@ pub fn linear_rgb_to_cielab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
             t / (3.0 * DELTA * DELTA) + 4.0 / 29.0
         }
     }
+
+    let (x, y, z) = linear_rgb_to_xyz(r, g, b);
 
     let fx = f(x / XN);
     let fy = f(y / YN);
@@ -17833,9 +17834,15 @@ mod tests_pass_52 {
         let b = Vec2::new(2.0, 0.0);
         let c = Vec2::new(1.0, 3.0_f32.sqrt());
         let cc = triangle_circumcenter_2d(a, b, c).unwrap();
-        let ra = (cc.x - a.x).mul_add(cc.x - a.x, (cc.y - a.y).powi(2)).sqrt();
-        let rb = (cc.x - b.x).mul_add(cc.x - b.x, (cc.y - b.y).powi(2)).sqrt();
-        let rc = (cc.x - c.x).mul_add(cc.x - c.x, (cc.y - c.y).powi(2)).sqrt();
+        let ra = (cc.x - a.x)
+            .mul_add(cc.x - a.x, (cc.y - a.y).powi(2))
+            .sqrt();
+        let rb = (cc.x - b.x)
+            .mul_add(cc.x - b.x, (cc.y - b.y).powi(2))
+            .sqrt();
+        let rc = (cc.x - c.x)
+            .mul_add(cc.x - c.x, (cc.y - c.y).powi(2))
+            .sqrt();
         assert!((ra - rb).abs() < 1e-4, "ra={ra} rb={rb}");
         assert!((ra - rc).abs() < 1e-4, "ra={ra} rc={rc}");
     }
@@ -19246,10 +19253,10 @@ pub fn ev100_to_exposure(ev100_val: f32) -> f32 {
 /// Used as the scene key value in auto-exposure algorithms.
 /// Returns 0 for an empty slice; tiny epsilon avoids log(0) on black pixels.
 pub fn log_average_luminance(luminances: &[f32]) -> f32 {
+    const EPSILON: f32 = 1e-5;
     if luminances.is_empty() {
         return 0.0;
     }
-    const EPSILON: f32 = 1e-5;
     let sum: f32 = luminances.iter().map(|&l| (l + EPSILON).ln()).sum();
     (sum / luminances.len() as f32).exp()
 }

@@ -39,7 +39,10 @@ fn print_banner() {
             Cell::new("Input").fg(Color::Cyan),
             Cell::new("Action").fg(Color::Cyan),
         ])
-        .add_row(vec![Cell::new("Keyboard"), Cell::new("Close window to exit")]);
+        .add_row(vec![
+            Cell::new("Keyboard"),
+            Cell::new("Close window to exit"),
+        ]);
     println!("{controls}\n");
 }
 
@@ -125,9 +128,9 @@ impl WindowApp for SteganographyDemoApp {
             }
         } else {
             // we re-encode it every frame because we redraw the plasma
-             if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
+            if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
                 eprintln!("Failed to encode message: {}", e);
-             }
+            }
         }
 
         self.present()
