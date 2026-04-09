@@ -73,6 +73,7 @@ pub mod sdf;
 pub mod sharpen;
 pub mod slitscan;
 pub mod starfield;
+pub mod steganography;
 pub mod swirl;
 pub mod thermal;
 pub mod tilt_shift;
