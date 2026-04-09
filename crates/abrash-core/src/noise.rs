@@ -1,3 +1,6 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::must_use_candidate)]
+
 //! Procedural noise functions for textures, terrain, and animation.
 //!
 //! Implements three complementary noise types:
@@ -1009,7 +1012,7 @@ pub fn voronoi_noise_2d(x: f32, y: f32, jitter: f32) -> (f32, f32, u32) {
             let pt_y = cy as f32 + hy * jitter;
             let dx = fx - pt_x;
             let dy = fy - pt_y;
-            let d = (dx * dx + dy * dy).sqrt();
+            let d = dx.mul_add(dx, dy * dy).sqrt();
             if d < f1 {
                 f2 = f1;
                 f1 = d;

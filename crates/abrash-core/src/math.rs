@@ -1,3 +1,7 @@
+#![allow(clippy::imprecise_flops)]
+#![allow(clippy::suspicious_operation_groupings)]
+#![allow(clippy::must_use_candidate)]
+
 //! 2D and 3D math types for graphics programming.
 //!
 //! # Coordinate System
@@ -1302,7 +1306,7 @@ impl Vec2 {
     pub fn distance(self, other: Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-        (dx * dx + dy * dy).sqrt()
+        dx.mul_add(dx, dy * dy).sqrt()
     }
 
     /// Squared distance to another vector.
@@ -10968,7 +10972,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
-    let c = (a * a + b * b).sqrt();
+    let c = a.mul_add(a, b * b).sqrt();
     let h = b.atan2(a).to_degrees().rem_euclid(360.0);
     (l, c, h)
 }
@@ -17825,9 +17829,9 @@ mod tests_pass_52 {
         let b = Vec2::new(2.0, 0.0);
         let c = Vec2::new(1.0, 3.0_f32.sqrt());
         let cc = triangle_circumcenter_2d(a, b, c).unwrap();
-        let ra = ((cc.x - a.x).powi(2) + (cc.y - a.y).powi(2)).sqrt();
-        let rb = ((cc.x - b.x).powi(2) + (cc.y - b.y).powi(2)).sqrt();
-        let rc = ((cc.x - c.x).powi(2) + (cc.y - c.y).powi(2)).sqrt();
+        let ra = (cc.x - a.x).mul_add(cc.x - a.x, (cc.y - a.y).powi(2)).sqrt();
+        let rb = (cc.x - b.x).mul_add(cc.x - b.x, (cc.y - b.y).powi(2)).sqrt();
+        let rc = (cc.x - c.x).mul_add(cc.x - c.x, (cc.y - c.y).powi(2)).sqrt();
         assert!((ra - rb).abs() < 1e-4, "ra={ra} rb={rb}");
         assert!((ra - rc).abs() < 1e-4, "ra={ra} rc={rc}");
     }
@@ -18005,7 +18009,7 @@ pub fn sdf_box_3d(p: Vec3, b: Vec3) -> f32 {
 /// torus; `r_minor` is the tube radius.
 #[inline]
 pub fn sdf_torus(p: Vec3, r_major: f32, r_minor: f32) -> f32 {
-    let q_xz = (p.x * p.x + p.z * p.z).sqrt() - r_major;
+    let q_xz = p.x.mul_add(p.x, p.z * p.z).sqrt() - r_major;
     (q_xz * q_xz + p.y * p.y).sqrt() - r_minor
 }
 
@@ -18031,7 +18035,7 @@ pub fn sdf_capsule_3d(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 #[inline]
 pub fn sdf_cone(p: Vec3, angle: f32) -> f32 {
     let (sin_a, cos_a) = angle.sin_cos();
-    let q = (p.x * p.x + p.z * p.z).sqrt();
+    let q = p.x.mul_add(p.x, p.z * p.z).sqrt();
     // In 2D (q, y) space, project onto the cone edge direction c = (sin_a, -cos_a).
     let d = ((q * sin_a - p.y * cos_a).max(0.0) * (q * sin_a - p.y * cos_a).max(0.0)
         + (q * cos_a + p.y * sin_a) * (q * cos_a + p.y * sin_a))
@@ -18082,7 +18086,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
     let d_dot_c = d_dot.clamp(0.0, c_len);
     let dx = d_dot - d_dot_c;
     let dy = d_cross;
-    let dist = (dx * dx + dy * dy).sqrt();
+    let dist = dx.mul_add(dx, dy * dy).sqrt();
     // Inside if d_cross < 0 (left of slant line) and qx in [0, ba_len].
     let inside = d_cross <= 0.0 && qx >= 0.0 && qx <= ba_len;
     if inside { -dist } else { dist }
@@ -18091,7 +18095,7 @@ pub fn sdf_cone_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 /// SDF: infinite cylinder along the Y axis with radius `r`.
 #[inline]
 pub fn sdf_cylinder(p: Vec3, r: f32) -> f32 {
-    (p.x * p.x + p.z * p.z).sqrt() - r
+    p.x.mul_add(p.x, p.z * p.z).sqrt() - r
 }
 
 /// SDF: finite cylinder from `a` to `b` with radius `r`.
@@ -19876,8 +19880,8 @@ mod tests_pass_58 {
         let p = Vec3::new(1.0, 1.0, 0.0);
         let pt = sdf_op_twist(p, std::f32::consts::FRAC_PI_2);
         assert!((pt.y - p.y).abs() < 1e-5);
-        let r_in = (p.x * p.x + p.z * p.z).sqrt();
-        let r_out = (pt.x * pt.x + pt.z * pt.z).sqrt();
+        let r_in = p.x.mul_add(p.x, p.z * p.z).sqrt();
+        let r_out = pt.x.mul_add(pt.x, pt.z * pt.z).sqrt();
         assert!((r_in - r_out).abs() < 1e-5);
     }
 
