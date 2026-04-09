@@ -3853,10 +3853,7 @@ pub fn rhombus_3d(p: Vec3, la: f32, lb: f32, h: f32, ra: f32) -> f32 {
     let sx = b.x * (1.0 - f) * 0.5 - p.x;
     let sz = b.y * (1.0 + f) * 0.5 - p.z;
 
-    let side_pt = Vec2::new(
-        (sx * sx + sz * sz).sqrt(),
-        p.y - h,
-    );
+    let side_pt = Vec2::new((sx * sx + sz * sz).sqrt(), p.y - h);
     let sign = (p.x * b.y + p.z * b.x - b.x * b.y).signum();
     let qx = side_pt.x * sign - ra;
     let qy = side_pt.y;

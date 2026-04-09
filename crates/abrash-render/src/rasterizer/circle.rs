@@ -44,7 +44,7 @@ use crate::framebuffer::Framebuffer;
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn draw_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 
@@ -162,7 +162,7 @@ fn draw_circle_points(fb: &mut Framebuffer, xc: i32, yc: i32, x: i32, y: i32, co
 /// * `radius` - Radius of the circle.
 /// * `color` - 0xAARRGGBB color value.
 pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u32) {
-    if radius <= 0 {
+    if radius <= 0 || radius > 16384 {
         return;
     }
 
@@ -375,5 +375,18 @@ mod tests {
         // i32::MAX overflow test. Should not crash or use unsafe unchecked set.
         draw_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
         fill_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_circle_radius_too_large() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        // Radius greater than 16384 should exit early without panicking or overflowing
+        draw_circle(&mut fb, 50, 50, 16385, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, 16385, 0xFFFFFFFF);
+        // Test with massive values
+        draw_circle(&mut fb, 50, 50, i32::MAX / 2 + 2, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, i32::MAX / 2 + 2, 0xFFFFFFFF);
+        draw_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
+        fill_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
     }
 }
