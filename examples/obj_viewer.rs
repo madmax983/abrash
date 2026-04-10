@@ -500,6 +500,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let block = Block::default()
                     .borders(Borders::ALL)
+                    .border_type(ratatui::widgets::BorderType::Rounded)
                     .title(format!(" Abrash OBJ Viewer: {source_name} "))
                     .title_style(Style::default().fg(TuiColor::Cyan));
 
