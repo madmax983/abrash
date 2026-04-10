@@ -180,52 +180,60 @@ pub fn fill_circle(fb: &mut Framebuffer, xc: i32, yc: i32, radius: i32, color: u
         return;
     }
 
+    let mut last_y = y;
+
     if min_x >= 0 && max_x < i64::from(fb.width()) && min_y >= 0 && max_y < i64::from(fb.height()) {
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + y, color);
-        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - y, color);
-        draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-        // yc - x is identical to yc + x when x = 0
-
         while y >= x {
-            x += 1;
-
-            // The rows at yc+x and yc-x are always new scanlines when x increments
             draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc + x, color);
-            draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+            if x > 0 {
+                draw_horizontal_line_unchecked(fb, xc - y, xc + y, yc - x, color);
+            }
 
             if d > 0 {
-                // If y is changing, the PREVIOUS y has reached its maximum x width.
-                // We draw the scanlines for yc+y and yc-y with the maximum x reached (x-1).
-                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc + y, color);
-                draw_horizontal_line_unchecked(fb, xc - (x - 1), xc + (x - 1), yc - y, color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
+
+            if y != last_y {
+                if last_y > x {
+                    draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc + last_y, color);
+                    if last_y > 0 {
+                        draw_horizontal_line_unchecked(fb, xc - x, xc + x, yc - last_y, color);
+                    }
+                }
+                last_y = y;
+            }
+
+            x += 1;
         }
     } else {
         // Safe path: clip against screen bounds
-        draw_horizontal_line(fb, xc - x, xc + x, yc + y, color);
-        draw_horizontal_line(fb, xc - x, xc + x, yc - y, color);
-        draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
-        // yc - x is identical to yc + x when x = 0
-
         while y >= x {
-            x += 1;
-
             draw_horizontal_line(fb, xc - y, xc + y, yc + x, color);
-            draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
+            if x > 0 {
+                draw_horizontal_line(fb, xc - y, xc + y, yc - x, color);
+            }
 
             if d > 0 {
-                let max_x_for_y = x - 1;
-                draw_horizontal_line(fb, xc - max_x_for_y, xc + max_x_for_y, yc + y, color);
-                draw_horizontal_line(fb, xc - max_x_for_y, xc + max_x_for_y, yc - y, color);
                 y -= 1;
                 d = d + 4 * (x - y) + 10;
             } else {
                 d = d + 4 * x + 6;
             }
+
+            if y != last_y {
+                if last_y > x {
+                    draw_horizontal_line(fb, xc - x, xc + x, yc + last_y, color);
+                    if last_y > 0 {
+                        draw_horizontal_line(fb, xc - x, xc + x, yc - last_y, color);
+                    }
+                }
+                last_y = y;
+            }
+
+            x += 1;
         }
     }
 }
@@ -340,5 +348,28 @@ mod tests {
         fill_circle(&mut fb, 50, 50, i32::MAX / 2 + 2, 0xFFFFFFFF);
         draw_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
         fill_circle(&mut fb, 50, 50, i32::MAX, 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_fill_circle_no_overdraw() {
+        let mut fb = Framebuffer::new(20, 20).unwrap();
+        fb.clear(0xFF00_0000);
+
+        // This test ensures `fill_circle` correctly handles drawing a small circle.
+        // Given our anti-overdraw logic, if it misses boundary cases, it will likely
+        // leave gaps (e.g., at the very top or bottom of the circle) or double-draw and distort shapes.
+        let color = 0xFFFF_FFFF;
+        fill_circle(&mut fb, 10, 10, 3, color);
+
+        // Circle center
+        assert_eq!(fb.get_pixel(10, 10), Some(color));
+
+        // Extreme top and bottom
+        assert_eq!(fb.get_pixel(10, 7), Some(color));
+        assert_eq!(fb.get_pixel(10, 13), Some(color));
+
+        // Just outside the extremities
+        assert_eq!(fb.get_pixel(10, 6), Some(0xFF00_0000));
+        assert_eq!(fb.get_pixel(10, 14), Some(0xFF00_0000));
     }
 }
