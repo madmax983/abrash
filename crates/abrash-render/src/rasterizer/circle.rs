@@ -348,4 +348,36 @@ mod tests {
         draw_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
         fill_circle(&mut fb, i32::MAX - 5, 50, 10, 0xFFFFFFFF);
     }
+
+    #[test]
+    fn test_draw_circle_symmetry() {
+        let mut fb = Framebuffer::new(20, 20).unwrap();
+        fb.clear(0xFF00_0000);
+        let color = 0xFFFF_FFFF;
+        draw_circle(&mut fb, 10, 10, 5, color);
+
+        // A circle must have perfect 8-way symmetry.
+        let center_x = 10;
+        let center_y = 10;
+        for x in 0..=5 {
+            for y in 0..=5 {
+                let p1 = fb.get_pixel(center_x + x, center_y + y);
+                let p2 = fb.get_pixel(center_x - x, center_y + y);
+                let p3 = fb.get_pixel(center_x + x, center_y - y);
+                let p4 = fb.get_pixel(center_x - x, center_y - y);
+                let p5 = fb.get_pixel(center_x + y, center_y + x);
+                let p6 = fb.get_pixel(center_x - y, center_y + x);
+                let p7 = fb.get_pixel(center_x + y, center_y - x);
+                let p8 = fb.get_pixel(center_x - y, center_y - x);
+
+                assert_eq!(p1, p2);
+                assert_eq!(p1, p3);
+                assert_eq!(p1, p4);
+                assert_eq!(p1, p5);
+                assert_eq!(p1, p6);
+                assert_eq!(p1, p7);
+                assert_eq!(p1, p8);
+            }
+        }
+    }
 }
