@@ -5,9 +5,7 @@ use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 
-#[cfg(feature = "nova")]
-use comfy_table::{Cell, Color, Table, presets};
-#[cfg(feature = "nova")]
+use comfy_table::{presets, Cell, Color, Table};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
@@ -109,27 +107,84 @@ impl WindowApp for SteganographyDemoApp {
         if !self.encoded {
             // Encode the message
             if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
-                eprintln!("Failed to encode message: {}", e);
+                let mut error_table = Table::new();
+                error_table
+                    .load_preset(presets::UTF8_FULL)
+                    .set_header(vec![
+                        Cell::new("❌ Encoding Error")
+                            .add_attribute(comfy_table::Attribute::Bold)
+                            .fg(Color::Red),
+                    ])
+                    .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
+                eprintln!("\n{error_table}");
             } else {
-                println!("Message successfully encoded into framebuffer.");
+                let mut success_table = Table::new();
+                success_table
+                    .load_preset(presets::UTF8_FULL)
+                    .set_header(vec![
+                        Cell::new("✅ Steganography Active")
+                            .add_attribute(comfy_table::Attribute::Bold)
+                            .fg(Color::Green),
+                    ])
+                    .add_row(vec![
+                        Cell::new("Status").fg(Color::Cyan),
+                        Cell::new("Message successfully encoded into framebuffer.").fg(Color::White),
+                    ]);
+
                 self.encoded = true;
 
                 // Decode it immediately to prove it works
                 if let Some(decoded) = decode_message(&self.framebuffer) {
-                    println!("Decoded message from framebuffer: {}", decoded);
+                    success_table.add_row(vec![
+                        Cell::new("Decoded").fg(Color::Cyan),
+                        Cell::new(&decoded).fg(Color::Yellow),
+                    ]);
                     if decoded == SECRET_MESSAGE {
-                        println!("Success! The decoded message matches the original.");
+                        success_table.add_row(vec![
+                            Cell::new("Verification").fg(Color::Cyan),
+                            Cell::new("Success! The decoded message matches the original.").fg(Color::Green),
+                        ]);
+                        println!("\n{success_table}");
                     } else {
-                        println!("Error: The decoded message does NOT match.");
+                        let mut error_table = Table::new();
+                        error_table
+                            .load_preset(presets::UTF8_FULL)
+                            .set_header(vec![
+                                Cell::new("❌ Decoding Error")
+                                    .add_attribute(comfy_table::Attribute::Bold)
+                                    .fg(Color::Red),
+                            ])
+                            .add_row(vec![Cell::new("The decoded message does NOT match the original.").fg(Color::Yellow)]);
+                        eprintln!("\n{success_table}");
+                        eprintln!("\n{error_table}");
                     }
                 } else {
-                    println!("Failed to decode message.");
+                    let mut error_table = Table::new();
+                    error_table
+                        .load_preset(presets::UTF8_FULL)
+                        .set_header(vec![
+                            Cell::new("❌ Decoding Error")
+                                .add_attribute(comfy_table::Attribute::Bold)
+                                .fg(Color::Red),
+                        ])
+                        .add_row(vec![Cell::new("Failed to decode message.").fg(Color::Yellow)]);
+                    eprintln!("\n{success_table}");
+                    eprintln!("\n{error_table}");
                 }
             }
         } else {
             // we re-encode it every frame because we redraw the plasma
             if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
-                eprintln!("Failed to encode message: {}", e);
+                let mut error_table = Table::new();
+                error_table
+                    .load_preset(presets::UTF8_FULL)
+                    .set_header(vec![
+                        Cell::new("❌ Encoding Error")
+                            .add_attribute(comfy_table::Attribute::Bold)
+                            .fg(Color::Red),
+                    ])
+                    .add_row(vec![Cell::new(e).fg(Color::Yellow)]);
+                eprintln!("\n{error_table}");
             }
         }
 
