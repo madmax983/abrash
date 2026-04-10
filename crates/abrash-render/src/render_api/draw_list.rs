@@ -118,6 +118,19 @@ impl DrawList {
         }
     }
 
+    /// ⚡ Bolt: Create an empty draw list with pre-allocated capacities.
+    /// This drastically avoids heap reallocations per frame when drawing complex scenes.
+    #[must_use]
+    pub fn with_capacity(camera: FrameCamera, num_vertices: usize, num_batches: usize, num_lights: usize) -> Self {
+        Self {
+            camera,
+            lights: Vec::with_capacity(num_lights),
+            vertices: Vec::with_capacity(num_vertices),
+            batches: Vec::with_capacity(num_batches),
+            clear_color: Some(0xFF00_0000),
+        }
+    }
+
     /// Append a draw batch.
     pub fn push(&mut self, batch: DrawBatch) {
         self.batches.push(batch);

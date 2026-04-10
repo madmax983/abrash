@@ -87,9 +87,9 @@ impl CpuRenderer {
         tile_renderer.enable_hiz();
         Self {
             tile_renderer,
-            meshes: ResourcePool::new(),
-            textures: ResourcePool::new(),
-            materials: ResourcePool::new(),
+            meshes: ResourcePool::with_capacity(128),
+            textures: ResourcePool::with_capacity(64),
+            materials: ResourcePool::with_capacity(128),
         }
     }
 
@@ -104,12 +104,22 @@ impl CpuRenderer {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
-        let mut draw_list = DrawList::new(frame.camera);
-        draw_list.clear_color = frame.clear_color;
-        draw_list.lights.clone_from(&frame.lights);
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
         let mut total_vertices = 0;
+        for cmd in &frame.commands {
+            let cpu_mesh = self
+                .meshes
+                .get(from_mesh_handle(cmd.mesh))
+                .ok_or(RenderError::StaleHandle("mesh"))?;
+            total_vertices += cpu_mesh.mesh.vertices.len();
+        }
+
+        let mut draw_list = DrawList::with_capacity(frame.camera, total_vertices, frame.commands.len(), frame.lights.len());
+        draw_list.clear_color = frame.clear_color;
+        draw_list.lights.clone_from(&frame.lights);
+
+        let mut total_vertices = 0; // reset
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
