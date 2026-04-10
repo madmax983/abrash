@@ -188,5 +188,5 @@ impl WindowApp for Cube3dApp {
 
 fn main() {
     print_banner();
-    run_windowed(Cube3dApp::new().unwrap())
+    run_windowed(Cube3dApp::new().unwrap());
 }

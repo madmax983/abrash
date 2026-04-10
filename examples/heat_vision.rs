@@ -178,5 +178,5 @@ impl WindowApp for HeatVisionApp {
 
 fn main() {
     print_banner();
-    run_windowed(HeatVisionApp::new().unwrap())
+    run_windowed(HeatVisionApp::new().unwrap());
 }

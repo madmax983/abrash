@@ -171,5 +171,5 @@ fn main() {
     print_banner();
 
     let app = Mode7Demo::new();
-    run_windowed(app)
+    run_windowed(app);
 }

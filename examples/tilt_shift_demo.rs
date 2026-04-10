@@ -174,5 +174,5 @@ fn main() {
         println!("  Esc/Q: Close window to exit");
     }
 
-    run_windowed(TiltShiftApp::new().unwrap())
+    run_windowed(TiltShiftApp::new().unwrap());
 }

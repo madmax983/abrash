@@ -92,7 +92,10 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
                             let src_x = (sx * cx + cx) as i32;
                             let src_y = (sy * cy + cy) as i32;
 
-                            if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32
+                            if src_x >= 0
+                                && src_x < width as i32
+                                && src_y >= 0
+                                && src_y < height as i32
                             {
                                 let src_idx = (src_y as usize) * width + (src_x as usize);
                                 *pixel = pixels[src_idx];
@@ -125,7 +128,8 @@ pub fn apply_crt(fb: &mut Framebuffer, distortion: f32) {
 
                         let dest_idx = y * width + x;
 
-                        if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32 {
+                        if src_x >= 0 && src_x < width as i32 && src_y >= 0 && src_y < height as i32
+                        {
                             let src_idx = (src_y as usize) * width + (src_x as usize);
                             new_pixels[dest_idx] = pixels[src_idx];
                         }
