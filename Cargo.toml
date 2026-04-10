@@ -692,3 +692,8 @@ required-features = ["nova"]
 name = "starfield_demo"
 path = "examples/starfield_demo.rs"
 required-features = ["nova"]
+
+[[bench]]
+name = "frosted_glass_bench"
+harness = false
+required-features = ["nova", "parallel"]
