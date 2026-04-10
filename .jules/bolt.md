@@ -1,4 +1,13 @@
+<<<<<<< bolt-hashmap-capacity-3866827711962762298
 **[Fast Inv Sqrt vs Stdlib SQRT Recip]**
+=======
+## [.zip Iterator for SoftBody collide_sdf]
+**What:** Replaced index-based `for i in 0..len` loop in `SoftBody::collide_sdf` with `.iter_mut().zip(...)`.
+**Why:** Elides bounds checking and satisfies idiomatic Rust patterns.
+**Impact:** Minor but consistent performance win.
+**Measurement:** `softbody_bench` run time decreased from ~32.1µs to ~29.4µs (~8% improvement).
+**Fast Inv Sqrt vs Stdlib SQRT Recip**
+>>>>>>> trunk
 **Learning:** Using `fast_inv_sqrt` (Quake III trick) is slower and less precise than using `std`'s `sqrt().recip()` directly on modern CPU architectures when compiling. The standard library leverages hardware-accelerated instructions (like `rsqrtss`) automatically and provides better results.
 **Action:** Replaced `fast_inv_sqrt(dist_sq)` with `dist_sq.sqrt().recip()` in the scalar fallback paths of point-lit and shadowed phong rasterizers, resulting in ~6-7% performance improvement in single-point light rendering.
 
@@ -16,6 +25,12 @@
 **Learning:** Replaced safe `zip` iterators with unsafe raw pointer iteration + a pre-loop bounds assertion in `draw_scanline_gouraud_i32` and `draw_scanline_gouraud_i32_tile`. This avoids bounds-checking overhead per pixel and avoids the overhead of zipped iterators.
 **Action:** Modified `crates/abrash-render/src/rasterizer/gouraud.rs` and `crates/abrash-render/src/rasterizer/tile.rs` to use raw pointers. A single initial length assertion ensures memory safety. Verified ~4% speedup in `gouraud_scanline_new` benchmarks.
 
+**Eliminate Per-Frame Vec Allocations in Skeletal Animation**
+**Learning:** Calling `compute_global_transforms` and `compute_skin_matrices` from `abrash-skeletal` per frame resulted in dynamically allocating `Vec<Mat4>` on the heap for each call.
+**Action:** Created `update_global_transforms` and `update_skin_matrices` to mutate a provided buffer in-place (`&mut Vec<Mat4>` and `&mut SkinMatrices`), bypassing the per-frame allocations during animation evaluation.
+**Fused Multiply-Add over Hypot**
+**Learning:** Using `(x * x + y * y).sqrt()` triggers the `clippy::imprecise_flops` lint, but replacing it directly with `x.hypot(y)` causes significant performance regressions. The standard library's `hypot` implementation is accurate but much slower than naive squaring. A better approach that is both highly accurate and fast is to use Fused Multiply-Add (FMA): `x.mul_add(x, y * y).sqrt()`.
+**Action:** Replaced instances of `(x * x + y * y).sqrt()` with `x.mul_add(x, y * y).sqrt()` globally in core math, procedural, rendering, and raycast logic, ensuring numerical precision while maintaining or improving benchmark performance without needing to suppress standard clippy lints globally.
 **[Pre-allocate double buffers in string expansion]**
 **Learning:** Using `Vec::new()` for the secondary buffer in double-buffered loops (like L-System expansion) causes unnecessary heap reallocations during the first iteration.
 **Action:** Initialized the secondary buffers using `Vec::with_capacity(current_bytes.len() * 2)` in `lsystem.rs` and `arboretum.rs` to eliminate the initial dynamic heap reallocations.

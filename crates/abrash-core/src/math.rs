@@ -1232,7 +1232,7 @@ impl Vec2 {
     #[inline]
     #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
-        (self.x * self.x + self.y * self.y).sqrt()
+        self.x.mul_add(self.x, self.y * self.y).sqrt()
     }
 
     /// Calculates squared length (magnitude²) of the vector.
@@ -2009,7 +2009,9 @@ impl Vec3 {
     #[inline]
     #[allow(clippy::imprecise_flops)]
     pub fn length(self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+        self.x
+            .mul_add(self.x, self.y.mul_add(self.y, self.z * self.z))
+            .sqrt()
     }
 
     /// Returns a normalized unit vector (length of 1.0).

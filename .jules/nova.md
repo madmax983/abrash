@@ -219,3 +219,8 @@
 **Concept:** A Gray-Scott reaction-diffusion simulation creating organic Turing patterns. Uses a double-buffered grid to compute Laplacian convolution and reaction rates over time, rendering the concentration of chemical 'B' to the screen as a mapped color gradient.
 **Fate:** Implemented
 **Lesson:** Implementing the simulation independently of the framebuffer size and upscaling it via nearest-neighbor significantly improves performance and gives the patterns a thicker, more visible look. Converting the `Color` lerp calculation to `to_argb_u32` avoids borrowing conflicts with the mutable framebuffer slice.
+
+## [Digital Rain Filter]
+**Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
+**Fate:** Implemented
+**Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
