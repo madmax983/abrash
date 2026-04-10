@@ -33,7 +33,9 @@ use crate::color::Color;
 /// A single color stop: position in `[0, 1]` and its associated color.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ColorStop {
+    /// The scalar anchor point of this stop, typically along the `[0.0, 1.0]` continuum.
     pub position: f32,
+    /// The RGB/RGBA color value at this anchor point.
     pub color: Color,
 }
 

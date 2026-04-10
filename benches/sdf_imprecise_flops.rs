@@ -1,6 +1,6 @@
 use abrash_core::math::{Vec2, Vec3};
 use abrash_core::sdf;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_sdf_imprecise_flops(c: &mut Criterion) {
     let mut group = c.benchmark_group("sdf_imprecise_flops");
@@ -32,51 +32,79 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
 
     // mandelbrot_dist
     group.bench_function("mandelbrot_dist", |b| {
-        b.iter(|| {
-            sdf::mandelbrot_dist(black_box(Vec2::new(0.5, 0.5)), black_box(64))
-        })
+        b.iter(|| sdf::mandelbrot_dist(black_box(Vec2::new(0.5, 0.5)), black_box(64)))
     });
 
     // lens_2d
     group.bench_function("lens_2d", |b| {
-        b.iter(|| {
-            sdf::lens_2d(black_box(p_vec2), black_box(0.5), black_box(1.0))
-        })
+        b.iter(|| sdf::lens_2d(black_box(p_vec2), black_box(0.5), black_box(1.0)))
     });
 
     // spiral_2d
     group.bench_function("spiral_2d", |b| {
-        b.iter(|| {
-            sdf::spiral_2d(black_box(p_vec2), black_box(1.0), black_box(0.1))
-        })
+        b.iter(|| sdf::spiral_2d(black_box(p_vec2), black_box(1.0), black_box(0.1)))
     });
 
     // polyline_2d
-    let pts = [Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0), Vec2::new(2.0, 0.0)];
+    let pts = [
+        Vec2::new(0.0, 0.0),
+        Vec2::new(1.0, 1.0),
+        Vec2::new(2.0, 0.0),
+    ];
     group.bench_function("polyline_2d", |b| {
-        b.iter(|| {
-            sdf::polyline_2d(black_box(p_vec2), black_box(&pts))
-        })
+        b.iter(|| sdf::polyline_2d(black_box(p_vec2), black_box(&pts)))
     });
 
     // disk_3d
     group.bench_function("disk_3d", |b| {
-        b.iter(|| {
-            sdf::disk_3d(black_box(p_vec3), black_box(1.0), black_box(0.1))
-        })
+        b.iter(|| sdf::disk_3d(black_box(p_vec3), black_box(1.0), black_box(0.1)))
     });
 
     // diamond_3d
     group.bench_function("diamond_3d", |b| {
-        b.iter(|| {
-            sdf::diamond_3d(black_box(p_vec3), black_box(1.0), black_box(0.5))
-        })
+        b.iter(|| sdf::diamond_3d(black_box(p_vec3), black_box(1.0), black_box(0.5)))
     });
 
     // lemniscate_2d
     group.bench_function("lemniscate_2d", |b| {
+        b.iter(|| sdf::lemniscate_2d(black_box(p_vec2), black_box(1.0)))
+    });
+
+    // rounded_cylinder_3d
+    group.bench_function("rounded_cylinder_3d", |b| {
         b.iter(|| {
-            sdf::lemniscate_2d(black_box(p_vec2), black_box(1.0))
+            sdf::rounded_cylinder_3d(
+                black_box(p_vec3),
+                black_box(Vec3::ZERO),
+                black_box(1.0),
+                black_box(0.5),
+                black_box(2.0),
+            )
+        })
+    });
+
+    // hexagonal_prism_3d
+    group.bench_function("hexagonal_prism_3d", |b| {
+        b.iter(|| {
+            sdf::hexagonal_prism_3d(
+                black_box(p_vec3),
+                black_box(Vec3::ZERO),
+                black_box(1.0),
+                black_box(2.0),
+            )
+        })
+    });
+
+    // rhombus_3d
+    group.bench_function("rhombus_3d", |b| {
+        b.iter(|| {
+            sdf::rhombus_3d(
+                black_box(p_vec3),
+                black_box(1.0),
+                black_box(1.0),
+                black_box(2.0),
+                black_box(0.5),
+            )
         })
     });
 
