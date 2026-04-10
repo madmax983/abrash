@@ -136,19 +136,19 @@ impl LSystem {
             // heap reallocations as the string expands exponentially.
             next_string.reserve(current.len() * 2);
 
-            for b in current.bytes() {
-                let idx = b as usize;
+            for c in current.chars() {
+                let idx = c as u32;
                 if idx < 128 {
-                    if let Some(replacement) = rules_array[idx] {
+                    if let Some(replacement) = rules_array[idx as usize] {
                         next_string.push_str(replacement);
                     } else {
-                        next_string.push(b as char);
+                        next_string.push(c);
                     }
-                } else if let Some(replacement) = self.rules.get(&(b as char)) {
+                } else if let Some(replacement) = self.rules.get(&c) {
                     // Fallback for non-ASCII
                     next_string.push_str(replacement);
                 } else {
-                    next_string.push(b as char);
+                    next_string.push(c);
                 }
 
                 // OOM Prevention check
