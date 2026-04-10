@@ -108,14 +108,33 @@ impl CpuRenderer {
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
-        // Pre-calculate total required vertices to avoid dynamic reallocations
+        // ⚡ Bolt: Pre-calculate total required vertices and vertex ranges to avoid dynamic reallocations.
+        // Also validate materials sequentially to eliminate `Result` overhead inside the parallel loop,
+        // preventing the need for an intermediate `Vec<DrawBatch>` allocation via `.collect::<Result<Vec<_>, _>>()`.
         let mut total_vertices = 0;
+        #[cfg(feature = "parallel")]
+        let mut ranges = Vec::with_capacity(frame.commands.len());
+
         for cmd in &frame.commands {
             let cpu_mesh = self
                 .meshes
                 .get(from_mesh_handle(cmd.mesh))
                 .ok_or(RenderError::StaleHandle("mesh"))?;
-            total_vertices += cpu_mesh.mesh.vertices.len();
+
+            if self
+                .materials
+                .get(from_material_handle(cmd.material))
+                .is_none()
+            {
+                return Err(RenderError::StaleHandle("material"));
+            }
+
+            let len = cpu_mesh.mesh.vertices.len();
+
+            #[cfg(feature = "parallel")]
+            ranges.push((total_vertices, total_vertices + len));
+
+            total_vertices += len;
         }
 
         draw_list.batches.reserve(frame.commands.len());
@@ -125,58 +144,47 @@ impl CpuRenderer {
         {
             use rayon::prelude::*;
 
-            // Calculate vertex ranges first to know where each mesh writes
-            let mut ranges = Vec::with_capacity(frame.commands.len());
-            let mut current_offset = 0;
-            for cmd in &frame.commands {
-                // Since we already checked handles above, unwraps here are safe
-                let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                let len = cpu_mesh.mesh.vertices.len();
-                ranges.push((current_offset, current_offset + len));
-                current_offset += len;
-            }
-
             // Safety: We ensure `ranges` accurately bounds writes to disjoint sections
             // of the pre-allocated buffer exactly `total_vertices` in length.
             let ptr = draw_list.vertices.as_mut_ptr() as usize; // Cast to usize to make it Send + Sync
 
-            // Map each command to a result to collect into a Result<Vec, Error>
-            let results: Result<Vec<DrawBatch>, RenderError> = frame
-                .commands
-                .par_iter()
-                .zip(&ranges)
-                .map(|(cmd, &(start, end))| {
-                    let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
-                    let material = self
-                        .materials
-                        .get(from_material_handle(cmd.material))
-                        .ok_or(RenderError::StaleHandle("material"))?;
+            draw_list
+                .batches
+                .par_extend(
+                    frame
+                        .commands
+                        .par_iter()
+                        .zip(&ranges)
+                        .map(|(cmd, &(start, end))| {
+                            let cpu_mesh = self.meshes.get(from_mesh_handle(cmd.mesh)).unwrap();
+                            let material = self
+                                .materials
+                                .get(from_material_handle(cmd.material))
+                                .unwrap();
 
-                    let mvp = cmd.transform * view_proj;
-                    let mesh = &cpu_mesh.mesh;
+                            let mvp = cmd.transform * view_proj;
+                            let mesh = &cpu_mesh.mesh;
 
-                    // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
-                    // The buffer is pre-allocated with `total_vertices` capacity.
-                    unsafe {
-                        let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
-                        // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
-                        let slice = std::slice::from_raw_parts_mut(
-                            offset_ptr.cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
-                            mesh.vertices.len(),
-                        );
-                        mvp.transform_points_uninit(&mesh.vertices, slice);
-                    }
+                            // SAFETY: `ranges` ensures disjoint segments of the allocated buffer.
+                            // The buffer is pre-allocated with `total_vertices` capacity.
+                            unsafe {
+                                let offset_ptr = (ptr as *mut (crate::math::Vec3, f32)).add(start);
+                                // We cast `offset_ptr` to `*mut std::mem::MaybeUninit` to pass into `transform_points_uninit`.
+                                let slice = std::slice::from_raw_parts_mut(
+                                    offset_ptr
+                                        .cast::<std::mem::MaybeUninit<(crate::math::Vec3, f32)>>(),
+                                    mesh.vertices.len(),
+                                );
+                                mvp.transform_points_uninit(&mesh.vertices, slice);
+                            }
 
-                    Ok(DrawBatch::new(
-                        start..end,
-                        std::sync::Arc::clone(&cpu_mesh.shared_indices),
-                        material.color,
-                    ))
-                })
-                .collect();
-
-            let batches = results?;
-            draw_list.batches.extend(batches);
+                            DrawBatch::new(
+                                start..end,
+                                std::sync::Arc::clone(&cpu_mesh.shared_indices),
+                                material.color,
+                            )
+                        }),
+                );
 
             // SAFETY: All parallel segments initialized elements exactly up to `total_vertices`.
             unsafe {
