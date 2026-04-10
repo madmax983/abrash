@@ -1262,7 +1262,7 @@ impl GpuRenderer {
         let (jx, jy) = self.taa_pass.current_jitter();
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
-            jitter: <[f32; 2]>::from((jx, jy)),
+            jitter: [jx, jy],
             feedback: 0.9,
             _pad: 0.0,
         };

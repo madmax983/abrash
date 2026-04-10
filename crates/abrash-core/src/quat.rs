@@ -1,3 +1,4 @@
+#![allow(clippy::missing_const_for_fn, clippy::use_self)]
 //! Unit quaternion for rotation representation.
 //!
 //! Quaternions avoid gimbal lock and enable smooth interpolation via SLERP.

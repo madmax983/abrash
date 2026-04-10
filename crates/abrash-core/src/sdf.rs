@@ -1,3 +1,4 @@
+#![allow(clippy::imprecise_flops, clippy::missing_const_for_fn, clippy::items_after_statements)]
 //! Signed distance functions (SDF) for 2D and 3D analytical geometry.
 //!
 //! Each function returns the **signed distance** from point `p` to the boundary
@@ -1823,7 +1824,7 @@ pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
 
 /// SDF of a 2D uneven (asymmetric) capsule.
 ///
-/// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+/// Like a `capsule_2d` but with different radii `ra` and `rb` at each end cap.
 /// `a` and `b` are the centres; `ra` the radius at `a`, `rb` at `b`.
 ///
 /// # Examples

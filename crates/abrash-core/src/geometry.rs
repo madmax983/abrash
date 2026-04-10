@@ -1,3 +1,4 @@
+#![allow(clippy::missing_const_for_fn)]
 //! Geometric primitives and utilities.
 
 use crate::math::{Mat4, Vec3};
