@@ -1,0 +1,573 @@
+   Compiling abrash-core v0.1.0 (/app/crates/abrash-core)
+warning: unnecessary parentheses around block return value
+   --> crates/abrash-core/src/color.rs:699:13
+    |
+699 |             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+    |             ^                                                 ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+699 -             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+699 +             288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0
+    |
+
+   Compiling abrash-render v0.1.0 (/app/crates/abrash-render)
+   Compiling abrash-anim v0.1.0 (/app/crates/abrash-anim)
+   Compiling abrash-skeletal v0.1.0 (/app/crates/abrash-skeletal)
+warning: `abrash-core` (lib) generated 1 warning (run `cargo fix --lib -p abrash-core` to apply 1 suggestion)
+   Compiling abrash-raycast v0.1.0 (/app/crates/abrash-raycast)
+   Compiling abrash-gpu-render v0.1.0 (/app/crates/abrash-gpu-render)
+   Compiling embed-demo v0.1.0 (/app/crates/embed-demo)
+warning: function `contains_rgba` is never used
+  --> crates/abrash-gpu-render/tests/capture_test.rs:26:4
+   |
+26 | fn contains_rgba(pixels: &[u8], rgba: [u8; 4]) -> bool {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `abrash-core` (lib test) generated 1 warning (1 duplicate)
+warning: variable does not need to be mutable
+    --> crates/abrash-gpu-render/src/blitter.rs:1323:13
+     |
+1323 |         let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+     |             ----^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `abrash-gpu-render` (test "capture_test") generated 1 warning
+warning: `abrash-gpu-render` (lib test) generated 1 warning (run `cargo fix --lib -p abrash-gpu-render --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.29s
+     Running unittests src/lib.rs (target/debug/deps/abrash_anim-f8f74ba5f98e5b1c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/abrash_core-b0e7fcf8aefca2e4)
+
+running 95 tests
+test math::tests_fast_sin::test_fast_sin_cos ... ok
+test math::tests_mat3::angle_diff_sign ... ok
+test math::tests_mat3::basis_from_normal_orthonormal ... ok
+test math::tests_mat3::bezier_arc_length_positive ... ok
+test math::tests_mat3::bezier_arc_length_straight_line ... ok
+test math::tests_mat3::bezier_split_endpoints_preserved ... ok
+test math::tests_mat3::bezier_split_midpoint_matches_curve ... ok
+test math::tests_mat3::bspline_convex_hull ... ok
+test math::tests_mat3::cubic_one_real_root ... ok
+test math::tests_mat3::cubic_three_roots ... ok
+test math::tests_mat3::cylindrical_round_trip ... ok
+test math::tests_mat3::cylindrical_y_preserved ... ok
+test math::tests_mat3::kochanek_bartels_zero_params_matches_catmull_rom ... ok
+test math::tests_mat3::lerp_angle_wraps ... ok
+test math::tests_mat3::lerp_angle_basic ... ok
+test math::tests_mat3::mat2_determinant_rotation ... ok
+test math::tests_mat3::mat2_identity_is_noop ... ok
+test math::tests_mat3::mat2_inverse_roundtrip ... ok
+test math::tests_mat3::mat2_mul_rotations_compose ... ok
+test math::tests_mat3::normal_matrix_non_uniform_scale_corrects ... ok
+test math::tests_mat3::normal_matrix_pure_rotation_is_same ... ok
+test math::tests_mat3::quadratic_double_root ... ok
+test math::tests_mat3::quadratic_two_roots ... ok
+test math::tests_mat3::quadratic_no_real_roots ... ok
+test math::tests_mat3::reflect_idempotent ... ok
+test math::tests_mat3::reflect_point_on_plane_unchanged ... ok
+test math::tests_mat3::reflect_through_origin_xz_plane ... ok
+test math::tests_mat3::shear_identity_zero_params ... ok
+test math::tests_mat3::shear_x_by_y ... ok
+test math::tests_mat3::shear_y_by_x ... ok
+test math::tests_mat3::spherical_equator ... ok
+test math::tests_mat3::spherical_poles ... ok
+test math::tests_mat3::spherical_round_trip ... ok
+test math::tests_mat3::test_mat3_from_mat4 ... ok
+test math::tests_mat3::test_mat3_identity_transform ... ok
+test math::tests_mat3::test_mat3_inverse_identity ... ok
+test math::tests_mat3::test_mat3_inverse_transpose_matches_normal_transform ... ok
+test math::tests_mat3::test_mat3_mul ... ok
+test math::tests_mat3::test_mat3_transpose ... ok
+test math::tests_mat3::vec2_min_max_component ... ok
+test math::tests_mat3::vec3_min_max_component ... ok
+test math::tests_mat3::vec3_min_max_negative ... ok
+test math::tests_mat3::test_mat3_rotation_y_90 ... ok
+test math::tests_mat3::vec3_pow_exp_log ... ok
+test math::tests_mat3::vec4_component_ops ... ok
+test math::tests_pass_14::bias_b_near_one_biases_toward_one ... ok
+test math::tests_pass_14::bias_b_near_zero_biases_toward_zero ... ok
+test math::tests_pass_14::bias_extremes_clamped ... ok
+test math::tests_pass_14::bias_midpoint_at_half ... ok
+test math::tests_pass_14::ease_in_clamps_and_monotone ... ok
+test math::tests_pass_14::ease_in_out_midpoint ... ok
+test math::tests_pass_14::ease_in_out_symmetry ... ok
+test math::tests_pass_14::ease_out_clamps_and_monotone ... ok
+test math::tests_pass_14::exp_decay_at_zero_is_one ... ok
+test math::tests_pass_14::exp_decay_decreases_monotonically ... ok
+test math::tests_pass_14::gain_midpoint_always_half ... ok
+test math::tests_pass_14::exp_decay_negative_t_clamped ... ok
+test math::tests_pass_14::gain_symmetric_about_half ... ok
+test math::tests_pass_14::homogenize_divides_by_w ... ok
+test math::tests_pass_14::homogenize_unit_w ... ok
+test math::tests_pass_14::homogenize_zero_w_returns_zero ... ok
+test math::tests_pass_14::project_onto_xz_plane ... ok
+test math::tests_pass_14::project_orthogonal_to_normal ... ok
+test math::tests_pass_14::triangle_wave_extremes ... ok
+test math::tests_pass_14::triangle_wave_peaks ... ok
+test math::tests_pass_14::triangle_wave_periodic ... ok
+test math::tests_scalar_utils::cubic_bezier_endpoints ... ok
+test math::tests_scalar_utils::map_range_basic ... ok
+test math::tests_scalar_utils::ping_pong_basic ... ok
+test math::tests_scalar_utils::quadratic_bezier_endpoints ... ok
+test math::tests_scalar_utils::test_fast_atan2_accuracy ... ok
+test math::tests_scalar_utils::test_lerp ... ok
+test math::tests_scalar_utils::test_remap ... ok
+test math::tests_scalar_utils::test_saturate ... ok
+test math::tests_scalar_utils::test_smootherstep_edges ... ok
+test math::tests_scalar_utils::test_smoothstep_edges ... ok
+test math::tests_scalar_utils::test_vec2_from_to_angle ... ok
+test math::tests_scalar_utils::test_vec2_splat_and_axes ... ok
+test math::tests_scalar_utils::test_vec3_constants ... ok
+test math::tests_scalar_utils::test_vec4_completions ... ok
+test math::tests_scalar_utils::vec2_angle_to_cw_negative ... ok
+test math::tests_scalar_utils::vec2_angle_to_ccw ... ok
+test math::tests_scalar_utils::vec2_from_to_polar_roundtrip ... ok
+test math::tests_scalar_utils::wrap_basic ... ok
+test mesh::tests_bounding_sphere::calculate_bounding_sphere_empty ... ok
+test mesh::tests_bounding_sphere::calculate_bounding_sphere_single_vertex ... ok
+test mesh::tests_bounding_sphere::calculate_bounding_sphere_two_vertices ... ok
+test mesh::tests_generated::cube ... ok
+test mesh::tests_generated::cylinder ... ok
+test mesh::tests_generated::plane ... ok
+test mesh::tests_generated::torus ... ok
+test mesh::tests_generated::sphere ... ok
+test mesh::tests_normals::compute_face_normals_simple_triangle ... ok
+test mesh::tests_tangents::compute_tangents_simple_quad ... ok
+test mesh::tests_tangents::compute_tangents_missing_data_early_exit ... ok
+
+test result: ok. 95 passed; 0 failed; 0 ignored; 0 measured; 645 filtered out; finished in 0.01s
+
+     Running tests/obj_loader_proptest.rs (target/debug/deps/obj_loader_proptest-bb82df118a0eced0)
+
+running 1 test
+test does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running unittests src/lib.rs (target/debug/deps/abrash_gpu_render-c4cc3242c41a8df6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.00s
+
+     Running tests/capture_test.rs (target/debug/deps/capture_test-132f3c412b806231)
+
+running 3 tests
+test test_capture_two_cubes_preserves_both_material_colors ... ok
+test test_capture_cube_has_visible_pixels ... ok
+test test_capture_empty_scene_no_visible_pixels ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running unittests src/lib.rs (target/debug/deps/abrash_raycast-95147565d5ad9634)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/abrash_render-95400fe4c6cfac70)
+
+running 5 tests
+test rasterizer::texture::test_fast_normalize_improves_ts_light_calc ... ok
+test rasterizer::texture::test_draw_span_nearest_overflow_vulnerability ... ok
+test rasterizer::texture::test_draw_scanline_trilinear ... ok
+test rasterizer::texture::test_fill_triangle_normal_mapped_runs_without_panic ... ok
+test rasterizer::texture::test_reciprocal_table_accuracy ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 246 filtered out; finished in 0.00s
+
+     Running tests/arboretum_proptest.rs (target/debug/deps/arboretum_proptest-0089ef2ac49f1a99)
+
+running 1 test
+test arboretum_expand_unicode_does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 52.62s
+
+     Running tests/filters_proptest.rs (target/debug/deps/filters_proptest-fde724398cc406b8)
+
+running 1 test
+test test_filters_no_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.28s
+
+     Running tests/lsystem_proptest.rs (target/debug/deps/lsystem_proptest-b75c4d1fc24c59ae)
+
+running 1 test
+test lsystem_expand_unicode_does_not_crash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 52.96s
+
+     Running unittests src/lib.rs (target/debug/deps/abrash_skeletal-674502952d5203dd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 62 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/embed_demo-a48ff70bf773436d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/embed_demo-e7d8d96a7ef44b2f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests abrash_anim
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests abrash_core
+warning: unnecessary parentheses around block return value
+   --> crates/abrash-core/src/color.rs:699:13
+    |
+699 |             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+    |             ^                                                 ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+699 -             (288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0)
+699 +             288.122_169_52 * x.powf(-0.075_514_849_2) / 255.0
+    |
+
+warning: 1 warning emitted
+
+
+running 250 tests
+test crates/abrash-core/src/clipping.rs - clipping::clip_triangle_against_near_plane (line 539) ... ok
+test crates/abrash-core/src/clipping.rs - clipping::clip_triangle_to_frustum (line 95) ... ok
+test crates/abrash-core/src/clipping.rs - clipping::clip_line_to_frustum (line 453) ... ok
+test crates/abrash-core/src/color.rs - color (line 13) ... ok
+test crates/abrash-core/src/color.rs - color::Color::adjust_brightness (line 442) ... ok
+test crates/abrash-core/src/color.rs - color::Color::adjust_hue (line 998) ... ok
+test crates/abrash-core/src/color.rs - color::Color::adjust_contrast (line 467) ... ok
+test crates/abrash-core/src/color.rs - color::Color::adjust_saturation (line 499) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_burn (line 814) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_dodge (line 782) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_difference (line 847) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_exclusion (line 873) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_hard_light (line 383) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_overlay (line 353) ... ok
+test crates/abrash-core/src/color.rs - color::Color::blend_soft_light (line 405) ... ok
+test crates/abrash-core/src/color.rs - color::Color::delta_e_oklab (line 1104) ... ok
+test crates/abrash-core/src/color.rs - color::Color::from_linear (line 1073) ... ok
+test crates/abrash-core/src/color.rs - color::Color::from_oklab (line 607) ... ok
+test crates/abrash-core/src/color.rs - color::Color::from_oklch (line 974) ... ok
+test crates/abrash-core/src/color.rs - color::Color::from_xyz (line 928) ... ok
+test crates/abrash-core/src/color.rs - color::Color::from_temperature (line 673) ... ok
+test crates/abrash-core/src/color.rs - color::Color::gradient (line 737) ... ok
+test crates/abrash-core/src/color.rs - color::Color::invert (line 1019) ... ok
+test crates/abrash-core/src/color.rs - color::Color::lerp_oklab (line 642) ... ok
+test crates/abrash-core/src/color.rs - color::Color::to_linear (line 1040) ... ok
+test crates/abrash-core/src/color.rs - color::Color::to_oklch (line 952) ... ok
+test crates/abrash-core/src/color.rs - color::Color::to_oklab (line 571) ... ok
+test crates/abrash-core/src/color.rs - color::Color::to_xyz (line 902) ... ok
+test crates/abrash-core/src/curve.rs - curve (line 15) ... ok
+test crates/abrash-core/src/culling.rs - culling::Plane::distance_to_point (line 44) ... ok
+test crates/abrash-core/src/curve.rs - curve::bezier_quadratic (line 77) ... ok
+test crates/abrash-core/src/curve.rs - curve::bezier_cubic (line 98) ... ok
+test crates/abrash-core/src/easing.rs - easing (line 30) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::as_mut_slice (line 119) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::as_slice (line 99) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::clear (line 134) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::get_pixel (line 177) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::get_pixel_unchecked (line 238) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::set_pixel (line 151) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::clear_rect (line 264) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::height (line 81) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::set_pixel_unchecked (line 207) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::new (line 37) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB (line 336) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::corners (line 936) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::from_points (line 400) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::from_sphere (line 516) ... ok
+test crates/abrash-core/src/framebuffer.rs - framebuffer::Framebuffer::width (line 64) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::intersects_plane (line 972) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::grow (line 535) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::merge (line 892) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::new (line 361) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::transform (line 651) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::BoundingSphere (line 145) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::BoundingSphere::contains_sphere (line 311) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::AABB::volume (line 914) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::BoundingSphere::from_points (line 170) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::BoundingSphere::merge (line 278) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Capsule (line 1502) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Frustum (line 2107) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::OBB (line 1277) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Plane (line 1903) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Plane::intersect_plane (line 2032) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Plane::flip (line 2006) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Plane::intersect_three (line 2067) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Ray::closest_t (line 88) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Ray::intersects_plane (line 117) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment (line 1718) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::closest_point (line 1782) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::distance_sq (line 1809) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::intersects_aabb (line 1855) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::length (line 1745) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::midpoint (line 1762) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Segment::to_aabb (line 1834) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Triangle (line 1009) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Triangle::incenter (line 1205) ... ok
+test crates/abrash-core/src/gradient.rs - gradient (line 16) ... ok
+test crates/abrash-core/src/geometry.rs - geometry::Triangle::is_degenerate (line 1235) ... ok
+test crates/abrash-core/src/hiz_buffer.rs - hiz_buffer::AABB3D (line 64) ... ok
+test crates/abrash-core/src/hiz_buffer.rs - hiz_buffer::HiZBuffer (line 132) ... ok
+test crates/abrash-core/src/irect.rs - irect (line 10) ... ok
+test crates/abrash-core/src/irect.rs - irect::IRect::from_pos_size (line 52) ... ok
+test crates/abrash-core/src/ivec.rs - ivec (line 16) ... ok
+test crates/abrash-core/src/math.rs - math (line 20) ... ok
+test crates/abrash-core/src/math.rs - math::Mat2 (line 1250) ... ok
+test crates/abrash-core/src/math.rs - math::Mat3 (line 5743) ... ok
+test crates/abrash-core/src/hiz_buffer.rs - hiz_buffer::HiZBuffer::new (line 167) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4 (line 2247) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::identity (line 2288) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::look_at (line 2643) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::normal_matrix (line 2461) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::perspective (line 2614) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::reflect_plane (line 2718) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::row (line 3514) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::shear (line 2681) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::transform_point (line 2810) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::transform_points (line 2962) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::transform_points_parallel (line 3221) ... ok
+test crates/abrash-core/src/math.rs - math::Mat4::unproject (line 2762) ... ok
+test crates/abrash-core/src/math.rs - math::Vec2 (line 758) ... ok
+test crates/abrash-core/src/math.rs - math::Vec2::angle_to (line 1179) ... ok
+test crates/abrash-core/src/math.rs - math::Vec2::from_polar (line 1137) ... ok
+test crates/abrash-core/src/math.rs - math::Vec2::lerp (line 810) ... ok
+test crates/abrash-core/src/math.rs - math::Vec2::to_polar (line 1159) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3 (line 1403) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::cross (line 1561) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::dot (line 1531) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::exp (line 1927) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::log (line 1941) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::max_component (line 1899) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::min_component (line 1886) ... ok
+test crates/abrash-core/src/hiz_buffer.rs - hiz_buffer (line 23) ... ok
+test crates/abrash-core/src/hiz_buffer.rs - hiz_buffer::HiZBuffer::is_coarse_bin_visible (line 480) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::normalize (line 1608) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::pow (line 1912) ... ok
+test crates/abrash-core/src/math.rs - math::Vec4::homogenize (line 5549) ... ok
+test crates/abrash-core/src/math.rs - math::Vec4 (line 5333) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::project_onto_plane (line 1851) ... ok
+test crates/abrash-core/src/math.rs - math::Vec3::reflect (line 1735) ... ok
+test crates/abrash-core/src/math.rs - math::Vec4::new (line 5418) ... ok
+test crates/abrash-core/src/math.rs - math::angle_diff (line 297) ... ok
+test crates/abrash-core/src/math.rs - math::Vec4::lerp (line 5390) ... ok
+test crates/abrash-core/src/math.rs - math::basis_from_normal (line 4359) ... ok
+test crates/abrash-core/src/math.rs - math::bezier_cubic (line 3993) ... ok
+test crates/abrash-core/src/math.rs - math::bezier_cubic_arc_length (line 4199) ... ok
+test crates/abrash-core/src/math.rs - math::bezier_cubic_split (line 4127) ... ok
+test crates/abrash-core/src/math.rs - math::bezier_quadratic (line 3973) ... ok
+test crates/abrash-core/src/math.rs - math::bias (line 384) ... ok
+test crates/abrash-core/src/math.rs - math::cartesian_to_cylindrical (line 680) ... ok
+test crates/abrash-core/src/math.rs - math::bspline_eval (line 4166) ... ok
+test crates/abrash-core/src/math.rs - math::cartesian_to_spherical (line 632) ... ok
+test crates/abrash-core/src/math.rs - math::catmull_rom (line 4029) ... ok
+test crates/abrash-core/src/math.rs - math::cubic_bezier_eval (line 559) ... ok
+test crates/abrash-core/src/math.rs - math::cubic_solve (line 4291) ... ok
+test crates/abrash-core/src/math.rs - math::cylindrical_to_cartesian (line 660) ... ok
+test crates/abrash-core/src/math.rs - math::ease_in (line 468) ... ok
+test crates/abrash-core/src/math.rs - math::ease_in_out (line 508) ... ok
+test crates/abrash-core/src/math.rs - math::exp_decay (line 451) ... ok
+test crates/abrash-core/src/math.rs - math::ease_out (line 486) ... ok
+test crates/abrash-core/src/math.rs - math::fast_atan2 (line 706) ... ok
+test crates/abrash-core/src/math.rs - math::fast_cos (line 136) ... ok
+test crates/abrash-core/src/math.rs - math::fast_sin (line 116) ... ok
+test crates/abrash-core/src/math.rs - math::fast_inv_sqrt (line 159) ... ok
+test crates/abrash-core/src/math.rs - math::fast_sin_cos (line 49) ... ok
+test crates/abrash-core/src/math.rs - math::hermite (line 4054) ... ok
+test crates/abrash-core/src/math.rs - math::fast_sin_cos (line 67) ... ok
+test crates/abrash-core/src/math.rs - math::gain (line 405) ... ok
+test crates/abrash-core/src/math.rs - math::kochanek_bartels (line 4088) ... ok
+test crates/abrash-core/src/math.rs - math::lerp_angle (line 270) ... ok
+test crates/abrash-core/src/math.rs - math::lerp (line 196) ... ok
+test crates/abrash-core/src/math.rs - math::map_range (line 344) ... ok
+test crates/abrash-core/src/math.rs - math::ping_pong (line 320) ... ok
+test crates/abrash-core/src/math.rs - math::quadratic_bezier_eval (line 529) ... ok
+test crates/abrash-core/src/math.rs - math::quadratic_solve (line 4246) ... ok
+test crates/abrash-core/src/math.rs - math::project_to_screen_optimized (line 3623) ... ok
+test crates/abrash-core/src/math.rs - math::remap (line 250) ... ok
+test crates/abrash-core/src/math.rs - math::smoothstep (line 220) ... ok
+test crates/abrash-core/src/math.rs - math::triangle_wave (line 429) ... ok
+test crates/abrash-core/src/math.rs - math::spherical_to_cartesian (line 599) ... ok
+test crates/abrash-core/src/math.rs - math::wrap (line 363) ... ok
+test crates/abrash-core/src/mesh.rs - mesh (line 7) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::compute_face_normals (line 454) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::cube (line 89) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::cylinder (line 274) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::new (line 42) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::sphere (line 153) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::plane (line 219) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::torus (line 380) ... ok
+test crates/abrash-core/src/mesh.rs - mesh::Mesh::with_capacity (line 65) ... ok
+test crates/abrash-core/src/noise.rs - noise::billow_noise_2d (line 913) ... ok
+test crates/abrash-core/src/noise.rs - noise (line 18) ... ok
+test crates/abrash-core/src/noise.rs - noise::billow_noise_3d (line 1198) ... ok
+test crates/abrash-core/src/noise.rs - noise::cellular_noise_2d (line 1330) ... ok
+test crates/abrash-core/src/noise.rs - noise::cellular_noise_3d (line 1353) ... ok
+test crates/abrash-core/src/noise.rs - noise::curl_noise_2d (line 800) ... ok
+test crates/abrash-core/src/noise.rs - noise::curl_noise_3d (line 826) ... ok
+test crates/abrash-core/src/noise.rs - noise::domain_warp_fbm_2d (line 942) ... ok
+test crates/abrash-core/src/noise.rs - noise::domain_warp_fbm_3d (line 1259) ... ok
+test crates/abrash-core/src/noise.rs - noise::fbm_simplex_2d (line 742) ... ok
+test crates/abrash-core/src/noise.rs - noise::fbm_simplex_3d (line 767) ... ok
+test crates/abrash-core/src/noise.rs - noise::fbm_value_3d (line 1295) ... ok
+test crates/abrash-core/src/noise.rs - noise::gabor_noise_2d (line 1063) ... ok
+test crates/abrash-core/src/noise.rs - noise::ridge_noise_3d (line 1165) ... ok
+test crates/abrash-core/src/noise.rs - noise::ridge_noise_2d (line 876) ... ok
+test crates/abrash-core/src/noise.rs - noise::simplex_2d (line 511) ... ok
+test crates/abrash-core/src/noise.rs - noise::simplex_3d (line 589) ... ok
+test crates/abrash-core/src/noise.rs - noise::turbulence_3d (line 1223) ... ok
+test crates/abrash-core/src/noise.rs - noise::voronoi_noise_2d (line 982) ... ok
+test crates/abrash-core/src/noise.rs - noise::voronoi_noise_3d (line 1105) ... ok
+test crates/abrash-core/src/noise.rs - noise::worley_noise_2d (line 300) ... ok
+test crates/abrash-core/src/noise.rs - noise::worley_noise_3d (line 349) ... ok
+test crates/abrash-core/src/obj_loader.rs - obj_loader::load_obj (line 418) ... ok
+test crates/abrash-core/src/plane.rs - plane::Plane (line 17) ... ok
+test crates/abrash-core/src/plane.rs - plane::Frustum (line 82) ... ok
+test crates/abrash-core/src/quat.rs - quat::DualQuat (line 602) ... ok
+test crates/abrash-core/src/quat.rs - quat::Mat4::decompose (line 523) ... ok
+test crates/abrash-core/src/quat.rs - quat::Quat (line 21) ... ok
+test crates/abrash-core/src/quat.rs - quat::Mat4::from_srt (line 570) ... ok
+test crates/abrash-core/src/random.rs - random (line 11) ... ok
+test crates/abrash-core/src/ray.rs - ray::Ray (line 11) ... ok
+test crates/abrash-core/src/sdf.rs - sdf (line 27) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::arc_2d (line 1305) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::bezier_sdf_2d (line 1187) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::box_frame_3d (line 815) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::cone_3d (line 319) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::cross_2d (line 1342) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::deform_bend (line 1548) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::deform_cheap_bend (line 1573) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::displace (line 960) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::ellipse_2d (line 1415) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::egg_2d (line 1667) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::ellipsoid_3d (line 294) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::elongate (line 677) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::gyroid_3d (line 1100) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::extrude_y (line 883) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::heart_2d (line 1598) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::hexagonal_prism_3d (line 638) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::link_3d (line 492) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::inf_cylinder_3d (line 432) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::mirror_x (line 1036) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::moon_2d (line 1381) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::octahedron_3d (line 554) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::onion (line 703) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::parabola_2d (line 1124) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::parallelogram_2d (line 1796) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::pyramid_3d (line 593) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::pie_2d (line 1479) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::repeat_1d (line 982) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::repeat_3d (line 1014) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::repeat_finite_3d (line 1702) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::regular_ngon_2d (line 1257) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::revolve_y (line 910) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::scale_sdf (line 1074) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::rounded_cylinder_3d (line 461) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::rhombus_2d (line 1635) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::smooth_min (line 1523) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::solid_angle_3d (line 851) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::stadium_2d (line 1730) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::star_2d (line 763) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::trapezoid_2d (line 1757) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::twist_y (line 934) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::truncated_cone_3d (line 363) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::vesica_2d (line 731) ... ok
+test crates/abrash-core/src/sdf.rs - sdf::uneven_capsule_2d (line 1831) ... ok
+test crates/abrash-core/src/texture.rs - texture::Texture (line 98) ... ok
+test crates/abrash-core/src/texture.rs - texture::Texture::get_pixel (line 264) ... ok
+test crates/abrash-core/src/texture.rs - texture::Texture::new (line 129) ... ok
+test crates/abrash-core/src/texture.rs - texture::Texture::set_pixel (line 184) ... ok
+test crates/abrash-core/src/transform.rs - transform::Transform (line 20) ... ok
+test crates/abrash-core/src/zbuffer.rs - zbuffer::ZBuffer::clear_rect (line 58) ... ok
+
+test result: ok. 250 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+all doctests ran in 1.60s; merged doctests compilation took 1.33s
+   Doc-tests abrash_gpu_render
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests abrash_raycast
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests abrash_render
+
+running 34 tests
+test crates/abrash-render/src/experimental/raytracer.rs - experimental::raytracer (line 24) - compile ... ok
+test crates/abrash-render/src/ascii.rs - ascii (line 15) ... ok
+test crates/abrash-render/src/ascii.rs - ascii::AsciiConverter<'a>::to_colored_string (line 97) ... ok
+test crates/abrash-render/src/heat_vision.rs - heat_vision::apply_heat_vision (line 17) ... ok
+test crates/abrash-render/src/post_process/blur.rs - post_process::blur::box_blur_horizontal (line 286) ... ok
+test crates/abrash-render/src/post_process/blur.rs - post_process::blur::box_blur_vertical (line 476) ... ok
+test crates/abrash-render/src/experimental/palette.rs - experimental::palette::apply_palette (line 133) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_chromatic_aberration (line 244) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_color_adjust (line 522) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_grayscale (line 36) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_invert (line 137) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_scanlines (line 80) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_sepia (line 177) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_sobel (line 332) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_vignette (line 455) ... ok
+test crates/abrash-render/src/post_process/filters.rs - post_process::filters::apply_film_grain (line 568) ... ok
+test crates/abrash-render/src/rasterizer/circle.rs - rasterizer::circle::draw_circle (line 22) ... ok
+test crates/abrash-render/src/rasterizer/circle.rs - rasterizer::circle::fill_circle (line 140) ... ok
+test crates/abrash-render/src/rasterizer/flat.rs - rasterizer::flat::fill_triangle_3d (line 308) ... ok
+test crates/abrash-render/src/rasterizer/gouraud.rs - rasterizer::gouraud::fill_triangle_gouraud (line 615) ... ok
+test crates/abrash-render/src/rasterizer/pbr.rs - rasterizer::pbr (line 17) ... ok
+test crates/abrash-render/src/rasterizer/texture.rs - rasterizer::texture::fill_triangle_textured (line 1674) ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile (line 54) - compile ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile::TileRenderer::render_batch (line 2114) - compile ... ok
+test crates/abrash-render/src/rasterizer/tile.rs - rasterizer::tile::should_use_tiled_rendering (line 3615) ... ok
+test crates/abrash-render/src/render_api/draw_list.rs - render_api::draw_list::DrawList (line 73) ... ok
+test crates/abrash-render/src/render_api/handles.rs - render_api::handles::Handle (line 19) ... ok
+test crates/abrash-render/src/render_api/handles.rs - render_api::handles::ResourcePool (line 130) ... ok
+test crates/abrash-render/src/render_api/mod.rs - render_api (line 17) ... FAILED
+test crates/abrash-render/src/render_api/target.rs - render_api::target::RenderTarget (line 14) ... ok
+test crates/abrash-render/src/scene.rs - scene (line 27) ... FAILED
+test crates/abrash-render/src/post_process/dof.rs - post_process::dof::apply_depth_of_field (line 54) ... ok
+test crates/abrash-render/src/post_process/bloom.rs - post_process::bloom::apply_bloom (line 59) ... ok
+test crates/abrash-render/src/post_process/mod.rs - post_process (line 36) ... ok
+
+failures:
+
+---- crates/abrash-render/src/render_api/mod.rs - render_api (line 17) stdout ----
+Test executable failed (terminated by signal).
+
+---- crates/abrash-render/src/scene.rs - scene (line 27) stdout ----
+Test executable failed (terminated by signal).
+
+
+failures:
+    crates/abrash-render/src/render_api/mod.rs - render_api (line 17)
+    crates/abrash-render/src/scene.rs - scene (line 27)
+
+test result: FAILED. 32 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+all doctests ran in 0.98s; merged doctests compilation took 0.70s
+error: doctest failed, to rerun pass `-p abrash-render --doc`

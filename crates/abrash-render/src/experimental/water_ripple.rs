@@ -50,10 +50,20 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
     let max_radius_px = config.radius * width.max(height) as f32;
     let inv_freq = 1.0 / config.frequency;
 
-    // Clone the source framebuffer because non-linear displacement causes aliasing
-    // when reading and writing to the same buffer concurrently.
-    let src_buffer = fb.as_slice().to_vec();
-    let dest_buffer = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // To avoid allocating a `Vec` via `.to_vec()` on every frame, we use a single thread-local
+    // buffer to store the copy of the framebuffer required by this filter. This avoids memory
+    // fragmentation and reduces heap allocations.
+    thread_local! {
+        static ORIGINAL_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    ORIGINAL_PIXELS.with(|cell| {
+        let mut src_pixels_vec = cell.borrow_mut();
+        src_pixels_vec.clear();
+        src_pixels_vec.extend_from_slice(fb.as_slice());
+        let src_buffer = src_pixels_vec.as_slice();
+        let dest_buffer = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
     let iter = dest_buffer.par_chunks_exact_mut(width as usize).enumerate();
@@ -96,6 +106,7 @@ pub fn apply_water_ripple(fb: &mut Framebuffer, config: RippleConfig) {
                 *pixel = src_buffer[src_idx];
             }
         }
+    });
     });
 }
 

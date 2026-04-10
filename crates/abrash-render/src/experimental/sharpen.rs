@@ -34,8 +34,20 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
     let center_weight_fixed = ((1.0 + 4.0 * amount) * 256.0) as i32;
     let side_weight_fixed = (-amount * 256.0) as i32;
 
-    let src = fb.as_slice().to_vec(); // create a copy of the framebuffer to read from
-    let dst = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // To avoid allocating a `Vec` via `.to_vec()` on every frame, we use a single thread-local
+    // buffer to store the copy of the framebuffer required by this filter. This avoids memory
+    // fragmentation and reduces heap allocations.
+    thread_local! {
+        static ORIGINAL_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    ORIGINAL_PIXELS.with(|cell| {
+        let mut src_pixels_vec = cell.borrow_mut();
+        src_pixels_vec.clear();
+        src_pixels_vec.extend_from_slice(fb.as_slice());
+        let src = src_pixels_vec.as_slice();
+        let dst = fb.as_mut_slice();
 
     let process_row = |(y_idx, row): (usize, &mut [u32])| {
         let y = y_idx + 1; // actual y in the full image
@@ -111,4 +123,5 @@ pub fn apply_sharpen(fb: &mut Framebuffer, amount: f32) {
             .enumerate()
             .for_each(process_row);
     }
+    });
 }

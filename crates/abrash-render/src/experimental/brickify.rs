@@ -33,11 +33,20 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
 
     let b_size = block_size as usize;
 
-    // We need to read from the original and write the blocky version,
-    // so we'll clone the current framebuffer to read from safely.
-    // This allows for parallel chunking without mutable aliasing issues.
-    let src_pixels = fb.as_slice().to_vec();
-    let pixels = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // To avoid allocating a `Vec` via `.to_vec()` on every frame, we use a single thread-local
+    // buffer to store the copy of the framebuffer required by this filter. This avoids memory
+    // fragmentation and reduces heap allocations.
+    thread_local! {
+        static ORIGINAL_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    ORIGINAL_PIXELS.with(|cell| {
+        let mut src_pixels_vec = cell.borrow_mut();
+        src_pixels_vec.clear();
+        src_pixels_vec.extend_from_slice(fb.as_slice());
+        let src_pixels = src_pixels_vec.as_slice();
+        let pixels = fb.as_mut_slice();
 
     #[cfg(feature = "parallel")]
     {
@@ -110,6 +119,7 @@ pub fn apply_brickify(fb: &mut Framebuffer, block_size: u32) {
             }
         }
     }
+    });
 }
 
 #[inline(always)]

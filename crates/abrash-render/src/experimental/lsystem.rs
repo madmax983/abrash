@@ -89,8 +89,12 @@ impl LSystem {
                 rules_array[(*k as usize) & 127] = Some(v.as_bytes());
             }
 
-            let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            // Bolt Performance Optimization:
+            // Use `Vec::with_capacity` instead of `to_vec()` and `Vec::new()` to
+            // avoid unnecessary heap allocations during initialization.
+            let mut current_bytes = Vec::with_capacity(self.axiom.len());
+            current_bytes.extend_from_slice(self.axiom.as_bytes());
+            let mut next_bytes = Vec::with_capacity(self.axiom.len() * 2);
 
             for _ in 0..iterations {
                 next_bytes.clear();

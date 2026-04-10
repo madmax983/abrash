@@ -57,8 +57,20 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
 
-    let original_pixels = fb.as_slice().to_vec();
-    let pixels = fb.as_mut_slice();
+    // Bolt Performance Optimization:
+    // To avoid allocating a `Vec` via `.to_vec()` on every frame, we use a single thread-local
+    // buffer to store the copy of the framebuffer required by this filter. This avoids memory
+    // fragmentation and reduces heap allocations.
+    thread_local! {
+        static ORIGINAL_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    ORIGINAL_PIXELS.with(|cell| {
+        let mut original_pixels_vec = cell.borrow_mut();
+        original_pixels_vec.clear();
+        original_pixels_vec.extend_from_slice(fb.as_slice());
+        let original_pixels = original_pixels_vec.as_slice();
+        let pixels = fb.as_mut_slice();
 
     let density_step = config.density / config.num_samples as f32;
 
@@ -128,5 +140,6 @@ pub fn apply_god_rays(fb: &mut Framebuffer, config: &GodRaysConfig) {
 
             *pixel = 0xFF00_0000 | (final_r << 16) | (final_g << 8) | final_b;
         }
+    });
     });
 }
