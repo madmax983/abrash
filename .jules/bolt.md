@@ -47,3 +47,7 @@
 **[Pre-allocate HashMaps to eliminate dynamic heap reallocations]**
 **Learning:** Using `HashMap::new()` in large iterations or when dealing with known data sizes (like parsing glTF joints and nodes) results in unnecessary dynamic heap reallocations and creates empty maps that scale inefficiently during heavy insertions.
 **Action:** Pre-allocated HashMaps using `HashMap::with_capacity()` utilizing known bounds from iterators and slices, eliminating reallocation overhead on the hot parsing path.
+
+**[Optimize apply_frosted_glass per-frame allocation]**
+**Learning:** Re-learned and solidified the power of `thread_local!` buffers for intermediate processing steps like full-screen image effects. Calling `.to_vec()` on a slice inside a per-frame or highly parallel operation creates massive garbage and allocator pressure.
+**Action:** When a post-processing effect requires reading from a source frame while modifying the destination (to avoid read/write tearing), cache the source clone using `thread_local! { static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) }; }` and reuse the allocated capacity via `.clear()` and `.extend_from_slice()`.
