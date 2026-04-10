@@ -16,7 +16,7 @@ fn make_opaque_texture(w: u32, h: u32) -> Texture {
 
 fn make_alpha_texture(w: u32, h: u32, alpha: u8) -> Texture {
     let mut tex = Texture::new(w, h).unwrap();
-    let color = (alpha as u32) << 24 | 0x00FF_0000;
+    let color = u32::from(alpha) << 24 | 0x00FF_0000;
     for y in 0..h {
         for x in 0..w {
             tex.set_pixel(x, y, color);
