@@ -1,0 +1,1 @@
+sed -i 's/pub fn fast_inv_sqrt(n: f32) -> f32 {/pub fn fast_inv_sqrt(n: f32) -> f32 {\n    n.sqrt().recip()\n}\n\n#[allow(dead_code)]\nfn old_fast_inv_sqrt(n: f32) -> f32 {/' crates/abrash-core/src/math.rs

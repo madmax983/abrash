@@ -167,6 +167,11 @@ pub fn fast_cos(x: f32) -> f32 {
 /// ```
 #[must_use]
 pub fn fast_inv_sqrt(n: f32) -> f32 {
+    n.sqrt().recip()
+}
+
+#[allow(dead_code)]
+fn old_fast_inv_sqrt(n: f32) -> f32 {
     // Use AVX/SSE approximate reciprocal square root if available.
     // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
     // We accept the approximation (error < 1.5*2^-12) for the sake of speed in lighting/normalization.
