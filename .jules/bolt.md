@@ -47,3 +47,6 @@
 **[Pre-allocate HashMaps to eliminate dynamic heap reallocations]**
 **Learning:** Using `HashMap::new()` in large iterations or when dealing with known data sizes (like parsing glTF joints and nodes) results in unnecessary dynamic heap reallocations and creates empty maps that scale inefficiently during heavy insertions.
 **Action:** Pre-allocated HashMaps using `HashMap::with_capacity()` utilizing known bounds from iterators and slices, eliminating reallocation overhead on the hot parsing path.
+**[Optimized Framebuffer Exports]
+**Learning:** In hot pixel conversion loops (like exporting PPM or TGA from a Framebuffer), using `.extend(iter.flat_map(...))` is inefficient because `flat_map` yields one byte at a time and provides a poor `size_hint` (lower bound 0). This prevents `Vec::extend` from optimally pre-allocating, resulting in per-byte capacity checks and allocations.
+**Action:** Replace `flat_map` chains with a `for` loop that constructs a stack-allocated byte array per pixel (e.g., `let bytes = [r, g, b, a];`) and pushes it using `Vec::extend_from_slice(&bytes)`. This eliminates intermediate iterators, allows direct slice copies, and is a proven, safe micro-optimization.
