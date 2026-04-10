@@ -67,7 +67,6 @@ pub fn white_noise(width: u32, height: u32, seed: u32) -> Result<Texture, &'stat
 ///
 /// # Errors
 /// Returns an error if the texture dimensions are invalid.
-#[allow(clippy::imprecise_flops)]
 pub fn plasma(width: u32, height: u32) -> Result<Texture, &'static str> {
     let mut tex = Texture::new(width, height)?;
 

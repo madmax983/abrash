@@ -128,7 +128,7 @@ impl Skeleton {
             self.joints
                 .iter()
                 .zip(global_transforms)
-                .map(|(joint, global)| joint.inverse_bind_matrix * *global)
+                .map(|(joint, global)| joint.inverse_bind_matrix * *global),
         );
     }
 
@@ -143,7 +143,9 @@ impl Skeleton {
     /// Panics if `global_transforms.len() != self.joints.len()`.
     #[must_use]
     pub fn compute_skin_matrices(&self, global_transforms: &[Mat4]) -> SkinMatrices {
-        let mut out = SkinMatrices { matrices: Vec::with_capacity(self.joints.len()) };
+        let mut out = SkinMatrices {
+            matrices: Vec::with_capacity(self.joints.len()),
+        };
         self.update_skin_matrices(global_transforms, &mut out);
         out
     }

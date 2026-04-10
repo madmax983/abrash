@@ -75,7 +75,6 @@ pub fn apply_vision(fb: &mut Framebuffer, zb: &ZBuffer, config: &VisionConfig) {
     }
 }
 
-#[allow(clippy::imprecise_flops)]
 fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;
