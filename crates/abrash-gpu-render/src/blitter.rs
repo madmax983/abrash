@@ -516,10 +516,17 @@ impl GpuBlitter {
         let pixels = texture.pixels();
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         for &px in pixels {
-            rgba.push(((px >> 16) & 0xFF) as u8); // R
-            rgba.push(((px >> 8) & 0xFF) as u8); // G
-            rgba.push((px & 0xFF) as u8); // B
-            rgba.push(((px >> 24) & 0xFF) as u8); // A
+            /// ⚡ Bolt: By building a stack-allocated byte array and using `.extend_from_slice()`,
+            /// we eliminate 4 separate capacity checks and length increments per pixel compared to `.push()`.
+            /// This allows LLVM to compile the pixel conversion loop into a highly optimized vector or unrolled
+            /// sequence without bounds check overhead.
+            let bytes = [
+                ((px >> 16) & 0xFF) as u8, // R
+                ((px >> 8) & 0xFF) as u8,  // G
+                (px & 0xFF) as u8,         // B
+                ((px >> 24) & 0xFF) as u8, // A
+            ];
+            rgba.extend_from_slice(&bytes);
         }
 
         self.queue.write_texture(
@@ -866,10 +873,17 @@ impl GpuBlitter {
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
         for &px in fb_pixels {
-            rgba.push(((px >> 16) & 0xFF) as u8); // R
-            rgba.push(((px >> 8) & 0xFF) as u8); // G
-            rgba.push((px & 0xFF) as u8); // B
-            rgba.push(((px >> 24) & 0xFF) as u8); // A
+            /// ⚡ Bolt: By building a stack-allocated byte array and using `.extend_from_slice()`,
+            /// we eliminate 4 separate capacity checks and length increments per pixel compared to `.push()`.
+            /// This allows LLVM to compile the pixel conversion loop into a highly optimized vector or unrolled
+            /// sequence without bounds check overhead.
+            let bytes = [
+                ((px >> 16) & 0xFF) as u8, // R
+                ((px >> 8) & 0xFF) as u8,  // G
+                (px & 0xFF) as u8,         // B
+                ((px >> 24) & 0xFF) as u8, // A
+            ];
+            rgba.extend_from_slice(&bytes);
         }
 
         self.queue.write_texture(
@@ -1320,7 +1334,7 @@ mod gpu_tests {
         let gpu = headless_device();
         let mut blitter = GpuBlitter::new(&gpu, 64, 64);
 
-        let mut tex = abrash_core::texture::Texture::new(4, 4).unwrap();
+        let tex = abrash_core::texture::Texture::new(4, 4).unwrap();
         let atlas = blitter.upload_atlas(&tex);
         let src = SrcRect {
             x: 0,
