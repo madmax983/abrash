@@ -1,5 +1,5 @@
 use abrash_core::framebuffer::Framebuffer;
-use abrash_render::rasterizer::circle::{draw_circle, fill_circle};
+use abrash_render::rasterizer::circle::fill_circle;
 use proptest::prelude::*;
 
 proptest! {

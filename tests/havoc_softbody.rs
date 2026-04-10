@@ -23,3 +23,25 @@ fn test_truncated_mesh_resilience() {
     // This should NOT panic. It should handle it gracefully (e.g. by skipping update or logging error).
     jelly.update(0.1);
 }
+
+#[test]
+fn test_havoc_softbody_panic() {
+    use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene};
+    let mut mesh = Mesh::new();
+    mesh.vertices.push(Vec3::new(0.0, 0.0, 0.0));
+    mesh.indices.push([0, 0, 0]);
+
+    let mut jelly = SoftBody::new(mesh, 1.0, 10.0, 0.5).unwrap();
+
+    let mut scene = SdfScene::new();
+    scene.add(SdfObject {
+        primitive: SdfPrimitive::Sphere {
+            radius: 10.0,
+            center: Vec3::new(0.0, 0.0, 0.0),
+        },
+        color: 0xFFFFFFFF,
+    });
+
+    jelly.velocities.clear();
+    jelly.collide_sdf(&scene, 0.5);
+}

@@ -1,3 +1,10 @@
+#![allow(
+    clippy::imprecise_flops,
+    clippy::must_use_candidate,
+    clippy::items_after_statements,
+    clippy::too_long_first_doc_paragraph,
+    clippy::float_cmp
+)]
 //! Signed distance functions (SDF) for 2D and 3D analytical geometry.
 //!
 //! Each function returns the **signed distance** from point `p` to the boundary
@@ -650,12 +657,13 @@ pub fn pyramid_3d(p: Vec3, centre: Vec3, height: f32) -> f32 {
 /// ```
 #[must_use]
 pub fn hexagonal_prism_3d(p: Vec3, centre: Vec3, r: f32, h: f32) -> f32 {
-    // IQ sdHexPrism — hex in XY plane, extends along Z
-    let p = (p - centre).abs();
     // k = (-sqrt(3)/2, 0.5, 1/sqrt(3))
     const KX: f32 = -0.866_025_4;
     const KY: f32 = 0.5;
     const KZ: f32 = 0.577_350_3;
+
+    // IQ sdHexPrism — hex in XY plane, extends along Z
+    let p = (p - centre).abs();
     let dot = (KX * p.x + KY * p.y).min(0.0);
     let px = p.x - 2.0 * dot * KX;
     let py = p.y - 2.0 * dot * KY;
@@ -4942,6 +4950,8 @@ pub fn polyline_2d(p: Vec2, pts: &[Vec2]) -> f32 {
 /// assert!(d2 > 0.0, "outside: {d2}");
 /// ```
 pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: u32) -> f32 {
+    const N_INIT: u32 = 32;
+
     let r_inner = r_torus * 0.5;
     let pf = p_folds as f32;
     let qf = q_folds as f32;
@@ -4964,7 +4974,6 @@ pub fn torus_knot_3d(p: Vec3, r_tube: f32, r_torus: f32, p_folds: u32, q_folds: 
     };
 
     // Initial search
-    const N_INIT: u32 = 32;
     let mut best_t = 0.0_f32;
     let mut best_d2 = f32::INFINITY;
     for i in 0..N_INIT {

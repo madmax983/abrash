@@ -56,13 +56,14 @@ impl LSystem {
 
     /// Expand the L-System string for the given number of iterations.
     ///
+    /// ⚡ Bolt: By deferring the allocation of `current` until after the ASCII fast-path and 0-iteration checks,
+    /// we eliminate an unnecessary heap allocation of `self.axiom.clone()` per function call.
+    ///
     /// # Errors
     /// Returns an error if the expansion string exceeds `max_capacity`.
     pub fn expand(&self, iterations: usize) -> Result<String, &'static str> {
-        let mut current = self.axiom.clone();
-
         if iterations == 0 {
-            return Ok(current);
+            return Ok(self.axiom.clone());
         }
 
         let mut is_pure_ascii = self.axiom.is_ascii();
@@ -90,7 +91,7 @@ impl LSystem {
             }
 
             let mut current_bytes = self.axiom.as_bytes().to_vec();
-            let mut next_bytes = Vec::new();
+            let mut next_bytes = Vec::with_capacity(current_bytes.len() * 2);
 
             for _ in 0..iterations {
                 next_bytes.clear();
@@ -114,6 +115,7 @@ impl LSystem {
             return String::from_utf8(current_bytes).map_err(|_| "L-System utf8 decoding error");
         }
 
+        let mut current = self.axiom.clone();
         let mut next_string = String::with_capacity(current.len() * 2);
 
         // Bolt Performance Optimization:
@@ -380,6 +382,23 @@ impl Default for Turtle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_lsystem_expansion_non_ascii() {
+        // Test fallback to non-ASCII character path
+        let mut lsys = LSystem::new("A");
+        lsys.add_rule('A', "A💡");
+        lsys.add_rule('💡', "A");
+
+        let iter_0 = lsys.expand(0).unwrap();
+        assert_eq!(iter_0, "A");
+
+        let iter_1 = lsys.expand(1).unwrap();
+        assert_eq!(iter_1, "A💡");
+
+        let iter_2 = lsys.expand(2).unwrap();
+        assert_eq!(iter_2, "A💡A");
+    }
 
     #[test]
     fn test_lsystem_expansion() {
