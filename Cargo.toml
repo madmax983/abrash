@@ -734,6 +734,7 @@ required-features = ["nova"]
 name = "reaction_diffusion_demo"
 path = "examples/reaction_diffusion_demo.rs"
 required-features = ["nova"]
+
 [[bench]]
 name = "jelly_bench"
 harness = false
