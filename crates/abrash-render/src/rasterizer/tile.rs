@@ -1587,9 +1587,11 @@ impl TileRenderer {
             width,
             height,
             tile_bins: TileBins::new(tile_count),
-            prepared: Vec::new(),
-            prepared_gouraud: Vec::new(),
-            prepared_textured: Vec::new(),
+            // ⚡ Bolt: Pre-allocate triangle buffers since TileRenderer targets <= 100 triangles per frame.
+            // This eliminates multiple dynamic heap reallocations during frame submission.
+            prepared: Vec::with_capacity(128),
+            prepared_gouraud: Vec::with_capacity(128),
+            prepared_textured: Vec::with_capacity(128),
             hiz_buffer: None,
             use_two_level_binning: false,
             half_width: width as f32 * 0.5,

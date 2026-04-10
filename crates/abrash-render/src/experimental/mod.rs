@@ -39,6 +39,7 @@ pub mod color_blindness;
 pub mod crepuscular;
 pub mod crosshatch;
 pub mod crt;
+pub mod digital_rain;
 pub mod directional_blur;
 pub mod dither;
 pub mod duotone;
