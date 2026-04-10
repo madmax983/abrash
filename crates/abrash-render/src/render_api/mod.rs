@@ -45,6 +45,7 @@
 //! let pixels: &[u32] = target.pixels();
 //! ```
 
+pub mod borrowed_target;
 pub mod cpu_renderer;
 pub mod draw_list;
 pub mod frame;
@@ -52,6 +53,7 @@ pub mod handles;
 pub mod material;
 pub mod target;
 
+pub use borrowed_target::BorrowedRenderTarget;
 pub use cpu_renderer::RenderError;
 pub use draw_list::{DrawBatch, DrawList};
 pub use frame::{DrawCommand, Frame, FrameCamera, Light};

@@ -45,6 +45,39 @@ thread_local! {
 /// let p = fb.get_pixel(0, 0).unwrap();
 /// assert_eq!(p & 0xFF, 76);
 /// ```
+/// Configuration for the scanline jitter effect.
+#[derive(Debug, Clone, Copy)]
+pub struct ScanlineJitterConfig {
+    /// The maximum pixel shift distance.
+    pub intensity: u32,
+}
+
+/// Applies a scanline jitter effect to the framebuffer in-place.
+///
+/// **Bolt Optimization:** We use `chunks_exact_mut` to process two rows at a time,
+/// avoiding the overhead of `step_by` and extracting the subslice directly.
+pub fn apply_scanline_jitter(fb: &mut Framebuffer, config: &ScanlineJitterConfig) {
+    let width = fb.width() as usize;
+    let height = fb.height() as usize;
+    if width == 0 || height == 0 {
+        return;
+    }
+    let shift = config.intensity as usize % width;
+    if shift == 0 {
+        return;
+    }
+
+    let pixels = fb.as_mut_slice();
+    let mut chunks = pixels.chunks_exact_mut(width * 2);
+    for double_row in &mut chunks {
+        double_row[..width].rotate_right(shift);
+    }
+    let remainder = chunks.into_remainder();
+    if remainder.len() >= width {
+        remainder[..width].rotate_right(shift);
+    }
+}
+
 pub fn apply_grayscale(fb: &mut Framebuffer) {
     let pixels = fb.as_mut_slice();
 
@@ -1483,6 +1516,23 @@ mod simd {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_scanline_jitter() {
+        let mut fb = Framebuffer::new(2, 2).unwrap();
+        fb.clear(0xFFFFFFFF);
+        fb.set_pixel(0, 0, 0xFFFF0000); // Set top-left to red
+        let config = ScanlineJitterConfig { intensity: 1 };
+        apply_scanline_jitter(&mut fb, &config);
+
+        // Intensity 1 shifts row 0 right by 1, so the red pixel should move to (1, 0)
+        let p = fb.get_pixel(1, 0).unwrap();
+        assert_eq!(p, 0xFFFF0000);
+
+        // Row 1 should not be shifted
+        let p2 = fb.get_pixel(0, 1).unwrap();
+        assert_eq!(p2, 0xFFFFFFFF);
+    }
 
     #[test]
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]

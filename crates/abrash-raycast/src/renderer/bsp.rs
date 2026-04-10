@@ -209,7 +209,7 @@ fn compute_texture_col(
     let dx = seg.v2.x.to_f32() - seg.v1.x.to_f32();
     let dy = seg.v2.y.to_f32() - seg.v1.y.to_f32();
     #[allow(clippy::imprecise_flops)]
-    let seg_len = (dx * dx + dy * dy).sqrt();
+    let seg_len = dx.mul_add(dx, dy * dy).sqrt();
 
     // Vector from camera to seg v1
     let cx = seg.v1.x.to_f32() - camera_pos.x.to_f32();
@@ -797,8 +797,8 @@ mod tests {
     // render_bsp_view integration tests
     // -----------------------------------------------------------------------
 
-    use abrash_core::bam::{ANG90, ANG180, ANG270};
     use crate::bsp::{BspMap, BspSector, BspSeg};
+    use abrash_core::bam::{ANG90, ANG180, ANG270};
 
     /// Integration BSP map: a single 512x512 room with 4 solid walls.
     struct IntegrationBspMap {

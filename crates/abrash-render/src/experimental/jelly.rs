@@ -652,8 +652,17 @@ impl SoftBody {
 
     /// Resolves collisions with an SDF scene.
     pub fn collide_sdf(&mut self, scene: &SdfScene, restitution: f32) {
-        for i in 0..self.mesh.vertices.len() {
-            let pos = self.mesh.vertices[i];
+        if self.mesh.vertices.len() != self.velocities.len() {
+            return;
+        }
+
+        for (pos_ptr, vel_ptr) in self
+            .mesh
+            .vertices
+            .iter_mut()
+            .zip(self.velocities.iter_mut())
+        {
+            let pos = *pos_ptr;
             let (dist, _) = scene.map(pos);
 
             if dist < 0.0 {
@@ -662,21 +671,21 @@ impl SoftBody {
                 let penetration = -dist;
 
                 // Push out
-                self.mesh.vertices[i] = self.mesh.vertices[i] + normal * penetration;
+                *pos_ptr = *pos_ptr + normal * penetration;
 
                 // Reflect velocity
                 // v_new = v - (1 + e) * (v . n) * n
-                let v = self.velocities[i];
+                let v = *vel_ptr;
                 let v_n = v.dot(normal);
                 if v_n < 0.0 {
                     let j = -(1.0 + restitution) * v_n;
-                    self.velocities[i] = v + normal * j;
+                    *vel_ptr = v + normal * j;
 
                     // Friction
                     // v_t = v - v_n * n
                     // v_t_new = v_t * (1 - friction)
                     let v_t = v - normal * v_n;
-                    self.velocities[i] = self.velocities[i] - v_t * 0.1; // Simple friction
+                    *vel_ptr = *vel_ptr - v_t * 0.1; // Simple friction
                 }
             }
         }

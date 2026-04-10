@@ -419,16 +419,24 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Fast path: direct shift, no clamp/mask
-                    // r_i as u32 >> 16 extracts the integer part (0..255)
-                    let r = (r_i as u32) >> 16;
-                    let g = (g_i as u32) >> 16;
-                    let b = (b_i as u32) >> 16;
-
-                    *pixel = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+            let len = fb_slice.len();
+            assert!(
+                zb_slice.len() >= len,
+                "Depth buffer must be at least as large as the framebuffer slice"
+            );
+            let mut fb_ptr = fb_slice.as_mut_ptr();
+            let mut zb_ptr = zb_slice.as_mut_ptr();
+            for _ in 0..len {
+                unsafe {
+                    if z < *zb_ptr {
+                        *zb_ptr = z;
+                        let r = (r_i as u32) >> 16;
+                        let g = (g_i as u32) >> 16;
+                        let b = (b_i as u32) >> 16;
+                        *fb_ptr = 0xFF00_0000 | (r << 16) | (g << 8) | b;
+                    }
+                    fb_ptr = fb_ptr.add(1);
+                    zb_ptr = zb_ptr.add(1);
                 }
                 z += dz_dx;
                 r_i += dr;
@@ -451,21 +459,28 @@ pub fn draw_scanline_gouraud_i32(
                 return;
             }
 
-            for (pixel, depth_val) in fb_slice.iter_mut().zip(zb_slice.iter_mut()) {
-                // Check depth buffer
-                if z < *depth_val {
-                    *depth_val = z;
-                    // Unpack fixed point color
-                    // Optimization: Combine clamp and mask to avoid shifts and intermediate u8 casts
-                    // 16.16 fixed point means 255.0 is 0x00FF0000
-                    let r = r_i.clamp(0, 0x00FF_0000);
-                    let g = g_i.clamp(0, 0x00FF_0000);
-                    let b = b_i.clamp(0, 0x00FF_0000);
+            let len = fb_slice.len();
+            assert!(
+                zb_slice.len() >= len,
+                "Depth buffer must be at least as large as the framebuffer slice"
+            );
+            let mut fb_ptr = fb_slice.as_mut_ptr();
+            let mut zb_ptr = zb_slice.as_mut_ptr();
+            for _ in 0..len {
+                unsafe {
+                    if z < *zb_ptr {
+                        *zb_ptr = z;
+                        let r = r_i.clamp(0, 0x00FF_0000);
+                        let g = g_i.clamp(0, 0x00FF_0000);
+                        let b = b_i.clamp(0, 0x00FF_0000);
 
-                    *pixel = 0xFF00_0000
-                        | ((r as u32) & 0x00FF_0000)
-                        | (((g as u32) & 0x00FF_0000) >> 8)
-                        | (((b as u32) & 0x00FF_0000) >> 16);
+                        *fb_ptr = 0xFF00_0000
+                            | ((r as u32) & 0x00FF_0000)
+                            | (((g as u32) & 0x00FF_0000) >> 8)
+                            | (((b as u32) & 0x00FF_0000) >> 16);
+                    }
+                    fb_ptr = fb_ptr.add(1);
+                    zb_ptr = zb_ptr.add(1);
                 }
                 z += dz_dx;
                 r_i += dr;

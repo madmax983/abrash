@@ -186,7 +186,8 @@ pub fn load_gltf(path: &Path) -> Result<GltfScene, GltfError> {
 
 /// Extract all meshes (with optional skin data) from the document.
 fn extract_meshes(document: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SkinnedMesh> {
-    let mut result = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+    let mut result = Vec::with_capacity(document.meshes().map(|m| m.primitives().count()).sum());
 
     for mesh in document.meshes() {
         for primitive in mesh.primitives() {
@@ -299,7 +300,7 @@ fn extract_skeleton(
     }
 
     // Build node_index → provisional joint index map
-    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::new();
+    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::with_capacity(joint_count);
     for (i, node) in joint_nodes.iter().enumerate() {
         node_idx_to_provisional.insert(node.index(), i);
     }
@@ -350,7 +351,7 @@ fn extract_skeleton(
     let sorted_order = topological_sort_joints(&provisional);
 
     // Build old_provisional_index → new_sorted_index mapping
-    let mut old_to_new: HashMap<usize, usize> = HashMap::new();
+    let mut old_to_new: HashMap<usize, usize> = HashMap::with_capacity(sorted_order.len());
     for (new_idx, &old_idx) in sorted_order.iter().enumerate() {
         old_to_new.insert(old_idx, new_idx);
     }
@@ -389,7 +390,7 @@ fn build_parent_map(
     joint_nodes: &[gltf::Node<'_>],
     joint_set: &HashMap<usize, usize>,
 ) -> HashMap<usize, usize> {
-    let mut child_to_parent: HashMap<usize, usize> = HashMap::new();
+    let mut child_to_parent: HashMap<usize, usize> = HashMap::with_capacity(joint_nodes.len());
 
     for node in joint_nodes {
         for child in node.children() {
@@ -480,10 +481,12 @@ fn extract_clips(
     buffers: &[gltf::buffer::Data],
     node_to_joint: &HashMap<usize, usize>,
 ) -> Vec<AnimationClip> {
-    let mut clips = Vec::new();
+    // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+    let mut clips = Vec::with_capacity(document.animations().count());
 
     for animation in document.animations() {
-        let mut channels = Vec::new();
+        // ⚡ Bolt: Pre-allocate capacity using exact iterator bounds to eliminate dynamic heap reallocations
+        let mut channels = Vec::with_capacity(animation.channels().count());
         let mut max_time: f32 = 0.0;
 
         for channel in animation.channels() {

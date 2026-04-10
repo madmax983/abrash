@@ -200,3 +200,27 @@
 **Concept:** A retro post-processing effect simulating a classic demoscene plasma effect using sine waves. Maps mathematically generated values to cyclical RGB palettes.
 **Fate:** Implemented
 **Lesson:** Adding a simple mathematical plasma mapping creates an extremely fast and visually satisfying psychedelic effect. Since the pixel coordinates are mapped completely independently, parallel execution using Rayon over the framebuffer rows handles the workload perfectly without aliasing.
+
+## [Pop Art Filter]
+**Concept:** A retro post-processing effect that scales the original framebuffer down into four quadrants, applying a high-contrast luminance threshold to tint each quadrant with distinct two-color palettes, simulating Andy Warhol's silk-screen pop art.
+**Fate:** Implemented
+**Lesson:** Splitting the image into scaled quadrants and assigning distinct color mapping per quadrant achieves a dramatic stylistic transformation. Leveraging Rayon to process the destination framebuffer concurrently across chunked rows scales efficiently even with down-sampling and luminance calculations required per pixel.
+
+## [Frosted Glass Filter]
+**Concept:** A retro post-processing effect that simulates viewing the scene through frosted or textured privacy glass. It applies a random spatial displacement to the sampling coordinates of each pixel.
+**Fate:** Implemented
+**Lesson:** Cloning the source framebuffer (`fb.as_slice().to_vec()`) is required to safely parallelize non-linear pixel sampling with Rayon without mutable aliasing. Using an inline PRNG (seeded by `y` row index and user seed) avoids the performance overhead and synchronization issues of using thread-local or global random number generators, while keeping the displacement effect fast and deterministic.
+## [Steganography]
+**Concept:** A mashup feature extending the `Framebuffer` capabilities by allowing hidden strings to be encoded directly into the Least Significant Bits (LSB) of the RGB channels, acting as an invisible data storage layer.
+**Fate:** Implemented
+**Lesson:** Carefully calculating bit lengths and capacity limits before modifying pixels is crucial to avoid out-of-bounds panics. LSB encoding works excellently since the subtle changes are imperceptible to the human eye, even when applied iteratively over animated procedural textures like Plasma.
+
+## [Reaction-Diffusion Simulation]
+**Concept:** A Gray-Scott reaction-diffusion simulation creating organic Turing patterns. Uses a double-buffered grid to compute Laplacian convolution and reaction rates over time, rendering the concentration of chemical 'B' to the screen as a mapped color gradient.
+**Fate:** Implemented
+**Lesson:** Implementing the simulation independently of the framebuffer size and upscaling it via nearest-neighbor significantly improves performance and gives the patterns a thicker, more visible look. Converting the `Color` lerp calculation to `to_argb_u32` avoids borrowing conflicts with the mutable framebuffer slice.
+
+## [Digital Rain Filter]
+**Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
+**Fate:** Implemented
+**Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.

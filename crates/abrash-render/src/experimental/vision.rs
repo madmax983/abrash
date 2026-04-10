@@ -84,7 +84,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
 
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
-    let max_radius_sq = center_x * center_x + center_y * center_y;
+    let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
 
     for y in 0..height {
         let dy = y as f32 - center_y;
@@ -93,7 +93,7 @@ fn apply_night_vision(fb: &mut Framebuffer, config: &VisionConfig) {
             // Bolt Optimization: Avoiding expensive `sqrt()` and `.powi(2)` operations
             // by using squared distances directly (`dist_sq` and `max_radius_sq`).
             // This bypasses the computationally expensive square root calculation in a hot pixel loop.
-            let dist_sq = dx * dx + dy * dy;
+            let dist_sq = dx.mul_add(dx, dy * dy);
 
             // Vignette: Darken edges
             let vignette = (1.0 - (dist_sq / max_radius_sq)).max(0.0);
@@ -269,7 +269,7 @@ mod tests {
         let center_y = height * 0.5;
 
         let max_radius = center_x.hypot(center_y);
-        let max_radius_sq = center_x * center_x + center_y * center_y;
+        let max_radius_sq = center_x.mul_add(center_x, center_y * center_y);
 
         // Pick an arbitrary coordinate
         let x = 10_f32;
@@ -283,7 +283,7 @@ mod tests {
         let expected_vignette = (1.0 - (dist / max_radius).powi(2)).max(0.0);
 
         // Optimized implementation
-        let dist_sq = dx * dx + dy * dy;
+        let dist_sq = dx.mul_add(dx, dy * dy);
         let actual_vignette = (1.0 - (dist_sq / max_radius_sq)).max(0.0);
 
         assert!(
