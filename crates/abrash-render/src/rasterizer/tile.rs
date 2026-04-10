@@ -1117,7 +1117,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_nearest_simd(
                             pixels_slice,
@@ -1165,7 +1165,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_bilinear_simd(
                             pixels_slice,
@@ -1226,7 +1226,7 @@ fn rasterize_scanline_textured(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                if is_x86_feature_detected!("avx2") {
+                if pixels_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_trilinear_simd(
                             pixels_slice,
@@ -3882,7 +3882,7 @@ fn process_tile_scanline_gouraud(
 
             #[cfg(all(feature = "simd", target_arch = "x86_64"))]
             {
-                if pixels.len() >= 8 && is_x86_feature_detected!("avx2") {
+                if pixels.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_scanline_gouraud_simd_fast(
                             pixels, depths, z_at_xs, c_at_xs, dz_dx, dc_dx,

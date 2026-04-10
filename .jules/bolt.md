@@ -47,3 +47,6 @@
 **[Pre-allocate HashMaps to eliminate dynamic heap reallocations]**
 **Learning:** Using `HashMap::new()` in large iterations or when dealing with known data sizes (like parsing glTF joints and nodes) results in unnecessary dynamic heap reallocations and creates empty maps that scale inefficiently during heavy insertions.
 **Action:** Pre-allocated HashMaps using `HashMap::with_capacity()` utilizing known bounds from iterators and slices, eliminating reallocation overhead on the hot parsing path.
+**[Adaptive SIMD Scanline Thresholds]**
+**Learning:** When implementing SIMD (AVX2/FMA) for rasterization scanlines, the overhead of SIMD setup and shuffle operations can exceed the benefits for short scanlines. Profiling the code showed that scanlines < 32 pixels wide were actually slower on SIMD paths.
+**Action:** Implemented an adaptive SIMD threshold (`fb_slice.len() >= 32`) across `flat`, `gouraud`, `pbr`, `phong`, `reflection`, `texture`, and `tile` rasterizer modules before invoking the SIMD path, falling back to a scalar loop for small slices. This recovered a significant chunk of the performance loss seen during early SIMD migration.
