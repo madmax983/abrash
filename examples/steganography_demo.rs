@@ -106,17 +106,22 @@ impl WindowApp for SteganographyDemoApp {
         // Generate a plasma background
         apply_plasma(&mut self.framebuffer, self.time, 1.0);
 
-        if !self.encoded {
+        if self.encoded {
+            // we re-encode it every frame because we redraw the plasma
+            if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
+                eprintln!("Failed to encode message: {e}");
+            }
+        } else {
             // Encode the message
             if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
-                eprintln!("Failed to encode message: {}", e);
+                eprintln!("Failed to encode message: {e}");
             } else {
                 println!("Message successfully encoded into framebuffer.");
                 self.encoded = true;
 
                 // Decode it immediately to prove it works
                 if let Some(decoded) = decode_message(&self.framebuffer) {
-                    println!("Decoded message from framebuffer: {}", decoded);
+                    println!("Decoded message from framebuffer: {decoded}");
                     if decoded == SECRET_MESSAGE {
                         println!("Success! The decoded message matches the original.");
                     } else {
@@ -125,11 +130,6 @@ impl WindowApp for SteganographyDemoApp {
                 } else {
                     println!("Failed to decode message.");
                 }
-            }
-        } else {
-            // we re-encode it every frame because we redraw the plasma
-            if let Err(e) = encode_message(&mut self.framebuffer, SECRET_MESSAGE) {
-                eprintln!("Failed to encode message: {}", e);
             }
         }
 
@@ -141,5 +141,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(SteganographyDemoApp::new().unwrap())
+    run_windowed(SteganographyDemoApp::new().unwrap());
 }

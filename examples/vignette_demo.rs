@@ -145,5 +145,5 @@ impl WindowApp for VignetteApp {
 
 fn main() {
     print_banner();
-    run_windowed(VignetteApp::new().unwrap())
+    run_windowed(VignetteApp::new().unwrap());
 }

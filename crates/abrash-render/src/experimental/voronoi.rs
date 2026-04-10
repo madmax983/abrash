@@ -49,7 +49,6 @@ impl Default for VoronoiConfig {
 ///
 /// * `fb` - The framebuffer to modify.
 /// * `config` - Configuration for the Voronoi effect.
-#[allow(clippy::imprecise_flops)]
 pub fn apply_voronoi(fb: &mut Framebuffer, config: &VoronoiConfig) {
     let width = fb.width() as usize;
     let height = fb.height() as usize;

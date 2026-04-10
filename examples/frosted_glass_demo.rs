@@ -146,5 +146,5 @@ impl WindowApp for FrostedGlassApp {
 
 fn main() {
     print_banner();
-    run_windowed(FrostedGlassApp::new().unwrap())
+    run_windowed(FrostedGlassApp::new().unwrap());
 }

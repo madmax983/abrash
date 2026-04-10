@@ -109,5 +109,5 @@ impl WindowApp for DigitalRainDemoApp {
 fn main() {
     print_banner();
 
-    run_windowed(DigitalRainDemoApp::new().unwrap())
+    run_windowed(DigitalRainDemoApp::new().unwrap());
 }

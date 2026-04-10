@@ -225,5 +225,5 @@ fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(BrickifyDemoApp::new().unwrap())
+    run_windowed(BrickifyDemoApp::new().unwrap());
 }

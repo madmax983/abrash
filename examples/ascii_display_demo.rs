@@ -263,5 +263,5 @@ fn main() {
 #[cfg(feature = "nova")]
 fn main() {
     print_banner();
-    run_windowed(AsciiDisplayDemo::new().unwrap())
+    run_windowed(AsciiDisplayDemo::new().unwrap());
 }

@@ -179,7 +179,7 @@ fn main() {
     #[cfg(feature = "nova")]
     {
         print_banner();
-        run_windowed(BlackHoleDemoApp::new().unwrap())
+        run_windowed(BlackHoleDemoApp::new().unwrap());
     }
     #[cfg(not(feature = "nova"))]
     {

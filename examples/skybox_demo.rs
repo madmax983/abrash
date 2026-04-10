@@ -161,5 +161,5 @@ impl WindowApp for SkyboxDemoApp {
 
 fn main() {
     print_banner();
-    run_windowed(SkyboxDemoApp::new().unwrap())
+    run_windowed(SkyboxDemoApp::new().unwrap());
 }

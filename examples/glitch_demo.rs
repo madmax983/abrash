@@ -233,5 +233,5 @@ impl WindowApp for GlitchDemo {
 
 fn main() {
     print_banner();
-    run_windowed(GlitchDemo::new().unwrap())
+    run_windowed(GlitchDemo::new().unwrap());
 }

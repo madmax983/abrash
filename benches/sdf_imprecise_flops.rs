@@ -18,7 +18,7 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
                 black_box(5),
                 black_box(2.0),
             )
-        })
+        });
     });
 
     // revolution_z
@@ -27,22 +27,22 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
             sdf::revolution_z(black_box(p_vec3), black_box(0.0), |q| {
                 sdf::circle_2d(q, Vec2::new(2.0, 0.0), 0.3)
             })
-        })
+        });
     });
 
     // mandelbrot_dist
     group.bench_function("mandelbrot_dist", |b| {
-        b.iter(|| sdf::mandelbrot_dist(black_box(Vec2::new(0.5, 0.5)), black_box(64)))
+        b.iter(|| sdf::mandelbrot_dist(black_box(Vec2::new(0.5, 0.5)), black_box(64)));
     });
 
     // lens_2d
     group.bench_function("lens_2d", |b| {
-        b.iter(|| sdf::lens_2d(black_box(p_vec2), black_box(0.5), black_box(1.0)))
+        b.iter(|| sdf::lens_2d(black_box(p_vec2), black_box(0.5), black_box(1.0)));
     });
 
     // spiral_2d
     group.bench_function("spiral_2d", |b| {
-        b.iter(|| sdf::spiral_2d(black_box(p_vec2), black_box(1.0), black_box(0.1)))
+        b.iter(|| sdf::spiral_2d(black_box(p_vec2), black_box(1.0), black_box(0.1)));
     });
 
     // polyline_2d
@@ -52,22 +52,22 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
         Vec2::new(2.0, 0.0),
     ];
     group.bench_function("polyline_2d", |b| {
-        b.iter(|| sdf::polyline_2d(black_box(p_vec2), black_box(&pts)))
+        b.iter(|| sdf::polyline_2d(black_box(p_vec2), black_box(&pts)));
     });
 
     // disk_3d
     group.bench_function("disk_3d", |b| {
-        b.iter(|| sdf::disk_3d(black_box(p_vec3), black_box(1.0), black_box(0.1)))
+        b.iter(|| sdf::disk_3d(black_box(p_vec3), black_box(1.0), black_box(0.1)));
     });
 
     // diamond_3d
     group.bench_function("diamond_3d", |b| {
-        b.iter(|| sdf::diamond_3d(black_box(p_vec3), black_box(1.0), black_box(0.5)))
+        b.iter(|| sdf::diamond_3d(black_box(p_vec3), black_box(1.0), black_box(0.5)));
     });
 
     // lemniscate_2d
     group.bench_function("lemniscate_2d", |b| {
-        b.iter(|| sdf::lemniscate_2d(black_box(p_vec2), black_box(1.0)))
+        b.iter(|| sdf::lemniscate_2d(black_box(p_vec2), black_box(1.0)));
     });
 
     // rounded_cylinder_3d
@@ -80,7 +80,7 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
                 black_box(0.5),
                 black_box(2.0),
             )
-        })
+        });
     });
 
     // hexagonal_prism_3d
@@ -92,7 +92,7 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
                 black_box(1.0),
                 black_box(2.0),
             )
-        })
+        });
     });
 
     // rhombus_3d
@@ -105,7 +105,7 @@ fn bench_sdf_imprecise_flops(c: &mut Criterion) {
                 black_box(2.0),
                 black_box(0.5),
             )
-        })
+        });
     });
 
     group.finish();
