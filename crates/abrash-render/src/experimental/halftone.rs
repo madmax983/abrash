@@ -56,7 +56,7 @@ pub fn apply_halftone(fb: &mut Framebuffer, dot_size: f32, angle_radians: f32) {
             let b = (p & 0xFF) as u32;
 
             let lum_i = (19595 * r + 38469 * g + 7471 * b) >> 16;
-            let lum = lum_i as f32 * (1.0 / 255.0);
+            let lum = (lum_i as f32 / 254.0).min(1.0);
 
             // Find the center of the nearest halftone cell in the rotated space.
             let cx = rx_scaled.round() * dot_size;
