@@ -16,6 +16,9 @@
 **Learning:** Replaced safe `zip` iterators with unsafe raw pointer iteration + a pre-loop bounds assertion in `draw_scanline_gouraud_i32` and `draw_scanline_gouraud_i32_tile`. This avoids bounds-checking overhead per pixel and avoids the overhead of zipped iterators.
 **Action:** Modified `crates/abrash-render/src/rasterizer/gouraud.rs` and `crates/abrash-render/src/rasterizer/tile.rs` to use raw pointers. A single initial length assertion ensures memory safety. Verified ~4% speedup in `gouraud_scanline_new` benchmarks.
 
+**Eliminate Per-Frame Vec Allocations in Skeletal Animation**
+**Learning:** Calling `compute_global_transforms` and `compute_skin_matrices` from `abrash-skeletal` per frame resulted in dynamically allocating `Vec<Mat4>` on the heap for each call.
+**Action:** Created `update_global_transforms` and `update_skin_matrices` to mutate a provided buffer in-place (`&mut Vec<Mat4>` and `&mut SkinMatrices`), bypassing the per-frame allocations during animation evaluation.
 **Fused Multiply-Add over Hypot**
 **Learning:** Using `(x * x + y * y).sqrt()` triggers the `clippy::imprecise_flops` lint, but replacing it directly with `x.hypot(y)` causes significant performance regressions. The standard library's `hypot` implementation is accurate but much slower than naive squaring. A better approach that is both highly accurate and fast is to use Fused Multiply-Add (FMA): `x.mul_add(x, y * y).sqrt()`.
 **Action:** Replaced instances of `(x * x + y * y).sqrt()` with `x.mul_add(x, y * y).sqrt()` globally in core math, procedural, rendering, and raycast logic, ensuring numerical precision while maintaining or improving benchmark performance without needing to suppress standard clippy lints globally.
