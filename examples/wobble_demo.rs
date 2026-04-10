@@ -130,9 +130,10 @@ impl WindowApp for WobbleDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(WobbleDemoApp::new().unwrap())
+    run_windowed(WobbleDemoApp::new().unwrap());
 }

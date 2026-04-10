@@ -188,6 +188,7 @@ impl WindowApp for DirectionalBlurDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(DirectionalBlurDemoApp::new().unwrap());

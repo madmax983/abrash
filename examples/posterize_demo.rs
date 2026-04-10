@@ -48,6 +48,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     {

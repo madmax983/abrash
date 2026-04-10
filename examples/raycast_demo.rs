@@ -264,7 +264,8 @@ impl WindowApp for RaycastDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(RaycastDemoApp::new().unwrap())
+    run_windowed(RaycastDemoApp::new().unwrap());
 }

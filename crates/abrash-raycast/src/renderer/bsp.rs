@@ -258,6 +258,7 @@ fn compute_texture_col(
 /// * `camera_angle` -- camera facing direction in BAM units.
 /// * `camera_z`     -- camera height (eye level) in 16.16 fixed-point.
 /// * `fov`          -- horizontal field of view in BAM units.
+#[allow(clippy::too_many_lines)]
 pub fn render_bsp_view(
     fb: &mut Framebuffer,
     zbuf: &mut ZBuffer,

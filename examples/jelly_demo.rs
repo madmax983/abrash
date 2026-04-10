@@ -14,6 +14,7 @@ mod demo {
     use abrash::zbuffer::ZBuffer;
     use std::time::Instant;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let width = 800;
         let height = 600;
@@ -147,6 +148,7 @@ mod winit_demo {
     const WIDTH: u32 = 800;
     const HEIGHT: u32 = 600;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(JellyApp::new().unwrap());
         Ok(())
@@ -367,6 +369,7 @@ fn print_banner() {
 }
 
 #[cfg(feature = "backend-winit")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 
@@ -399,6 +402,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(not(feature = "backend-winit"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn Error>> {
     print_banner();
 

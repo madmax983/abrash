@@ -147,7 +147,8 @@ impl WindowApp for SwirlApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(SwirlApp::new().unwrap())
+    run_windowed(SwirlApp::new().unwrap());
 }

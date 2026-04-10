@@ -188,9 +188,10 @@ impl WindowApp for VhsDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(VhsDemoApp::new().unwrap())
+    run_windowed(VhsDemoApp::new().unwrap());
 }

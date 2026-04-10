@@ -55,6 +55,7 @@ fn print_banner(width: u32, height: u32, triangle_count: usize) {
     println!("{table}");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     let width = 3840;
     let height = 2160;

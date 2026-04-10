@@ -186,7 +186,8 @@ impl WindowApp for Cube3dApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(Cube3dApp::new().unwrap())
+    run_windowed(Cube3dApp::new().unwrap());
 }

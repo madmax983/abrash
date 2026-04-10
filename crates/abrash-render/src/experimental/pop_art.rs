@@ -11,7 +11,7 @@ use abrash_core::framebuffer::Framebuffer;
 pub struct PopArtConfig {
     /// Luminance threshold (0.0 to 1.0). Pixels darker than this use color1, lighter use color2.
     pub threshold: f32,
-    /// Palette for the top-left quadrant (dark_color, light_color).
+    /// Palette for the top-left quadrant (`dark_color`, `light_color`).
     pub palette_tl: (u32, u32),
     /// Palette for the top-right quadrant.
     pub palette_tr: (u32, u32),

@@ -131,6 +131,7 @@ impl WindowApp for App {
 }
 
 #[cfg(feature = "nova")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
 
@@ -146,6 +147,7 @@ fn main() -> Result<(), AppError> {
 }
 
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     println!(
         "This demo requires the 'nova' feature. Run with `cargo run --example starfield_demo --features nova`"

@@ -143,7 +143,8 @@ impl WindowApp for VignetteApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(VignetteApp::new().unwrap())
+    run_windowed(VignetteApp::new().unwrap());
 }

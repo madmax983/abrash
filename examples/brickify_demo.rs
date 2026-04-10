@@ -221,9 +221,10 @@ impl WindowApp for BrickifyDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(BrickifyDemoApp::new().unwrap())
+    run_windowed(BrickifyDemoApp::new().unwrap());
 }

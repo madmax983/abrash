@@ -162,6 +162,7 @@ impl WindowApp for TiltShiftApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
@@ -174,5 +175,5 @@ fn main() {
         println!("  Esc/Q: Close window to exit");
     }
 
-    run_windowed(TiltShiftApp::new().unwrap())
+    run_windowed(TiltShiftApp::new().unwrap());
 }

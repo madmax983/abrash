@@ -175,11 +175,12 @@ impl WindowApp for BlackHoleDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     {
         print_banner();
-        run_windowed(BlackHoleDemoApp::new().unwrap())
+        run_windowed(BlackHoleDemoApp::new().unwrap());
     }
     #[cfg(not(feature = "nova"))]
     {

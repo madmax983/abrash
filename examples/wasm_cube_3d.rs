@@ -50,6 +50,7 @@ fn print_banner() {
     println!("{table}");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
     let cube = Mesh::cube(1.0);

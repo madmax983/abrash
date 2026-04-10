@@ -967,7 +967,7 @@ pub fn van_der_corput(mut bits: u32) -> f32 {
     bits as f32 * (1.0 / 4_294_967_296.0_f32)
 }
 
-/// Hammersley 2D point set — (i/N, van_der_corput(i)).
+/// Hammersley 2D point set — (i/N, `van_der_corput(i)`).
 ///
 /// Produces `total` stratified sample points in \[0,1)² with low discrepancy.
 /// Standard in PBR for importance-sampling the hemisphere and SSAO kernels.
@@ -1413,7 +1413,7 @@ impl Vec2 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -1423,7 +1423,7 @@ impl Vec2 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -1433,7 +1433,7 @@ impl Vec2 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -1443,7 +1443,7 @@ impl Vec2 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -1453,7 +1453,7 @@ impl Vec2 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -1506,14 +1506,14 @@ impl Vec2 {
     /// The smallest of the two components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y)
     }
 
     /// The largest of the two components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y)
     }
 
@@ -2305,7 +2305,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z)
     }
 
@@ -2318,7 +2318,7 @@ impl Vec3 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
@@ -2504,7 +2504,7 @@ impl Vec3 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -2515,7 +2515,7 @@ impl Vec3 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -2526,7 +2526,7 @@ impl Vec3 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -2537,7 +2537,7 @@ impl Vec3 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -3105,7 +3105,7 @@ impl Mat4 {
     /// assert!((result.y - 2.0).abs() < 1e-5);
     /// ```
     #[must_use]
-    pub fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
+    pub const fn shear(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Self {
         // Row-vector: v * M.  Column j of M is the destination for basis vector j.
         // Row 0 = X basis:   x → x + yx*y + zx*z
         // Row 1 = Y basis:   y → xy*x + y + zy*z
@@ -3936,7 +3936,7 @@ impl Mat4 {
     /// ```
     #[must_use]
     #[inline]
-    pub fn row(&self, index: usize) -> Vec4 {
+    pub const fn row(&self, index: usize) -> Vec4 {
         Vec4::new(
             self.m[index][0],
             self.m[index][1],
@@ -5984,7 +5984,7 @@ impl Vec4 {
     /// Component-wise absolute value.
     #[must_use]
     #[inline]
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self {
             x: self.x.abs(),
             y: self.y.abs(),
@@ -5996,7 +5996,7 @@ impl Vec4 {
     /// Component-wise sign: `−1.0`, `0.0`, or `+1.0`.
     #[must_use]
     #[inline]
-    pub fn sign(self) -> Self {
+    pub const fn sign(self) -> Self {
         Self {
             x: self.x.signum(),
             y: self.y.signum(),
@@ -6008,7 +6008,7 @@ impl Vec4 {
     /// Component-wise floor (round toward negative infinity).
     #[must_use]
     #[inline]
-    pub fn floor(self) -> Self {
+    pub const fn floor(self) -> Self {
         Self {
             x: self.x.floor(),
             y: self.y.floor(),
@@ -6020,7 +6020,7 @@ impl Vec4 {
     /// Component-wise ceiling (round toward positive infinity).
     #[must_use]
     #[inline]
-    pub fn ceil(self) -> Self {
+    pub const fn ceil(self) -> Self {
         Self {
             x: self.x.ceil(),
             y: self.y.ceil(),
@@ -6032,7 +6032,7 @@ impl Vec4 {
     /// Component-wise round (round to nearest, ties to even).
     #[must_use]
     #[inline]
-    pub fn round(self) -> Self {
+    pub const fn round(self) -> Self {
         Self {
             x: self.x.round(),
             y: self.y.round(),
@@ -6056,14 +6056,14 @@ impl Vec4 {
     /// Smallest of the four components.
     #[must_use]
     #[inline]
-    pub fn min_component(self) -> f32 {
+    pub const fn min_component(self) -> f32 {
         self.x.min(self.y).min(self.z).min(self.w)
     }
 
     /// Largest of the four components.
     #[must_use]
     #[inline]
-    pub fn max_component(self) -> f32 {
+    pub const fn max_component(self) -> f32 {
         self.x.max(self.y).max(self.z).max(self.w)
     }
 
@@ -7853,10 +7853,10 @@ pub fn octahedral_decode(v: Vec2) -> Vec3 {
 /// assert_eq!(morton_encode_2d(0, 1), 0b10);
 /// assert_eq!(morton_encode_2d(3, 3), 0b1111);
 /// ```
-pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
+pub const fn morton_encode_2d(x: u32, y: u32) -> u32 {
     /// Spread a 16-bit value into even bit positions.
     #[inline(always)]
-    fn part1by1(mut n: u32) -> u32 {
+    const fn part1by1(mut n: u32) -> u32 {
         n &= 0x0000_FFFF;
         n = (n | (n << 8)) & 0x00FF_00FF;
         n = (n | (n << 4)) & 0x0F0F_0F0F;
@@ -7877,10 +7877,10 @@ pub fn morton_encode_2d(x: u32, y: u32) -> u32 {
 /// assert_eq!(morton_decode_2d(0b10), (0, 1));
 /// assert_eq!(morton_decode_2d(0b1111), (3, 3));
 /// ```
-pub fn morton_decode_2d(code: u32) -> (u32, u32) {
+pub const fn morton_decode_2d(code: u32) -> (u32, u32) {
     /// Compact even-bit positions back into a contiguous value.
     #[inline(always)]
-    fn compact1by1(mut n: u32) -> u32 {
+    const fn compact1by1(mut n: u32) -> u32 {
         n &= 0x5555_5555;
         n = (n | (n >> 1)) & 0x3333_3333;
         n = (n | (n >> 2)) & 0x0F0F_0F0F;
@@ -8333,7 +8333,7 @@ pub const fn prev_power_of_two(x: u32) -> u32 {
     if x == 0 {
         return 0;
     }
-    1 << (31 - x.leading_zeros())
+    1 << x.ilog2()
 }
 
 /// 5th-order ("Perlin's smootherstep") smooth interpolation.
@@ -8392,7 +8392,7 @@ pub fn smootherstep7(t: f32) -> f32 {
 /// assert_eq!(median3(5.0_f32, 1.0, 3.0), 3.0);
 /// assert_eq!(median3(2.0_f32, 2.0, 2.0), 2.0);
 /// ```
-pub fn median3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn median3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).min(c).max(a.min(b))
 }
 
@@ -8592,7 +8592,7 @@ mod tests_pass_19 {
 /// hash in ~3 instructions.
 ///
 /// Ideal for procedural generation, noise seeding, and GPU-style per-pixel
-/// random number generation.  Passes PractRand and BigCrush statistical tests.
+/// random number generation.  Passes `PractRand` and `BigCrush` statistical tests.
 ///
 /// # Examples
 ///
@@ -8682,7 +8682,7 @@ pub fn bayer8x8(x: u32, y: u32) -> f32 {
         [15, 47, 7, 39, 13, 45, 5, 37],
         [63, 31, 55, 23, 61, 29, 53, 21],
     ];
-    BAYER[(y & 7) as usize][(x & 7) as usize] as f32 / 64.0
+    f32::from(BAYER[(y & 7) as usize][(x & 7) as usize]) / 64.0
 }
 
 /// Convert a linear amplitude ratio to decibels: `20 * log10(|amplitude|)`.
@@ -8882,7 +8882,7 @@ mod tests_pass_20 {
 /// assert_eq!(min3(3.0_f32, 1.0, 2.0), 1.0);
 /// ```
 #[inline]
-pub fn min3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn min3(a: f32, b: f32, c: f32) -> f32 {
     a.min(b).min(c)
 }
 
@@ -8895,7 +8895,7 @@ pub fn min3(a: f32, b: f32, c: f32) -> f32 {
 /// assert_eq!(max3(3.0_f32, 1.0, 2.0), 3.0);
 /// ```
 #[inline]
-pub fn max3(a: f32, b: f32, c: f32) -> f32 {
+pub const fn max3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).max(c)
 }
 
@@ -9854,9 +9854,9 @@ mod tests_pass_23 {
 
 // ── Pass 24: OKLab, Perlin noise, fBm, Worley, Porter-Duff, colour temp, GCD ─
 
-/// **OKLab** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
+/// **`OKLab`** colour space (Björn Ottosson, 2020) — linear RGB → (L, a, b).
 ///
-/// OKLab is perceptually uniform: equal distances correspond to equal perceived
+/// `OKLab` is perceptually uniform: equal distances correspond to equal perceived
 /// colour differences. Ideal for perceptual blending and palette operations.
 ///
 /// Input is **linear** RGB, not gamma-encoded sRGB.
@@ -9883,7 +9883,7 @@ pub fn linear_rgb_to_oklab(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     )
 }
 
-/// Inverse of [`linear_rgb_to_oklab`] — OKLab (L, a, b) → linear RGB.
+/// Inverse of [`linear_rgb_to_oklab`] — `OKLab` (L, a, b) → linear RGB.
 ///
 /// # Examples
 ///
@@ -10118,7 +10118,7 @@ pub const fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
 /// assert_eq!(lcm_u32(0, 5), 0);
 /// ```
 #[inline]
-pub fn lcm_u32(a: u32, b: u32) -> u32 {
+pub const fn lcm_u32(a: u32, b: u32) -> u32 {
     if a == 0 || b == 0 {
         0
     } else {
@@ -10253,9 +10253,9 @@ pub fn luminance_rec709(r: f32, g: f32, b: f32) -> f32 {
     0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/// **OKLab interpolation** — perceptually uniform colour blend.
+/// **`OKLab` interpolation** — perceptually uniform colour blend.
 ///
-/// Interpolates between two OKLab colours `(L0, a0, b0)` and `(L1, a1, b1)`
+/// Interpolates between two `OKLab` colours `(L0, a0, b0)` and `(L1, a1, b1)`
 /// by factor `t ∈ [0, 1]`, returning the interpolated `(L, a, b)`.
 ///
 /// Unlike sRGB lerp, this preserves perceived colour saturation through the
@@ -10275,7 +10275,7 @@ pub fn oklab_mix(l0: f32, a0: f32, b0: f32, l1: f32, a1: f32, b1: f32, t: f32) -
     (l0 + (l1 - l0) * t, a0 + (a1 - a0) * t, b0 + (b1 - b0) * t)
 }
 
-/// **OKLab hue rotation** — rotate the hue angle in the `(a, b)` plane.
+/// **`OKLab` hue rotation** — rotate the hue angle in the `(a, b)` plane.
 ///
 /// Preserves the lightness `L` and chroma magnitude `sqrt(a² + b²)` while
 /// shifting the hue by `angle_deg` degrees.
@@ -10638,7 +10638,7 @@ pub fn uncharted2_tonemap(x: f32) -> f32 {
 /// assert!((c - 0.282_094_8).abs() < 1e-5);
 /// ```
 #[inline]
-pub fn sh_y00() -> f32 {
+pub const fn sh_y00() -> f32 {
     0.282_094_79 // 1 / (2 * sqrt(π))
 }
 
@@ -10962,7 +10962,7 @@ pub fn mitchell_netravali(x: f32, b: f32, c: f32) -> f32 {
     }
 }
 
-/// Convert OKLab `(L, a, b)` to OKLCh `(L, C, h)` — polar form.
+/// Convert `OKLab` `(L, a, b)` to `OKLCh` `(L, C, h)` — polar form.
 ///
 /// `C = sqrt(a² + b²)`, `h = atan2(b, a)` in degrees [0, 360).
 ///
@@ -10981,7 +10981,7 @@ pub fn oklab_to_oklch(l: f32, a: f32, b: f32) -> (f32, f32, f32) {
     (l, c, h)
 }
 
-/// Convert OKLCh `(L, C, h)` to OKLab `(L, a, b)` — Cartesian form.
+/// Convert `OKLCh` `(L, C, h)` to `OKLab` `(L, a, b)` — Cartesian form.
 ///
 /// `a = C * cos(h)`, `b = C * sin(h)` with `h` in degrees.
 ///
@@ -11431,7 +11431,7 @@ pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
 ///
 /// Returns `None` for total internal reflection (when `eta * sin_θ > 1`).
 ///
-/// * `eta` = n_incident / n_transmitted (e.g. 1.0/1.5 air→glass).
+/// * `eta` = `n_incident` / `n_transmitted` (e.g. 1.0/1.5 air→glass).
 ///
 /// # Examples
 /// ```
@@ -11840,8 +11840,8 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
     fn grad3(hash: u32, dx: f32, dy: f32, dz: f32) -> f32 {
         // Perlin 2002 improved gradients — 12 midpoints of unit cube edges.
         match hash & 15 {
-            0 => dx + dy,
-            1 => -dx + dy,
+            0 | 12 => dx + dy,
+            1 | 13 => -dx + dy,
             2 => dx - dy,
             3 => -dx - dy,
             4 => dx + dz,
@@ -11849,13 +11849,9 @@ pub fn perlin_noise_3d(p: Vec3) -> f32 {
             6 => dx - dz,
             7 => -dx - dz,
             8 => dy + dz,
-            9 => -dy + dz,
+            9 | 14 => -dy + dz,
             10 => dy - dz,
-            11 => -dy - dz,
-            12 => dx + dy,
-            13 => -dx + dy,
-            14 => -dy + dz,
-            _ => -dy - dz,
+            11 | _ => -dy - dz,
         }
     }
     #[inline]
@@ -13097,7 +13093,7 @@ pub fn blend_soft_light(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn next_power_of_2(n: u32) -> u32 {
+pub const fn next_power_of_2(n: u32) -> u32 {
     if n == 0 { 1 } else { n.next_power_of_two() }
 }
 
@@ -13111,8 +13107,8 @@ pub fn next_power_of_2(n: u32) -> u32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn is_power_of_2(n: u32) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+pub const fn is_power_of_2(n: u32) -> bool {
+    n > 0 && n.is_power_of_two()
 }
 
 /// Ceiling integer log₂: smallest `k` such that `2^k ≥ n`.
@@ -13128,7 +13124,7 @@ pub fn is_power_of_2(n: u32) -> bool {
 /// ```
 #[must_use]
 #[inline]
-pub fn log2_ceil(n: u32) -> u32 {
+pub const fn log2_ceil(n: u32) -> u32 {
     if n <= 1 {
         return 0;
     }
@@ -13509,8 +13505,8 @@ pub fn unpack_unorm_4x8(packed: u32) -> (f32, f32, f32, f32) {
 #[must_use]
 #[inline]
 pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
-    let xi = (x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
-    let yi = (y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16 as u32;
+    let xi = u32::from((x.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
+    let yi = u32::from((y.clamp(-1.0, 1.0) * 32_767.0).round() as i16 as u16);
     xi | (yi << 16)
 }
 
@@ -13518,8 +13514,8 @@ pub fn pack_snorm_2x16(x: f32, y: f32) -> u32 {
 #[must_use]
 #[inline]
 pub fn unpack_snorm_2x16(packed: u32) -> (f32, f32) {
-    let x = ((packed & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
-    let y = (((packed >> 16) & 0xFFFF) as i16 as f32 / 32_767.0).clamp(-1.0, 1.0);
+    let x = (f32::from((packed & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
+    let y = (f32::from(((packed >> 16) & 0xFFFF) as i16) / 32_767.0).clamp(-1.0, 1.0);
     (x, y)
 }
 
@@ -14046,7 +14042,9 @@ pub fn sphere_vs_frustum(centre: Vec3, radius: f32, planes: &[[f32; 4]; 6]) -> b
     true
 }
 
-/// Test whether an AABB (`min`, `max`) intersects the frustum. Uses the
+/// Test whether an AABB intersects the frustum.
+///
+/// Uses the
 /// p-vertex (positive-vertex) test: for each plane the "most positive" corner
 /// is tested; if that corner is outside the plane the AABB is fully outside.
 pub fn aabb_vs_frustum(min: Vec3, max: Vec3, planes: &[[f32; 4]; 6]) -> bool {
@@ -14300,14 +14298,14 @@ pub fn wrap_angle(angle: f32) -> f32 {
 /// A second, distinct PCG-output-stage hash — uses a different multiplier than
 /// the `pcg_hash` const fn already in this module (which uses the Murmur3 final
 /// mix). This one uses the PCG-XSH-RR permutation from O'Neill 2014.
-pub fn pcg32_output(state: u32) -> u32 {
+pub const fn pcg32_output(state: u32) -> u32 {
     let s = state.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
     let w = ((s >> ((s >> 28).wrapping_add(4))) ^ s).wrapping_mul(277_803_737);
     (w >> 22) ^ w
 }
 
 /// 2D PCG hash: (u32, u32) → u32. Good spatial decorrelation.
-pub fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
+pub const fn pcg32_hash_2d(x: u32, y: u32) -> u32 {
     pcg32_output(x.wrapping_add(pcg32_output(y)))
 }
 
@@ -15315,7 +15313,7 @@ pub fn fit_plane_to_points(points: &[Vec3]) -> Option<(Vec3, Vec3)> {
     } else if norms[1] >= norms[2] {
         (1, if norms[0] >= norms[2] { 0 } else { 2 })
     } else {
-        (2, if norms[0] >= norms[1] { 0 } else { 1 })
+        (2, usize::from(norms[0] < norms[1]))
     };
     let raw = col[i0].cross(col[i1]);
     let len = raw.length();
@@ -15991,10 +15989,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
     // Spread 10 bits of each coordinate into every third bit position.
     let spread = |mut v: u32| -> u32 {
         v &= 0x0000_03ff;
-        v = (v | (v << 16)) & 0x030000ff;
-        v = (v | (v << 8)) & 0x0300f00f;
-        v = (v | (v << 4)) & 0x030c30c3;
-        v = (v | (v << 2)) & 0x09249249;
+        v = (v | (v << 16)) & 0x0300_00ff;
+        v = (v | (v << 8)) & 0x0300_f00f;
+        v = (v | (v << 4)) & 0x030c_30c3;
+        v = (v | (v << 2)) & 0x0924_9249;
         v
     };
     spread(x) | (spread(y) << 1) | (spread(z) << 2)
@@ -16003,10 +16001,10 @@ pub fn morton_encode_3d(x: u32, y: u32, z: u32) -> u32 {
 /// Decode a 30-bit 3D Morton code back into `(x, y, z)`.
 pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
     let compact = |mut v: u32| -> u32 {
-        v &= 0x09249249;
-        v = (v | (v >> 2)) & 0x030c30c3;
-        v = (v | (v >> 4)) & 0x0300f00f;
-        v = (v | (v >> 8)) & 0x030000ff;
+        v &= 0x0924_9249;
+        v = (v | (v >> 2)) & 0x030c_30c3;
+        v = (v | (v >> 4)) & 0x0300_f00f;
+        v = (v | (v >> 8)) & 0x0300_00ff;
         v = (v | (v >> 16)) & 0x0000_03ff;
         v
     };
@@ -16017,12 +16015,12 @@ pub fn morton_decode_3d(code: u32) -> (u32, u32, u32) {
 ///
 /// Adjacent Gray codes differ by exactly one bit — useful for rotary encoders,
 /// error-resilient counters, and Karnaugh maps.
-pub fn gray_code_encode(n: u32) -> u32 {
+pub const fn gray_code_encode(n: u32) -> u32 {
     n ^ (n >> 1)
 }
 
 /// Decode a Gray code back to binary.
-pub fn gray_code_decode(mut g: u32) -> u32 {
+pub const fn gray_code_decode(mut g: u32) -> u32 {
     // Each bit depends on all higher bits via XOR cascade.
     g ^= g >> 16;
     g ^= g >> 8;
@@ -16037,7 +16035,7 @@ pub fn gray_code_decode(mut g: u32) -> u32 {
 /// Multiplying by the closest integer to `2^32 / φ` spreads sequential
 /// integers uniformly across the u32 range. Ideal for hash-table probing
 /// and low-discrepancy index-to-bin mapping.
-pub fn fibonacci_hash_u32(n: u32) -> u32 {
+pub const fn fibonacci_hash_u32(n: u32) -> u32 {
     // 2^32 / φ ≈ 2654435769 (Knuth multiplicative hash)
     n.wrapping_mul(2_654_435_769)
 }
@@ -16046,7 +16044,7 @@ pub fn fibonacci_hash_u32(n: u32) -> u32 {
 ///
 /// Used to build the van der Corput low-discrepancy sequence:
 /// `corput(i) = reverse_bits_u32(i) as f32 / 2^32`.
-pub fn reverse_bits_u32(mut n: u32) -> u32 {
+pub const fn reverse_bits_u32(mut n: u32) -> u32 {
     n = ((n & 0xffff_0000) >> 16) | ((n & 0x0000_ffff) << 16);
     n = ((n & 0xff00_ff00) >> 8) | ((n & 0x00ff_00ff) << 8);
     n = ((n & 0xf0f0_f0f0) >> 4) | ((n & 0x0f0f_0f0f) << 4);
@@ -16432,7 +16430,7 @@ pub fn sample_triangle_uniform(u1: f32, u2: f32) -> (f32, f32, f32) {
 /// Shirley-Chiu concentric disk mapping: maps `(u, v) ∈ [-1,1]²` to unit disk.
 ///
 /// Low-distortion (preserves area relationships better than polar mapping).
-/// Use with stratified samples for soft shadows and DoF.
+/// Use with stratified samples for soft shadows and `DoF`.
 /// Returns `(x, y)` on the unit disk.
 pub fn concentric_disk_sample(u: f32, v: f32) -> (f32, f32) {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
@@ -17150,6 +17148,8 @@ mod tests_pass_50 {
 ///
 /// Returns the minimal convex polygon vertices; collinear boundary points are
 /// excluded.  Returns an empty `Vec` for fewer than 3 non-coincident points.
+/// # Panics
+/// Panics if `points` is empty.
 pub fn convex_hull_2d(points: &[Vec2]) -> Vec<Vec2> {
     if points.len() < 3 {
         return points.to_vec();
@@ -17660,7 +17660,7 @@ pub fn capsule_vs_capsule(a0: Vec3, a1: Vec3, ra: f32, b0: Vec3, b1: Vec3, rb: f
 
 /// Returns `true` if a sphere overlaps a capsule.
 ///
-/// The capsule is defined by segment (cap_a, cap_b) and radius `cr`.
+/// The capsule is defined by segment (`cap_a`, `cap_b`) and radius `cr`.
 pub fn sphere_vs_capsule(center: Vec3, sr: f32, cap_a: Vec3, cap_b: Vec3, cr: f32) -> bool {
     let seg = Vec3::new(cap_b.x - cap_a.x, cap_b.y - cap_a.y, cap_b.z - cap_a.z);
     let len_sq = seg.x * seg.x + seg.y * seg.y + seg.z * seg.z;
@@ -18138,7 +18138,7 @@ pub fn sdf_cylinder_finite(p: Vec3, a: Vec3, b: Vec3, r: f32) -> f32 {
 
 /// SDF union (take closer surface).
 #[inline]
-pub fn sdf_op_union(a: f32, b: f32) -> f32 {
+pub const fn sdf_op_union(a: f32, b: f32) -> f32 {
     a.min(b)
 }
 
@@ -18150,7 +18150,7 @@ pub fn sdf_op_subtract(a: f32, b: f32) -> f32 {
 
 /// SDF intersection: keep only the overlap.
 #[inline]
-pub fn sdf_op_intersect(a: f32, b: f32) -> f32 {
+pub const fn sdf_op_intersect(a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
@@ -18395,7 +18395,7 @@ mod tests_pass_53 {
 ///
 /// Avalanche score ~0.020 bits (near perfect for a 32-bit hash).
 #[inline]
-pub fn lowbias32(mut x: u32) -> u32 {
+pub const fn lowbias32(mut x: u32) -> u32 {
     x ^= x >> 16;
     x = x.wrapping_mul(0x45d9_f3b7);
     x ^= x >> 16;
@@ -18404,9 +18404,9 @@ pub fn lowbias32(mut x: u32) -> u32 {
     x
 }
 
-/// MurmurHash3 finalizer (fmix32) — excellent bit mixing for hash tables.
+/// `MurmurHash3` finalizer (fmix32) — excellent bit mixing for hash tables.
 #[inline]
-pub fn murmur3_fmix32(mut h: u32) -> u32 {
+pub const fn murmur3_fmix32(mut h: u32) -> u32 {
     h ^= h >> 16;
     h = h.wrapping_mul(0x85eb_ca6b);
     h ^= h >> 13;
@@ -18439,11 +18439,10 @@ pub fn hash_to_unit_vec3(seed: u32) -> Vec3 {
 pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
     let t = kelvin.clamp(1667.0, 25_000.0);
     // Kang 2002 — chromaticity x as function of T.
+    let ti = 1.0 / t;
     let x = if t < 4000.0 {
-        let ti = 1.0 / t;
         -0.266_123_9e9 * ti * ti * ti - 0.234_358_0e6 * ti * ti + 0.877_695_6e3 * ti + 0.179_910
     } else {
-        let ti = 1.0 / t;
         -3.025_846_9e9 * ti * ti * ti + 2.107_037_9e6 * ti * ti + 0.222_634_7e3 * ti + 0.240_390
     };
     // Chromaticity y from x.
@@ -18468,7 +18467,7 @@ pub fn blackbody_linear_rgb(kelvin: f32) -> (f32, f32, f32) {
 ///
 /// `x` and `y` must be in `[0, 2^n)`.  Returns the Hilbert index in
 /// `[0, 4^n)`.
-pub fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
+pub const fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
     let mut d = 0u32;
     let mut s = 1u32 << (n - 1);
     while s > 0 {
@@ -18491,7 +18490,7 @@ pub fn hilbert_xy_to_d(mut x: u32, mut y: u32, n: u32) -> u32 {
 /// Decode Hilbert index `d` to `(x, y)` coordinates for a curve of order `n`.
 ///
 /// Inverse of `hilbert_xy_to_d`.  Returns `(x, y)` in `[0, 2^n)`.
-pub fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
+pub const fn hilbert_d_to_xy(mut d: u32, n: u32) -> (u32, u32) {
     let mut x = 0u32;
     let mut y = 0u32;
     let mut s = 1u32;
@@ -18982,7 +18981,7 @@ pub fn taa_halton_jitter(frame: u32, width: u32, height: u32) -> Vec2 {
 ///
 /// Handles normals, zeros, infinities, and NaN.  Subnormals are flushed to
 /// zero for simplicity (matches the most common GPU behaviour).
-pub fn f32_to_f16(x: f32) -> u16 {
+pub const fn f32_to_f16(x: f32) -> u16 {
     let bits = x.to_bits();
     let sign = ((bits >> 31) & 1) as u16;
     let exp32 = ((bits >> 23) & 0xff) as i32;
@@ -19007,7 +19006,7 @@ pub fn f32_to_f16(x: f32) -> u16 {
 }
 
 /// Convert a 16-bit half-float (`f16`) bit pattern to `f32`.
-pub fn f16_to_f32(h: u16) -> f32 {
+pub const fn f16_to_f32(h: u16) -> f32 {
     let sign = ((h >> 15) & 1) as u32;
     let exp16 = ((h >> 10) & 0x1f) as i32;
     let mant16 = (h & 0x03ff) as u32;
@@ -19383,6 +19382,8 @@ pub fn quat_look_at(forward: Vec3, up: Vec3) -> Quat {
 /// 1 — they are normalised internally.  All quaternions are driven to the same
 /// hemisphere as `quats[0]` before blending to avoid flipping artefacts.
 /// Returns the identity quaternion if the input is empty or weights sum to 0.
+/// # Panics
+/// Panics if `quats` and `weights` have different lengths.
 pub fn quat_nlerp_weighted(quats: &[Quat], weights: &[f32]) -> Quat {
     assert_eq!(quats.len(), weights.len());
     if quats.is_empty() {

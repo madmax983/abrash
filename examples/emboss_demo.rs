@@ -54,6 +54,7 @@ fn print_success(width: u32, height: u32) {
 }
 
 #[cfg(feature = "nova")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     let width = 800;
     let height = 600;
@@ -80,6 +81,7 @@ fn main() {
 }
 
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     use comfy_table::{Cell, Color, Table, presets};
     let mut error_table = Table::new();

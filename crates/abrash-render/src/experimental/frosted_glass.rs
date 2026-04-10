@@ -50,7 +50,7 @@ pub fn apply_frosted_glass(fb: &mut Framebuffer, intensity: f32, seed: u64) {
 
                 // Seed based on row and user seed, making it deterministic per-pixel for a given seed
                 // and avoiding thread-local RNG synchronization overhead.
-                let mut rng = Rng::seeded(seed.wrapping_add((y as u64) * 1000000));
+                let mut rng = Rng::seeded(seed.wrapping_add((y as u64) * 1_000_000));
 
                 for x in 0..width {
                     // Generate random offsets in [-intensity, +intensity]

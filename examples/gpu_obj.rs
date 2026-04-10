@@ -28,6 +28,7 @@ fn print_banner() {
     println!("{}", "=====================".dark_grey());
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
 

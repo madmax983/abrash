@@ -176,7 +176,8 @@ impl WindowApp for HeatVisionApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(HeatVisionApp::new().unwrap())
+    run_windowed(HeatVisionApp::new().unwrap());
 }

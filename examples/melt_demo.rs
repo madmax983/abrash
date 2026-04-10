@@ -166,11 +166,12 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     {
         print_banner();
-        run_windowed(MeltDemoApp::new().unwrap())
+        run_windowed(MeltDemoApp::new().unwrap());
     }
     #[cfg(not(feature = "nova"))]
     {

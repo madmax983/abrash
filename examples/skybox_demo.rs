@@ -159,7 +159,8 @@ impl WindowApp for SkyboxDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(SkyboxDemoApp::new().unwrap())
+    run_windowed(SkyboxDemoApp::new().unwrap());
 }

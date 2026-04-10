@@ -42,6 +42,7 @@ mod app {
         iterations: u32,
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let args = Args::parse();
 
@@ -250,7 +251,7 @@ mod app {
             Line::from(""),
             Line::from(vec![
                 Span::styled("  DNA Length: ", Style::default().fg(Color::Magenta)),
-                Span::raw(format!("{} chars", expanded_len)),
+                Span::raw(format!("{expanded_len} chars")),
             ]),
         ];
 
@@ -329,6 +330,7 @@ mod app {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     {

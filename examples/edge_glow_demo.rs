@@ -60,6 +60,7 @@ mod winit_demo {
     };
     use std::io;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run(width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(EdgeGlowApp::new(width, height).unwrap());
         Ok(())
@@ -168,6 +169,7 @@ mod winit_demo {
 }
 
 #[cfg(feature = "nova")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
 
@@ -245,6 +247,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut error_table = Table::new();
     error_table

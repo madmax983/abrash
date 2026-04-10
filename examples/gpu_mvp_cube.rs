@@ -167,6 +167,7 @@ impl WindowApp for GpuMvpCubeApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), DemoError> {
     run_windowed(GpuMvpCubeApp::new());
     Ok(())

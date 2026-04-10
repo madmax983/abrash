@@ -317,6 +317,8 @@ pub fn draw_scanline_gouraud(
 /// Draw a single scanline for Gouraud shading (Optimized i32 version)
 #[inline(always)]
 #[allow(clippy::too_many_arguments)]
+/// # Panics
+/// Panics if the depth buffer is smaller than the framebuffer.
 pub fn draw_scanline_gouraud_i32(
     fb: &mut Framebuffer,
     zb: &mut ZBuffer,

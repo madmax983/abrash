@@ -208,6 +208,7 @@ mod winit_demo {
     };
     use std::io;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run(
         mesh: Mesh,
         normals: Vec<Vec3>,
@@ -330,6 +331,7 @@ mod winit_demo {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 

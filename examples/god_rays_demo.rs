@@ -51,6 +51,7 @@ mod app {
         println!("{controls}\n");
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         print_banner();
         let mut window = TuiWindow::new("God Rays Demo", WIDTH, HEIGHT)?;
@@ -135,6 +136,7 @@ mod app {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(all(feature = "nova", feature = "backend-tui"))]
     {

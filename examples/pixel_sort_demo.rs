@@ -229,6 +229,7 @@ impl WindowApp for PixelSortDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(PixelSortDemoApp::new().unwrap());

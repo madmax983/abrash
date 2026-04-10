@@ -144,7 +144,8 @@ impl WindowApp for FrostedGlassApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(FrostedGlassApp::new().unwrap())
+    run_windowed(FrostedGlassApp::new().unwrap());
 }

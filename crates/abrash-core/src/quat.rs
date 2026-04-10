@@ -547,7 +547,7 @@ impl Mat4 {
         let inv_sy = if sy > 1e-8 { 1.0 / sy } else { 0.0 };
         let inv_sz = if sz > 1e-8 { 1.0 / sz } else { 0.0 };
 
-        let rot = Mat4 {
+        let rot = Self {
             m: [
                 [m[0][0] * inv_sx, m[0][1] * inv_sx, m[0][2] * inv_sx, 0.0],
                 [m[1][0] * inv_sy, m[1][1] * inv_sy, m[1][2] * inv_sy, 0.0],
@@ -644,7 +644,7 @@ impl DualQuat {
     /// Create from a unit quaternion with no translation.
     #[must_use]
     #[inline]
-    pub fn from_rotation(q: Quat) -> Self {
+    pub const fn from_rotation(q: Quat) -> Self {
         Self {
             real: q,
             dual: Quat {

@@ -135,9 +135,10 @@ impl WindowApp for FisheyeDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
-    run_windowed(FisheyeDemoApp::new().unwrap())
+    run_windowed(FisheyeDemoApp::new().unwrap());
 }

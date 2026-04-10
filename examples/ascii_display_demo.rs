@@ -239,6 +239,7 @@ impl WindowApp for AsciiDisplayDemo {
 
 // Fallback for when "nova" feature is not enabled
 #[cfg(not(feature = "nova"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     let mut error_table = Table::new();
     error_table
@@ -261,7 +262,8 @@ fn main() {
 }
 
 #[cfg(feature = "nova")]
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(AsciiDisplayDemo::new().unwrap())
+    run_windowed(AsciiDisplayDemo::new().unwrap());
 }

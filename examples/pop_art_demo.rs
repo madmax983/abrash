@@ -135,7 +135,8 @@ impl WindowApp for PopArtApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(PopArtApp::new().unwrap())
+    run_windowed(PopArtApp::new().unwrap());
 }

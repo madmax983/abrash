@@ -106,8 +106,9 @@ impl WindowApp for PlasmaDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
 
-    run_windowed(PlasmaDemoApp::new().unwrap())
+    run_windowed(PlasmaDemoApp::new().unwrap());
 }

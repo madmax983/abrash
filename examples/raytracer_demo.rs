@@ -42,6 +42,7 @@ mod winit_demo {
     const WIDTH: u32 = 400;
     const HEIGHT: u32 = 300;
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_windowed(RaytracerApp::new().unwrap());
         Ok(())
@@ -219,12 +220,14 @@ fn print_banner() {
 }
 
 #[cfg(all(feature = "nova", feature = "backend-winit"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     winit_demo::run()
 }
 
 #[cfg(all(not(feature = "nova"), feature = "backend-winit"))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut error_table = Table::new();
     error_table
@@ -247,6 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(all(feature = "nova", not(feature = "backend-winit")))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_banner();
     let mut window = Window::new("Abrash - Raytracer", WIDTH, HEIGHT)?;
@@ -341,6 +345,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(all(not(feature = "nova"), not(feature = "backend-winit")))]
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut error_table = Table::new();
     error_table

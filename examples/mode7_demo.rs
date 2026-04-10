@@ -166,10 +166,11 @@ impl WindowApp for Mode7Demo {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     #[cfg(feature = "nova")]
     print_banner();
 
     let app = Mode7Demo::new();
-    run_windowed(app)
+    run_windowed(app);
 }

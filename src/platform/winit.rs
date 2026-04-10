@@ -166,7 +166,7 @@ pub trait WindowApp {
 
 use comfy_table::{Cell, Color, Table, presets};
 
-fn print_host_error_and_exit(err: HostError) -> ! {
+fn print_host_error_and_exit(err: &HostError) -> ! {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
@@ -191,7 +191,7 @@ where
 {
     let event_loop = match EventLoop::new() {
         Ok(el) => el,
-        Err(error) => print_host_error_and_exit(HostError::EventLoop(error.to_string())),
+        Err(error) => print_host_error_and_exit(&HostError::EventLoop(error.to_string())),
     };
     let config = app.config();
     let window = Arc::new(
@@ -201,7 +201,7 @@ where
             .build(&event_loop)
         {
             Ok(w) => w,
-            Err(error) => print_host_error_and_exit(HostError::Window(error.to_string())),
+            Err(error) => print_host_error_and_exit(&HostError::Window(error.to_string())),
         },
     );
 
@@ -210,7 +210,7 @@ where
         window: window.clone(),
         dt_seconds: 0.0,
     }) {
-        print_host_error_and_exit(HostError::App(error.to_string()));
+        print_host_error_and_exit(&HostError::App(error.to_string()));
     }
 
     let last_error: Rc<RefCell<Option<HostError>>> = Rc::new(RefCell::new(None));
@@ -276,11 +276,11 @@ where
     });
 
     if let Err(error) = event_loop_result {
-        print_host_error_and_exit(HostError::EventLoop(error.to_string()));
+        print_host_error_and_exit(&HostError::EventLoop(error.to_string()));
     }
 
     if let Some(err) = last_error.take() {
-        print_host_error_and_exit(err);
+        print_host_error_and_exit(&err);
     }
 }
 

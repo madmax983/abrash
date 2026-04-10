@@ -494,6 +494,7 @@ impl WindowApp for ShowcaseApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), DemoError> {
     run_windowed(ShowcaseApp::new());
     Ok(())

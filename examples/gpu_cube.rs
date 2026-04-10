@@ -47,6 +47,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
     if let Err(e) = abrash_gpu_render::run_gpu_cube() {

@@ -252,6 +252,7 @@ impl WindowApp for VisionDemoApp {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<(), AppError> {
     print_banner();
     run_windowed(VisionDemoApp::new().unwrap());

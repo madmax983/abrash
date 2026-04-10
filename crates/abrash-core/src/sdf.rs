@@ -1057,21 +1057,21 @@ pub fn repeat_3d(p: Vec3, cell: Vec3) -> Vec3 {
 /// ```
 #[must_use]
 #[inline]
-pub fn mirror_x(p: Vec3) -> Vec3 {
+pub const fn mirror_x(p: Vec3) -> Vec3 {
     Vec3::new(p.x.abs(), p.y, p.z)
 }
 
 /// Reflect `p` across the XZ plane (flip Y sign).
 #[must_use]
 #[inline]
-pub fn mirror_y(p: Vec3) -> Vec3 {
+pub const fn mirror_y(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y.abs(), p.z)
 }
 
 /// Reflect `p` across the XY plane (flip Z sign).
 #[must_use]
 #[inline]
-pub fn mirror_z(p: Vec3) -> Vec3 {
+pub const fn mirror_z(p: Vec3) -> Vec3 {
     Vec3::new(p.x, p.y, p.z.abs())
 }
 
@@ -1225,6 +1225,7 @@ pub fn bezier_sdf_2d(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> f32 {
     // dot(q'(t), q(t)-p) = 0 → cubic in t
     // Coefficients
     let c0 = ab.x * ap.x + ab.y * ap.y;
+    #[allow(clippy::suspicious_operation_groupings)]
     let c1 = (ey.x * ap.x + ey.y * ap.y) + (ab.x * ab.x + ab.y * ab.y);
     let c2 = 3.0 * (ey.x * ab.x + ey.y * ab.y);
     let c3 = ey.x * ey.x + ey.y * ey.y;
@@ -1835,7 +1836,7 @@ pub fn parallelogram_2d(p: Vec2, wi: f32, he: f32, sk: f32) -> f32 {
 
 /// SDF of a 2D uneven (asymmetric) capsule.
 ///
-/// Like a capsule_2d but with different radii `ra` and `rb` at each end cap.
+/// Like a `capsule_2d` but with different radii `ra` and `rb` at each end cap.
 /// `a` and `b` are the centres; `ra` the radius at `a`, `rb` at `b`.
 ///
 /// # Examples
@@ -2167,7 +2168,7 @@ pub fn arrow_2d(p: Vec2, a: Vec2, b: Vec2, head_w: f32, head_h: f32, shaft_r: f3
 /// ```
 #[must_use]
 #[inline]
-pub fn sdf_union(a: f32, b: f32) -> f32 {
+pub const fn sdf_union(a: f32, b: f32) -> f32 {
     a.min(b)
 }
 
@@ -2184,7 +2185,7 @@ pub fn sdf_union(a: f32, b: f32) -> f32 {
 /// ```
 #[must_use]
 #[inline]
-pub fn sdf_intersect(a: f32, b: f32) -> f32 {
+pub const fn sdf_intersect(a: f32, b: f32) -> f32 {
     a.max(b)
 }
 

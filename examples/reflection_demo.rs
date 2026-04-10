@@ -43,6 +43,7 @@ fn print_banner() {
     println!("{controls}\n");
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
 

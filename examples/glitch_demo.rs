@@ -231,7 +231,8 @@ impl WindowApp for GlitchDemo {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() {
     print_banner();
-    run_windowed(GlitchDemo::new().unwrap())
+    run_windowed(GlitchDemo::new().unwrap());
 }
