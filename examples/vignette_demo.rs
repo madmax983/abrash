@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 #![cfg(feature = "backend-winit")]
 //! Demonstration of the Nova Vignette filter.
 

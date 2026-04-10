@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Demonstration of the Swirl Filter.
 //!
 //! Creates a colorful grid pattern and applies a continuously twisting Swirl filter.

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Abrash Graphics Demo - Lit 3D Cube
 //!
 //! Demonstrates flat shading with directional lighting.

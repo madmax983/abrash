@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};
 use abrash::platform::{

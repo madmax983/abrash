@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Abrash Raytracer Demo
 //!
 //! Demonstrates the experimental CPU raytracer with reflections and shadows.

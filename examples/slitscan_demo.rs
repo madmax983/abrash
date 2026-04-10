@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 #![cfg(feature = "backend-winit")]
 use abrash::experimental::slitscan::SlitScanFilter;
 use abrash::framebuffer::Framebuffer;

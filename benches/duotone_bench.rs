@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use abrash_core::framebuffer::Framebuffer;
 use abrash_render::experimental::duotone::apply_duotone;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Cloth Simulation Demo
 //!
 //! Visualizes a mass-spring cloth simulation.

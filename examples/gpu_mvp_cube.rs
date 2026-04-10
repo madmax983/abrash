@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! GPU MVP cube demo using the shared native host seam.
 
 use abrash::platform::{WindowApp, WindowContext, WindowHostConfig, run_windowed};

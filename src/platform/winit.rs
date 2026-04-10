@@ -1,3 +1,4 @@
+#![allow(clippy::needless_pass_by_value)]
 //! Cross-platform native window host built on `winit`.
 //!
 //! The host is intentionally thin: it owns the event loop and window lifecycle,

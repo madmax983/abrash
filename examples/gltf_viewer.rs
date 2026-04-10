@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! glTF Viewer — loads a `.glb`/`.gltf` file and plays its skeletal animation.
 //!
 //! Usage: `cargo run --example gltf_viewer --features gltf -- path/to/model.glb`

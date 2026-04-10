@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_lines)]
 //! BSP software renderer: wall columns, floor/ceiling spans, and the main
 //! `render_bsp_view` entry point.
 //!

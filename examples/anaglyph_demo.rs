@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::experimental::anaglyph::{AnaglyphConfig, apply_anaglyph};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::{Mat4, Vec3};

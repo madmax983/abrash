@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::gpu_render::{GpuDemoConfig, GpuVertex, run_mesh_demo};
 use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;

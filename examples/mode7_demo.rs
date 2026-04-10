@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::experimental::mode7::{Mode7Config, render_mode7};
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{

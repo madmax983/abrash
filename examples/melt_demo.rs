@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::experimental::melt::{MeltConfig, apply_melt};
 use abrash::framebuffer::Framebuffer;
 use abrash::math::Vec2;

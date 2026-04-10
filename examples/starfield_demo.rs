@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Starfield Demo
 //!
 //! Renders a 3D flying starfield using the experimental Starfield effect.

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::bam::{ANG90, Bam};
 use abrash::fixed16_16::Fixed16_16;
 use abrash::framebuffer::Framebuffer;

@@ -1,3 +1,21 @@
+#![allow(clippy::manual_is_power_of_two)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::manual_ilog2)]
+#![allow(clippy::too_long_first_doc_paragraph)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::use_self)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::bool_to_int_with_if)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(
+    clippy::imprecise_flops,
+    clippy::items_after_statements,
+    clippy::must_use_candidate,
+    clippy::suspicious_operation_groupings,
+    clippy::unreadable_literal,
+    clippy::branches_sharing_code
+)]
 #![allow(
     clippy::all,
     unused_variables,

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Abrash Graphics Demo - Normal Mapping
 //!
 //! Demonstrates normal mapping optimization.

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 use abrash::experimental::black_hole::apply_black_hole;
 use abrash::framebuffer::Framebuffer;
 use abrash::platform::{

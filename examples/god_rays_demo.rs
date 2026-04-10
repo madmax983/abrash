@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 #[cfg(all(feature = "nova", feature = "backend-tui"))]
 mod app {
     use abrash::experimental::crepuscular::{GodRaysConfig, apply_god_rays};

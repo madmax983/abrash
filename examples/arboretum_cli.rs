@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! Arboretum CLI - A TUI dashboard for the Arboretum L-System Generator.
 //!
 //! This example demonstrates how to use the experimental `Arboretum` module

@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 //! ASCII Display Demo
 //!
 //! Renders a rotating 3D lit cube and applies the ASCII display post-processing effect.

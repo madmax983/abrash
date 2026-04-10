@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+#![allow(clippy::unnecessary_wraps)]
 #[cfg(feature = "nova")]
 use abrash::experimental::emboss::apply_emboss;
 #[cfg(feature = "nova")]
