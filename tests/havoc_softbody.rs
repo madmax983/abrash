@@ -25,6 +25,7 @@ fn test_truncated_mesh_resilience() {
 }
 
 #[test]
+#[should_panic(expected = "index out of bounds")]
 fn test_havoc_softbody_panic() {
     use abrash::experimental::sdf::{SdfObject, SdfPrimitive, SdfScene};
     let mut mesh = Mesh::new();
