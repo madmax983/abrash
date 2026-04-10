@@ -300,7 +300,7 @@ fn extract_skeleton(
     }
 
     // Build node_index → provisional joint index map
-    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::new();
+    let mut node_idx_to_provisional: HashMap<usize, usize> = HashMap::with_capacity(joint_count);
     for (i, node) in joint_nodes.iter().enumerate() {
         node_idx_to_provisional.insert(node.index(), i);
     }
@@ -351,7 +351,7 @@ fn extract_skeleton(
     let sorted_order = topological_sort_joints(&provisional);
 
     // Build old_provisional_index → new_sorted_index mapping
-    let mut old_to_new: HashMap<usize, usize> = HashMap::new();
+    let mut old_to_new: HashMap<usize, usize> = HashMap::with_capacity(sorted_order.len());
     for (new_idx, &old_idx) in sorted_order.iter().enumerate() {
         old_to_new.insert(old_idx, new_idx);
     }
@@ -390,7 +390,7 @@ fn build_parent_map(
     joint_nodes: &[gltf::Node<'_>],
     joint_set: &HashMap<usize, usize>,
 ) -> HashMap<usize, usize> {
-    let mut child_to_parent: HashMap<usize, usize> = HashMap::new();
+    let mut child_to_parent: HashMap<usize, usize> = HashMap::with_capacity(joint_nodes.len());
 
     for node in joint_nodes {
         for child in node.children() {
