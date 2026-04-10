@@ -54,7 +54,6 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     theta
 }
 
-#[allow(clippy::imprecise_flops)]
 pub fn apply_kaleidoscope(fb: &mut Framebuffer, segments: usize) {
     if segments <= 1 {
         return;
