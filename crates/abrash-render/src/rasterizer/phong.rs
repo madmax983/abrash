@@ -4,7 +4,7 @@
 
 use crate::clipping::clip_triangle_to_frustum;
 use crate::framebuffer::Framebuffer;
-use crate::math::{Mat4, ScreenPoint, Vec3, fast_inv_sqrt, project_triangle_to_screen};
+use crate::math::{Mat4, ScreenPoint, Vec3, project_triangle_to_screen};
 use crate::zbuffer::ZBuffer;
 
 use super::core::{
@@ -382,7 +382,7 @@ unsafe fn draw_scanline_phong_shadowed_simd(
             let len_sq = nx * nx + ny * ny + nz * nz;
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
             let intensity = if len_sq > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0
@@ -1135,7 +1135,7 @@ fn draw_scanline_phong_shadowed(
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0
@@ -1740,7 +1740,7 @@ unsafe fn draw_scanline_phong_simd(
                 let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
                 let intensity = if len_sq > 0.0001 {
-                    let inv_len = fast_inv_sqrt(len_sq);
+                    let inv_len = len_sq.sqrt().recip();
                     (dot_unorm * inv_len).max(0.0)
                 } else {
                     0.0
@@ -1837,7 +1837,7 @@ fn draw_scanline_phong(
             let dot_unorm = nx * neg_light_dir.x + ny * neg_light_dir.y + nz * neg_light_dir.z;
 
             let intensity = if len_sq > 0.0001 {
-                let inv_len = fast_inv_sqrt(len_sq);
+                let inv_len = len_sq.sqrt().recip();
                 (dot_unorm * inv_len).max(0.0)
             } else {
                 0.0

@@ -47,10 +47,10 @@ use std::ops::{Add, Mul, Sub};
 /// # Examples
 ///
 /// ```
-/// use abrash_core::math::fast_inv_sqrt;
+///
 ///
 /// let x = 4.0;
-/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
+/// let inv_sqrt = x.sqrt().recip(); // 1.0 / sqrt(4.0) = 0.5
 ///
 /// // Assert with a small tolerance due to approximation
 /// assert!((inv_sqrt - 0.5).abs() < 0.01);
@@ -148,44 +148,7 @@ pub fn fast_cos(x: f32) -> f32 {
 
 /// Fast approximation of the inverse square root.
 ///
-/// Computes an approximation of `1.0 / sqrt(x)`. This uses the hardware-accelerated
-/// AVX/SSE intrinsic if available, which offers excellent performance (around 4 cycles)
-/// at the cost of a small precision error. If AVX/SSE is not available, it falls back
-/// to a standard `sqrt().recip()`, which is typically faster on modern generic `x86_64`
-/// CPUs than the legacy "Quake III bit-hack".
-///
-/// # Examples
-///
-/// ```
-/// use abrash_core::math::fast_inv_sqrt;
-///
-/// let x = 4.0;
-/// let inv_sqrt = fast_inv_sqrt(x); // 1.0 / sqrt(4.0) = 0.5
-///
-/// // Assert with a small tolerance due to approximation
-/// assert!((inv_sqrt - 0.5).abs() < 0.01);
-/// ```
-#[must_use]
-pub fn fast_inv_sqrt(n: f32) -> f32 {
-    // Use AVX/SSE approximate reciprocal square root if available.
-    // This is faster (~4 cycles latency vs ~23 for sqrt+div) but less precise.
-    // We accept the approximation (error < 1.5*2^-12) for the sake of speed in lighting/normalization.
-    #[cfg(all(target_arch = "x86_64", feature = "simd"))]
-    unsafe {
-        // _mm_rsqrt_ss computes approximate 1/sqrt(a) for the lower float.
-        let n_vec = std::arch::x86_64::_mm_set_ss(n);
-        let r = std::arch::x86_64::_mm_rsqrt_ss(n_vec);
-        std::arch::x86_64::_mm_cvtss_f32(r)
-    }
 
-    #[cfg(not(all(target_arch = "x86_64", feature = "simd")))]
-    {
-        // Modern hardware sqrt (e.g. sqrtss) is extremely fast.
-        // Combined with reciprocal, this is faster (~2.3ns) than the legacy Quake III
-        // bit-hack (~3.4ns) on modern x86_64, and safer than manual intrinsics.
-        n.sqrt().recip()
-    }
-}
 
 /// Linearly interpolates between two scalar values.
 ///
@@ -1506,7 +1469,7 @@ impl Vec3 {
     pub fn fast_normalize(self) -> Self {
         let len_sq = self.length_sq();
         if len_sq > 0.000_000_01 {
-            let inv_len = fast_inv_sqrt(len_sq);
+            let inv_len = len_sq.sqrt().recip();
             Self {
                 x: self.x * inv_len,
                 y: self.y * inv_len,
@@ -4650,18 +4613,6 @@ mod tests {
         assert!((n_small.x - 1e-5).abs() < f32::EPSILON);
     }
 
-    #[test]
-    fn test_fast_inv_sqrt_sanity() {
-        let x = 4.0;
-        let y = fast_inv_sqrt(x);
-        // 1/sqrt(4) = 0.5
-        assert!((y - 0.5).abs() < 0.01);
-
-        let x = 16.0;
-        let y = fast_inv_sqrt(x);
-        // 1/sqrt(16) = 0.25
-        assert!((y - 0.25).abs() < 0.01);
-    }
 
     #[test]
     fn test_project_to_screen_safety() {

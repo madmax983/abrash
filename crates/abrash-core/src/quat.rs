@@ -5,7 +5,7 @@
 
 use std::ops::Mul;
 
-use crate::math::{Mat4, Vec3, fast_inv_sqrt};
+use crate::math::{Mat4, Vec3};
 
 /// A unit quaternion representing a 3D rotation.
 ///
@@ -292,7 +292,7 @@ impl Quat {
         if len_sq < f32::EPSILON * f32::EPSILON {
             return Self::identity();
         }
-        let inv = fast_inv_sqrt(len_sq);
+        let inv = len_sq.sqrt().recip();
         Self::new(self.x * inv, self.y * inv, self.z * inv, self.w * inv)
     }
 
