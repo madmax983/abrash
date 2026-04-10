@@ -104,9 +104,6 @@ impl CpuRenderer {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn extract_draw_list(&self, frame: &Frame) -> Result<DrawList, RenderError> {
         let view_proj = frame.camera.view * frame.camera.projection;
-        let mut draw_list = DrawList::new(frame.camera);
-        draw_list.clear_color = frame.clear_color;
-        draw_list.lights.clone_from(&frame.lights);
 
         // Pre-calculate total required vertices to avoid dynamic reallocations
         let mut total_vertices = 0;
@@ -128,8 +125,16 @@ impl CpuRenderer {
             total_vertices += cpu_mesh.mesh.vertices.len();
         }
 
-        draw_list.batches.reserve(frame.commands.len());
-        draw_list.vertices.reserve(total_vertices);
+        // ⚡ Bolt: Construct `DrawList` directly with capacity.
+        // This avoids `DrawList::new()` constructing empty `Vec`s only to be
+        // immediately reallocated via `.reserve()` later.
+        let mut draw_list = DrawList::with_capacity(
+            frame.camera,
+            total_vertices,
+            frame.commands.len(),
+        );
+        draw_list.clear_color = frame.clear_color;
+        draw_list.lights.clone_from(&frame.lights);
 
         #[cfg(feature = "parallel")]
         {

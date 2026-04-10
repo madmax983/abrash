@@ -209,7 +209,6 @@ impl Scene {
     pub fn extract(&self) -> DrawList {
         let view_proj = self.camera.view * self.camera.proj;
         let camera = FrameCamera::new(self.camera.view, self.camera.proj);
-        let mut draw_list = DrawList::new(camera);
 
         RENDER_CONTEXT.with(|ctx_cell| {
             let mut ctx_guard = ctx_cell.borrow_mut();
@@ -242,8 +241,10 @@ impl Scene {
                 }
             }
 
-            draw_list.batches.reserve(visible_count);
-            draw_list.vertices.reserve(total_vertices);
+            // ⚡ Bolt: Construct `DrawList` directly with capacity.
+            // This avoids `DrawList::new()` constructing empty `Vec`s only to be
+            // immediately reallocated via `.reserve()` later.
+            let mut draw_list = DrawList::with_capacity(camera, total_vertices, visible_count);
 
             for (i, obj) in self.objects.iter().enumerate() {
                 if !cull_results[i] {
@@ -277,9 +278,9 @@ impl Scene {
                     obj.color,
                 ));
             }
-        });
 
-        draw_list
+            draw_list
+        })
     }
 
     /// Render the scene using the provided renderer.

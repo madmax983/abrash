@@ -118,6 +118,20 @@ impl DrawList {
         }
     }
 
+    /// ⚡ Bolt: Create an empty draw list, pre-allocating the underlying vectors.
+    /// This eliminates O(N) reallocation overhead during `DrawList` extraction
+    /// for complex scenes.
+    #[must_use]
+    pub fn with_capacity(camera: FrameCamera, num_vertices: usize, num_batches: usize) -> Self {
+        Self {
+            camera,
+            lights: Vec::new(),
+            vertices: Vec::with_capacity(num_vertices),
+            batches: Vec::with_capacity(num_batches),
+            clear_color: Some(0xFF00_0000),
+        }
+    }
+
     /// Append a draw batch.
     pub fn push(&mut self, batch: DrawBatch) {
         self.batches.push(batch);

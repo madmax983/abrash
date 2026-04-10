@@ -47,13 +47,17 @@ impl SkeletonAnimator {
         let current_pose = bind_pose.clone();
 
         // Initialize all bones with no animation
-        let mut bone_animators: Vec<BoneAnimator> = (0..joint_count)
-            .map(|_| BoneAnimator {
+        // ⚡ Bolt: Removed `.collect()` which triggers dynamic heap reallocation
+        // inside the map pipeline. Replaced with pre-allocated vector and a loop to eliminate the
+        // allocation overhead during animation setup.
+        let mut bone_animators = Vec::with_capacity(joint_count);
+        for _ in 0..joint_count {
+            bone_animators.push(BoneAnimator {
                 position: None,
                 rotation: None,
                 scale: None,
-            })
-            .collect();
+            });
+        }
 
         // Populate from clip channels
         for channel in &clip.channels {

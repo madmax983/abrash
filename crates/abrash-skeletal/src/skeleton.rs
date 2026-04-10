@@ -110,12 +110,15 @@ impl Skeleton {
             global_transforms.len()
         );
 
-        let matrices = self
-            .joints
-            .iter()
-            .zip(global_transforms)
-            .map(|(joint, global)| joint.inverse_bind_matrix * *global)
-            .collect();
+        // ⚡ Bolt: Eliminate intermediate dynamic vector allocations for matrix processing
+        // by mapping and extending into a pre-allocated vector instead of using `.collect()`.
+        let mut matrices = Vec::with_capacity(n);
+        matrices.extend(
+            self.joints
+                .iter()
+                .zip(global_transforms)
+                .map(|(joint, global)| joint.inverse_bind_matrix * *global),
+        );
 
         SkinMatrices { matrices }
     }
