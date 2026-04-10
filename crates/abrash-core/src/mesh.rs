@@ -465,20 +465,24 @@ impl Mesh {
     /// assert_eq!(normals.len(), 1);
     /// assert_eq!(normals[0], Vec3::new(0.0, 0.0, 1.0));
     /// ```
+    /// Computes and returns the face normals for each triangle in the mesh.
+    ///
+    /// ⚡ Bolt: Uses `extend` with `with_capacity` instead of `.collect::<Vec<_>>()`.
+    /// This prevents intermediate allocator resizing chains because `ExactSizeIterator` optimizations
+    /// for complex iterator mapping can sometimes fail to inline optimally in the frontend.
     #[must_use]
     pub fn compute_face_normals(&self) -> Vec<Vec3> {
-        self.indices
-            .iter()
-            .map(|&[i0, i1, i2]| {
-                let v0 = self.vertices[i0];
-                let v1 = self.vertices[i1];
-                let v2 = self.vertices[i2];
+        let mut normals = Vec::with_capacity(self.indices.len());
+        normals.extend(self.indices.iter().map(|&[i0, i1, i2]| {
+            let v0 = self.vertices[i0];
+            let v1 = self.vertices[i1];
+            let v2 = self.vertices[i2];
 
-                let edge1 = v1 - v0;
-                let edge2 = v2 - v0;
-                edge1.cross(edge2).normalize()
-            })
-            .collect()
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            edge1.cross(edge2).normalize()
+        }));
+        normals
     }
 
     /// Calculates the bounding sphere of the mesh.

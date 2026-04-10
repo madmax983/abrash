@@ -208,3 +208,15 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 ## [Performance] Halftone Coordinates Optimization
 **Learning:** In the Halftone post-processing effect, recalculating `rx = x_f32 * cos_a - y_sin_a` and `ry = x_f32 * sin_a + y_cos_a` per pixel inside the innermost rendering loop entails redundant floating-point multiplications that slow down performance.
 **Action:** Replace absolute per-pixel coordinate formulas with incremental loops. Initialize `rx` and `ry` at the start of a scanline with `-y_sin_a` and `y_cos_a`, and inside the loop add `cos_a` and `sin_a` each iteration. Combined with replacing floating point RGB extraction and math with integer bitshifts and math (`(77 * r + 150 * g + 29 * b) >> 8`), this optimization yielded improved performance in the Halftone effect.
+
+**[Performance Optimization: Iterator `collect` vs Pre-allocated `extend`]**
+**Learning:** When processing iterators through complex mapping closures (e.g. vertex to normal calculation), using `.collect::<Vec<_>>()` can sometimes bypass frontend length optimizations and result in resizing allocation chains. Pre-allocating with `Vec::with_capacity` and using `extend` can provide optimization benefits and guarantees exact allocations.
+**Action:** Replace `.collect::<Vec<_>>()` chains in hot math loops generating vectors with `Vec::with_capacity` followed by `.extend(...)`.
+
+**[Performance Optimization: Iterator `collect` vs Pre-allocated `extend`]**
+**Learning:** When mapping over a slice iterator or any iterator that implements `ExactSizeIterator` and `TrustedLen` in Rust, the standard `.collect::<Vec<_>>()` method is optimally efficient because it automatically pre-allocates the exact required capacity. Refactoring this pattern to use `Vec::with_capacity()` followed by `.extend()` provides no measurable performance benefit and should be avoided.
+**Action:** Do not attempt to replace `.collect::<Vec<_>>()` on iterators derived from slices (or other ExactSizeIterator implementations) with `Vec::with_capacity()` and `.extend(...)`. Focus optimization efforts on dynamically sized loops or cases where the iterator cannot accurately predict its final length.
+
+**[Performance Optimization: Eliminating `collect` with Pre-validated Rayon Parallel Extensions]**
+**Learning:** In `crates/abrash-render/src/render_api/cpu_renderer.rs`, using `.collect::<Result<Vec<_>, _>>()` in a Rayon parallel iterator creates a per-frame dynamic heap allocation. While Rayon requires fallible operations to be collected sequentially or via `try_fold`, you can eliminate the fallible mapping entirely by hoisting the error-producing validation (e.g., verifying resource handles) into a preceding sequential loop.
+**Action:** Once validated, the parallel iterator becomes infallible, allowing the use of `target_vec.par_extend(iterator)` directly into a pre-allocated structure, completely removing the intermediate O(N) heap allocation overhead.
