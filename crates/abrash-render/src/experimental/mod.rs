@@ -72,6 +72,7 @@ pub mod raytracer;
 pub mod reaction_diffusion;
 pub mod sdf;
 pub mod sharpen;
+pub mod sketch;
 pub mod slitscan;
 pub mod starfield;
 pub mod steganography;

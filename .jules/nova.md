@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Sketch Filter]
+**Concept:** A retro post-processing effect that converts the framebuffer into a pencil sketch look, extracting edges via Sobel filter and applying a crosshatch noise pass on an inverted background.
+**Fate:** Implemented
+**Lesson:** Hoisting the pseudo-random number generator (PRNG) state to be initialized per-row (`y` based seed) instead of per-pixel (`y * width + x`) drastically improves parallel efficiency in hot loops. By reducing the math inside the inner iteration, we gained a massive ~34% performance improvement in the Rayon chunks while keeping the visual output consistent and deterministic.
