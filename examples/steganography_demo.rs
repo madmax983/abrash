@@ -5,7 +5,7 @@ use abrash::platform::{
     HostError, SoftwarePresenter, WindowApp, WindowContext, WindowHostConfig, run_windowed,
 };
 
-use comfy_table::{presets, Cell, Color, Table};
+use comfy_table::{Cell, Color, Table, presets};
 use crossterm::style::Stylize;
 
 #[cfg(feature = "nova")]
@@ -128,7 +128,8 @@ impl WindowApp for SteganographyDemoApp {
                     ])
                     .add_row(vec![
                         Cell::new("Status").fg(Color::Cyan),
-                        Cell::new("Message successfully encoded into framebuffer.").fg(Color::White),
+                        Cell::new("Message successfully encoded into framebuffer.")
+                            .fg(Color::White),
                     ]);
 
                 self.encoded = true;
@@ -142,7 +143,8 @@ impl WindowApp for SteganographyDemoApp {
                     if decoded == SECRET_MESSAGE {
                         success_table.add_row(vec![
                             Cell::new("Verification").fg(Color::Cyan),
-                            Cell::new("Success! The decoded message matches the original.").fg(Color::Green),
+                            Cell::new("Success! The decoded message matches the original.")
+                                .fg(Color::Green),
                         ]);
                         println!("\n{success_table}");
                     } else {
@@ -154,7 +156,10 @@ impl WindowApp for SteganographyDemoApp {
                                     .add_attribute(comfy_table::Attribute::Bold)
                                     .fg(Color::Red),
                             ])
-                            .add_row(vec![Cell::new("The decoded message does NOT match the original.").fg(Color::Yellow)]);
+                            .add_row(vec![
+                                Cell::new("The decoded message does NOT match the original.")
+                                    .fg(Color::Yellow),
+                            ]);
                         eprintln!("\n{success_table}");
                         eprintln!("\n{error_table}");
                     }
@@ -167,7 +172,9 @@ impl WindowApp for SteganographyDemoApp {
                                 .add_attribute(comfy_table::Attribute::Bold)
                                 .fg(Color::Red),
                         ])
-                        .add_row(vec![Cell::new("Failed to decode message.").fg(Color::Yellow)]);
+                        .add_row(vec![
+                            Cell::new("Failed to decode message.").fg(Color::Yellow),
+                        ]);
                     eprintln!("\n{success_table}");
                     eprintln!("\n{error_table}");
                 }
