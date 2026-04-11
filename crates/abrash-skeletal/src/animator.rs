@@ -47,13 +47,14 @@ impl SkeletonAnimator {
         let current_pose = bind_pose.clone();
 
         // Initialize all bones with no animation
-        let mut bone_animators: Vec<BoneAnimator> = (0..joint_count)
-            .map(|_| BoneAnimator {
+        let mut bone_animators: Vec<BoneAnimator> = Vec::with_capacity(joint_count);
+        for _ in 0..joint_count {
+            bone_animators.push(BoneAnimator {
                 position: None,
                 rotation: None,
                 scale: None,
-            })
-            .collect();
+            });
+        }
 
         // Populate from clip channels
         for channel in &clip.channels {

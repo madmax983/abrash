@@ -184,3 +184,7 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **Test Float Comparison Lints**
 **Learning:** Using `assert_eq!` on floating-point numbers triggers `clippy::float_cmp` warnings, which causes build failures when `-D warnings` is enforced. Furthermore, exact equality checks fail when utilizing approximation functions (like `fast_inv_sqrt` inside `fast_normalize`).
 **Action:** When testing float values, especially after introducing approximations, always assert that the absolute difference is within an epsilon boundary (e.g., `assert!((a - b).abs() < f32::EPSILON)`).
+
+## [Performance] Avoid collect() when allocating exact capacity
+**Learning:** Found a bottleneck where `(0..joint_count).map(...).collect::<Vec<_>>()` was used to construct an initialization buffer for `BoneAnimator`. This uses the generic iterator collection which involves unnecessary reallocations if the iterator's lower bound isn't perfectly respected by the allocator path.
+**Action:** Replaced `.collect::<Vec<_>>()` with a manual loop pushing to a `Vec::with_capacity(joint_count)`. This explicit pre-allocation ensures a single heap allocation and directly inserts elements without iterator abstraction overhead.
