@@ -31,66 +31,80 @@ pub fn apply_frosted_glass(fb: &mut Framebuffer, intensity: f32, seed: u64) {
 
     let intensity_i = intensity.ceil() as i32;
 
+    // Bolt Performance Optimization:
     // We need to clone the framebuffer to safely read scattered pixels
     // without reading back pixels we've already modified.
-    let src_buf = fb.as_slice().to_vec();
-    let dest_pixels = fb.as_mut_slice();
+    // By hoisting this buffer into a `thread_local!` we eliminate a `Vec` heap allocation
+    // (via `.to_vec()`) per frame, reducing memory fragmentation and allocation overhead.
+    thread_local! {
+        static SOURCE_PIXELS: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
 
-    #[cfg(feature = "parallel")]
-    {
-        use rayon::prelude::*;
+    SOURCE_PIXELS.with(|buf| {
+        let mut src_pixels = buf.borrow_mut();
+        src_pixels.clear();
+        src_pixels.extend_from_slice(fb.as_slice());
 
-        let chunk_size = width as usize;
+        // Extract a primitive slice to prevent capturing the `!Send` `RefMut` in the Rayon closure
+        let src_buf = src_pixels.as_slice();
+        let dest_pixels = fb.as_mut_slice();
 
-        dest_pixels
-            .par_chunks_exact_mut(chunk_size)
-            .enumerate()
-            .for_each(|(y, row)| {
-                let y = y as i32;
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
 
-                // Seed based on row and user seed, making it deterministic per-pixel for a given seed
-                // and avoiding thread-local RNG synchronization overhead.
-                let mut rng = Rng::seeded(seed.wrapping_add((y as u64) * 1000000));
+            let chunk_size = width as usize;
 
+            dest_pixels
+                .par_chunks_exact_mut(chunk_size)
+                .enumerate()
+                .for_each(|(y, row)| {
+                    let y = y as i32;
+
+                    // Seed based on row and user seed, making it deterministic per-pixel for a given seed
+                    // and avoiding thread-local RNG synchronization overhead.
+                    let mut rng = Rng::seeded(seed.wrapping_add((y as u64) * 1000000));
+
+                    for x in 0..width {
+                        // Generate random offsets in [-intensity, +intensity]
+                        let dx = rng.i32_range(-intensity_i, intensity_i);
+                        let dy = rng.i32_range(-intensity_i, intensity_i);
+
+                        let mut sx = x + dx;
+                        let mut sy = y + dy;
+
+                        // Clamp to edges
+                        sx = sx.clamp(0, width - 1);
+                        sy = sy.clamp(0, height - 1);
+
+                        let src_idx = (sy * width + sx) as usize;
+                        row[x as usize] = src_buf[src_idx];
+                    }
+                });
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            let mut rng = Rng::seeded(seed);
+
+            for y in 0..height {
+                let row_start = (y * width) as usize;
                 for x in 0..width {
-                    // Generate random offsets in [-intensity, +intensity]
                     let dx = rng.i32_range(-intensity_i, intensity_i);
                     let dy = rng.i32_range(-intensity_i, intensity_i);
 
                     let mut sx = x + dx;
                     let mut sy = y + dy;
 
-                    // Clamp to edges
                     sx = sx.clamp(0, width - 1);
                     sy = sy.clamp(0, height - 1);
 
                     let src_idx = (sy * width + sx) as usize;
-                    row[x as usize] = src_buf[src_idx];
+                    dest_pixels[row_start + x as usize] = src_buf[src_idx];
                 }
-            });
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        let mut rng = Rng::seeded(seed);
-
-        for y in 0..height {
-            let row_start = (y * width) as usize;
-            for x in 0..width {
-                let dx = rng.i32_range(-intensity_i, intensity_i);
-                let dy = rng.i32_range(-intensity_i, intensity_i);
-
-                let mut sx = x + dx;
-                let mut sy = y + dy;
-
-                sx = sx.clamp(0, width - 1);
-                sy = sy.clamp(0, height - 1);
-
-                let src_idx = (sy * width + sx) as usize;
-                dest_pixels[row_start + x as usize] = src_buf[src_idx];
             }
         }
-    }
+    });
 }
 
 #[cfg(test)]
