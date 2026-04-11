@@ -533,13 +533,14 @@ impl Framebuffer {
             .take(self.height() as usize)
         {
             row_buffer.clear();
-            row_buffer.extend(row.iter().flat_map(|&pixel| {
-                [
+            for &pixel in row {
+                let bytes = [
                     ((pixel >> 16) & 0xFF) as u8,
                     ((pixel >> 8) & 0xFF) as u8,
                     (pixel & 0xFF) as u8,
-                ]
-            }));
+                ];
+                row_buffer.extend_from_slice(&bytes);
+            }
             writer.write_all(&row_buffer)?;
         }
 
@@ -587,13 +588,14 @@ impl Framebuffer {
             .take(self.height() as usize)
         {
             row_buffer.clear();
-            row_buffer.extend(row.iter().flat_map(|&pixel| {
-                [
+            for &pixel in row {
+                let bytes = [
                     (pixel & 0xFF) as u8,
                     ((pixel >> 8) & 0xFF) as u8,
                     ((pixel >> 16) & 0xFF) as u8,
-                ]
-            }));
+                ];
+                row_buffer.extend_from_slice(&bytes);
+            }
             writer.write_all(&row_buffer)?;
         }
 

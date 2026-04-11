@@ -266,6 +266,9 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Pre-allocate HashMaps to eliminate dynamic heap reallocations]**
 **Learning:** Using `HashMap::new()` in large iterations or when dealing with known data sizes (like parsing glTF joints and nodes) results in unnecessary dynamic heap reallocations and creates empty maps that scale inefficiently during heavy insertions.
 **Action:** Pre-allocated HashMaps using `HashMap::with_capacity()` utilizing known bounds from iterators and slices, eliminating reallocation overhead on the hot parsing path.
+**[Optimized Framebuffer Exports]
+**Learning:** In hot pixel conversion loops (like exporting PPM or TGA from a Framebuffer), using `.extend(iter.flat_map(...))` is inefficient because `flat_map` yields one byte at a time and provides a poor `size_hint` (lower bound 0). This prevents `Vec::extend` from optimally pre-allocating, resulting in per-byte capacity checks and allocations.
+**Action:** Replace `flat_map` chains with a `for` loop that constructs a stack-allocated byte array per pixel (e.g., `let bytes = [r, g, b, a];`) and pushes it using `Vec::extend_from_slice(&bytes)`. This eliminates intermediate iterators, allows direct slice copies, and is a proven, safe micro-optimization.
 **[Adaptive SIMD Scanline Thresholds]**
 **Learning:** When implementing SIMD (AVX2/FMA) for rasterization scanlines, the overhead of SIMD setup and shuffle operations can exceed the benefits for short scanlines. Profiling the code showed that scanlines < 32 pixels wide were actually slower on SIMD paths.
 **Action:** Implemented an adaptive SIMD threshold (`fb_slice.len() >= 32`) across `flat`, `gouraud`, `pbr`, `phong`, `reflection`, `texture`, and `tile` rasterizer modules before invoking the SIMD path, falling back to a scalar loop for small slices. This recovered a significant chunk of the performance loss seen during early SIMD migration.
