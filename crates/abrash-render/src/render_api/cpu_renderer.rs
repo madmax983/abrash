@@ -2,6 +2,7 @@
 //!
 //! Bridges the render API to the existing `TileRenderer` / scanline rasterization.
 
+use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::rasterizer::TileRenderer;
 use crate::render_api::draw_list::{DrawBatch, DrawList};
@@ -108,15 +109,41 @@ impl CpuRenderer {
         draw_list.clear_color = frame.clear_color;
         draw_list.lights.clone_from(&frame.lights);
 
+        // Pre-calculate the exact capacity needed for all vertices
+        let mut total_vertices = 0;
+        let mut offsets = Vec::with_capacity(frame.commands.len());
+
+        for cmd in &frame.commands {
+            let v_count = self
+                .meshes
+                .get(from_mesh_handle(cmd.mesh))
+                .map_or(0, |m| m.mesh.vertices.len());
+            offsets.push((total_vertices, v_count));
+            total_vertices += v_count;
+        }
+
+        let mut vertices: Vec<(Vec3, f32)> = Vec::with_capacity(total_vertices);
+
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
+
+            // Define a thread-safe pointer wrapper to allow parallel initialization
+            // of disjoint sections of the flat array.
+            #[derive(Copy, Clone)]
+            struct SendPtr(pub usize);
+            unsafe impl Send for SendPtr {}
+            unsafe impl Sync for SendPtr {}
+
+            let ptr_val = vertices.as_mut_ptr() as usize;
+            let ptr = SendPtr(ptr_val);
 
             // Map each command to a result to collect into a Result<Vec, Error>
             let results: Result<Vec<DrawBatch>, RenderError> = frame
                 .commands
                 .par_iter()
-                .map(|cmd| {
+                .zip(offsets.par_iter())
+                .map(|(cmd, &(offset, v_count))| {
                     let cpu_mesh = self
                         .meshes
                         .get(from_mesh_handle(cmd.mesh))
@@ -129,23 +156,20 @@ impl CpuRenderer {
                     let mvp = cmd.transform * view_proj;
                     let mesh = &cpu_mesh.mesh;
 
-                    let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                    let uninit_slice = vertices.spare_capacity_mut();
-                    // We know the slice length exactly matches `mesh.vertices.len()`
-                    let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+                    // SAFETY: Each thread is writing to a completely non-overlapping range of the flat array.
+                    // The range is defined by [offset, offset + v_count) which has been pre-calculated.
+                    let slice = unsafe {
+                        let base_ptr = ptr.0 as *mut (Vec3, f32);
+                        std::slice::from_raw_parts_mut(
+                            base_ptr.add(offset).cast::<std::mem::MaybeUninit<(Vec3, f32)>>(),
+                            v_count,
+                        )
+                    };
 
-                    // Instead of parallelizing the transform over vertices (which is now
-                    // inefficient since we're parallelizing over meshes), we just run
-                    // the scalar transform per mesh in parallel.
-                    mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
-
-                    // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
-                    unsafe {
-                        vertices.set_len(mesh.vertices.len());
-                    }
+                    mvp.transform_points_uninit(&mesh.vertices, slice);
 
                     Ok(DrawBatch::new(
-                        vertices,
+                        offset..offset + v_count,
                         std::sync::Arc::clone(&cpu_mesh.shared_indices),
                         material.color,
                     ))
@@ -160,7 +184,9 @@ impl CpuRenderer {
             // Pre-allocate the batches vector if we know how many commands there are
             draw_list.batches.reserve(frame.commands.len());
 
-            for cmd in &frame.commands {
+            let uninit_slice = vertices.spare_capacity_mut();
+
+            for (cmd, &(offset, v_count)) in frame.commands.iter().zip(offsets.iter()) {
                 let cpu_mesh = self
                     .meshes
                     .get(from_mesh_handle(cmd.mesh))
@@ -173,25 +199,24 @@ impl CpuRenderer {
                 let mvp = cmd.transform * view_proj;
                 let mesh = &cpu_mesh.mesh;
 
-                let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                let uninit_slice = vertices.spare_capacity_mut();
-                // We know the slice length exactly matches `mesh.vertices.len()`
-                let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+                let obj_slice = &mut uninit_slice[offset..offset + v_count];
 
-                mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
-
-                // SAFETY: `transform_points_uninit` initialized exactly `mesh.vertices.len()` elements.
-                unsafe {
-                    vertices.set_len(mesh.vertices.len());
-                }
+                mvp.transform_points_uninit(&mesh.vertices, obj_slice);
 
                 draw_list.push(DrawBatch::new(
-                    vertices,
+                    offset..offset + v_count,
                     std::sync::Arc::clone(&cpu_mesh.shared_indices),
                     material.color,
                 ));
             }
         }
+
+        // SAFETY: We have initialized `total_vertices` elements.
+        unsafe {
+            vertices.set_len(total_vertices);
+        }
+
+        draw_list.vertices = vertices;
 
         Ok(draw_list)
     }
@@ -212,7 +237,7 @@ impl CpuRenderer {
         self.tile_renderer.begin_frame();
         for batch in &draw_list.batches {
             self.tile_renderer
-                .submit_mesh(&batch.indices, &batch.vertices, batch.color);
+                .submit_mesh(&batch.indices, &draw_list.vertices[batch.vertex_range.clone()], batch.color);
         }
         self.tile_renderer
             .end_frame(&mut target.framebuffer, &mut target.zbuffer);

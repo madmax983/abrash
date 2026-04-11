@@ -286,7 +286,12 @@ mod tests {
         let dist_sq = dx * dx + dy * dy;
         let actual_vignette = (1.0 - (dist_sq / max_radius_sq)).max(0.0);
 
-        assert!((expected_vignette - actual_vignette).abs() < f32::EPSILON, "Vignette calculations differ: {} != {}", expected_vignette, actual_vignette);
+        assert!(
+            (expected_vignette - actual_vignette).abs() < f32::EPSILON,
+            "Vignette calculations differ: {} != {}",
+            expected_vignette,
+            actual_vignette
+        );
     }
 
     #[test]

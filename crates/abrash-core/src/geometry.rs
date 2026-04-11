@@ -240,7 +240,7 @@ impl AABB {
     /// Closest point on (or inside) this AABB to `point`.
     #[must_use]
     #[inline]
-    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+    pub const fn closest_point(&self, point: Vec3) -> Vec3 {
         point.clamp(self.min, self.max)
     }
 
@@ -267,9 +267,6 @@ impl AABB {
     /// Caller can filter hits behind origin by checking `t_max >= 0.0`.
     #[must_use]
     pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<(f32, f32)> {
-        let mut t_min = f32::NEG_INFINITY;
-        let mut t_max = f32::INFINITY;
-
         #[inline]
         fn update_axis(
             min: f32,
@@ -292,6 +289,9 @@ impl AABB {
             *t_max = (*t_max).min(t1);
             *t_min <= *t_max
         }
+
+        let mut t_min = f32::NEG_INFINITY;
+        let mut t_max = f32::INFINITY;
 
         if !update_axis(
             self.min.x, self.max.x, origin.x, dir.x, &mut t_min, &mut t_max,

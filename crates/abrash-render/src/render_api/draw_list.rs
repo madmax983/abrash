@@ -35,12 +35,12 @@ use crate::render_api::frame::{FrameCamera, Light};
 /// perspective-divide and bin them — no further matrix math required.
 #[derive(Debug, Clone)]
 pub struct DrawBatch {
-    /// Clip-space vertices: `(position, w)` where `w` is the perspective-divide factor.
+    /// Range of vertices in the parent `DrawList`'s `vertices` array.
     ///
     /// These map directly to what [`TileRenderer::submit_mesh`] expects.
     ///
     /// [`TileRenderer::submit_mesh`]: crate::rasterizer::TileRenderer::submit_mesh
-    pub vertices: Vec<(Vec3, f32)>,
+    pub vertex_range: std::ops::Range<usize>,
     /// Triangle index buffer. Each `[v0, v1, v2]` triplet indexes into `vertices`.
     pub indices: std::sync::Arc<[[usize; 3]]>,
     /// Flat surface color (0xAARRGGBB).
@@ -54,12 +54,12 @@ impl DrawBatch {
     /// Create a new draw batch.
     #[must_use]
     pub const fn new(
-        vertices: Vec<(Vec3, f32)>,
+        vertex_range: std::ops::Range<usize>,
         indices: std::sync::Arc<[[usize; 3]]>,
         color: u32,
     ) -> Self {
         Self {
-            vertices,
+            vertex_range,
             indices,
             color,
         }
@@ -87,7 +87,7 @@ impl DrawBatch {
 /// draw_list.clear_color = Some(0xFF00_0000);
 ///
 /// // Normally produced by Frame/Scene extraction — here we stub it:
-/// let batch = DrawBatch::new(vec![], vec![].into(), 0xFFFF_0000);
+/// let batch = DrawBatch::new(0..0, vec![].into(), 0xFFFF_0000);
 /// draw_list.push(batch);
 /// assert_eq!(draw_list.batches.len(), 1);
 /// ```
@@ -102,6 +102,12 @@ pub struct DrawList {
     pub lights: Vec<Light>,
     /// Pre-transformed draw batches in submission order.
     pub batches: Vec<DrawBatch>,
+    /// Single, contiguous flat array of all clip-space vertices `(position, w)` for this frame.
+    ///
+    /// ⚡ Bolt Performance Optimization:
+    /// Replaces the `Vec<(Vec3, f32)>` per `DrawBatch` with a flat array,
+    /// allowing a single O(1) allocation per frame instead of N heap allocations per mesh.
+    pub vertices: Vec<(Vec3, f32)>,
     /// If `Some`, clear the render target to this color before executing batches.
     pub clear_color: Option<u32>,
 }
@@ -114,6 +120,7 @@ impl DrawList {
             camera,
             lights: Vec::new(),
             batches: Vec::new(),
+            vertices: Vec::new(),
             clear_color: Some(0xFF00_0000),
         }
     }
@@ -158,8 +165,9 @@ mod tests {
     #[test]
     fn test_draw_list_push_batch() {
         let mut dl = DrawList::new(test_camera());
+        dl.vertices.push((Vec3::new(0.0, 0.0, 0.0), 1.0));
         let batch = DrawBatch::new(
-            vec![(Vec3::new(0.0, 0.0, 0.0), 1.0)],
+            0..1,
             vec![[0, 0, 0]].into(),
             0xFFFF_0000,
         );
@@ -173,13 +181,13 @@ mod tests {
         let mut dl = DrawList::new(test_camera());
         // Batch with 2 triangles
         dl.push(DrawBatch::new(
-            vec![],
+            0..0,
             vec![[0, 1, 2], [3, 4, 5]].into(),
             0xFFFF_0000,
         ));
         // Batch with 3 triangles
         dl.push(DrawBatch::new(
-            vec![],
+            0..0,
             vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]].into(),
             0xFF00_FF00,
         ));
@@ -188,10 +196,9 @@ mod tests {
 
     #[test]
     fn test_draw_batch_new() {
-        let verts = vec![(Vec3::new(1.0, 2.0, 3.0), 1.0)];
         let indices = vec![[0usize, 0, 0]];
-        let batch = DrawBatch::new(verts, indices.into(), 0xFFFF_FFFF);
-        assert_eq!(batch.vertices.len(), 1);
+        let batch = DrawBatch::new(0..1, indices.into(), 0xFFFF_FFFF);
+        assert_eq!(batch.vertex_range, 0..1);
         assert_eq!(batch.indices.len(), 1);
         assert_eq!(batch.color, 0xFFFF_FFFF);
     }

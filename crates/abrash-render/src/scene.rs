@@ -236,34 +236,55 @@ impl Scene {
                 .frustum
                 .cull_aabbs_prealloc(world_aabbs, cull_results);
 
+            // Pre-calculate the total number of vertices needed for the flat array.
+            let mut total_vertices = 0;
             for (i, obj) in self.objects.iter().enumerate() {
-                if !cull_results[i] {
-                    continue;
+                if cull_results[i] {
+                    total_vertices += obj.mesh.vertices.len();
                 }
+            }
 
-                let mvp = obj.transform * view_proj;
-                let mesh = &obj.mesh;
+            // Reserve the exact capacity needed.
+            draw_list.vertices.reserve(total_vertices);
 
-                let mut vertices = Vec::with_capacity(mesh.vertices.len());
-                let uninit_slice = vertices.spare_capacity_mut();
-                let uninit_slice = &mut uninit_slice[..mesh.vertices.len()];
+            let mut current_offset = 0;
+            let mut batches = Vec::with_capacity(self.objects.len());
 
-                #[cfg(feature = "parallel")]
-                mvp.transform_points_uninit_parallel(&mesh.vertices, uninit_slice);
+            {
+                let uninit_slice = draw_list.vertices.spare_capacity_mut();
 
-                #[cfg(not(feature = "parallel"))]
-                mvp.transform_points_uninit(&mesh.vertices, uninit_slice);
+                for (i, obj) in self.objects.iter().enumerate() {
+                    if !cull_results[i] {
+                        continue;
+                    }
 
-                // SAFETY: We have initialized `len` elements via `transform_points_uninit`.
-                unsafe {
-                    vertices.set_len(mesh.vertices.len());
+                    let mvp = obj.transform * view_proj;
+                    let mesh = &obj.mesh;
+                    let v_count = mesh.vertices.len();
+
+                    let obj_slice = &mut uninit_slice[current_offset..current_offset + v_count];
+
+                    #[cfg(feature = "parallel")]
+                    mvp.transform_points_uninit_parallel(&mesh.vertices, obj_slice);
+
+                    #[cfg(not(feature = "parallel"))]
+                    mvp.transform_points_uninit(&mesh.vertices, obj_slice);
+
+                    batches.push(DrawBatch::new(
+                        current_offset..current_offset + v_count,
+                        std::sync::Arc::clone(&obj.shared_indices),
+                        obj.color,
+                    ));
+
+                    current_offset += v_count;
                 }
+            }
 
-                draw_list.push(DrawBatch::new(
-                    vertices,
-                    std::sync::Arc::clone(&obj.shared_indices),
-                    obj.color,
-                ));
+            draw_list.batches.append(&mut batches);
+
+            // SAFETY: We have initialized `total_vertices` elements.
+            unsafe {
+                draw_list.vertices.set_len(total_vertices);
             }
         });
 
@@ -285,7 +306,11 @@ impl Scene {
 
         renderer.begin_frame();
         for batch in &draw_list.batches {
-            renderer.submit_mesh(&batch.indices, &batch.vertices, batch.color);
+            renderer.submit_mesh(
+                &batch.indices,
+                &draw_list.vertices[batch.vertex_range.clone()],
+                batch.color,
+            );
         }
         renderer.end_frame(fb, zb);
     }
@@ -420,7 +445,8 @@ mod tests {
         assert_eq!(dl.batches.len(), 1);
         assert_eq!(dl.batches[0].color, 0xFFFF_0000);
         assert_eq!(dl.batches[0].indices.len(), mesh.indices.len());
-        assert_eq!(dl.batches[0].vertices.len(), mesh.vertices.len());
+        assert_eq!(dl.batches[0].vertex_range.len(), mesh.vertices.len());
+        assert_eq!(dl.vertices.len(), mesh.vertices.len());
     }
 
     #[test]
