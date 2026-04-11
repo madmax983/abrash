@@ -812,7 +812,7 @@ pub fn fill_triangle_point_lit(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
@@ -1195,7 +1195,7 @@ pub fn fill_triangle_phong_shadowed(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];
@@ -1888,7 +1888,7 @@ pub fn fill_triangle_phong(
     let half_width = width as f32 * 0.5;
     let half_height = height as f32 * 0.5;
 
-    for i in 0..clipped.count {
+    for i in 0..clipped.count() {
         let base = i * 3;
         let v0 = clipped[base];
         let v1 = clipped[base + 1];

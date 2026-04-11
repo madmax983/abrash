@@ -1,0 +1,65 @@
+--- crates/abrash-render/src/rasterizer/tile.rs
++++ crates/abrash-render/src/rasterizer/tile.rs
+@@ -370,7 +370,7 @@
+ #[doc(hidden)]
+ pub struct PreparedGouraudTrianglesList {
+     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
+-    pub count: usize,
++    count: usize,
+ }
+
+ impl PreparedGouraudTrianglesList {
+@@ -386,6 +386,11 @@
+             self.count += 1;
+         }
+     }
++
++    #[inline]
++    pub const fn count(&self) -> usize {
++        self.count
++    }
+ }
+
+ impl IntoIterator for PreparedGouraudTrianglesList {
+@@ -423,7 +428,7 @@
+
+ pub struct PreparedTrianglesList {
+     pub tris: [MaybeUninit<PreparedTriangle>; 8],
+-    pub count: usize,
++    count: usize,
+ }
+
+ impl PreparedTrianglesList {
+@@ -439,6 +444,11 @@
+             self.count += 1;
+         }
+     }
++
++    #[inline]
++    pub const fn count(&self) -> usize {
++        self.count
++    }
+ }
+
+ impl IntoIterator for PreparedTrianglesList {
+@@ -518,7 +528,7 @@
+
+ pub struct PreparedTexturedTrianglesList {
+     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
+-    pub count: usize,
++    count: usize,
+ }
+
+ impl PreparedTexturedTrianglesList {
+@@ -534,6 +544,11 @@
+             self.count += 1;
+         }
+     }
++
++    #[inline]
++    pub const fn count(&self) -> usize {
++        self.count
++    }
+ }
+
+ impl IntoIterator for PreparedTexturedTrianglesList {

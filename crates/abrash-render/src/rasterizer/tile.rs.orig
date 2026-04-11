@@ -371,7 +371,7 @@ use rayon::iter::IndexedParallelIterator;
 #[doc(hidden)]
 pub struct PreparedGouraudTrianglesList {
     pub tris: [MaybeUninit<PreparedGouraudTriangle>; 8],
-    count: usize,
+    pub count: usize,
 }
 
 impl PreparedGouraudTrianglesList {
@@ -388,11 +388,6 @@ impl PreparedGouraudTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
-    }
-
-    #[inline]
-    pub const fn count(&self) -> usize {
-        self.count
     }
 }
 
@@ -429,7 +424,7 @@ impl Iterator for PreparedGouraudTrianglesIter {
 
 pub struct PreparedTrianglesList {
     pub tris: [MaybeUninit<PreparedTriangle>; 8],
-    count: usize,
+    pub count: usize,
 }
 
 impl PreparedTrianglesList {
@@ -446,11 +441,6 @@ impl PreparedTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
-    }
-
-    #[inline]
-    pub const fn count(&self) -> usize {
-        self.count
     }
 }
 
@@ -529,7 +519,7 @@ impl Iterator for PreparedTrianglesIter {
 
 pub struct PreparedTexturedTrianglesList {
     pub tris: [MaybeUninit<PreparedTexturedTriangle>; 8],
-    count: usize,
+    pub count: usize,
 }
 
 impl PreparedTexturedTrianglesList {
@@ -546,11 +536,6 @@ impl PreparedTexturedTrianglesList {
             self.tris[self.count].write(tri);
             self.count += 1;
         }
-    }
-
-    #[inline]
-    pub const fn count(&self) -> usize {
-        self.count
     }
 }
 
@@ -2738,7 +2723,7 @@ impl TileRenderer {
         );
         let mut results = PreparedGouraudTrianglesList::new();
 
-        for i in 0..clipped.count() {
+        for i in 0..clipped.count {
             let base = i * 3;
             let v0 = clipped[base];
             let v1 = clipped[base + 1];
@@ -2968,7 +2953,7 @@ impl TileRenderer {
         );
         let mut results = PreparedTexturedTrianglesList::new();
 
-        for i in 0..clipped.count() {
+        for i in 0..clipped.count {
             let base = i * 3;
             let cv0 = clipped[base];
             let cv1 = clipped[base + 1];
@@ -3122,7 +3107,7 @@ impl TileRenderer {
         );
         let mut results = PreparedTrianglesList::new();
 
-        for i in 0..clipped.count() {
+        for i in 0..clipped.count {
             let base = i * 3;
             let cv0 = clipped[base];
             let cv1 = clipped[base + 1];

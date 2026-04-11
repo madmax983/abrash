@@ -1,0 +1,23 @@
+--- crates/abrash-core/src/clipping.rs
++++ crates/abrash-core/src/clipping.rs
+@@ -39,7 +39,7 @@
+ pub struct ClippedTriangles<V> {
+     tris: [MaybeUninit<V>; 24], // Max 8 triangles = 24 vertices
+     /// Number of triangles currently in the list
+-    pub count: usize,
++    count: usize,
+ }
+
+ impl<V> ClippedTriangles<V> {
+@@ -52,6 +52,11 @@
+             count: 0,
+         }
+     }
++
++    #[inline]
++    pub const fn count(&self) -> usize {
++        self.count
++    }
+ }
+
+ impl<V> Index<usize> for ClippedTriangles<V> {
