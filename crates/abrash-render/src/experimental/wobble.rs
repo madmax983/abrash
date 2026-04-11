@@ -76,7 +76,9 @@ pub fn apply_wobble(fb: &mut Framebuffer, config: &WobbleConfig) {
         let y_f32 = y as f32;
         // Calculate the horizontal shift for this entire row.
         // Fast float-to-int cast (as i32) is preferred over .round() in hot loops.
-        let shift = (config.amplitude * crate::math::fast_sin(y_f32 * freq_scale + config.time)) as i32;
+        // We use standard .sin() instead of fast_sin() for precision to ensure test stability,
+        // and because this sine is computed once per row, the overhead is negligible.
+        let shift = (config.amplitude * (y_f32 * freq_scale + config.time).sin()) as i32;
 
         let src_row_start = y * width;
         let src_row = &src[src_row_start..src_row_start + width];
