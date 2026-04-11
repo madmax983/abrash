@@ -353,10 +353,8 @@ impl GpuRenderer {
 
         let mut rgba = Vec::with_capacity(texture.pixels.len() * 4);
         for &argb in &texture.pixels {
-            rgba.push(((argb >> 16) & 0xFF) as u8);
-            rgba.push(((argb >> 8) & 0xFF) as u8);
-            rgba.push((argb & 0xFF) as u8);
-            rgba.push(((argb >> 24) & 0xFF) as u8);
+            let bytes = [((argb >> 16) & 0xFF) as u8, ((argb >> 8) & 0xFF) as u8, (argb & 0xFF) as u8, ((argb >> 24) & 0xFF) as u8];
+            rgba.extend_from_slice(&bytes);
         }
 
         let device = self.gpu.device();
