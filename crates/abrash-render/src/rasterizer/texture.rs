@@ -1412,7 +1412,10 @@ pub fn draw_scanline_textured_perspective(
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if texture.filter_mode == FilterMode::Bilinear && is_x86_feature_detected!("avx2") {
+    if texture.filter_mode == FilterMode::Bilinear
+        && (xe - xs + 1) >= 32
+        && is_x86_feature_detected!("avx2")
+    {
         let width_usize = fb.width() as usize;
         let y_offset = (y as usize) * width_usize;
         let start_idx = y_offset + (xs as usize);
@@ -1478,7 +1481,7 @@ pub fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
+                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_nearest_simd(
                             fb_slice,
@@ -1526,7 +1529,7 @@ pub fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
+                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_bilinear_simd(
                             fb_slice,
@@ -1587,7 +1590,7 @@ pub fn draw_scanline_textured_perspective(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
+                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_trilinear_simd(
                             fb_slice,
@@ -3106,7 +3109,7 @@ fn draw_scanline_normal_mapped(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
         unsafe {
             draw_scanline_normal_mapped_simd(
                 fb_slice,
@@ -4349,7 +4352,7 @@ pub fn draw_scanline_textured_gouraud(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
+                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_textured_gouraud_simd(
                             fb_slice,
@@ -4414,7 +4417,7 @@ pub fn draw_scanline_textured_gouraud(
                 let dv_fix = (dv_tex_step * 65536.0) as i32;
 
                 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-                if is_x86_feature_detected!("avx2") {
+                if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                     unsafe {
                         draw_span_textured_gouraud_bilinear_simd(
                             fb_slice,
