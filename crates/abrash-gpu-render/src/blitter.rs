@@ -256,6 +256,7 @@ pub struct GpuBlitter {
     readback_buffer: wgpu::Buffer,
     commands: Vec<SpriteCommand>,
     atlases: Vec<GpuAtlas>,
+    instances: Vec<SpriteInstance>,
 }
 
 /// Create the frame bind group layout (group 0): screen uniforms + sprite storage.
@@ -464,6 +465,7 @@ impl GpuBlitter {
             readback_buffer,
             commands: Vec::new(),
             atlases: Vec::new(),
+            instances: Vec::new(),
         }
     }
 
@@ -656,12 +658,14 @@ impl GpuBlitter {
         });
 
         // Build the per-sprite storage buffer from the sorted command list.
-        let instances: Vec<SpriteInstance> = self.commands.iter().map(|c| c.instance).collect();
+        self.instances.clear();
+        self.instances.extend(self.commands.iter().map(|c| c.instance));
+
         let sprite_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Blitter Sprite Buffer"),
-                contents: bytemuck::cast_slice(&instances),
+                contents: bytemuck::cast_slice(&self.instances),
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
@@ -1039,7 +1043,7 @@ mod tests {
 
     #[test]
     fn sort_commands_by_atlas_then_blend() {
-        let mut commands = vec![
+        let mut commands = [
             SpriteCommand {
                 atlas: AtlasHandle(1),
                 instance: SpriteInstance {
@@ -1068,7 +1072,7 @@ mod tests {
                     ..SpriteInstance::zeroed()
                 },
             },
-        ];
+        ].to_vec();
 
         commands.sort_by(|a, b| {
             a.atlas
