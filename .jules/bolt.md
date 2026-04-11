@@ -279,3 +279,6 @@ Persona 'Bolt' Learning: In convolution/blur algorithms, replace per-pixel float
 **[Replace consecutive Vec::push calls with extend_from_slice]**
 **Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
 **Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
+**[Kahn's algorithm using standard Vec as LIFO stack]**
+**Learning:** Kahn's algorithm for topological sorting (e.g., of skeletal joints) does not require a FIFO queue. Replacing `std::collections::VecDeque` with a standard, pre-allocated `Vec` (using `.push()` and `.pop()` as a LIFO stack) eliminates ring-buffer allocation overhead and improves cache locality without changing the algorithm's validity.
+**Action:** Replaced `std::collections::VecDeque` with `Vec::with_capacity(n)` in `crates/abrash-skeletal/src/gltf_loader.rs` `topological_sort_joints`.
