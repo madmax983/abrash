@@ -585,7 +585,17 @@ name = "black_hole_demo"
 path = "examples/black_hole_demo.rs"
 required-features = ["nova"]
 
+[[example]]
+name = "dither_demo"
+path = "examples/dither_demo.rs"
+required-features = ["nova"]
+
 [[bench]]
 name = "black_hole_bench"
+harness = false
+required-features = ["nova"]
+
+[[bench]]
+name = "dither_bench"
 harness = false
 required-features = ["nova"]
