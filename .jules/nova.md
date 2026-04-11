@@ -224,3 +224,8 @@
 **Concept:** A retro post-processing effect that simulates falling characters or "digital rain" (akin to the Matrix). It maintains a persistent state of drop heads and speeds, leaving a fading trail by continuously dimming the framebuffer each frame.
 **Fate:** Implemented
 **Lesson:** Storing minimal state (just the Y position of the "head" of each column) and applying a fast, simple RGB dimming pass over the entire framebuffer each frame effortlessly creates a complex-looking trail effect. It avoids the need to explicitly render the entire tail or manage complex string allocations, proving that simple pixel math often trumps complex data structures for visual flair.
+
+## [Pencil Sketch Filter]
+**Concept:** A retro post-processing effect that simulates a hand-drawn pencil sketch by inverting the image, applying a box blur, and blending it using Color Dodge, finished by a conversion to grayscale.
+**Fate:** Implemented
+**Lesson:** By separating the post-processing into logical stages (invert, blur, dodge, grayscale) and using thread-local buffers (like `INVERTED_BUFFER` and `BLURRED_BUFFER`), we can avoid expensive frame-by-frame heap allocations while efficiently scaling processing across all cores with Rayon's `par_iter_mut`.

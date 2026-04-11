@@ -739,3 +739,13 @@ required-features = ["nova"]
 name = "jelly_bench"
 harness = false
 required-features = ["nova"]
+
+[[bench]]
+name = "pencil_sketch_bench"
+harness = false
+required-features = ["nova"]
+
+[[example]]
+name = "pencil_sketch_demo"
+path = "examples/pencil_sketch_demo.rs"
+required-features = ["nova"]

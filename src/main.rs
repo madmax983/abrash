@@ -78,6 +78,13 @@ const DEMOS: &[Demo] = &[
         example_name: "lit_cube",
     },
     Demo {
+        name: "Pencil Sketch Filter",
+        category: DemoCategory::PostProcess,
+        description: "Simulates a retro hand-drawn pencil sketch",
+        instructions: "• Mouse: None\n• Keyboard: Auto-animates blur radius over time",
+        example_name: "pencil_sketch_demo",
+    },
+    Demo {
         name: "Cube 3D",
         category: DemoCategory::Cpu3D,
         description: "Basic 3D cube rendering",
