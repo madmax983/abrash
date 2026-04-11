@@ -59,8 +59,7 @@ impl Turtle {
 /// Rotates vector `v` around axis `k` by `theta` radians using Rodrigues' rotation formula.
 /// k must be a unit vector.
 fn rotate_vector(v: Vec3, k: Vec3, theta: f32) -> Vec3 {
-    let cos_theta = theta.cos();
-    let sin_theta = theta.sin();
+    let (sin_theta, cos_theta) = theta.sin_cos();
 
     // Term 1: v * cos(theta)
     let t1 = v * cos_theta;
@@ -356,11 +355,16 @@ impl LSystem {
         // Actually, let's just push vertices. Normals are optional for now or calculated later.
         // But `Mesh` expects `normals` if we want lighting.
         // Let's add normals pointing away from the segment axis.
-        for c in &corners {
-            mesh.normals.push(c.normalize());
+        // ⚡ Bolt Performance Optimization:
+        // Pre-calculate the fast-normalized corners to avoid repeatedly calculating
+        // the costly `.normalize()` square roots inside sequential iteration loops.
+        let normalized_corners = corners.map(|c| c.fast_normalize());
+
+        for c in &normalized_corners {
+            mesh.normals.push(*c);
         }
-        for c in &corners {
-            mesh.normals.push(c.normalize());
+        for c in &normalized_corners {
+            mesh.normals.push(*c);
         }
 
         // Indices (Triangles)
