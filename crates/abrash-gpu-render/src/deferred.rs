@@ -172,6 +172,7 @@ impl DeferredLightingPass {
     ///
     /// Output format should be the HDR format (`Rgba16Float`) since tone mapping
     /// happens in a separate pass.
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn new(
         device: &wgpu::Device,

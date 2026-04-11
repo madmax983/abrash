@@ -207,6 +207,7 @@ impl TemporalAccumulationPass {
     }
 
     /// Create the temporal accumulation pass.
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {

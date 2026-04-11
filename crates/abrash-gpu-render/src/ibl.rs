@@ -558,6 +558,7 @@ impl IblTextures {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn dispatch_prefilter(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

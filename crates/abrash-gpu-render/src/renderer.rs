@@ -152,6 +152,7 @@ impl GpuRenderer {
     }
 
     /// Construct a renderer from an already-created GPU device.
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn from_gpu(gpu: GpuDevice, color_format: wgpu::TextureFormat) -> Self {
         let device = gpu.device();
@@ -442,7 +443,9 @@ impl GpuRenderer {
                 roughness,
                 metallic,
             } => (color, 32.0, 0.5, metallic, roughness, Some(albedo.index())),
-            _ => (color, 32.0, 0.3, 0.0, 0.5, None),
+            ShadingMode::Gouraud
+            | ShadingMode::Reflection { .. }
+            | ShadingMode::NormalMapped { .. } => (color, 32.0, 0.3, 0.0, 0.5, None),
         };
         let index = self.materials.len() as u32;
         self.materials.push(Some(GpuMaterial {
@@ -1264,7 +1267,8 @@ impl GpuRenderer {
         let (jx, jy) = self.taa_pass.current_jitter();
         let params = crate::taa::TaaParams {
             prev_view_proj: self.prev_view_proj,
-            jitter: <[f32; 2]>::from((jx, jy)),
+            #[allow(clippy::tuple_array_conversions)]
+            jitter: [jx, jy],
             feedback: 0.9,
             _pad: 0.0,
         };
