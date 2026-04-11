@@ -1,0 +1,2 @@
+sed -i 's/let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();/#\[allow(clippy::cast_ptr_alignment)\]\n                                let pixels_ptr = pixels.as_mut_ptr().add(i).cast::<__m256i>();/g' crates/abrash-render/src/rasterizer/tile.rs
+sed -i 's/let mut mask_256 = _mm256_loadu_si256(pixels_ptr.cast::<__m256i>());/#\[allow(clippy::cast_ptr_alignment)\]\n                    let mut mask_256 = _mm256_loadu_si256(pixels_ptr.cast::<__m256i>());/g' crates/abrash-render/src/rasterizer/pbr.rs

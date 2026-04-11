@@ -1,7 +1,7 @@
 //! BSP texture provider trait and distance-based colormap lighting.
 //!
 //! Consumers implement [`BspTextures`] to bridge their texture caches (WAD
-//! lumps, custom atlases, etc.) into the BSP renderer.  The [`colormap_index`]
+//! lumps, custom atlases, etc.) into the BSP renderer.The [`colormap_index`]
 //! function converts a distance + sector light level into a Doom-style
 //! colormap row index (0 = bright, 31 = dark).
 
