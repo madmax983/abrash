@@ -313,7 +313,7 @@ impl Vec2 {
     pub fn distance(self, other: Self) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
-        (dx * dx + dy * dy).sqrt()
+        dx.hypot(dy)
     }
 
     /// Squared distance to another vector.

@@ -240,7 +240,7 @@ impl AABB {
     /// Closest point on (or inside) this AABB to `point`.
     #[must_use]
     #[inline]
-    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+    pub const fn closest_point(&self, point: Vec3) -> Vec3 {
         point.clamp(self.min, self.max)
     }
 
@@ -266,6 +266,7 @@ impl AABB {
     /// Returns `(t_min, t_max)` on hit, where ray points are `origin + dir * t`.
     /// Caller can filter hits behind origin by checking `t_max >= 0.0`.
     #[must_use]
+    #[allow(clippy::items_after_statements)]
     pub fn intersects_ray(&self, origin: Vec3, dir: Vec3) -> Option<(f32, f32)> {
         let mut t_min = f32::NEG_INFINITY;
         let mut t_max = f32::INFINITY;

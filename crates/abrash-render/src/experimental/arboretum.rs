@@ -288,12 +288,14 @@ impl LSystem {
                 }
                 b'\\' => {
                     // Roll Left (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, self.angle).fast_normalize();
+                    turtle.up =
+                        rotate_vector(turtle.up, turtle.heading, self.angle).fast_normalize();
                     turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'/' => {
                     // Roll Right (around Heading)
-                    turtle.up = rotate_vector(turtle.up, turtle.heading, -self.angle).fast_normalize();
+                    turtle.up =
+                        rotate_vector(turtle.up, turtle.heading, -self.angle).fast_normalize();
                     turtle.left = turtle.up.cross(turtle.heading).fast_normalize();
                 }
                 b'|' => {

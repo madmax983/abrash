@@ -139,6 +139,7 @@ impl AbrashBackend {
     ///
     /// Materials are transient: they are created for each draw call and freed
     /// after the frame, so the resource pool never grows unboundedly.
+    #[allow(clippy::missing_panics_doc)]
     pub fn render(&mut self, scene: &EmbedScene<'_>) -> &[u32] {
         let up = Vec3::new(0.0, 1.0, 0.0);
         let view = Mat4::look_at(scene.camera.position, scene.camera.target, up);
@@ -189,19 +190,19 @@ impl AbrashBackend {
 
     /// Width of the render target in pixels.
     #[must_use]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.target.width()
     }
 
     /// Height of the render target in pixels.
     #[must_use]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.target.height()
     }
 
     /// Access the underlying [`RenderTarget`] for post-processing or export.
     #[must_use]
-    pub fn target(&self) -> &RenderTarget {
+    pub const fn target(&self) -> &RenderTarget {
         &self.target
     }
 }
