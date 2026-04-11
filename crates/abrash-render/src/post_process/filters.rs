@@ -24,6 +24,52 @@ thread_local! {
     static SOBEL_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Applies gamma correction to the framebuffer in-place.
+///
+/// Uses the formula: `output = 255 * (input/255)^(1/gamma)`
+///
+/// # Examples
+///
+/// ```
+/// use abrash_core::framebuffer::Framebuffer;
+/// use abrash_render::post_process::filters::apply_gamma_correction;
+///
+/// let mut fb = Framebuffer::new(1, 1).unwrap();
+/// fb.set_pixel(0, 0, 0xFF808080); // Mid-gray (128)
+/// apply_gamma_correction(&mut fb, 2.2);
+/// // With gamma 2.2, mid-gray becomes roughly 186.
+/// let p = fb.get_pixel(0, 0).unwrap();
+/// assert_eq!((p >> 16) & 0xFF, 186);
+/// ```
+pub fn apply_gamma_correction(fb: &mut Framebuffer, gamma: f32) {
+    let pixels = fb.as_mut_slice();
+    let inv_gamma = 1.0 / gamma;
+
+    // Precompute a 256-element Look-Up Table (LUT)
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let normalized = (i as f32) / 255.0;
+        let corrected = (255.0 * normalized.powf(inv_gamma)) as u32;
+        *entry = corrected.clamp(0, 255);
+    }
+
+    // Apply LUT to all pixels
+    for pixel in pixels.iter_mut() {
+        let p = *pixel;
+        let a = p & 0xFF00_0000;
+        let r = (p >> 16) & 0xFF;
+        let g = (p >> 8) & 0xFF;
+        let b = p & 0xFF;
+
+        // Use unchecked indexing since we guarantee r, g, b are <= 255
+        let r_out = unsafe { *lut.get_unchecked(r as usize) };
+        let g_out = unsafe { *lut.get_unchecked(g as usize) };
+        let b_out = unsafe { *lut.get_unchecked(b as usize) };
+
+        *pixel = a | (r_out << 16) | (g_out << 8) | b_out;
+    }
+}
+
 /// Applies a grayscale filter to the framebuffer in-place.
 ///
 /// Uses a fixed-point approximation of the luminance formula:

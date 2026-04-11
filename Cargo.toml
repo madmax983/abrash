@@ -159,6 +159,10 @@ path = "examples/voronoi_demo.rs"
 required-features = ["nova"]
 
 [[bench]]
+name = "gamma_bench"
+harness = false
+
+[[bench]]
 name = "rasterization"
 harness = false
 
@@ -570,3 +574,7 @@ required-features = ["nova"]
 name = "melt_demo"
 path = "examples/melt_demo.rs"
 required-features = ["nova"]
+
+[[example]]
+name = "gamma_demo"
+path = "examples/gamma_demo.rs"
