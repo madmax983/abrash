@@ -1,13 +1,10 @@
-<<<<<<< bolt-hashmap-capacity-3866827711962762298
 **[Fast Inv Sqrt vs Stdlib SQRT Recip]**
-=======
 ## [.zip Iterator for SoftBody collide_sdf]
 **What:** Replaced index-based `for i in 0..len` loop in `SoftBody::collide_sdf` with `.iter_mut().zip(...)`.
 **Why:** Elides bounds checking and satisfies idiomatic Rust patterns.
 **Impact:** Minor but consistent performance win.
 **Measurement:** `softbody_bench` run time decreased from ~32.1µs to ~29.4µs (~8% improvement).
 **Fast Inv Sqrt vs Stdlib SQRT Recip**
->>>>>>> trunk
 **Learning:** Using `fast_inv_sqrt` (Quake III trick) is slower and less precise than using `std`'s `sqrt().recip()` directly on modern CPU architectures when compiling. The standard library leverages hardware-accelerated instructions (like `rsqrtss`) automatically and provides better results.
 **Action:** Replaced `fast_inv_sqrt(dist_sq)` with `dist_sq.sqrt().recip()` in the scalar fallback paths of point-lit and shadowed phong rasterizers, resulting in ~6-7% performance improvement in single-point light rendering.
 
@@ -51,3 +48,6 @@
 **[Optimize apply_frosted_glass per-frame allocation]**
 **Learning:** Re-learned and solidified the power of `thread_local!` buffers for intermediate processing steps like full-screen image effects. Calling `.to_vec()` on a slice inside a per-frame or highly parallel operation creates massive garbage and allocator pressure.
 **Action:** When a post-processing effect requires reading from a source frame while modifying the destination (to avoid read/write tearing), cache the source clone using `thread_local! { static SOURCE_PIXELS: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) }; }` and reuse the allocated capacity via `.clear()` and `.extend_from_slice()`.
+**[Replace consecutive Vec::push calls with extend_from_slice]**
+**Learning:** In hot pixel conversion loops (e.g., converting 0xAARRGGBB to RGBA bytes for wgpu), calling `.push()` sequentially for each channel incurs bounds/capacity checking overhead per byte and inhibits compiler optimizations.
+**Action:** Replaced four consecutive `.push()` calls with a stack-allocated byte array `let bytes = [r, g, b, a];` followed by `.extend_from_slice(&bytes)`. This eliminates bounds checks and allows the compiler (LLVM) to vectorize or unroll the memory copy. Implemented in `abrash-gpu-render` (`blitter.rs`, `renderer.rs`, `environment.rs`).
