@@ -55,6 +55,16 @@ pub struct Material {
 
 impl Material {
     /// Create a simple flat-colored material.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::Material;
+    ///
+    /// let red_material = Material::flat(0xFFFF_0000);
+    /// assert_eq!(red_material.color, 0xFFFF_0000);
+    /// assert!(!red_material.receive_light);
+    /// ```
     #[must_use]
     pub const fn flat(color: u32) -> Self {
         Self {
@@ -65,6 +75,15 @@ impl Material {
     }
 
     /// Create a Gouraud-shaded material.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::Material;
+    ///
+    /// let mat = Material::gouraud(0xFF00_FF00);
+    /// assert!(mat.receive_light);
+    /// ```
     #[must_use]
     pub const fn gouraud(color: u32) -> Self {
         Self {
@@ -75,6 +94,15 @@ impl Material {
     }
 
     /// Create a Phong-shaded material.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::Material;
+    ///
+    /// let shiny_mat = Material::phong(0xFF00_00FF, 32.0, 0.5);
+    /// assert!(shiny_mat.receive_light);
+    /// ```
     #[must_use]
     pub const fn phong(color: u32, shininess: f32, specular_strength: f32) -> Self {
         Self {
@@ -88,6 +116,18 @@ impl Material {
     }
 
     /// Create a textured material.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use abrash_render::render_api::{Material, cpu_renderer::CpuRenderer};
+    ///
+    /// let mut renderer = CpuRenderer::new(800, 600);
+    /// let tex = abrash_core::texture::Texture::new(1, 1).unwrap();
+    /// let tex_handle = renderer.create_texture(&tex).unwrap();
+    /// let textured_mat = Material::textured(tex_handle);
+    /// assert_eq!(textured_mat.color, 0xFFFF_FFFF);
+    /// ```
     #[must_use]
     pub const fn textured(texture: TextureHandle) -> Self {
         Self {

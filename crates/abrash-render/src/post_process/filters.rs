@@ -236,11 +236,12 @@ fn apply_sepia_scalar(pixels: &mut [u32]) {
 ///
 /// ```
 /// use abrash_core::framebuffer::Framebuffer;
-/// use abrash_render::post_process::filters::apply_chromatic_aberration;
+/// use abrash_render::post_process::filters::{apply_chromatic_aberration, ChromaticAberrationConfig};
 ///
 /// let mut fb = Framebuffer::new(100, 100).unwrap();
 /// fb.set_pixel(50, 50, 0xFFFFFFFF); // White
-/// apply_chromatic_aberration(&mut fb, 5);
+/// let config = ChromaticAberrationConfig { offset: 5 };
+/// apply_chromatic_aberration(&mut fb, &config);
 /// ```
 
 /// Configuration for the chromatic aberration filter.
