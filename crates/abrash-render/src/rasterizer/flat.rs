@@ -94,7 +94,7 @@ pub fn draw_scanline_flat(
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
+        if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
             unsafe {
                 draw_scanline_flat_simd(fb_slice, zb_slice, z, dz_dx, color);
             }
@@ -246,7 +246,7 @@ pub fn draw_scanline_flat_blended(
         prepare_scanline(fb, zb, y, x_start, x_end, z_start, dz_dx)
     {
         #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        if is_x86_feature_detected!("avx2") {
+        if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
             unsafe {
                 draw_scanline_flat_blended_simd(fb_slice, zb_slice, z, dz_dx, color);
             }

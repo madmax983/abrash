@@ -703,7 +703,7 @@ fn draw_scanline_point_lit(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe {
             draw_scanline_point_lit_simd(
                 fb_slice,
@@ -1041,7 +1041,7 @@ fn draw_scanline_phong_shadowed(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe {
             draw_scanline_phong_shadowed_simd(
                 fb_slice,
@@ -1811,7 +1811,7 @@ fn draw_scanline_phong(
     let zb_slice = &mut zb.as_mut_slice()[start_idx..=end_idx];
 
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    if is_x86_feature_detected!("avx2") {
+    if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
         unsafe {
             draw_scanline_phong_simd(
                 fb_slice,

@@ -516,10 +516,8 @@ impl GpuBlitter {
         let pixels = texture.pixels();
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         for &px in pixels {
-            rgba.push(((px >> 16) & 0xFF) as u8); // R
-            rgba.push(((px >> 8) & 0xFF) as u8); // G
-            rgba.push((px & 0xFF) as u8); // B
-            rgba.push(((px >> 24) & 0xFF) as u8); // A
+            let bytes = [((px >> 16) & 0xFF) as u8, ((px >> 8) & 0xFF) as u8, (px & 0xFF) as u8, ((px >> 24) & 0xFF) as u8];
+            rgba.extend_from_slice(&bytes);
         }
 
         self.queue.write_texture(
@@ -866,10 +864,8 @@ impl GpuBlitter {
         // Convert 0xAARRGGBB → RGBA bytes for wgpu.
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
         for &px in fb_pixels {
-            rgba.push(((px >> 16) & 0xFF) as u8); // R
-            rgba.push(((px >> 8) & 0xFF) as u8); // G
-            rgba.push((px & 0xFF) as u8); // B
-            rgba.push(((px >> 24) & 0xFF) as u8); // A
+            let bytes = [((px >> 16) & 0xFF) as u8, ((px >> 8) & 0xFF) as u8, (px & 0xFF) as u8, ((px >> 24) & 0xFF) as u8];
+            rgba.extend_from_slice(&bytes);
         }
 
         self.queue.write_texture(

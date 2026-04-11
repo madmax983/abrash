@@ -3207,7 +3207,7 @@ pub fn blobby_cross_2d(pos: Vec2, he: f32) -> f32 {
         let qr = q + r;
         let qmr = (q - r).abs();
         // Real cube root (preserving sign)
-        let cbrt = |v: f32| v.abs().powf(1.0 / 3.0) * v.signum();
+        let cbrt = |v: f32| v.cbrt();
         cbrt(qr) - cbrt(qmr)
     } else {
         let r = p.max(0.0).sqrt();

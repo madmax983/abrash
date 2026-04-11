@@ -405,7 +405,7 @@ pub fn draw_scanline_gouraud_i32(
 
         if safe {
             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-            if is_x86_feature_detected!("avx2") {
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                 unsafe {
                     draw_scanline_gouraud_simd_fast(
                         fb_slice,
@@ -445,7 +445,7 @@ pub fn draw_scanline_gouraud_i32(
             }
         } else {
             #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-            if is_x86_feature_detected!("avx2") {
+            if fb_slice.len() >= 32 && is_x86_feature_detected!("avx2") {
                 unsafe {
                     draw_scanline_gouraud_simd_clamped(
                         fb_slice,
